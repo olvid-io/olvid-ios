@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvEngine
 import os.log
 import OlvidUtils
 import UniformTypeIdentifiers
+import ObvSettings
 
 
 public enum PersistedMessageKind {
@@ -56,18 +57,37 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
     @NSManaged public private(set) var sortIndex: Double
     @NSManaged public private(set) var timestamp: Date
 
+
     // MARK: - Relationships
 
-    @NSManaged public private(set) var discussion: PersistedDiscussion
+    @NSManaged public private(set) var discussion: PersistedDiscussion? // Expected to be non-nil, except while deleting/wiping a discussion
     @NSManaged private var illustrativeMessageForDiscussion: PersistedDiscussion?
+    @NSManaged public private(set) var mentions: Set<PersistedUserMentionInMessage>
+    @NSManaged private var messageRepliedToIdentifier: PendingRepliedTo?
     @NSManaged private var persistedMetadata: Set<PersistedMessageTimestampedMetadata>
     @NSManaged private(set) var rawMessageRepliedTo: PersistedMessage? // Should *only* be accessed from subentities
     @NSManaged private var rawReactions: [PersistedMessageReaction]?
     @NSManaged private var replies: Set<PersistedMessage>
-    @NSManaged public private(set) var mentions: Set<PersistedUserMentionInMessage>
 
     // MARK: - Other variables
+    
+    /// 2023-07-17: This is the most appropriate identifier to use in, e.g., notifications
+    public var identifier: MessageIdentifier {
+        get throws {
+            if self is PersistedMessageSent {
+                return .sent(id: .objectID(objectID: self.objectID))
+            } else  if self is PersistedMessageReceived {
+                return .received(id: .objectID(objectID: self.objectID))
+            } else {
+                throw ObvError.noMessageIdentifierForThisMessageType
+            }
+        }
+    }
 
+    var messageRepliedToIdentifierIsNonNil: Bool {
+        messageRepliedToIdentifier != nil
+    }
+    
     public var kind: PersistedMessageKind {
         assertionFailure("Kind must be overriden in subclasses")
         return .none
@@ -108,6 +128,17 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
         self.resetDoesMentionOwnedIdentityValue()
     }
 
+    /// Called when receiving a wipe request from a contact or another owned device.
+    ///
+    /// Shall only be called from ``PersistedMessageReceived.wipeThisMessage(requesterCryptoId:)`` and ``PersistedMessageSent.wipeThisMessage(requesterCryptoId:)``.
+    func wipeThisMessage(requesterCryptoId: ObvCryptoId) throws {
+        self.deleteBodyAndMentions()
+        self.reactions.forEach { try? $0.delete() }
+        self.reactions.forEach { try? $0.delete() }
+        try addMetadata(kind: .remoteWiped(remoteCryptoId: requesterCryptoId), date: Date())
+    }
+
+    
     public var initialExistenceDuration: TimeInterval? {
         if let sentMessage = self as? PersistedMessageSent {
             return sentMessage.existenceDuration
@@ -139,21 +170,43 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
 
     public var isWiped: Bool { isLocallyWiped || isRemoteWiped }
 
-    /// In general, a message cannot be edited. Note that we expect `PersistedMessageSent` and `PersistedMessageReceived` to override this variable in return `true` when appropriate.
-    var textBodyCanBeEdited: Bool { false }
-
 
     /// Shall only be called from methods in `PersistedMessage`, `PersistedMessageReceived`, or `PersistedMessageSent`. It shall thus not be made public.
+    func processUpdateMessageRequest(newTextBody: String?, newUserMentions: [MessageJSON.UserMention]) throws {
+        
+        defer {
+            self.resetDoesMentionOwnedIdentityValue()
+        }
+        
+        guard let newTextBody else {
+            if self.body != nil {
+                self.body = nil
+            }
+            deleteAllAssociatedMentions()
+            return
+        }
+
+        let (trimmedBody, mentionsInTrimmedBody) = newTextBody.trimmingWhitespacesAndNewlines(updating: Array(newUserMentions))
+
+        if self.body != trimmedBody {
+            self.body = trimmedBody
+        }
+        
+        deleteAllAssociatedMentions()
+        mentionsInTrimmedBody.forEach { mention in
+            _ = try? PersistedUserMentionInMessage(mention: mention, message: self)
+        }
+
+    }
+
+    
+    /// Shall only be called from methods in `PersistedMessageSent`.
     func replaceContentWith(newBody: String?, newMentions: Set<MessageJSON.UserMention>) throws {
 
         defer {
             self.resetDoesMentionOwnedIdentityValue()
         }
-        
-        guard self.textBodyCanBeEdited else {
-            throw Self.makeError(message: "The text body of this message cannot be edited now")
-        }
-        
+
         guard let newBody else {
             if self.body != nil {
                 self.body = nil
@@ -167,12 +220,12 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
         if self.body != trimmedBody {
             self.body = trimmedBody
         }
-        
+
         deleteAllAssociatedMentions()
         mentionsInTrimmedBody.forEach { mention in
             _ = try? PersistedUserMentionInMessage(mention: mention, message: self)
         }
-        
+
     }
     
 
@@ -234,12 +287,48 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
     }
     
     public var retainWipedOutboundMessages: Bool {
-        self.discussion.retainWipedOutboundMessages
+        self.discussion?.retainWipedOutboundMessages ?? false
     }
 
     /// Helper property that returns `discussion.autoRead`
     public var autoRead: Bool {
-        self.discussion.autoRead
+        self.discussion?.autoRead ?? false
+    }
+
+    
+    /// Exclusively called from ``PersistedObvContactIdentity.saveExtendedPayload(within:)`` when receiving an extended message payload for a message sent from a contact, and from ``PersistedObvOwnedIdentity.saveExtendedPayload(foundIn:for:)`` when receiving an extended message payload for a message sent from another device of the owned identity.
+    /// Returns `true` iff at least one extended payload could be saved.
+    func saveExtendedPayload(foundIn attachementImages: [NotificationAttachmentImage]) throws -> Bool {
+        
+        var atLeastOneExtendedPayloadCouldBeSaved = false
+        
+        guard let fyleMessageJoinWithStatus else {
+            assertionFailure()
+            return false
+        }
+
+        assert(!fyleMessageJoinWithStatus.isEmpty)
+        
+        for attachementImage in attachementImages {
+            let attachmentNumber = attachementImage.attachmentNumber
+            guard attachmentNumber < fyleMessageJoinWithStatus.count else {
+                throw ObvError.unexpectedAttachmentNumber
+            }
+
+            guard case .data(let data) = attachementImage.dataOrURL else {
+                continue
+            }
+
+            let fyleMessageJoinWithStatus = fyleMessageJoinWithStatus[attachmentNumber]
+
+            if fyleMessageJoinWithStatus.setDownsizedThumbnailIfRequired(data: data) {
+                // the setDownsizedThumbnailIfRequired returned true, meaning that the downsized thumbnail has been set. We will need to refresh the message in the view context.
+                atLeastOneExtendedPayloadCouldBeSaved = true
+            }
+        }
+
+        return atLeastOneExtendedPayloadCouldBeSaved
+        
     }
 
 }
@@ -248,18 +337,41 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
 
 extension PersistedMessage {
     
-    struct ObvError: LocalizedError {
+    public enum ObvError: LocalizedError {
         
-        let kind: Kind
-        
-        enum Kind {
-            case managedContextIsNil
-        }
-        
-        var errorDescription: String? {
-            switch kind {
+        case managedContextIsNil
+        case unexpectedAttachmentNumber
+        case unexpectedOwnedIdentity
+        case unexpectedContactIdentity
+        case thisSpecificSystemMessageCannotBeDeleted
+        case cannotGloballyDeleteSystemMessage
+        case cannotGloballyDeleteMessageFromLockedOrPrediscussion
+        case cannotGloballyDeleteWipedMessage
+        case discussionIsNil
+        case noMessageIdentifierForThisMessageType
+
+        public var errorDescription: String? {
+            switch self {
             case .managedContextIsNil:
                 return "The managed context is nil, which is unexpected"
+            case .unexpectedAttachmentNumber:
+                return "Unexpected attachment number"
+            case .unexpectedOwnedIdentity:
+                return "Unexpected owned identity"
+            case .thisSpecificSystemMessageCannotBeDeleted:
+                return "This specific system message cannot be deleted"
+            case .cannotGloballyDeleteSystemMessage:
+                return "Cannot globally delete a system message"
+            case .cannotGloballyDeleteMessageFromLockedOrPrediscussion:
+                return "Cannot globally delete a message from a locked or prediscussion"
+            case .cannotGloballyDeleteWipedMessage:
+                return "Cannot globally delete a wiped message"
+            case .discussionIsNil:
+                return "The discussion is nil (occurs while deleting/wiping a discussion)"
+            case .unexpectedContactIdentity:
+                return "Unexpected contact identity"
+            case .noMessageIdentifierForThisMessageType:
+                return "No message identifier for this message type"
             }
         }
         
@@ -272,7 +384,12 @@ extension PersistedMessage {
 
 extension PersistedMessage {
     
-    convenience init(timestamp: Date, body: String?, rawStatus: Int, senderSequenceNumber: Int, sortIndex: Double, isReplyToAnotherMessage: Bool, replyTo: PersistedMessage?, discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, forwarded: Bool, mentions: [MessageJSON.UserMention], forEntityName entityName: String) throws {
+    enum ReplyToType {
+        case json(replyToJSON: MessageReferenceJSON)
+        case message(messageRepliedTo: PersistedMessage)
+    }
+
+    convenience init(timestamp: Date, body: String?, rawStatus: Int, senderSequenceNumber: Int, sortIndex: Double, replyTo: ReplyToType?, discussion: PersistedDiscussion, readOnce: Bool, visibilityDuration: TimeInterval?, forwarded: Bool, mentions: [MessageJSON.UserMention], thisMessageTimestampCanResetDiscussionTimestampOfLastMessage: Bool = true, forEntityName entityName: String) throws {
         
         guard let context = discussion.managedObjectContext else { assertionFailure(); throw PersistedMessage.makeError(message: "Could not find context") }
         
@@ -280,9 +397,7 @@ extension PersistedMessage {
         self.init(entity: entityDescription, insertInto: context)
 
         self.body = body
-        self.isReplyToAnotherMessage = isReplyToAnotherMessage
         self.permanentUUID = UUID()
-        self.rawMessageRepliedTo = replyTo
         self.rawStatus = rawStatus
         self.sectionIdentifier = try PersistedMessage.computeSectionIdentifier(fromTimestamp: timestamp, sortIndex: sortIndex, discussion: discussion)
         self.senderSequenceNumber = senderSequenceNumber
@@ -297,8 +412,30 @@ extension PersistedMessage {
         mentions.forEach { mention in
             _ = try? PersistedUserMentionInMessage(mention: mention, message: self)
         }
-
-        discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(self.timestamp)
+        
+        switch replyTo {
+        case .none:
+            self.isReplyToAnotherMessage = false
+            self.rawMessageRepliedTo = nil
+            self.messageRepliedToIdentifier = nil
+        case .message(messageRepliedTo: let messageRepliedTo):
+            self.isReplyToAnotherMessage = true
+            self.rawMessageRepliedTo = messageRepliedTo
+            self.messageRepliedToIdentifier = nil
+        case .json(replyToJSON: let replyToJSON):
+            self.isReplyToAnotherMessage = true
+            if let messageRepliedTo = try PersistedMessage.findMessageFrom(reference: replyToJSON, within: discussion) {
+                self.rawMessageRepliedTo = messageRepliedTo
+                self.messageRepliedToIdentifier = nil
+            } else {
+                self.rawMessageRepliedTo = nil
+                self.messageRepliedToIdentifier = PendingRepliedTo(replyToJSON: replyToJSON, within: context)
+            }
+        }
+        
+        if thisMessageTimestampCanResetDiscussionTimestampOfLastMessage {
+            discussion.resetTimestampOfLastMessageIfCurrentValueIsEarlierThan(self.timestamp)
+        }
         discussion.unarchive()
         
         // Update the value of the doesMentionOwnedIdentity attribute
@@ -306,23 +443,68 @@ extension PersistedMessage {
         resetDoesMentionOwnedIdentityValue()
 
     }
+    
+    
+    /// When creating a new `PersistedMessage`, we need to search for previous `PersistedMessage` that are a reply to this message.
+    /// These messages have a non-nil `messageRepliedToIdentifier` relationship that references this message. This method searches for these
+    /// messages, delete the `messageRepliedToIdentifier` and replaces it by a non-nil `messageRepliedTo` relationship.
+    /// This is called from the init of `PersistedMessageSent` and `PersistedMessageReceived`, not from the init of `PersistedMessage` are all necessary variables are not available at the end of the `PersistedMessage` init.
+    func updateMessagesReplyingToThisMessage() throws {
+
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
+        guard let discussion else { assertionFailure(); throw ObvError.discussionIsNil }
+
+        let senderIdentifier: Data
+        let senderThreadIdentifier: UUID
+        switch self.kind {
+        case .received:
+            guard let selfAsReceived = (self as? PersistedMessageReceived) else { assertionFailure(); return }
+            senderIdentifier = selfAsReceived.senderIdentifier
+            senderThreadIdentifier = selfAsReceived.senderThreadIdentifier
+        case .sent:
+            guard let selfAsSent = (self as? PersistedMessageSent) else { assertionFailure(); return }
+            guard let _senderIdentifier = selfAsSent.discussion?.ownedIdentity?.identity else {
+                assertionFailure()
+                return
+            }
+            senderIdentifier = _senderIdentifier
+            senderThreadIdentifier = selfAsSent.senderThreadIdentifier
+        case .none, .system:
+            return
+        }
+
+        let pendingRepliedTos = try PendingRepliedTo.getAll(senderIdentifier: senderIdentifier,
+                                                            senderSequenceNumber: self.senderSequenceNumber,
+                                                            senderThreadIdentifier: senderThreadIdentifier,
+                                                            discussion: discussion,
+                                                            within: context)
+        
+        pendingRepliedTos.forEach { pendingRepliedTo in
+            guard let reply = pendingRepliedTo.message else {
+                assertionFailure()
+                try? pendingRepliedTo.delete()
+                return
+            }
+            assert(reply.isReplyToAnotherMessage)
+            reply.rawMessageRepliedTo = self
+            reply.messageRepliedToIdentifier = nil
+            try? pendingRepliedTo.delete()
+        }
+
+    }
+
 
     
     /// This `update()` method shall *only* be called from the similar `update()` from the subclass `PersistedMessageReceived`.
     func update(body: String?, newMentions: Set<MessageJSON.UserMention>, senderSequenceNumber: Int, replyTo: PersistedMessage?, discussion: PersistedDiscussion) throws {
-        guard self.discussion.objectID == discussion.objectID else { assertionFailure(); throw Self.makeError(message: "Invalid discussion") }
+        guard let localDiscussion = self.discussion else { assertionFailure(); throw ObvError.discussionIsNil }
+        guard localDiscussion.objectID == discussion.objectID else { assertionFailure(); throw Self.makeError(message: "Invalid discussion") }
         guard self.senderSequenceNumber == senderSequenceNumber else { assertionFailure(); throw Self.makeError(message: "Invalid sender sequence number") }
         try self.replaceContentWith(newBody: body, newMentions: newMentions)
         self.rawMessageRepliedTo = replyTo
         self.resetDoesMentionOwnedIdentityValue()
     }
     
-    
-    /// Should *only* be called from `PersistedMessageReceived`
-    func setRawMessageRepliedTo(with rawMessageRepliedTo: PersistedMessage) {
-        assert(kind == .received)
-        self.rawMessageRepliedTo = rawMessageRepliedTo
-    }
     
     func setHasUpdate() {
         onChangeFlag += 1
@@ -338,6 +520,28 @@ extension PersistedMessage {
         }
     }
 
+    
+    /// Helper method.
+    /// Determine an appropriate `messageUploadTimestampFromServer`, needed to create the `PersistedMessageReceived` instance.
+    /// For oneToOne and GroupV1 discussions, this is simply the date indicated in the ObvMessage.
+    /// For GroupV2 discussions, we look for the original server timestamp that may exist in the messageJSON. If it exists, we use it (this is usefull to properly sort many "old" messages that were sent in a Group v2 discussion before we our acceptance to become a group member).
+    static func determineMessageUploadTimestampFromServer(messageUploadTimestampFromServerInObvMessage: Date, messageJSON: MessageJSON, discussionKind: PersistedDiscussion.Kind) -> Date {
+        
+        let messageUploadTimestampFromServer: Date
+        switch discussionKind {
+        case .oneToOne, .groupV1:
+            messageUploadTimestampFromServer = messageUploadTimestampFromServerInObvMessage
+        case .groupV2:
+            if let originalServerTimestamp = messageJSON.originalServerTimestamp {
+                messageUploadTimestampFromServer = min(originalServerTimestamp, messageUploadTimestampFromServerInObvMessage)
+            } else {
+                messageUploadTimestampFromServer = messageUploadTimestampFromServerInObvMessage
+            }
+        }
+        return messageUploadTimestampFromServer
+        
+    }
+
 }
 
 
@@ -345,218 +549,100 @@ extension PersistedMessage {
 
 extension PersistedMessage {
     
-    /// This is the function to call to delete this message.
-    /// This method makes sure the `requester` is allowed to delete this message. If the `requester` is `nil`, deletion is performed.
-    public func delete(requester: RequesterOfMessageDeletion?) throws -> InfoAboutWipedOrDeletedPersistedMessage {
-        if let requester = requester {
-            try throwIfRequesterIsNotAllowedToDeleteMessage(requester: requester)
+    /// This is the function to call to delete this message in case some expiration was reached.
+    public func deleteExpiredMessage() throws -> InfoAboutWipedOrDeletedPersistedMessage {
+        guard let context = self.managedObjectContext else {
+            assertionFailure()
+            throw ObvError.managedContextIsNil
         }
-        guard let context = self.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }
+        guard let discussionPermanentID = discussion?.discussionPermanentID else {
+            throw ObvError.discussionIsNil
+        }
         let deletedInfo = InfoAboutWipedOrDeletedPersistedMessage(kind: .deleted,
-                                                                  discussionPermanentID: self.discussion.discussionPermanentID,
+                                                                  discussionPermanentID: discussionPermanentID,
+                                                                  messagePermanentID: self.messagePermanentID)
+        context.delete(self)
+        return deletedInfo
+    }
+    
+    
+    /// Called from this class only, after checks have been made
+    private func deletePersistedMessage() throws -> InfoAboutWipedOrDeletedPersistedMessage {
+        guard let discussion else {
+            throw ObvError.discussionIsNil
+        }
+        guard let context = self.managedObjectContext else {
+            throw ObvError.managedContextIsNil
+        }
+        let deletedInfo = InfoAboutWipedOrDeletedPersistedMessage(kind: .deleted,
+                                                                  discussionPermanentID: discussion.discussionPermanentID,
                                                                   messagePermanentID: self.messagePermanentID)
         context.delete(self)
         return deletedInfo
     }
 
-
-    /// This methods throws an error if the requester of this message deletion is not allowed to perform such a deletion.
-    func throwIfRequesterIsNotAllowedToDeleteMessage(requester: RequesterOfMessageDeletion) throws {
-        
-        // We fist consider the message kind
+    
+    func processMessageDeletionRequestRequestedFromCurrentDevice(deletionType: DeletionType) throws -> InfoAboutWipedOrDeletedPersistedMessage {
+              
+        assert(self.discussion?.status == .active || deletionType == .local, "This should have been checked already")
         
         switch self.kind {
-
+            
         case .none:
-
+            
             assertionFailure()
-            return // Allow deletion
+            return try deletePersistedMessage()
 
         case .system:
-
+            
             guard let systemMessage = self as? PersistedMessageSystem else {
                 // Unexpected, this is a bug
                 assertionFailure()
-                return // Allow deletion
+                return try deletePersistedMessage()
             }
 
-            // A system message can only (and almost always) be locally deleted by an owned identity
-            
-            switch requester {
-            case .contact:
-                throw Self.makeError(message: "A system message cannot be deleted by a contact")
-            case .ownedIdentity(let ownedCryptoId, let deletionType):
-                guard let discussionOwnedCryptoId = discussion.ownedIdentity?.cryptoId else {
-                    return // Rare case, we allow deletion
+            switch deletionType {
+            case .local:
+                switch systemMessage.category {
+                case .contactJoinedGroup,
+                        .contactLeftGroup,
+                        .contactWasDeleted,
+                        .callLogItem,
+                        .updatedDiscussionSharedSettings,
+                        .contactRevokedByIdentityProvider,
+                        .discussionWasRemotelyWiped,
+                        .notPartOfTheGroupAnymore,
+                        .rejoinedGroup,
+                        .contactIsOneToOneAgain,
+                        .membersOfGroupV2WereUpdated,
+                        .ownedIdentityIsPartOfGroupV2Admins,
+                        .ownedIdentityIsNoLongerPartOfGroupV2Admins,
+                        .ownedIdentityDidCaptureSensitiveMessages,
+                        .contactWasIntroducedToAnotherContact,
+                        .contactIdentityDidCaptureSensitiveMessages:
+                    return try deletePersistedMessage()
+                case .numberOfNewMessages,
+                        .discussionIsEndToEndEncrypted:
+                    throw ObvError.thisSpecificSystemMessageCannotBeDeleted
                 }
-                guard (discussionOwnedCryptoId == ownedCryptoId) else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Unexpected owned identity for deleting this message")
-                }
-                switch deletionType {
-                case .local:
-                    switch systemMessage.category {
-                    case .contactJoinedGroup,
-                            .contactLeftGroup,
-                            .contactWasDeleted,
-                            .callLogItem,
-                            .updatedDiscussionSharedSettings,
-                            .contactRevokedByIdentityProvider,
-                            .discussionWasRemotelyWiped,
-                            .notPartOfTheGroupAnymore,
-                            .rejoinedGroup,
-                            .contactIsOneToOneAgain,
-                            .membersOfGroupV2WereUpdated,
-                            .ownedIdentityIsPartOfGroupV2Admins,
-                            .ownedIdentityIsNoLongerPartOfGroupV2Admins,
-                            .ownedIdentityDidCaptureSensitiveMessages,
-                            .contactIdentityDidCaptureSensitiveMessages:
-                        return // Allow deletion
-                    case .numberOfNewMessages,
-                            .discussionIsEndToEndEncrypted:
-                        throw Self.makeError(message: "Specific system message that cannot be deleted")
-                    }
-                case .global:
-                    throw Self.makeError(message: "We cannot globally delete a system message")
-                }
+            case .global:
+                throw ObvError.cannotGloballyDeleteSystemMessage
             }
 
         case .received, .sent:
-            
-            // We are considering a received or sent message. We need more information be fore deciding whether we should throw or not.
-            break
-            
-        }
-        
-        assert(self.kind == .received || self.kind == .sent)
-        
-        // If we reach this point, we are considering a received or a sent message
-        
-        // Received or sent messages from locked and preDiscussion can only (and always) be locally deleted by an owned identity
-        
-        switch discussion.status {
-        case .locked, .preDiscussion:
-            switch requester {
-            case .contact:
-                throw Self.makeError(message: "A contact cannot delete a message from a locked or preDiscussion")
-            case .ownedIdentity(let ownedCryptoId, let deletionType):
-                guard let discussionOwnedCryptoId = discussion.ownedIdentity?.cryptoId else {
-                    return // Rare case, we allow deletion
-                }
-                guard (discussionOwnedCryptoId == ownedCryptoId) else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Unexpected owned identity for deleting this message")
-                }
+
+            if isRemoteWiped {
                 switch deletionType {
                 case .local:
-                    return // Allow deletion
+                    return try deletePersistedMessage()
                 case .global:
-                    throw Self.makeError(message: "We cannot globally delete a message from a locked or preDiscussion")
+                    assertionFailure()
+                    throw ObvError.cannotGloballyDeleteWipedMessage
                 }
+            } else {
+                return try deletePersistedMessage()
             }
-        case .active:
-            break // We need to consider more aspects about the message in order to decide whether we should throw or not
-        }
 
-        // If we reach this point, we are considering a received or a sent message in an active discussion
-
-        // Messages that are wiped cannot be globally deleted by the owned identity and cannot be deleted by a contact
-        
-        guard !isRemoteWiped else {
-            switch requester {
-            case .contact:
-                throw Self.makeError(message: "A contact cannot delete a wiped message")
-            case .ownedIdentity(let ownedCryptoId, let deletionType):
-                guard let discussionOwnedCryptoId = discussion.ownedIdentity?.cryptoId else {
-                    return // Rare case, we allow deletion
-                }
-                guard (discussionOwnedCryptoId == ownedCryptoId) else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Unexpected owned identity for deleting this message")
-                }
-                switch deletionType {
-                case .local:
-                    return // Allow deletion
-                case .global:
-                    throw Self.makeError(message: "We cannot globally delete a wiped message")
-                }
-            }
-        }
-
-        // If we reach this point, we are considering a (non-wiped) received or a sent message in an active discussion
-
-        switch try discussion.kind {
-            
-        case .oneToOne, .groupV1:
-            
-            // It is always ok to (locally or globally) delete a non-wiped received or sent message in a oneToOne or a groupV1 discussion
-            return // Allow deletion
-
-        case .groupV2(withGroup: let group):
-            
-            // For a group v2 discussion, we make sure the requester has the appropriate rights
-            
-            guard let group = group else {
-                
-                // If the group cannot be found (which is unexpected), we only allow local deletion of the message from an owned identity
-                
-                switch requester {
-                case .contact:
-                    assertionFailure()
-                    throw Self.makeError(message: "Since we cannot find the group, we disallow deletion by a contact")
-                case .ownedIdentity(ownedCryptoId: _, deletionType: let deletionType):
-                    switch deletionType {
-                    case .local:
-                        return // Allow deletion
-                    case .global:
-                        throw Self.makeError(message: "Since we cannot find the group, we disallow global deletion by owned identity")
-                    }
-                }
-                
-            }
-            
-            // We make sure the requester has the appropriate rights
-            
-            switch requester {
-                
-            case .ownedIdentity(ownedCryptoId: let ownedCryptoId, deletionType: let deletionType):
-                
-                guard (try group.ownCryptoId == ownedCryptoId) else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Unexpected owned identity for deleting this discussion")
-                }
-                switch deletionType {
-                case .local:
-                    return // Allow deletion
-                case .global:
-                    if group.ownedIdentityIsAllowedToRemoteDeleteAnything {
-                        return // Allow deletion
-                    } else if group.ownedIdentityIsAllowedToEditOrRemoteDeleteOwnMessages && self is PersistedMessageSent {
-                        return // Allow deletion
-                    } else {
-                        throw Self.makeError(message: "Owned identity is not allowed to perform a global (remote) delete in this case")
-                    }
-                }
-                
-            case .contact(let ownedCryptoId, let contactCryptoId, _):
-                
-                guard (try group.ownCryptoId == ownedCryptoId) else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Unexpected owned identity associated to contact for deleting this discussion")
-                }
-                guard let member = group.otherMembers.first(where: { $0.identity == contactCryptoId.getIdentity() }) else {
-                    throw Self.makeError(message: "The deletion requester is not part of the group")
-                }
-                if member.isAllowedToRemoteDeleteAnything {
-                    return // Allow deletion
-                } else if member.isAllowedToEditOrRemoteDeleteOwnMessages && (self as? PersistedMessageReceived)?.contactIdentity?.cryptoId == contactCryptoId {
-                    return // Allow deletion
-                } else {
-                    assertionFailure()
-                    throw Self.makeError(message: "The member is not allowed to delete this message")
-                }
-            }
-            
         }
         
     }
@@ -601,74 +687,60 @@ extension PersistedMessage {
     }
     
     
-    public func setReactionFromOwnedIdentity(withEmoji emoji: String?, reactionTimestamp: Date) throws {
+    /// Set `messageUploadTimestampFromServer` to `nil` if the request is made on the current device
+    func setReactionFromOwnedIdentity(withEmoji emoji: String?, messageUploadTimestampFromServer: Date?) throws {
         // Never set an emoji on a wiped message
         guard !self.isWiped else { return }
-        // Make sure we are allowed to set a reaction
-        guard try ownedIdentityIsAllowedToSetReaction else {
-            throw Self.makeError(message: "Trying to set an own reaction in a group v2 discussion where we are not allowed to write")
-        }
-        // Set the reaction
+        // Set or update the reaction
         if let reaction = reactionFromOwnedIdentity() {
-            try reaction.updateEmoji(with: emoji, at: reactionTimestamp)
+            try reaction.updateEmoji(with: emoji, at: Date())
         } else if let emoji = emoji {
-            _ = try PersistedMessageReactionSent(emoji: emoji, timestamp: reactionTimestamp, message: self)
+            _ = try PersistedMessageReactionSent(emoji: emoji, timestamp: messageUploadTimestampFromServer ?? Date(), message: self)
         } else {
             // The new emoji is nil (meaning we should remove a previous reaction) and no previous reaction can be found. There is nothing to do.
         }
     }
     
     
+    /// Expected to be called on the main thread as it allows the UI to determine if the owned identity is allowed to set a reaction on this message.
+    ///
+    /// This computed variable actually creates a child view context to simulate the call to the reaction setter for the owned identity. It returns `true` iff the call would work.
     public var ownedIdentityIsAllowedToSetReaction: Bool {
         get throws {
-            switch try discussion.kind {
-            case .oneToOne, .groupV1:
+            assert(Thread.isMainThread)
+            
+            guard let context = self.managedObjectContext else {
+                assertionFailure()
+                return false
+            }
+            guard context.concurrencyType == .mainQueueConcurrencyType else {
+                assertionFailure()
+                return false
+            }
+            
+            let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+            childViewContext.parent = context
+            guard let messageInChildViewContext = try? PersistedMessage.get(with: self.typedObjectID, within: childViewContext) else {
+                assertionFailure()
+                return false
+            }
+            guard let ownedIdentity = messageInChildViewContext.discussion?.ownedIdentity else {
+                assertionFailure()
+                return false
+            }
+            // We return true iff the update would succeed
+            do {
+                _ = try ownedIdentity.processSetOrUpdateReactionOnMessageLocalRequestFromThisOwnedIdentity(messageObjectID: self.typedObjectID, newEmoji: nil)
                 return true
-            case .groupV2(withGroup: let group):
-                guard let group = group else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Could not determine group v2 while setting own reaction to a message")
-                }
-                return group.ownedIdentityIsAllowedToSendMessage
+            } catch {
+                return false
             }
         }
     }
 
     
-    public func setReactionFromContact(_ contact: PersistedObvContactIdentity, withEmoji emoji: String?, reactionTimestamp: Date) throws {
-        // Never set an emoji on a wiped message
+    func setReactionFromContact(_ contact: PersistedObvContactIdentity, withEmoji emoji: String?, reactionTimestamp: Date) throws {
         guard !self.isWiped else { return }
-        // Make sure the contact is allowed to set a reaction
-        switch try discussion.kind {
-        case .oneToOne(withContactIdentity: let discussionContact):
-            guard discussionContact == contact else {
-                assertionFailure()
-                throw Self.makeError(message: "Unexpected contact reaction")
-            }
-        case .groupV1(withContactGroup: let group):
-            guard let group = group else {
-                assertionFailure()
-                throw Self.makeError(message: "Could not determine group while setting reaction from contact")
-            }
-            guard group.contactIdentities.contains(contact) else {
-                assertionFailure()
-                throw Self.makeError(message: "Unexpected contact reaction is group")
-            }
-        case .groupV2(withGroup: let group):
-            guard let group = group else {
-                assertionFailure()
-                throw Self.makeError(message: "Could not determine group v2 while setting reaction from contact")
-            }
-            guard let member = group.otherMembers.first(where: { $0.identity == contact.identity }) else {
-                assertionFailure()
-                throw Self.makeError(message: "Unexpected contact reaction is group v2")
-            }
-            guard member.isAllowedToSendMessage else {
-                assertionFailure()
-                throw Self.makeError(message: "Received a reaction from a contact that is now allowed to send messages")
-            }
-        }
-        
         if let contactReaction = reactionFromContact(with: contact.cryptoId) {
             try contactReaction.updateEmoji(with: emoji, at: reactionTimestamp)
         } else {
@@ -677,6 +749,7 @@ extension PersistedMessage {
     }
     
 }
+
 
 // MARK: - Utils for section identifiers
 
@@ -740,11 +813,15 @@ extension PersistedMessage {
 extension PersistedMessage {
     
     private func resetDoesMentionOwnedIdentityValue() {
+        guard let discussion else {
+            assertionFailure("The discussion is nil")
+            return
+        }
         guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else {
             assertionFailure("Could not determine the owned crypto id which is unexpected at this point")
             if self.doesMentionOwnedIdentity {
                 self.doesMentionOwnedIdentity = false
-                self.discussion.resetNewReceivedMessageDoesMentionOwnedIdentityValue()
+                discussion.resetNewReceivedMessageDoesMentionOwnedIdentityValue()
             }
             return
         }
@@ -760,7 +837,7 @@ extension PersistedMessage {
         
         if self.doesMentionOwnedIdentity != newDoesMentionOwnedIdentity {
             self.doesMentionOwnedIdentity = newDoesMentionOwnedIdentity
-            self.discussion.resetNewReceivedMessageDoesMentionOwnedIdentityValue()
+            discussion.resetNewReceivedMessageDoesMentionOwnedIdentityValue()
         }
     }
     
@@ -800,7 +877,6 @@ extension PersistedMessage {
             static let muteNotificationsEndDate = [discussion.rawValue, PersistedDiscussion.Predicate.Key.localConfiguration.rawValue, PersistedDiscussionLocalConfiguration.Predicate.Key.muteNotificationsEndDate.rawValue].joined(separator: ".")
             static let ownedIdentity = [discussion.rawValue, PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue].joined(separator: ".")
             static let ownedIdentityIdentity = [discussion.rawValue, PersistedDiscussion.Predicate.Key.ownedIdentityIdentity].joined(separator: ".")
-            static let senderThreadIdentifier = [discussion.rawValue, PersistedDiscussion.Predicate.Key.senderThreadIdentifier.rawValue].joined(separator: ".")
             static let ownedIdentityHiddenProfileHash = [ownedIdentity, PersistedObvOwnedIdentity.Predicate.Key.hiddenProfileHash.rawValue].joined(separator: ".")
             static let ownedIdentityHiddenProfileSalt = [ownedIdentity, PersistedObvOwnedIdentity.Predicate.Key.hiddenProfileSalt.rawValue].joined(separator: ".")
         }
@@ -814,9 +890,6 @@ extension PersistedMessage {
         }
         static var doesMentionOwnedIdentity: NSPredicate {
             NSPredicate(Key.doesMentionOwnedIdentity, is: true)
-        }
-        static func withSenderThreadIdentifier(_ senderThreadIdentifier: UUID) -> NSPredicate {
-            NSPredicate(Key.senderThreadIdentifier, EqualToUuid: senderThreadIdentifier)
         }
         static func withOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
             NSPredicate(Key.ownedIdentity, equalTo: ownedIdentity)
@@ -910,6 +983,9 @@ extension PersistedMessage {
                 return NSPredicate(withEntity: PersistedMessageSystem.entity())
             }
         }
+        static var withNoDiscussion: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.discussion)
+        }
     }
 
     @nonobjc static func fetchRequest() -> NSFetchRequest<PersistedMessage> {
@@ -921,7 +997,19 @@ extension PersistedMessage {
         return NSFetchRequest<NSDictionary>(entityName: PersistedMessage.entityName)
     }
 
+    
+    static func getPersistedMessage(discussion: PersistedDiscussion, messageId: MessageIdentifier) throws -> PersistedMessage? {
+        switch messageId {
+        case .sent(let id):
+            return try PersistedMessageSent.getPersistedMessageSent(discussion: discussion, messageId: id)
+        case .received(let id):
+            return try PersistedMessageReceived.getPersistedMessageReceived(discussion: discussion, messageId: id)
+        case .system(let id):
+            return try PersistedMessageSystem.getPersistedMessageSystem(discussion: discussion, messageId: id)
+        }
+    }
 
+    
     public static func get(with objectID: TypeSafeManagedObjectID<PersistedMessage>, within context: NSManagedObjectContext) throws -> PersistedMessage? {
         return try get(with: objectID.objectID, within: context)
     }
@@ -1048,6 +1136,23 @@ extension PersistedMessage {
         return try context.fetch(request).first
     }
 
+    
+    static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
+        let request: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
+        request.predicate = Predicate.withNoDiscussion
+        request.propertiesToFetch = []
+        request.fetchBatchSize = 1_000
+        let items = try context.fetch(request)
+        items.forEach { item in
+            context.delete(item) // We do not call deletePersistedMessage as the discussion is nil
+        }
+    }
+
+    
+    public static func batchDeletePendingRepliedToEntriesOlderThan(_ date: Date, within context: NSManagedObjectContext) throws {
+        try PendingRepliedTo.batchDeleteEntriesOlderThan(date, within: context)
+    }
+
 }
 
 
@@ -1065,17 +1170,17 @@ extension PersistedMessage {
          * Note that the `hasChanges` test is imporant: a call to `discussion.setHasUpdates()` marks the managed context as `dirty`
          * triggering a new call to willSave(). Without the `discussion.hasChanges` test, we would create an infinite loop.
          */
-        if isUpdated && !self.changedValues().isEmpty && !self.discussion.hasChanges {
+        if let discussion, isUpdated, !self.changedValues().isEmpty, !discussion.hasChanges {
             discussion.setHasUpdates()
         }
         
         // When inserting or updating a message, we use it as a candidate for the illustrative message of the discussion.
-        if (isInserted || isUpdated) && !self.changedValues().isEmpty {
+        if let discussion, (isInserted || isUpdated), !self.changedValues().isEmpty {
             discussion.resetIllustrativeMessageWithMessageIfAppropriate(newMessage: self)
         }
 
         // When inserting a new message, and when the status of a message changes, the discussion must recompute the number of new messages
-        if isInserted || (isUpdated && self.changedValues().keys.contains(Predicate.Key.rawStatus.rawValue)) {
+        if let discussion, (isInserted || (isUpdated && self.changedValues().keys.contains(Predicate.Key.rawStatus.rawValue))) {
             do {
                 try discussion.refreshNumberOfNewMessages()
             } catch {
@@ -1192,7 +1297,7 @@ extension PersistedMessage {
 
     /// Shall *only* be called from one of the `PersistedMessage` subclasses
     func addMetadata(kind: MetadataKind, date: Date) throws {
-        os_log("Call to addMetadata for message %{public}@ of kind %{public}@", log: log, type: .error, objectID.debugDescription, kind.description)
+        os_log("Call to addMetadata for message %{public}@ of kind %{public}@", log: log, type: .info, objectID.debugDescription, kind.description)
         os_log("Creating a new PersistedMessageTimestampedMetadata for message %{public}@ with kind %{public}@", log: log, type: .info, objectID.debugDescription, kind.description)
         guard let pm = PersistedMessageTimestampedMetadata(kind: kind, date: date, message: self) else { assertionFailure(); throw Self.makeError(message: "Could not add timestamped metadata") }
         self.persistedMetadata.insert(pm)
@@ -1259,14 +1364,6 @@ public final class PersistedMessageTimestampedMetadata: NSManagedObject, ObvErro
         context.delete(self)
     }
     
-    public override func didSave() {
-        super.didSave()
-        if isInserted {
-            guard let message = self.message else { assertionFailure(); return }
-            ObvMessengerCoreDataNotification.persistedMessageHasNewMetadata(persistedMessageObjectID: message.objectID)
-                .postOnDispatchQueue()
-        }
-    }
 
     struct Predicate {
         enum Key: String {
@@ -1343,4 +1440,93 @@ extension ObvManagedObjectPermanentID where T: PersistedMessage {
         self.init(description, expectedEntityName: PersistedMessage.entityName)
     }
 
+}
+
+
+
+// MARK: - PendingRepliedTo
+
+/// When receiving a message that replies to another message, it might happen that this replied-to message is not available
+/// because it did not arrive yet. This entity makes it possible to save the elements (`senderIdentifier`, etc.) referencing
+/// this replied-to message for later. Each time a new message arrive, we check the `PendingRepliedTo` entities and look
+/// for all those that reference this arriving message. This allows to associate message with its replied-to message a posteriori.
+@objc(PendingRepliedTo)
+fileprivate final class PendingRepliedTo: NSManagedObject, ObvErrorMaker {
+
+    private static let entityName = "PendingRepliedTo"
+    static let errorDomain = "PendingRepliedTo"
+
+    @NSManaged private var creationDate: Date
+    @NSManaged private var senderIdentifier: Data
+    @NSManaged private var senderSequenceNumber: Int
+    @NSManaged private var senderThreadIdentifier: UUID
+        
+    @NSManaged private(set) var message: PersistedMessage?
+
+    convenience init?(replyToJSON: MessageReferenceJSON, within context: NSManagedObjectContext) {
+        
+        let entityDescription = NSEntityDescription.entity(forEntityName: PendingRepliedTo.entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
+
+        self.creationDate = Date()
+        self.senderSequenceNumber = replyToJSON.senderSequenceNumber
+        self.senderThreadIdentifier = replyToJSON.senderThreadIdentifier
+        self.senderIdentifier = replyToJSON.senderIdentifier
+
+    }
+
+    
+    fileprivate func delete() throws {
+        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
+        context.delete(self)
+    }
+    
+    
+    private struct Predicate {
+        enum Key: String {
+            case creationDate = "creationDate"
+            case senderIdentifier = "senderIdentifier"
+            case senderSequenceNumber = "senderSequenceNumber"
+            case senderThreadIdentifier = "senderThreadIdentifier"
+            case message = "message"
+        }
+        static func with(senderIdentifier: Data, senderSequenceNumber: Int, senderThreadIdentifier: UUID, discussion: PersistedDiscussion) -> NSPredicate {
+            let discussionKey = [Key.message.rawValue, PersistedMessage.Predicate.Key.discussion.rawValue].joined(separator: ".")
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(Key.senderIdentifier, EqualToData: senderIdentifier),
+                NSPredicate(Key.senderSequenceNumber, EqualToInt: senderSequenceNumber),
+                NSPredicate(Key.senderThreadIdentifier, EqualToUuid: senderThreadIdentifier),
+                NSPredicate(format: "%K == %@", discussionKey, discussion.objectID),
+            ])
+        }
+        static func createBefore(_ date: Date) -> NSPredicate {
+            NSPredicate(Key.creationDate, earlierThan: date)
+        }
+    }
+
+    
+    @nonobjc static func fetchRequest() -> NSFetchRequest<PendingRepliedTo> {
+        return NSFetchRequest<PendingRepliedTo>(entityName: PendingRepliedTo.entityName)
+    }
+
+    
+    fileprivate static func getAll(senderIdentifier: Data, senderSequenceNumber: Int, senderThreadIdentifier: UUID, discussion: PersistedDiscussion, within context: NSManagedObjectContext) throws -> [PendingRepliedTo] {
+        let request = PendingRepliedTo.fetchRequest()
+        request.predicate = Predicate.with(senderIdentifier: senderIdentifier,
+                                           senderSequenceNumber: senderSequenceNumber,
+                                           senderThreadIdentifier: senderThreadIdentifier,
+                                           discussion: discussion)
+        request.fetchBatchSize = 1_000
+        return try context.fetch(request)
+    }
+    
+    
+    static func batchDeleteEntriesOlderThan(_ date: Date, within context: NSManagedObjectContext) throws {
+        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: PendingRepliedTo.entityName)
+        fetchRequest.predicate = Predicate.createBefore(date)
+        let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        batchDeleteRequest.resultType = .resultTypeStatusOnly
+        _ = try context.execute(batchDeleteRequest)
+    }
+    
 }

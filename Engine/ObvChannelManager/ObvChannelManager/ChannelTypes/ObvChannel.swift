@@ -30,7 +30,7 @@ protocol ObvChannel {
     var cryptoSuiteVersion: SuiteVersion { get }
     
     /// The returned set contains all the crypto identities to which the `message` was successfully posted.
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>]
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>]
     
     static func acceptableChannelsForPosting(_ message: ObvChannelMessageToSend, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [ObvChannel]
     
@@ -84,7 +84,7 @@ extension ObvNetworkChannel {
         
     }
     
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>] {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: "ObvNetworkChannel")
                 

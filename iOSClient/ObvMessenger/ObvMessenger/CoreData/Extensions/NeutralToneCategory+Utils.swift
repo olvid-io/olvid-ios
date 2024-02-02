@@ -18,9 +18,9 @@
  */
 
 import Foundation
-import ObvUI
-import ObvUICoreData
+import ObvSettings
 import UI_SystemIcon
+
 
 extension NotificationSound.Category {
     

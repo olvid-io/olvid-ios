@@ -264,7 +264,9 @@ extension WellKnownCoordinator: WellKnownDownloadOperationDelegate {
             return
         }
 
-        delegateManager.networkFetchFlowDelegate.failedToQueryServerWellKnown(serverURL: server, flowId: flowId)
+        Task {
+            await delegateManager.networkFetchFlowDelegate.failedToQueryServerWellKnown(serverURL: server, flowId: flowId)
+        }
         
     }
 

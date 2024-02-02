@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,8 @@
 import SwiftUI
 import ObvTypes
 import ObvUI
+import UI_SystemIcon
+import ObvDesignSystem
 
 
 struct SubscriptionStatusView: View {
@@ -28,9 +30,10 @@ struct SubscriptionStatusView: View {
     let apiKeyStatus: APIKeyStatus
     let apiKeyExpirationDate: Date?
     let showSubscriptionPlansButton: Bool
-    let subscriptionPlanAction: () -> Void
+    let userWantsToSeeSubscriptionPlans: () -> Void
     let showRefreshStatusButton: Bool
     let refreshStatusAction: () -> Void
+    let apiPermissions: APIPermissions
     
     struct Feature: Identifiable {
         let id = UUID()
@@ -38,38 +41,24 @@ struct SubscriptionStatusView: View {
         let imageColor: Color
         let description: String
     }
-
-    private var isPremiumFeaturesAvailable: Bool {
-        switch apiKeyStatus {
-        case .expired, .unknown, .licensesExhausted, .awaitingPaymentOnHold, .freeTrialExpired:
-            return false
-        case .free, .valid, .freeTrial, .awaitingPaymentGracePeriod, .anotherOwnedIdentityHasValidAPIKey:
-            return true
-        }
-    }
     
     private func refreshStatusNow() {
         refreshStatusAction()
     }
 
-    private static let freeFeatures = [
-        SubscriptionStatusView.Feature(imageSystemName: "bubble.left.and.bubble.right.fill",
-                                       imageColor: Color(.displayP3, red: 1.0, green: 0.35, blue: 0.39, opacity: 1.0),
-                                       description: NSLocalizedString("Sending & receiving messages and attachments", comment: "")),
-        SubscriptionStatusView.Feature(imageSystemName: "person.3.fill",
-                                       imageColor: Color(.displayP3, red: 7.0/255, green: 132.0/255, blue: 254.0/255, opacity: 1.0),
-                                       description: NSLocalizedString("Create groups", comment: "")),
-        SubscriptionStatusView.Feature(imageSystemName: "phone.fill.arrow.down.left",
-                                       imageColor: Color(.displayP3, red: 253.0/255, green: 56.0/255, blue: 95.0/255, opacity: 1.0),
-                                       description: NSLocalizedString("Receive secure calls", comment: "")),
+    private static let freeFeature: [FeatureView.Model] = [
+        .init(feature: .sendAndReceiveMessagesAndAttachments, showAsAvailable: true),
+        .init(feature: .createGroupChats, showAsAvailable: true),
+        .init(feature: .receiveSecureCalls, showAsAvailable: true),
     ]
     
-    static let premiumFeatures = [
-        SubscriptionStatusView.Feature(imageSystemName: "phone.fill.arrow.up.right",
-                                       imageColor: Color(.displayP3, red: 253.0/255, green: 56.0/255, blue: 95.0/255, opacity: 1.0),
-                                       description: NSLocalizedString("Make secure calls", comment: "")),
-    ]
+    
+    private var premiumFeatures: [FeatureView.Model] {[
+        .init(feature: .startSecureCalls, showAsAvailable: apiPermissions.contains(.canCall)),
+        .init(feature: .multidevice, showAsAvailable: apiPermissions.contains(.multidevice))
+    ]}
 
+    
     var body: some View {
         VStack {
             if let title = self.title {
@@ -90,7 +79,7 @@ struct SubscriptionStatusView: View {
                         OlvidButton(style: .blue,
                                     title: Text("See subscription plans"),
                                     systemIcon: .flameFill,
-                                    action: subscriptionPlanAction)
+                                    action: userWantsToSeeSubscriptionPlans)
                             .padding(.bottom, 16)
                     }
                     HStack { Spacer() } // Force full width
@@ -98,16 +87,14 @@ struct SubscriptionStatusView: View {
                         SeparatorView()
                             .padding(.bottom, 16)
                         FeatureListView(title: NSLocalizedString("Free features", comment: ""),
-                                        features: SubscriptionStatusView.freeFeatures,
-                                        available: true)
+                                        features: SubscriptionStatusView.freeFeature)
                         SeparatorView()
                             .padding(.bottom, 16)
                         FeatureListView(title: NSLocalizedString("Premium features", comment: ""),
-                                        features: SubscriptionStatusView.premiumFeatures,
-                                        available: isPremiumFeaturesAvailable)
+                                        features: premiumFeatures)
                     }
                     if showRefreshStatusButton {
-                        OlvidButton(style: .standard,
+                        OlvidButton(style: .standardWithBlueText,
                                     title: Text("Refresh status"),
                                     systemIcon: .arrowClockwise,
                                     action: refreshStatusNow)
@@ -125,37 +112,108 @@ struct SubscriptionStatusView: View {
 struct FeatureListView: View {
     
     let title: String
-    let features: [SubscriptionStatusView.Feature]
-    let available: Bool
+    let features: [FeatureView.Model]
     
-    private var colorScheme: AppThemeSemanticColorScheme { AppTheme.shared.colorScheme }
-    private let colorWhenUnavailable = Color(AppTheme.shared.colorScheme.secondaryLabel)
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(title)
                     .font(.headline)
-                Image(systemName: available ? "checkmark.seal.fill" : "xmark.seal.fill")
-                    .foregroundColor(available ? .green : colorWhenUnavailable)
-                    .font(.headline)
             }
             .padding(.bottom, 16)
             ForEach(features) { feature in
-                HStack(alignment: .firstTextBaseline) {
-                    Image(systemName: feature.imageSystemName)
-                        .font(.system(size: 16))
-                        .foregroundColor(available ? feature.imageColor : colorWhenUnavailable)
-                        .frame(minWidth: 30)
-                    Text(feature.description)
-                        .foregroundColor(available ? Color(colorScheme.label) : colorWhenUnavailable)
-                        .font(.body)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer()
-                }
-                .padding(.bottom, 16)
+                FeatureView(model: feature)
+                    .padding(.bottom, 16)
             }
+        }
+    }
+    
+}
+
+
+// MARK: - FeatureView
+
+struct FeatureView: View {
+
+    let model: Model
+    
+    
+    struct Model: Identifiable {
+        let feature: FeatureView.Feature
+        let showAsAvailable: Bool
+        var id: Int { self.feature.rawValue }
+    }
+    
+    
+    enum Feature: Int, Identifiable {
+        case startSecureCalls = 0
+        case multidevice
+        case sendAndReceiveMessagesAndAttachments
+        case createGroupChats
+        case receiveSecureCalls
+        var id: Int { self.rawValue }
+    }
+    
+    
+    private var systemIcon: SystemIcon {
+        switch model.feature {
+        case .startSecureCalls: return .phoneArrowUpRightFill
+        case .multidevice: return .macbookAndIphone
+        case .sendAndReceiveMessagesAndAttachments: return .bubbleLeftAndBubbleRightFill
+        case .createGroupChats: return .person3Fill
+        case .receiveSecureCalls: return .phoneArrowDownLeftFill
+        }
+    }
+    
+    
+    private var systemIconColor: Color {
+        switch model.feature {
+        case .startSecureCalls: return Color(.displayP3, red: 253.0/255, green: 56.0/255, blue: 95.0/255, opacity: 1.0)
+        case .multidevice: return Color(UIColor.systemBlue)
+        case .sendAndReceiveMessagesAndAttachments: return Color(.displayP3, red: 1.0, green: 0.35, blue: 0.39, opacity: 1.0)
+        case .createGroupChats: return Color(.displayP3, red: 7.0/255, green: 132.0/255, blue: 254.0/255, opacity: 1.0)
+        case .receiveSecureCalls: return Color(.displayP3, red: 253.0/255, green: 56.0/255, blue: 95.0/255, opacity: 1.0)
+        }
+    }
+    
+    
+    private var description: LocalizedStringKey {
+        switch model.feature {
+        case .startSecureCalls: return "MAKE_SECURE_CALLS"
+        case .multidevice: return "MULTIDEVICE"
+        case .sendAndReceiveMessagesAndAttachments: return "Sending & receiving messages and attachments"
+        case .createGroupChats: return "Create groups"
+        case .receiveSecureCalls: return "RECEIVE_SECURE_CALLS"
+        }
+    }
+    
+    
+    private var systemIconForAvailability: SystemIcon {
+        model.showAsAvailable ? .checkmarkSealFill : .xmarkSealFill
+    }
+    
+    
+    private var systemIconForAvailabilityColor: Color {
+        model.showAsAvailable ? Color(UIColor.systemGreen) : Color(AppTheme.shared.colorScheme.secondaryLabel)
+    }
+    
+    
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Image(systemIcon: systemIcon)
+                .font(.system(size: 16))
+                .foregroundColor(systemIconColor)
+                .frame(minWidth: 30)
+            Text(description)
+                .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                .font(.body)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            Image(systemIcon: systemIconForAvailability)
+                .font(.system(size: 16))
+                .foregroundColor(systemIconForAvailabilityColor)
         }
     }
     
@@ -337,87 +395,115 @@ struct FeatureListView_Previews: PreviewProvider {
                                        description: "Make secure calls"),
     ]
     
+    private static let apiPermissionsCalls = {
+        var permissions = APIPermissions()
+        permissions.insert(.canCall)
+        return permissions
+    }()
+    
+    private static let apiPermissionsMultiDevice = {
+        var permissions = APIPermissions()
+        permissions.insert(.multidevice)
+        return permissions
+    }()
+
+    private static let apiPermissionsCallsAndMultiDevice = {
+        var permissions = APIPermissions()
+        permissions.insert(.canCall)
+        permissions.insert(.multidevice)
+        return permissions
+    }()
+
     static var previews: some View {
         Group {
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .anotherOwnedIdentityHasValidAPIKey,
                                    apiKeyExpirationDate: Date(),
                                    showSubscriptionPlansButton: false,
-                                   subscriptionPlanAction: {},
-                                   showRefreshStatusButton: false,
-                                   refreshStatusAction: {})
+                                   userWantsToSeeSubscriptionPlans: {},
+                                   showRefreshStatusButton: true,
+                                   refreshStatusAction: {},
+                                   apiPermissions: Self.apiPermissionsCalls)
                 .padding()
                 .previewLayout(.sizeThatFits)
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .unknown,
                                    apiKeyExpirationDate: nil,
                                    showSubscriptionPlansButton: true,
-                                   subscriptionPlanAction: {},
+                                   userWantsToSeeSubscriptionPlans: {},
                                    showRefreshStatusButton: true,
-                                   refreshStatusAction: {})
+                                   refreshStatusAction: {},
+                                   apiPermissions: apiPermissionsCallsAndMultiDevice)
                 .padding()
                 .previewLayout(.sizeThatFits)
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .valid,
                                    apiKeyExpirationDate: Date(),
                                    showSubscriptionPlansButton: false,
-                                   subscriptionPlanAction: {},
+                                   userWantsToSeeSubscriptionPlans: {},
                                    showRefreshStatusButton: true,
-                                   refreshStatusAction: {})
+                                   refreshStatusAction: {},
+                                   apiPermissions: apiPermissionsMultiDevice)
                 .padding()
                 .previewLayout(.sizeThatFits)
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .licensesExhausted,
                                    apiKeyExpirationDate: nil,
                                    showSubscriptionPlansButton: false,
-                                   subscriptionPlanAction: {},
+                                   userWantsToSeeSubscriptionPlans: {},
                                    showRefreshStatusButton: false,
-                                   refreshStatusAction: {})
+                                   refreshStatusAction: {},
+                                   apiPermissions: apiPermissionsMultiDevice)
                 .padding()
                 .previewLayout(.sizeThatFits)
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .expired,
                                    apiKeyExpirationDate: Date(),
                                    showSubscriptionPlansButton: false,
-                                   subscriptionPlanAction: {},
+                                   userWantsToSeeSubscriptionPlans: {},
                                    showRefreshStatusButton: true,
-                                   refreshStatusAction: {})
+                                   refreshStatusAction: {},
+                                   apiPermissions: apiPermissionsMultiDevice)
                 .padding()
                 .previewLayout(.sizeThatFits)
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .free,
                                    apiKeyExpirationDate: Date(),
                                    showSubscriptionPlansButton: false,
-                                   subscriptionPlanAction: {},
+                                   userWantsToSeeSubscriptionPlans: {},
                                    showRefreshStatusButton: false,
-                                   refreshStatusAction: {})
+                                   refreshStatusAction: {},
+                                   apiPermissions: apiPermissionsMultiDevice)
                 .padding()
                 .previewLayout(.sizeThatFits)
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .awaitingPaymentGracePeriod,
                                    apiKeyExpirationDate: Date(),
                                    showSubscriptionPlansButton: false,
-                                   subscriptionPlanAction: {},
+                                   userWantsToSeeSubscriptionPlans: {},
                                    showRefreshStatusButton: false,
-                                   refreshStatusAction: {})
+                                   refreshStatusAction: {},
+                                   apiPermissions: apiPermissionsMultiDevice)
                 .padding()
                 .previewLayout(.sizeThatFits)
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .awaitingPaymentOnHold,
                                    apiKeyExpirationDate: Date(),
                                    showSubscriptionPlansButton: false,
-                                   subscriptionPlanAction: {},
+                                   userWantsToSeeSubscriptionPlans: {},
                                    showRefreshStatusButton: false,
-                                   refreshStatusAction: {})
+                                   refreshStatusAction: {},
+                                   apiPermissions: apiPermissionsMultiDevice)
                 .padding()
                 .previewLayout(.sizeThatFits)
             SubscriptionStatusView(title: Text("SUBSCRIPTION_STATUS"),
                                    apiKeyStatus: .freeTrialExpired,
                                    apiKeyExpirationDate: Date(),
                                    showSubscriptionPlansButton: false,
-                                   subscriptionPlanAction: {},
+                                   userWantsToSeeSubscriptionPlans: {},
                                    showRefreshStatusButton: false,
-                                   refreshStatusAction: {})
+                                   refreshStatusAction: {},
+                                   apiPermissions: apiPermissionsMultiDevice)
                 .padding()
                 .previewLayout(.sizeThatFits)
                 .environment(\.locale, .init(identifier: "fr"))

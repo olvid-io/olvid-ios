@@ -25,14 +25,14 @@ extension DiscussionsFlowViewController {
         
         struct AlertConfirmAllDiscussionMessagesDeletion {
             static let title = NSLocalizedString("Delete all messages?", comment: "Alert title")
-            static let message = NSLocalizedString("Do you wish to delete all the messages within this discussion? This action is irrevisble.", comment: "Alert message")
+            static let message = NSLocalizedString("Do you wish to delete all the messages within this discussion? This action is irreversible.", comment: "Alert message")
             static let actionDeleteAll = NSLocalizedString("Delete all messages", comment: "Alert action title")
             static let actionDeleteAllGlobally = NSLocalizedString("Delete all messages for all users", comment: "Alert action title")
         }
         
         struct AlertConfirmAllDiscussionMessagesDeletionGlobally {
             static let title = NSLocalizedString("Delete all messages for all users?", comment: "Alert title")
-            static let message = NSLocalizedString("Do you wish to delete all the messages on all the devices of all the users of this discussion? This action is irrevisble.", comment: "Alert message")
+            static let message = NSLocalizedString("DELETE_ALL_MSGS_ON_ALL_DEVICES__ACTION_IRREVERSIBLE", comment: "Alert message")
             static let actionDeleteAllGlobally = NSLocalizedString("Delete all messages for all users", comment: "Alert action title")
         }
     }

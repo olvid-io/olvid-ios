@@ -138,6 +138,33 @@ extension ObvDatabaseManager {
     }
 
     
+    public func performBackgroundTaskAndWaitOrThrow<T>(file: StaticString, line: Int, function: StaticString, _ block: (NSManagedObjectContext) throws -> T) throws -> T {
+        try coreDataStack.performBackgroundTaskAndWaitOrThrow { (context) in
+            context.name = "\(file) - \(function) - Line \(line)"
+            assert(context.transactionAuthor != nil)
+            return try block(context)
+        }
+    }
+    
+    
+    public func performBackgroundTaskAndWaitOrThrow<T>(flowId: FlowIdentifier, file: StaticString, line: Int, function: StaticString, _ block: (ObvContext) throws -> T) throws -> T {
+        return try coreDataStack.performBackgroundTaskAndWaitOrThrow { context in
+            context.name = "\(file) - \(function) - Line \(line)"
+            assert(context.transactionAuthor != nil)
+            let obvContext = ObvContext(context: context, flowId: flowId, file: file, line: line, function: function)
+            let returnedValue: T
+            do {
+                returnedValue = try block(obvContext)
+            } catch {
+                obvContext.performAllEndOfScopeCompletionHAndlers()
+                throw error
+            }
+            obvContext.performAllEndOfScopeCompletionHAndlers()
+            return returnedValue
+        }
+    }
+
+    
     public func debugPrintCurrentBackgroundContexts() {
     }
 }

@@ -38,7 +38,7 @@ final class ReCreateURLSessionWithNewDelegateForAttachmentUploadOperation: Opera
     }
 
     private let uuid = UUID()
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let appType: AppType
     private let logSubsystem: String
     private let log: OSLog
@@ -52,7 +52,7 @@ final class ReCreateURLSessionWithNewDelegateForAttachmentUploadOperation: Opera
     private(set) var reasonForCancel: ReasonForCancel?
     private(set) var urlSession: URLSession?
 
-    init(attachmentId: AttachmentIdentifier, appType: AppType, sharedContainerIdentifier: String, logSubsystem: String, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, attachmentChunkUploadProgressTracker: AttachmentChunkUploadProgressTracker) {
+    init(attachmentId: ObvAttachmentIdentifier, appType: AppType, sharedContainerIdentifier: String, logSubsystem: String, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, attachmentChunkUploadProgressTracker: AttachmentChunkUploadProgressTracker) {
         self.attachmentId = attachmentId
         self.flowId = flowId
         self.appType = appType

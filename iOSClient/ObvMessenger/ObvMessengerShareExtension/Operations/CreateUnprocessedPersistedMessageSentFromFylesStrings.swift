@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,23 +24,27 @@ import CoreData
 import OlvidUtils
 import ObvCrypto
 import ObvUICoreData
+import UniformTypeIdentifiers
 
 
 final class FyleJoinImpl: FyleJoin {
 
     var fyle: Fyle?
     let fileName: String
+    let contentType: UTType
     let uti: String
     let index: Int
     let fyleObjectID: NSManagedObjectID
 
-    init(fyle: Fyle, fileName: String, uti: String, index: Int) {
+    init(fyle: Fyle, fileName: String, contentType: UTType, index: Int) {
         self.fyle = fyle
         self.fyleObjectID = fyle.objectID
         self.fileName = fileName
-        self.uti = uti
+        self.contentType = contentType
         self.index = index
+        self.uti = contentType.identifier
     }
+    
 }
 
 final class CreateUnprocessedPersistedMessageSentFromFylesAndStrings: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedPersistedMessageSentFromPersistedDraftOperationReasonForCancel>, UnprocessedPersistedMessageSentProvider {
@@ -60,41 +64,39 @@ final class CreateUnprocessedPersistedMessageSentFromFylesAndStrings: Contextual
         super.init()
     }
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
         assert(fyleJoinsProvider.isFinished)
-
+        
         let body = body ?? ""
-
+        
         guard let fyleJoins = fyleJoinsProvider.fyleJoins else { return }
-
-        guard let obvContext = self.obvContext else {
-            cancel(withReason: .contextIsNil)
-            return
-        }
-
-        obvContext.performAndWait {
-            do {
-                guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindDiscussion)
-                }
-
-                let persistedMessageSent = try PersistedMessageSent(body: body, replyTo: nil, fyleJoins: fyleJoins, discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false, mentions: [])
-
-                do {
-                    try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])
-                } catch {
-                    return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
-                }
-
-                self.messageSentPermanentID = persistedMessageSent.objectPermanentID
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        
+        do {
+            guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindDiscussion)
             }
+            
+            let persistedMessageSent = try PersistedMessageSent.createPersistedMessageSentFromShareExtension(
+                body: body,
+                fyleJoins: fyleJoins,
+                discussion: discussion)
+            
+            do {
+                try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])
+            } catch {
+                return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
+            }
+            
+            self.messageSentPermanentID = persistedMessageSent.objectPermanentID
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
+        
     }
 
-
 }
+
 
 enum CreateUnprocessedPersistedMessageSentFromPersistedDraftOperationReasonForCancel: LocalizedErrorWithLogType {
 

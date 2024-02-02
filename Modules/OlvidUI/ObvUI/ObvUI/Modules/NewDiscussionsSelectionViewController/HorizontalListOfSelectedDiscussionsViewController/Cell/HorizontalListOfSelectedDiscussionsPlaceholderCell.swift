@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@
 import Foundation
 import SwiftUI
 import UIKit
+import ObvDesignSystem
 
 
 @available(iOS 16.0, *)
@@ -35,7 +36,7 @@ extension HorizontalListOfSelectedDiscussionsViewController {
         override func updateConfiguration(using state: UICellConfigurationState) {
             contentConfiguration = UIHostingConfiguration {
                 HStack(alignment: .center) {
-                    Text(NSLocalizedString("DISCUSSIONS_LIST_SELECTION_PLACEHOLDER_CELL", bundle: Bundle(for: Self.self), comment: ""))
+                    Text("DISCUSSIONS_LIST_SELECTION_PLACEHOLDER_CELL")
                         .foregroundColor(Color(AppTheme.shared.colorScheme.label))
                         .font(.headline)
                 }

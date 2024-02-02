@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,6 +26,7 @@ import ObvEngine
 import ObvUICoreData
 
 
+/// Called prior the processing the message deletion requested by an owned identity from the current device, when the deletionType is .global.
 final class SendGlobalDeleteMessagesJSONOperation: OperationWithSpecificReasonForCancel<SendGlobalDeleteMessagesJSONOperationReasonForCancel> {
 
     private let persistedMessageObjectIDs: [NSManagedObjectID]
@@ -56,7 +57,7 @@ final class SendGlobalDeleteMessagesJSONOperation: OperationWithSpecificReasonFo
             
             let discussion: PersistedDiscussion
             do {
-                let discussions = Set(messages.map { $0.discussion })
+                let discussions = Set(messages.compactMap { $0.discussion })
                 guard discussions.count == 1 else {
                     return cancel(withReason: .unexpectedNumberOfDiscussions(discussionCount: discussions.count))
                 }
@@ -99,7 +100,8 @@ final class SendGlobalDeleteMessagesJSONOperation: OperationWithSpecificReasonFo
                                        isVoipMessageForStartingCall: false,
                                        attachmentsToSend: [],
                                        toContactIdentitiesWithCryptoId: contactCryptoIds,
-                                       ofOwnedIdentityWithCryptoId: ownCryptoId)
+                                       ofOwnedIdentityWithCryptoId: ownCryptoId,
+                                       alsoPostToOtherOwnedDevices: true)
             } catch {
                 return cancel(withReason: .couldNotPostMessageWithinEngine)
             }

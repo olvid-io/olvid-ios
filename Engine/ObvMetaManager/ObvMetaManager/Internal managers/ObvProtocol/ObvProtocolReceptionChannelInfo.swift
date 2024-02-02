@@ -25,7 +25,7 @@ import CoreData
 import OlvidUtils
 
 // The AnyObliviousChannelWithOwnedDevice is never actually set on a message. It is only used within protocol steps so as to allow a message to come from any other device of the current owned identity.
-// Similarly, the AnyObliviousChannel is never actually set on a message. It is only used within protocol steps so as to allow a message to come from any Oblivious Channel with the current device.
+// Similarly, the AnyObliviousChannel is never actually set on a message. It is only used within protocol steps so as to allow a message to come from any Oblivious Channel with the current device (including oblivious channels with our other owned devices)
 
 
 public enum ObvProtocolReceptionChannelInfo: ObvCodable, Equatable {
@@ -117,15 +117,15 @@ public enum ObvProtocolReceptionChannelInfo: ObvCodable, Equatable {
             }
             self = ObvProtocolReceptionChannelInfo.ObliviousChannel(remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: remoteDeviceUid)
         case 2:
-            guard listOfEncoded.count == 1 else { return nil }
+            guard listOfEncoded.count == 1 else { assertionFailure(); return nil }
             self = ObvProtocolReceptionChannelInfo.AsymmetricChannel
         case 3:
             guard listOfEncoded.count == 2 else { return nil }
-            guard let ownedIdentity = ObvCryptoIdentity(listOfEncoded[1]) else { return nil }
+            guard let ownedIdentity = ObvCryptoIdentity(listOfEncoded[1]) else { assertionFailure(); return nil }
             self = ObvProtocolReceptionChannelInfo.AnyObliviousChannelWithOwnedDevice(ownedIdentity: ownedIdentity)
         case 4:
             guard listOfEncoded.count == 2 else { return nil }
-            guard let ownedIdentity = ObvCryptoIdentity(listOfEncoded[1]) else { return nil }
+            guard let ownedIdentity = ObvCryptoIdentity(listOfEncoded[1]) else { assertionFailure(); return nil }
             self = ObvProtocolReceptionChannelInfo.AnyObliviousChannel(ownedIdentity: ownedIdentity)
         default:
             return nil
@@ -178,17 +178,20 @@ extension ObvProtocolReceptionChannelInfo {
                 case .ObliviousChannel(remoteCryptoIdentity: let remoteIdentity, remoteDeviceUid: _):
                     return ownedIdentity == remoteIdentity
                 default:
+                    assertionFailure()
                     return false
                 }
             case .AnyObliviousChannel(ownedIdentity: let ownedIdentity):
                 switch other {
                 case .ObliviousChannel(remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: _):
-                    guard try identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext),
-                          try identityDelegate.isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: remoteCryptoIdentity, within: obvContext)
-                    else {
+                    if try identityDelegate.isIdentity(remoteCryptoIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext),
+                       try identityDelegate.isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: remoteCryptoIdentity, within: obvContext) {
+                        return true
+                    } else if remoteCryptoIdentity == ownedIdentity {
+                        return true
+                    } else {
                         return false
                     }
-                    return true
                 default:
                     return false
                 }

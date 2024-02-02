@@ -32,7 +32,7 @@ struct ReceivedMessage {
     let extendedMessagePayload: Data? // Available only when the message was received in a notification. Not available during a "normal" reception as the extended payload is downloaded asynchronously
     private let message: ObvNetworkReceivedMessageEncrypted
 
-    var messageId: MessageIdentifier { return message.messageId }
+    var messageId: ObvMessageIdentifier { return message.messageId }
     var knownAttachmentCount: Int? { return message.knownAttachmentCount }
     var messageUploadTimestampFromServer: Date { return message.messageUploadTimestampFromServer }
     
@@ -92,7 +92,7 @@ struct ReceivedApplicationMessage {
     let messagePayload: Data
     let attachmentsInfos: [ObvNetworkFetchAttachmentInfos]
 
-    var messageId: MessageIdentifier { return message.messageId }
+    var messageId: ObvMessageIdentifier { return message.messageId }
     var extendedMessagePayloadKey: AuthenticatedEncryptionKey? { message.extendedMessagePayloadKey }
     var extendedMessagePayload: Data? { message.extendedMessagePayload }
 

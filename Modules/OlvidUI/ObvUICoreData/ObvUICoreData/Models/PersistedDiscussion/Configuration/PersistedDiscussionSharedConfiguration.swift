@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 import OlvidUtils
+import ObvSettings
 
 
 @objc(PersistedDiscussionSharedConfiguration)
@@ -73,33 +74,24 @@ public enum PersistedDiscussionSharedConfigurationValue {
     case readOnce(readOnce: Bool)
     case existenceDuration(existenceDuration: TimeInterval?)
     case visibilityDuration(visibilityDuration: TimeInterval?)
-}
-
-
-extension PersistedDiscussionSharedConfigurationValue {
-
-    public func updatePersistedDiscussionSharedConfigurationValue(with configuration: PersistedDiscussionSharedConfiguration, initiatorAsOwnedCryptoId ownedCryptoId: ObvCryptoId) throws {
-        let newExpiration: ExpirationJSON
-        switch self {
-        case .readOnce(readOnce: let readOnce):
-            newExpiration = ExpirationJSON(
-                readOnce: readOnce,
-                visibilityDuration: configuration.visibilityDuration,
-                existenceDuration: configuration.existenceDuration)
-        case .existenceDuration(existenceDuration: let existenceDuration):
-            newExpiration = ExpirationJSON(
-                readOnce: configuration.readOnce,
-                visibilityDuration: configuration.visibilityDuration,
-                existenceDuration: existenceDuration)
-        case .visibilityDuration(visibilityDuration: let visibilityDuration):
-            newExpiration = ExpirationJSON(
-                readOnce: configuration.readOnce,
-                visibilityDuration: visibilityDuration,
-                existenceDuration: configuration.existenceDuration)
-        }
-        try configuration.replacePersistedDiscussionSharedConfiguration(with: newExpiration, initiator: .ownedIdentity(ownedCryptoId: ownedCryptoId))
-    }
     
+    public func toExpirationJSON(overriding config: PersistedDiscussionSharedConfiguration) -> ExpirationJSON {
+        switch self {
+        case .readOnce(let readOnce):
+            return ExpirationJSON(readOnce: readOnce,
+                           visibilityDuration: config.visibilityDuration,
+                           existenceDuration: config.existenceDuration)
+        case .existenceDuration(let existenceDuration):
+            return ExpirationJSON(readOnce: config.readOnce,
+                           visibilityDuration: config.visibilityDuration,
+                           existenceDuration: existenceDuration)
+        case .visibilityDuration(let visibilityDuration):
+            return ExpirationJSON(readOnce: config.readOnce,
+                           visibilityDuration: visibilityDuration,
+                           existenceDuration: config.existenceDuration)
+        }
+    }
+
 }
 
 
@@ -138,200 +130,86 @@ extension PersistedDiscussionSharedConfiguration {
             self.visibilityDuration != other.visibilityDuration
     }
     
+
     public enum Initiator {
         case ownedIdentity(ownedCryptoId: ObvCryptoId)
         case contact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId, messageUploadTimestampFromServer: Date)
         case keycloak(lastModificationTimestamp: Date)
     }
     
-    public func replacePersistedDiscussionSharedConfiguration(with expirationJSON: ExpirationJSON, initiator: Initiator) throws {
-        
-        try ensureInitiatorIsAllowedToModifyThisSharedConfiguration(initiator: initiator)
 
+    func replacePersistedDiscussionSharedConfiguration(with expirationJSON: ExpirationJSON) throws -> Bool {
+        
         guard self.readOnce != expirationJSON.readOnce ||
                 self.existenceDuration != expirationJSON.existenceDuration ||
                 self.visibilityDuration != expirationJSON.visibilityDuration else {
-            return
+            let sharedSettingHadToBeUpdated = false
+            return sharedSettingHadToBeUpdated
         }
         self.readOnce = expirationJSON.readOnce
         self.existenceDuration = expirationJSON.existenceDuration
         self.visibilityDuration = expirationJSON.visibilityDuration
         self.version += 1
         
-        // Insert a message into the discussion indicating that the shared settings
-        
-        do {
-            try insertSystemMessageIndicatingThatDiscussionSharedConfigurationWasUpdated(initiator: initiator)
-        } catch {
-            assertionFailure(error.localizedDescription) // In producation, continue anyway
-        }
+        let sharedSettingHadToBeUpdated = true
+        return sharedSettingHadToBeUpdated
 
     }
-    
-    
-    public func mergePersistedDiscussionSharedConfiguration(with remoteConfig: DiscussionSharedConfigurationJSON, initiator: Initiator) throws {
-        
-        try ensureInitiatorIsAllowedToModifyThisSharedConfiguration(initiator: initiator)
 
-        guard let discussion = self.discussion else {
-            throw Self.makeError(message: "Cannot find discussion. It may have been deleted recently.")
-        }
-        
+
+    /// Exclusively called from ``PersistedDiscussion.mergeReceivedDiscussionSharedConfiguration(_:)``. Shall not be called from elsewhere.
+    func mergePersistedDiscussionSharedConfiguration(with remoteConfig: PersistedDiscussion.SharedConfiguration) throws -> (sharedSettingHadToBeUpdated: Bool, weShouldSendBackOurSharedSettings: Bool) {
+                
+        let weShouldSendBackOurSharedSettingsIfAllowedTo: Bool
+        let sharedSettingHadToBeUpdated: Bool
+
         if remoteConfig.version < self.version {
+            
             // We ignore the received remote config
-            ObvMessengerCoreDataNotification.anOldDiscussionSharedConfigurationWasReceived(persistedDiscussionObjectID: discussion.objectID)
-                .postOnDispatchQueue()
-            return
+            sharedSettingHadToBeUpdated = false
+            weShouldSendBackOurSharedSettingsIfAllowedTo = true
+            
         } else if remoteConfig.version == self.version {
-            // The version numbers are identical. If the config are identical, we do nothing.
-            // Otherwise, we keep the "gcd" of the two configurations (the other party will do the same)
-            // Note that we intentionally do not change the version
-            guard self.readOnce != remoteConfig.expiration.readOnce ||
-                    self.existenceDuration != remoteConfig.expiration.existenceDuration ||
-                    self.visibilityDuration != remoteConfig.expiration.visibilityDuration else {
-                return
+            
+            // The version numbers are identical.
+            // We compute the pgcd of the two configs and replace our shared settings we this pgcd.
+            // Then, if our resulting shared settings are different from those we received, we send them back.
+            
+            let pgcdReadOnce = self.readOnce || remoteConfig.expiration.readOnce
+            let pgcdExistenceDuration = TimeInterval.optionalMin(self.existenceDuration, remoteConfig.expiration.existenceDuration)
+            let pgcdVisibilityDuration = TimeInterval.optionalMin(self.visibilityDuration, remoteConfig.expiration.visibilityDuration)
+            
+            if self.readOnce != pgcdReadOnce || self.existenceDuration != pgcdExistenceDuration || self.visibilityDuration != pgcdVisibilityDuration {
+                self.readOnce = pgcdReadOnce
+                self.existenceDuration = pgcdExistenceDuration
+                self.visibilityDuration = pgcdVisibilityDuration
+                sharedSettingHadToBeUpdated = true
+            } else {
+                sharedSettingHadToBeUpdated = false
             }
-            self.readOnce = self.readOnce || remoteConfig.expiration.readOnce
-            self.existenceDuration = TimeInterval.optionalMin(self.existenceDuration, remoteConfig.expiration.existenceDuration)
-            self.visibilityDuration = TimeInterval.optionalMin(self.visibilityDuration, remoteConfig.expiration.visibilityDuration)
+            
+            if self.readOnce != remoteConfig.expiration.readOnce ||
+                self.existenceDuration != remoteConfig.expiration.existenceDuration ||
+                self.visibilityDuration != remoteConfig.expiration.visibilityDuration {
+                weShouldSendBackOurSharedSettingsIfAllowedTo = true
+            } else {
+                weShouldSendBackOurSharedSettingsIfAllowedTo = false
+            }
+            
         } else {
+            
             // The remote config is more recent that ours, so we replace ours
             self.readOnce = remoteConfig.expiration.readOnce
             self.existenceDuration = remoteConfig.expiration.existenceDuration
             self.visibilityDuration = remoteConfig.expiration.visibilityDuration
             self.version = remoteConfig.version // This necessarily updates our version number
+            sharedSettingHadToBeUpdated = true
+            weShouldSendBackOurSharedSettingsIfAllowedTo = false
+            
         }
         
-        // Insert a message into the discussion indicating that the shared settings
+        return (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettingsIfAllowedTo)
         
-        do {
-            try insertSystemMessageIndicatingThatDiscussionSharedConfigurationWasUpdated(initiator: initiator)
-        } catch {
-            assertionFailure(error.localizedDescription) // In producation, continue anyway
-        }
-
-    }
-    
-    
-    private func insertSystemMessageIndicatingThatDiscussionSharedConfigurationWasUpdated(initiator: Initiator) throws {
-     
-        guard let managedObjectContext else {
-            throw Self.makeError(message: "Cannot find context")
-        }
-        
-        guard let discussion else {
-            throw Self.makeError(message: "Cannot find discussion")
-        }
-        
-        let optionalContactIdentity: PersistedObvContactIdentity?
-        let markAsRead: Bool
-        let messageUploadTimestampFromServer: Date?
-        
-        switch initiator {
-        case .contact(ownedCryptoId: let ownedCryptoId, contactCryptoId: let contactCryptoId, messageUploadTimestampFromServer: let timestamp):
-            optionalContactIdentity = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: managedObjectContext)
-            markAsRead = false
-            messageUploadTimestampFromServer = timestamp
-        case .keycloak(lastModificationTimestamp: let timestamp):
-            optionalContactIdentity = nil
-            markAsRead = false
-            messageUploadTimestampFromServer = timestamp
-        case .ownedIdentity:
-            optionalContactIdentity = nil
-            markAsRead = true
-            messageUploadTimestampFromServer = nil
-        }
-        
-        try PersistedMessageSystem.insertUpdatedDiscussionSharedSettingsSystemMessage(
-            within: discussion,
-            optionalContactIdentity: optionalContactIdentity,
-            expirationJSON: self.toExpirationJSON(),
-            messageUploadTimestampFromServer: messageUploadTimestampFromServer,
-            markAsRead: markAsRead)
-
-    }
- 
-    
-    private func ensureInitiatorIsAllowedToModifyThisSharedConfiguration(initiator: Initiator) throws {
-
-        guard let discussion = self.discussion else { assertionFailure(); return }
-
-        switch discussion.status {
-
-        case .locked:
-            throw Self.makeError(message: "The discussion is locked")
-
-        case .preDiscussion:
-            throw Self.makeError(message: "The discussion is a pre-discussion")
-
-        case .active:
-
-            switch try? discussion.kind {
-
-            case .oneToOne(withContactIdentity: let contactIdentity):
-                switch initiator {
-                case .ownedIdentity(ownedCryptoId: let ownedCryptoId):
-                    guard discussion.ownedIdentity?.cryptoId == ownedCryptoId else {
-                        throw Self.makeError(message: "The initiator (owned identity) is not the owned identity of the one-to-one discussion")
-                    }
-                case .contact(ownedCryptoId: let ownedCryptoId, contactCryptoId: let contactCryptoId, messageUploadTimestampFromServer: _):
-                    guard discussion.ownedIdentity?.cryptoId == ownedCryptoId && contactIdentity?.cryptoId == contactCryptoId else {
-                        throw Self.makeError(message: "The initiator is neither the contact or the owned identity of the one-to-one discussion")
-                    }
-                case .keycloak:
-                    throw Self.makeError(message: "The share configuration of a oneToOne discussion cannot be modified by keycloak")
-                }
-
-            case .groupV1(withContactGroup: let contactGroup):
-                guard let contactGroup = contactGroup else {
-                    throw Self.makeError(message: "Cannot find contact group")
-                }
-                switch initiator {
-                case .ownedIdentity(ownedCryptoId: let ownedCryptoId):
-                    guard contactGroup.ownerIdentity == ownedCryptoId.getIdentity() else {
-                        throw Self.makeError(message: "The initiator of the change is not the group owner")
-                    }
-                case .contact(ownedCryptoId: let ownedCryptoId, contactCryptoId: let contactCryptoId, messageUploadTimestampFromServer: _):
-                    guard contactGroup.ownerIdentity == contactCryptoId.getIdentity() && contactGroup.ownedIdentity?.cryptoId == ownedCryptoId else {
-                        throw Self.makeError(message: "The initiator of the change is not the group owner")
-                    }
-                case .keycloak:
-                    throw Self.makeError(message: "The share configuration of a groupV1 discussion cannot be modified by keycloak")
-                }
-
-            case .groupV2(withGroup: let group):
-                guard let group = group else {
-                    throw Self.makeError(message: "Cannot find group v2")
-                }
-                switch initiator {
-                case .ownedIdentity(ownedCryptoId: let ownedCryptoId):
-                    guard group.ownedIdentityIdentity == ownedCryptoId.getIdentity() else {
-                        throw Self.makeError(message: "Unexpected owned identity")
-                    }
-                    guard group.ownedIdentityIsAllowedToChangeSettings else {
-                        throw Self.makeError(message: "The initiator is not allowed to change settings")
-                    }
-                case .contact(ownedCryptoId: let ownedCryptoId, contactCryptoId: let contactCryptoId, messageUploadTimestampFromServer: _):
-                    guard group.ownedIdentityIdentity == ownedCryptoId.getIdentity() else {
-                        throw Self.makeError(message: "Unexpected owned identity")
-                    }
-                    guard let initiatorAsMember = group.otherMembers.first(where: { $0.identity == contactCryptoId.getIdentity() }) else {
-                        throw Self.makeError(message: "The initiator is not part of the group")
-                    }
-                    guard initiatorAsMember.isAllowedToChangeSettings else {
-                        throw Self.makeError(message: "The initiator is not allowed to change settings")
-                    }
-                case .keycloak:
-                    guard group.keycloakManaged else {
-                        throw Self.makeError(message: "A Keycloak server cannot change the configuration of a non-keycloak group")
-                    }
-                }
-
-            case .none:
-                assertionFailure()
-                throw Self.makeError(message: "Unknown discussion type")
-            }
-        }
     }
 
     
@@ -410,7 +288,14 @@ extension PersistedDiscussionSharedConfiguration {
         let expiration = self.toExpirationJSON()
         switch try discussion?.kind {
         case .oneToOne, .none:
-            return DiscussionSharedConfigurationJSON(version: self.version, expiration: expiration)
+            guard let oneToOneIdentifier = try (discussion as? PersistedOneToOneDiscussion)?.oneToOneIdentifier else {
+                assertionFailure()
+                throw Self.makeError(message: "Could not determine oneToOneIdentifier")
+            }
+            return DiscussionSharedConfigurationJSON(
+                version: self.version,
+                expiration: expiration,
+                oneToOneIdentifier: oneToOneIdentifier)
         case .groupV1(withContactGroup: let contactGroup):
             guard let contactGroup = contactGroup else { throw Self.makeError(message: "Could not find contact group of group discussion") }
             let groupV1Identifier = try contactGroup.getGroupId()
@@ -449,4 +334,64 @@ extension PersistedDiscussionSharedConfiguration {
         self.readOnce = readOnce
     }
 
+}
+
+
+
+// MARK: - For snapshot purposes
+
+extension PersistedDiscussionSharedConfiguration {
+    
+    var syncSnapshotNode: PersistedDiscussionSharedConfigurationSyncSnapshotItem {
+        .init(version: version,
+              existenceDuration: existenceDuration,
+              visibilityDuration: visibilityDuration,
+              readOnce: readOnce)
+    }
+    
+}
+
+
+struct PersistedDiscussionSharedConfigurationSyncSnapshotItem: Codable, Hashable {
+
+    private let version: Int
+    private let existenceDuration: TimeInterval?
+    private let visibilityDuration: TimeInterval?
+    private let readOnce: Bool
+
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        case version = "version"
+        case existenceDuration = "existence_duration"
+        case visibilityDuration = "visibility_duration"
+        case readOnce = "read_once"
+    }
+
+    
+    
+    init(version: Int, existenceDuration: TimeInterval?, visibilityDuration: TimeInterval?, readOnce: Bool) {
+        self.version = version
+        self.existenceDuration = existenceDuration
+        self.visibilityDuration = visibilityDuration
+        self.readOnce = readOnce
+    }
+
+    
+    // Synthesized implementation of encode(to encoder: Encoder)
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 0
+        self.existenceDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .existenceDuration)
+        self.visibilityDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .visibilityDuration)
+        self.readOnce = try container.decodeIfPresent(Bool.self, forKey: .readOnce) ?? false
+    }
+    
+ 
+    func useToUpdate(_ configuration: PersistedDiscussionSharedConfiguration) {
+        configuration.setVersion(with: version)
+        configuration.setExistenceDuration(with: existenceDuration)
+        configuration.setVisibilityDuration(with: visibilityDuration)
+        configuration.setReadOnce(with: readOnce)
+    }
+    
 }

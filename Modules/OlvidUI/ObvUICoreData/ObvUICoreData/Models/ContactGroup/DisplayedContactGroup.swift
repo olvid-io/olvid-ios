@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,7 +23,9 @@ import CoreData
 import OlvidUtils
 import ObvTypes
 import OSLog
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
+import ObvSettings
+
 
 @objc(DisplayedContactGroup)
 public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identifiable, ObvIdentifiableManagedObject {
@@ -94,6 +96,7 @@ public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identi
     }
         
     public var displayedImage: UIImage? {
+        guard !isDeleted else { return nil }
         guard let photoURL = self.photoURL else { return nil }
         guard FileManager.default.fileExists(atPath: photoURL.path) else { assertionFailure(); return nil }
         return UIImage(contentsOfFile: photoURL.path)

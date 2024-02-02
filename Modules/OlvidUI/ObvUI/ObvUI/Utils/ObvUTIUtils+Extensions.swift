@@ -22,45 +22,41 @@ import ObvUICoreData
 import UniformTypeIdentifiers
 import UI_SystemIcon
 
-extension ObvUTIUtils {
+extension UTType {
     
-    @available(iOS 14.0, *)
-    public static func getIcon(forUTI uti: String) -> SystemIcon {
-        if let utType = UTType(uti) {
-            if utType.conforms(to: .image) {
-                return .photoOnRectangleAngled
-            } else if utType.conforms(to: .pdf) {
-                return .docRichtext
-            } else if utType.conforms(to: .audio) {
-                return .musicNote
-            } else if utType.conforms(to: .vCard) {
-                return .personTextRectangle
-            } else if utType.conforms(to: .calendarEvent) {
-                return .calendar
-            } else if utType.conforms(to: .font) {
-                return .textformat
-            } else if utType.conforms(to: .spreadsheet) {
-                return .rectangleSplit3x3
-            } else if utType.conforms(to: .presentation) {
-                return .display
-            } else if utType.conforms(to: .bookmark) {
-                return .bookmark
-            } else if utType.conforms(to: .archive) {
-                return .rectangleCompressVertical
-            } else if utType.conforms(to: .webArchive) {
-                return .archiveboxFill
-            } else if utType.conforms(to: .xml) || utType.conforms(to: .html) {
-                return .chevronLeftForwardslashChevronRight
-            } else if utType.conforms(to: .executable) {
-                return .docBadgeGearshape
-            } else if ObvUTIUtils.uti(uti, conformsTo: "org.openxmlformats.wordprocessingml.document" as CFString) || ObvUTIUtils.uti(uti, conformsTo: "com.microsoft.word.doc" as CFString) {
-                    // Word (docx) document
-                return .docFill
-            } else {
-                return .paperclip
-            }
+    public var systemIcon: SystemIcon {
+        if self.conforms(to: .image) {
+            return .photoOnRectangleAngled
+        } else if self.conforms(to: .pdf) {
+            return .docRichtext
+        } else if self.conforms(to: .audio) {
+            return .musicNote
+        } else if self.conforms(to: .vCard) {
+            return .personTextRectangle
+        } else if self.conforms(to: .calendarEvent) {
+            return .calendar
+        } else if self.conforms(to: .font) {
+            return .textformat
+        } else if self.conforms(to: .spreadsheet) {
+            return .rectangleSplit3x3
+        } else if self.conforms(to: .presentation) {
+            return .display
+        } else if self.conforms(to: .bookmark) {
+            return .bookmark
+        } else if self.conforms(to: .archive) {
+            return .rectangleCompressVertical
+        } else if self.conforms(to: .webArchive) {
+            return .archiveboxFill
+        } else if self.conforms(to: .xml) || self.conforms(to: .html) {
+            return .chevronLeftForwardslashChevronRight
+        } else if self.conforms(to: .executable) {
+            return .docBadgeGearshape
+        } else if self.conforms(to: UTType.OpenXML.docx) || self.conforms(to: .doc) {
+            // Word (docx or doc) document
+            return .docFill
         } else {
             return .paperclip
         }
     }
+    
 }

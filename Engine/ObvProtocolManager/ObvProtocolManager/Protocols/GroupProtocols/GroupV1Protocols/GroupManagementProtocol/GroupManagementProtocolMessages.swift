@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,37 +29,47 @@ extension GroupManagementProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
         
-        case InitiateGroupCreation = 0
-        case PropagateGroupCreation = 1
-        case GroupMembersChangedTrigger = 2
-        case NewMembers = 3
-        case AddGroupMembers = 4
-        case RemoveGroupMembers = 5
-        case KickFromGroup = 6
-        case NotifyGroupLeft = 7
-        case LeaveGroupJoined = 10
-        case InitiateGroupMembersQuery = 11
-        case QueryGroupMembers = 12
-        case TriggerReinvite = 13
-        case TriggerUpdateMembers = 14
-        case UploadGroupPhoto = 15
+        case initiateGroupCreation = 0
+        case propagateGroupCreation = 1
+        case groupMembersChangedTrigger = 2
+        case newMembers = 3
+        case addGroupMembers = 4
+        case removeGroupMembers = 5
+        case kickFromGroup = 6
+        case notifyGroupLeft = 7
+        // case reinvitePendingMember = 8 // Not implemented under iOS
+        case disbandGroup = 9
+        case leaveGroupJoined = 10
+        case initiateGroupMembersQuery = 11
+        case queryGroupMembers = 12
+        case triggerReinvite = 13
+        case triggerUpdateMembers = 14
+        case uploadGroupPhoto = 15
+        case propagateReinvitePendingMember = 16
+        case propagateDisbandGroup = 17
+        case propagateLeaveGroup = 18
 
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .InitiateGroupCreation           : return InitiateGroupCreationMessage.self
-            case .PropagateGroupCreation          : return PropagateGroupCreationMessage.self
-            case .GroupMembersChangedTrigger      : return GroupMembersChangedTriggerMessage.self
-            case .NewMembers                      : return NewMembersMessage.self
-            case .AddGroupMembers                 : return AddGroupMembersMessage.self
-            case .RemoveGroupMembers              : return RemoveGroupMembersMessage.self
-            case .KickFromGroup                   : return KickFromGroupMessage.self
-            case .LeaveGroupJoined                : return LeaveGroupJoinedMessage.self
-            case .NotifyGroupLeft                 : return NotifyGroupLeftMessage.self
-            case .InitiateGroupMembersQuery       : return InitiateGroupMembersQueryMessage.self
-            case .QueryGroupMembers               : return QueryGroupMembersMessage.self
-            case .TriggerReinvite                 : return TriggerReinviteMessage.self
-            case .TriggerUpdateMembers            : return TriggerUpdateMembersMessage.self
-            case .UploadGroupPhoto                : return UploadGroupPhotoMessage.self
+            case .initiateGroupCreation          : return InitiateGroupCreationMessage.self
+            case .propagateGroupCreation         : return PropagateGroupCreationMessage.self
+            case .groupMembersChangedTrigger     : return GroupMembersChangedTriggerMessage.self
+            case .newMembers                     : return NewMembersMessage.self
+            case .addGroupMembers                : return AddGroupMembersMessage.self
+            case .removeGroupMembers             : return RemoveGroupMembersMessage.self
+            case .kickFromGroup                  : return KickFromGroupMessage.self
+            case .leaveGroupJoined               : return LeaveGroupJoinedMessage.self
+            case .notifyGroupLeft                : return NotifyGroupLeftMessage.self
+            // case .reinvitePendingMember          : return ReinvitePendingMemberMessage.self
+            case .disbandGroup                   : return DisbandGroupMessage.self
+            case .initiateGroupMembersQuery      : return InitiateGroupMembersQueryMessage.self
+            case .queryGroupMembers              : return QueryGroupMembersMessage.self
+            case .triggerReinvite                : return TriggerReinviteMessage.self
+            case .triggerUpdateMembers           : return TriggerUpdateMembersMessage.self
+            case .uploadGroupPhoto               : return UploadGroupPhotoMessage.self
+            case .propagateReinvitePendingMember : return PropagateReinvitePendingMemberMessage.self
+            case .propagateDisbandGroup          : return PropagateDisbandGroupMessage.self
+            case .propagateLeaveGroup            : return PropagateLeaveGroupMessage.self
             }
         }
     }
@@ -69,7 +79,7 @@ extension GroupManagementProtocol {
     
     struct InitiateGroupCreationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.InitiateGroupCreation
+        let id: ConcreteProtocolMessageId = MessageId.initiateGroupCreation
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformationWithPhoto: GroupInformationWithPhoto
@@ -103,7 +113,7 @@ extension GroupManagementProtocol {
     
     struct PropagateGroupCreationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.PropagateGroupCreation
+        let id: ConcreteProtocolMessageId = MessageId.propagateGroupCreation
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -139,7 +149,7 @@ extension GroupManagementProtocol {
     
     struct GroupMembersChangedTriggerMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.GroupMembersChangedTrigger
+        let id: ConcreteProtocolMessageId = MessageId.groupMembersChangedTrigger
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -169,7 +179,7 @@ extension GroupManagementProtocol {
     
     struct NewMembersMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.NewMembers
+        let id: ConcreteProtocolMessageId = MessageId.newMembers
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -214,7 +224,7 @@ extension GroupManagementProtocol {
     
     struct AddGroupMembersMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.AddGroupMembers
+        let id: ConcreteProtocolMessageId = MessageId.addGroupMembers
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -249,7 +259,7 @@ extension GroupManagementProtocol {
     
     struct RemoveGroupMembersMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.RemoveGroupMembers
+        let id: ConcreteProtocolMessageId = MessageId.removeGroupMembers
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -284,7 +294,7 @@ extension GroupManagementProtocol {
     
     struct KickFromGroupMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.KickFromGroup
+        let id: ConcreteProtocolMessageId = MessageId.kickFromGroup
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -313,7 +323,7 @@ extension GroupManagementProtocol {
     
     struct LeaveGroupJoinedMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.LeaveGroupJoined
+        let id: ConcreteProtocolMessageId = MessageId.leaveGroupJoined
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -342,7 +352,7 @@ extension GroupManagementProtocol {
     
     struct NotifyGroupLeftMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.NotifyGroupLeft
+        let id: ConcreteProtocolMessageId = MessageId.notifyGroupLeft
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -367,11 +377,172 @@ extension GroupManagementProtocol {
     }
 
     
+    // MARK: - ReinvitePendingMemberMessage (not implemented under iOS)
+    
+//    struct ReinvitePendingMemberMessage: ConcreteProtocolMessage {
+//        
+//        let id: ConcreteProtocolMessageId = MessageId.reinvitePendingMember
+//        let coreProtocolMessage: CoreProtocolMessage
+//        
+//        let groupInformation: GroupInformation
+//        let pendingMemberIdentity: ObvCryptoIdentity
+//        
+//        var encodedInputs: [ObvEncoded] {
+//            return [groupInformation.obvEncode(), pendingMemberIdentity.obvEncode()]
+//        }
+//        
+//        // Initializers
+//        
+//        init(with message: ReceivedMessage) throws {
+//            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+//            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+//            self.groupInformation = try message.encodedInputs[0].obvDecode()
+//            let rawPendingMemberIdentity: Data = try message.encodedInputs[1].obvDecode()
+//            guard let cryptoId = ObvCryptoIdentity(from: rawPendingMemberIdentity) else { assertionFailure(); throw ObvError.couldNotDecodeIdentity }
+//            self.pendingMemberIdentity = cryptoId
+//        }
+//        
+//        init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation, pendingMemberIdentity: ObvCryptoIdentity) {
+//            self.coreProtocolMessage = coreProtocolMessage
+//            self.groupInformation = groupInformation
+//            self.pendingMemberIdentity = pendingMemberIdentity
+//        }
+//        
+//        enum ObvError: Error {
+//            case couldNotDecodeIdentity
+//        }
+//        
+//    }
+
+    
+    // MARK: - DisbandGroupMessage
+    
+    struct DisbandGroupMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.disbandGroup
+        let coreProtocolMessage: CoreProtocolMessage
+        
+        let groupInformation: GroupInformation
+        
+        var encodedInputs: [ObvEncoded] {
+            return [groupInformation.obvEncode()]
+        }
+        
+        // Initializers
+        
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
+        }
+        
+        init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.groupInformation = groupInformation
+        }
+        
+    }
+
+    
+    // MARK: - PropagateReinvitePendingMemberMessage
+    
+    struct PropagateReinvitePendingMemberMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.propagateReinvitePendingMember
+        let coreProtocolMessage: CoreProtocolMessage
+        
+        let groupInformation: GroupInformation
+        let pendingMemberIdentity: ObvCryptoIdentity
+        
+        var encodedInputs: [ObvEncoded] {
+            return [groupInformation.obvEncode(), pendingMemberIdentity.obvEncode()]
+        }
+        
+        // Initializers
+        
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
+            let rawPendingMemberIdentity: Data = try message.encodedInputs[1].obvDecode()
+            guard let cryptoId = ObvCryptoIdentity(from: rawPendingMemberIdentity) else { assertionFailure(); throw ObvError.couldNotDecodeIdentity }
+            self.pendingMemberIdentity = cryptoId
+        }
+        
+        init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation, pendingMemberIdentity: ObvCryptoIdentity) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.groupInformation = groupInformation
+            self.pendingMemberIdentity = pendingMemberIdentity
+        }
+        
+        enum ObvError: Error {
+            case couldNotDecodeIdentity
+        }
+        
+    }
+
+    
+    // MARK: - PropagateDisbandGroupMessage
+    
+    struct PropagateDisbandGroupMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.propagateDisbandGroup
+        let coreProtocolMessage: CoreProtocolMessage
+        
+        let groupInformation: GroupInformation
+        
+        var encodedInputs: [ObvEncoded] {
+            return [groupInformation.obvEncode()]
+        }
+        
+        // Initializers
+        
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
+        }
+        
+        init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.groupInformation = groupInformation
+        }
+        
+    }
+    
+    // MARK: PropagateLeaveGroupMessage
+
+    struct PropagateLeaveGroupMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.propagateLeaveGroup
+        let coreProtocolMessage: CoreProtocolMessage
+        
+        let groupInformation: GroupInformation
+        
+        var encodedInputs: [ObvEncoded] {
+            return [groupInformation.obvEncode()]
+        }
+        
+        // Initializers
+        
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.groupInformation = try message.encodedInputs[0].obvDecode()
+        }
+        
+        init(coreProtocolMessage: CoreProtocolMessage, groupInformation: GroupInformation) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.groupInformation = groupInformation
+        }
+        
+    }
+
     // MARK: - InitiateGroupMembersQueryMessage
     
     struct InitiateGroupMembersQueryMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.InitiateGroupMembersQuery
+        let id: ConcreteProtocolMessageId = MessageId.initiateGroupMembersQuery
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -400,7 +571,7 @@ extension GroupManagementProtocol {
     
     struct QueryGroupMembersMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.QueryGroupMembers
+        let id: ConcreteProtocolMessageId = MessageId.queryGroupMembers
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -429,7 +600,7 @@ extension GroupManagementProtocol {
     
     struct TriggerReinviteMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.TriggerReinvite
+        let id: ConcreteProtocolMessageId = MessageId.triggerReinvite
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -461,7 +632,7 @@ extension GroupManagementProtocol {
     
     struct TriggerUpdateMembersMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.TriggerUpdateMembers
+        let id: ConcreteProtocolMessageId = MessageId.triggerUpdateMembers
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -492,7 +663,7 @@ extension GroupManagementProtocol {
 
     struct UploadGroupPhotoMessage: ConcreteProtocolMessage {
 
-        var id: ConcreteProtocolMessageId = MessageId.UploadGroupPhoto
+        var id: ConcreteProtocolMessageId = MessageId.uploadGroupPhoto
         let coreProtocolMessage: CoreProtocolMessage
 
         let groupInformation: GroupInformation

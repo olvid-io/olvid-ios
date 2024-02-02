@@ -1,3 +1,0 @@
-/* Text shown above within the drop zone view, informin the user that they can drop the given attachment to attach it within the conversation */
-"attachments-target-drop-zone-view.drop-label.text" = "Drop to attach";
-

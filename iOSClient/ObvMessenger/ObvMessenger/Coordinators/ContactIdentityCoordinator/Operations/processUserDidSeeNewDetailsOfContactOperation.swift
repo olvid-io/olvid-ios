@@ -23,6 +23,7 @@ import os.log
 import ObvTypes
 import ObvEngine
 import ObvUICoreData
+import CoreData
 
 
 final class processUserDidSeeNewDetailsOfContactOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -36,31 +37,23 @@ final class processUserDidSeeNewDetailsOfContactOperation: ContextualOperationWi
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            
+            guard let persistedContactIdentity = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId,
+                                                                                     ownedIdentityCryptoId: ownedCryptoId,
+                                                                                     whereOneToOneStatusIs: .any,
+                                                                                     within: obvContext.context)
+            else {
+                return
+            }
+            guard persistedContactIdentity.status == .unseenPublishedDetails else { return }
+            persistedContactIdentity.setContactStatus(to: .seenPublishedDetails)
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
-            
-            do {
-                
-                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId,
-                                                                                         ownedIdentityCryptoId: ownedCryptoId,
-                                                                                         whereOneToOneStatusIs: .any,
-                                                                                         within: obvContext.context)
-                else {
-                    return
-                }
-                guard persistedContactIdentity.status == .unseenPublishedDetails else { return }
-                persistedContactIdentity.setContactStatus(to: .seenPublishedDetails)
-
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
-        }
-
     }
 }

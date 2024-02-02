@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import CoreData
 import ObvEngine
 import ObvTypes
 import OlvidUtils
+import ObvSettings
 
 
 @objc(PersistedContactGroupJoined)
@@ -52,13 +53,9 @@ public final class PersistedContactGroupJoined: PersistedContactGroup, ObvErrorM
         return ObvUICoreDataConstants.ContainerURL.forCustomGroupProfilePictures.appendingPathComponent(customPhotoFilename)
     }
 
-}
 
+    // MARK: - Initializer
 
-// MARK: - Initializer
-
-extension PersistedContactGroupJoined {
-    
     public convenience init(contactGroup: ObvContactGroup, within context: NSManagedObjectContext) throws {
 
         guard contactGroup.groupType == .joined else {
@@ -86,6 +83,23 @@ extension PersistedContactGroupJoined {
         self.owner = owner
         self.customPhotoFilename = nil
     }
+
+
+    // MARK: - Receiving discussion shared configurations
+
+    
+    /// Called when receiving a ``DiscussionSharedConfigurationJSON`` from a contact or an owned identity indicating this particular group as the target. This method makes sure the contact  or the owned identity is allowed to change the configuration, i.e., that she is the group owner.
+    override func mergeReceivedDiscussionSharedConfiguration(discussionSharedConfiguration: PersistedDiscussion.SharedConfiguration, receivedFrom cryptoId: ObvCryptoId) throws -> (sharedSettingHadToBeUpdated: Bool, weShouldSendBackOurSharedSettings: Bool) {
+        
+        let (sharedSettingHadToBeUpdated, _) = try super.mergeReceivedDiscussionSharedConfiguration(discussionSharedConfiguration: discussionSharedConfiguration, receivedFrom: cryptoId)
+        
+        // Since we joined this group, we are not allowed to change its shared settings, so we never send ours back
+
+        let weShouldSendBackOurSharedSettings = false
+
+        return (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettings)
+        
+    }
     
 }
 
@@ -94,23 +108,35 @@ extension PersistedContactGroupJoined {
 
 extension PersistedContactGroupJoined {
     
-    public func setGroupNameCustom(to groupNameCustom: String) throws {
-        let newGroupNameCustom = groupNameCustom.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !newGroupNameCustom.isEmpty else { throw Self.makeError(message: "Cannot use an empty string as a custom group name") }
-        self.groupNameCustom = newGroupNameCustom
-        try resetDiscussionTitle()
-    }
-    
-    
-    public func removeGroupNameCustom() throws {
-        self.groupNameCustom = nil
-        try resetDiscussionTitle()
+    func setGroupNameCustom(to groupNameCustom: String?) throws -> Bool {
+        let groupNameCustomHadToBeUpdated: Bool
+        let newGroupNameCustom = groupNameCustom?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let newGroupNameCustom, !newGroupNameCustom.isEmpty {
+            if self.groupNameCustom != newGroupNameCustom {
+                self.groupNameCustom = newGroupNameCustom
+                groupNameCustomHadToBeUpdated = true
+            } else {
+                groupNameCustomHadToBeUpdated = false
+            }
+        } else {
+            if self.groupNameCustom != nil {
+                self.groupNameCustom = nil
+                groupNameCustomHadToBeUpdated = true
+            } else {
+                groupNameCustomHadToBeUpdated = false
+            }
+        }
+        if groupNameCustomHadToBeUpdated {
+            try discussion.resetTitle(to: self.displayName)
+        }
+        return groupNameCustomHadToBeUpdated
     }
     
     
     public func setStatus(to newStatus: PublishedDetailsStatusType) {
         guard self.rawStatus != newStatus.rawValue else { return }
         self.rawStatus = newStatus.rawValue
+        try? createOrUpdateTheAssociatedDisplayedContactGroup()
     }
 
 }

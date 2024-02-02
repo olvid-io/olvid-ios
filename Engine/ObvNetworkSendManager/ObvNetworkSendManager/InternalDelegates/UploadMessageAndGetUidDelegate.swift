@@ -23,6 +23,6 @@ import ObvMetaManager
 import OlvidUtils
 
 protocol UploadMessageAndGetUidDelegate {
-    func getIdFromServerUploadMessage(messageId: MessageIdentifier, flowId: FlowIdentifier)
-    func cancelMessageUpload(messageId: MessageIdentifier, flowId: FlowIdentifier) throws
+    func getIdFromServerUploadMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+    func cancelMessageUpload(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws
 }

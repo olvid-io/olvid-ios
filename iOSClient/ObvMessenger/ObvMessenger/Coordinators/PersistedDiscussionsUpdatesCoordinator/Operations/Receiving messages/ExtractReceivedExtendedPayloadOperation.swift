@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,18 +22,25 @@ import Foundation
 import OlvidUtils
 import os.log
 import ObvEngine
+import ObvTypes
 import ObvEncoder
 import CoreGraphics
 import ObvUICoreData
+import CoreData
 
 
-// Not using context, but contextual to be composed with other contextual operations
-final class ExtractReceivedExtendedPayloadOperation: ContextualOperationWithSpecificReasonForCancel<ExtractReceivedExtendedPayloadOperationReasonForCancel> {
+/// This operation does not need a context and thus, is not a contextual operation. Since it is used in the notification extension at a location where we have no context available, we definitely don't want it to be a contextual operation.
+final class ExtractReceivedExtendedPayloadOperation: OperationWithSpecificReasonForCancel<ExtractReceivedExtendedPayloadOperationReasonForCancel> {
 
-    let obvMessage: ObvMessage
+    enum Input {
+        case messageSentByContact(obvMessage: ObvMessage)
+        case messageSentByOtherDeviceOfOwnedIdentity(obvOwnedMessage: ObvOwnedMessage)
+    }
+    
+    let input: Input
 
-    init(obvMessage: ObvMessage) {
-        self.obvMessage = obvMessage
+    init(input: Input) {
+        self.input = input
         super.init()
     }
 
@@ -41,7 +48,15 @@ final class ExtractReceivedExtendedPayloadOperation: ContextualOperationWithSpec
 
     override func main() {
 
-        guard let extendedMessagePayload = obvMessage.extendedMessagePayload else {
+        let extendedMessagePayload: Data?
+        switch input {
+        case .messageSentByContact(obvMessage: let obvMessage):
+            extendedMessagePayload = obvMessage.extendedMessagePayload
+        case .messageSentByOtherDeviceOfOwnedIdentity(obvOwnedMessage: let obvOwnedMessage):
+            extendedMessagePayload = obvOwnedMessage.extendedMessagePayload
+        }
+        
+        guard let extendedMessagePayload else {
             return cancel(withReason: .extendedMessagePayloadIsNil)
         }
 
@@ -76,6 +91,7 @@ final class ExtractReceivedExtendedPayloadOperation: ContextualOperationWithSpec
         case .failure(let reason):
             return cancel(withReason: reason)
         }
+        
     }
 
     private func processExtendedPayloadVersion0(listOfEncodedElements: [ObvEncoded]) -> Result<[NotificationAttachmentImage], ExtractReceivedExtendedPayloadOperationReasonForCancel> {
@@ -97,8 +113,16 @@ final class ExtractReceivedExtendedPayloadOperation: ContextualOperationWithSpec
         guard attachmentNumbers.count == listOfEncodedAttachmentNumbers.count else {
             return .failure(.decodingError)
         }
+        
+        let expectedAttachmentsCount: Int
+        switch input {
+        case .messageSentByContact(obvMessage: let obvMessage):
+            expectedAttachmentsCount = obvMessage.expectedAttachmentsCount
+        case .messageSentByOtherDeviceOfOwnedIdentity(obvOwnedMessage: let obvOwnedMessage):
+            expectedAttachmentsCount = obvOwnedMessage.expectedAttachmentsCount
+        }
 
-        guard let max = attachmentNumbers.max(), let min = attachmentNumbers.min(), max < obvMessage.expectedAttachmentsCount, min >= 0 else {
+        guard let max = attachmentNumbers.max(), let min = attachmentNumbers.min(), max < expectedAttachmentsCount, min >= 0 else {
             return .failure(.unexpectedAttachmentNumber)
         }
 

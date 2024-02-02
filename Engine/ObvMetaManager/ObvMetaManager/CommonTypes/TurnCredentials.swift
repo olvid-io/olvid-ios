@@ -31,18 +31,3 @@ public struct TurnCredentials {
         self.password2 = password2
     }
 }
-
-public struct TurnCredentialsWithTurnServers {
-    public let expiringUsername1: String
-    public let password1: String
-    public let expiringUsername2: String
-    public let password2: String
-    public let turnServersURL: [String]
-    public init(turnCredentials: TurnCredentials, turnServersURL: [String]) {
-        self.expiringUsername1 = turnCredentials.expiringUsername1
-        self.password1 = turnCredentials.password1
-        self.expiringUsername2 = turnCredentials.expiringUsername2
-        self.password2 = turnCredentials.password2
-        self.turnServersURL = turnServersURL
-    }
-}

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,6 +26,7 @@ import os.log
 import MobileCoreServices
 import ObvTypes
 import ObvUICoreData
+import ObvSettings
 
 
 struct UserNotificationKeys {
@@ -51,18 +52,14 @@ struct UserNotificationCreator {
         let ownedCryptoId: ObvCryptoId
         let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
         let contactCustomOrFullDisplayName: String
-        let receivedMessageIntentInfos: ReceivedMessageIntentInfos? // Only used for iOS14+
+        let receivedMessageIntentInfos: ReceivedMessageIntentInfos
         let discussionNotificationSound: NotificationSound?
         
         init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind, urlForStoringPNGThumbnail: URL?) {
             self.ownedCryptoId = contact.ownedIdentity.cryptoId
             self.discussionPermanentID = discussionKind.discussionPermanentID
             self.contactCustomOrFullDisplayName = contact.customOrFullDisplayName
-            if #available(iOS 14.0, *) {
-                receivedMessageIntentInfos = ReceivedMessageIntentInfos.init(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            } else {
-                receivedMessageIntentInfos = nil
-            }
+            receivedMessageIntentInfos = ReceivedMessageIntentInfos.init(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             discussionNotificationSound = discussionKind.localConfiguration.notificationSound
         }
         
@@ -97,11 +94,7 @@ struct UserNotificationCreator {
             notificationContent.userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] = infos.discussionPermanentID.description
             notificationContent.userInfo[UserNotificationKeys.callUUID] = callUUID.uuidString
 
-            if #available(iOS 14.0, *) {
-                if let receivedMessageIntentInfos = infos.receivedMessageIntentInfos {
-                    sendMessageIntent = IntentManager.getSendMessageIntentForMessageReceived(infos: receivedMessageIntentInfos, showGroupName: true)
-                }
-            }
+            sendMessageIntent = IntentManager.getSendMessageIntentForMessageReceived(infos: infos.receivedMessageIntentInfos, showGroupName: true)
 
             setNotificationSound(discussionNotificationSound: infos.discussionNotificationSound, notificationContent: notificationContent)
             
@@ -125,8 +118,7 @@ struct UserNotificationCreator {
 
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
-        if #available(iOS 15.0, *),
-           let sendMessageIntent = sendMessageIntent,
+        if let sendMessageIntent = sendMessageIntent,
            let updatedNotificationContent = try? notificationContent.updating(from: sendMessageIntent) {
             return (notificationId, updatedNotificationContent)
         } else {
@@ -189,7 +181,7 @@ struct UserNotificationCreator {
         let groupDiscussionTitle: String?
         let discussionNotificationSound: NotificationSound?
         public let isEphemeralMessageWithUserAction: Bool
-        let receivedMessageIntentInfos: ReceivedMessageIntentInfos? // Only used for iOS14+
+        let receivedMessageIntentInfos: ReceivedMessageIntentInfos
         let attachmentLocation: NotificationAttachmentLocation
         let attachmentsCount: Int
         let attachementImages: [NotificationAttachmentImage]?
@@ -213,11 +205,7 @@ struct UserNotificationCreator {
             }
             self.discussionNotificationSound = messageReceived.discussionKind.localConfiguration.notificationSound
             self.isEphemeralMessageWithUserAction = messageReceived.isReplyToAnotherMessage
-            if #available(iOS 14.0, *) {
-                self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            } else {
-                self.receivedMessageIntentInfos = nil
-            }
+            self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             self.attachmentLocation = attachmentLocation
             self.attachmentsCount = messageReceived.attachmentsCount
             self.attachementImages = messageReceived.attachementImages
@@ -248,11 +236,7 @@ struct UserNotificationCreator {
             }
             self.discussionNotificationSound = discussionKind.localConfiguration.notificationSound
             self.isEphemeralMessageWithUserAction = isEphemeralMessageWithUserAction
-            if #available(iOS 14.0, *) {
-                self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            } else {
-                self.receivedMessageIntentInfos = nil
-            }
+            self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
             self.attachmentLocation = attachmentLocation
             self.attachmentsCount = attachmentsCount
             self.attachementImages = attachementImages
@@ -313,11 +297,7 @@ struct UserNotificationCreator {
             notificationContent.userInfo[UserNotificationKeys.persistedContactPermanentIDDescription] = infos.contactPermanentID.description
             notificationContent.userInfo[UserNotificationKeys.messageIdentifierFromEngine] = infos.messageIdentifierFromEngine.hexString()
 
-            if #available(iOS 14.0, *) {
-                if let receivedMessageIntentInfos = infos.receivedMessageIntentInfos {
-                    incomingMessageIntent = IntentManager.getSendMessageIntentForMessageReceived(infos: receivedMessageIntentInfos, showGroupName: true)
-                }
-            }
+            incomingMessageIntent = IntentManager.getSendMessageIntentForMessageReceived(infos: infos.receivedMessageIntentInfos, showGroupName: true)
 
             setNotificationSound(discussionNotificationSound: infos.discussionNotificationSound, notificationContent: notificationContent)
 
@@ -348,8 +328,7 @@ struct UserNotificationCreator {
         
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
-        if #available(iOS 15.0, *),
-           let incomingMessageIntent = incomingMessageIntent,
+        if let incomingMessageIntent = incomingMessageIntent,
            let updatedNotificationContent = try? notificationContent.updating(from: incomingMessageIntent) {
             return (notificationId, updatedNotificationContent)
         } else {
@@ -395,16 +374,6 @@ struct UserNotificationCreator {
                 let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
                 notificationContent.title = Strings.AcceptGroupInvite.title
                 notificationContent.body = Strings.AcceptGroupInvite.body(contactDisplayName)
-            case .autoconfirmedContactIntroduction(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
-                let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-                let mediatorDisplayName = mediatorIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-                notificationContent.title = Strings.AutoconfirmedContactIntroduction.title
-                notificationContent.body = Strings.AutoconfirmedContactIntroduction.body(mediatorDisplayName, contactDisplayName)
-            case .increaseMediatorTrustLevelRequired(contactIdentity: let contactIdentity, mediatorIdentity: let mediatorIdentity):
-                let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-                let mediatorDisplayName = mediatorIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
-                notificationContent.title = Strings.IncreaseMediatorTrustLevelRequired.title
-                notificationContent.body = Strings.IncreaseMediatorTrustLevelRequired.body(mediatorDisplayName, contactDisplayName)
             case .oneToOneInvitationReceived(contactIdentity: let contactIdentity):
                 let contactDisplayName = contactIdentity.currentIdentityDetails.coreDetails.getDisplayNameWithStyle(.full)
                 notificationContent.title = Strings.AcceptOneToOneInvite.title
@@ -425,7 +394,7 @@ struct UserNotificationCreator {
                  .sasConfirmed,
                  .mediatorInviteAccepted,
                  .oneToOneInvitationSent,
-                 .increaseGroupOwnerTrustLevelRequired,
+                 .syncRequestReceivedFromOtherOwnedDevice,
                  .freezeGroupV2Invite:
                 // For now, we do not notify when receiving these dialogs
                 return nil
@@ -476,10 +445,6 @@ struct UserNotificationCreator {
             case .acceptGroupInvite:
                 notificationId = ObvUserNotificationIdentifier.acceptGroupInvite(persistedInvitationUUID: persistedInvitationUUID)
                 notificationContent.userInfo[UserNotificationKeys.persistedInvitationUUID] = persistedInvitationUUID.uuidString
-            case .autoconfirmedContactIntroduction:
-                notificationId = ObvUserNotificationIdentifier.autoconfirmedContactIntroduction(persistedInvitationUUID: persistedInvitationUUID)
-            case .increaseMediatorTrustLevelRequired:
-                notificationId = ObvUserNotificationIdentifier.increaseMediatorTrustLevelRequired(persistedInvitationUUID: persistedInvitationUUID)
             case .oneToOneInvitationReceived:
                 notificationId = ObvUserNotificationIdentifier.oneToOneInvitationReceived(persistedInvitationUUID: persistedInvitationUUID)
                 notificationContent.userInfo[UserNotificationKeys.persistedInvitationUUID] = persistedInvitationUUID.uuidString
@@ -491,7 +456,7 @@ struct UserNotificationCreator {
                  .sasConfirmed,
                  .mediatorInviteAccepted,
                  .oneToOneInvitationSent,
-                 .increaseGroupOwnerTrustLevelRequired,
+                 .syncRequestReceivedFromOtherOwnedDevice,
                  .freezeGroupV2Invite:
                 // For now, we do not notify when receiving these dialogs
                 return nil
@@ -560,7 +525,7 @@ struct UserNotificationCreator {
         let discussionNotificationSound: NotificationSound?
         let isEphemeralPersistedMessageSentWithLimitedVisibility: Bool
         let messageTextBody: String?
-        let receivedMessageIntentInfos: ReceivedMessageIntentInfos? // Only used for iOS14+
+        let receivedMessageIntentInfos: ReceivedMessageIntentInfos
 
         init(messageSent: PersistedMessageSent.Structure, contact: PersistedObvContactIdentity.Structure, urlForStoringPNGThumbnail: URL?) {
             let discussionKind = messageSent.discussionKind
@@ -572,11 +537,7 @@ struct UserNotificationCreator {
             self.discussionNotificationSound = discussionKind.localConfiguration.notificationSound
             self.isEphemeralPersistedMessageSentWithLimitedVisibility = messageSent.isEphemeralMessageWithLimitedVisibility
             self.messageTextBody = messageSent.textBody
-            if #available(iOS 14.0, *) {
-                self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
-            } else {
-                self.receivedMessageIntentInfos = nil
-            }
+            self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
         }
         
     }
@@ -607,12 +568,7 @@ struct UserNotificationCreator {
                 notificationContent.body = String.localizedStringWithFormat(NSLocalizedString("MESSAGE_REACTION_NOTIFICATION_%@", comment: ""), emoji)
             }
 
-            if #available(iOS 14.0, *), let receivedMessageIntentInfos = infos.receivedMessageIntentInfos {
-                sendMessageIntent = IntentManager.getSendMessageIntentForMessageReceived(infos: receivedMessageIntentInfos, showGroupName: false)
-            } else {
-                notificationContent.title = infos.contactCustomOrFullDisplayName
-                notificationContent.subtitle = ""
-            }
+            sendMessageIntent = IntentManager.getSendMessageIntentForMessageReceived(infos: infos.receivedMessageIntentInfos, showGroupName: false)
 
             let deepLink = ObvDeepLink.message(ownedCryptoId: infos.ownedCryptoId, objectPermanentID: infos.messagePermanentID.downcast)
             notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
@@ -641,8 +597,7 @@ struct UserNotificationCreator {
 
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
 
-        if #available(iOS 15.0, *),
-           let sendMessageIntent = sendMessageIntent,
+        if let sendMessageIntent = sendMessageIntent,
            let updatedNotificationContent = try? notificationContent.updating(from: sendMessageIntent) {
             return (notificationId, updatedNotificationContent)
         } else {
@@ -734,11 +689,7 @@ struct UserNotificationCreator {
         url.appendPathComponent(location)
         url.appendPathComponent(quality)
         url.appendPathComponent(String(attachmentNumber))
-        if #available(iOS 14.0, *) {
-            url.appendPathExtension(for: .jpeg)
-        } else {
-            url.appendPathExtension("jpeg")
-        }
+        url.appendPathExtension(for: .jpeg)
         return url
     }
 

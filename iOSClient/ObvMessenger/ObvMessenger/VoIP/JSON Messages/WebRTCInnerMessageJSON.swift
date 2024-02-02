@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -52,6 +52,7 @@ extension WebRTCInnerMessageJSON {
         return try decoder.decode(Self.self, from: data)
     }
 
+    /// The `callIdentifier` is the `uuidForWebRTC`
     func embedInWebRTCMessageJSON(callIdentifier: UUID) throws -> WebRTCMessageJSON {
         let serializedMessagePayloadAsData = try self.jsonEncode()
         guard let serializedMessagePayload = String(data: serializedMessagePayloadAsData, encoding: .utf8) else {
@@ -115,7 +116,7 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         }
     }
 
-    init(sessionDescriptionType: String, sessionDescription: String, turnUserName: String, turnPassword: String, turnServers: [String], participantCount: Int, groupIdentifier: GroupIdentifier?, gatheringPolicy: GatheringPolicy) throws {
+    init(sessionDescriptionType: String, sessionDescription: String, turnUserName: String, turnPassword: String, turnServers: [String], participantCount: Int, groupIdentifier: GroupIdentifier?, gatheringPolicy: OlvidCallGatheringPolicy) throws {
         self.sessionDescriptionType = sessionDescriptionType
         self.sessionDescription = sessionDescription
         self.turnUserName = turnUserName
@@ -145,7 +146,8 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
            let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner),
            let groupUid = UID(uid: groupUidRaw),
            let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            self.groupIdentifier = .groupV1(groupV1Identifier: (groupUid, groupOwner))
+            let groupIdentifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
+            self.groupIdentifier = .groupV1(groupV1Identifier: groupIdentifier)
         } else if let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier) {
             self.groupIdentifier = .groupV2(groupV2Identifier: groupV2Identifier)
         } else {
@@ -153,9 +155,9 @@ struct StartCallMessageJSON: WebRTCInnerMessageJSON {
         }
     }
 
-    var gatheringPolicy: GatheringPolicy? {
+    var gatheringPolicy: OlvidCallGatheringPolicy? {
         guard let rawGatheringPolicy = rawGatheringPolicy else { return nil }
-        return GatheringPolicy(rawValue: rawGatheringPolicy)
+        return OlvidCallGatheringPolicy(rawValue: rawGatheringPolicy)
     }
 
 }
@@ -270,7 +272,7 @@ struct NewParticipantOfferMessageJSON: WebRTCInnerMessageJSON {
         case rawGatheringPolicy = "gp"
     }
 
-    init(sessionDescriptionType: String, sessionDescription: String, gatheringPolicy: GatheringPolicy) throws {
+    init(sessionDescriptionType: String, sessionDescription: String, gatheringPolicy: OlvidCallGatheringPolicy) throws {
         self.sessionDescriptionType = sessionDescriptionType
         self.sessionDescription = sessionDescription
         guard let data = sessionDescription.data(using: .utf8) else { throw Self.makeError(message: "Could not compress session description") }
@@ -288,9 +290,9 @@ struct NewParticipantOfferMessageJSON: WebRTCInnerMessageJSON {
         self.rawGatheringPolicy = try values.decodeIfPresent(Int.self, forKey: .rawGatheringPolicy)
     }
 
-    var gatheringPolicy: GatheringPolicy? {
+    var gatheringPolicy: OlvidCallGatheringPolicy? {
         guard let rawGatheringPolicy = rawGatheringPolicy else { return nil }
-        return GatheringPolicy(rawValue: rawGatheringPolicy)
+        return OlvidCallGatheringPolicy(rawValue: rawGatheringPolicy)
     }
 }
 
@@ -357,6 +359,19 @@ struct RemoveIceCandidatesMessageJSON: WebRTCInnerMessageJSON {
 
     enum CodingKeys: String, CodingKey {
         case candidates = "cs"
+    }
+
+}
+
+
+struct AnsweredOrRejectedOnOtherDeviceMessageJSON: WebRTCInnerMessageJSON {
+    
+    var messageType: WebRTCMessageJSON.MessageType { .answeredOrRejectedOnOtherDevice }
+
+    let answered: Bool
+    
+    enum CodingKeys: String, CodingKey {
+        case answered = "ans"
     }
 
 }

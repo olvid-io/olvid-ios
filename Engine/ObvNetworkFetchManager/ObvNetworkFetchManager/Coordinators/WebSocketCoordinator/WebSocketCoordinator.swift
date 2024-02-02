@@ -46,6 +46,8 @@ actor WebSocketCoordinator: NSObject, ObvErrorMaker {
     /// - If the status is `.registered`, we should not send a register message as the identity is already registered.
     private var registerMessageStatusForIdentity = [ObvCryptoIdentity: RegisterMessageStatus]()
 
+    private var disconnectTimerForUUID = [UUID: Timer]()
+    
     private enum RegisterMessageStatus: CustomDebugStringConvertible {
         case registering
         case registered
@@ -234,9 +236,17 @@ extension WebSocketCoordinator: WebSocketDelegate {
         switch state {
         case .running:
             let pingTime = Date()
-            try await task.sendPing() // Returns when a pong is received
-            let interval = Date().timeIntervalSince(pingTime)
-            return (state, interval)
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(URLSessionTask.State,TimeInterval?), Error>) in
+                task.sendPing { error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                        return
+                    }
+                    // No error
+                    let interval = Date().timeIntervalSince(pingTime)
+                    continuation.resume(returning: (state, interval))
+                }
+            }
         default:
             return (state, nil)
         }
@@ -310,7 +320,26 @@ extension WebSocketCoordinator: WebSocketDelegate {
     /// a WebSocket (unless one is already available).
     private func tryConnectToWebSocketServer(of identity: ObvCryptoIdentity) {
                 
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("🏓 The Delegate Manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
         guard let infos = webSocketInfosForIdentity[identity] as? (deviceUid: UID, token: Data, webSocketServerURL: URL) else {
+
+            if webSocketInfosForIdentity[identity]?.token == nil {
+                Task.detached { [weak self] in
+                    do {
+                        let (serverSessionToken, _) = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: identity, currentInvalidToken: nil, flowId: FlowIdentifier())
+                        await self?.setServerSessionToken(to: serverSessionToken, for: identity)
+                    } catch {
+                        assertionFailure(error.localizedDescription)
+                    }
+                }
+            }
+            
             return
         }
         
@@ -481,17 +510,25 @@ extension WebSocketCoordinator: WebSocketDelegate {
                     disconnectFromWebSocketServerURL(webSocketServerURL)
                 case .invalidServerSession:
                     // Remove the server token from the infos
-                    var identityRequiringNewToken: ObvCryptoIdentity?
+                    var  requiringNewToken = [(ownedCryptoId: ObvCryptoIdentity, currentInvalidToken: Data)]()
                     for (identity, infos) in webSocketInfosForIdentity {
-                        if infos.webSocketServerURL == webSocketServerURL {
+                        if infos.webSocketServerURL == webSocketServerURL, let token = infos.token {
+                            requiringNewToken.append((identity, token))
                             webSocketInfosForIdentity[identity] = (infos.deviceUid, nil, infos.webSocketServerURL)
-                            identityRequiringNewToken = identity
                         }
                     }
                     // As for a new server session token
-                    if let identity = identityRequiringNewToken {
+                    for (identity, token) in requiringNewToken {
                         let flowId = FlowIdentifier()
-                        try delegateManager?.networkFetchFlowDelegate.serverSessionRequired(for: identity, flowId: flowId)
+                        let log = self.log
+                        Task.detached { [weak self] in
+                            do {
+                                _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: identity, currentInvalidToken: token, flowId: flowId)
+                            } catch {
+                                os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
+                                assertionFailure()
+                            }
+                        }
                     }
                     disconnectFromWebSocketServerURL(webSocketServerURL)
                 case .unknownError:
@@ -512,17 +549,23 @@ extension WebSocketCoordinator: WebSocketDelegate {
                 }
             }
         } else if let pushTopicMessage = try? PushTopicMessage(string: string) {
-            os_log("🏓 The server sent a keycloak topic message: %{public}@", log: log, type: .info, pushTopicMessage.topic)
+            os_log("🫸🏓 The server sent a keycloak topic message: %{public}@", log: log, type: .info, pushTopicMessage.topic)
             assert(delegateManager?.notificationDelegate != nil)
             if let notificationDelegate = delegateManager?.notificationDelegate {
                 ObvNetworkFetchNotificationNew.pushTopicReceivedViaWebsocket(pushTopic: pushTopicMessage.topic)
                     .postOnBackgroundQueue(within: notificationDelegate)
             }
         } else if let targetedKeycloakPushNotification = try? KeycloakTargetedPushNotification(string: string) {
-            os_log("🏓 The server sent a targeted keycloak push notification for identity: %{public}@", log: log, type: .info, targetedKeycloakPushNotification.identity.debugDescription)
+            os_log("🫸🏓 The server sent a targeted keycloak push notification for identity: %{public}@", log: log, type: .info, targetedKeycloakPushNotification.identity.debugDescription)
             assert(delegateManager?.notificationDelegate != nil)
             if let notificationDelegate = delegateManager?.notificationDelegate {
                 ObvNetworkFetchNotificationNew.keycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: targetedKeycloakPushNotification.identity)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+            }
+        } else if let ownedDeviceMessage = try? OwnedDevicesMessage(string: string) {
+            os_log("🏓 The server sent an OwnedDevicesMessage for identity: %{public}@", log: log, type: .info, ownedDeviceMessage.identity.debugDescription)
+            if let notificationDelegate = delegateManager?.notificationDelegate {
+                ObvNetworkFetchNotificationNew.ownedDevicesMessageReceivedViaWebsocket(ownedIdentity: ownedDeviceMessage.identity)
                     .postOnBackgroundQueue(within: notificationDelegate)
             }
         }
@@ -724,7 +767,7 @@ extension WebSocketCoordinator {
         pingRunningWebSocketsTimer = nil
     }
     
-    
+        
     /// This method executes a ping test for the web scoket task passed as a parameter.
     ///
     /// A ping test consists in sending a ping to the task. If the corresponding pong takes too much time to come back,
@@ -736,6 +779,7 @@ extension WebSocketCoordinator {
             os_log("🏓 Could not determine the server URL of the web socket on which we were asked to perform a ping test.", log: log, type: .error)
             return
         }
+        let timerUUID = UUID()
         let disconnectTimer = Timer(timeInterval: maxTimeIntervalAllowedForPingTest, repeats: false) { [weak self] timer in
             guard timer.isValid else { return }
             os_log("🏓 The disconnect timer fired, we disconnect the corresponding web socket task.", log: log, type: .error)
@@ -743,15 +787,26 @@ extension WebSocketCoordinator {
                 await self?.disconnectFromWebSocketServerURL(webSocketServerURL)
             }
         }
+        disconnectTimerForUUID[timerUUID] = disconnectTimer
         RunLoop.main.add(disconnectTimer, forMode: .common)
-        do {
-            try await webSocketTask.sendPing()
+        
+        webSocketTask.sendPing { [weak self] error in
+            if let error {
+                os_log("🏓 Ping failed with error: %{public}@. We disconnect the web socket task.", log: log, type: .error, error.localizedDescription)
+                Task { [weak self] in await self?.disconnectFromWebSocketServerURL(webSocketServerURL) }
+                return
+            }
+            // No error
             os_log("🏓 One pong received", log: log, type: .info)
-            disconnectTimer.invalidate()
-        } catch {
-            os_log("🏓 Ping failed with error: %{public}@. We disconnect the web socket task.", log: log, type: .error, error.localizedDescription)
-            disconnectFromWebSocketServerURL(webSocketServerURL)
+            Task { [weak self] in await self?.invalidateTimerWithUUID(timerUUID) }
         }
+        
+    }
+    
+    
+    private func invalidateTimerWithUUID(_ timerUUID: UUID) {
+        guard let timer = disconnectTimerForUUID.removeValue(forKey: timerUUID) else { return }
+        timer.invalidate()
     }
     
 }
@@ -1101,14 +1156,10 @@ fileprivate struct KeycloakTargetedPushNotification: Decodable, ObvErrorMaker {
         }
         let identityAsString = try values.decode(String.self, forKey: .identity)
         guard let identityAsData = Data(base64Encoded: identityAsString) else {
-            let message = "Could not parse the received identity"
-            let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-            throw NSError(domain: KeycloakTargetedPushNotification.errorDomain, code: 0, userInfo: userInfo)
+            throw Self.makeError(message: "Could not parse the received identity")
         }
         guard let identity = ObvCryptoIdentity(from: identityAsData) else {
-            let message = "Could not parse the received JSON"
-            let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-            throw NSError(domain: KeycloakTargetedPushNotification.errorDomain, code: 0, userInfo: userInfo)
+            throw Self.makeError(message: "Could not parse the received JSON")
         }
         self.identity = identity
     }
@@ -1122,34 +1173,36 @@ fileprivate struct KeycloakTargetedPushNotification: Decodable, ObvErrorMaker {
 }
 
 
+fileprivate struct OwnedDevicesMessage: Decodable, ObvErrorMaker {
 
-// MARK: - Extending URLSessionWebSocketTask to adopt async/await
+    static let errorDomain = "OwnedDevicesMessage"
+    let identity: ObvCryptoIdentity
 
-fileprivate extension URLSessionWebSocketTask {
-    
-    func send(_ message: URLSessionWebSocketTask.Message) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            send(message) { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
-                }
-            }
-        }
+    enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case identity = "identity"
     }
     
-    
-    func sendPing() async throws {
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            sendPing { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
-                }
-            }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let action = try values.decode(String.self, forKey: .action)
+        guard action == "ownedDevices" else {
+            throw Self.makeError(message: "Unexpected action. Expecting ownedDevices, got \(action)")
         }
+        let identityAsString = try values.decode(String.self, forKey: .identity)
+        guard let identityAsData = Data(base64Encoded: identityAsString) else {
+            throw Self.makeError(message: "Could not parse the received identity")
+        }
+        guard let identity = ObvCryptoIdentity(from: identityAsData) else {
+            throw Self.makeError(message: "Could not parse the received JSON")
+        }
+        self.identity = identity
     }
-    
+
+    init(string: String) throws {
+        guard let data = string.data(using: .utf8) else { assertionFailure(); throw Self.makeError(message: "The received JSON is not UTF8 encoded") }
+        let decoder = JSONDecoder()
+        self = try decoder.decode(OwnedDevicesMessage.self, from: data)
+    }
+
 }

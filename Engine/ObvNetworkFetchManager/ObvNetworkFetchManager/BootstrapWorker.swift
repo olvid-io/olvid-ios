@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -53,8 +53,8 @@ final class BootstrapWorker {
             assertionFailure()
             return
         }
+
         delegateManager.wellKnownCacheDelegate.initializateCache(flowId: flowId)
-        delegateManager.serverPushNotificationsDelegate.forceRegisteringOfServerPushNotificationsOnBootstrap(flowId: flowId)
     }
 
     
@@ -73,12 +73,17 @@ final class BootstrapWorker {
         
         os_log("FetchManager: application did become active", log: log, type: .info)
         guard let contextCreator = delegateManager.contextCreator else {
-            
             os_log("The Context Creator is not set", log: log, type: .fault)
             assertionFailure()
             return
         }
-
+        
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            os_log("The notification delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+        
         // These operations used to be scheduled in the `finalizeInitialization` method. In order to speed up the boot process, we schedule them here instead
         internalQueue.addOperation { [weak self] in
             self?.deleteOrphanedDatabaseObjects(flowId: flowId, log: log, contextCreator: contextCreator)
@@ -88,12 +93,15 @@ final class BootstrapWorker {
 
         if forTheFirstTime {
             internalQueue.addOperation { [weak self] in
+                self?.deleteAllWebSocketServerQueries(contextCreator: contextCreator, flowId: flowId, logOnFailure: log)
                 // We cannot call this method in the finalizeInitialization method because the generated notifications would not be received by the app
                 self?.rescheduleAllInboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
                 delegateManager.wellKnownCacheDelegate.downloadAndUpdateCache(flowId: flowId)
+                
+                self?.deletePendingServerQueryOfNonExistingOwnedIdentities(delegateManager: delegateManager, flowId: flowId)
                 self?.postAllPendingServerQuery(delegateManager: delegateManager, flowId: flowId)
                 self?.useExistingServerSessionTokenForWebsocketCoordinator(contextCreator: contextCreator, flowId: flowId)
-
+                self?.reNotifyAboutAPIKeyStatus(contextCreator: contextCreator, notificationDelegate: notificationDelegate, flowId: flowId)
             }
         }
         
@@ -120,10 +128,31 @@ final class BootstrapWorker {
 
 extension BootstrapWorker {
     
+    private func reNotifyAboutAPIKeyStatus(contextCreator: ObvCreateContextDelegate, notificationDelegate: ObvNotificationDelegate, flowId: FlowIdentifier) {
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+            do {
+                let serverSessions = try ServerSession.getAllServerSessions(within: obvContext.context).filter({ !$0.isDeleted })
+                for serverSession in serverSessions {
+                    guard let ownedCryptoId = try? serverSession.ownedCryptoIdentity else { assertionFailure(); continue }
+                    guard let apiKeyStatus = serverSession.apiKeyStatus, let apiPermissions = serverSession.apiPermissions else { continue }
+                    ObvNetworkFetchNotificationNew.newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(
+                        ownedIdentity: ownedCryptoId,
+                        apiKeyStatus: apiKeyStatus,
+                        apiPermissions: apiPermissions,
+                        apiKeyExpirationDate: serverSession.apiKeyExpirationDate)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+                }
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        }
+    }
+    
+    
     /// If a server session (with a valid token) can be found in DB at first launch, we pass this token to the websocket coordinator.
     private func useExistingServerSessionTokenForWebsocketCoordinator(contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) {
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            let ownedIdentitiesAndTokens = try? ServerSession.getAllTokens(within: obvContext)
+            let ownedIdentitiesAndTokens = try? ServerSession.getAllTokens(within: obvContext.context)
             ownedIdentitiesAndTokens?.forEach { (ownedCryptoId, token) in
                 Task { await delegateManager?.webSocketDelegate.setServerSessionToken(to: token, for: ownedCryptoId) }
             }
@@ -167,7 +196,7 @@ extension BootstrapWorker {
     
     private func reschedulePendingDeleteFromServers(flowId: FlowIdentifier, log: OSLog, delegateManager: ObvNetworkFetchDelegateManager, contextCreator: ObvCreateContextDelegate) {
         
-        var messageIdsWithPendingDeletes = [MessageIdentifier]()
+        var messageIdsWithPendingDeletes = [ObvMessageIdentifier]()
         
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
 
@@ -236,7 +265,7 @@ extension BootstrapWorker {
                             continue
                         }
                     }
-                    guard let messageId = msg.messageId else { assertionFailure(); continue }
+                    guard let messageId = msg.messageId else { assert(msg.isDeleted); continue }
                     delegateManager.networkFetchFlowDelegate.messagePayloadAndFromIdentityWereSet(messageId: messageId, attachmentIds: msg.attachmentIds, hasEncryptedExtendedMessagePayload: msg.hasEncryptedExtendedMessagePayload, flowId: flowId)
                 }
             }
@@ -348,6 +377,24 @@ extension BootstrapWorker {
     
     private func postAllPendingServerQuery(delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) {
         delegateManager.serverQueryDelegate.postAllPendingServerQuery(flowId: flowId)
+    }
+    
+    
+    private func deleteAllWebSocketServerQueries(contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier, logOnFailure: OSLog) {
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+            do {
+                try PendingServerQuery.deleteAllWebSocketServerQuery(within: obvContext)
+                guard obvContext.context.hasChanges else { return }
+                try obvContext.save(logOnFailure: logOnFailure)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        }
+    }
+    
+    
+    private func deletePendingServerQueryOfNonExistingOwnedIdentities(delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) {
+        delegateManager.serverQueryDelegate.deletePendingServerQueryOfNonExistingOwnedIdentities(flowId: flowId)
     }
     
 }

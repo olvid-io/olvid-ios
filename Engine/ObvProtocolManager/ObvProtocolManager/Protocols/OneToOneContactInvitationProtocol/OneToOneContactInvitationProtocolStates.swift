@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,19 +26,19 @@ extension OneToOneContactInvitationProtocol {
     
     enum StateId: Int, ConcreteProtocolStateId {
         
-        case Initial = 0
-        case InvitationSent = 1
-        case InvitationReceived = 2
-        case Finished = 3
-        case Cancelled = 4
+        case initial = 0
+        case invitationSent = 1
+        case invitationReceived = 2
+        case finished = 3
+        case cancelled = 4
 
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
-            case .Initial            : return ConcreteProtocolInitialState.self
-            case .InvitationSent     : return InvitationSentState.self
-            case .InvitationReceived : return InvitationReceivedState.self
-            case .Finished           : return FinishedState.self
-            case .Cancelled          : return CancelledState.self
+            case .initial            : return ConcreteProtocolInitialState.self
+            case .invitationSent     : return InvitationSentState.self
+            case .invitationReceived : return InvitationReceivedState.self
+            case .finished           : return FinishedState.self
+            case .cancelled          : return CancelledState.self
             }
         }
         
@@ -47,7 +47,7 @@ extension OneToOneContactInvitationProtocol {
     
     struct InvitationSentState: TypeConcreteProtocolState {
 
-        let id: ConcreteProtocolStateId = StateId.InvitationSent
+        let id: ConcreteProtocolStateId = StateId.invitationSent
 
         let contactIdentity: ObvCryptoIdentity
         let dialogUuid: UUID
@@ -72,7 +72,7 @@ extension OneToOneContactInvitationProtocol {
     
     struct InvitationReceivedState: TypeConcreteProtocolState {
 
-        let id: ConcreteProtocolStateId = StateId.InvitationReceived
+        let id: ConcreteProtocolStateId = StateId.invitationReceived
 
         let contactIdentity: ObvCryptoIdentity
         let dialogUuid: UUID
@@ -97,7 +97,7 @@ extension OneToOneContactInvitationProtocol {
     
     struct FinishedState: TypeConcreteProtocolState {
 
-        let id: ConcreteProtocolStateId = StateId.Finished
+        let id: ConcreteProtocolStateId = StateId.finished
 
         init(_: ObvEncoded) {}
 
@@ -110,7 +110,7 @@ extension OneToOneContactInvitationProtocol {
     
     struct CancelledState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.Cancelled
+        let id: ConcreteProtocolStateId = StateId.cancelled
         
         init(_: ObvEncoded) {}
         

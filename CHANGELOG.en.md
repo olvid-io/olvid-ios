@@ -1,5 +1,69 @@
 # Changelog
 
+## [1.3.1 (719)] - 2023-12-11
+
+- Bugfix release
+
+## [1.3 (716)] - 2023-12-08
+
+- Secure calls are now available on macOS!
+- The secure calls feature has a fresh new aesthetic, designed to enhance visual appeal across all devices and orientations.
+- Introducing a revamped interface for editing the nickname and custom photo of contacts or groups.
+- Enjoy the convenience of inviting all group members simultaneously with the new "Invite All" option.
+- Resolves an issue on macOS related to file imports using AirDrop.
+- Addresses various bugs concerning keycloak-managed users when the keycloak server is inaccessible.
+- Resolves a crash that occurred on certain iPhones when rotating the screen during an active discussion.
+- Fixes a bug that hindered secure calls from functioning when the device's local time was incorrect.
+- Various other minor bug fixes.
+
+## [1.2 (709)] - 2023-10-25
+
+- It is now possible to subscribe to the multi-device while adding a new device.
+- Fixes localization issues.
+- Fixes a bug sometimes provoking a crash in the background.
+- Fixes a few issues concerning groups (including enterprise managed groups).
+- Several fixes improving the multi-device experience.
+
+## [1.1 (705)] - 2023-10-15
+
+- Fully redesigned invitation tab!
+- Improves the onboarding process.
+- Fixes the authorization screen request access to the microphone.
+- Fixes an issue sometimes preventing to receive a code during an invitation process.
+
+## [1.0 (703)] - 2023-10-10
+
+- This is a major update! Welcome to Olvid v1.0 ;-)
+- You can now use the same profile on multiple devices simultaneously!
+- Start a conversation on your iPhone, continue it on your Mac, finish it on your iPad.
+- All your contacts, groups, and settings stay synchronized across all your devices.
+- Add a new contact on the go thanks to your iPhone, discuss with them from any device.
+- All your conversations stay end-to-end secured (end-to-end encrypted and end-to-end authenticated) across all your devices and those of your contacts.
+- Adding a new device to your list of devices is done in seconds thanks to a new, completely redesigned, secure, onboarding process!
+- Changing phone is now also done in seconds if you still have your old device at hand.
+
+## [0.12.12 (694)] - 2023-09-15
+
+- Ready for iOS 17!
+- You can drag and drop files from (and to) the discussion screen under iPadOS.
+- Fixes various typos in French.
+- Fixes an issue sometimes preventing a backup to be restored.
+- Fixes an issue sometimes preventing the finalization of the download of certain attachments.
+- Fixes a bug preventing copy/paste of text in the compose view.
+- Fixes an issue preventing a profile from taking advantage of another profile's permission to emit secure calls.
+- The list of trust origins is now displayed on a separate screen.
+- Adds an advanced setting allowing you to download missing profile pictures for contacts, groups, and personal profiles.
+
+## [0.12.11 (669)] - 2023-07-19
+
+- Fixes a bug preventing certain copy/paste in the composition field.
+- Updates the UI of the contact sheet.
+
+## [0.12.10 (666)] - 2023-07-11
+
+- Fixes a bug preventing the download of attachments under iOS 17 beta 3.
+- Other minor bugfixes
+
 ## [0.12.9 (661)] - 2023-05-22
 
 - Improves the new group protocol to prevent situations were group pending members would never become full members. Basically, Olvid works even better than before.

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,74 +39,66 @@ final class ProcessObvReturnReceiptOperation: ContextualOperationWithSpecificRea
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            cancel(withReason: .contextIsNil)
-            return
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        // Given the nonce and identity in the receipt, we fetch all the corresponding PersistedMessageSentRecipientInfos
+        
+        let allMsgSentRcptInfos: Set<PersistedMessageSentRecipientInfos>
+        do {
+            allMsgSentRcptInfos = try PersistedMessageSentRecipientInfos.get(withNonce: obvReturnReceipt.nonce, ownedCryptoId: ObvCryptoId(cryptoIdentity: obvReturnReceipt.identity), within: obvContext.context)
+        } catch let error {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
-
-        obvContext.performAndWait {
-
-            // Given the nonce and identity in the receipt, we fetch all the corresponding PersistedMessageSentRecipientInfos
-
-            let allMsgSentRcptInfos: Set<PersistedMessageSentRecipientInfos>
+        
+        guard !allMsgSentRcptInfos.isEmpty else {
+            return cancel(withReason: .couldNotFindAnyPersistedMessageSentRecipientInfosInDatabase)
+        }
+        
+        for infos in allMsgSentRcptInfos {
+            guard let elements = infos.returnReceiptElements else { assertionFailure(); continue }
+            let contactCryptoId: ObvCryptoId
+            let rawStatus: Int
+            let attachmentNumber: Int?
             do {
-                allMsgSentRcptInfos = try PersistedMessageSentRecipientInfos.get(withNonce: obvReturnReceipt.nonce, ownedCryptoId: ObvCryptoId(cryptoIdentity: obvReturnReceipt.identity), within: obvContext.context)
-            } catch let error {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+                (contactCryptoId, rawStatus, attachmentNumber) = try obvEngine.decryptPayloadOfObvReturnReceipt(obvReturnReceipt, usingElements: elements)
+            } catch {
+                os_log("Could not decrypt the return receipt encrypted payload: %{public}@", log: log, type: .error, error.localizedDescription)
+                continue
             }
-
-            guard !allMsgSentRcptInfos.isEmpty else {
-                return cancel(withReason: .couldNotFindAnyPersistedMessageSentRecipientInfosInDatabase)
+            guard let status = ReturnReceiptJSON.Status(rawValue: rawStatus) else {
+                os_log("Could not parse the status within the return receipt", log: log, type: .error)
+                continue
             }
-
-            for infos in allMsgSentRcptInfos {
-                guard let elements = infos.returnReceiptElements else { assertionFailure(); continue }
-                let contactCryptoId: ObvCryptoId
-                let rawStatus: Int
-                let attachmentNumber: Int?
-                do {
-                    (contactCryptoId, rawStatus, attachmentNumber) = try obvEngine.decryptPayloadOfObvReturnReceipt(obvReturnReceipt, usingElements: elements)
-                } catch {
-                    os_log("Could not decrypt the return receipt encrypted payload: %{public}@", log: log, type: .error, error.localizedDescription)
-                    continue
-                }
-                guard let status = ReturnReceiptJSON.Status(rawValue: rawStatus) else {
-                    os_log("Could not parse the status within the return receipt", log: log, type: .error)
-                    continue
-                }
-                guard contactCryptoId == infos.recipientCryptoId else {
-                    // The recipient do not concern the contact (but another contact of the discussion), so we continue the for loop
-                    continue
-                }
-                
-                // We have all the information we need to set the delivered or read timestamp for this sent message (and for its attachment if the attachment number if non nil)
-                
-                let messageSent = infos.messageSent
-                
-                if let attachmentNumber = attachmentNumber {
-                    switch status {
-                    case .delivered:
-                        messageSent.attachmentSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, at: obvReturnReceipt.timestamp, deliveredAttachmentNumber: attachmentNumber, andRead: false)
-                    case .read:
-                        messageSent.attachmentSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, at: obvReturnReceipt.timestamp, deliveredAttachmentNumber: attachmentNumber, andRead: true)
-                    }
-                } else {
-                    switch status {
-                    case .delivered:
-                        messageSent.messageSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, noLaterThan: obvReturnReceipt.timestamp, andRead: false)
-                    case .read:
-                        messageSent.messageSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, noLaterThan: obvReturnReceipt.timestamp, andRead: true)
-                    }
-                }
-                
-                // If we reach this point, we can break out of the loop since we updated an appropriate PersistedMessageSentRecipientInfos
-                break
+            guard contactCryptoId == infos.recipientCryptoId else {
+                // The recipient do not concern the contact (but another contact of the discussion), so we continue the for loop
+                continue
             }
+            
+            // We have all the information we need to set the delivered or read timestamp for this sent message (and for its attachment if the attachment number if non nil)
+            
+            let messageSent = infos.messageSent
+            
+            if let attachmentNumber = attachmentNumber {
+                switch status {
+                case .delivered:
+                    messageSent.attachmentSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, at: obvReturnReceipt.timestamp, deliveredAttachmentNumber: attachmentNumber, andRead: false)
+                case .read:
+                    messageSent.attachmentSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, at: obvReturnReceipt.timestamp, deliveredAttachmentNumber: attachmentNumber, andRead: true)
+                }
+            } else {
+                switch status {
+                case .delivered:
+                    messageSent.messageSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, noLaterThan: obvReturnReceipt.timestamp, andRead: false)
+                case .read:
+                    messageSent.messageSentWasDeliveredToRecipient(withCryptoId: contactCryptoId, noLaterThan: obvReturnReceipt.timestamp, andRead: true)
+                }
+            }
+            
+            // If we reach this point, we can break out of the loop since we updated an appropriate PersistedMessageSentRecipientInfos
+            break
         }
-
+        
     }
 
 }

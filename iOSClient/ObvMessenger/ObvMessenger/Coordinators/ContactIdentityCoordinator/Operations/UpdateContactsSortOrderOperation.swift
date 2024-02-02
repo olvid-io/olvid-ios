@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,8 @@ import os.log
 import ObvTypes
 import OlvidUtils
 import ObvUICoreData
+import CoreData
+import ObvSettings
 
 
 final class UpdateContactsSortOrderOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -35,39 +37,32 @@ final class UpdateContactsSortOrderOperation: ContextualOperationWithSpecificRea
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-
-            do {
+        do {
             
-                // Update the sort order of PersistedObvContactIdentity instances
-                
-                let persistedObvContactIdentites = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: .any, within: obvContext.context)
-                
-                for persistedObvContactIdentity in persistedObvContactIdentites {
-                    persistedObvContactIdentity.updateSortOrder(with: newSortOrder)
-                }
-                
-                // Update the sort order of PersistedGroupV2Member instances (some where already updated thanks to the update made to the PersistedObvContactIdentity instances, but not all)
-                
-                let persistedGroupV2Members = try PersistedGroupV2Member.getAllPersistedGroupV2MemberOfOwnedIdentity(with: ownedCryptoId, within: obvContext.context)
-                
-                for persistedGroupV2Member in persistedGroupV2Members {
-                    persistedGroupV2Member.updateNormalizedSortAndSearchKeys(with: newSortOrder)
-                }
-                                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+            // Update the sort order of PersistedObvContactIdentity instances
+            
+            let persistedObvContactIdentites = try PersistedObvContactIdentity.getAllContactOfOwnedIdentity(with: ownedCryptoId, whereOneToOneStatusIs: .any, within: obvContext.context)
+            
+            for persistedObvContactIdentity in persistedObvContactIdentites {
+                persistedObvContactIdentity.updateSortOrder(with: newSortOrder)
             }
             
-            ObvMessengerSettings.Interface.contactsSortOrder = newSortOrder
+            // Update the sort order of PersistedGroupV2Member instances (some where already updated thanks to the update made to the PersistedObvContactIdentity instances, but not all)
+            
+            let persistedGroupV2Members = try PersistedGroupV2Member.getAllPersistedGroupV2MemberOfOwnedIdentity(with: ownedCryptoId, within: obvContext.context)
+            
+            for persistedGroupV2Member in persistedGroupV2Members {
+                persistedGroupV2Member.updateNormalizedSortAndSearchKeys(with: newSortOrder)
+            }
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
+        ObvMessengerSettings.Interface.contactsSortOrder = newSortOrder
+        
     }
     
 }

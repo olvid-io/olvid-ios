@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -65,16 +65,20 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
 
                         // Determine the discussion kind
                         
+                        guard let discussion = info.messageSent.discussion else {
+                            throw Self.makeError(message: "Could not determine discussion")
+                        }
+                        
                         let discussionKind: PersistedDiscussion.Kind
                         do {
-                            discussionKind = try info.messageSent.discussion.kind
+                            discussionKind = try discussion.kind
                         } catch {
                             throw Self.makeError(message: "Could not determine discussion kind, cannot send infos")
                         }
                         
                         // Determine the owned identity
                         
-                        guard let ownedCryptoId = info.messageSent.discussion.ownedIdentity?.cryptoId else {
+                        guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else {
                             throw Self.makeError(message: "Could not determine owned identity")
                         }
                         

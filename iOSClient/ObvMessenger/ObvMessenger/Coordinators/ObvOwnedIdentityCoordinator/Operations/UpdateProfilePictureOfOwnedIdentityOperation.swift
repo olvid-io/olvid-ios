@@ -22,6 +22,7 @@ import OlvidUtils
 import os.log
 import ObvEngine
 import ObvUICoreData
+import CoreData
 
 
 final class UpdateProfilePictureOfOwnedIdentityOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -33,19 +34,14 @@ final class UpdateProfilePictureOfOwnedIdentityOperation: ContextualOperationWit
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
 
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+        do {
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvOwnedIdentity, within: obvContext.context) else { return }
+            persistedObvOwnedIdentity.updatePhotoURL(with: obvOwnedIdentity.publishedIdentityDetails.photoURL)
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
-            do {
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvOwnedIdentity, within: obvContext.context) else { return }
-                persistedObvOwnedIdentity.updatePhotoURL(with: obvOwnedIdentity.publishedIdentityDetails.photoURL)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-        }
     }
 }

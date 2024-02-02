@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,19 +27,19 @@ import ObvCrypto
 extension FullRatchetProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
-        case Initial = 0
-        case AliceEphemeralKey = 1
-        case BobEphemeralKeyAndK1 = 2
-        case AliceK2 = 3
-        case BobAck = 4
+        case initial = 0
+        case aliceEphemeralKey = 1
+        case bobEphemeralKeyAndK1 = 2
+        case aliceK2 = 3
+        case bobAck = 4
         
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .Initial              : return InitialMessage.self
-            case .AliceEphemeralKey    : return AliceEphemeralKeyMessage.self
-            case .BobEphemeralKeyAndK1 : return BobEphemeralKeyAndK1Message.self
-            case .AliceK2              : return AliceK2Message.self
-            case .BobAck               : return BobAckMessage.self
+            case .initial              : return InitialMessage.self
+            case .aliceEphemeralKey    : return AliceEphemeralKeyMessage.self
+            case .bobEphemeralKeyAndK1 : return BobEphemeralKeyAndK1Message.self
+            case .aliceK2              : return AliceK2Message.self
+            case .bobAck               : return BobAckMessage.self
             }
         }
         
@@ -49,7 +49,7 @@ extension FullRatchetProtocol {
     
     struct InitialMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.Initial
+        let id: ConcreteProtocolMessageId = MessageId.initial
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -81,7 +81,7 @@ extension FullRatchetProtocol {
     
     struct AliceEphemeralKeyMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.AliceEphemeralKey
+        let id: ConcreteProtocolMessageId = MessageId.aliceEphemeralKey
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -117,7 +117,7 @@ extension FullRatchetProtocol {
     
     struct BobEphemeralKeyAndK1Message: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.BobEphemeralKeyAndK1
+        let id: ConcreteProtocolMessageId = MessageId.bobEphemeralKeyAndK1
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -156,7 +156,7 @@ extension FullRatchetProtocol {
     
     struct AliceK2Message: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.AliceK2
+        let id: ConcreteProtocolMessageId = MessageId.aliceK2
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -191,7 +191,7 @@ extension FullRatchetProtocol {
     
     struct BobAckMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.BobAck
+        let id: ConcreteProtocolMessageId = MessageId.bobAck
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message

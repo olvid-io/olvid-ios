@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,64 +30,85 @@ extension GroupManagementProtocol {
     
     enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
-        case InitiateGroupCreation = 0
-        case NotifyMembersChanged = 1
-        case ProcessNewMembers = 2
-        case AddGroupMembers = 3
-        case RemoveGroupMembers = 4
-        case GetKicked = 5
-        case LeaveGroupJoined = 6
-        case ProcessGroupLeft = 7
-        case QueryGroupMembers = 8
-        case SendGroupMember = 9
-        case Reinvite = 10
-        case UpdateMembers = 11
+        case initiateGroupCreation = 0
+        case notifyMembersChanged = 1
+        case processNewMembers = 2
+        case addGroupMembers = 3
+        case removeGroupMembers = 4
+        case getKicked = 5
+        case leaveGroupJoined = 6
+        case processGroupLeft = 7
+        case queryGroupMembers = 8
+        case sendGroupMember = 9
+        case reinvite = 10
+        case updateMembers = 11
+        case disbandGroup = 12
+        case processPropagateDisbandGroupMessage = 13
+        case processPropagateGroupCreationMessage = 14
+        case processPropagateLeaveGroupMessage = 15
+        // For now, the ReinvitePendingMemberStep is not implemented
+        case processPropagateReinvitePendingMember = 17
 
-        case NotifyMembersChangedAfterPhotoUploading = 100 // Copy of NotifyMembersChanged
+        case notifyMembersChangedAfterPhotoUploading = 100 // Copy of NotifyMembersChanged
 
         
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             
             switch self {
                 
-            case .InitiateGroupCreation:
+            case .initiateGroupCreation:
                 let step = InitiateGroupCreationStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .NotifyMembersChanged:
+            case .notifyMembersChanged:
                 let step = NotifyMembersChangedStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessNewMembers:
+            case .processNewMembers:
                 let step = ProcessNewMembersStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .AddGroupMembers:
+            case .addGroupMembers:
                 let step = AddGroupMembersStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .RemoveGroupMembers:
+            case .removeGroupMembers:
                 let step = RemoveGroupMembersStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .GetKicked:
+            case .getKicked:
                 let step = GetKickedStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .LeaveGroupJoined:
+            case .leaveGroupJoined:
                 let step = LeaveGroupJoinedStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessGroupLeft:
+            case .processGroupLeft:
                 let step = ProcessGroupLeftStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .QueryGroupMembers:
+            case .queryGroupMembers:
                 let step = QueryGroupMembersStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .SendGroupMember:
+            case .sendGroupMember:
                 let step = SendGroupMemberStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .Reinvite:
+            case .reinvite:
                 let step = ReinviteStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .UpdateMembers:
+            case .updateMembers:
                 let step = UpdateMembersStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .NotifyMembersChangedAfterPhotoUploading:
+            case .notifyMembersChangedAfterPhotoUploading:
                 let step = NotifyMembersChangedAfterPhotoUploadingStep(from: concreteProtocol, and: receivedMessage)
+                return step
+            case .disbandGroup:
+                let step = DisbandGroupStep(from: concreteProtocol, and: receivedMessage)
+                return step
+            case .processPropagateDisbandGroupMessage:
+                let step = ProcessPropagateDisbandGroupMessageStep(from: concreteProtocol, and: receivedMessage)
+                return step
+            case .processPropagateGroupCreationMessage:
+                let step = ProcessPropagateGroupCreationMessageStep(from: concreteProtocol, and: receivedMessage)
+                return step
+            case .processPropagateLeaveGroupMessage:
+                let step = ProcessPropagateLeaveGroupMessageStep(from: concreteProtocol, and: receivedMessage)
+                return step
+            case .processPropagateReinvitePendingMember:
+                let step = ProcessPropagateReinvitePendingMemberStep(from: concreteProtocol, and: receivedMessage)
                 return step
             }
         }
@@ -171,7 +192,7 @@ extension GroupManagementProtocol {
                     let concreteMessage = GroupManagementProtocol.UploadGroupPhotoMessage.init(coreProtocolMessage: coreMessage, groupInformation: updatedGroupInformationWithPhoto.groupInformation)
                     let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: photoServerLabel, dataURL: updatedPhotoURL, dataKey: photoServerKey)
                     guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Error: %{public}@", log: log, type: .error, error.localizedDescription)
                     assertionFailure()
@@ -188,18 +209,21 @@ extension GroupManagementProtocol {
             
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
-                let concreteProtocolMessage = PropagateGroupCreationMessage(coreProtocolMessage: coreMessage, groupInformation: updatedGroupInformationWithPhoto.groupInformation, pendingGroupMembers: pendingGroupMembers)
+                let concreteProtocolMessage = PropagateGroupCreationMessage(
+                    coreProtocolMessage: coreMessage,
+                    groupInformation: updatedGroupInformationWithPhoto.groupInformation,
+                    pendingGroupMembers: pendingGroupMembers)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Post an invitation to each group member by starting a child GroupInvitationProtocol
             
             for contactIdentity in pendingGroupMembers.map({ $0.cryptoIdentity }) {
                 let childProtocolInstanceUid = UID.gen(with: prng)
-                let coreMessage = getCoreMessageForOtherLocalProtocol(otherCryptoProtocolId: .GroupInvitation,
+                let coreMessage = getCoreMessageForOtherLocalProtocol(otherCryptoProtocolId: .groupInvitation,
                                                                       otherProtocolInstanceUid: childProtocolInstanceUid)
                 // We only pass *pending* group members to the initial message of the GroupInvitationProtocol since, at this point, there are no proper members yet
                 let childProtocolInitialMessage = GroupInvitationProtocol.InitialMessage(coreProtocolMessage: coreMessage,
@@ -210,7 +234,7 @@ extension GroupManagementProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
@@ -323,12 +347,23 @@ extension GroupManagementProtocol {
             // Get the group structure from database
             
             let groupStructureOrNil: GroupStructure?
-            do {
-                groupStructureOrNil = try identityDelegate.getGroupJoinedStructure(ownedIdentity: ownedIdentity, groupUid: newGroupInformation.groupUid, groupOwner: newGroupInformation.groupOwnerIdentity, within: obvContext)
-            } catch {
-                os_log("Could not access the group in database", log: log, type: .error)
-                return CancelledState()
+            
+            if remoteIdentity == ownedIdentity {
+                do {
+                    groupStructureOrNil = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedIdentity, groupUid: newGroupInformation.groupUid, within: obvContext)
+                } catch {
+                    os_log("Could not access the group in database", log: log, type: .error)
+                    return CancelledState()
+                }
+            } else {
+                do {
+                    groupStructureOrNil = try identityDelegate.getGroupJoinedStructure(ownedIdentity: ownedIdentity, groupUid: newGroupInformation.groupUid, groupOwner: newGroupInformation.groupOwnerIdentity, within: obvContext)
+                } catch {
+                    os_log("Could not access the group in database", log: log, type: .error)
+                    return CancelledState()
+                }
             }
+            
 
             // If the group structure is nil, it means that we have not joined the group yet, which is not expected at this point.
             
@@ -339,11 +374,19 @@ extension GroupManagementProtocol {
             
             // If we reach this point, we can update the group
             
-            // Check that the group is one we joined, not one we own
             
-            guard groupStructure.groupType == .joined else {
-                os_log("The group is not one we joined", log: log, type: .error)
-                return CancelledState()
+            if remoteIdentity == ownedIdentity {
+                // Check that the group is one we joined, not one we own
+                guard groupStructure.groupType == .owned else {
+                    os_log("The group is not one we own", log: log, type: .error)
+                    return CancelledState()
+                }
+            } else {
+                // Check that the group is one we joined, not one we own
+                guard groupStructure.groupType == .joined else {
+                    os_log("The group is not one we joined", log: log, type: .error)
+                    return CancelledState()
+                }
             }
             
             // Check that the received member version is more recent than the one we already know about
@@ -360,11 +403,24 @@ extension GroupManagementProtocol {
             if newGroupDetails.photoServerKeyAndLabel != nil {
                 
                 let publishedDetailsWithPhoto: GroupInformationWithPhoto
-                do {
-                    publishedDetailsWithPhoto = try identityDelegate.getGroupJoinedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: newGroupInformation.groupUid, groupOwner: newGroupInformation.groupOwnerIdentity, within: obvContext)
-                } catch {
-                    os_log("Could not get details of published group", log: log, type: .error)
-                    return CancelledState()
+                if remoteIdentity == ownedIdentity {
+                    
+                    do {
+                        publishedDetailsWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: newGroupInformation.groupUid, within: obvContext)
+                    } catch {
+                        os_log("Could not get details of published group", log: log, type: .error)
+                        return CancelledState()
+                    }
+                    
+                } else {
+                    
+                    do {
+                        publishedDetailsWithPhoto = try identityDelegate.getGroupJoinedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: newGroupInformation.groupUid, groupOwner: newGroupInformation.groupOwnerIdentity, within: obvContext)
+                    } catch {
+                        os_log("Could not get details of published group", log: log, type: .error)
+                        return CancelledState()
+                    }
+
                 }
                 
                 let currentGroupDetailsElementsWithPhoto = publishedDetailsWithPhoto.groupDetailsElementsWithPhoto
@@ -377,7 +433,7 @@ extension GroupManagementProtocol {
                     
                     let childProtocolInstanceUid = UID.gen(with: prng)
                     let coreMessage = getCoreMessageForOtherLocalProtocol(
-                        otherCryptoProtocolId: .DownloadGroupPhoto,
+                        otherCryptoProtocolId: .downloadGroupPhoto,
                         otherProtocolInstanceUid: childProtocolInstanceUid)
                     let childProtocolInitialMessage = DownloadGroupPhotoChildProtocol.InitialMessage(
                         coreProtocolMessage: coreMessage,
@@ -386,40 +442,70 @@ extension GroupManagementProtocol {
                         assertionFailure()
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     
                 }
                 
                 
             }
 
-            
             // Update the details of the group with the new details
             
-            do {
-                try identityDelegate.updatePublishedDetailsOfContactGroupJoined(ownedIdentity: ownedIdentity,
-                                                                                groupInformation: newGroupInformation,
-                                                                                within: obvContext)
-            } catch {
-                os_log("Could not update published details of the contact group joined", log: log, type: .error)
-                // We do not return
+            if remoteIdentity == ownedIdentity {
+                
+                do {
+                    let groupDetailsElementsWithPhoto = GroupDetailsElementsWithPhoto(groupDetailsElements: newGroupInformation.groupDetailsElements, photoURL: nil)
+                    try identityDelegate.updateLatestDetailsOfContactGroupOwned(
+                        ownedIdentity: ownedIdentity,
+                        groupUid: newGroupInformation.groupUid,
+                        with: groupDetailsElementsWithPhoto,
+                        within: obvContext)
+                    try identityDelegate.publishLatestDetailsOfContactGroupOwned(ownedIdentity: ownedIdentity, groupUid: newGroupInformation.groupUid, within: obvContext)
+                } catch {
+                    os_log("Could not update latest details of the contact group owned", log: log, type: .error)
+                    // We do not return
+                }
+
+                do {
+                    try identityDelegate.updatePendingMembersAndGroupMembersOfContactGroupOwned(ownedIdentity: ownedIdentity,
+                                                                                                groupUid: newGroupInformation.groupUid,
+                                                                                                groupMembers: groupMembers,
+                                                                                                pendingGroupMembers: pendingMembers,
+                                                                                                groupMembersVersion: groupMembersVersion,
+                                                                                                within: obvContext)
+                } catch {
+                    os_log("Could not update pending members nor group members of the joined contact group", log: log, type: .error)
+                    // We do not return
+                }
+
+            } else {
+                do {
+                    try identityDelegate.updatePublishedDetailsOfContactGroupJoined(ownedIdentity: ownedIdentity,
+                                                                                    groupInformation: newGroupInformation,
+                                                                                    within: obvContext)
+                } catch {
+                    os_log("Could not update published details of the contact group joined", log: log, type: .error)
+                    // We do not return
+                }
+
+                // Update the pending members and the group members of the joined contact group
+                
+                do {
+                    try identityDelegate.updatePendingMembersAndGroupMembersOfContactGroupJoined(ownedIdentity: ownedIdentity,
+                                                                                                 groupUid: newGroupInformation.groupUid,
+                                                                                                 groupOwner: newGroupInformation.groupOwnerIdentity,
+                                                                                                 groupMembers: groupMembers,
+                                                                                                 pendingGroupMembers: pendingMembers,
+                                                                                                 groupMembersVersion: groupMembersVersion,
+                                                                                                 within: obvContext)
+                } catch {
+                    os_log("Could not update pending members nor group members of the joined contact group", log: log, type: .error)
+                    // We do not return
+                }
+
             }
 
-            // Update the pending members and the group members of the joined contact group
-            
-            do {
-                try identityDelegate.updatePendingMembersAndGroupMembersOfContactGroupJoined(ownedIdentity: ownedIdentity,
-                                                                                             groupUid: newGroupInformation.groupUid,
-                                                                                             groupOwner: newGroupInformation.groupOwnerIdentity,
-                                                                                             groupMembers: groupMembers,
-                                                                                             pendingGroupMembers: pendingMembers,
-                                                                                             groupMembersVersion: groupMembersVersion,
-                                                                                             within: obvContext)
-            } catch {
-                os_log("Could not update pending members nor group members of the joined contact group", log: log, type: .error)
-                // We do not return
-            }
-            
+
             // Return the new state
             
             return FinalState()
@@ -494,13 +580,13 @@ extension GroupManagementProtocol {
                 
                 let childProtocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
                 let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                                      cryptoProtocolId: .GroupManagement,
+                                                      cryptoProtocolId: .groupManagement,
                                                       protocolInstanceUid: childProtocolInstanceUid)
                 let childProtocolInitialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
                 guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: localPrng) else {
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: localPrng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: localPrng, within: obvContext)
                 
             }
             
@@ -544,7 +630,7 @@ extension GroupManagementProtocol {
             
             for contactIdentity in newGroupMembers {
                 let childProtocolInstanceUid = UID.gen(with: prng)
-                let coreMessage = getCoreMessageForOtherLocalProtocol(otherCryptoProtocolId: .GroupInvitation,
+                let coreMessage = getCoreMessageForOtherLocalProtocol(otherCryptoProtocolId: .groupInvitation,
                                                                       otherProtocolInstanceUid: childProtocolInstanceUid)
                 // Note that the initial message of the GroupInvitationProtocol expects the list of (pending) members to *not* include the group owned, i.e., *not* include the owned identity.
                 let childProtocolInitialMessage = GroupInvitationProtocol.InitialMessage(coreProtocolMessage: coreMessage,
@@ -555,7 +641,7 @@ extension GroupManagementProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             return FinalState()
@@ -630,13 +716,13 @@ extension GroupManagementProtocol {
                 
                 let childProtocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
                 let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                                      cryptoProtocolId: .GroupManagement,
+                                                      cryptoProtocolId: .groupManagement,
                                                       protocolInstanceUid: childProtocolInstanceUid)
                 let childProtocolInitialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
                 guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: localPrng) else {
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: localPrng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: localPrng, within: obvContext)
                 
             }
 
@@ -655,7 +741,7 @@ extension GroupManagementProtocol {
             
             for removedGroupMember in removedGroupMembers {
                 let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([removedGroupMember]), fromOwnedIdentity: ownedIdentity),
-                                                      cryptoProtocolId: .GroupManagement,
+                                                      cryptoProtocolId: .groupManagement,
                                                       protocolInstanceUid: protocolInstanceUid)
                 let concreteProtocolMessage = KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformation)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -663,7 +749,7 @@ extension GroupManagementProtocol {
                 }
                 
                 do {
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not notify member that she has been kicked out from group owned", log: log, type: .error)
                     // Continue
@@ -796,7 +882,7 @@ extension GroupManagementProtocol {
                 
                 let protocolInstanceUidForGroupManagement = groupInformation.associatedProtocolUid
                 let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([groupInformation.groupOwnerIdentity]), fromOwnedIdentity: ownedIdentity),
-                                                      cryptoProtocolId: .GroupManagement,
+                                                      cryptoProtocolId: .groupManagement,
                                                       protocolInstanceUid: protocolInstanceUidForGroupManagement)
                 let concreteProtocolMessage = GroupManagementProtocol.NotifyGroupLeftMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformation)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -805,12 +891,25 @@ extension GroupManagementProtocol {
                 }
                 
                 do {
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not notify the group owner that we wish to leave the group", log: log, type: .error)
                     return CancelledState()
                 }
 
+            }
+            
+            // Propagate to our other owned devices
+            
+            let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
+            
+            if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                let concreteProtocolMessage = PropagateLeaveGroupMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformation)
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Delete the group within the identity manager
@@ -900,13 +999,13 @@ extension GroupManagementProtocol {
                 
                 let childProtocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
                 let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                                      cryptoProtocolId: .GroupManagement,
+                                                      cryptoProtocolId: .groupManagement,
                                                       protocolInstanceUid: childProtocolInstanceUid)
                 let childProtocolInitialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
                 guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: localPrng) else {
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: localPrng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: localPrng, within: obvContext)
                 
             }
             
@@ -965,7 +1064,7 @@ extension GroupManagementProtocol {
             
             let protocolInstanceUidForGroupManagement = groupInformation.associatedProtocolUid
             let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([groupInformation.groupOwnerIdentity]), fromOwnedIdentity: ownedIdentity),
-                                                  cryptoProtocolId: .GroupManagement,
+                                                  cryptoProtocolId: .groupManagement,
                                                   protocolInstanceUid: protocolInstanceUidForGroupManagement)
             let concreteProtocolMessage = GroupManagementProtocol.QueryGroupMembersMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformation)
             guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -974,7 +1073,7 @@ extension GroupManagementProtocol {
             }
             
             do {
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not ask the group owner about the latest version of the group members", log: log, type: .error)
                 return CancelledState()
@@ -1044,7 +1143,7 @@ extension GroupManagementProtocol {
                     os_log("The remote identity asks for informations about a group that does not exists (it was deleted?). We kick this contact out.", log: log, type: .info)
                     
                     let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([remoteIdentity]), fromOwnedIdentity: ownedIdentity),
-                                                          cryptoProtocolId: .GroupManagement,
+                                                          cryptoProtocolId: .groupManagement,
                                                           protocolInstanceUid: protocolInstanceUid)
                     let concreteProtocolMessage = KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: receivedGroupInformation)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -1052,7 +1151,7 @@ extension GroupManagementProtocol {
                     }
                     
                     do {
-                        _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     } catch {
                         os_log("Could not notify a remote identity that she was kicked from a group owned (that we cannot find, maybe because it was deleted in the past).", log: log, type: .error)
                         // Continue
@@ -1098,7 +1197,7 @@ extension GroupManagementProtocol {
                 os_log("The remote identity is not part of the group members nor of the pending members. We kick this contact out.", log: log, type: .info)
                 
                 let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([remoteIdentity]), fromOwnedIdentity: ownedIdentity),
-                                                      cryptoProtocolId: .GroupManagement,
+                                                      cryptoProtocolId: .groupManagement,
                                                       protocolInstanceUid: protocolInstanceUid)
                 let concreteProtocolMessage = KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: receivedGroupInformation)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -1106,7 +1205,7 @@ extension GroupManagementProtocol {
                 }
                 
                 do {
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not notify a remote identity that she was kicked from a group owned she doesn't belong to anyway", log: log, type: .error)
                     // Continue
@@ -1130,7 +1229,7 @@ extension GroupManagementProtocol {
             
             let protocolInstanceUidForGroupManagement = receivedGroupInformation.associatedProtocolUid
             let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([remoteIdentity]), fromOwnedIdentity: ownedIdentity),
-                                                  cryptoProtocolId: .GroupManagement,
+                                                  cryptoProtocolId: .groupManagement,
                                                   protocolInstanceUid: protocolInstanceUidForGroupManagement)
             let concreteProtocolMessage = NewMembersMessage(coreProtocolMessage: coreMessage, groupInformation: latestGroupInformationWithPhoto.groupInformation, groupMembers: groupMembersWithCoreDetails, pendingMembers: groupStructure.pendingGroupMembers, groupMembersVersion: groupStructure.groupMembersVersion)
             guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -1139,7 +1238,7 @@ extension GroupManagementProtocol {
             }
             
             do {
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not send the latest version of the group members to a group member", log: log, type: .error)
                 return CancelledState()
@@ -1243,7 +1342,7 @@ extension GroupManagementProtocol {
             // In addtion to the previous message, we send an invite. If the member is aware that she is part of the group, this invite will be silently discarded. If she is not, the previous message will certain be useless, since we need to invite her first. This is what we do here.
 
             let childProtocolInstanceUid = UID.gen(with: prng)
-            let coreMessage = getCoreMessageForOtherLocalProtocol(otherCryptoProtocolId: .GroupInvitation,
+            let coreMessage = getCoreMessageForOtherLocalProtocol(otherCryptoProtocolId: .groupInvitation,
                                                                   otherProtocolInstanceUid: childProtocolInstanceUid)
             // Note that the InitialMessage below expects that the membersAndPendingGroupMembers does *not* contain the owned identity, i.e., does *not* contain the group owner
             let childProtocolInitialMessage = GroupInvitationProtocol.InitialMessage(coreProtocolMessage: coreMessage,
@@ -1255,7 +1354,7 @@ extension GroupManagementProtocol {
                 throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
             }
             do {
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not post a (local) initial message for the GroupInvitationProtocol", log: log, type: .fault)
                 return CancelledState()
@@ -1379,7 +1478,7 @@ extension GroupManagementProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not post NewMembersMessage", log: log, type: .fault)
                     return CancelledState()
@@ -1387,6 +1486,362 @@ extension GroupManagementProtocol {
             }
             
             return FinalState()
+        }
+    }
+
+    
+    // MARK: - DisbandGroupStep
+    
+    final class DisbandGroupStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: DisbandGroupMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: DisbandGroupMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .Local,
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
+
+            eraseReceivedMessagesAfterReachingAFinalState = false
+
+            let groupInformation = receivedMessage.groupInformation
+            
+            // Check that the group owner corresponds the owned identity of this protocol instance
+            
+            guard groupInformation.groupOwnerIdentity == ownedIdentity else {
+                os_log("The group owner does not correspond to the owned identity", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // Check that the protocol uid of this protocol corresponds to the group information
+            
+            guard protocolInstanceUid == groupInformation.associatedProtocolUid else {
+                os_log("The protocol instance uid does not correspond to the one associated with the group", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // Get the group structure from database
+            
+            let groupStructure: GroupStructure
+            do {
+                guard let _groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, within: obvContext) else {
+                    os_log("The group does not exist. This is unexpected since this step should never have been started in that case.", log: log, type: .error)
+                    return CancelledState()
+                }
+                groupStructure = _groupStructure
+            } catch {
+                os_log("Could not access the group in database", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // Send a KickFromGroupMessage to all members and pending members of the group
+
+            do {
+                let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: groupStructure.groupMembers, fromOwnedIdentity: ownedIdentity),
+                                                      cryptoProtocolId: .groupManagement,
+                                                      protocolInstanceUid: protocolInstanceUid)
+                let concreteProtocolMessage = KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformation)
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    return CancelledState()
+                }
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+            }
+            
+            do {
+                let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: groupStructure.pendingGroupMembersIdentities, fromOwnedIdentity: ownedIdentity),
+                                                      cryptoProtocolId: .groupManagement,
+                                                      protocolInstanceUid: protocolInstanceUid)
+                let concreteProtocolMessage = KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformation)
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    return CancelledState()
+                }
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+            }
+            
+            // Propagate the disband to our other owned devices
+            
+            let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
+            
+            if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                let concreteProtocolMessage = PropagateDisbandGroupMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformation)
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+            }
+
+            // Delete the group
+            
+            try identityDelegate.deleteContactGroupOwned(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, deleteEvenIfGroupMembersStillExist: true, within: obvContext)
+            
+            // Return the final state
+            
+            return FinalState()
+
+        }
+    }
+
+    
+    // MARK: - ProcessPropagateDisbandGroupMessageStep
+    
+    final class ProcessPropagateDisbandGroupMessageStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: PropagateDisbandGroupMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: PropagateDisbandGroupMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
+
+            eraseReceivedMessagesAfterReachingAFinalState = false
+
+            let groupInformation = receivedMessage.groupInformation
+            
+            // Check that the group owner corresponds the owned identity of this protocol instance
+            
+            guard groupInformation.groupOwnerIdentity == ownedIdentity else {
+                os_log("The group owner does not correspond to the owned identity", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // Check that the protocol uid of this protocol corresponds to the group information
+            
+            guard protocolInstanceUid == groupInformation.associatedProtocolUid else {
+                os_log("The protocol instance uid does not correspond to the one associated with the group", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // Delete the group
+            
+            try identityDelegate.deleteContactGroupOwned(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, deleteEvenIfGroupMembersStillExist: true, within: obvContext)
+            
+            // Return the final state
+
+            return FinalState()
+
+        }
+    }
+
+    
+    // MARK: - ProcessPropagateLeaveGroupMessageStep
+    
+    final class ProcessPropagateLeaveGroupMessageStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: PropagateLeaveGroupMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: PropagateLeaveGroupMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
+
+            eraseReceivedMessagesAfterReachingAFinalState = false
+
+            let groupInformation = receivedMessage.groupInformation
+            
+            // Check that the protocol uid of this protocol corresponds to the group information
+            
+            guard protocolInstanceUid == groupInformation.associatedProtocolUid else {
+                os_log("The protocol instance uid does not correspond to the one associated with the group", log: log, type: .error)
+                assertionFailure()
+                return CancelledState()
+            }
+
+            // Check that we are not the group owner
+            
+            guard groupInformation.groupOwnerIdentity != ownedIdentity else {
+                os_log("Trying to leave a group for which we are the group owned", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // Delete the group
+            
+            try identityDelegate.deleteContactGroupJoined(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, groupOwner: groupInformation.groupOwnerIdentity, within: obvContext)
+            
+            // Return the final state
+
+            return FinalState()
+
+        }
+    }
+    
+    
+    // MARK: - ProcessPropagateReinvitePendingMemberStep
+    
+    // Note: This step has been implemented on 2023-10-08 to maintain compatibility with the Android version of Olvid.
+    // The step sending the PropagateReinvitePendingMemberMessage has not been implemented yet under iOS.
+    
+    final class ProcessPropagateReinvitePendingMemberStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: PropagateReinvitePendingMemberMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: PropagateReinvitePendingMemberMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
+
+            eraseReceivedMessagesAfterReachingAFinalState = false
+
+            let groupInformation = receivedMessage.groupInformation
+            let pendingMemberIdentity = receivedMessage.pendingMemberIdentity
+
+            // Check that the group owner corresponds the owned identity of this protocol instance
+            
+            guard groupInformation.groupOwnerIdentity == ownedIdentity else {
+                os_log("The group owner does not correspond to the owned identity", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // Check that the protocol uid of this protocol corresponds to the group information
+            
+            guard protocolInstanceUid == groupInformation.associatedProtocolUid else {
+                os_log("The protocol instance uid does not correspond to the one associated with the group", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // Mark the pending member as "not declined"
+            
+            try identityDelegate.unmarkDeclinedPendingMemberAsDeclined(ownedIdentity: ownedIdentity, groupUid: groupInformation.groupUid, pendingMember: pendingMemberIdentity, within: obvContext)
+
+            return FinalState()
+
+        }
+    }
+
+    
+    // MARK: - ProcessPropagateGroupCreationMessageStep
+    
+    final class ProcessPropagateGroupCreationMessageStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: PropagateGroupCreationMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: PropagateGroupCreationMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: GroupManagementProtocol.logCategory)
+
+            eraseReceivedMessagesAfterReachingAFinalState = false
+
+            let groupInformation = receivedMessage.groupInformation
+            let pendingGroupMembers = receivedMessage.pendingGroupMembers
+            
+            // Check that the pending group members does not contain the owned identity
+            
+            guard !pendingGroupMembers.map({ $0.cryptoIdentity }).contains(ownedIdentity) else {
+                os_log("The group members contain the owned identity", log: log, type: .error)
+                assertionFailure()
+                return CancelledState()
+            }
+
+            // Check that the group owner corresponds the owned identity of this protocol instance
+            
+            guard groupInformation.groupOwnerIdentity == ownedIdentity else {
+                os_log("The group owner does not correspond to the owned identity", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // Check that the protocol uid of this protocol corresponds to the group information
+            
+            guard protocolInstanceUid == groupInformation.associatedProtocolUid else {
+                os_log("The protocol instance uid does not correspond to the one associated with the group", log: log, type: .error)
+                return CancelledState()
+            }
+            
+            // Create the ContactGroup in database
+
+            do {
+                // The createContactGroupOwned(...) returns an updated version of the GroupInformationWithPhoto instance
+                let groupInformationWithPhoto = GroupInformationWithPhoto(groupInformation: groupInformation, photoURL: nil)
+                _ = try identityDelegate.createContactGroupOwned(ownedIdentity: ownedIdentity,
+                                                                 groupInformationWithPhoto: groupInformationWithPhoto,
+                                                                 pendingGroupMembers: pendingGroupMembers,
+                                                                 within: obvContext)
+            } catch {
+                os_log("Could not create contact group", log: log, type: .error)
+                return CancelledState()
+            }
+
+            // If there is a group photo, download it now
+            
+            if groupInformation.groupDetailsElements.photoServerKeyAndLabel != nil {
+                do {
+                    let childProtocolInstanceUid = UID.gen(with: prng)
+                    let coreMessage = getCoreMessageForOtherLocalProtocol(
+                        otherCryptoProtocolId: .downloadGroupPhoto,
+                        otherProtocolInstanceUid: childProtocolInstanceUid)
+                    let childProtocolInitialMessage = DownloadGroupPhotoChildProtocol.InitialMessage(
+                        coreProtocolMessage: coreMessage,
+                        groupInformation: groupInformation)
+                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                } catch {
+                    os_log("Error: %{public}@", log: log, type: .error, error.localizedDescription)
+                    assertionFailure()
+                    // An error occured with the photo, this should not prevent group creation, so we do nothing
+                }
+            }
+
+            // Return the final state
+
+            return FinalState()
+
         }
     }
 
@@ -1468,10 +1923,10 @@ extension ProtocolStep {
                 let updatedGroupInformation = try groupInformation.withPhotoServerKeyAndLabel(photoServerKeyAndLabel)
 
                 let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: step.ownedIdentity))
-                let concreteMessage = GroupManagementProtocol.UploadGroupPhotoMessage.init(coreProtocolMessage: coreMessage, groupInformation: updatedGroupInformation)
+                let concreteMessage = GroupManagementProtocol.UploadGroupPhotoMessage(coreProtocolMessage: coreMessage, groupInformation: updatedGroupInformation)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: photoServerKeyAndLabel.label, dataURL: photoURL, dataKey: photoServerKeyAndLabel.key)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: step.prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: step.prng, within: obvContext)
 
             } catch {
                 os_log("Error: %{public}@", log: log, type: .error, error.localizedDescription)
@@ -1490,13 +1945,26 @@ extension ProtocolStep {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: step.prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: step.prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: step.prng, within: obvContext)
                 } catch {
                     os_log("Could not post NewMembersMessage", log: log, type: .fault)
                     return GroupManagementProtocol.CancelledState()
                 }
             }
             
+            // Also notify our other owned devices
+            
+            let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
+            
+            if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                let concreteProtocolMessage = GroupManagementProtocol.NewMembersMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformation, groupMembers: groupMembersWithCoreDetails, pendingMembers: groupStructure.pendingGroupMembers, groupMembersVersion: groupStructure.groupMembersVersion)
+                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                }
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+            }
+
         }
         
         // Return the new state

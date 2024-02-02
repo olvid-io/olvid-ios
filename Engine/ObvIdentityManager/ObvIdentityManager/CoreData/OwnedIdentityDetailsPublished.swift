@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -68,9 +68,14 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     }
     
     func getPhotoURL(identityPhotosDirectory: URL) -> URL? {
+        guard let url = getRawPhotoURL(identityPhotosDirectory: identityPhotosDirectory) else { return nil }
+        guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
+        return url
+    }
+
+    private func getRawPhotoURL(identityPhotosDirectory: URL) -> URL? {
         guard let photoFilename = photoFilename else { return nil }
         let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
-        guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
         return url
     }
 
@@ -84,10 +89,12 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     private var ownedCryptoIdOnDeletion: ObvCryptoIdentity?
 
     var photoServerKeyAndLabel: PhotoServerKeyAndLabel? {
-        guard let photoServerKeyEncoded = self.photoServerKeyEncoded else { return nil }
-        let obvEncoded = ObvEncoded(withRawData: photoServerKeyEncoded)!
-        guard let key = try? AuthenticatedEncryptionKeyDecoder.decode(obvEncoded) else { return nil }
-        guard let label = photoServerLabel else { return nil }
+        guard let photoServerKeyEncoded = self.photoServerKeyEncoded,
+              let obvEncoded = ObvEncoded(withRawData: photoServerKeyEncoded),
+              let key = try? AuthenticatedEncryptionKeyDecoder.decode(obvEncoded),
+              let label = photoServerLabel else {
+            return nil
+        }
         return PhotoServerKeyAndLabel(key: key, label: label)
     }
     
@@ -136,6 +143,22 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         self.version = backupItem.version
     }
     
+    
+    /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
+    fileprivate convenience init(snapshotNode: OwnedIdentityDetailsPublishedSyncSnapshotNode, with obvContext: ObvContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedIdentityDetailsPublished.entityName, in: obvContext)!
+        self.init(entity: entityDescription, insertInto: obvContext)
+        self.photoServerKeyEncoded = snapshotNode.photoServerKeyEncoded
+        self.photoServerLabel = snapshotNode.photoServerLabel
+        self.photoFilename = nil // This is ok
+        guard let serializedIdentityCoreDetails = snapshotNode.serializedIdentityCoreDetails,
+              let version = snapshotNode.version else {
+            throw OwnedIdentityDetailsPublishedSyncSnapshotNode.ObvError.tryingToRestoreIncompleteSnapshot
+        }
+        self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
+        self.version = version
+    }
+
     
     func delete(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         self.delegateManagerOnDeletion = delegateManager
@@ -230,7 +253,7 @@ extension OwnedIdentityDetailsPublished {
     }
     
 
-    func updateWithNewIdentityDetails(_ newIdentityDetails: ObvIdentityDetails, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
+    func updateWithNewIdentityDetails(_ newIdentityDetails: ObvIdentityDetails, delegateManager: ObvIdentityDelegateManager) throws {
         var detailsWereUpdated = false
         let currentCoreDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
         let newCoreDetails = newIdentityDetails.coreDetails
@@ -249,7 +272,52 @@ extension OwnedIdentityDetailsPublished {
             self.version += 1
         }
     }
+    
+    
+    /// Returns `true` if we need to download a new profile picture
+    func updateWithOtherDetailsIfNewer(otherDetails: IdentityDetailsElements, delegateManager: ObvIdentityDelegateManager) throws -> Bool {
+                
+        // first, check the received details are newer than our own details
+        
+        guard otherDetails.version > self.version else {
+            return false
+        }
+        
+        // The other details are more recent -> update the current details
+        
+        let currentCoreDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory).coreDetails
+        if otherDetails.coreDetails != currentCoreDetails {
+            self.serializedIdentityCoreDetails = try otherDetails.coreDetails.jsonEncode()
+        }
 
+        let photoDownloadNeeded: Bool
+        if otherDetails.photoServerKeyAndLabel != self.photoServerKeyAndLabel {
+            // The current photoServerKeyAndLabel must be discarded
+            if let newPhotoServerKeyAndLabel = otherDetails.photoServerKeyAndLabel {
+                // We have new photoServerKeyAndLabel. We keep them.
+                // We will request a download of the corresponding photo (for now, we keep the old one, it will soon be replaced)
+                set(photoServerKeyAndLabel: newPhotoServerKeyAndLabel)
+                photoDownloadNeeded = true
+            } else {
+                // The new photoServerKeyAndLabel are nil, meaning we should remove the current one and remove the photo
+                self.photoServerKeyEncoded = nil
+                self.labelToDelete = self.photoServerLabel
+                notificationRelatedChanges.insert(.photoServerLabel)
+                self.photoServerLabel = nil
+                _ = try setOwnedIdentityPhoto(with: nil, delegateManager: delegateManager)
+                photoDownloadNeeded = false
+            }
+        } else {
+            // The new photoServerKeyAndLabel are identical to the ones we have
+            photoDownloadNeeded = false
+        }
+        
+        self.version = otherDetails.version
+        
+        return photoDownloadNeeded
+    }
+
+    
     func set(photoServerKeyAndLabel: PhotoServerKeyAndLabel) {
         self.photoServerKeyEncoded = photoServerKeyAndLabel.key.obvEncode().rawData
         self.labelToDelete = self.photoServerLabel
@@ -278,6 +346,9 @@ extension OwnedIdentityDetailsPublished {
         static var withoutPhotoFilename: NSPredicate {
             NSPredicate(withNilValueForKey: Key.photoFilename)
         }
+        static var withPhotoFilename: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.photoFilename)
+        }
         static var withPhotoServerKey: NSPredicate {
             NSPredicate(withNonNilValueForKey: Key.photoServerKeyEncoded)
         }
@@ -294,6 +365,23 @@ extension OwnedIdentityDetailsPublished {
             NSPredicate(format: "%K == %@", Key.ownedIdentity.rawValue, ownedIdentity)
         }
     }
+    
+    
+    static func getInfosAboutOwnedIdentitiesHavingPhotoFilename(identityPhotosDirectory: URL, within obvContext: ObvContext) throws -> [(ownedCryptoId: ObvCryptoIdentity, ownedIdentityDetailsElements: IdentityDetailsElements, photoURL: URL)] {
+        let request: NSFetchRequest<OwnedIdentityDetailsPublished> = OwnedIdentityDetailsPublished.fetchRequest()
+        request.predicate = Predicate.withPhotoFilename
+        let items = try obvContext.fetch(request)
+        let results: [(ownedCryptoId: ObvCryptoIdentity, ownedIdentityDetailsElements: IdentityDetailsElements, photoURL: URL)] = items.compactMap { details in
+            guard let ownedCryptoId = details.ownedIdentity?.cryptoIdentity,
+                  let photoURL = details.getRawPhotoURL(identityPhotosDirectory: identityPhotosDirectory) else {
+                return nil
+            }
+            let ownedIdentityDetailsElements = details.getIdentityDetailsElements(identityPhotosDirectory: identityPhotosDirectory)
+            return (ownedCryptoId, ownedIdentityDetailsElements, photoURL)
+        }
+        return results
+    }
+
     
     static func getAllWithMissingPhotoFilename(within obvContext: ObvContext) throws -> [OwnedIdentityDetailsPublished] {
         let request: NSFetchRequest<OwnedIdentityDetailsPublished> = OwnedIdentityDetailsPublished.fetchRequest()
@@ -497,4 +585,127 @@ struct OwnedIdentityDetailsPublishedBackupItem: Codable, Hashable {
         // Nothing to do here
     }
 
+}
+
+
+// MARK: - For snapshot purposes
+
+extension OwnedIdentityDetailsPublished {
+    
+    var snapshotNode: OwnedIdentityDetailsPublishedSyncSnapshotNode {
+        return OwnedIdentityDetailsPublishedSyncSnapshotNode(serializedIdentityCoreDetails: serializedIdentityCoreDetails,
+                                                             photoServerKeyEncoded: photoServerKeyEncoded,
+                                                             photoServerLabel: photoServerLabel,
+                                                             version: version)
+    }
+    
+}
+
+
+struct OwnedIdentityDetailsPublishedSyncSnapshotNode: ObvSyncSnapshotNode {
+    
+    private let domain: Set<CodingKeys>
+    fileprivate let serializedIdentityCoreDetails: Data?
+    fileprivate let photoServerKeyEncoded: Data?
+    let photoServerLabel: UID?
+    fileprivate let version: Int?
+    
+    let id = Self.generateIdentifier()
+
+    private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
+
+
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        // Attributes inherited from OwnedIdentityDetails
+        case serializedIdentityCoreDetails = "serialized_details"
+        // Local attributes
+        case photoServerKeyEncoded = "photo_server_key"
+        case photoServerLabel = "photo_server_label"
+        case version = "version"
+        // Domain
+        case domain = "domain"
+    }
+
+    
+    fileprivate init(serializedIdentityCoreDetails: Data, photoServerKeyEncoded: Data?, photoServerLabel: UID?, version: Int) {
+        self.domain = Self.defaultDomain
+        self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
+        self.photoServerKeyEncoded = photoServerKeyEncoded
+        self.photoServerLabel = photoServerLabel
+        self.version = version
+    }
+    
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        // Domain
+        try container.encode(domain, forKey: .domain)
+        // Attributes inherited from OwnedIdentityDetails
+        if let serializedIdentityCoreDetails {
+            guard let serializedIdentityCoreDetailsAsString = String(data: serializedIdentityCoreDetails, encoding: .utf8) else {
+                throw ObvError.couldNotSerializeCoreDetails
+            }
+            try container.encode(serializedIdentityCoreDetailsAsString, forKey: .serializedIdentityCoreDetails)
+        }
+        // Local attributes
+        try container.encodeIfPresent(photoServerKeyEncoded, forKey: .photoServerKeyEncoded)
+        try container.encodeIfPresent(photoServerLabel?.raw, forKey: .photoServerLabel)
+        try container.encode(version, forKey: .version)
+    }
+    
+    
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        
+        let rawKeys = try values.decode(Set<String>.self, forKey: .domain)
+        self.domain = Set(rawKeys.compactMap({ CodingKeys(rawValue: $0) }))
+
+        // Attributes inherited from OwnedIdentityDetails
+        
+        if let serializedIdentityCoreDetailsAsString = try values.decodeIfPresent(String.self, forKey: .serializedIdentityCoreDetails) {
+            guard let serializedIdentityCoreDetailsAsData = serializedIdentityCoreDetailsAsString.data(using: .utf8) else {
+                throw ObvError.couldNotDeserializeCoreDetails
+            }
+            self.serializedIdentityCoreDetails = serializedIdentityCoreDetailsAsData
+        } else {
+            self.serializedIdentityCoreDetails = nil
+        }
+        
+        if let photoServerKeyEncoded = try? values.decodeIfPresent(Data.self, forKey: .photoServerKeyEncoded),
+           let photoServerLabelAsData = try? values.decodeIfPresent(Data.self, forKey: .photoServerLabel),
+           let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+            self.photoServerKeyEncoded = photoServerKeyEncoded
+            self.photoServerLabel = photoServerLabelAsUID
+        } else {
+            assert(!values.allKeys.contains(where: { $0 == .photoServerKeyEncoded }), "The key is present, but we did not manage to decode the value")
+            assert(!values.allKeys.contains(where: { $0 == .photoServerLabel }), "The key is present, but we did not manage to decode the value")
+            self.photoServerKeyEncoded = nil
+            self.photoServerLabel = nil
+        }
+        
+        self.version = try values.decodeIfPresent(Int.self, forKey: .version)
+    }
+    
+    
+    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        guard domain.contains(.serializedIdentityCoreDetails) && domain.contains(.version) else {
+            throw ObvError.tryingToRestoreIncompleteSnapshot
+        }
+        let ownedIdentityDetailsPublished = try OwnedIdentityDetailsPublished(snapshotNode: self, with: obvContext)
+        try associations.associate(ownedIdentityDetailsPublished, to: self)
+    }
+
+    
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+        // Nothing to do here
+    }
+
+    
+    enum ObvError: Error {
+        case tryingToRestoreIncompleteSnapshot
+        case couldNotSerializeCoreDetails
+        case couldNotDeserializeCoreDetails
+        case couldNotDeserializePhotoServerLabel
+    }
+    
 }

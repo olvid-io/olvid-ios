@@ -19,6 +19,7 @@
 
 import ObvUI
 import UIKit
+import ObvDesignSystem
 
 
 final class OlvidAlertViewController: UIViewController {
@@ -102,7 +103,7 @@ final class OlvidAlertViewController: UIViewController {
         buttonsStack.spacing = 8.0
                 
         buttonsStack.addArrangedSubview(primaryButton)
-        if #available(iOS 15, *) {
+        do {
             var configuration = UIButton.Configuration.filled()
             configuration.buttonSize = .large
             configuration.cornerStyle = .large
@@ -111,7 +112,7 @@ final class OlvidAlertViewController: UIViewController {
         primaryButton.addTarget(self, action: #selector(primaryButtonTapped), for: .touchUpInside)
 
         buttonsStack.addArrangedSubview(secondaryButton)
-        if #available(iOS 15, *) {
+        do {
             var configuration = UIButton.Configuration.gray()
             configuration.buttonSize = .large
             configuration.cornerStyle = .large

@@ -30,15 +30,17 @@ extension IdentityDetailsPublicationProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
         
-        case Initial = 0
-        case ServerPutPhoto = 1
-        case SendDetails = 2
+        case initial = 0
+        case serverPutPhoto = 1
+        case sendDetails = 2
+        case propagateOwnDetails = 3
         
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .Initial        : return InitialMessage.self
-            case .ServerPutPhoto : return ServerPutPhotoMessage.self
-            case .SendDetails    : return SendDetailsMessage.self
+            case .initial             : return InitialMessage.self
+            case .serverPutPhoto      : return ServerPutPhotoMessage.self
+            case .sendDetails         : return SendDetailsMessage.self
+            case .propagateOwnDetails : return PropagateOwnDetailsMessage.self
             }
         }
     }
@@ -48,7 +50,7 @@ extension IdentityDetailsPublicationProtocol {
     
     struct InitialMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.Initial
+        let id: ConcreteProtocolMessageId = MessageId.initial
         let coreProtocolMessage: CoreProtocolMessage
 
         let version: Int
@@ -74,7 +76,7 @@ extension IdentityDetailsPublicationProtocol {
     
     struct ServerPutPhotoMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.ServerPutPhoto
+        let id: ConcreteProtocolMessageId = MessageId.serverPutPhoto
         let coreProtocolMessage: CoreProtocolMessage
 
         var encodedInputs: [ObvEncoded] { return [] }
@@ -94,7 +96,7 @@ extension IdentityDetailsPublicationProtocol {
     
     struct SendDetailsMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.SendDetails
+        let id: ConcreteProtocolMessageId = MessageId.sendDetails
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactIdentityDetailsElements: IdentityDetailsElements
@@ -116,4 +118,35 @@ extension IdentityDetailsPublicationProtocol {
         }
 
     }
+    
+    
+    // MARK: - PropagateOwnDetailsMessage
+    
+    struct PropagateOwnDetailsMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.propagateOwnDetails
+        let coreProtocolMessage: CoreProtocolMessage
+        
+        let ownedIdentityDetailsElements: IdentityDetailsElements
+        
+        var encodedInputs: [ObvEncoded] {
+            get throws {
+                let encodedContactIdentityDetailsElements = try ownedIdentityDetailsElements.jsonEncode()
+                return [encodedContactIdentityDetailsElements.obvEncode()]
+            }
+        }
+        
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            let encodedContactIdentityDetailsElements: Data = try message.encodedInputs.obvDecode()
+            self.ownedIdentityDetailsElements = try IdentityDetailsElements(encodedContactIdentityDetailsElements)
+        }
+        
+        init(coreProtocolMessage: CoreProtocolMessage, ownedIdentityDetailsElements: IdentityDetailsElements) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.ownedIdentityDetailsElements = ownedIdentityDetailsElements
+        }
+
+    }
+
 }

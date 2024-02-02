@@ -23,6 +23,7 @@ import CoreGraphics
 import AVKit
 import PDFKit
 import ObvUICoreData
+import ObvSettings
 
 
 final class ThumbnailWorker: NSObject {
@@ -46,9 +47,9 @@ final class ThumbnailWorker: NSObject {
         var fileExtension: String {
             switch self {
             case .jpeg:
-                return ObvUTIUtils.jpegExtension()
+                return UTType.jpeg.preferredFilenameExtension ?? "jpeg"
             case .png:
-                return ObvUTIUtils.pngExtension()
+                return UTType.png.preferredFilenameExtension ?? "png"
             }
         }
     }

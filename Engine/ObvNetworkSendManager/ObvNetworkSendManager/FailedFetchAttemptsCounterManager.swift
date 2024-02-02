@@ -28,12 +28,12 @@ struct FailedFetchAttemptsCounterManager {
     private let queue = DispatchQueue(label: "FailedFetchAttemptsCounterManagerQueue")
     
     enum Counter {
-        case uploadMessage(messageId: MessageIdentifier)
-        case uploadAttachment(attachmentId: AttachmentIdentifier)
+        case uploadMessage(messageId: ObvMessageIdentifier)
+        case uploadAttachment(attachmentId: ObvAttachmentIdentifier)
     }
 
-    private var _uploadMessage = [MessageIdentifier: Int]()
-    private var _uploadAttachment = [AttachmentIdentifier: Int]()
+    private var _uploadMessage = [ObvMessageIdentifier: Int]()
+    private var _uploadAttachment = [ObvAttachmentIdentifier: Int]()
 
     mutating func incrementAndGetDelay(_ counter: Counter, increment: Int = 1) -> Int {
         var localCounter = 0

@@ -20,16 +20,16 @@ extension Target {
         resources: ProjectDescription.ResourceFileElements? = nil,
         copyFiles: [ProjectDescription.CopyFilesAction]? = nil,
         headers: ProjectDescription.Headers? = nil,
-        entitlements: ProjectDescription.Path? = nil,
+        entitlements: ProjectDescription.Entitlements? = nil,
         scripts: [ProjectDescription.TargetScript] = [],
         dependencies: [ProjectDescription.TargetDependency] = [],
         settings: ProjectDescription.Settings? = nil,
         coreDataModels: [ProjectDescription.CoreDataModel] = [],
-        environment: [String : String] = [:],
+        environmentVariables: [String : ProjectDescription.EnvironmentVariable] = [:],
         launchArguments: [ProjectDescription.LaunchArgument] = [],
         additionalFiles: [ProjectDescription.FileElement] = []
     ) -> Self {
-        return self.init(
+        return Self.init(
             name: name,
             platform: .iOS,
             product: product,
@@ -46,10 +46,9 @@ extension Target {
             dependencies: dependencies,
             settings: settings,
             coreDataModels: coreDataModels,
-            environment: environment,
+            environmentVariables: environmentVariables,
             launchArguments: launchArguments,
-            additionalFiles: additionalFiles
-        )
+            additionalFiles: additionalFiles)
     }
 
     public static func mainApp(
@@ -58,7 +57,7 @@ extension Target {
         infoPlist: InfoPlist,
         sources: SourceFilesList,
         resources: ResourceFileElements,
-        entitlements: Path,
+        entitlements: ProjectDescription.Entitlements,
         scripts: [ProjectDescription.TargetScript] = [],
         dependencies: [TargetDependency],
         settings: ProjectDescription.Settings,
@@ -114,7 +113,7 @@ extension Target {
         infoPlist: InfoPlist,
         sources: SourceFilesList,
         resources: ResourceFileElements,
-        entitlements: Path?,
+        entitlements: ProjectDescription.Entitlements?,
         dependencies: [TargetDependency],
         settings: Settings,
         coreDataModels: [ProjectDescription.CoreDataModel]

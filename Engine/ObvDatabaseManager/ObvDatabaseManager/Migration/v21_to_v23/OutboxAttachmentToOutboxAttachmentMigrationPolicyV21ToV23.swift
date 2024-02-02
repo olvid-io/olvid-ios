@@ -191,7 +191,7 @@ final class OutboxAttachmentToOutboxAttachmentMigrationPolicyV21ToV23: NSEntityM
                     let userInfo = [NSLocalizedFailureReasonErrorKey: message]
                     throw NSError(domain: errorDomain, code: 0, userInfo: userInfo)
                 }
-                guard MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid) != nil else {
+                guard ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid) != nil else {
                     let message = "Either rawMessageIdOwnedIdentity or rawMessageIdUid is not appropriate"
                     let userInfo = [NSLocalizedFailureReasonErrorKey: message]
                     throw NSError(domain: errorDomain, code: 0, userInfo: userInfo)

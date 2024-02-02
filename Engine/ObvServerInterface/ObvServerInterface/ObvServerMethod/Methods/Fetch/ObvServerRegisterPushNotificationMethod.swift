@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,60 +30,77 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
     static let log = OSLog(subsystem: "io.olvid.server.interface.ObvServerRegisterRemotePushNotificationMethod", category: "ObvServerInterface")
     
     public let pathComponent = "/registerPushNotification"
-
+    
     public var serverURL: URL { return toIdentity.serverURL }
-
     public let toIdentity: ObvCryptoIdentity
-
     public let ownedIdentity: ObvCryptoIdentity
-    private let token: Data
-    private let deviceUid: UID
+    private let pushNotification: ObvPushNotificationType
+    private let sessionToken: Data
     private let remoteNotificationByteIdentifierForServer: Data // One byte
-    private let deviceTokensAndmaskingUID: (pushToken: Data, voipToken: Data?, maskingUID: UID)?
-    private let parameters: ObvPushNotificationParameters    
-    public let isActiveOwnedIdentityRequired = false
     public let flowId: FlowIdentifier
-    private let keycloakPushTopics: [Data]
+    public let isActiveOwnedIdentityRequired = false
+    let prng: PRNGService
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
-
-    public init(ownedIdentity: ObvCryptoIdentity, token: Data, deviceUid: UID, remoteNotificationByteIdentifierForServer: Data, deviceTokensAndmaskingUID: (pushToken: Data, voipToken: Data?, maskingUID: UID)?, parameters: ObvPushNotificationParameters, keycloakPushTopics: Set<String>, flowId: FlowIdentifier) {
-        self.flowId = flowId
-        self.ownedIdentity = ownedIdentity
-        self.toIdentity = ownedIdentity
-        self.token = token
-        self.deviceUid = deviceUid
-        self.remoteNotificationByteIdentifierForServer = remoteNotificationByteIdentifierForServer
-        self.deviceTokensAndmaskingUID = deviceTokensAndmaskingUID
-        self.parameters = parameters
-        self.keycloakPushTopics = keycloakPushTopics.compactMap({ $0.data(using: .utf8) })
-    }
     
-    public enum PossibleReturnStatus: UInt8 {
+
+    public init(pushNotification: ObvPushNotificationType, sessionToken: Data, remoteNotificationByteIdentifierForServer: Data, flowId: FlowIdentifier, prng: PRNGService) {
+        self.pushNotification = pushNotification
+        self.sessionToken = sessionToken
+        self.remoteNotificationByteIdentifierForServer = remoteNotificationByteIdentifierForServer
+        self.flowId = flowId
+        self.toIdentity = pushNotification.ownedCryptoId
+        self.ownedIdentity = pushNotification.ownedCryptoId
+        self.prng = prng
+    }
+
+
+    public enum PossibleReturnStatus: UInt8, CustomDebugStringConvertible {
         case ok = 0x00
         case invalidSession = 0x04
         case anotherDeviceIsAlreadyRegistered = 0x0a
+        case deviceToReplaceIsNotRegistered = 0x0b
         case generalError = 0xff
+        
+        public var debugDescription: String {
+            switch self {
+            case .ok: return "ok"
+            case .invalidSession: return "invalidSession"
+            case .anotherDeviceIsAlreadyRegistered: return "anotherDeviceIsAlreadyRegistered"
+            case .deviceToReplaceIsNotRegistered: return "deviceToReplaceIsNotRegistered"
+            case .generalError: return "generalError"
+            }
+        }
+        
     }
     
+
     lazy public var dataToSend: Data? = {
-        let listOfEncodedKeycloakPushTopics = keycloakPushTopics.map({ $0.obvEncode() })
-        let encodedList: ObvEncoded
-        encodedList = [toIdentity.getIdentity().obvEncode(),
-                       token.obvEncode(),
-                       deviceUid.obvEncode(),
-                       remoteNotificationByteIdentifierForServer.obvEncode(),
-                       extraInfo,
-                       parameters.kickOtherDevices.obvEncode(),
-                       parameters.useMultiDevice.obvEncode(),
-                       listOfEncodedKeycloakPushTopics.obvEncode()].obvEncode()
+        let listOfEncodedKeycloakPushTopics = pushNotification.commonParameters.keycloakPushTopics.map({ $0.obvEncode() })
+        var listToEncode = [
+            toIdentity.getIdentity().obvEncode(), // 0
+            sessionToken.obvEncode(), // 1
+            pushNotification.currentDeviceUID.obvEncode(), // 2
+            pushNotification.remoteNotificationByteIdentifierForServer(from: remoteNotificationByteIdentifierForServer).obvEncode(), // 3
+            extraInfo, // 4
+            pushNotification.optionalParameter.reactivateCurrentDevice.obvEncode(), // 5
+            listOfEncodedKeycloakPushTopics.obvEncode(), // 6
+            DeviceNameUtils.encrypt(deviceName: pushNotification.commonParameters.deviceNameForFirstRegistration, for: ownedIdentity, using: prng).raw.obvEncode(), // 7
+        ]
+        if pushNotification.optionalParameter.reactivateCurrentDevice, let replacedDeviceUid = pushNotification.optionalParameter.replacedDeviceUid {
+            listToEncode.append(replacedDeviceUid.obvEncode()) // 8
+        }
+        let encodedList: ObvEncoded = listToEncode.obvEncode()
         return encodedList.rawData
     }()
 
+    
     lazy private var extraInfo: ObvEncoded = {
-        if let (pushToken, voipToken, maskingUID) = self.deviceTokensAndmaskingUID {
-            if let _voipToken = voipToken {
-                return [pushToken.obvEncode(), maskingUID.obvEncode(), _voipToken.obvEncode()].obvEncode()
+        if let remoteTypeParameters = pushNotification.remoteTypeParameters {
+            let pushToken = remoteTypeParameters.pushToken
+            let maskingUID = remoteTypeParameters.maskingUID
+            if let voipToken = remoteTypeParameters.voipToken {
+                return [pushToken.obvEncode(), maskingUID.obvEncode(), voipToken.obvEncode()].obvEncode()
             } else {
                 return [pushToken.obvEncode(), maskingUID.obvEncode()].obvEncode()
             }
@@ -91,6 +108,7 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
             return Data(repeating: 0x00, count: 0).obvEncode()
         }
     }()
+    
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {
         

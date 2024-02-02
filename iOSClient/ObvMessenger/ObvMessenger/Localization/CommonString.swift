@@ -45,6 +45,7 @@ extension CommonString.Word {
     static let Copy = NSLocalizedString("Copy", comment: "Copy word, capitalized")
     static let Create = NSLocalizedString("Create", comment: "Create word, capitalized")
     static let Date = NSLocalizedString("DATE", comment: "Date word, capitalized")
+    static let Deactivate = NSLocalizedString("DEACTIVATE", comment: "Deactivate word, capitalized")
     static let Debug = NSLocalizedString("Debug", comment: "Debug word, capitalized")
     static let Decline = NSLocalizedString("Decline", comment: "Decline word, capitalized")
     static let Default = NSLocalizedString("Default", comment: "Default word, capitalized")
@@ -128,7 +129,6 @@ extension CommonString.Word {
     static let VoIP = NSLocalizedString("VoIP", comment: "VoIP word, capitalized")
     static let Wiped = NSLocalizedString("Wiped", comment: "Wiped word, capitalized")
     static let Yes = NSLocalizedString("Yes", comment: "Yes word, capitalized")
-    static let You = NSLocalizedString("You", comment: "You word, capitalized")
 }
     
 extension CommonString {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,9 +27,9 @@ public struct ContactManagementProtocol: ConcreteCryptoProtocol {
     
     static let logCategory = "ContactManagementProtocol"
     
-    static let id = CryptoProtocolId.ContactManagement
+    static let id = CryptoProtocolId.contactManagement
     
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Final, StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.final, StateId.cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

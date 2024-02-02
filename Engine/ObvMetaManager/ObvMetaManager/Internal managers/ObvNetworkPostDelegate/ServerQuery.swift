@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,6 +37,38 @@ public struct ServerQuery {
 
 extension ServerQuery {
     
+    public var isWebSocket: Bool {
+        switch self.queryType {
+        case .deviceDiscovery,
+                .putUserData,
+                .getUserData,
+                .checkKeycloakRevocation,
+                .createGroupBlob,
+                .getGroupBlob,
+                .deleteGroupBlob,
+                .putGroupLog,
+                .requestGroupBlobLock,
+                .updateGroupBlob,
+                .getKeycloakData,
+                .ownedDeviceDiscovery,
+                .setOwnedDeviceName,
+                .deactivateOwnedDevice,
+                .setUnexpiringOwnedDevice:
+            return false
+        case .sourceGetSessionNumber,
+                .sourceWaitForTargetConnection,
+                .targetSendEphemeralIdentity,
+                .transferRelay,
+                .closeWebsocketConnection,
+                .transferWait:
+            return true
+        }
+    }
+    
+}
+
+extension ServerQuery {
+    
     public enum QueryType {
         case deviceDiscovery(of: ObvCryptoIdentity)
         case putUserData(label: UID, dataURL: URL, dataKey: AuthenticatedEncryptionKey)
@@ -49,7 +81,26 @@ extension ServerQuery {
         case requestGroupBlobLock(groupIdentifier: GroupV2.Identifier, lockNonce: Data, signature: Data)
         case updateGroupBlob(groupIdentifier: GroupV2.Identifier, encodedServerAdminPublicKey: ObvEncoded, encryptedBlob: EncryptedData, lockNonce: Data, signature: Data)
         case getKeycloakData(serverURL: URL, serverLabel: UID)
+        case ownedDeviceDiscovery
+        case setOwnedDeviceName(ownedDeviceUID: UID, encryptedOwnedDeviceName: EncryptedData, isCurrentDevice: Bool)
+        case deactivateOwnedDevice(ownedDeviceUID: UID, isCurrentDevice: Bool)
+        case setUnexpiringOwnedDevice(ownedDeviceUID: UID)
+        case sourceGetSessionNumber(protocolInstanceUID: UID)
+        case sourceWaitForTargetConnection(protocolInstanceUID: UID)
+        case targetSendEphemeralIdentity(protocolInstanceUID: UID, transferSessionNumber: ObvOwnedIdentityTransferSessionNumber, payload: Data)
+        case transferRelay(protocolInstanceUID: UID, connectionIdentifier: String, payload: Data, thenCloseWebSocket: Bool)
+        case transferWait(protocolInstanceUID: UID, connectionIdentifier: String)
+        case closeWebsocketConnection(protocolInstanceUID: UID)
 
+        
+        public var isCheckKeycloakRevocation: Bool {
+            switch self {
+            case .checkKeycloakRevocation:
+                return true
+            default: return false
+            }
+        }
+        
 
         private var rawValue: Int {
             switch self {
@@ -75,6 +126,26 @@ extension ServerQuery {
                 return 9
             case .getKeycloakData:
                 return 10
+            case .ownedDeviceDiscovery:
+                return 11
+            case .setOwnedDeviceName:
+                return 12
+            case .deactivateOwnedDevice:
+                return 13
+            case .setUnexpiringOwnedDevice:
+                return 14
+            case .sourceGetSessionNumber:
+                return 15
+            case .sourceWaitForTargetConnection:
+                return 16
+            case .targetSendEphemeralIdentity:
+                return 17
+            case .transferRelay:
+                return 18
+            case .transferWait:
+                return 19
+            case .closeWebsocketConnection:
+                return 20
             }
         }
         
@@ -102,6 +173,26 @@ extension ServerQuery {
                 return [rawValue.obvEncode(), groupIdentifier.obvEncode(), encodedServerAdminPublicKey, encryptedBlob.obvEncode(), lockNonce.obvEncode(), signature.obvEncode()].obvEncode()
             case .getKeycloakData(serverURL: let serverURL, serverLabel: let serverLabel):
                 return [rawValue, serverURL, serverLabel].obvEncode()
+            case .ownedDeviceDiscovery:
+                return [rawValue].obvEncode()
+            case .setOwnedDeviceName(ownedDeviceUID: let ownedDeviceUID, encryptedOwnedDeviceName: let encryptedOwnedDeviceName, isCurrentDevice: let isCurrentDevice):
+                return [rawValue.obvEncode(), ownedDeviceUID.obvEncode(), encryptedOwnedDeviceName.obvEncode(), isCurrentDevice.obvEncode()].obvEncode()
+            case .deactivateOwnedDevice(ownedDeviceUID: let ownedDeviceUID, isCurrentDevice: let isCurrentDevice):
+                return [rawValue.obvEncode(), ownedDeviceUID.obvEncode(), isCurrentDevice.obvEncode()].obvEncode()
+            case .setUnexpiringOwnedDevice(ownedDeviceUID: let ownedDeviceUID):
+                return [rawValue.obvEncode(), ownedDeviceUID.obvEncode()].obvEncode()
+            case .sourceGetSessionNumber(protocolInstanceUID: let protocolInstanceUID):
+                return [rawValue, protocolInstanceUID].obvEncode()
+            case .sourceWaitForTargetConnection(protocolInstanceUID: let protocolInstanceUID):
+                return [rawValue, protocolInstanceUID].obvEncode()
+            case .targetSendEphemeralIdentity(protocolInstanceUID: let protocolInstanceUID, transferSessionNumber: let transferSessionNumber, payload: let payload):
+                return [rawValue, protocolInstanceUID, transferSessionNumber, payload].obvEncode()
+            case .transferRelay(protocolInstanceUID: let protocolInstanceUID, connectionIdentifier: let connectionIdentifier, payload: let payload, thenCloseWebSocket: let thenCloseWebSocket):
+                return [rawValue, protocolInstanceUID, connectionIdentifier, payload, thenCloseWebSocket].obvEncode()
+            case .transferWait(protocolInstanceUID: let protocolInstanceUID, connectionIdentifier: let connectionIdentifier):
+                return [rawValue, protocolInstanceUID, connectionIdentifier].obvEncode()
+            case .closeWebsocketConnection(protocolInstanceUID: let protocolInstanceUID):
+                return [rawValue, protocolInstanceUID].obvEncode()
             }
         }
         
@@ -169,6 +260,54 @@ extension ServerQuery {
                 guard let serverURL = URL(listOfEncoded[1]) else { assertionFailure(); return nil }
                 guard let serverLabel = UID(listOfEncoded[2]) else { assertionFailure(); return nil }
                 self = .getKeycloakData(serverURL: serverURL, serverLabel: serverLabel)
+            case 11:
+                guard listOfEncoded.count == 1 else { return nil }
+                self = .ownedDeviceDiscovery
+            case 12:
+                guard listOfEncoded.count == 4 else { return nil }
+                guard let ownedDeviceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
+                guard let encryptedOwnedDeviceName = EncryptedData(listOfEncoded[2]) else { assertionFailure(); return nil }
+                guard let isCurrentDevice = Bool(listOfEncoded[3]) else { assertionFailure(); return nil }
+                self = .setOwnedDeviceName(ownedDeviceUID: ownedDeviceUID, encryptedOwnedDeviceName: encryptedOwnedDeviceName, isCurrentDevice: isCurrentDevice)
+            case 13:
+                guard listOfEncoded.count == 3 else { return nil }
+                guard let ownedDeviceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
+                guard let isCurrentDevice = Bool(listOfEncoded[2]) else { assertionFailure(); return nil }
+                self = .deactivateOwnedDevice(ownedDeviceUID: ownedDeviceUID, isCurrentDevice: isCurrentDevice)
+            case 14:
+                guard listOfEncoded.count == 2 || listOfEncoded.count == 3 else { return nil } // 3, for legacy reasons
+                guard let ownedDeviceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
+                self = .setUnexpiringOwnedDevice(ownedDeviceUID: ownedDeviceUID)
+            case 15:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let protocolInstanceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
+                self = .sourceGetSessionNumber(protocolInstanceUID: protocolInstanceUID)
+            case 16:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let protocolInstanceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
+                self = .sourceWaitForTargetConnection(protocolInstanceUID: protocolInstanceUID)
+            case 17:
+                guard listOfEncoded.count == 4 else { return nil }
+                guard let protocolInstanceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
+                guard let transferSessionNumber = ObvOwnedIdentityTransferSessionNumber(listOfEncoded[2]) else { assertionFailure(); return nil }
+                guard let payload = Data(listOfEncoded[3]) else { assertionFailure(); return nil }
+                self = .targetSendEphemeralIdentity(protocolInstanceUID: protocolInstanceUID, transferSessionNumber: transferSessionNumber, payload: payload)
+            case 18:
+                guard listOfEncoded.count == 5 else { return nil }
+                guard let protocolInstanceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
+                guard let connectionIdentifier = String(listOfEncoded[2]) else { assertionFailure(); return nil }
+                guard let payload = Data(listOfEncoded[3]) else { assertionFailure(); return nil }
+                guard let thenCloseWebSocket = Bool(listOfEncoded[4]) else { assertionFailure(); return nil }
+                self = .transferRelay(protocolInstanceUID: protocolInstanceUID, connectionIdentifier: connectionIdentifier, payload: payload, thenCloseWebSocket: thenCloseWebSocket)
+            case 19:
+                guard listOfEncoded.count == 3 else { return nil }
+                guard let protocolInstanceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
+                guard let connectionIdentifier = String(listOfEncoded[2]) else { assertionFailure(); return nil }
+                self = .transferWait(protocolInstanceUID: protocolInstanceUID, connectionIdentifier: connectionIdentifier)
+            case 20:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let protocolInstanceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
+                self = .closeWebsocketConnection(protocolInstanceUID: protocolInstanceUID)
             default:
                 assertionFailure()
                 return nil

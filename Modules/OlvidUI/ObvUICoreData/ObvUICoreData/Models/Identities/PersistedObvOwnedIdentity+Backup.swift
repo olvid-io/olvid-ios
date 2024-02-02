@@ -50,7 +50,7 @@ public extension PersistedObvOwnedIdentityBackupItem {
             throw PersistedObvOwnedIdentityBackupItem.makeError(message: "Could not find owned identity corresponding to backup item")
         }
         ownedIdentity.isBeingRestoredFromBackup = true
-        ownedIdentity.setOwnedCustomDisplayName(to: customDisplayName)
+        _ = ownedIdentity.setOwnedCustomDisplayName(to: customDisplayName)
         if let hiddenProfileHash, let hiddenProfileSalt {
             ownedIdentity.setHiddenProfileHashAndSaltDuringBackupRestore(hash: hiddenProfileHash, salt: hiddenProfileSalt)
         }

@@ -42,6 +42,8 @@ class InitializationFailureViewController: UIViewController {
         }
     }
     
+    override var canBecomeFirstResponder: Bool { true }
+    
     private var errorMessage: String? {
         guard let error = self.error else { return nil }
         let exactModel = UIDevice.current.exactModel

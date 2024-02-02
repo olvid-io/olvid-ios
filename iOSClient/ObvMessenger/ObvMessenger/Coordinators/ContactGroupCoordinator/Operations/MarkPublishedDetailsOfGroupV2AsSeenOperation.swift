@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,8 @@ import Foundation
 import OlvidUtils
 import ObvTypes
 import ObvUICoreData
+import CoreData
+
 
 final class MarkPublishedDetailsOfGroupV2AsSeenOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
@@ -32,20 +34,13 @@ final class MarkPublishedDetailsOfGroupV2AsSeenOperation: ContextualOperationWit
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            do {
-                let group = try PersistedGroupV2.get(objectID: groupV2ObjectID, within: obvContext.context)
-                group?.markPublishedDetailsAsSeen()
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
+        do {
+            let group = try PersistedGroupV2.get(objectID: groupV2ObjectID, within: obvContext.context)
+            group?.markPublishedDetailsAsSeen()
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

@@ -19,6 +19,8 @@
 
 import UIKit
 import ObvTypes
+import ObvEngine
+import ObvUICoreData
 
 protocol ObvSubTabBarControllerDelegate: AnyObject {
     var currentOwnedCryptoId: ObvCryptoId { get }
@@ -65,21 +67,6 @@ final class ObvSubTabBarController: UITabBarController, ObvSubTabBarDelegate, Ol
         return menu
     }
 
-    @available(iOS, introduced: 13, deprecated: 14, message: "Use provideMenu() instead")
-    func provideAlertActions() -> [UIAlertAction] {
-        let actions: [UIAlertAction] = [
-            UIAlertAction(title: Strings.showBackupScreen, style: .default) { _ in
-                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .backupSettings)
-                    .postOnDispatchQueue()
-            },
-            UIAlertAction(title: Strings.showSettingsScreen, style: .default) { _ in
-                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .settings)
-                    .postOnDispatchQueue()
-            },
-        ]
-        return actions
-    }
-    
     @objc func dismissPresentedViewController() {
         presentedViewController?.dismiss(animated: true)
     }

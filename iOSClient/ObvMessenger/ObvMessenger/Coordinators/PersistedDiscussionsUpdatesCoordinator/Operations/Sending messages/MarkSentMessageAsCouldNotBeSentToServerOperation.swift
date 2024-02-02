@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import Foundation
 import ObvTypes
 import OlvidUtils
 import ObvUICoreData
+import CoreData
 
 
 final class MarkSentMessageAsCouldNotBeSentToServerOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -37,33 +38,26 @@ final class MarkSentMessageAsCouldNotBeSentToServerOperation: ContextualOperatio
     }
     
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            do {
-                
-                let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine,
-                                                                                                            ownedCryptoId: ownedCryptoId,
-                                                                                                            within: obvContext.context)
-                
-                guard !infos.isEmpty else {
-                    // No info found, so there is nothing to do
-                    return
-                }
-
-                for info in infos {
-                    info.setAsCouldNotBeSentToServer()
-                }
-                                
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            
+            let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine,
+                                                                                                        ownedCryptoId: ownedCryptoId,
+                                                                                                        within: obvContext.context)
+            
+            guard !infos.isEmpty else {
+                // No info found, so there is nothing to do
+                return
             }
-
+            
+            for info in infos {
+                info.setAsCouldNotBeSentToServer()
+            }
+            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

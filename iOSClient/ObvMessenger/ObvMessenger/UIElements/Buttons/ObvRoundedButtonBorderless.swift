@@ -19,13 +19,15 @@
 
 import Foundation
 import ObvUI
+import ObvDesignSystem
+
 
 final class ObvRoundedButtonBorderless: ObvRoundedButton {
     
     internal override func setup() {
         layer.cornerRadius = frame.size.height / 2.0
         resetBackgroundColor()
-        self.adjustsImageWhenHighlighted = false
+        // self.adjustsImageWhenHighlighted = false
     }
 
     

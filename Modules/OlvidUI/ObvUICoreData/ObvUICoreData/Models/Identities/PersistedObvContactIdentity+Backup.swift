@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,8 +48,8 @@ extension PersistedObvContactIdentityBackupItem {
 
     func updateExistingInstance(_ contact: PersistedObvContactIdentity) {
 
-        try? contact.setCustomDisplayName(to: self.customDisplayName)
-        contact.setNote(to: self.note)
+        _ = try? contact.setCustomDisplayName(to: self.customDisplayName)
+        _ = contact.setNote(to: self.note)
 
         if let oneToOneDiscussion = contact.oneToOneDiscussion {
             self.discussionConfigurationBackupItem?.updateExistingInstance(oneToOneDiscussion.localConfiguration)

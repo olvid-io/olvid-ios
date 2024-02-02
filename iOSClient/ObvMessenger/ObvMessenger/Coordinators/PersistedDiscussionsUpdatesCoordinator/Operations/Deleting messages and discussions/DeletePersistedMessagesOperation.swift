@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,21 +22,21 @@ import CoreData
 import os.log
 import OlvidUtils
 import ObvUICoreData
+import ObvTypes
 
 
-final class DeletePersistedMessagesOperation: ContextualOperationWithSpecificReasonForCancel<DeletePersistedMessageOperationReasonForCancel> {
+/// Called when processing the message deletion requested by an owned identity from the current device.
+final class DeletePersistedMessagesOperation: ContextualOperationWithSpecificReasonForCancel<DeletePersistedMessagesOperation.ReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeletePersistedMessagesOperation.self))
-
     private enum Input {
-        case persistedMessageObjectIDs(_: Set<NSManagedObjectID>, requester: RequesterOfMessageDeletion)
+        case persistedMessageObjectIDs(_: Set<NSManagedObjectID>, ownedCryptoId: ObvCryptoId, deletionType: DeletionType)
         case provider(_: OperationProvidingPersistedMessageObjectIDsToDelete)
     }
     
     private let input: Input
     
-    init(persistedMessageObjectIDs: Set<NSManagedObjectID>, requester: RequesterOfMessageDeletion) {
-        self.input = .persistedMessageObjectIDs(persistedMessageObjectIDs, requester: requester)
+    init(persistedMessageObjectIDs: Set<NSManagedObjectID>, ownedCryptoId: ObvCryptoId, deletionType: DeletionType) {
+        self.input = .persistedMessageObjectIDs(persistedMessageObjectIDs, ownedCryptoId: ownedCryptoId, deletionType: deletionType)
         super.init()
     }
     
@@ -47,88 +47,90 @@ final class DeletePersistedMessagesOperation: ContextualOperationWithSpecificRea
     }
  
     
-    override func main() {
-                
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
         let persistedMessageObjectIDs: Set<NSManagedObjectID>
-        let requester: RequesterOfMessageDeletion
+        let ownedCryptoId: ObvCryptoId
+        let deletionType: DeletionType
         switch input {
-        case .persistedMessageObjectIDs(let objectIDs, let _requester):
+        case .persistedMessageObjectIDs(let objectIDs, let _ownedCryptoId, let _deletionType):
             persistedMessageObjectIDs = objectIDs
-            requester = _requester
+            ownedCryptoId = _ownedCryptoId
+            deletionType = _deletionType
         case .provider(let provider):
             persistedMessageObjectIDs = Set(provider.persistedMessageObjectIDsToDelete.map({ $0.objectID }))
-            requester = provider.requester
+            ownedCryptoId = provider.ownedCryptoId
+            deletionType = provider.deletionType
         }
         
         guard !persistedMessageObjectIDs.isEmpty else { return }
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-
-            var infos = [InfoAboutWipedOrDeletedPersistedMessage]()
-
-            for persistedMessageObjectID in persistedMessageObjectIDs {
-                do {
-                    guard let messageToDelete = try PersistedMessage.get(with: persistedMessageObjectID, within: obvContext.context) else { return }
-                    let info = try messageToDelete.delete(requester: requester)
-                    infos += [info]
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
-                }
+        do {
+            
+            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
+                return cancel(withReason: .cannotFindOwnedIdentity)
             }
             
+            let infos = try ownedIdentity.processMessageDeletionRequestRequestedFromCurrentDeviceOfThisOwnedIdentity(
+                persistedMessageObjectIDs: persistedMessageObjectIDs,
+                deletionType: deletionType)
             
             do {
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     guard error == nil else { return }
+                    
                     // We deleted some persisted messages. We notify about that.
-
                     InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
-
+                    
                     // Refresh objects in the view context
                     if let viewContext = self.viewContext {
                         InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
                     }
+                    
                 }
             } catch {
-                return cancel(withReason: .coreDataError(error: error))
+                assertionFailure() // In production, continue anyway
             }
-                        
+            
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }
+ 
     
+    enum ReasonForCancel: LocalizedErrorWithLogType {
+
+        case coreDataError(error: Error)
+        case contextIsNil
+        case cannotFindOwnedIdentity
+        
+        var logType: OSLogType {
+            switch self {
+            case .coreDataError, .contextIsNil, .cannotFindOwnedIdentity:
+                return .fault
+            }
+        }
+        
+        var errorDescription: String? {
+            switch self {
+            case .contextIsNil:
+                return "Context is nil"
+            case .coreDataError(error: let error):
+                return "Core Data error: \(error.localizedDescription)"
+            case .cannotFindOwnedIdentity:
+                return "Cannot find owned identity"
+            }
+        }
+        
+    }
+
 }
 
 
 protocol OperationProvidingPersistedMessageObjectIDsToDelete: Operation {
     var persistedMessageObjectIDsToDelete: Set<TypeSafeManagedObjectID<PersistedMessage>> { get }
-    var requester: RequesterOfMessageDeletion { get }
-}
-
-
-enum DeletePersistedMessageOperationReasonForCancel: LocalizedErrorWithLogType {
-
-    case coreDataError(error: Error)
-    case contextIsNil
-    
-    var logType: OSLogType {
-        switch self {
-        case .coreDataError, .contextIsNil:
-            return .fault
-        }
-    }
-    
-    var errorDescription: String? {
-        switch self {
-        case .contextIsNil:
-            return "Context is nil"
-        case .coreDataError(error: let error):
-            return "Core Data error: \(error.localizedDescription)"
-        }
-    }
-    
+    var ownedCryptoId: ObvCryptoId { get }
+    var deletionType: DeletionType { get }
 }

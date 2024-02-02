@@ -33,7 +33,6 @@ public class ObvCryptoSuite {
     private let prngServices: [SuiteVersion: PRNGService.Type]
     private let authenticatedEncryptionPrimitives: [SuiteVersion: AuthenticatedEncryptionConcrete.Type]
     private let kdfPrimitives: [SuiteVersion: KDF.Type]
-    private let proofOfWorkEngines: [SuiteVersion: ProofOfWorkEngine.Type]
     private let authentications: [SuiteVersion: AuthenticationConcrete.Type]
     private let hashFunctions: [SuiteVersion: HashFunction.Type]
     private let commitmentSchemes: [SuiteVersion: Commitment.Type]
@@ -49,7 +48,6 @@ public class ObvCryptoSuite {
         prngServices = [0: PRNGServiceWithHMACWithSHA256.self]
         authenticatedEncryptionPrimitives = [0: AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256.self]
         kdfPrimitives = [0: KDFFromPRNGWithHMACWithSHA256.self]
-        proofOfWorkEngines = [0: ProofOfWorkEngineSyndromeBased.self]
         authentications = [0: AuthenticationFromSignatureOnMDC.self]
         hashFunctions = [0: SHA256.self]
         commitmentSchemes = [0: CommitmentWithSHA256.self]
@@ -98,16 +96,6 @@ public class ObvCryptoSuite {
         return kdf(forSuiteVersion: latestVersion)!
     }
     
-    // Proof of Work
-    
-    func proofOfWorkEngine(forSuiteVersion version: SuiteVersion) -> ProofOfWorkEngine.Type? {
-        return proofOfWorkEngines[version]
-    }
-    
-    public func proofOfWorkEngine() -> ProofOfWorkEngine.Type {
-        return proofOfWorkEngine(forSuiteVersion: latestVersion)!
-    }
-
     // Authentication
     
     func authentication(forSuiteVersion version: SuiteVersion) -> AuthenticationConcrete.Type? {

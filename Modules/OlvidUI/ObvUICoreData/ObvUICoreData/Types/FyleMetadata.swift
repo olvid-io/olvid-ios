@@ -20,7 +20,8 @@
 import Foundation
 import os.log
 import ObvEngine
-import MobileCoreServices
+import UniformTypeIdentifiers
+import ObvSettings
 
 
 public struct FyleMetadata: Codable {
@@ -29,7 +30,7 @@ public struct FyleMetadata: Codable {
     
     let fileName: String
     public let sha256: Data
-    let uti: String
+    let contentType: UTType
 
     enum CodingKeys: String, CodingKey {
         case fileName = "file_name"
@@ -37,10 +38,10 @@ public struct FyleMetadata: Codable {
         case type = "type" // MIME type
     }
     
-    init(fileName: String, sha256: Data, uti: String) {
+    init(fileName: String, sha256: Data, contentType: UTType) {
         self.fileName = fileName
         self.sha256 = sha256
-        self.uti = uti
+        self.contentType = contentType
     }
     
     
@@ -48,24 +49,24 @@ public struct FyleMetadata: Codable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         let mimeType = try values.decode(String.self, forKey: .type)
         self.fileName = try values.decode(String.self, forKey: .fileName)
-        // The MIME type has precedence over the extension for determining the UTI
-        if let utiFromMIMEType = ObvUTIUtils.utiOfMIMEType(mimeType) {
-            self.uti = utiFromMIMEType
-        } else if let utiFromExtension = ObvUTIUtils.utiOfFile(withExtension: (self.fileName as NSString).pathExtension) {
-            self.uti = utiFromExtension
+        // The MIME type has precedence over the extension for determining the content type
+        if let contentTypeFromMIMEType = UTType(mimeType: mimeType) {
+            self.contentType = contentTypeFromMIMEType
+        } else if let contentTypeFromExtension = UTType(filenameExtension: (self.fileName as NSString).pathExtension) {
+            self.contentType = contentTypeFromExtension
         } else {
-            self.uti = "public.item"
+            self.contentType = .item
         }
         self.sha256 = try values.decode(Data.self, forKey: .sha256)
     }
     
     public func encode(to encoder: Encoder) throws {
         let mimeType: String
-        if let _mimeType = ObvUTIUtils.preferredTagWithClass(inUTI: self.uti, inTagClass: .MIMEType) {
+        if let _mimeType = contentType.preferredMIMEType {
             mimeType = _mimeType
         } else {
-            os_log("Could not find appropriate MIME type for uti %{public}@. We fallback on Data", log: log, type: .error, self.uti)
-            mimeType = ObvUTIUtils.preferredTagWithClass(inUTI: String(kUTTypeData), inTagClass: .MIMEType) ?? "application/octet-stream"
+            os_log("Could not find appropriate MIME type for content type %{public}@. We fallback on Data", log: log, type: .error, self.contentType.debugDescription)
+            mimeType = "application/octet-stream"
         }
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(mimeType, forKey: .type)

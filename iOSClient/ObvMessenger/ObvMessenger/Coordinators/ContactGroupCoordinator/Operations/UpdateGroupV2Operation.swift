@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,9 @@ import ObvTypes
 import ObvEngine
 import os.log
 import ObvUICoreData
+import CoreData
+import ObvSettings
+
 
 /// Operation executed when the local user updates a group v2 (as an administrator)
 final class UpdateGroupV2Operation: ContextualOperationWithSpecificReasonForCancel<UpdateGroupV2OperationReasonForCancel> {
@@ -39,40 +42,33 @@ final class UpdateGroupV2Operation: ContextualOperationWithSpecificReasonForCanc
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            do {
-                
-                guard let group = try PersistedGroupV2.get(objectID: groupObjectID, within: obvContext.context) else { assertionFailure(); return }
-                guard group.ownedIdentityIsAdmin else { assertionFailure(); return }
-
-                // If the changeset contains no specific information about the owned identity, we add the default admin permissions for her
-                let updatedChangeSet: ObvGroupV2.Changeset
-                if !changeset.concernedMembers.contains(try group.ownCryptoId) && !changeset.isEmpty {
-                    updatedChangeSet = try changeset.adding(newChanges: Set([.ownPermissionsChanged(permissions: ObvUICoreDataConstants.defaultObvGroupV2PermissionsForAdmin)]))
-                } else {
-                    updatedChangeSet = changeset
-                }
-                
-                guard !updatedChangeSet.isEmpty else {
-                    return
-                }
-                
-                do {
-                    try obvEngine.updateGroupV2(ownedCryptoId: group.ownCryptoId, groupIdentifier: group.groupIdentifier, changeset: updatedChangeSet)
-                } catch {
-                    return cancel(withReason: .theEngineRequestFailed(error: error))
-                }
-                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            
+            guard let group = try PersistedGroupV2.get(objectID: groupObjectID, within: obvContext.context) else { assertionFailure(); return }
+            guard group.ownedIdentityIsAdmin else { assertionFailure(); return }
+            
+            // If the changeset contains no specific information about the owned identity, we add the default admin permissions for her
+            let updatedChangeSet: ObvGroupV2.Changeset
+            if !changeset.concernedMembers.contains(try group.ownCryptoId) && !changeset.isEmpty {
+                updatedChangeSet = try changeset.adding(newChanges: Set([.ownPermissionsChanged(permissions: ObvUICoreDataConstants.defaultObvGroupV2PermissionsForAdmin)]))
+            } else {
+                updatedChangeSet = changeset
             }
             
+            guard !updatedChangeSet.isEmpty else {
+                return
+            }
+            
+            do {
+                try obvEngine.updateGroupV2(ownedCryptoId: group.ownCryptoId, groupIdentifier: group.groupIdentifier, changeset: updatedChangeSet)
+            } catch {
+                return cancel(withReason: .theEngineRequestFailed(error: error))
+            }
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

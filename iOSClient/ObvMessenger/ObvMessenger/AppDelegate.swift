@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,10 +26,8 @@ import CoreDataStack
 import AppAuth
 import OlvidUtils
 import ObvUICoreData
+import ObvSettings
 
-#if OLVID_SHOULD_ENABLE_ATLANTIS_PROXY
-import Atlantis
-#endif
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
@@ -53,10 +51,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
             await appMainManager.appBackupDelegate
         }
     }
+    
+    var storeKitDelegate: StoreKitDelegate? {
+        get async {
+            await appMainManager.storeKitDelegate
+        }
+    }
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        #if OLVID_SHOULD_ENABLE_ATLANTIS_PROXY
-        Atlantis.start()
+        
+        #if DEBUG
+        // This prevents certain SwiftUI previews from crashing
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" { return true }
         #endif
 
         os_log("🧦 Application did finish launching with options", log: log, type: .info)
@@ -152,7 +158,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
     }
     
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-        os_log("🌊 Application did receive remote notification", log: log, type: .info)
+        os_log("🫸🌊 Application did receive remote notification", log: log, type: .info)
         Task { [weak self] in await self?.appMainManager.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler) }
     }
     

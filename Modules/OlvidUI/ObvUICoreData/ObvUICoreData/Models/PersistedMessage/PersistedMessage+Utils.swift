@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -189,6 +189,9 @@ extension PersistedMessage {
         }
     }
 
+    /// Returns `true` iff the edit body action can be made available for this message. This is expected to be called on the main thread to allow the UI to determine if the edit action can be shown to the user.
+    ///
+    /// We implement this by simulating what would happen if the edit action was performed. We return `true` iff the call succeeds. This is performed on a child view context to prevent any unwanted side-effect.
     public var editBodyActionCanBeMadeAvailable: Bool {
         if let sentMessage = self as? PersistedMessageSent {
             return sentMessage.editBodyActionCanBeMadeAvailableForSentMessage
@@ -205,6 +208,7 @@ extension PersistedMessage {
         }
     }
     
+
     public var deleteOwnReactionActionCanBeMadeAvailable: Bool {
         if let receivedMessage = self as? PersistedMessageReceived {
             return receivedMessage.deleteOwnReactionActionCanBeMadeAvailableForReceivedMessage
@@ -217,26 +221,74 @@ extension PersistedMessage {
     
 
     /// Returns `true` iff the owned identity is allowed to locally delete this message.
+    ///
+    /// This is expected to be called on the main thread, from the UI, in order to determine if the delete action can be made available for this message.
+    /// We return `true` iff the call to the deletion method would succeed. To do so, we create a child view context on which we simulate the call.
     public var deleteMessageActionCanBeMadeAvailable: Bool {
-        guard let ownedCryptoId = self.discussion.ownedIdentity?.cryptoId else { assertionFailure(); return false }
-        return requesterIsAllowedToDeleteMessage(requester: .ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: .local))
+        assert(Thread.isMainThread)
+        
+        guard let context = self.managedObjectContext else {
+            assertionFailure()
+            return false
+        }
+        guard context.concurrencyType == .mainQueueConcurrencyType else {
+            assertionFailure()
+            return false
+        }
+        
+        let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        childViewContext.parent = context
+        guard let messageInChildViewContext = try? PersistedMessage.get(with: self.typedObjectID, within: childViewContext) else {
+            assertionFailure()
+            return false
+        }
+        guard let ownedIdentity = messageInChildViewContext.discussion?.ownedIdentity else {
+            assertionFailure()
+            return false
+        }
+
+        do {
+            _ = try ownedIdentity.processMessageDeletionRequestRequestedFromCurrentDeviceOfThisOwnedIdentity(persistedMessageObjectID: messageInChildViewContext.objectID, deletionType: .local)
+            return true
+        } catch {
+            return false
+        }
     }
 
     
     /// Returns `true` iff the owned identity is allowed to perform a remote (global) delete of this message.
+    ///
+    /// This is expected to be called on the main thread, from the UI, in order to determine if the global delete action can be made available for this message.
+    /// We return `true` iff the call to the global deletion method would succeed. To do so, we create a child view context on which we simulate the call.
     public var globalDeleteMessageActionCanBeMadeAvailable: Bool {
-        guard let ownedCryptoId = self.discussion.ownedIdentity?.cryptoId else { assertionFailure(); return false }
-        return requesterIsAllowedToDeleteMessage(requester: .ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: .global))
-    }
-    
-    
-    func requesterIsAllowedToDeleteMessage(requester: RequesterOfMessageDeletion) -> Bool {
+        assert(Thread.isMainThread)
+
+        guard let context = self.managedObjectContext else {
+            assertionFailure()
+            return false
+        }
+        guard context.concurrencyType == .mainQueueConcurrencyType else {
+            assertionFailure()
+            return false
+        }
+        
+        let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        childViewContext.parent = context
+        guard let messageInChildViewContext = try? PersistedMessage.get(with: self.typedObjectID, within: childViewContext) else {
+            assertionFailure()
+            return false
+        }
+        guard let ownedIdentity = messageInChildViewContext.discussion?.ownedIdentity else {
+            assertionFailure()
+            return false
+        }
+
         do {
-            try throwIfRequesterIsNotAllowedToDeleteMessage(requester: requester)
+            _ = try ownedIdentity.processMessageDeletionRequestRequestedFromCurrentDeviceOfThisOwnedIdentity(persistedMessageObjectID: messageInChildViewContext.objectID, deletionType: .global)
+            return true
         } catch {
             return false
         }
-        return true
     }
-
+    
 }

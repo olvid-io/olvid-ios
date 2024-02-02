@@ -44,7 +44,7 @@ public struct ObvNetworkFetchReceivedAttachment {
     
     
     public let fromCryptoIdentity: ObvCryptoIdentity
-    public let attachmentId: AttachmentIdentifier
+    public let attachmentId: ObvAttachmentIdentifier
     public let metadata: Data
     public let totalUnitCount: Int64 // Bytes of the plaintext
     public let url: URL
@@ -52,7 +52,7 @@ public struct ObvNetworkFetchReceivedAttachment {
     public let messageUploadTimestampFromServer: Date
     public let downloadTimestampFromServer: Date
     
-    public init(fromCryptoIdentity: ObvCryptoIdentity, attachmentId: AttachmentIdentifier, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, metadata: Data, totalUnitCount: Int64, url: URL, status: Status) {
+    public init(fromCryptoIdentity: ObvCryptoIdentity, attachmentId: ObvAttachmentIdentifier, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, metadata: Data, totalUnitCount: Int64, url: URL, status: Status) {
         self.fromCryptoIdentity = fromCryptoIdentity
         self.attachmentId = attachmentId
         self.metadata = metadata

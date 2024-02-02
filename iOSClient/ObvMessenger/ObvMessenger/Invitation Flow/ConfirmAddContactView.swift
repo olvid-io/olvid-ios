@@ -22,6 +22,7 @@ import ObvTypes
 import ObvEngine
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
 
 
 struct ConfirmAddContactView: View {

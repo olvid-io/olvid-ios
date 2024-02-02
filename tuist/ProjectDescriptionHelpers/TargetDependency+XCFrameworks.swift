@@ -13,7 +13,7 @@ public extension TargetDependency {
         }
 
         fileprivate var path: Path {
-            return .relativeToRoot("tuist/xcframeworks/".appending(xcFrameworkName))
+            return .relativeToRoot("Tuist/xcframeworks/".appending(xcFrameworkName))
         }
     }
 }

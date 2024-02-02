@@ -34,15 +34,25 @@ fileprivate struct OptionalWrapper<T> {
 
 public enum ObvProtocolNotification {
 	case mutualScanContactAdded(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, signature: Data)
-	case protocolMessageToProcess(protocolMessageId: MessageIdentifier, flowId: FlowIdentifier)
-	case protocolMessageProcessed(protocolMessageId: MessageIdentifier, flowId: FlowIdentifier)
+	case protocolMessageToProcess(protocolMessageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+	case protocolMessageProcessed(protocolMessageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 	case groupV2UpdateDidFail(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data, flowId: FlowIdentifier)
+	case protocolReceivedMessageWasDeleted(protocolMessageId: ObvMessageIdentifier)
+	case keycloakSynchronizationRequired(ownedIdentity: ObvCryptoIdentity)
+	case contactIntroductionInvitationSent(ownedIdentity: ObvCryptoIdentity, contactIdentityA: ObvCryptoIdentity, contactIdentityB: ObvCryptoIdentity)
+	case theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults(ownedIdentity: ObvCryptoIdentity)
+	case anOwnedIdentityTransferProtocolFailed(ownedCryptoIdentity: ObvCryptoIdentity, protocolInstanceUID: UID, error: Error)
 
 	private enum Name {
 		case mutualScanContactAdded
 		case protocolMessageToProcess
 		case protocolMessageProcessed
 		case groupV2UpdateDidFail
+		case protocolReceivedMessageWasDeleted
+		case keycloakSynchronizationRequired
+		case contactIntroductionInvitationSent
+		case theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults
+		case anOwnedIdentityTransferProtocolFailed
 
 		private var namePrefix: String { String(describing: ObvProtocolNotification.self) }
 
@@ -59,6 +69,11 @@ public enum ObvProtocolNotification {
 			case .protocolMessageToProcess: return Name.protocolMessageToProcess.name
 			case .protocolMessageProcessed: return Name.protocolMessageProcessed.name
 			case .groupV2UpdateDidFail: return Name.groupV2UpdateDidFail.name
+			case .protocolReceivedMessageWasDeleted: return Name.protocolReceivedMessageWasDeleted.name
+			case .keycloakSynchronizationRequired: return Name.keycloakSynchronizationRequired.name
+			case .contactIntroductionInvitationSent: return Name.contactIntroductionInvitationSent.name
+			case .theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults: return Name.theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults.name
+			case .anOwnedIdentityTransferProtocolFailed: return Name.anOwnedIdentityTransferProtocolFailed.name
 			}
 		}
 	}
@@ -87,6 +102,30 @@ public enum ObvProtocolNotification {
 				"appGroupIdentifier": appGroupIdentifier,
 				"flowId": flowId,
 			]
+		case .protocolReceivedMessageWasDeleted(protocolMessageId: let protocolMessageId):
+			info = [
+				"protocolMessageId": protocolMessageId,
+			]
+		case .keycloakSynchronizationRequired(ownedIdentity: let ownedIdentity):
+			info = [
+				"ownedIdentity": ownedIdentity,
+			]
+		case .contactIntroductionInvitationSent(ownedIdentity: let ownedIdentity, contactIdentityA: let contactIdentityA, contactIdentityB: let contactIdentityB):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"contactIdentityA": contactIdentityA,
+				"contactIdentityB": contactIdentityB,
+			]
+		case .theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults(ownedIdentity: let ownedIdentity):
+			info = [
+				"ownedIdentity": ownedIdentity,
+			]
+		case .anOwnedIdentityTransferProtocolFailed(ownedCryptoIdentity: let ownedCryptoIdentity, protocolInstanceUID: let protocolInstanceUID, error: let error):
+			info = [
+				"ownedCryptoIdentity": ownedCryptoIdentity,
+				"protocolInstanceUID": protocolInstanceUID,
+				"error": error,
+			]
 		}
 		return info
 	}
@@ -110,19 +149,19 @@ public enum ObvProtocolNotification {
 		}
 	}
 
-	public static func observeProtocolMessageToProcess(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeProtocolMessageToProcess(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.protocolMessageToProcess.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! MessageIdentifier
+			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(protocolMessageId, flowId)
 		}
 	}
 
-	public static func observeProtocolMessageProcessed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeProtocolMessageProcessed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.protocolMessageProcessed.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! MessageIdentifier
+			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(protocolMessageId, flowId)
 		}
@@ -135,6 +174,50 @@ public enum ObvProtocolNotification {
 			let appGroupIdentifier = notification.userInfo!["appGroupIdentifier"] as! Data
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(ownedIdentity, appGroupIdentifier, flowId)
+		}
+	}
+
+	public static func observeProtocolReceivedMessageWasDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.protocolReceivedMessageWasDeleted.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! ObvMessageIdentifier
+			block(protocolMessageId)
+		}
+	}
+
+	public static func observeKeycloakSynchronizationRequired(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
+		let name = Name.keycloakSynchronizationRequired.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			block(ownedIdentity)
+		}
+	}
+
+	public static func observeContactIntroductionInvitationSent(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
+		let name = Name.contactIntroductionInvitationSent.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			let contactIdentityA = notification.userInfo!["contactIdentityA"] as! ObvCryptoIdentity
+			let contactIdentityB = notification.userInfo!["contactIdentityB"] as! ObvCryptoIdentity
+			block(ownedIdentity, contactIdentityA, contactIdentityB)
+		}
+	}
+
+	public static func observeTheCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
+		let name = Name.theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			block(ownedIdentity)
+		}
+	}
+
+	public static func observeAnOwnedIdentityTransferProtocolFailed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, UID, Error) -> Void) -> NSObjectProtocol {
+		let name = Name.anOwnedIdentityTransferProtocolFailed.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedCryptoIdentity = notification.userInfo!["ownedCryptoIdentity"] as! ObvCryptoIdentity
+			let protocolInstanceUID = notification.userInfo!["protocolInstanceUID"] as! UID
+			let error = notification.userInfo!["error"] as! Error
+			block(ownedCryptoIdentity, protocolInstanceUID, error)
 		}
 	}
 

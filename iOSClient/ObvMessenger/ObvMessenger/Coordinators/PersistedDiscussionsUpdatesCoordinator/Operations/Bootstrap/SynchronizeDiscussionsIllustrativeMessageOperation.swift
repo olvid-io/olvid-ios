@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,30 +27,22 @@ import ObvUICoreData
 
 final class SynchronizeDiscussionsIllustrativeMessageOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            
-            do {
-                let discussions = try PersistedDiscussion.getAllDiscussionsForAllOwnedIdentities(within: obvContext.context)
-                for discussion in discussions {
-                    do {
-                        try discussion.resetIllustrativeMessage()
-                    } catch {
-                        assertionFailure()
-                        // In production, continue anyway
-                    }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            let discussions = try PersistedDiscussion.getAllDiscussionsForAllOwnedIdentities(within: obvContext.context)
+            for discussion in discussions {
+                do {
+                    try discussion.resetIllustrativeMessage()
+                } catch {
+                    assertionFailure()
+                    // In production, continue anyway
                 }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
             }
-            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 
 }

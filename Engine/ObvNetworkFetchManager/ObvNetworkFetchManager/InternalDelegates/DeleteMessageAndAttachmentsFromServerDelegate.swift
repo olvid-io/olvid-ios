@@ -25,6 +25,6 @@ import OlvidUtils
 
 protocol DeleteMessageAndAttachmentsFromServerDelegate {
     
-    func processPendingDeleteFromServer(messageId: MessageIdentifier, flowId: FlowIdentifier) throws
+    func processPendingDeleteFromServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws
     
 }

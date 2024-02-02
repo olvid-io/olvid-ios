@@ -97,20 +97,6 @@ extension UserNotificationCreator {
             }
         }
 
-        struct AutoconfirmedContactIntroduction {
-            static let title = CommonString.Title.newContact
-            static let body = { (mediatorName: String, contactName: String) in
-                String.localizedStringWithFormat(NSLocalizedString("%@ was added to your contacts following an introduction by %@.", comment: "Invitation details"), contactName, mediatorName)
-            }
-        }
-        
-        struct IncreaseMediatorTrustLevelRequired {
-            static let title = NSLocalizedString("Invitation received", comment: "Invitation subtitle")
-            static let body = { (mediatorName: String, contactName: String) in
-                String.localizedStringWithFormat(NSLocalizedString("%1$@ wants to introduce you to %2$@.", comment: "Invitation details"), mediatorName, contactName)
-            }
-        }
-        
         struct MissedCall {
             static let title = NSLocalizedString("MISSED_CALL", comment: "")
         }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,9 @@ import ObvCrypto
 import ObvTypes
 import ObvMetaManager
 import OlvidUtils
+
+
+
 
 @objc(ServerUserData)
 class ServerUserData: NSManagedObject, ObvManagedObject, ObvErrorMaker {

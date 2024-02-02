@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,6 @@ import OlvidUtils
 import UIKit
 import MobileCoreServices
 import ObvEncoder
-import ObvMetaManager
 import ObvUICoreData
 
 
@@ -38,9 +37,6 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
     private let input: ComputeExtendedPayloadOperationInput
     private let maxNumberOfDownsizedImages = 25
 
-    private static let errorDomain = "ComputeExtendedPayloadOperation"
-    fileprivate static func makeError(message: String) -> Error { NSError(domain: ComputeExtendedPayloadOperation.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-
     init(provider: UnprocessedPersistedMessageSentProvider) {
         self.input = .unprocessedPersistedMessageSentProvider(provider)
         super.init()
@@ -53,8 +49,8 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
 
     private(set) var extendedPayload: Data?
 
-    override func main() {
-
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
         let messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>
         switch input {
         case .message(let _messageSentPermanentID):
@@ -65,77 +61,70 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
             }
             messageSentPermanentID = _messageSentPermanentID
         }
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+        
+        let persistedMessageSent: PersistedMessageSent
+        do {
+            guard let _persistedMessageSent = try PersistedMessageSent.getManagedObject(withPermanentID: messageSentPermanentID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindPersistedMessageSentInDatabase)
+            }
+            persistedMessageSent = _persistedMessageSent
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
-        obvContext.performAndWait {
-
-            let persistedMessageSent: PersistedMessageSent
-            do {
-                guard let _persistedMessageSent = try PersistedMessageSent.getManagedObject(withPermanentID: messageSentPermanentID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindPersistedMessageSentInDatabase)
-                }
-                persistedMessageSent = _persistedMessageSent
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
-            guard persistedMessageSent.status == .unprocessed || persistedMessageSent.status == .processing else {
-                return
-            }
-
-            guard !persistedMessageSent.fyleMessageJoinWithStatuses.isEmpty else { return }
-
-            // Compute up to 25 downsized images
-
-            var attachmentNumbersAnddownsizedImages = [(attachmentNumber: Int, downsizedImage: CGImage)]()
-            for join in persistedMessageSent.fyleMessageJoinWithStatuses {
-                guard let fyle = join.fyle else { continue }
-                guard ObvUTIUtils.uti(join.uti, conformsTo: kUTTypeImage) else { continue }
-
-                // Return a centered squared image
-                guard let squareImage = extractSquaredImageFromImage(at: fyle.url) else { continue }
-
-                // Resize the squared image to a resolution larger, but close to 40x40 pixels
-                guard let downsizedImage = downsizeImage(squareImage) else { continue }
-
-                attachmentNumbersAnddownsizedImages.append((join.index, downsizedImage))
-
-                guard attachmentNumbersAnddownsizedImages.count < maxNumberOfDownsizedImages else { break }
-            }
-
-            guard !attachmentNumbersAnddownsizedImages.isEmpty else { return }
-
-            // Compute a single image composed of the downsized image, from left to right, from down to bottom.
-
-            guard let singleImage = createSingleImageComposedOfImages(attachmentNumbersAnddownsizedImages.map({ $0.downsizedImage })) else {
-                assertionFailure("Could not compute single image from downsized images")
-                return
-            }
-
-            // Export single image to jpeg, try to remove EXIF attributes, and encode the result
-
-            guard let jpegDataOfSingleImage = UIImage(cgImage: singleImage).jpegData(compressionQuality: 0.75) else {
-                assertionFailure("Could not export single image to Jpeg")
-                return
-            }
-
-            let jpegDataOfSingleImageWithoutAttributes = removeJpegAttributesFromJpegDataOfSingleImage(jpegDataOfSingleImage)
-
-            let encodedImageData = (jpegDataOfSingleImageWithoutAttributes ?? jpegDataOfSingleImage).obvEncode()
-
-            let encodedListOfAttachmentNumbers = attachmentNumbersAnddownsizedImages.map({ $0.attachmentNumber }).map({ $0.obvEncode() }).obvEncode()
-            let encodedExtendedPayload = [
-                0.obvEncode(),
-                encodedListOfAttachmentNumbers,
-                encodedImageData,
-            ].obvEncode()
-
-            self.extendedPayload = encodedExtendedPayload.rawData
+        
+        guard persistedMessageSent.status == .unprocessed || persistedMessageSent.status == .processing else {
+            return
         }
-
+        
+        guard !persistedMessageSent.fyleMessageJoinWithStatuses.isEmpty else { return }
+        
+        // Compute up to 25 downsized images
+        
+        var attachmentNumbersAnddownsizedImages = [(attachmentNumber: Int, downsizedImage: CGImage)]()
+        for join in persistedMessageSent.fyleMessageJoinWithStatuses {
+            guard let fyle = join.fyle else { continue }
+            guard join.contentType.conforms(to: .image) else { continue }
+            
+            // Return a centered squared image
+            guard let squareImage = extractSquaredImageFromImage(at: fyle.url) else { continue }
+            
+            // Resize the squared image to a resolution larger, but close to 40x40 pixels
+            guard let downsizedImage = downsizeImage(squareImage) else { continue }
+            
+            attachmentNumbersAnddownsizedImages.append((join.index, downsizedImage))
+            
+            guard attachmentNumbersAnddownsizedImages.count < maxNumberOfDownsizedImages else { break }
+        }
+        
+        guard !attachmentNumbersAnddownsizedImages.isEmpty else { return }
+        
+        // Compute a single image composed of the downsized image, from left to right, from down to bottom.
+        
+        guard let singleImage = createSingleImageComposedOfImages(attachmentNumbersAnddownsizedImages.map({ $0.downsizedImage })) else {
+            assertionFailure("Could not compute single image from downsized images")
+            return
+        }
+        
+        // Export single image to jpeg, try to remove EXIF attributes, and encode the result
+        
+        guard let jpegDataOfSingleImage = UIImage(cgImage: singleImage).jpegData(compressionQuality: 0.75) else {
+            assertionFailure("Could not export single image to Jpeg")
+            return
+        }
+        
+        let jpegDataOfSingleImageWithoutAttributes = removeJpegAttributesFromJpegDataOfSingleImage(jpegDataOfSingleImage)
+        
+        let encodedImageData = (jpegDataOfSingleImageWithoutAttributes ?? jpegDataOfSingleImage).obvEncode()
+        
+        let encodedListOfAttachmentNumbers = attachmentNumbersAnddownsizedImages.map({ $0.attachmentNumber }).map({ $0.obvEncode() }).obvEncode()
+        let encodedExtendedPayload = [
+            0.obvEncode(),
+            encodedListOfAttachmentNumbers,
+            encodedImageData,
+        ].obvEncode()
+        
+        self.extendedPayload = encodedExtendedPayload.rawData
+        
     }
 
 
@@ -408,11 +397,12 @@ enum ComputeExtendedPayloadOperationReasonForCancel: LocalizedErrorWithLogType {
     case coreDataError(error: Error)
     case persistedMessageSentObjectIDIsNil
     case couldNotFindPersistedMessageSentInDatabase
+    case notEnoughBytes
 
     
     var logType: OSLogType {
         switch self {
-        case .coreDataError, .contextIsNil, .persistedMessageSentObjectIDIsNil:
+        case .coreDataError, .contextIsNil, .persistedMessageSentObjectIDIsNil, .notEnoughBytes:
             return .fault
         case .couldNotFindPersistedMessageSentInDatabase:
             return .error
@@ -427,6 +417,8 @@ enum ComputeExtendedPayloadOperationReasonForCancel: LocalizedErrorWithLogType {
             return "persistedMessageSentObjectID is nil"
         case .couldNotFindPersistedMessageSentInDatabase:
             return "Could not find the PersistedMessageSent in database"
+        case .notEnoughBytes:
+            return "Not enough bytes"
         }
     }
 
@@ -448,7 +440,7 @@ private extension Data.Iterator {
     
     mutating func skip(numberOfBytes: UInt16) throws {
         for _ in 0..<numberOfBytes {
-            guard next() != nil else { throw ComputeExtendedPayloadOperation.makeError(message: "Not enough bytes") }
+            guard next() != nil else { throw ComputeExtendedPayloadOperationReasonForCancel.notEnoughBytes }
         }
     }
     

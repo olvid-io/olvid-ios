@@ -254,6 +254,14 @@ public struct GroupV2 {
             return !lastBlocks[0].allAdministratorIdentities.subtracting(lastBlocks[1].allAdministratorIdentities).isEmpty
         }
 
+        /// Check whether this administrators chain was created by the given crypto identity.
+        ///
+        /// This is equivalent to checking whether the first block of the administrator chain was signed by the given identity.
+        public func isCreatedBy(_ identity: ObvCryptoIdentity) -> Bool {
+            guard let firstBlock = blocks.first else { return false }
+            return firstBlock.signatureOnInnerDataWasComputedBy(identity)
+        }
+        
         // Checking the chain integrity
         
         /// Checks the integrity of this `GroupAdministratorsChain` and returns an identical `GroupAdministratorsChain` such that `integrityChecked` is `true`.
@@ -323,7 +331,7 @@ public struct GroupV2 {
     
     // MARK: - Identifier
 
-    public struct Identifier: ObvCodable, ObvErrorMaker, Equatable, Hashable {
+    public struct Identifier: ObvCodable, ObvErrorMaker, Equatable, Hashable, LosslessStringConvertible {
         
         public static let errorDomain = "GroupV2.Identifier"
 
@@ -362,10 +370,35 @@ public struct GroupV2 {
             }
         }
         
+        
+        public init?(appGroupIdentifier: Data) {
+            guard let obvGroupV2Identifier = ObvGroupV2.Identifier(appGroupIdentifier: appGroupIdentifier) else { assertionFailure(); return nil }
+            self.init(obvGroupV2Identifier: obvGroupV2Identifier)
+        }
+        
+        
         public var toObvGroupV2Identifier: ObvGroupV2.Identifier {
             return ObvGroupV2.Identifier(groupUID: groupUID,
                                          serverURL: serverURL,
                                          category: category.toObvGroupV2IdentifierCategory)
+        }
+        
+        
+        public var appGroupIdentifier: Data {
+            toObvGroupV2Identifier.appGroupIdentifier
+        }
+        
+        // LosslessStringConvertible
+        
+        /// This is used in sync snapshots
+        public var description: String {
+            appGroupIdentifier.base64EncodedString()
+        }
+        
+        /// This is used in sync snapshots
+        public init?(_ description: String) {
+            guard let _appGroupIdentifier = Data(base64Encoded: description) else { assertionFailure(); return nil }
+            self.init(appGroupIdentifier: _appGroupIdentifier)
         }
         
         // ObvCodable
@@ -854,7 +887,8 @@ public struct GroupV2 {
             
         }
         
-        public init(encryptedServerBlob: EncryptedData, blobMainSeed: Seed, blobVersionSeed: Seed, expectedGroupIdentifier: Identifier, solveChallengeDelegate: ObvSolveChallengeDelegate) throws {
+        
+        public static func decryptThenCheckSignature(encryptedServerBlob: EncryptedData, blobMainSeed: Seed, blobVersionSeed: Seed, expectedGroupIdentifier: Identifier, solveChallengeDelegate: ObvSolveChallengeDelegate) throws -> (blob: ServerBlob, signer: ObvCryptoIdentity) {
             
             guard let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption(forSuiteVersion: 0) else { assertionFailure(); throw Self.makeError(message: "Internal error") }
             let sharedBlobSecretKey = authEnc.generateKey(with: Seed(seeds: [blobMainSeed, blobVersionSeed]))
@@ -923,13 +957,15 @@ public struct GroupV2 {
                 }
             }
             
-            // Return the blob
+            // Return the blob and the signer
             
-            self.init(administratorsChain: checkedAdministratorsChain,
-                      groupMembers: blob.groupMembers,
-                      groupVersion: blob.groupVersion,
-                      serializedGroupCoreDetails: blob.serializedGroupCoreDetails,
-                      serverPhotoInfo: blob.serverPhotoInfo)
+            let blobToReturn = Self.init(administratorsChain: checkedAdministratorsChain,
+                                         groupMembers: blob.groupMembers,
+                                         groupVersion: blob.groupVersion,
+                                         serializedGroupCoreDetails: blob.serializedGroupCoreDetails,
+                                         serverPhotoInfo: blob.serverPhotoInfo)
+            
+            return (blobToReturn, signer)
             
         }
         
@@ -1127,6 +1163,11 @@ public struct GroupV2 {
             return self.groupMembers.filter({ $0.identity != ownedIdentity })
         }
         
+        
+        public func groupMembersInclude(_ identity: ObvCryptoIdentity) -> Bool {
+            return groupMembers.first(where: { $0.identity == identity }) != nil
+        }
+        
     }
     
     
@@ -1290,6 +1331,11 @@ public struct GroupV2 {
                              blobVersionSeedCandidates: blobVersionSeedCandidates,
                              groupAdminServerAuthenticationPrivateKeyCandidates: groupAdminServerAuthenticationPrivateKeyCandidates)
 
+        }
+        
+        
+        public func invitersInclude(_ identity: ObvCryptoIdentity) -> Bool {
+            return inviterIdentityAndBlobMainSeedCandidates.first(where: { $0.key == identity }) != nil
         }
         
     }

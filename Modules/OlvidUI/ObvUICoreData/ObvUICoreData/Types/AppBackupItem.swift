@@ -21,6 +21,8 @@ import Foundation
 import ObvTypes
 import SwiftUI
 import ObvCrypto
+import ObvSettings
+import ObvDesignSystem
 
 
 public struct AppBackupItem: Codable, Hashable {
@@ -401,7 +403,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
     
     let identityColorStyle: IdentityColorStyle?
     let contactsSortOrder: ContactsSortOrder?
-    let useOldDiscussionInterface: Bool?
 
     // Discussions
     
@@ -423,10 +424,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
     let hiddenProfileClosePolicy: ObvMessengerSettings.Privacy.HiddenProfileClosePolicy?
     let timeIntervalForBackgroundHiddenProfileClosePolicy: ObvMessengerSettings.Privacy.TimeIntervalForBackgroundHiddenProfileClosePolicy?
 
-    // VoIP
-    
-    let isCallKitEnabled: Bool?
-    
     // Advanced
     
     let allowCustomKeyboards: Bool?
@@ -447,7 +444,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         case maxAttachmentSizeForAutomaticDownload = "auto_download_size"
         case identityColorStyle = "identity_color_style_ios"
         case contactsSortOrder = "contact_sort_last_name"
-        case useOldDiscussionInterface = "use_old_discussion_interface_ios"
         case sendReadReceipt = "send_read_receipt"
         case doFetchContentRichURLsMetadata = "do_fetch_content_rich_urls_metadata_ios"
         case readOnce = "default_read_once"
@@ -461,7 +457,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         case hideNotificationContentAndroid = "hide_notification_contents"
         case allowCustomKeyboards = "allow_custom_keyboards"
         case showBetaSettings = "beta"
-        case isCallKitEnabled = "is_call_kit_enabled"
         case autoAcceptGroupInviteFrom = "auto_join_groups"
         case preferredEmojisList = "preferred_reactions"
         case performInteractionDonation = "perform_interaction_donation"
@@ -485,7 +480,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         self.maxAttachmentSizeForAutomaticDownload = ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload
         self.identityColorStyle = ObvMessengerSettings.Interface.identityColorStyle
         self.contactsSortOrder = ObvMessengerSettings.Interface.contactsSortOrder
-        self.useOldDiscussionInterface = ObvMessengerSettings.Interface.useOldDiscussionInterface
         self.sendReadReceipt = ObvMessengerSettings.Discussions.doSendReadReceipt
         self.doFetchContentRichURLsMetadata = ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata
         self.readOnce = ObvMessengerSettings.Discussions.readOnce
@@ -499,7 +493,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         self.hideNotificationContent = ObvMessengerSettings.Privacy.hideNotificationContent
         self.allowCustomKeyboards = ObvMessengerSettings.Advanced.allowCustomKeyboards
         self.showBetaSettings = ObvMessengerSettings.BetaConfiguration.showBetaSettings
-        self.isCallKitEnabled = ObvMessengerSettings.VoIP.isCallKitEnabled
         self.autoAcceptGroupInviteFrom = ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom
         self.preferredEmojisList = ObvMessengerSettings.Emoji.preferredEmojisList
         self.hiddenProfileClosePolicy = ObvMessengerSettings.Privacy.hiddenProfileClosePolicy
@@ -514,7 +507,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         try container.encodeIfPresent(maxAttachmentSizeForAutomaticDownload, forKey: .maxAttachmentSizeForAutomaticDownload)
         try container.encodeIfPresent(identityColorStyle?.rawValue, forKey: .identityColorStyle)
         try container.encodeIfPresent(contactsSortOrder == .byLastName, forKey: .contactsSortOrder)
-        try container.encodeIfPresent(useOldDiscussionInterface, forKey: .useOldDiscussionInterface)
         try container.encodeIfPresent(sendReadReceipt, forKey: .sendReadReceipt)
         try container.encodeIfPresent(doFetchContentRichURLsMetadata?.rawValue, forKey: .doFetchContentRichURLsMetadata)
         try container.encodeIfPresent(readOnce, forKey: .readOnce)
@@ -528,7 +520,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         try container.encodeIfPresent(hideNotificationContentAndroid, forKey: .hideNotificationContentAndroid)
         try container.encodeIfPresent(allowCustomKeyboards, forKey: .allowCustomKeyboards)
         try container.encodeIfPresent(showBetaSettings, forKey: .showBetaSettings)
-        try container.encodeIfPresent(isCallKitEnabled, forKey: .isCallKitEnabled)
         try container.encodeIfPresent(autoAcceptGroupInviteFrom?.rawValue, forKey: .autoAcceptGroupInviteFrom)
         try container.encodeIfPresent(preferredEmojisList, forKey: .preferredEmojisList)
         try container.encodeIfPresent(performInteractionDonation, forKey: .performInteractionDonation)
@@ -553,7 +544,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         } else {
             self.contactsSortOrder = nil
         }
-        self.useOldDiscussionInterface = try values.decodeIfPresent(Bool.self, forKey: .useOldDiscussionInterface)
         self.sendReadReceipt = try values.decodeIfPresent(Bool.self, forKey: .sendReadReceipt)
         if let raw = try values.decodeIfPresent(Int.self, forKey: .doFetchContentRichURLsMetadata) {
             self.doFetchContentRichURLsMetadata = ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice(rawValue: raw)
@@ -589,7 +579,6 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         }
         self.allowCustomKeyboards = try values.decodeIfPresent(Bool.self, forKey: .allowCustomKeyboards)
         self.showBetaSettings = try values.decodeIfPresent(Bool.self, forKey: .showBetaSettings)
-        self.isCallKitEnabled = try values.decodeIfPresent(Bool.self, forKey: .isCallKitEnabled)
         if let rawValue = try values.decodeIfPresent(String.self, forKey: .autoAcceptGroupInviteFrom) {
             self.autoAcceptGroupInviteFrom = ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom(rawValue: rawValue)
         } else {

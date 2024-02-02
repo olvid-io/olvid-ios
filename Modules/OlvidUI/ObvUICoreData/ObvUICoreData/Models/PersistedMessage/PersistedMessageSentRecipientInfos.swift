@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,8 @@ import ObvCrypto
 import os.log
 import ObvTypes
 import OlvidUtils
+import ObvSettings
+
 
 @objc(PersistedMessageSentRecipientInfos)
 public final class PersistedMessageSentRecipientInfos: NSManagedObject, ObvErrorMaker {
@@ -58,7 +60,10 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject, ObvError
     }
     
     public func getRecipient() throws -> PersistedObvContactIdentity? {
-        guard let ownedIdentity = self.messageSent.discussion.ownedIdentity else {
+        guard let discussion = messageSent.discussion else {
+            throw ObvError.discussionIsNil
+        }
+        guard let ownedIdentity = discussion.ownedIdentity else {
             os_log("Could not find owned identity. This is ok if it has just been deleted.", log: log, type: .error)
             return nil
         }
@@ -312,4 +317,24 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject, ObvError
         return Set(try context.fetch(request))
     }
 
+}
+
+
+// MARK: - Errors
+
+extension PersistedMessageSentRecipientInfos {
+    
+    public enum ObvError: LocalizedError {
+        
+        case discussionIsNil
+
+        public var errorDescription: String? {
+            switch self {
+            case .discussionIsNil:
+                return "The discussion is nil (occurs while deleting/wiping a discussion)"
+            }
+        }
+        
+    }
+    
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import UIKit
 import os.log
+import StoreKit
 import CoreData
 import ObvEngine
 import ObvTypes
@@ -27,6 +28,13 @@ import LinkPresentation
 import SwiftUI
 import ObvCrypto
 import ObvUICoreData
+import ObvUI
+import ObvSettings
+
+
+protocol MainFlowViewControllerDelegate: AnyObject {
+    func userWantsToAddNewDevice(_ viewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async
+}
 
 
 final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvFlowControllerDelegate {
@@ -37,7 +45,10 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
 
     private let splitDelegate: MainFlowViewControllerSplitDelegate // Strong reference to the delegate
     private weak var createPasscodeDelegate: CreatePasscodeDelegate?
+    private weak var localAuthenticationDelegate: LocalAuthenticationDelegate?
     private weak var appBackupDelegate: AppBackupDelegate?
+    private weak var mainFlowViewControllerDelegate: MainFlowViewControllerDelegate?
+    private weak var storeKitDelegate: StoreKitDelegate?
 
     fileprivate let mainTabBarController = ObvSubTabBarController()
     fileprivate let navForDetailsView = UINavigationController(rootViewController: OlvidPlaceholderViewController())
@@ -45,14 +56,12 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
     fileprivate let discussionsFlowViewController: DiscussionsFlowViewController
     private let contactsFlowViewController: ContactsFlowViewController
     private let groupsFlowViewController: GroupsFlowViewController
-    private let invitationsFlowViewController: InvitationsFlowViewController
+    private let invitationsFlowViewController: NewInvitationsFlowViewController
 
     private var shouldPopViewController = false
     private var shouldScrollToTop = false
     
     private var observationTokens = [NSObjectProtocol]()
-    
-    private var ownedIdentityIsNotActiveViewControllerWasShowAtLeastOnce = false
     
     private var secureCallsInBetaModalWasShown = false
     
@@ -78,14 +87,17 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MainFlowViewController.self))
     
-    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, appBackupDelegate: AppBackupDelegate) {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, localAuthenticationDelegate: LocalAuthenticationDelegate, appBackupDelegate: AppBackupDelegate, mainFlowViewControllerDelegate: MainFlowViewControllerDelegate, storeKitDelegate: StoreKitDelegate) {
                 
         os_log("🥏🏁 Call to the initializer of MainFlowViewController", log: log, type: .info)
         
         self.obvEngine = obvEngine
         self.currentOwnedCryptoId = ownedCryptoId
         self.createPasscodeDelegate = createPasscodeDelegate
+        self.localAuthenticationDelegate = localAuthenticationDelegate
         self.appBackupDelegate = appBackupDelegate
+        self.storeKitDelegate = storeKitDelegate
+        self.mainFlowViewControllerDelegate = mainFlowViewControllerDelegate
         self.splitDelegate = MainFlowViewControllerSplitDelegate()
         
         discussionsFlowViewController = DiscussionsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
@@ -97,13 +109,15 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
         groupsFlowViewController = GroupsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         mainTabBarController.addChild(groupsFlowViewController)
 
-        invitationsFlowViewController = InvitationsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
+        //invitationsFlowViewController = InvitationsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
+        invitationsFlowViewController = NewInvitationsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         mainTabBarController.addChild(invitationsFlowViewController)
 
         super.init(nibName: nil, bundle: nil)
 
         self.delegate = splitDelegate
-        self.preferredDisplayMode = .allVisible
+        #warning("This single discussion view controller looks bad in split view under iPad. It looked ok when using .allVisible")
+        self.preferredDisplayMode = .oneBesideSecondary // .allVisible
         
         navForDetailsView.delegate = ObvUserActivitySingleton.shared
         let appearance = UINavigationBarAppearance()
@@ -132,20 +146,9 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
         observeUserWantsToCallNotifications()
         observeServerDoesNotSupportCall()
         observeUserWantsToSelectAndCallContactsNotifications()
-        observeCallHasBeenUpdated()
 
         observationTokens.append(contentsOf: [
 
-            // ObvMessengerCoreDataNotification
-            ObvMessengerCoreDataNotification.observeOwnedIdentityWasDeactivated(queue: .main) { [weak self] _ in
-                self?.presentOwnedIdentityIsNotActiveViewControllerIfRequired()
-            },
-            
-            // ObvEngineNotificationNew
-            ObvEngineNotificationNew.observeNetworkOperationFailedSinceOwnedIdentityIsNotActive(within: NotificationCenter.default, queue: .main) { [weak self] (_) in
-                self?.presentOwnedIdentityIsNotActiveViewControllerIfRequired()
-            },
-            
             // ObvMessengerInternalNotification
             ObvMessengerInternalNotification.observeUserWantsToDisplayContactIntroductionScreen(queue: .main) { [weak self] contactObjectID, viewController in
                 self?.processUserWantsToDisplayContactIntroductionScreen(contactObjectID: contactObjectID, viewController: viewController)
@@ -191,7 +194,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
         if viewDidAppearWasCalled == true {
             presentOneOfTheModalViewControllersIfRequired()
         }
-        presentOwnedIdentityIsNotActiveViewControllerIfRequired()
     }
 
     
@@ -243,6 +245,10 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
                     case .newerAppVersionAvailable:
                         guard UIApplication.shared.canOpenURL(ObvMessengerConstants.shortLinkToOlvidAppIniTunes) else { assertionFailure(); return }
                         UIApplication.shared.open(ObvMessengerConstants.shortLinkToOlvidAppIniTunes, options: [:], completionHandler: nil)
+                    case .ownedIdentityIsInactive:
+                        let deepLink = ObvDeepLink.myId(ownedCryptoId: ownedCryptoId)
+                        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                            .postOnDispatchQueue()
                     }
                 }
             },
@@ -259,16 +265,17 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
                     case .newerAppVersionAvailable:
                         ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
                             .postOnDispatchQueue()
+                    case .ownedIdentityIsInactive:
+                        ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
+                            .postOnDispatchQueue()
                     }
                 }
             })
         vc.modalPresentationStyle = .pageSheet
-        if #available(iOS 15, *) {
-            if let sheet = vc.sheetPresentationController {
-                sheet.detents = [.medium(), .large()]
-                sheet.prefersGrabberVisible = true
-                sheet.preferredCornerRadius = 16.0
-            }
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 16.0
         }
         self.present(vc, animated: true)
         
@@ -331,40 +338,13 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
             externallyScannedOrTappedOlvidURL = nil
             Task { await processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL) }
         }
-        if !ownedIdentityIsNotActiveViewControllerWasShowAtLeastOnce {
-            presentOwnedIdentityIsNotActiveViewControllerIfRequired()
+        guard let obvOwnedIdentity = try? obvEngine.getOwnedIdentity(with: currentOwnedCryptoId) else {
+            assertionFailure()
+            return
         }
-        guard let obvOwnedIdentity = try? obvEngine.getOwnedIdentity(with: currentOwnedCryptoId) else { assertionFailure(); return }
         if obvOwnedIdentity.isKeycloakManaged {
             Task {
                 await KeycloakManagerSingleton.shared.registerKeycloakManagedOwnedIdentity(ownedCryptoId: currentOwnedCryptoId, firstKeycloakBinding: false)
-            }
-        }
-    }
-    
-    
-    @MainActor
-    private func presentOwnedIdentityIsNotActiveViewControllerIfRequired() {
-        guard viewDidAppearWasCalled else { return }
-        guard !anOwnedIdentityWasJustCreatedOrRestored else { return }
-        let log = self.log
-        ObvStack.shared.performBackgroundTask { [weak self] (context) in
-            guard let _self = self else { return }
-            guard let ownedIdentityObv = try? PersistedObvOwnedIdentity.get(cryptoId: _self.currentOwnedCryptoId, within: context) else {
-                os_log("Could not find persisted owned identity", log: log, type: .fault)
-                return
-            }
-            guard !ownedIdentityObv.isActive else { return }
-            // If we reach this point, the current owned identity is not active. So we should present the appropriate view controller.
-            DispatchQueue.main.async {
-                // Check that we are not presenting an OwnedIdentityIsNotActiveViewController already
-                if let presentedVC = self?.presentedViewController as? UINavigationController, presentedVC.children.filter({ $0 is OwnedIdentityIsNotActiveViewController }).isEmpty {
-                    return
-                }
-                let ownedIdentityIsNotActiveVC = OwnedIdentityIsNotActiveViewController()
-                let nav = ObvNavigationController(rootViewController: ownedIdentityIsNotActiveVC)
-                self?.present(nav, animated: true)
-                self?.ownedIdentityIsNotActiveViewControllerWasShowAtLeastOnce = true
             }
         }
     }
@@ -412,11 +392,13 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
     
     @MainActor
     private func presentUserNotificationsSubscriberHostingController() async {
-        self.dismiss(animated: true) { [weak self] in
-            guard let _self = self else { return }
-            let vc = AutorisationRequesterHostingController(autorisationCategory: .localNotifications, delegate: _self)
-            _self.present(vc, animated: true)
+        guard presentedViewController == nil else {
+            // We are already presengtin a view controller (e.g., a keycloak authentication view controller)
+            // We do not present the NewAutorisationRequesterViewController
+            return
         }
+        let vc = NewAutorisationRequesterViewController(autorisationCategory: .localNotifications, delegate: self)
+        present(vc, animated: true)
     }
     
     
@@ -447,12 +429,10 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
                     self?.dismissPresentedViewController()
                 })
             vc.modalPresentationStyle = .pageSheet
-            if #available(iOS 15, *) {
-                if let sheet = vc.sheetPresentationController {
-                    sheet.detents = [.large()]
-                    sheet.prefersGrabberVisible = true
-                    sheet.preferredCornerRadius = 16.0
-                }
+            if let sheet = vc.sheetPresentationController {
+                sheet.detents = [.large()]
+                sheet.prefersGrabberVisible = true
+                sheet.preferredCornerRadius = 16.0
             }
             self.present(vc, animated: true)
             return
@@ -466,16 +446,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
 
 extension MainFlowViewController {
     
-    /// This methods makes sure the interface stays consistent when a `PersistedDiscussion` instance gets deleted.
-    ///
-    /// When a `PersistedDiscussion` instance gets deleted, we are in one of the two following cases:
-    /// - The user (or a contact) deleted all messages of the discussion. In that case, a new `PersistedDiscussion` instance has been created, with the same permanent ID, but with a different `objectID`.
-    ///   In that case:
-    ///   - If the new `PersistedDiscussion` instance, representing the same logical discussion (i.e., with the same permanent ID) is archived, we **remove** all `SomeSingleContactViewController` for that discussion from the view hierarchy.
-    ///   - If the new `PersistedDiscussion` instance is not archived, we **replace** any `SomeSingleContactViewController` instance by a new one, representing the same logical discussion.
-    /// - The user deleted all messages from a locked discussion. In that case, no new `PersistedDiscussion` instance was created. We remove all `SomeSingleContactViewController` instance from the view hierarchy.
-    ///
-    /// Moreover, we must deal with both situations, under iPad and iPhone (where the split view interface is collapsed).
     @MainActor
     func processPersistedDiscussionWasDeletedOrArchived(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
         
@@ -513,7 +483,7 @@ extension MainFlowViewController {
     }
     
     
-    /// Helper method for `processPersistedDiscussionWasInserted()`
+    /// Helper method
     @MainActor
     private func removeFromTheObvFlowControllersAllSomeSingleDiscussionViewControllerForDiscussionWithPermanentID(_ discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) async {
         let allFlowViewControllers = self.mainTabBarController.viewControllers?.compactMap { $0 as? ObvFlowController } ?? []
@@ -532,20 +502,11 @@ extension MainFlowViewController {
             if someSingleDiscussionVC.discussionPermanentID != discussion.discussionPermanentID {
                 return someSingleDiscussionVC
             } else {
-                if #available(iOS 15.0, *), !ObvMessengerSettings.Interface.useOldDiscussionInterface {
-                    do {
-                        return try currentFlow?.getNewSingleDiscussionViewController(for: discussion, initialScroll: .newMessageSystemOrLastMessage)
-                    } catch {
-                        assertionFailure(error.localizedDescription) // In production, continue anyway
-                        return nil
-                    }
-                } else {
-                    do {
-                        return try currentFlow?.getSingleDiscussionViewController(for: discussion)
-                    } catch {
-                        assertionFailure(error.localizedDescription) // In production, continue anyway
-                        return nil
-                    }
+                do {
+                    return try currentFlow?.getNewSingleDiscussionViewController(for: discussion, initialScroll: .newMessageSystemOrLastMessage)
+                } catch {
+                    assertionFailure(error.localizedDescription) // In production, continue anyway
+                    return nil
                 }
             }
         }
@@ -611,13 +572,13 @@ extension MainFlowViewController {
 }
 
 
-// MARK: - AutorisationRequesterHostingControllerDelegate
+// MARK: - NewAutorisationRequesterViewControllerDelegate
 
-extension MainFlowViewController: AutorisationRequesterHostingControllerDelegate {
+extension MainFlowViewController: NewAutorisationRequesterViewControllerDelegate {
     
     @MainActor
-    func requestAutorisation(now: Bool, for autorisationCategory: AutorisationRequesterHostingController.AutorisationCategory) async {
-        assert(Thread.isMainThread)
+    func requestAutorisation(autorisationRequester: NewAutorisationRequesterViewController, now: Bool, for autorisationCategory: NewAutorisationRequesterViewController.AutorisationCategory) async {
+        preventPrivacyWindowSceneFromShowingOnNextWillResignActive()
         switch autorisationCategory {
         case .localNotifications:
             if now {
@@ -632,7 +593,7 @@ extension MainFlowViewController: AutorisationRequesterHostingControllerDelegate
         case .recordPermission:
             if now {
                 let granted = await AVAudioSession.sharedInstance().requestRecordPermission()
-                os_log("User granted access to audio: %@", log: log, type: .error, String(describing: granted))
+                os_log("User granted access to audio: %@", log: log, type: .info, String(describing: granted))
             }
             dismiss(animated: true)
         }
@@ -699,35 +660,68 @@ extension MainFlowViewController {
             assertionFailure()
             return
         }
+        
         let deleteAction = UIAlertAction(title: Strings.AlertConfirmProfileDeletion.actionDeleteProfile, style: .destructive) { [weak self] _ in
-            
-            let alert = UIAlertController(title: Strings.AlertNotifyContactsOnOwnedIdentityDeletion.title,
-                                          message: Strings.AlertNotifyContactsOnOwnedIdentityDeletion.message,
-                                          preferredStyleForTraitCollection: traitCollection)
-            
-            let notifyContactsAction = UIAlertAction(title: Strings.AlertNotifyContactsOnOwnedIdentityDeletion.notifyContactsAction, style: .default) { _ in
-                self?.processUserWantsToDeleteOwnedIdentityAfterHavingConfirmed(ownedCryptoId: ownedCryptoId, notifyContacts: true)
-            }
-            let doNotNotifyContactsAction = UIAlertAction(title: Strings.AlertNotifyContactsOnOwnedIdentityDeletion.doNotNotifyContactsAction, style: .default) { _ in
-                self?.processUserWantsToDeleteOwnedIdentityAfterHavingConfirmed(ownedCryptoId: ownedCryptoId, notifyContacts: false)
-            }
-            let cancelAction = UIAlertAction(title: CommonString.Word.Cancel, style: .default)
-            alert.addAction(notifyContactsAction)
-            alert.addAction(doNotNotifyContactsAction)
-            alert.addAction(cancelAction)
-            self?.present(alert, animated: true)
-            
+            Task { [weak self] in await self?.processUserWantsToDeleteOwnedIdentityButMustChooseBetweenLocalAndGlobalDeletion(ownedCryptoId: ownedCryptoId) }
         }
+        
         let cancelAction = UIAlertAction(title: CommonString.Word.Cancel, style: .default)
+        
         alert.addAction(deleteAction)
         alert.addAction(cancelAction)
+        
         present(alert, animated: true)
         
     }
     
     
+    @MainActor
+    private func processUserWantsToDeleteOwnedIdentityButMustChooseBetweenLocalAndGlobalDeletion(ownedCryptoId: ObvCryptoId) async {
+        
+        assert(Thread.isMainThread)
+        dismissPresentedViewController()
+        let traitCollection = self.traitCollection
+
+        guard let ownedIdentityToDelete = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { return }
+
+        if ownedIdentityToDelete.isActive {
+            
+            let alert = UIAlertController(
+                title: Strings.AlertChooseBetweenGlobalAndLocalOnOwnedIdentityDeletion.title,
+                message: Strings.AlertChooseBetweenGlobalAndLocalOnOwnedIdentityDeletion.message,
+                preferredStyleForTraitCollection: traitCollection)
+            
+            let globalDeletionAction = UIAlertAction(
+                title: Strings.AlertChooseBetweenGlobalAndLocalOnOwnedIdentityDeletion.globalDeletionAction, style: .destructive)
+            { [weak self] _ in
+                Task { [weak self] in await self?.processUserWantsToDeleteOwnedIdentityAfterHavingConfirmed(ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: true) }
+            }
+            let localDeletionAction = UIAlertAction(
+                title: Strings.AlertChooseBetweenGlobalAndLocalOnOwnedIdentityDeletion.localDeletionAction, style: .destructive)
+            { [weak self] _ in
+                Task { [weak self] in await self?.processUserWantsToDeleteOwnedIdentityAfterHavingConfirmed(ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: false) }
+            }
+            let cancelAction = UIAlertAction(title: CommonString.Word.Cancel, style: .default)
+            alert.addAction(globalDeletionAction)
+            alert.addAction(localDeletionAction)
+            alert.addAction(cancelAction)
+            present(alert, animated: true)
+            
+        } else {
+            
+            // Since the identity is not active, a global delete makes no sense.
+            // We immediately go to the last step, assuming a local delete.
+            
+            await processUserWantsToDeleteOwnedIdentityAfterHavingConfirmed(ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: false)
+            
+        }
+        
+    }
+    
+    
     /// This method is called last during the UI process allowing to delete an owned identity. It allows to make sure that the does want to delete her owned identity by asking her to write the DELETE word.
-    private func processUserWantsToDeleteOwnedIdentityAfterHavingConfirmed(ownedCryptoId: ObvCryptoId, notifyContacts: Bool) {
+    @MainActor
+    private func processUserWantsToDeleteOwnedIdentityAfterHavingConfirmed(ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async {
         guard let ownedIdentityToDelete = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { return }
         let profileName = ownedIdentityToDelete.customDisplayName ?? ownedIdentityToDelete.identityCoreDetails.getFullDisplayName()
 
@@ -735,21 +729,20 @@ extension MainFlowViewController {
                                       message: Strings.AlertTypeDeleteToProceedWithOwnedIdentityDeletion.message,
                                       preferredStyle: .alert)
         alert.addTextField { textField in
-            textField.text = NSLocalizedString("", comment: "")
+            textField.text = ""
             textField.autocapitalizationType = .allCharacters
         }
         alert.addAction(UIAlertAction(title: Strings.AlertTypeDeleteToProceedWithOwnedIdentityDeletion.doDelete, style: .destructive, handler: { [unowned alert] _ in
             guard let textField = alert.textFields?.first else { assertionFailure(); return }
             guard textField.text?.trimmingWhitespacesAndNewlines() == Strings.AlertTypeDeleteToProceedWithOwnedIdentityDeletion.wordToType else { return }
-            ObvMessengerInternalNotification.userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ownedCryptoId, notifyContacts: notifyContacts)
+            ObvMessengerInternalNotification.userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
                 .postOnDispatchQueue()
         }))
         alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
         present(alert, animated: true)
-
-        
     }
 
+    
 }
 
 
@@ -819,7 +812,9 @@ extension MainFlowViewController {
             checkSignatureMutualScanUrl: { [weak self] mutualScanUrl in
                 guard let _self = self else { return false }
                 return _self.checkSignatureMutualScanUrl(mutualScanUrl)
-            })
+            },
+            obvEngine: obvEngine,
+            delegate: self)
         else {
             assertionFailure()
             return
@@ -870,10 +865,15 @@ extension MainFlowViewController {
     
     
     func userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(with contactCryptoId: ObvCryptoId, using newContactIdentityDetails: ObvIdentityDetails) {
-        do {
-            try obvEngine.updateTrustedIdentityDetailsOfContactIdentity(with: contactCryptoId, ofOwnedIdentityWithCryptoId: currentOwnedCryptoId, with: newContactIdentityDetails)
-        } catch {
-            os_log("Could not update trusted identity details of a contact", log: log, type: .error)
+        let obvEngine = self.obvEngine
+        let log = self.log
+        let currentOwnedCryptoId = self.currentOwnedCryptoId
+        Task.detached {
+            do {
+                try await obvEngine.updateTrustedIdentityDetailsOfContactIdentity(with: contactCryptoId, ofOwnedIdentityWithCryptoId: currentOwnedCryptoId, with: newContactIdentityDetails)
+            } catch {
+                os_log("Could not update trusted identity details of a contact", log: log, type: .error)
+            }
         }
     }
     
@@ -896,6 +896,157 @@ extension MainFlowViewController {
     func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void) {
         ObvMessengerInternalNotification.userWantsToRefreshDiscussions(completionHandler: completionHandler)
             .postOnDispatchQueue()
+    }
+
+    
+    /// Helper enum used in ``userWantsToInviteContactsToOneToOne(ownedCryptoId:users:)``
+    private enum OneToOneInvitationKind {
+        case oneToOneInvitationProtocol(ownedCryptoId: ObvCryptoId, userCryptoId: ObvCryptoId)
+        case keycloak(ownedCryptoId: ObvCryptoId, userCryptoId: ObvCryptoId, userIdOrSignedDetails: KeycloakAddContactInfo)
+    }
+
+    
+    /// Central method to call to invite a contact to be one2one. In most cases, this only triggers a `OneToOneContactInvitationProtocol`. In the case the owned identity is keycloak managed by the same server as the contact, this *also* triggers a Keycloak invitation.
+    func userWantsToInviteContactsToOneToOne(ownedCryptoId: ObvCryptoId, users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)]) async throws {
+
+        let invitationsToSend = try await computeListOfOneToOneInvitationsToSend(ownedCryptoId: ownedCryptoId, users: users)
+        
+        for invitationToSend in invitationsToSend {
+            
+            switch invitationToSend {
+
+            case .oneToOneInvitationProtocol(ownedCryptoId: let ownedCryptoId, userCryptoId: let userCryptoId):
+                
+                do {
+                    try obvEngine.sendOneToOneInvitation(ownedIdentity: ownedCryptoId, contactIdentity: userCryptoId)
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                    continue // In production, do not fail the whole process because something went wrong for one invitation
+                }
+
+            case .keycloak(ownedCryptoId: let ownedCryptoId, userCryptoId: let userCryptoId, userIdOrSignedDetails: let userIdOrSignedDetails):
+
+                do {
+                    try await KeycloakManagerSingleton.shared.addContact(ownedCryptoId: ownedCryptoId, userIdOrSignedDetails: userIdOrSignedDetails, userIdentity: userCryptoId.getIdentity())
+                } catch let addContactError as KeycloakManager.AddContactError {
+                    switch addContactError {
+                    case .authenticationRequired,
+                            .ownedIdentityNotManaged,
+                            .badResponse,
+                            .userHasCancelled,
+                            .keycloakApiRequest,
+                            .invalidSignature,
+                            .unkownError:
+                        throw addContactError
+                    case .willSyncKeycloakServerSignatureKey:
+                        break
+                    case .ownedIdentityWasRevoked:
+                        ObvMessengerInternalNotification.userOwnedIdentityWasRevokedByKeycloak(ownedCryptoId: ownedCryptoId)
+                            .postOnDispatchQueue()
+                    }
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                    continue // In production, do not fail the whole process because something went wrong for one invitation
+                }
+                
+            }
+            
+        }
+
+    }
+    
+    
+    /// Helper methods for ``userWantsToInviteContactsToOneToOne(ownedCryptoId:users:)``. Returns a list of one2one invitations to send. Note that we might return two invitation types for the same user. This is intended.
+    ///
+    /// If the owned identity is Keycloak managed and the contact is managed by the same keycloak:
+    /// - if there is a corresponding PersistedObvContactIdentity:
+    ///   - if one2one, don't start a keycloak invitation
+    ///   - otherwise, check whether she's keycloak managed. In that case, start a keycloak invitation.
+    /// - If there is no contact and this method caller provided JSON signed details, start a keycloak invitation.
+    private func computeListOfOneToOneInvitationsToSend(ownedCryptoId: ObvCryptoId, users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)]) async throws -> [OneToOneInvitationKind] {
+        
+        // In case the owned identity is keycloak managed, we augment the received list of users using the keycloak details available from the engine
+        
+        let usersWithAllKeyclakInfos: [(cryptoId: ObvCryptoId, userIdOrSignedDetails: KeycloakAddContactInfo?)]
+        
+        if try await ownedIdentityIsKeycloakManaged(ownedCryptoId: ownedCryptoId) {
+            
+            var constructedListOfUsers = [(cryptoId: ObvCryptoId, userIdOrSignedDetails: KeycloakAddContactInfo?)]()
+            for user in users {
+                if let userId = user.keycloakDetails?.id {
+                    constructedListOfUsers.append((user.cryptoId, .userId(userId: userId)))
+                } else if let keycloakSignedDetails = try? await obvEngine.getSignedContactDetailsAsync(ownedIdentity: ownedCryptoId, contactIdentity: user.cryptoId) {
+                    constructedListOfUsers.append((user.cryptoId, .signedDetails(signedDetails: keycloakSignedDetails)))
+                } else {
+                    constructedListOfUsers.append((user.cryptoId, nil))
+                }
+            }
+            
+            usersWithAllKeyclakInfos = constructedListOfUsers
+            
+        } else {
+            
+            usersWithAllKeyclakInfos = users.map { ($0.cryptoId, nil) }
+            
+        }
+        
+        // Now that we have a list of users to invite (and all the available info concerning their keycloak details), we can compute a list of one2one invitations to send.
+
+        return await withCheckedContinuation { (continuation: CheckedContinuation<[OneToOneInvitationKind], Never>) in
+
+            ObvStack.shared.performBackgroundTask { context in
+
+                var invitationsToPerform = [OneToOneInvitationKind]()
+
+                for user in usersWithAllKeyclakInfos {
+                    
+                    do {
+                        
+                        if let contact = try PersistedObvContactIdentity.get(contactCryptoId: user.cryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: context) {
+                            
+                            if !contact.isOneToOne && contact.isActive && contact.hasAtLeastOneRemoteContactDevice() {
+                                invitationsToPerform.append(.oneToOneInvitationProtocol(ownedCryptoId: ownedCryptoId, userCryptoId: user.cryptoId))
+                            }
+                            
+                            if !contact.isOneToOne && contact.isActive, let userIdOrSignedDetails = user.userIdOrSignedDetails {
+                                invitationsToPerform.append(.keycloak(ownedCryptoId: ownedCryptoId, userCryptoId: user.cryptoId, userIdOrSignedDetails: userIdOrSignedDetails))
+                            }
+                            
+                        } else if let userIdOrSignedDetails = user.userIdOrSignedDetails {
+                            
+                            invitationsToPerform.append(.keycloak(ownedCryptoId: ownedCryptoId, userCryptoId: user.cryptoId, userIdOrSignedDetails: userIdOrSignedDetails))
+
+                        }
+                        
+                    } catch {
+                        assertionFailure(error.localizedDescription)
+                        continue
+                    }
+                    
+                }
+                
+                continuation.resume(returning: invitationsToPerform)
+            }
+            
+        }
+        
+    }
+    
+    
+    /// Helper method for ``computeListOfOneToOneInvitationsToSend(ownedCryptoId:users:)``
+    private func ownedIdentityIsKeycloakManaged(ownedCryptoId: ObvCryptoId) async throws -> Bool {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context) else {
+                        throw ObvFlowControllerError.couldNotFindOwnedIdentity
+                    }
+                    continuation.resume(returning: ownedIdentity.isKeycloakManaged)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 
 }
@@ -955,6 +1106,17 @@ extension MainFlowViewController: UITabBarControllerDelegate, ObvSubTabBarContro
 }
 
 
+// MARK: - AddContactHostingViewControllerDelegate
+
+extension MainFlowViewController: AddContactHostingViewControllerDelegate {
+    
+    func userWantsToAddNewContactViaKeycloak(ownedCryptoId: ObvCryptoId, keycloakUserDetails: ObvKeycloakUserDetails, userCryptoId: ObvCryptoId) async throws {
+        try await userWantsToInviteContactsToOneToOne(ownedCryptoId: ownedCryptoId, users: [(userCryptoId, keycloakUserDetails)])
+    }
+    
+}
+
+
 // MARK: - Handling DeepLinks
 
 extension MainFlowViewController {
@@ -973,22 +1135,24 @@ extension MainFlowViewController {
     /// Otherwise, we show the subscription plans.
     private func observeUserWantsToCallNotifications() {
         os_log("📲 Observing UserWantsToCall notifications", log: log, type: .info)
-        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToCallButWeShouldCheckSheIsAllowedTo(queue: .main) { [weak self] (contactIDs, groupId) in
-            self?.processUserWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contactIDs, groupId: groupId)
+        
+        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToCallButWeShouldCheckSheIsAllowedTo { ownedCryptoId, contactCryptoIds, groupId in
+            Task { [weak self] in await self?.processUserWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId) }
         })
+        
     }
     
     
     @MainActor
-    private func processUserWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: GroupIdentifierBasedOnObjectID?) {
+    private func processUserWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?) async {
         assert(Thread.isMainThread)
         
         // Check access to the microphone
         guard AVAudioSession.sharedInstance().recordPermission == .granted else {
             AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
                 if granted {
-                    DispatchQueue.main.async {
-                        self?.processUserWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contactIDs, groupId: groupId)
+                    Task { [weak self] in
+                        await self?.processUserWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId)
                     }
                 } else {
                     ObvMessengerInternalNotification.requestUserDeniedRecordPermissionAlert.postOnDispatchQueue()
@@ -997,9 +1161,9 @@ extension MainFlowViewController {
             return
         }
 
-        guard !contactIDs.isEmpty else { assertionFailure(); return }
-        let contacts = contactIDs.compactMap({try? PersistedObvContactIdentity.get(objectID: $0, within: ObvStack.shared.viewContext)})
-        guard contacts.count == contactIDs.count else {
+        guard !contactCryptoIds.isEmpty else { assertionFailure(); return }
+        let contacts = contactCryptoIds.compactMap({try? PersistedObvContactIdentity.get(contactCryptoId: $0, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) })
+        guard contacts.count == contactCryptoIds.count else {
             os_log("One of the contacts to be called could not be fetched from database", log: log, type: .fault)
             assertionFailure()
             return
@@ -1026,22 +1190,21 @@ extension MainFlowViewController {
         }
         let ownedIdentity = ownedIdentities.first!
         
-        let contactIds = contacts.map({ OlvidUserId.known(contactObjectID: $0.typedObjectID, ownCryptoId: ownedIdentity.cryptoId, remoteCryptoId: $0.cryptoId, displayName: $0.fullDisplayName) })
+        let contactCryptoIds = Set(contacts.map({ $0.cryptoId }))
 
         // If the owned identity is allowed to make outgoing calls, we use it to request turn credentials. If it is not, we look for another owned identity that is allowed to and use it (exclusively) to request turn credentials.
         // This way, if one identity it allowed to make outgoing calls, all other owned identity are as well.
-        let ownedIdentityForRequestingTurnCredentials: ObvCryptoId?
-        if ownedIdentity.apiPermissions.contains(.canCall) {
-            ownedIdentityForRequestingTurnCredentials = ownedIdentity.cryptoId
-        } else if let ownedIdentityAllowedToCall = try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext).first(where: { $0.apiPermissions.contains(.canCall) }) {
-            ownedIdentityForRequestingTurnCredentials = ownedIdentityAllowedToCall.cryptoId
-        } else {
-            ownedIdentityForRequestingTurnCredentials = nil
-        }
+        let ownedIdentityForRequestingTurnCredentials = ownedIdentity.ownedCryptoIdAllowedToEmitSecureCall
         
         if let ownedIdentityForRequestingTurnCredentials {
-            ObvMessengerInternalNotification.userWantsToCallAndIsAllowedTo(contactIds: contactIds, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials, groupId: groupId)
+            do {
+                ObvMessengerInternalNotification.userWantsToCallAndIsAllowedTo(
+                    ownedCryptoId: ownedCryptoId,
+                    contactCryptoIds: contactCryptoIds,
+                    ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials,
+                    groupId: groupId)
                 .postOnDispatchQueue()
+            }
         } else {
             let vc = UserTriesToAccessPaidFeatureHostingController(requestedPermission: .canCall, ownedCryptoId: ownedIdentity.cryptoId)
             dismiss(animated: true) { [weak self] in
@@ -1050,62 +1213,54 @@ extension MainFlowViewController {
         }
     }
     
-
+    
     private func observeUserWantsToSelectAndCallContactsNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToSelectAndCallContacts(queue: OperationQueue.main) { [weak self] (allContactsID, groupId)  in
-            guard !allContactsID.isEmpty else { return }
-            var contacts: [PersistedObvContactIdentity] = []
-            for contactID in allContactsID {
-                guard let contact = try? PersistedObvContactIdentity.get(objectID: contactID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-                guard !contact.devices.isEmpty else { continue }
-                contacts += [contact]
-            }
-            guard !contacts.isEmpty else { return }
-            guard let ownedIdentity = contacts.first?.ownedIdentity else { assertionFailure(); return }
-
-            var contactCryptoIds = Set<ObvCryptoId>()
-            if let groupId = groupId {
-                switch groupId {
-                case .groupV1(let objectID):
-                    if let contactGroup = try? PersistedContactGroup.get(objectID: objectID.objectID, within: ObvStack.shared.viewContext) {
-                        contactGroup.contactIdentities.forEach { contactCryptoIds.insert($0.cryptoId) }
-                    }
-                case .groupV2(let objectID):
-                    if let group = try? PersistedGroupV2.get(objectID: objectID, within: ObvStack.shared.viewContext) {
-                        group.contactsAmongNonPendingOtherMembers.forEach { contactCryptoIds.insert($0.cryptoId) }
-                    }
-                }
-            } else {
-                contacts.forEach { contactCryptoIds.insert($0.cryptoId) }
-            }
-
-            let button = MultipleContactsButton.floating(title: CommonString.Word.Call, systemIcon: .phoneFill)
-
-            let vc = MultipleContactsViewController(ownedCryptoId: ownedIdentity.cryptoId,
-                                                    mode: .restricted(to: contactCryptoIds, oneToOneStatus: .any),
-                                                    button: button, defaultSelectedContacts: Set(contacts),
-                                                    disableContactsWithoutDevice: true,
-                                                    allowMultipleSelection: true,
-                                                    showExplanation: false,
-                                                    allowEmptySetOfContacts: false,
-                                                    textAboveContactList: nil,
-                                                    selectionStyle: .checkmark) { selectedContacts in
-
-                ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: selectedContacts.map({ $0.typedObjectID }), groupId: groupId).postOnDispatchQueue()
-
-                self?.dismiss(animated: true)
-            } dismissAction: {
-                self?.dismiss(animated: true)
-            }
-            let nav = ObvNavigationController(rootViewController: vc)
-
-            if let presentedViewController = self?.presentedViewController {
-                presentedViewController.present(nav, animated: true)
-            } else {
-                self?.present(nav, animated: true)
-            }
+        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToSelectAndCallContacts { ownedCryptoId, contactCryptoIds, groupId in
+            Task { [weak self] in await self?.processUserWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId) }
         })
     }
+    
+    
+    @MainActor
+    private func processUserWantsToSelectAndCallContacts(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?) async {
+        guard !contactCryptoIds.isEmpty else { return }
+        
+        let persistedContacts = contactCryptoIds
+            .compactMap { try? PersistedObvContactIdentity.get(contactCryptoId: $0, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) }
+            .filter { !$0.devices.isEmpty }
+        
+        guard !persistedContacts.isEmpty else { return }
+        
+        let button = MultipleContactsButton.floating(title: CommonString.Word.Call, systemIcon: .phoneFill)
+
+        let vc = MultipleContactsViewController(ownedCryptoId: ownedCryptoId,
+                                                mode: .restricted(to: contactCryptoIds, oneToOneStatus: .any),
+                                                button: button, 
+                                                defaultSelectedContacts: Set(persistedContacts),
+                                                disableContactsWithoutDevice: true,
+                                                allowMultipleSelection: true,
+                                                showExplanation: false,
+                                                allowEmptySetOfContacts: false,
+                                                textAboveContactList: nil,
+                                                selectionStyle: .checkmark) { [weak self] selectedContacts in
+
+            let selectedContactCryptoIs = selectedContacts.map { $0.cryptoId }
+            ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(selectedContactCryptoIs), groupId: groupId)
+                .postOnDispatchQueue()
+
+            self?.dismiss(animated: true)
+        } dismissAction: { [weak self] in
+            self?.dismiss(animated: true)
+        }
+        let nav = ObvNavigationController(rootViewController: vc)
+
+        if let presentedViewController {
+            presentedViewController.present(nav, animated: true)
+        } else {
+            present(nav, animated: true)
+        }
+    }
+    
 
     private func observeServerDoesNotSupportCall() {
         observationTokens.append(VoIPNotification.observeServerDoesNotSupportCall(queue: OperationQueue.main) { [weak self] in
@@ -1119,21 +1274,7 @@ extension MainFlowViewController {
         })
     }
 
-    private func observeCallHasBeenUpdated() {
-        observationTokens.append(VoIPNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] _, updateKind in
-            guard case .state(let newState) = updateKind else { return }
-            guard newState == .kicked else { return }
 
-            let alert = UIAlertController(title: Strings.UserHasBeenKilled.title, message: nil, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
-            if let presentedViewController = self?.presentedViewController {
-                presentedViewController.present(alert, animated: true)
-            } else {
-                self?.present(alert, animated: true)
-            }
-        })
-    }
-    
     @MainActor
     private func presentUIActivityViewControllerForSharingOwnPublishedDetails(sourceView: UIView) {
         guard let obvOwnedIdentity = try? obvEngine.getOwnedIdentity(with: currentOwnedCryptoId) else { return }
@@ -1179,7 +1320,7 @@ extension MainFlowViewController {
             os_log("🥏 The current deep link is a myId", log: log, type: .info)
             guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
             presentedViewController?.dismiss(animated: true)
-            let vc = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity, obvEngine: obvEngine)
+            let vc = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity, obvEngine: obvEngine, delegate: self)
             let nav = UINavigationController(rootViewController: vc)
             vc.delegate = self
             present(nav, animated: true)
@@ -1242,24 +1383,30 @@ extension MainFlowViewController {
             }
             
         case .airDrop(fileURL: let fileURL):
-            if let discussionVC = currentDiscussionViewControllerShownToUser() {
-                // The user is currently within a discussion. We add the AirDrop'ed files within that discussion
-                discussionVC.addAttachmentFromAirDropFile(at: fileURL)
-            } else {
-                // The user is not within a discussion. Go to the list of latest discussions and wait until a discussion is chosen
-                // We save the file URL
-                mainTabBarController.selectedIndex = ChildTypes.latestDiscussions
-                _ = discussionsFlowViewController.children.first?.navigationController?.popViewController(animated: true)
-                DispatchQueue.main.async { [weak self] in
-                    guard let _self = self else { return }
-                    _self.airDroppedFileURLs.append(fileURL)
-                    guard !_self.hudIsShown() else { return }
-                    _self.showHUD(type: ObvHUDType.text(text: Strings.chooseDiscussion), completionHandler: nil)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { [weak self] in
-                        self?.hideHUD()
-                    }
-                 }
+            
+            #if targetEnvironment(macCatalyst)
+            
+            // For catalyst, we copy the file to a tmp folder in order to prevent it to be deleted by future operations
+            
+            let targetFileURL = ObvUICoreDataConstants.ContainerURL.forTemporaryDroppedItems.appendingPathComponent(fileURL.lastPathComponent)
+            let fileManager = FileManager.default
+            if fileManager.fileExists(atPath: fileURL.path) {
+                // copy the file
+                do {
+                    try fileManager.copyItem(at: fileURL, to: targetFileURL)
+                    addAttachmentFromFile(at: targetFileURL)
+                } catch {
+                    os_log("Unable to copy file to tmp Folder", log: log, type: .info)
+                }
             }
+            
+            #else
+            
+            let targetFileURL = fileURL
+            addAttachmentFromFile(at: targetFileURL)
+            
+            #endif
+            
         case .requestRecordPermission:
             switch AVAudioSession.sharedInstance().recordPermission {
             case .undetermined:
@@ -1299,6 +1446,16 @@ extension MainFlowViewController {
                 presentSettingsFlowViewController(specificSetting: .backup)
             }
             
+        case .voipSettings:
+            assert(Thread.isMainThread)
+            if let presentedViewController = self.presentedViewController {
+                presentedViewController.dismiss(animated: true) { [weak self] in
+                    self?.presentSettingsFlowViewController(specificSetting: .voip)
+                }
+            } else {
+                presentSettingsFlowViewController(specificSetting: .voip)
+            }
+
         case .privacySettings:
             assert(Thread.isMainThread)
             if let presentedViewController = self.presentedViewController {
@@ -1318,17 +1475,36 @@ extension MainFlowViewController {
         
     }
 
+
+    @MainActor
+    private func addAttachmentFromFile(at fileURL: URL) {
+        if let discussionVC = currentDiscussionViewControllerShownToUser() {
+            // The user is currently within a discussion. We add the AirDrop'ed files within that discussion
+            discussionVC.addAttachmentFromAirDropFile(at: fileURL)
+        } else {
+            // The user is not within a discussion. Go to the list of latest discussions and wait until a discussion is chosen
+            // We save the file URL
+            mainTabBarController.selectedIndex = ChildTypes.latestDiscussions
+            _ = discussionsFlowViewController.children.first?.navigationController?.popViewController(animated: true)
+            DispatchQueue.main.async { [weak self] in
+                guard let _self = self else { return }
+                _self.airDroppedFileURLs.append(fileURL)
+                guard !_self.hudIsShown() else { return }
+                _self.showHUD(type: ObvHUDType.text(text: Strings.chooseDiscussion), completionHandler: nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { [weak self] in
+                    self?.hideHUD()
+                }
+            }
+        }
+    }
     
     @MainActor
     private func presentSettingsFlowViewController() {
         assert(Thread.isMainThread)
-        guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+        guard let createPasscodeDelegate, let appBackupDelegate, let localAuthenticationDelegate else {
             assertionFailure(); return
         }
-        guard let appBackupDelegate = self.appBackupDelegate else {
-            assertionFailure(); return
-        }
-        let vc = SettingsFlowViewController(ownedCryptoId: currentOwnedCryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, appBackupDelegate: appBackupDelegate)
+        let vc = SettingsFlowViewController(ownedCryptoId: currentOwnedCryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, localAuthenticationDelegate: localAuthenticationDelegate, appBackupDelegate: appBackupDelegate)
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         vc.viewControllers.first?.navigationItem.setLeftBarButton(closeButton, animated: false)
         present(vc, animated: true)
@@ -1338,13 +1514,10 @@ extension MainFlowViewController {
     @MainActor
     private func presentSettingsFlowViewController(specificSetting: AllSettingsTableViewController.Setting) {
         assert(Thread.isMainThread)
-        guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+        guard let createPasscodeDelegate, let appBackupDelegate, let localAuthenticationDelegate else {
             assertionFailure(); return
         }
-        guard let appBackupDelegate = self.appBackupDelegate else {
-            assertionFailure(); return
-        }
-        let vc = SettingsFlowViewController(ownedCryptoId: currentOwnedCryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, appBackupDelegate: appBackupDelegate)
+        let vc = SettingsFlowViewController(ownedCryptoId: currentOwnedCryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, localAuthenticationDelegate: localAuthenticationDelegate, appBackupDelegate: appBackupDelegate)
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         vc.viewControllers.first?.navigationItem.setLeftBarButton(closeButton, animated: false)
         present(vc, animated: true) {
@@ -1390,14 +1563,14 @@ extension MainFlowViewController {
 
 extension MainFlowViewController {
     
-    func handleOlvidURL(_ olvidURL: OlvidURL) {
+    @MainActor
+    func handleOlvidURL(_ olvidURL: OlvidURL) async {
         // When receiving an OlvidURL, we store it in the externallyScannedOrTappedOlvidURL variable. This URL will be processed when the viewDidAppear lifecycle method is called.
         // We do not process the URL here to prevent a race condition between the alert presented to process the link, and the alert presented when authenticating (when the user decided to activate this option).
         // This only exception to the above is when viewDidAppear was already called, in which case we process the link immediately.
-        assert(Thread.isMainThread)
         assert(externallyScannedOrTappedOlvidURL == nil)
         if viewDidAppearWasCalled {
-            Task { await processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL) }
+            await processExternallyScannedOrTappedOlvidURL(olvidURL: olvidURL)
         } else {
             externallyScannedOrTappedOlvidURL = olvidURL
         }
@@ -1405,7 +1578,8 @@ extension MainFlowViewController {
     
     
     /// Lets the user choose which of her identities she wants to use before proceeding with the processing of an an external OlvidURL.
-    @MainActor private func processExternallyScannedOrTappedOlvidURL(olvidURL: OlvidURL) async {
+    @MainActor 
+    private func processExternallyScannedOrTappedOlvidURL(olvidURL: OlvidURL) async {
         os_log("Processing an externally scanned or tapped Olvid URL", log: log, type: .info)
         do {
             let ownedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext)
@@ -1453,14 +1627,19 @@ extension MainFlowViewController {
         let ownedIdentityChooserVC = OwnedIdentityChooserViewController(currentOwnedCryptoId: currentOwnedCryptoId,
                                                                         ownedIdentities: ownedIdentities,
                                                                         delegate: self)
-        ownedIdentityChooserVC.modalPresentationStyle = .popover
-        if let popover = ownedIdentityChooserVC.popoverPresentationController {
-            if #available(iOS 15, *) {
+        
+        // Under iPhone, we use a popover presentation style. Since we have no source view, we cannot do the same under iPad or mac.
+        // Note that this method gets also called when the user taps an invitation link in a Safari window. In that case, we cannot have a source view anyway.
+        if traitCollection.userInterfaceIdiom == .phone {
+            ownedIdentityChooserVC.modalPresentationStyle = .popover
+            if let popover = ownedIdentityChooserVC.popoverPresentationController {
                 let sheet = popover.adaptiveSheetPresentationController
                 sheet.detents = [.medium(), .large()]
                 sheet.prefersGrabberVisible = true
                 sheet.preferredCornerRadius = 16.0
             }
+        } else {
+            ownedIdentityChooserVC.modalPresentationStyle = .formSheet
         }
         // In case the OwnedIdentityChooserViewController gets dismissed without choosing a profile, we simply want to discard the externallyScannedOrTappedOlvidURLExpectingAnOwnedIdentityToBeChosen
         ownedIdentityChooserVC.callbackOnViewDidDisappear = { [weak self] in
@@ -1626,11 +1805,43 @@ extension MainFlowViewController: ScannerHostingViewDelegate {
 // MARK: - SingleOwnedIdentityFlowViewControllerDelegate
 
 extension MainFlowViewController: SingleOwnedIdentityFlowViewControllerDelegate {
-    
+        
     func userWantsToDismissSingleOwnedIdentityFlowViewController(_ viewController: SingleOwnedIdentityFlowViewController) {
         assert(Thread.isMainThread)
         viewController.dismiss(animated: true)
     }
+    
+    
+    @MainActor
+    func userWantsToAddNewDevice(_ viewController: SingleOwnedIdentityFlowViewController, ownedCryptoId: ObvCryptoId) async {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        viewController.dismiss(animated: true) {
+            Task { await mainFlowViewControllerDelegate.userWantsToAddNewDevice(self, ownedCryptoId: ownedCryptoId) }
+        }
+    }
+    
+    
+    func userRequestedListOfSKProducts() async throws -> [Product] {
+        assert(storeKitDelegate != nil)
+        return try await storeKitDelegate?.userRequestedListOfSKProducts() ?? []
+    }
+    
+    
+    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
+        guard let storeKitDelegate else {
+            throw ObvError.storeKitDelegateIsNil
+        }
+        return try await storeKitDelegate.userWantsToBuy(product)
+    }
+    
+    
+    func userWantsToRestorePurchases() async throws {
+        guard let storeKitDelegate else {
+            throw ObvError.storeKitDelegateIsNil
+        }
+        return try await storeKitDelegate.userWantsToRestorePurchases()
+    }
+
 }
 
 
@@ -1798,12 +2009,21 @@ private final class MainFlowViewControllerSplitDelegate: UISplitViewControllerDe
             mainFlowViewController.mainTabBarController.selectedIndex = MainFlowViewController.ChildTypes.latestDiscussions
         }
         
-        // Push the discussionsVCs onto the stack of the flow
+        // Push the discussionsVCs onto the stack of the flow:
+        // Remove the discussionsVCs from their parent, then add them to the flow.
+        // We perform this last step asynchronously as failing to do so leads to a crash under certain iPhones (e.g., iPhone XR).
         
         for vc in discussionsVCs {
-            obvFlowViewController.pushViewController(vc, animated: false)
+            vc.view.removeFromSuperview()
+            vc.willMove(toParent: nil)
+            vc.removeFromParent()
+            vc.didMove(toParent: nil)
         }
-                
+
+        DispatchQueue.main.async {
+            obvFlowViewController.setViewControllers(obvFlowViewController.viewControllers + discussionsVCs, animated: false)
+        }
+
         // We dealt with the discussionsVCs, we do not want the split view controller to do anything with the secondary view controller so we return true
         
         return true
@@ -1849,7 +2069,7 @@ extension MainFlowViewController {
             static let message = NSLocalizedString("In order to invite another Olvid user, you can either scan their QR code or show them your own QR code.", comment: "Message of an alert")
             static let actionShowMyQRCode = NSLocalizedString("Show my QR code", comment: "Title of an alert action")
             static let actionScanQRCode = NSLocalizedString("Scan another user's QR code", comment: "Title of an alert action")
-            static let messageAdvanced = NSLocalizedString("In order to invite another Olvid user, you can copy your identity in order to paste it in an email, sms, and so forth. If you receive an identity, you can paste it here.", comment: "Message of an alert")
+            static let messageAdvanced = NSLocalizedString("In order to invite another Olvid user, you can copy your identity in order to paste it in an email, SMS, and so forth. If you receive an identity, you can paste it here.", comment: "Message of an alert")
             static let copyYourIdentity = NSLocalizedString("Copy your Id", comment: "Action of an alert")
             static let pastAnotherIdentity = NSLocalizedString("Paste an Id", comment: "Action of an alert")
         }
@@ -1876,10 +2096,6 @@ extension MainFlowViewController {
 
         struct ServerDoesNotSupportCallAlert {
             static let title = NSLocalizedString("SERVER_DOES_NOT_SUPPORT_CALLS", comment: "Alert title")
-        }
-
-        struct UserHasBeenKilled {
-            static let title = NSLocalizedString("USER_HAS_BEEN_KICKED", comment: "Alert title")
         }
 
         struct MissingChannelForCallAlert {
@@ -1910,11 +2126,11 @@ extension MainFlowViewController {
             static let message = NSLocalizedString("DELETE_THIS_LAST_UNHIDDEN_IDENTITY_QUESTION_MESSAGE", comment: "")
         }
         
-        struct AlertNotifyContactsOnOwnedIdentityDeletion {
-            static let title = NSLocalizedString("NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_TITLE", comment: "")
-            static let message = NSLocalizedString("NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_MESSAGE", comment: "")
-            static let notifyContactsAction = NSLocalizedString("NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_DO_NOTIFY_CONTACTS_ACTION", comment: "")
-            static let doNotNotifyContactsAction = NSLocalizedString("NOTIFY_CONTACTS_ON_OWNED_IDENTITY_DELETION_DO_NOT_NOTIFY_CONTACTS_ACTION", comment: "")
+        struct AlertChooseBetweenGlobalAndLocalOnOwnedIdentityDeletion {
+            static let title = NSLocalizedString("CHOOSE_BETWEEN_GLOBAL_AND_LOCAL_OWNED_IDENTITY_DELETION_TITLE", comment: "")
+            static let message = NSLocalizedString("CHOOSE_BETWEEN_GLOBAL_AND_LOCAL_OWNED_IDENTITY_DELETION_MESSAGE", comment: "")
+            static let globalDeletionAction = NSLocalizedString("CHOOSE_GLOBAL_OWNED_IDENTITY_DELETION_BUTTON_TITLE", comment: "")
+            static let localDeletionAction = NSLocalizedString("CHOOSE_LOCAL_OWNED_IDENTITY_DELETION_BUTTON_TITLE", comment: "")
         }
 
         struct AlertTypeDeleteToProceedWithOwnedIdentityDeletion {
@@ -1928,4 +2144,15 @@ extension MainFlowViewController {
         
     }
         
+}
+
+
+// MARK: - Errors
+
+extension MainFlowViewController {
+    
+    enum ObvError: Error {
+        case storeKitDelegateIsNil
+    }
+    
 }

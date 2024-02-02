@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -17,7 +17,6 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 import CoreData
 import os.log
 import ObvEngine
@@ -27,6 +26,8 @@ import ObvUICoreData
 import SwiftUI
 import UI_SystemIcon
 import UI_SystemIcon_SwiftUI
+import ObvDesignSystem
+import ObvSettings
 
 
 final class MultipleContactsHostingViewController: UIHostingController<ContactsView>, ContactsViewStoreDelegate {
@@ -469,16 +470,18 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
     /// and perform a search that is likely to return no result. Soon after we cancel the search and display the list again. This seems to work, but
     /// this is clearely an ugly hack.
     private func refreshFetchRequestWhenSortOrderChanges() {
-        notificationTokens.append(ObvMessengerSettingsNotifications.observeContactsSortOrderDidChange(queue: OperationQueue.main) { [weak self] in
-            withAnimation {
-                self?.showSortingSpinner = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) {
-                self?.refreshFetchRequest(searchText: String(repeating: " ", count: 100))
+        notificationTokens.append(ObvMessengerSettingsNotifications.observeContactsSortOrderDidChange { [weak self] in
+            DispatchQueue.main.async {
+                withAnimation {
+                    self?.showSortingSpinner = true
+                }
                 DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) {
-                    self?.refreshFetchRequest(searchText: nil)
-                    withAnimation {
-                        self?.showSortingSpinner = false
+                    self?.refreshFetchRequest(searchText: String(repeating: " ", count: 100))
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) {
+                        self?.refreshFetchRequest(searchText: nil)
+                        withAnimation {
+                            self?.showSortingSpinner = false
+                        }
                     }
                 }
             }
@@ -576,7 +579,7 @@ struct ContactsScrollingViewOrExplanationView: View {
 
     var body: some View {
         if store.showSortingSpinner {
-            ObvProgressView()
+            ProgressView()
         } else if store.showExplanation && fetchRequest.wrappedValue.isEmpty {
             ExplanationView()
         } else {
@@ -690,26 +693,22 @@ fileprivate struct ContactsScrollingView: View {
                     Spacer()
                 }
             } else {
-                if #available(iOS 14.0, *) {
-                    ScrollViewReader { scrollViewProxy in
-                        innerView
-                            .onChange(of: contactToScrollTo) { (_) in
-                                guard let contact = contactToScrollTo else { return }
-                                withAnimation {
-                                    scrollViewProxy.scrollTo(contact)
-                                }
-                            }
-                            .onChange(of: scrollToTop) { (_) in
-                                if let firstItem = try? ObvStack.shared.viewContext.fetch(nsFetchRequest).first {
-                                    withAnimation {
-                                        scrollViewProxy.scrollTo(firstItem)
-                                        scrollToTop = false
-                                    }
-                                }
-                            }
-                    }
-                } else {
+                ScrollViewReader { scrollViewProxy in
                     innerView
+                        .onChange(of: contactToScrollTo) { (_) in
+                            guard let contact = contactToScrollTo else { return }
+                            withAnimation {
+                                scrollViewProxy.scrollTo(contact)
+                            }
+                        }
+                        .onChange(of: scrollToTop) { (_) in
+                            if let firstItem = try? ObvStack.shared.viewContext.fetch(nsFetchRequest).first {
+                                withAnimation {
+                                    scrollViewProxy.scrollTo(firstItem)
+                                    scrollToTop = false
+                                }
+                            }
+                        }
                 }
             }
             if let floatingButtonModel {
@@ -783,10 +782,10 @@ fileprivate struct ContactsInnerView: View {
                         if contactCellCanBeSelected(for: contact) {
                             SelectableContactCellView(selection: $multipleSelection, contact: contact, selectionStyle: selectionStyle)
                         } else {
-                            ContactCellView(identity: contact, showChevron: false, selected: false)
+                            ContactCellView(model: contact, state: .init(chevronStyle: .hidden, showDetailsStatus: false))
                         }
                     } else {
-                        ContactCellView(identity: contact, showChevron: true, selected: tappedContact == contact)
+                        ContactCellView(model: contact, state: .init(chevronStyle: .shown(selected: tappedContact == contact), showDetailsStatus: true))
                             .onTapGesture {
                                 withAnimation(Animation.easeIn(duration: 0.1)) {
                                     tappedContact = contact
@@ -810,7 +809,7 @@ fileprivate struct ContactsInnerView: View {
                     .foregroundColor(.clear)
             }
         }
-        .obvListStyle()
+        .listStyle(InsetGroupedListStyle())
     }
     
 }
@@ -845,7 +844,7 @@ fileprivate struct SelectableContactCellView: View {
     
     var body: some View {
         HStack {
-            ContactCellView(identity: contact, showChevron: false, selected: false)
+            ContactCellView(model: contact, state: .init(chevronStyle: .hidden, showDetailsStatus: false))
             Image(systemName: selection.contains(contact) ? imageSystemName : "circle")
                 .font(Font.system(size: 24, weight: .regular, design: .default))
                 .foregroundColor(selection.contains(contact) ? imageColor : Color.gray)
@@ -861,47 +860,6 @@ fileprivate struct SelectableContactCellView: View {
     }
     
 }
-
-
-
-struct ContactCellView: View {
-
-    @ObservedObject var identity: PersistedObvContactIdentity
-    let showChevron: Bool
-    var selected: Bool
-
-    private var data: SingleContactIdentity { SingleContactIdentity(persistedContact: identity, observeChangesMadeToContact: false) }
-    
-    var body: some View {
-        HStack {
-            ContactIdentityCardContentView(model: data,
-                                           preferredDetails: .customOrTrusted)
-            Spacer()
-            if !identity.isActive {
-                Image(systemIcon: .exclamationmarkShieldFill)
-                    .foregroundColor(.red)
-            } else {
-                ObvActivityIndicator(isAnimating: .constant(identity.devices.isEmpty), style: .medium, color: nil)
-            }
-            if showChevron {
-                switch identity.status {
-                case .noNewPublishedDetails:
-                    EmptyView()
-                case .unseenPublishedDetails:
-                    Image(systemName: "person.crop.rectangle")
-                        .foregroundColor(.red)
-                case .seenPublishedDetails:
-                    Image(systemName: "person.crop.rectangle")
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                }
-                ObvChevron(selected: selected)
-            }
-        }
-        .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
-    }
-
-}
-
 
 
 struct ExplanationView_Previews: PreviewProvider {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,10 +31,10 @@ public struct ContactMutualIntroductionProtocol: ConcreteCryptoProtocol, ObvErro
 
     static let id = CryptoProtocolId.ContactMutualIntroduction
     
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled,
-                                                           StateId.ContactsIntroduced,
-                                                           StateId.InvitationRejected,
-                                                           StateId.MutualTrustEstablished]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.cancelled,
+                                                           StateId.contactsIntroduced,
+                                                           StateId.invitationRejected,
+                                                           StateId.mutualTrustEstablished]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState
@@ -63,24 +63,18 @@ public struct ContactMutualIntroductionProtocol: ConcreteCryptoProtocol, ObvErro
         return MessageId(rawValue: rawValue)
     }
     
-    static let allStepIds: [ConcreteProtocolStepId] = [StepId.IntroduceContacts,
-                                                       StepId.CheckTrustLevelsAndShowDialog,
-                                                       StepId.PropagateInviteResponse,
-                                                       StepId.ProcessPropagatedInviteResponse,
-                                                       StepId.PropagateNotificationAddTrustAndSendAck,
-                                                       StepId.ProcessPropagatedNotificationAndAddTrust,
-                                                       StepId.NotifyMutualTrustEstablished,
-                                                       StepId.RecheckTrustLevelsAfterTrustLevelIncrease]
-
+    static var allStepIds: [ConcreteProtocolStepId] {
+        return StepId.allCases
+    }
     
 }
 
 extension ContactMutualIntroductionProtocol {
     
-    // A introduced identity is either "accepted" because it already is part of our contacts (case 0), because the trust we have in the mediator is high enough (case 1), or requires an intervention of the user (case 2). This value is essentially used to determine which dialogs to send to the user during the protocol.
+    // A introduced identity is either "accepted" because it already is part of our contacts (case 0), because the trust we have in the mediator is high enough (case 1, legacy case, not used anymore), or requires an intervention of the user (case 2). This value is essentially used to determine which dialogs to send to the user during the protocol.
     struct AcceptType {
         static let alreadyTrusted = 0
-        static let automatic = 1
+        //static let automatic = 1
         static let manual = 2
     }
     

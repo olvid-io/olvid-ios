@@ -1,12 +1,14 @@
 import ProjectDescription
 
 public extension Project {
+    
     static func createProject(
         name: String,
         packages: [Package],
         targets: [Target],
         shouldEnableDefaultResourceSynthesizers: Bool = false
     ) -> Self {
+        
         return .init(
             name: name,
             organizationName: "Olvid",
@@ -18,8 +20,10 @@ public extension Project {
             fileHeaderTemplate: .string(Constants.fileHeader),
             resourceSynthesizers: Self.defaultResourceSynthesizers(shouldEnableDefaultResourceSynthesizers: shouldEnableDefaultResourceSynthesizers)
         )
+        
     }
 
+    
     private static func defaultOptions() -> Project.Options {
         return .options(automaticSchemesOptions: .disabled,
                         defaultKnownRegions: Constants.availableRegions,
@@ -47,19 +51,19 @@ public extension Project {
             case .app:
                 let runActionOptions = RunActionOptions.options()
 
-                let runEnvironment: [String: String] = [
-                    "SQLITE_ENABLE_THREAD_ASSERTIONS": "1",
-                    "SQLITE_ENABLE_FILE_ASSERTIONS": "1"
+                let environmentVariables: [String: EnvironmentVariable] = [
+                    "SQLITE_ENABLE_THREAD_ASSERTIONS": .init(stringLiteral: "1"),
+                    "SQLITE_ENABLE_FILE_ASSERTIONS": .init(stringLiteral: "1"),
                 ]
 
                 let launchArguments: [LaunchArgument] = [
                     .init(name: "-com.apple.CoreData.MigrationDebug 1", isEnabled: true),
                     .init(name: "-com.apple.CoreData.SQLDebug 1", isEnabled: false),
-                    .init(name: "-com.apple.CoreData.ConcurrencyDebug 1", isEnabled: true)
+                    .init(name: "-com.apple.CoreData.ConcurrencyDebug 1", isEnabled: true),
+                    .init(name: "-NSShowNonLocalizedStrings YES", isEnabled: true),
                 ]
 
-                let arguments = Arguments(environment: runEnvironment,
-                                          launchArguments: launchArguments)
+                let arguments = Arguments.init(environmentVariables: environmentVariables, launchArguments: launchArguments)
 
                 let appStoreScheme = Scheme(name: $0.name,
                                                shared: true,
@@ -89,16 +93,21 @@ public extension Project {
                     .staticFramework,
                     .staticLibrary,
                     .stickerPackExtension,
+                    .systemExtension,
                     .tvTopShelfExtension,
                     .uiTests,
                     .unitTests,
+                    .macro,
                     .watch2App,
                     .watch2Extension,
                     .xpc:
                 return []
+
+            case .extensionKitExtension:
+                fatalError("please handle me, case: \($0.product)")
                 
             @unknown default:
-                return []
+                fatalError("please handle me, case: \($0.product)")
             }
         }
     }

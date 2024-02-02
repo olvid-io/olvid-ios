@@ -20,6 +20,8 @@
 import ObvUI
 import SwiftUI
 import ObvTypes
+import ObvUICoreData
+import ObvDesignSystem
 
 
 struct EditSingleOwnedIdentityView: View {

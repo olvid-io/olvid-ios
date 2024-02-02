@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,7 +29,7 @@ public struct FullRatchetProtocol: ConcreteCryptoProtocol {
     
     static let logCategory = "FullRatchetProtocol"
     
-    static let id = CryptoProtocolId.FullRatchet
+    static let id = CryptoProtocolId.fullRatchet
     
     private static let errorDomain = "FullRatchetProtocol"
     
@@ -38,7 +38,7 @@ public struct FullRatchetProtocol: ConcreteCryptoProtocol {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.FullRatchetDone, StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.fullRatchetDone, StateId.cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState
@@ -65,17 +65,10 @@ public struct FullRatchetProtocol: ConcreteCryptoProtocol {
         return MessageId(rawValue: rawValue)
     }
     
-    static let allStepIds: [ConcreteProtocolStepId] = [
-        StepId.AliceSendEphemeralKey,
-        StepId.AliceResendEphemeralKeyFromAliceWaitingForK1State,
-        StepId.AliceResendEphemeralKeyFromAliceWaitingForAckState,
-        StepId.BobSendEphemeralKeyAndK1FromInitialState,
-        StepId.BobSendEphemeralKeyAndK1BobWaitingForK2State,
-        StepId.AliceRecoverK1AndSendK2,
-        StepId.BobRecoverK2ToUpdateReceiveSeedAndSendAck,
-        StepId.AliceUpdateSendSeed,
-    ]
-    
+    static var allStepIds: [ConcreteProtocolStepId] {
+        return StepId.allCases
+    }
+
     static func computeProtocolUid(aliceIdentity: ObvCryptoIdentity, bobIdentity: ObvCryptoIdentity, aliceDeviceUid: UID, bobDeviceUid: UID) throws -> UID {
         guard let seed1 = Seed(with: aliceIdentity.getIdentity()) else { throw makeError(message: "Could not compute protocol uid (seed1 error)") }
         guard let seed2 = Seed(with: bobIdentity.getIdentity()) else { throw makeError(message: "Could not compute protocol uid (seed2 error)") }

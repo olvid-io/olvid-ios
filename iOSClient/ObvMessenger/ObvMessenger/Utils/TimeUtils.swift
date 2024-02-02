@@ -105,23 +105,14 @@ extension Date {
             formatter.dateTimeStyle = .named
             return formatter.localizedString(for: self, relativeTo: Date())
         } else {
-            if #available(iOS 15.0, *) {
-                var dateStyle: Date.FormatStyle = .dateTime
-                    .weekday(.wide)
-                    .month()
-                    .day()
-                if calendar.component(.year, from: self) != calendar.component(.year, from: Date()) {
-                    dateStyle = dateStyle.year()
-                }
-                return self.formatted(dateStyle)
-            } else {
-                let df = DateFormatter()
-                df.doesRelativeDateFormatting = true
-                df.dateStyle = .short
-                df.timeStyle = .medium
-                df.locale = Locale.current
-                return df.string(from: self)
+            var dateStyle: Date.FormatStyle = .dateTime
+                .weekday(.wide)
+                .month()
+                .day()
+            if calendar.component(.year, from: self) != calendar.component(.year, from: Date()) {
+                dateStyle = dateStyle.year()
             }
+            return self.formatted(dateStyle)
         }
     }
 

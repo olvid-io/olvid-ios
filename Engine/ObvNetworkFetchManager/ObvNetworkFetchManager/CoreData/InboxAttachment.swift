@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,20 +49,6 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     // MARK: Internal constants
     
     private static let entityName = "InboxAttachment"
-    private static let attachmentNumberKey = "attachmentNumber"
-    private static let currentByteCountToDownloadKey = "currentByteCountToDownload"
-    private static let encodedAuthenticatedEncryptionKeyKey = "encodedAuthenticatedDecryptionKey"
-    private static let timestampOfDownloadRequestKey = "timestampOfDownloadRequest"
-    private static let timestampOfNextFetchAttemptKey = "timestampOfNextFetchAttempt"
-    private static let messageKey = "message"
-    private static let metadataKey = "metadata"
-    private static let encodedChunkRangesToDownloadKey = "encodedChunkRangesToDownload"
-    private static let rawStatusKey = "rawStatus"
-    private static let rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
-    private static let rawMessageIdUidKey = "rawMessageIdUid"
-    private static let chunksKey = "chunks"
-    private static let sessionKey = "session"
-    private static let messageFromCryptoIdentityKey = [messageKey, InboxMessage.Predicate.Key.fromCryptoIdentityKey.rawValue].joined(separator: ".")
 
     enum Status: Int, CustomDebugStringConvertible {
         case paused = 0
@@ -97,14 +83,14 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     @NSManaged private(set) var attachmentNumber: Int
     private var key: AuthenticatedEncryptionKey? {
         get {
-            guard let encodedKeyData = kvoSafePrimitiveValue(forKey: InboxAttachment.encodedAuthenticatedEncryptionKeyKey) as? Data else { return nil }
+            guard let encodedKeyData = kvoSafePrimitiveValue(forKey: Predicate.Key.encodedAuthenticatedDecryptionKey.rawValue) as? Data else { return nil }
             let encodedKey = ObvEncoded(withRawData: encodedKeyData)!
             return try! AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
         }
         set {
             if newValue != nil {
                 let encodedKey = newValue!.obvEncode()
-                kvoSafeSetPrimitiveValue(encodedKey.rawData, forKey: InboxAttachment.encodedAuthenticatedEncryptionKeyKey)
+                kvoSafeSetPrimitiveValue(encodedKey.rawData, forKey: Predicate.Key.encodedAuthenticatedDecryptionKey.rawValue)
             }
         }
     }
@@ -119,38 +105,38 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     
     private(set) var chunks: [InboxAttachmentChunk] {
         get {
-            guard let unsortedChunks = kvoSafePrimitiveValue(forKey: InboxAttachment.chunksKey) as? Set<InboxAttachmentChunk> else { return [] }
+            guard let unsortedChunks = kvoSafePrimitiveValue(forKey: Predicate.Key.chunks.rawValue) as? Set<InboxAttachmentChunk> else { return [] }
             let items: [InboxAttachmentChunk] = unsortedChunks.sorted(by: { $0.chunkNumber < $1.chunkNumber })
             for item in items { item.obvContext = self.obvContext }
             return items
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: InboxAttachment.chunksKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.chunks.rawValue)
         }
     }
 
     // We do not expect the message to be nil, since cascade deleting a message delete its attachments
     var message: InboxMessage? {
         get {
-            let value = kvoSafePrimitiveValue(forKey: InboxAttachment.messageKey) as? InboxMessage
+            let value = kvoSafePrimitiveValue(forKey: Predicate.Key.message.rawValue) as? InboxMessage
             value?.obvContext = self.obvContext
             return value
         }
         set {
             guard let value = newValue else { assertionFailure(); return }
             self.messageId = value.messageId
-            kvoSafeSetPrimitiveValue(value, forKey: InboxAttachment.messageKey)
+            kvoSafeSetPrimitiveValue(value, forKey: Predicate.Key.message.rawValue)
         }
     }
     
     private(set) var session: InboxAttachmentSession? {
         get {
-            let item = kvoSafePrimitiveValue(forKey: InboxAttachment.sessionKey) as? InboxAttachmentSession
+            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.session.rawValue) as? InboxAttachmentSession
             item?.obvContext = self.obvContext
             return item
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: InboxAttachment.sessionKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.session.rawValue)
         }
     }
 
@@ -171,7 +157,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     
     func tryChangeStatusToDownloaded() throws {
         let allChunksAreDownloaded = chunks.allSatisfy({ $0.cleartextChunkWasWrittenToAttachmentFile })
-        guard allChunksAreDownloaded else { throw InboxAttachment.makeError(message: "Tryingin to change status to downloaded but at least one chunk is not downloaded yet") }
+        guard allChunksAreDownloaded else { throw InboxAttachment.makeError(message: "Trying to change the status to downloaded but at least one chunk is not downloaded yet") }
         self.status = .downloaded
     }
     
@@ -191,11 +177,11 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     }
     
     /// This identifier is expected to be non nil, unless the associated `InboxMessage` was deleted on another thread.
-    private(set) var messageId: MessageIdentifier? {
+    private(set) var messageId: ObvMessageIdentifier? {
         get {
             guard let rawMessageIdOwnedIdentity else { return nil }
             guard let rawMessageIdUid else { return nil }
-            return MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
+            return ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
         }
         set {
             guard let newValue else { assertionFailure(); return }
@@ -205,9 +191,9 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     }
 
     /// This identifier is expected to be non nil, unless the associated `InboxMessage` was deleted on another thread.
-    var attachmentId: AttachmentIdentifier? {
+    var attachmentId: ObvAttachmentIdentifier? {
         guard let messageId else { return nil }
-        return AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+        return ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
     }
 
     func getURL(withinInbox inbox: URL) -> URL? {
@@ -236,7 +222,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
             throw Self.makeError(message: "Could not determine the InboxMessage identifier")
         }
         
-        let attachmentId = AttachmentIdentifier(messageId: inboxMessageId, attachmentNumber: attachmentNumber)
+        let attachmentId = ObvAttachmentIdentifier(messageId: inboxMessageId, attachmentNumber: attachmentNumber)
         
         guard try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) == nil else { return nil }
 
@@ -291,11 +277,16 @@ extension InboxAttachment {
         }
     }
     
-    private func changeStatus(to newStatus: Status) throws {
-        guard canTransistionToNewStatus(newStatus) else {
+    private func changeStatus(to newStatus: Status, force: Bool = false) throws {
+        guard newStatus != self.status else { return }
+        guard force || canTransistionToNewStatus(newStatus) else {
             throw InboxAttachment.makeError(message: "Cannot transition from \(status.debugDescription) to \(newStatus.debugDescription)")
         }
-        guard newStatus != self.status else { return }
+        if force && newStatus == .resumeRequested {
+            chunks.forEach { chunk in
+                chunk.resetDownload()
+            }
+        }
         self.status = newStatus
     }
     
@@ -315,8 +306,8 @@ extension InboxAttachment {
         }
     }
     
-    func resumeDownload() throws {
-        try self.changeStatus(to: .resumeRequested)
+    func resumeDownload(force: Bool = false) throws {
+        try self.changeStatus(to: .resumeRequested, force: force)
     }
     
     
@@ -325,18 +316,22 @@ extension InboxAttachment {
     }
 
     
-    func deleteDownload(fromInbox inbox: URL) throws {
+    func deleteDownload(fromInbox inbox: URL, within obvContext: ObvContext) throws {
+        guard self.managedObjectContext == obvContext.context else { assertionFailure(); throw Self.makeError(message: "Unexpected context") }
         guard let url = getURL(withinInbox: inbox) else { throw InboxAttachment.makeError(message: "Cannot get attachment URL") }
         try changeStatus(to: .markedForDeletion) // This cannot fail
         for chunk in chunks {
-            try chunk.resetDownload()
+            chunk.resetDownload()
             self.obvContext?.delete(chunk)
         }
-        if FileManager.default.fileExists(atPath: url.path) {
-            do {
-                try FileManager.default.removeItem(at: url)
-            } catch let error {
-                throw InternalError.couldNotDeleteAttachmentFile(atUrl: url, error: error)
+        try obvContext.addContextDidSaveCompletionHandler { error in
+            guard error == nil else { return }
+            if FileManager.default.fileExists(atPath: url.path) {
+                do {
+                    try FileManager.default.removeItem(at: url)
+                } catch let error {
+                    assertionFailure(error.localizedDescription)
+                }
             }
         }
     }
@@ -482,18 +477,79 @@ extension InboxAttachment {
 
 extension InboxAttachment {
     
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case attachmentNumber = "attachmentNumber"
+            case encodedAuthenticatedDecryptionKey = "encodedAuthenticatedDecryptionKey"
+            case expectedChunkLength = "expectedChunkLength"
+            case initialByteCountToDownload = "initialByteCountToDownload"
+            case metadata = "metadata"
+            case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
+            case rawMessageIdUid = "rawMessageIdUid"
+            case rawStatus = "rawStatus"
+            // Relationships
+            case chunks = "chunks"
+            case message = "message"
+            case session = "session"
+        }
+        private static func withMessageIdOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: ownedCryptoIdentity.getIdentity())
+        }
+        private static func withMessageIdUID(_ messageUID: UID) -> NSPredicate {
+            NSPredicate(Key.rawMessageIdUid, EqualToData: messageUID.raw)
+        }
+        private static func withAttachmentNumber(_ attachmentNumber: Int) -> NSPredicate {
+            NSPredicate(Key.attachmentNumber, EqualToInt: attachmentNumber)
+        }
+        private static func withMessageIdentifier(_ messageId: ObvMessageIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withMessageIdUID(messageId.uid),
+                withMessageIdOwnedIdentity(messageId.ownedCryptoIdentity),
+            ])
+        }
+        fileprivate static func withAttachmentIdentifier(_ attachmentId: ObvAttachmentIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withMessageIdentifier(attachmentId.messageId),
+                withAttachmentNumber(attachmentId.attachmentNumber),
+            ])
+        }
+        fileprivate static var withNonNilMessage: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.message)
+        }
+        fileprivate static var withNilMessage: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.message)
+        }
+        fileprivate static var withNilSession: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.session)
+        }
+        fileprivate static var withNonNilEncodedAuthenticatedDecryptionKey: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.encodedAuthenticatedDecryptionKey)
+        }
+        fileprivate static var withNonNilMetadata: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.metadata)
+        }
+        fileprivate static var withNonNilMessageFromCryptoIdentity: NSPredicate {
+            let messageFromCryptoIdentityKey = [Key.message.rawValue, InboxMessage.Predicate.Key.fromCryptoIdentityKey.rawValue].joined(separator: ".")
+            return NSPredicate(withNonNilValueForRawKey: messageFromCryptoIdentityKey)
+
+        }
+        fileprivate static func withStatus(_ status: Status) -> NSPredicate {
+            NSPredicate(Key.rawStatus, EqualToInt: status.rawValue)
+        }
+        //private static let messageFromCryptoIdentityKey = [messageKey, InboxMessage.Predicate.Key.fromCryptoIdentityKey.rawValue].joined(separator: ".")
+    }
+
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<InboxAttachment> {
         return NSFetchRequest<InboxAttachment>(entityName: InboxAttachment.entityName)
     }
     
     
-    static func get(attachmentId: AttachmentIdentifier, within obvContext: ObvContext) throws -> InboxAttachment? {
+    static func get(attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) throws -> InboxAttachment? {
         let request: NSFetchRequest<InboxAttachment> = InboxAttachment.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %d",
-                                        rawMessageIdOwnedIdentityKey, attachmentId.messageId.ownedCryptoIdentity.getIdentity() as NSData,
-                                        rawMessageIdUidKey, attachmentId.messageId.uid.raw as NSData,
-                                        attachmentNumberKey, attachmentId.attachmentNumber)
-        request.relationshipKeyPathsForPrefetching = [InboxAttachment.rawStatusKey]
+        request.predicate = Predicate.withAttachmentIdentifier(attachmentId)
+        request.relationshipKeyPathsForPrefetching = [Predicate.Key.rawStatus.rawValue]
         let item = (try obvContext.fetch(request)).first
         return item
     }
@@ -501,14 +557,15 @@ extension InboxAttachment {
     
     static func getAllDownloadableWithoutSession(within obvContext: ObvContext) throws -> [InboxAttachment] {
         let request: NSFetchRequest<InboxAttachment> = InboxAttachment.fetchRequest()
-                
-        request.predicate = NSPredicate(format: "%K != NIL AND %K == NIL AND %K != NIL AND %K != NIL AND %K != NIL AND %K == %d",
-                                        messageKey,
-                                        sessionKey,
-                                        encodedAuthenticatedEncryptionKeyKey,
-                                        metadataKey,
-                                        messageFromCryptoIdentityKey,
-                                        rawStatusKey, Status.resumeRequested.rawValue)
+
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withNilSession,
+            Predicate.withNonNilMessage,
+            Predicate.withNonNilEncodedAuthenticatedDecryptionKey,
+            Predicate.withNonNilMetadata,
+            Predicate.withNonNilMessageFromCryptoIdentity,
+            Predicate.withStatus(.resumeRequested),
+        ])
         let items = try obvContext.fetch(request)
             .filter { (attachment) -> Bool in
                 let allChunksHaveSignedURLs = attachment.chunks.allSatisfy({ $0.signedURL != nil })
@@ -518,27 +575,12 @@ extension InboxAttachment {
         return items
     }
 
-    static func getAllNotResumed(within obvContext: ObvContext) throws -> [InboxAttachment] {
-        let request: NSFetchRequest<InboxAttachment> = InboxAttachment.fetchRequest()
-        request.predicate = NSPredicate(format: "%K != %d", rawStatusKey, Status.resumeRequested.rawValue)
-        request.relationshipKeyPathsForPrefetching = [InboxAttachment.rawStatusKey]
-        return try obvContext.fetch(request)
-    }
     
-    
-    static func getAllMarkedForDeletion(within obvContext: ObvContext) throws -> [InboxAttachment] {
-        let request: NSFetchRequest<InboxAttachment> = InboxAttachment.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %d", rawStatusKey, Status.markedForDeletion.rawValue)
-        request.relationshipKeyPathsForPrefetching = [InboxAttachment.rawStatusKey]
-        return try obvContext.fetch(request)
-    }
-
-
     static func deleteAllOrphaned(within obvContext: ObvContext) throws {
         let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: InboxAttachment.entityName)
-        fetch.predicate = NSPredicate(format: "%K == NIL", messageKey)
+        fetch.predicate = Predicate.withNilMessage
         let request = NSBatchDeleteRequest(fetchRequest: fetch)
         _ = try obvContext.execute(request)
     }
-
+    
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,45 +25,20 @@ import ObvEngine
 import OlvidUtils
 import ObvUICoreData
 
+final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
-class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, ObvErrorMaker {
-
-    static let errorDomain = "SceneDelegate"
+    var window: UIWindow?
+    var privacyWindow: UIWindow? // For iOS
     
-    private var initializerWindow: UIWindow?
-    private var localAuthenticationWindow: UIWindow?
-    private var initializationFailureWindow: UIWindow?
-    private var metaWindow: UIWindow?
-    private var callWindow: UIWindow?
+    private var rootViewController: RootViewController?
+    private let privacyViewControler = UIStoryboard(name: "LaunchScreen", bundle: nil).instantiateInitialViewController()!
     
-    private let animator = UIViewPropertyAnimator(duration: 0.15, curve: .linear)
-    
-    private var allWindows: [UIWindow?] { [
-        initializerWindow,
-        localAuthenticationWindow,
-        initializationFailureWindow,
-        metaWindow,
-        callWindow,
-    ] }
-    
-    private var callNotificationObserved = false
-    private var observationTokens = [NSObjectProtocol]()
-
-    private var sceneIsActive = false
-    private var userSuccessfullyPerformedLocalAuthentication = false
-    private var shouldAutomaticallyPerformLocalAuthentication = true
-    private var callInProgress: GenericCall?
-    private var preferMetaWindowOverCallWindow = false
-    private var keycloakManagerWillPresentAuthenticationScreen = false
-    
-    private var uptimeAtTheTimeOfChangeoverToNotActiveStateForScene = [UIScene: TimeInterval]()
-        
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "SceneDelegate")
     
-
-    deinit {
-        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
-    }
+    /// On some occasions, we want to prevent the privacy window from showing the next time ``SceneDelegate.sceneWillResignActive(_:)`` is called.
+    /// This variable is typically set to `true` from a child view controller, just before showing a system alert. This is for example the case during onboarding,
+    /// when requesting the authorization to send push notifications.
+    fileprivate var preventPrivacyWindowFromShowingOnNextWillResignActive = false
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
@@ -74,135 +49,99 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
 
         guard let windowScene = (scene as? UIWindowScene) else { assertionFailure(); return }
 
-        initializerWindow = UIWindow(windowScene: windowScene)
-        initializerWindow?.rootViewController = InitializerViewController()
-        changeKeyWindow(to: initializerWindow)
-        
-        observeVoIPNotifications(scene)
-        
+        let rootViewController = RootViewController()
+        self.rootViewController = rootViewController
+        let window = UIWindow(windowScene: windowScene)
+        window.rootViewController = rootViewController
+        window.makeKeyAndVisible()
+        self.window = window
+
+        let privacyWindow = UIWindow(windowScene: windowScene)
+        privacyWindow.windowLevel = .alert
+        privacyWindow.rootViewController = privacyViewControler
+        privacyWindow.makeKeyAndVisible()
+        self.privacyWindow = privacyWindow
+
         if !connectionOptions.userActivities.isEmpty {
             os_log("📲 Scene will connect with user activities", log: Self.log, type: .info)
-            Task { [weak self] in
-                for userActivity in connectionOptions.userActivities {
-                    self?.scene(scene, continue: userActivity)
-                }
-            }
+            rootViewController.continueUserActivities(connectionOptions.userActivities)
         }
-        
+
         if !connectionOptions.urlContexts.isEmpty {
             os_log("📲 Scene will connect with url contexts", log: Self.log, type: .info)
-            Task { [weak self] in
-                self?.scene(scene, openURLContexts: connectionOptions.urlContexts)
-            }
+            rootViewController.openURLContexts(connectionOptions.urlContexts)
         }
-                
+
         if let shortcutItem = connectionOptions.shortcutItem {
             os_log("📲 Scene will connect with a shortcutItem", log: Self.log, type: .info)
             Task { [weak self] in
-                await self?.windowScene(windowScene, performActionFor: shortcutItem)
+                assert(self?.rootViewController != nil)
+                _ = await self?.rootViewController?.performActionFor(shortcutItem: shortcutItem)
             }
         }
         
     }
+    
+    
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        // Called when, e.g., the user taps on an Olvid backup file from the Files app.
+        os_log("🧦 openURLContexts", log: Self.log, type: .info)
+        rootViewController?.openURLContexts(URLContexts)
+    }
 
+    
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.
         // Release any resources associated with this scene that can be re-created the next time the scene connects.
         // The scene may re-connect later, as its session was not necessarily discarded (see `application:didDiscardSceneSessions` instead).
-        debugPrint("sceneDidDisconnect")
         os_log("🧦 sceneDidDisconnect", log: Self.log, type: .info)
     }
 
+    
     func sceneDidBecomeActive(_ scene: UIScene) {
         // Called when the scene has moved from an inactive state to an active state.
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
-        sceneIsActive = true
-        Task(priority: .userInitiated) {
-            await switchToNextWindowForScene(scene)
-        }
-        Task {
-            _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-            await KeycloakManagerSingleton.shared.setKeycloakSceneDelegate(to: self)
-            if let metaWindow = metaWindow, let metaFlowController = metaWindow.rootViewController as? MetaFlowController {
-                metaFlowController.sceneDidBecomeActive(scene)
-            } else {
-                assertionFailure()
-            }
-        }
-    }
-
-    func sceneWillResignActive(_ scene: UIScene) {
-        // Called when the scene will move from an active state to an inactive state.
-        // This may occur due to temporary interruptions (ex. an incoming phone call).
-        
-        os_log("🧦 sceneWillResignActive", log: Self.log, type: .info)
-        
-        sceneIsActive = false
-        
-        // If the keycloak manager is about to present a Safari authentication screen, we ignore the fact that the scene will resign active.
-        guard !keycloakManagerWillPresentAuthenticationScreen else {
-            keycloakManagerWillPresentAuthenticationScreen = false
-            return
-        }
-        
-        Task(priority: .userInitiated) {
-            await switchToNextWindowForScene(scene)
-        }
-        Task {
-            _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-            if let metaWindow = metaWindow, let metaFlowController = metaWindow.rootViewController as? MetaFlowController {
-                metaFlowController.sceneWillResignActive(scene)
-            } else {
-                assertionFailure()
-            }
-        }
-    }
-
-    func sceneWillEnterForeground(_ scene: UIScene) {
-        // Called as the scene transitions from the background to the foreground.
-        // Use this method to undo the changes made on entering the background.
-        debugPrint("sceneWillEnterForeground")
-        os_log("🧦 sceneWillEnterForeground", log: Self.log, type: .info)
-        
-        // We now deal with the closing of opened hidden profiles:
-        // - If the `hiddenProfileClosePolicy` is `.background`
-        // - and the elapsed time since the last switch to background is "large",
-        // We close any opened hidden profile.
-        if ObvMessengerSettings.Privacy.hiddenProfileClosePolicy == .background {
-            let uptimeAtTheTimeOfChangeoverToNotActiveState = uptimeAtTheTimeOfChangeoverToNotActiveStateForScene[scene] ?? 0
-            let timeIntervalSinceLastChangeoverToNotActiveState = TimeInterval.getUptime() - uptimeAtTheTimeOfChangeoverToNotActiveState
-            assert(0 <= timeIntervalSinceLastChangeoverToNotActiveState)
-            if timeIntervalSinceLastChangeoverToNotActiveState > ObvMessengerSettings.Privacy.timeIntervalForBackgroundHiddenProfileClosePolicy.timeInterval || ObvMessengerSettings.Privacy.timeIntervalForBackgroundHiddenProfileClosePolicy == .immediately {
-                Task {
-                    // The following line allows to make sure we won't switch to the hidden profile
-                    await LatestCurrentOwnedIdentityStorage.shared.removeLatestHiddenCurrentOWnedIdentityStored()
-                    await switchToNonHiddenOwnedIdentityIfCurrentIsHidden()
-                }
-            }
-        }
-        
-    }
-
-    func sceneDidEnterBackground(_ scene: UIScene) {
-        // Called as the scene transitions from the foreground to the background.
-        // Use this method to save data, release shared resources, and store enough scene-specific state information to restore the scene back to its current state.
-
-        os_log("🧦 sceneDidEnterBackground", log: Self.log, type: .info)
-
-        // If the user successfully authenticated, we want to reset reset the `uptimeAtTheTimeOfChangeoverToNotActiveState` for this scene.
-        // Note that if the user successfully authenticated, it means that the app was initialized properly.
-        if userSuccessfullyPerformedLocalAuthentication {
-            uptimeAtTheTimeOfChangeoverToNotActiveStateForScene[scene] = TimeInterval.getUptime()
-        }
-
-        userSuccessfullyPerformedLocalAuthentication = false
-        shouldAutomaticallyPerformLocalAuthentication = true
-        keycloakManagerWillPresentAuthenticationScreen = false
-        
+        os_log("🧦 sceneDidBecomeActive", log: Self.log, type: .info)
+        assert(rootViewController != nil)
+        rootViewController?.sceneDidBecomeActive(scene)
+        self.privacyWindow?.resignKey()
+        self.privacyWindow?.isHidden = true
     }
 
     
+    func sceneWillResignActive(_ scene: UIScene) {
+        // Called when the scene will move from an active state to an inactive state.
+        // This may occur due to temporary interruptions (ex. an incoming phone call).
+        os_log("🧦 sceneWillResignActive", log: Self.log, type: .info)
+        assert(rootViewController != nil)
+        rootViewController?.sceneWillResignActive(scene)
+        if !preventPrivacyWindowFromShowingOnNextWillResignActive {
+            self.privacyWindow?.makeKeyAndVisible()
+        }
+        preventPrivacyWindowFromShowingOnNextWillResignActive = false
+    }
+
+    
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        // Called as the scene transitions from the background to the foreground.
+        // Use this method to undo the changes made on entering the background.
+        os_log("🧦 sceneWillEnterForeground", log: Self.log, type: .info)
+        assert(rootViewController != nil)
+        preventPrivacyWindowFromShowingOnNextWillResignActive = false
+        rootViewController?.sceneWillEnterForeground(scene)
+        window?.makeKeyAndVisible()
+    }
+
+    
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        // Called as the scene transitions from the foreground to the background.
+        // Use this method to save data, release shared resources, and store enough scene-specific state information to restore the scene back to its current state.
+        os_log("🧦 sceneDidEnterBackground", log: Self.log, type: .info)
+        assert(rootViewController != nil)
+        rootViewController?.sceneDidEnterBackground(scene)
+    }
+
     
     // MARK: - Continuing User Activities
     
@@ -217,17 +156,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
         os_log("📲 Continue user activity", log: Self.log, type: .info)
         Task {
             assert(Thread.isMainThread)
-            let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-            if let url = userActivity.webpageURL {
-                // Called when tapping the "open in" button on an "identity" webpage or when tapping a call entry in the system call log (?)
-                await openOlvidURL(url)
-            } else if let startCallIntent = userActivity.interaction?.intent as? INStartCallIntent {
-                processINStartCallIntent(startCallIntent: startCallIntent, obvEngine: obvEngine)
-            } else if let sendMessageIntent = userActivity.interaction?.intent as? INSendMessageIntent {
-                processINSendMessageIntent(sendMessageIntent: sendMessageIntent)
-            } else {
-                assertionFailure()
-            }
+            assert(rootViewController != nil)
+            await rootViewController?.continueUserActivity(userActivity)
         }
     }
     
@@ -243,455 +173,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate, KeycloakSceneDelegate, 
     func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem) async -> Bool {
         // Called when the users taps on the "Scan QR code" shortcut on the app icon
         os_log("UIWindowScene perform action for shortcut", log: Self.log, type: .info)
-        _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-        guard let shortcut = ApplicationShortcut(shortcutItem.type) else { assertionFailure(); return false }
-        let deepLink: ObvDeepLink
-        switch shortcut {
-        case .scanQRCode:
-            deepLink = ObvDeepLink.qrCodeScan
-        }
-        os_log("🥏 Sending a UserWantsToNavigateToDeepLink notification for shortut item %{public}@", log: Self.log, type: .info, shortcut.description)
-        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
-            .postOnDispatchQueue()
-        return true
+        assert(rootViewController != nil)
+        guard let rootViewController else { return false }
+        return await rootViewController.performActionFor(shortcutItem: shortcutItem)
     }
-    
-    
-    // MARK: - Opening URLs
-    
-    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-        os_log("📲 Scene openURLContexts", log: Self.log, type: .info)
-        // Called when tapping an Olvid link, e.g., on an invite webpage
-        Task {
-            
-            _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-            
-            assert(URLContexts.count < 2)
-            if let url = URLContexts.first?.url {
-                
-                if url.scheme == "olvid" {
-                    
-                    guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) else { return }
-                    urlComponents.scheme = "https"
-                    guard let newUrl = urlComponents.url else { return }
-                    await openOlvidURL(newUrl)
-                    return
-                    
-                } else if url.isFileURL {
-                    
-                    /* We are certainly dealing with an AirDrop'ed file. See
-                     * https://developer.apple.com/library/archive/qa/qa1587/_index.html
-                     * for handling Open in...
-                     */
-                    let deepLink = ObvDeepLink.airDrop(fileURL: url)
-                    Task {
-                        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
-                            .postOnDispatchQueue()
-                    }
-                    return
-                    
-                } else {
-                    assertionFailure()
-                }
-                
-            }
-            
-        }
         
-    }
-
-    
-    // MARK: - Switching between windows
-    
-    @MainActor
-    private func switchToNextWindowForScene(_ scene: UIScene) async {
-        assert(Thread.isMainThread)
-        
-        guard let windowScene = (scene as? UIWindowScene) else { assertionFailure(); return }
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); return }
-
-        // When switching view controller, we alway make sure the metaWindow is available.
-        // The only exception is when the initialization failed.
-        
-        if metaWindow == nil {
-            let result = await NewAppStateManager.shared.waitUntilAppInitializationSucceededOrFailed()
-            switch result {
-            case .failure(let error):
-                initializationFailureWindow = UIWindow(windowScene: windowScene)
-                let initializationFailureVC = InitializationFailureViewController()
-                initializationFailureVC.error = error
-                let nav = UINavigationController(rootViewController: initializationFailureVC)
-                initializationFailureWindow?.rootViewController = nav
-                changeKeyWindow(to: initializationFailureWindow)
-                return
-            case .success(let obvEngine):
-                if metaWindow == nil {
-                    metaWindow = UIWindow(windowScene: windowScene)
-                    guard let createPasscodeDelegate = await appDelegate.createPasscodeDelegate else { assertionFailure(); return }
-                    guard let appBackupDelegate = await appDelegate.appBackupDelegate else { assertionFailure(); return }
-                    metaWindow?.rootViewController = MetaFlowController(obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, appBackupDelegate: appBackupDelegate)
-                    metaWindow?.alpha = 0.0
-                }
-            }
-        }
-        
-        // We make sure all the windows are instanciated
-        
-        if localAuthenticationWindow == nil {
-            localAuthenticationWindow = UIWindow(windowScene: windowScene)
-            guard let localAuthenticationDelegate = await appDelegate.localAuthenticationDelegate else { assertionFailure(); return }
-            let localAuthenticationVC = LocalAuthenticationViewController(localAuthenticationDelegate: localAuthenticationDelegate, delegate: self)
-            localAuthenticationWindow?.rootViewController = localAuthenticationVC
-        }
-
-        // If we reach this point, we know the initialization succeeded and that the metaWindow was initialized
-
-        guard let initializerWindow = self.initializerWindow,
-              let metaWindow = self.metaWindow,
-              let localAuthenticationWindow = self.localAuthenticationWindow else {
-            assertionFailure(); return
-        }
-        
-        // Since the app did initialize, we don't want the initializerWindow to show the spinner ever again
-
-        (initializerWindow.rootViewController as? InitializerViewController)?.appInitializationSucceeded()
-
-        // We choose the most appropriate window to show depending on the current key window and on various state variables
-        
-        if sceneIsActive {
-            
-            // If there is a call in progress, show it instead of any other view controller
-
-            if let callInProgress = callInProgress, !preferMetaWindowOverCallWindow {
-                if callWindow == nil || (callWindow?.rootViewController as? CallViewHostingController)?.callUUID != callInProgress.uuid {
-                    callWindow = UIWindow(windowScene: windowScene)
-                    callWindow?.rootViewController = CallViewHostingController(call: callInProgress)
-                }
-                changeKeyWindow(to: callWindow)
-                return
-            }
-            
-            // At this point, there is not call in progress
-            
-            if initializerWindow.isKeyWindow || callWindow?.isKeyWindow == true || localAuthenticationWindow.isKeyWindow {
-                if userSuccessfullyPerformedLocalAuthentication || !ObvMessengerSettings.Privacy.localAuthenticationPolicy.lockScreen {
-                    changeKeyWindow(to: metaWindow)
-                    return
-                } else {
-                    changeKeyWindow(to: localAuthenticationWindow)
-                    let localAuthenticationViewController = localAuthenticationWindow.rootViewController as? LocalAuthenticationViewController
-                    if shouldAutomaticallyPerformLocalAuthentication {
-                        shouldAutomaticallyPerformLocalAuthentication = false
-                        let uptimeAtTheTimeOfChangeoverToNotActiveState = uptimeAtTheTimeOfChangeoverToNotActiveStateForScene[scene]
-                        await localAuthenticationViewController?.performLocalAuthentication(uptimeAtTheTimeOfChangeoverToNotActiveState: uptimeAtTheTimeOfChangeoverToNotActiveState)
-                    } else {
-                        await localAuthenticationViewController?.shouldPerformLocalAuthentication()
-                    }
-                    return
-                }
-            }
-        } else {
-            // When the user choosed to lock the screen, we hide the app content each time the scene becomes inactive
-            if ObvMessengerSettings.Privacy.localAuthenticationPolicy.lockScreen {
-                changeKeyWindow(to: initializerWindow)
-            }
-        }
-    }
-    
-    
-    private func debugDescriptionOfWindow(_ window: UIWindow) -> String {
-        switch window {
-        case initializerWindow:
-            return "Initializer window"
-        case localAuthenticationWindow:
-            return "Local authentication window"
-        case initializationFailureWindow:
-            return "Initialization failure window"
-        case metaWindow:
-            return "Meta Window"
-        case callWindow:
-            return "Call Window"
-        default:
-            assertionFailure()
-            return "Unknown"
-        }
-    }
-    
-    /// Exclusivemy called from ``func switchToNextWindowForScene(_ scene: UIScene) async``.
-    @MainActor
-    private func changeKeyWindow(to newKeyWindow: UIWindow?) {
-        
-        guard let newKeyWindow = newKeyWindow else { assertionFailure(); return }
-
-        // Find the current key window, if none can be found, show one requested
-        
-        guard let currentKeyWindow = allWindows.compactMap({ $0 }).first(where: { $0.isKeyWindow }) else {
-            newKeyWindow.alpha = 1.0
-            newKeyWindow.makeKeyAndVisible()
-            return
-        }
-        
-        // If the current key window is the one requested, there is nothing left to do
-        
-        guard currentKeyWindow != newKeyWindow else { return }
-        
-        // We have a current key window and a (distinct) window that must become key and visisble.
-
-        // If an animation is in progress, stop it
-        
-        if animator.state == UIViewAnimatingState.active {
-            animator.stopAnimation(true)
-        }
-
-        // We choose the appropriate animation for the transition between the windows
-        
-        debugPrint("🪟 Changing from \(debugDescriptionOfWindow(currentKeyWindow)) to \(debugDescriptionOfWindow(newKeyWindow))")
-
-        switch (currentKeyWindow, newKeyWindow) {
-        case (initializerWindow, metaWindow),
-            (metaWindow, callWindow),
-            (callWindow, metaWindow):
-            
-            newKeyWindow.makeKeyAndVisible()
-
-            animator.addAnimations {
-                newKeyWindow.alpha = 1.0
-            }
-            
-            animator.addCompletion { [weak self] animatingPosition in
-                guard animatingPosition == .end else { return }
-                // If the animation ended, we make sure all non-key windows are properly hidden
-                self?.hideAllNonKeyWindows()
-            }
-  
-            animator.startAnimation()
-            
-        default:
-            
-            // No animation
-            newKeyWindow.alpha = 1.0
-            newKeyWindow.makeKeyAndVisible()
-            hideAllNonKeyWindows()
-        }
-        
-
-    }
-    
-    
-    private func hideAllNonKeyWindows() {
-        let allNonKeyWindows = allWindows.compactMap({ $0 }).filter({ !$0.isKeyWindow })
-        allNonKeyWindows.forEach { window in
-            window.alpha = 0.0
-        }
-    }
-    
-    
-    // MARK: - Managing calls
-    
-    @MainActor
-    private func setCallInProgress(to call: GenericCall?, for scene: UIScene) async {
-        _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()
-        callInProgress = call
-        Task(priority: .userInitiated) {
-            await switchToNextWindowForScene(scene)
-        }
-    }
-
-    
-    private func observeVoIPNotifications(_ scene: UIScene) {
-        guard !callNotificationObserved else { return }
-        defer { callNotificationObserved = true }
-        observationTokens.append(contentsOf: [
-            VoIPNotification.observeShowCallViewControllerForAnsweringNonCallKitIncomingCall { incomingCall in
-                Task(priority: .userInitiated) { [weak self] in
-                    self?.preferMetaWindowOverCallWindow = false
-                    await self?.setCallInProgress(to: incomingCall, for: scene)
-                }
-            },
-            VoIPNotification.observeNoMoreCallInProgress {
-                Task(priority: .userInitiated) { [weak self] in
-                    self?.preferMetaWindowOverCallWindow = false
-                    await self?.setCallInProgress(to: nil, for: scene)
-                }
-            },
-            VoIPNotification.observeNewOutgoingCall { newOutgoingCall in
-                Task(priority: .userInitiated) { [weak self] in
-                    self?.preferMetaWindowOverCallWindow = false
-                    await self?.setCallInProgress(to: newOutgoingCall, for: scene)
-                }
-            },
-            VoIPNotification.observeAnIncomingCallShouldBeShownToUser { newOutgoingCall in
-                Task(priority: .userInitiated) { [weak self] in
-                    self?.preferMetaWindowOverCallWindow = false
-                    await self?.setCallInProgress(to: newOutgoingCall, for: scene)
-                }
-            },
-            VoIPNotification.observeHideCallView(queue: .main) {
-                Task(priority: .userInitiated) { [weak self] in
-                    self?.preferMetaWindowOverCallWindow = true
-                    await self?.switchToNextWindowForScene(scene)
-                }
-            },
-            VoIPNotification.observeShowCallView(queue: .main) {
-                Task(priority: .userInitiated) { [weak self] in
-                    self?.preferMetaWindowOverCallWindow = false
-                    await self?.switchToNextWindowForScene(scene)
-                }
-            },
-        ])
-    }
-
-    
-    private func processINStartCallIntent(startCallIntent: INStartCallIntent, obvEngine: ObvEngine) {
-
-        os_log("📲 Process INStartCallIntent", log: Self.log, type: .info)
-
-        guard let handle = startCallIntent.contacts?.first?.personHandle?.value else {
-            os_log("📲 Could not get appropriate value of INStartCallIntent", log: Self.log, type: .error)
-            return
-        }
-
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-
-            if let callUUID = UUID(handle), let item = try? PersistedCallLogItem.get(callUUID: callUUID, within: context) {
-                let contacts = item.logContacts.compactMap { $0.contactIdentity?.typedObjectID }
-                os_log("📲 Posting a userWantsToCallButWeShouldCheckSheIsAllowedTo notification following an INStartCallIntent", log: Self.log, type: .info)
-                ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contacts, groupId: try? item.getGroupIdentifier()).postOnDispatchQueue()
-            } else if let contact = try? PersistedObvContactIdentity.getAll(within: context).first(where: { $0.getGenericHandleValue(engine: obvEngine) == handle }) {
-                // To be compatible with previous 1to1 versions
-                let contacts = [contact.typedObjectID]
-                ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contacts, groupId: nil).postOnDispatchQueue()
-            } else {
-                os_log("📲 Could not parse INStartCallIntent", log: Self.log, type: .fault)
-            }
-            
-        }
-    }
-
-    
-    private func processINSendMessageIntent(sendMessageIntent: INSendMessageIntent) {
-        os_log("📲 Process INSendMessageIntent", log: Self.log, type: .info)
-
-        guard let handle = sendMessageIntent.recipients?.first?.personHandle?.value else {
-            os_log("📲 Could not get appropriate value of INSendMessageIntent", log: Self.log, type: .error)
-            assertionFailure()
-            return
-        }
-
-        guard let objectPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>(handle) else { assertionFailure(); return }
-
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-            guard let contact = try? PersistedObvContactIdentity.getManagedObject(withPermanentID: objectPermanentID, within: context) else { assertionFailure(); return }
-            guard let ownedCryptoId = contact.ownedIdentity?.cryptoId else { assertionFailure(); return }
-            let deepLink: ObvDeepLink
-            if let oneToOneDiscussion = contact.oneToOneDiscussion {
-                deepLink = .singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: oneToOneDiscussion.discussionPermanentID)
-            } else { assertionFailure(); return }
-            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink).postOnDispatchQueue()
-        }
-    }
-
-
-    // MARK: - Opening Olvid URLs
-
-    @MainActor
-    private func openOlvidURL(_ url: URL) async {
-        assert(Thread.isMainThread)
-        os_log("🥏 Call to openDeepLink with URL %{public}@", log: Self.log, type: .info, url.debugDescription)
-        guard let olvidURL = OlvidURL(urlRepresentation: url) else { assertionFailure(); return }
-        os_log("An OlvidURL struct was successfully created", log: Self.log, type: .info)
-        await NewAppStateManager.shared.handleOlvidURL(olvidURL)
-    }
-
-
 }
 
 
-// MARK: - LocalAuthenticationViewControllerDelegate
+// MARK: - Helper of all UIViewControllers
 
-extension SceneDelegate: LocalAuthenticationViewControllerDelegate {
+extension UIViewController {
     
-    @MainActor
-    func userLocalAuthenticationDidSucceed(authenticationWasPerformed: Bool) async {
-        userSuccessfullyPerformedLocalAuthentication = true
-        guard let scene = localAuthenticationWindow?.windowScene else { assertionFailure(); return }
-        // If we just performed authentication, it means the screen was locked. If the hidden profile close policy is `.screenLock`, we should make sure the current identity is not hidden.
-        if authenticationWasPerformed && ObvMessengerSettings.Privacy.hiddenProfileClosePolicy == .screenLock {
-            // The following line allows to make sure we won't switch to the hidden profile
-            await LatestCurrentOwnedIdentityStorage.shared.removeLatestHiddenCurrentOWnedIdentityStored()
-            await switchToNonHiddenOwnedIdentityIfCurrentIsHidden()
-        }
-        Task(priority: .userInitiated) {
-            await switchToNextWindowForScene(scene)
-        }
-    }
-
-    @MainActor
-    func tooManyWrongPasscodeAttemptsCausedLockOut() async {
-        await switchToNonHiddenOwnedIdentityIfCurrentIsHidden()
-        ObvMessengerInternalNotification.tooManyWrongPasscodeAttemptsCausedLockOut.postOnDispatchQueue()
-    }
-    
-    
-    /// Allows to switch to a non hidden profile if the current one is hidden
-    ///
-    /// This is called in two cases:
-    /// - when the user just authenticated and the hidden profile closing policy is `screenLock`
-    /// - or when she was locked out after entering too many bad passcodes.
-    private func switchToNonHiddenOwnedIdentityIfCurrentIsHidden() async {
-        let metaFlowController = metaWindow?.rootViewController as? MetaFlowController
-        // In case the meta flow controller is nil, we do nothing. This is not an issue: if it is nil, there is no risk it displays a hidden profile.
-        await metaFlowController?.switchToNonHiddenOwnedIdentityIfCurrentIsHidden()
-    }
-    
-}
-
-
-// MARK: - KeycloakSceneDelegate
-
-extension SceneDelegate {
-    
-    func requestViewControllerForPresenting() async throws -> UIViewController {
-        
-        _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-        
-        guard let metaWindow = metaWindow else {
-            throw Self.makeError(message: "The meta window is not set, unexpected at this point")
-        }
-        
-        guard let rootViewController = metaWindow.rootViewController else {
-            throw Self.makeError(message: "The root view controller is not set, unexpected at this point")
-        }
-        
-        assert(rootViewController is MetaFlowController)
-        
-        keycloakManagerWillPresentAuthenticationScreen = true
-        
-        return rootViewController
-        
-    }
-    
-}
-
-
-// MARK: - PersistedObvContactIdentity utils
-
-fileprivate extension PersistedObvContactIdentity {
-
-    func getGenericHandleValue(engine: ObvEngine) -> String? {
-        guard let context = self.managedObjectContext else { assertionFailure(); return nil }
-        var _handleTagData: Data?
-        context.performAndWait {
-            guard let ownedIdentity = self.ownedIdentity else { assertionFailure(); return }
-            do {
-                _handleTagData = try engine.computeTagForOwnedIdentity(with: ownedIdentity.cryptoId, on: self.cryptoId.getIdentity())
-            } catch {
-                assertionFailure()
-                return
-            }
-        }
-        guard let handleTagData = _handleTagData else { assertionFailure(); return nil }
-        return handleTagData.base64EncodedString()
+    func preventPrivacyWindowSceneFromShowingOnNextWillResignActive() {
+        (self.view.window?.windowScene?.delegate as? SceneDelegate)?.preventPrivacyWindowFromShowingOnNextWillResignActive = true
     }
 
 }

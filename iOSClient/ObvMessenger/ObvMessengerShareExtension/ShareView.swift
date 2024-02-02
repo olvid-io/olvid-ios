@@ -21,6 +21,8 @@
 import ObvUI
 import SwiftUI
 import ObvUICoreData
+import ObvDesignSystem
+import ObvSettings
 
 
 private enum ActiveSheet: Identifiable {
@@ -94,9 +96,7 @@ struct ShareView: View {
                 .frame(width: 30, height: 30)
             Spacer()
             Button(action: {
-                if #available(iOSApplicationExtension 15.0, *) {
-                    isFocused = false
-                }
+                isFocused = false
                 model.userWantsToSendMessages(to: model.selectedDiscussions)
             }) {
                 Image(systemIcon: .paperplaneFill)
@@ -107,16 +107,10 @@ struct ShareView: View {
     }
     
     private var textArea: some View {
-        Group {
-            if #available(iOSApplicationExtension 14.0, *) {
-                ZStack {
-                    TextEditor(text: model.textBinding)
-                    if model.textBinding.wrappedValue.isEmpty {
-                        textEditorPlaceholderView
-                    }
-                }
-            } else {
-                TextField(LocalizedStringKey("YOUR_MESSAGE"), text: model.textBinding)
+        ZStack {
+            TextEditor(text: model.textBinding)
+            if model.textBinding.wrappedValue.isEmpty {
+                textEditorPlaceholderView
             }
         }
     }
@@ -148,7 +142,7 @@ struct ShareView: View {
                             RoundedRectangle(cornerRadius: 10.0)
                                 .foregroundColor(.secondary)
                                 .aspectRatio(1.0, contentMode: .fill)
-                            ObvProgressView()
+                            ProgressView()
                         }
                         .frame(height: 100)
                     case .image(let image):
@@ -198,7 +192,7 @@ struct ShareView: View {
                 Text(LocalizedStringKey("Discussions"))
                     .foregroundColor(Color(AppTheme.shared.colorScheme.label))
                 Spacer()
-                Text(String.localizedStringWithFormat(NSLocalizedString("CHOOSE_OR_NUMBER_OF_CHOSEN_DISCUSSION", comment: ""), model.selectedDiscussions.count))
+                Text("CHOOSE_OR_\(model.selectedDiscussions.count)_CHOSEN_DISCUSSION")
                     .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
                 Image(systemIcon: .chevronRight)
                     .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
@@ -208,14 +202,10 @@ struct ShareView: View {
     
     private var navigationViewPresentingOwnedIdentityChooserView: some View {
         NavigationView {
-            if #available(iOSApplicationExtension 14.0, *) {
-                ownedIdentityChooserView
-                    .onChange(of: model.selectedOwnedIdentity) { _ in
-                        activeSheet = nil
-                    }
-            } else {
-                ownedIdentityChooserView
-            }
+            ownedIdentityChooserView
+                .onChange(of: model.selectedOwnedIdentity) { _ in
+                    activeSheet = nil
+                }
         }
     }
     

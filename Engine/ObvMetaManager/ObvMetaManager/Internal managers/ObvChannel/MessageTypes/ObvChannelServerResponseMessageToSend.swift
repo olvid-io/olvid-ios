@@ -59,7 +59,13 @@ extension ObvChannelServerResponseMessageToSend {
         case requestGroupBlobLock(result: RequestGroupBlobLockResult)
         case updateGroupBlob(uploadResult: UploadResult)
         case getKeycloakData(result: GetUserDataResult)
-
+        case ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: EncryptedData)
+        case setOwnedDeviceName(success: Bool)
+        case sourceGetSessionNumberMessage(result: SourceGetSessionNumberResult)
+        case targetSendEphemeralIdentity(result: TargetSendEphemeralIdentityResult)
+        case transferRelay(result: OwnedIdentityTransferRelayMessageResult)
+        case transferWait(result: OwnedIdentityTransferWaitResult)
+        case sourceWaitForTargetConnection(result: SourceWaitForTargetConnectionResult)
 
         public func getEncodedInputs() -> [ObvEncoded] {
             switch self {
@@ -85,6 +91,20 @@ extension ObvChannelServerResponseMessageToSend {
             case .updateGroupBlob(uploadResult: let uploadResult):
                 return [uploadResult.obvEncode()]
             case .getKeycloakData(result: let result):
+                return [result.obvEncode()]
+            case .ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
+                return [encryptedOwnedDeviceDiscoveryResult.obvEncode()]
+            case .setOwnedDeviceName(success: let success):
+                return [success.obvEncode()]
+            case .sourceGetSessionNumberMessage(result: let result):
+                return [result.obvEncode()]
+            case .targetSendEphemeralIdentity(result: let result):
+                return [result.obvEncode()]
+            case .transferRelay(result: let result):
+                return [result.obvEncode()]
+            case .transferWait(result: let result):
+                return [result.obvEncode()]
+            case .sourceWaitForTargetConnection(result: let result):
                 return [result.obvEncode()]
             }
         }

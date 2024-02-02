@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,24 +33,20 @@ final class SaveContextOperation: ContextualOperationWithSpecificReasonForCancel
         self.userDefaults = userDefaults
     }
 
-    override func main() {
-        
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
 
         var modifiedObjects = Set<NSManagedObject>()
         
         do {
-            try obvContext.performAndWaitOrThrow {
-                
-                modifiedObjects = obvContext.context.insertedObjects
-                    .union(obvContext.context.updatedObjects)
-                    .union(obvContext.context.deletedObjects)
-
-                try obvContext.save(logOnFailure: Self.log)
-                os_log("📤 Saving Context done.", log: Self.log, type: .info)
-            }
+            
+            modifiedObjects = obvContext.context.insertedObjects
+                .union(obvContext.context.updatedObjects)
+                .union(obvContext.context.deletedObjects)
+            
+            try obvContext.save(logOnFailure: Self.log)
+            
+            os_log("📤 Saving Context done.", log: Self.log, type: .info)
+            
         } catch(let error) {
             return cancel(withReason: .coreDataError(error: error))
         }

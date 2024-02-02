@@ -52,11 +52,9 @@ struct DebugLogStringViewerView: View {
             }.padding()
         }
         .onTapGesture(count: 1) {
-            if #available(iOS 14, *) {
-                UIPasteboard.general.setValue(logString, forPasteboardType: UTType.plainText.identifier)
-                let impactHeavy = UIImpactFeedbackGenerator(style: .medium)
-                impactHeavy.impactOccurred()
-            }
+            UIPasteboard.general.setValue(logString, forPasteboardType: UTType.plainText.identifier)
+            let impactHeavy = UIImpactFeedbackGenerator(style: .medium)
+            impactHeavy.impactOccurred()
         }
     }
     

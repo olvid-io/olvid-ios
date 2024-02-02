@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,68 +31,68 @@ import OlvidUtils
 
 extension TrustEstablishmentWithSASProtocol {
     
-    enum StepId: Int, ConcreteProtocolStepId {
+    enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
         // Alice's side
-        case SendCommitment = 0
-        case StoreDecommitment = 1
-        case ShowSasDialogAndSendDecommitment = 2
+        case sendCommitment = 0
+        case storeDecommitment = 1
+        case showSasDialogAndSendDecommitment = 2
         
         // Bob's side
-        case StoreAndPropagateCommitmentAndAskForConfirmation = 3
-        case StoreCommitmentAndAskForConfirmation = 4
-        case SendSeedAndPropagateConfirmation = 5
-        case ReceiveConfirmationFromOtherDevice = 6
-        case ShowSasDialog = 7
+        case storeAndPropagateCommitmentAndAskForConfirmation = 3
+        case storeCommitmentAndAskForConfirmation = 4
+        case sendSeedAndPropagateConfirmation = 5
+        case receiveConfirmationFromOtherDevice = 6
+        case showSasDialog = 7
         
         // Both sides
-        case CheckSas = 8 // 2020-03-02 Used to be CheckSasAndAddTrust
-        case CheckPropagatedSas = 9 // 2020-03-02 Used to be CheckPropagatedSasAndAddTrust
-        case NotifiedMutualTrustEstablishedLegacy = 10 // 2020-03-02 Used to be NotifiedMutualTrustEstablished
-        case AddTrust = 11 // 2020-03-02 New step
+        case checkSas = 8 // 2020-03-02 Used to be CheckSasAndAddTrust
+        case checkPropagatedSas = 9 // 2020-03-02 Used to be CheckPropagatedSasAndAddTrust
+        case notifiedMutualTrustEstablishedLegacy = 10 // 2020-03-02 Used to be NotifiedMutualTrustEstablished
+        case addTrust = 11 // 2020-03-02 New step
         
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             switch self {
                 
             // Alice's side
-            case .SendCommitment:
+            case .sendCommitment:
                 let step = SendCommitmentStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .StoreDecommitment:
+            case .storeDecommitment:
                 let step = StoreDecommitmentStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ShowSasDialogAndSendDecommitment:
+            case .showSasDialogAndSendDecommitment:
                 let step = ShowSasDialogAndSendDecommitmentStep(from: concreteProtocol, and: receivedMessage)
                 return step
                 
             // Bob's side
-            case .StoreAndPropagateCommitmentAndAskForConfirmation:
+            case .storeAndPropagateCommitmentAndAskForConfirmation:
                 let step = StoreAndPropagateCommitmentAndAskForConfirmationStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .StoreCommitmentAndAskForConfirmation:
+            case .storeCommitmentAndAskForConfirmation:
                 let step = StoreCommitmentAndAskForConfirmationStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .SendSeedAndPropagateConfirmation:
+            case .sendSeedAndPropagateConfirmation:
                 let step = SendSeedAndPropagateConfirmationStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ReceiveConfirmationFromOtherDevice:
+            case .receiveConfirmationFromOtherDevice:
                 let step = ReceiveConfirmationFromOtherDeviceStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ShowSasDialog:
+            case .showSasDialog:
                 let step = ShowSasDialogStep(from: concreteProtocol, and: receivedMessage)
                 return step
                 
             // Both Sides
-            case .CheckSas:
+            case .checkSas:
                 let step = CheckSasStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .CheckPropagatedSas:
+            case .checkPropagatedSas:
                 let step = CheckPropagatedSasStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .NotifiedMutualTrustEstablishedLegacy:
+            case .notifiedMutualTrustEstablishedLegacy:
                 let step = NotifiedMutualTrustEstablishedLegacyStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .AddTrust:
+            case .addTrust:
                 let step = AddTrustStep(from: concreteProtocol, and: receivedMessage)
                 return step
             }
@@ -128,9 +128,10 @@ extension TrustEstablishmentWithSASProtocol {
             
             let seedAliceForSas = prng.genSeed()
             let commitmentScheme = ObvCryptoSuite.sharedInstance.commitmentScheme()
-            let (commitment, decommitment) = commitmentScheme.commit(onTag: ownedIdentity.getIdentity(),
-                                                                     andValue: seedAliceForSas.raw,
-                                                                     with: prng)
+            let (commitment, decommitment) = commitmentScheme.commit(
+                onTag: ownedIdentity.getIdentity(),
+                andValue: seedAliceForSas.raw,
+                with: prng)
 
             // Propagate the invitation, the seed, and the decommitment to our other owned devices
             
@@ -151,7 +152,7 @@ extension TrustEstablishmentWithSASProtocol {
                         assertionFailure()
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate invite to other devices.", log: log, type: .fault)
                 }
@@ -177,7 +178,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Send a dialog to Alice to notify her that the invitation was sent
@@ -190,7 +191,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Return the new state
@@ -236,7 +237,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
@@ -286,7 +287,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Bob accepted the invitation. We have all the information we need to compute and show a SAS dialog to Alice.
@@ -309,7 +310,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
@@ -382,7 +383,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Propagate Alice's invitation (with the commitment) to the other owned devices of Bob
@@ -401,7 +402,7 @@ extension TrustEstablishmentWithSASProtocol {
                                                                                                contactDeviceUids: contactDeviceUids,
                                                                                                commitment: commitment)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
             }
             
@@ -449,7 +450,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
@@ -515,7 +516,7 @@ extension TrustEstablishmentWithSASProtocol {
                         assertionFailure()
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
                 }
@@ -536,7 +537,7 @@ extension TrustEstablishmentWithSASProtocol {
                         assertionFailure()
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
 
                 return CancelledState()
@@ -555,7 +556,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Send a seed for the SAS to Alice
@@ -576,15 +577,16 @@ extension TrustEstablishmentWithSASProtocol {
 
             do {
                 let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
-                let concreteProtocolMessage = BobSendsSeedMessage(coreProtocolMessage: coreMessage,
-                                                                  seedBobForSas: seedBobForSas,
-                                                                  contactIdentityCoreDetails: ownedIdentityCoreDetails,
-                                                                  contactDeviceUids: [UID](ownedDeviceUids))
+                let concreteProtocolMessage = BobSendsSeedMessage(
+                    coreProtocolMessage: coreMessage,
+                    seedBobForSas: seedBobForSas,
+                    contactIdentityCoreDetails: ownedIdentityCoreDetails,
+                    contactDeviceUids: [UID](ownedDeviceUids))
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
@@ -639,7 +641,7 @@ extension TrustEstablishmentWithSASProtocol {
                         assertionFailure()
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
                 return CancelledState()
@@ -658,7 +660,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Compute the seed for the SAS (that was sent to Alice by the other device)
@@ -748,7 +750,7 @@ extension TrustEstablishmentWithSASProtocol {
                     assertionFailure()
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Return the new state
@@ -824,7 +826,7 @@ extension TrustEstablishmentWithSASProtocol {
                             assertionFailure()
                             throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                         }
-                        _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     }
 
                     // We go back to the WaitingForUserSAS state (only the number of bad entered sas changes)
@@ -857,7 +859,7 @@ extension TrustEstablishmentWithSASProtocol {
                         assertionFailure()
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate sas to other devices.", log: log, type: .fault)
                 }
@@ -873,7 +875,7 @@ extension TrustEstablishmentWithSASProtocol {
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // 2020-03-02 : We used to add the contact identity to the contact database (or simply add a new trust origin if the contact already exists) and add all the contact device uids
@@ -885,7 +887,7 @@ extension TrustEstablishmentWithSASProtocol {
                 let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = MutualTrustConfirmationMessageMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
@@ -947,7 +949,7 @@ extension TrustEstablishmentWithSASProtocol {
                             assertionFailure()
                             throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                         }
-                        _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     }
                     return CancelledState()
                 }
@@ -964,7 +966,7 @@ extension TrustEstablishmentWithSASProtocol {
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // 2020-03-02 : We used to add the contact identity to the contact database (or simply add a new trust origin if the contact already exists) and add all the contact device uids
@@ -976,7 +978,7 @@ extension TrustEstablishmentWithSASProtocol {
                 let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = MutualTrustConfirmationMessageMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
@@ -1016,7 +1018,7 @@ extension TrustEstablishmentWithSASProtocol {
                 let coreMessage = getCoreMessage(for: channelType)
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
@@ -1056,13 +1058,13 @@ extension TrustEstablishmentWithSASProtocol {
                 let trustOrigin = TrustOrigin.direct(timestamp: Date())
                 
                 if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                    try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                    try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 } else {
                     try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in
-                    try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
                 }
             } catch {
                 os_log("Could not add the contact identity to the contact identities database, or could not add a device uid to this contact", log: log, type: .fault)
@@ -1078,7 +1080,7 @@ extension TrustEstablishmentWithSASProtocol {
                 let coreMessage = getCoreMessage(for: channelType)
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state

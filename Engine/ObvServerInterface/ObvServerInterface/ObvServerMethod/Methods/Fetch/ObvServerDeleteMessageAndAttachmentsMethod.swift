@@ -33,7 +33,7 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
     public var serverURL: URL { return messageId.ownedCryptoIdentity.serverURL }
 
     private let token: Data
-    private let messageId: MessageIdentifier
+    private let messageId: ObvMessageIdentifier
     private let deviceUid: UID
     public let flowId: FlowIdentifier
     public let isActiveOwnedIdentityRequired = false
@@ -44,7 +44,7 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
     
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public init(token: Data, messageId: MessageIdentifier, deviceUid: UID, flowId: FlowIdentifier) {
+    public init(token: Data, messageId: ObvMessageIdentifier, deviceUid: UID, flowId: FlowIdentifier) {
         self.flowId = flowId
         self.token = token
         self.messageId = messageId

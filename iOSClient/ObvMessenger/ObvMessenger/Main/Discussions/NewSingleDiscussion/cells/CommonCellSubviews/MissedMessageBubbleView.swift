@@ -19,6 +19,8 @@
 
 import ObvUI
 import UIKit
+import ObvDesignSystem
+
 
 /// This view displays the count of missed messages.
 final class MissedMessageBubble: ViewForOlvidStack, ViewWithMaskedCorners, UIViewWithTappableStuff {

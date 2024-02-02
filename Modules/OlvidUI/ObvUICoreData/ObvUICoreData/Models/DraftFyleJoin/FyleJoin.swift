@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,10 +18,12 @@
  */
 
 import Foundation
+import UniformTypeIdentifiers
 
 public protocol FyleJoin {
     var fyle: Fyle? { get }
     var fileName: String { get }
     var uti: String { get }
+    var contentType: UTType { get }
     var index: Int { get }
 }

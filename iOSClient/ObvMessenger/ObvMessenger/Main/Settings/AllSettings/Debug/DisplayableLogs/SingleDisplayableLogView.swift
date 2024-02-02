@@ -20,6 +20,8 @@
 import SwiftUI
 import QuickLook
 import ObvUICoreData
+import ObvSettings
+
 
 struct SingleDisplayableLogView: UIViewControllerRepresentable {
     

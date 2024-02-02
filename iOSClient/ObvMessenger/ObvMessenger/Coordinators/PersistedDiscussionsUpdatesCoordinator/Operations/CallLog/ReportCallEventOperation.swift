@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,10 +33,10 @@ final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreD
 
     let callUUID: UUID
     let callReport: CallReport
-    let groupIdentifier: GroupIdentifierBasedOnObjectID?
+    let groupIdentifier: GroupIdentifier?
     let ownedCryptoId: ObvCryptoId
 
-    init(callUUID: UUID, callReport: CallReport, groupIdentifier: GroupIdentifierBasedOnObjectID?, ownedCryptoId: ObvCryptoId) {
+    init(callUUID: UUID, callReport: CallReport, groupIdentifier: GroupIdentifier?, ownedCryptoId: ObvCryptoId) {
         self.callUUID = callUUID
         self.callReport = callReport
         self.groupIdentifier = groupIdentifier
@@ -95,6 +95,8 @@ final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreD
                 item.initialParticipantCount = participantCount
             case .rejectedIncomingCallBecauseOfDeniedRecordPermission(_, participantCount: let participantCount):
                 item.initialParticipantCount = participantCount
+            case .rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse(caller: _):
+                break
             case .acceptedIncomingCall, .acceptedOutgoingCall:
                 if item.startDate == nil {
                     item.startDate = Date()
@@ -110,6 +112,8 @@ final class ReportCallEventOperation: OperationWithSpecificReasonForCancel<CoreD
             case .newParticipantInIncomingCall:
                 break
             case .newParticipantInOutgoingCall:
+                break
+            case .answeredOrRejectedOnOtherDevice:
                 break
             }
 

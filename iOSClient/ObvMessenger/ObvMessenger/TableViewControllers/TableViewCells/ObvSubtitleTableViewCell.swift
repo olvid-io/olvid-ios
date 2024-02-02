@@ -20,7 +20,9 @@
 import ObvUI
 import ObvUICoreData
 import UIKit
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
+import ObvDesignSystem
+
 
 class ObvSubtitleTableViewCell: UITableViewCell, ObvTableViewCellWithActivityIndicator {
 

@@ -43,7 +43,7 @@ final class DeleteMessageAndAttachmentsFromServerCoordinator: NSObject {
         return URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: nil)
     }()
 
-    private var _currentTasks = [UIBackgroundTaskIdentifier: (messageId: MessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
+    private var _currentTasks = [UIBackgroundTaskIdentifier: (messageId: ObvMessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
     private var currentTasksQueue = DispatchQueue(label: "DeleteMessageAndAttachmentsFromServerAndLocalInboxesCoordinatorQueueForCurrentDownloadTasks")
 }
 
@@ -52,7 +52,7 @@ final class DeleteMessageAndAttachmentsFromServerCoordinator: NSObject {
 
 extension DeleteMessageAndAttachmentsFromServerCoordinator {
     
-    private func currentTaskExistsForMessage(messageId: MessageIdentifier) -> Bool {
+    private func currentTaskExistsForMessage(messageId: ObvMessageIdentifier) -> Bool {
         var exist = true
         currentTasksQueue.sync {
             exist = _currentTasks.values.contains(where: { $0.messageId == messageId })
@@ -60,23 +60,23 @@ extension DeleteMessageAndAttachmentsFromServerCoordinator {
         return exist
     }
     
-    private func removeInfoFor(_ task: URLSessionTask) -> (messageId: MessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (MessageIdentifier, FlowIdentifier, Data)? = nil
+    private func removeInfoFor(_ task: URLSessionTask) -> (messageId: ObvMessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvMessageIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentTasks.removeValue(forKey: UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier))
         }
         return info
     }
     
-    private func getInfoFor(_ task: URLSessionTask) -> (messageId: MessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (MessageIdentifier, FlowIdentifier, Data)? = nil
+    private func getInfoFor(_ task: URLSessionTask) -> (messageId: ObvMessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvMessageIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)]
         }
         return info
     }
     
-    private func insert(_ task: URLSessionTask, messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    private func insert(_ task: URLSessionTask, messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         currentTasksQueue.sync {
             _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)] = (messageId, flowId, Data())
         }
@@ -107,7 +107,7 @@ extension DeleteMessageAndAttachmentsFromServerCoordinator: DeleteMessageAndAtta
     }
 
     
-    func processPendingDeleteFromServer(messageId: MessageIdentifier, flowId: FlowIdentifier) throws {
+    func processPendingDeleteFromServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -146,7 +146,7 @@ extension DeleteMessageAndAttachmentsFromServerCoordinator: DeleteMessageAndAtta
                 
                 let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(messageId.ownedCryptoIdentity, within: obvContext)
                 
-                guard let serverSession = try ServerSession.get(within: obvContext, withIdentity: messageId.ownedCryptoIdentity) else {
+                guard let serverSession = try ServerSession.get(within: obvContext.context, withIdentity: messageId.ownedCryptoIdentity) else {
                     syncQueueOutput = .serverSessionRequired(ownedIdentity: messageId.ownedCryptoIdentity, flowId: flowId)
                     return
                 }
@@ -193,7 +193,15 @@ extension DeleteMessageAndAttachmentsFromServerCoordinator: DeleteMessageAndAtta
             
         case .serverSessionRequired(ownedIdentity: let identity, flowId: let flowId):
             os_log("Server session required for identity %{public}@", log: log, type: .debug, identity.debugDescription)
-            try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: identity, flowId: flowId)
+            Task.detached { [weak self] in
+                do {
+                    _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: identity, currentInvalidToken: nil, flowId: flowId)
+                } catch {
+                    os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
+                    assertionFailure()
+                }
+            }
+            return
             
         case .failedToCreateTask(error: let error):
             os_log("Could not create task for ObvServerDeleteMessageAndAttachmentsMethod: %{public}@", log: log, type: .error, error.localizedDescription)
@@ -236,7 +244,9 @@ extension DeleteMessageAndAttachmentsFromServerCoordinator: URLSessionDataDelega
         guard error == nil else {
             os_log("The ObvServerDeleteMessageAndAttachmentsMethod download task failed for message %{public}@ within flow %{public}@: %@", log: log, type: .error, messageId.debugDescription, flowId.debugDescription, error!.localizedDescription)
             _ = removeInfoFor(task)
-            delegateManager.networkFetchFlowDelegate.failedToProcessPendingDeleteFromServer(messageId: messageId, flowId: flowId)
+            Task {
+                await delegateManager.networkFetchFlowDelegate.failedToProcessPendingDeleteFromServer(messageId: messageId, flowId: flowId)
+            }
             return
         }
         
@@ -245,7 +255,9 @@ extension DeleteMessageAndAttachmentsFromServerCoordinator: URLSessionDataDelega
         guard let status = ObvServerDeleteMessageAndAttachmentsMethod.parseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response for the ObvServerDeleteMessageAndAttachmentsMethod download task for message %{public}@ within flow %{public}@", log: log, type: .fault, messageId.debugDescription, flowId.debugDescription)
             _ = removeInfoFor(task)
-            delegateManager.networkFetchFlowDelegate.failedToProcessPendingDeleteFromServer(messageId: messageId, flowId: flowId)
+            Task {
+                await delegateManager.networkFetchFlowDelegate.failedToProcessPendingDeleteFromServer(messageId: messageId, flowId: flowId)
+            }
             return
         }
         
@@ -291,34 +303,27 @@ extension DeleteMessageAndAttachmentsFromServerCoordinator: URLSessionDataDelega
                 
                 let ownedCryptoIdentity = messageId.ownedCryptoIdentity
                 
-                guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: ownedCryptoIdentity) else {
+                guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedCryptoIdentity), let token = serverSession.token else {
                     _ = removeInfoFor(task)
-                    do {
-                        try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedCryptoIdentity, flowId: flowId)
-                    } catch {
-                        os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
-                        assertionFailure()
-                    }
-                    return
-                }
-                
-                guard let token = serverSession.token else {
-                    _ = removeInfoFor(task)
-                    do {
-                        try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedCryptoIdentity, flowId: flowId)
-                    } catch {
-                        os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
-                        assertionFailure()
+                    Task.detached { [weak self] in
+                        do {
+                            _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoIdentity, currentInvalidToken: nil, flowId: flowId)
+                        } catch {
+                            os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
+                            assertionFailure()
+                        }
                     }
                     return
                 }
                 
                 _ = removeInfoFor(task)
-                do {
-                    try delegateManager.networkFetchFlowDelegate.serverSession(of: ownedCryptoIdentity, hasInvalidToken: token, flowId: flowId)
-                } catch {
-                    os_log("Call to serverSession(of: ObvCryptoIdentity, hasInvalidToken: Data, flowId: FlowIdentifier) did fail", log: log, type: .fault)
-                    assertionFailure()
+                Task.detached { [weak self] in
+                    do {
+                        _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoIdentity, currentInvalidToken: token, flowId: flowId)
+                    } catch {
+                        os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
+                        assertionFailure()
+                    }
                 }
             }
             
@@ -327,7 +332,9 @@ extension DeleteMessageAndAttachmentsFromServerCoordinator: URLSessionDataDelega
         case .generalError:
             os_log("Server reported general error during the ObvServerDeleteMessageAndAttachmentsMethod download task for message %{public}@ within flow %{public}@", log: log, type: .fault, messageId.debugDescription, flowId.debugDescription)
             _ = removeInfoFor(task)
-            delegateManager.networkFetchFlowDelegate.failedToProcessPendingDeleteFromServer(messageId: messageId, flowId: flowId)
+            Task {
+                await delegateManager.networkFetchFlowDelegate.failedToProcessPendingDeleteFromServer(messageId: messageId, flowId: flowId)
+            }
             return
         }
     }

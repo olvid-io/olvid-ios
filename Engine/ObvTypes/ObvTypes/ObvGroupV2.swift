@@ -64,7 +64,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         self.lastModificationTimestamp = lastModificationTimestamp
     }
     
-    public var appGroupIdentifier: Data {
+    public var appGroupIdentifier: GroupV2Identifier {
         groupIdentifier.appGroupIdentifier
     }
     
@@ -164,6 +164,11 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             self.category = category
         }
         
+        
+        public init?(appGroupIdentifier: Data) {
+            guard let obvEncoded = ObvEncoded(withRawData: appGroupIdentifier) else { assertionFailure(); return nil }
+            self.init(obvEncoded)
+        }
         
         // ObvCodable
         

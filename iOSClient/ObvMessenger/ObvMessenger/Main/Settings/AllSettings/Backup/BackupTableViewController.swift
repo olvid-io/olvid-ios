@@ -25,6 +25,9 @@ import CloudKit
 import OlvidUtils
 import ObvUI
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
+
 
 /// First table view controller shown when navigating to the backup settings.
 @MainActor
@@ -643,24 +646,20 @@ extension BackupTableViewController {
 
 
     private func updateComputeCKRecordCountCell(cell: UITableViewCell) {
-        if #available(iOS 14, *) {
-            var configuration = UIListContentConfiguration.valueCell()
-            configuration.text = Strings.computeCKRecordCount
-            configuration.textProperties.color = AppTheme.shared.colorScheme.link
-            if let ckRecordCountState = ckRecordCountState {
-                switch ckRecordCountState {
-                case .count(let count):
-                    configuration.secondaryText = String(count)
-                case .error:
-                    configuration.secondaryText = CommonString.Word.Error
-                }
-            } else {
-                configuration.secondaryText = nil
+        var configuration = UIListContentConfiguration.valueCell()
+        configuration.text = Strings.computeCKRecordCount
+        configuration.textProperties.color = AppTheme.shared.colorScheme.link
+        if let ckRecordCountState = ckRecordCountState {
+            switch ckRecordCountState {
+            case .count(let count):
+                configuration.secondaryText = String(count)
+            case .error:
+                configuration.secondaryText = CommonString.Word.Error
             }
-            cell.contentConfiguration = configuration
         } else {
-            cell.textLabel?.text = Strings.computeCKRecordCount
+            configuration.secondaryText = nil
         }
+        cell.contentConfiguration = configuration
     }
     
 

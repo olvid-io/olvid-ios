@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,8 @@ import ObvUICoreData
 import SwiftUI
 import UI_SystemIcon
 import UI_SystemIcon_SwiftUI
+import ObvSettings
+
 
 final class MessageReactionsListHostingViewController: UIHostingController<MessageReactionsListView>, MessageReactionsListViewModelDelegate {
 
@@ -38,6 +40,17 @@ final class MessageReactionsListHostingViewController: UIHostingController<Messa
         let view = MessageReactionsListView(model: model)
         super.init(rootView: view)
         self.model.delegate = self
+    }
+
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        // In case there is a navigation controller (which is the case under macOS), add a close button
+        let closeAction = UIAction { [weak self] _ in self?.dismiss() }
+        let closeButton = UIBarButtonItem(systemItem: .cancel, primaryAction: closeAction)
+        navigationItem.rightBarButtonItem = closeButton
+        
     }
 
     @objc required dynamic init?(coder aDecoder: NSCoder) {
@@ -88,7 +101,9 @@ final fileprivate class MessageReactionsListViewModel: ObservableObject {
     }
 
     func userWantsToDeleteItsReaction() {
-        ObvMessengerInternalNotification.userWantsToUpdateReaction(messageObjectID: messageInViewContext.typedObjectID, emoji: nil).postOnDispatchQueue()
+        guard let ownedCryptoId = messageInViewContext.discussion?.ownedIdentity?.cryptoId else { assertionFailure(); return }        
+        ObvMessengerInternalNotification.userWantsToUpdateReaction(ownedCryptoId: ownedCryptoId, messageObjectID: messageInViewContext.typedObjectID, newEmoji: nil)
+            .postOnDispatchQueue()
     }
 
     private func observeReactionsChanges() {
@@ -125,7 +140,7 @@ fileprivate extension PersistedMessageReaction {
 
     var sender: MessageReactionSender? {
         if self is PersistedMessageReactionSent {
-            guard let ownedIdentity = message?.discussion.ownedIdentity else { return nil }
+            guard let ownedIdentity = message?.discussion?.ownedIdentity else { return nil }
             return .owned(ownedIdentity)
         } else if let receivedReaction = self as? PersistedMessageReactionReceived {
             guard let contactIdentity = receivedReaction.contact else { return nil }
@@ -368,44 +383,89 @@ fileprivate struct MessageReactionView: View {
 
 
 fileprivate struct ContactMessageSender: View {
+    
     @ObservedObject var model: SingleContactIdentity
     let date: Date
-    var firstName: String { model.getFirstName(for: .customOrTrusted) }
-    var lastName: String { model.getLastName(for: .customOrTrusted) }
+    
+    private var firstName: String { model.getFirstName(for: .customOrTrusted) }
+    private var lastName: String { model.getLastName(for: .customOrTrusted) }
+    
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: firstName,
+              titlePart2: lastName,
+              subtitle: MessageReactionView.dateFormater.string(from: date),
+              subsubtitle: nil)
+    }
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: model.circledText([firstName, lastName]),
+              icon: .person,
+              profilePicture: model.getProfilPicture(for: .customOrTrusted),
+              showGreenShield: model.showGreenShield,
+              showRedShield: model.showRedShield)
+    }
+    
+    private var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: textViewModel,
+              profilePictureViewModelContent: profilePictureViewModelContent)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: model.identityColors?.background,
+              foreground: model.identityColors?.text)
+    }
+    
+    private var circleAndTitlesViewModel: CircleAndTitlesView.Model {
+        .init(content: circleAndTitlesViewModelContent,
+              colors: initialCircleViewModelColors,
+              displayMode: .small,
+              editionMode: .none)
+    }
+    
     var body: some View {
-        CircleAndTitlesView(titlePart1: firstName,
-                            titlePart2: lastName,
-                            subtitle: MessageReactionView.dateFormater.string(from: date),
-                            subsubtitle: nil,
-                            circleBackgroundColor: model.identityColors?.background,
-                            circleTextColor: model.identityColors?.text,
-                            circledTextView: model.circledTextView([firstName, lastName]),
-                            systemImage: .person,
-                            profilePicture: model.getProfilPicture(for: .customOrTrusted),
-                            showGreenShield: model.showGreenShield,
-                            showRedShield: model.showRedShield,
-                            editionMode: .none,
-                            displayMode: .small)
+        CircleAndTitlesView(model: circleAndTitlesViewModel)
     }
 }
 
 
 fileprivate struct OwnedMessageSender: View {
+    
     @ObservedObject var model: SingleIdentity
     let date: Date
+    
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: CommonString.Word.You,
+              titlePart2: "",
+              subtitle: MessageReactionView.dateFormater.string(from: date),
+              subsubtitle: "")
+    }
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: model.circledText([model.firstName, model.lastName]),
+              icon: .person,
+              profilePicture: model.profilePicture,
+              showGreenShield: model.showGreenShield,
+              showRedShield: model.showRedShield)
+    }
+    
+    private var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: textViewModel,
+              profilePictureViewModelContent: profilePictureViewModelContent)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: model.identityColors?.background,
+              foreground: model.identityColors?.text)
+    }
+    
+    var circleAndTitlesViewModel: CircleAndTitlesView.Model {
+        .init(content: circleAndTitlesViewModelContent,
+              colors: initialCircleViewModelColors,
+              displayMode: .small,
+              editionMode: .none)
+    }
+    
     var body: some View {
-        CircleAndTitlesView(titlePart1: CommonString.Word.You,
-                            titlePart2: "",
-                            subtitle: MessageReactionView.dateFormater.string(from: date),
-                            subsubtitle: nil,
-                            circleBackgroundColor: model.identityColors?.background,
-                            circleTextColor: model.identityColors?.text,
-                            circledTextView: model.circledTextView([model.firstName, model.lastName]),
-                            systemImage: .person,
-                            profilePicture: model.profilePicture,
-                            showGreenShield: model.showGreenShield,
-                            showRedShield: model.showRedShield,
-                            editionMode: .none,
-                            displayMode: .small)
+        CircleAndTitlesView(model: circleAndTitlesViewModel)
     }
 }

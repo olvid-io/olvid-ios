@@ -33,14 +33,14 @@ public final class GetAttachmentUploadProgressMethod: ObvServerDataMethod {
 
     public var ownedIdentity: ObvCryptoIdentity { return attachmentId.messageId.ownedCryptoIdentity }
 
-    public let attachmentId: AttachmentIdentifier
+    public let attachmentId: ObvAttachmentIdentifier
     public let isActiveOwnedIdentityRequired = true
     public let serverURL: URL
     public let flowId: FlowIdentifier
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public init(attachmentId: AttachmentIdentifier, serverURL: URL, flowId: FlowIdentifier) {
+    public init(attachmentId: ObvAttachmentIdentifier, serverURL: URL, flowId: FlowIdentifier) {
         self.attachmentId = attachmentId
         self.serverURL = serverURL
         self.flowId = flowId

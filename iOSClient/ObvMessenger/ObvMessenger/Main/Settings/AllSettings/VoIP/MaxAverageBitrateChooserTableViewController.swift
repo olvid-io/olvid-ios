@@ -20,6 +20,8 @@
 import UIKit
 import OlvidUtils
 import ObvUICoreData
+import ObvSettings
+
 
 class MaxAverageBitrateChooserTableViewController: UITableViewController {
 

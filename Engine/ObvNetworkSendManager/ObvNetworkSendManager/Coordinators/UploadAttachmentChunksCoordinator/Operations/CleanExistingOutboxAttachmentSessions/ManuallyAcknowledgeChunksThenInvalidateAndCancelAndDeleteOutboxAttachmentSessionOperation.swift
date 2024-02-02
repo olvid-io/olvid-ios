@@ -35,7 +35,7 @@ final class ManuallyAcknowledgeChunksThenInvalidateAndCancelAndDeleteOutboxAttac
     }
 
     private let uuid = UUID()
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let logSubsystem: String
     private let log: OSLog
     private let logCategory = String(describing: ManuallyAcknowledgeChunksThenInvalidateAndCancelAndDeleteOutboxAttachmentSessionOperation.self)
@@ -51,7 +51,7 @@ final class ManuallyAcknowledgeChunksThenInvalidateAndCancelAndDeleteOutboxAttac
     }
     override var isFinished: Bool { _isFinished }
 
-    init(attachmentId: AttachmentIdentifier, logSubsystem: String, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier, sharedContainerIdentifier: String) {
+    init(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier, sharedContainerIdentifier: String) {
         self.attachmentId = attachmentId
         self.logSubsystem = logSubsystem
         self.log = OSLog(subsystem: logSubsystem, category: logCategory)

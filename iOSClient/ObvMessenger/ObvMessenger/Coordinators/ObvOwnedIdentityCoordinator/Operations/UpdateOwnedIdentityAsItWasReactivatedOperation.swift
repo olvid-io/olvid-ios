@@ -22,6 +22,7 @@ import OlvidUtils
 import os.log
 import ObvTypes
 import ObvUICoreData
+import CoreData
 
 
 final class UpdateOwnedIdentityAsItWasReactivatedOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -33,19 +34,14 @@ final class UpdateOwnedIdentityAsItWasReactivatedOperation: ContextualOperationW
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else { assertionFailure(); return }
+            persistedObvOwnedIdentity.activate()
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
-            do {
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else { assertionFailure(); return }
-                persistedObvOwnedIdentity.activate()
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-        }
     }
 }

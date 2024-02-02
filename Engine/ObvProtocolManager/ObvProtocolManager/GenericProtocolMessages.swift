@@ -132,10 +132,10 @@ struct GenericProtocolMessageToSend {
 
     init(channelType: ObvChannelSendChannelType, cryptoProtocolId: CryptoProtocolId, protocolInstanceUid: UID, protocolMessageRawId: Int, encodedInputs: [ObvEncoded], partOfFullRatchetProtocolOfTheSendSeed: Bool = false) {
         self.channelType = channelType
-        self.encodedElements = GenericProtocolMessageToSend.encode(cryptoProtocolId: cryptoProtocolId,
-                                                                   protocolInstanceUid: protocolInstanceUid,
-                                                                   protocolMessageRawId: protocolMessageRawId,
-                                                                   encodedInputs: encodedInputs)
+        self.encodedElements = Self.encode(cryptoProtocolId: cryptoProtocolId,
+                                           protocolInstanceUid: protocolInstanceUid,
+                                           protocolMessageRawId: protocolMessageRawId,
+                                           encodedInputs: encodedInputs)
         self.partOfFullRatchetProtocolOfTheSendSeed = partOfFullRatchetProtocolOfTheSendSeed
         self.timestamp = Date()
     }
@@ -152,6 +152,7 @@ struct GenericProtocolMessageToSend {
         switch channelType {
         case .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity,
              .AllConfirmedObliviousChannelsWithContactIdentities,
+             .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity,
              .AsymmetricChannel,
              .AsymmetricChannelBroadcast,
              .Local,

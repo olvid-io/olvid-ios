@@ -22,8 +22,8 @@ import os.log
 
 open class ObvOperationWrapper<WrappedObvOperationType: ObvOperation>: ObvOperation {
     
-    override open var className: String {
-        return "ObvOperationWrapper<\(wrappedOperation.className)>"
+    override open var debugClassName: String {
+        return "ObvOperationWrapper<\(wrappedOperation.debugClassName)>"
     }
 
     let log = OSLog(subsystem: ObvOperation.defaultLogSubsystem, category: "ObvOperationWrapper")
@@ -118,6 +118,6 @@ open class ObvOperationWrapper<WrappedObvOperationType: ObvOperation>: ObvOperat
     }
     
     deinit {
-        os_log("This wrapper operation will deinit: %@", log: log, type: .debug, className)
+        os_log("This wrapper operation will deinit: %@", log: log, type: .debug, debugClassName)
     }
 }

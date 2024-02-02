@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,35 +39,27 @@ final class SetTimestampAllAttachmentsSentIfPossibleOfPersistedMessageSentRecipi
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
+        do {
             
-            do {
+            for messageIdentifierFromEngine in messageIdentifiersFromEngine {
                 
-                for messageIdentifierFromEngine in messageIdentifiersFromEngine {
-                    
-                    let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, within: obvContext.context)
-                    guard !infos.isEmpty else {
-                        continue
-                    }
-                    
-                    for info in infos {
-                        info.setTimestampAllAttachmentsSentIfPossible()
-                    }
-                    
+                let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, within: obvContext.context)
+                guard !infos.isEmpty else {
+                    continue
                 }
-                                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+                
+                for info in infos {
+                    info.setTimestampAllAttachmentsSentIfPossible()
+                }
+                
             }
-
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 
 }

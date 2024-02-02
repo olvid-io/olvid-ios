@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,142 +22,215 @@ import CoreData
 import os.log
 import OlvidUtils
 import ObvUICoreData
+import ObvTypes
 
+///
 /// This operation allows reading of an ephemeral received message that requires user action (e.g. tap) before displaying its content, but only if appropriate.
 ///
 /// This operation shall only be called when the user **explicitely** requested to open a message (in particular, it shall **not** be called for implementing
 /// the auto-read feature).
 ///
-/// This operation does nothing if the discussion is not the one corresponding to the user current activity, or if the app is not initialized and active.
-///
-final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: OperationWithSpecificReasonForCancel<AllowReadingOfReadOnceMessageOperationReasonForCancel> {
-    
+final class AllowReadingOfMessagesReceivedThatRequireUserActionOperation: ContextualOperationWithSpecificReasonForCancel<AllowReadingOfMessagesReceivedThatRequireUserActionOperation.ReasonForCancel>, OperationProvidingLimitedVisibilityMessageOpenedJSONs {
+        
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AllowReadingOfMessagesReceivedThatRequireUserActionOperation.self))
 
-    let persistedMessageReceivedObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessageReceived>>
+    enum Input {
+        case requestedOnCurrentDevice(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier)
+        case requestedOnAnotherOwnedDevice(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier, messageUploadTimestampFromServer: Date)
+    }
     
-    init(persistedMessageReceivedObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessageReceived>>) {
-        self.persistedMessageReceivedObjectIDs = persistedMessageReceivedObjectIDs
+    let input: Input
+
+    init(_ input: Input) {
+        self.input = input
         super.init()
     }
+    
+    var ownedCryptoId: ObvCryptoId? {
+        switch input {
+        case .requestedOnAnotherOwnedDevice(ownedCryptoId: let ownedCryptoId, discussionId: _, messageId: _, messageUploadTimestampFromServer: _):
+            return ownedCryptoId
+        case .requestedOnCurrentDevice(ownedCryptoId: let ownedCryptoId, discussionId: _, messageId: _):
+            return ownedCryptoId
+        }
+    }
+    
+    private(set) var limitedVisibilityMessageOpenedJSONsToSend = [ObvUICoreData.LimitedVisibilityMessageOpenedJSON]()
 
-    override func main() {
+    
+    enum Result {
+        case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
+        case processed
+    }
 
-        var discussionObjectIDsToRefresh = Set<NSManagedObjectID>()
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
+    private(set) var result: Result?
+
+    
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+
+        do {
             
-            /* The following line was added to solve a recurring merge conflict between the context created here
-             * and the one one created in ProcessPersistedMessageAsItTurnsNotNewOperation. I do not understand why
-             * this is required at all since these two operations cannot be executed at the same time. Still,
-             * if we do not specify this merge policy, it is easy to reproduce a merge conflict: configure a discussion
-             * with only readOnly messages and auto reading, and let the contact send several messages in a row.
-             */
-            context.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
-            
-            for messageID in persistedMessageReceivedObjectIDs {
-                
-                let messageReceived: PersistedMessageReceived
-                do {
-                    guard let _message = try PersistedMessageReceived.get(with: messageID, within: context) else {
-                        return
-                    }
-                    messageReceived = _message
-                } catch {
-                    assertionFailure()
-                    os_log("Could not get received message: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    // Continue anyway
-                    return
-                }
-                
-                guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID == messageReceived.discussion.discussionPermanentID else {
-                    assertionFailure("How is it possible that the user requested to read a (say) read once message if she is not currently within the corresponding discussion?")
-                    continue
-                }
-
-                do {
-                    try messageReceived.allowReading(now: Date())
-                } catch {
-                    return cancel(withReason: .couldNotAllowReading)
-                }
-
-                discussionObjectIDsToRefresh.insert(messageReceived.discussion.objectID)
-
+            let ownedCryptoId: ObvCryptoId
+            let discussionId: DiscussionIdentifier
+            let messageId: ReceivedMessageIdentifier
+            let dateWhenMessageWasRead: Date
+            let shouldSendLimitedVisibilityMessageOpenedJSON: Bool
+            let requestedOnAnotherOwnedDevice: Bool
+            switch input {
+            case .requestedOnCurrentDevice(let _ownedCryptoId, let _discussionId, let _messageId):
+                ownedCryptoId = _ownedCryptoId
+                discussionId = _discussionId
+                messageId = _messageId
+                dateWhenMessageWasRead = Date()
+                shouldSendLimitedVisibilityMessageOpenedJSON = true
+                requestedOnAnotherOwnedDevice = false
+            case .requestedOnAnotherOwnedDevice(let _ownedCryptoId, let _discussionId, let _messageId, let messageUploadTimestampFromServer):
+                ownedCryptoId = _ownedCryptoId
+                discussionId = _discussionId
+                messageId = _messageId
+                dateWhenMessageWasRead = messageUploadTimestampFromServer
+                shouldSendLimitedVisibilityMessageOpenedJSON = false
+                requestedOnAnotherOwnedDevice = true
             }
+            
+            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindOwnedIdentity)
+            }
+            
+            let infos = try ownedIdentity.userWantsToReadReceivedMessageWithLimitedVisibility(discussionId: discussionId, messageId: messageId, dateWhenMessageWasRead: dateWhenMessageWasRead, requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
+            
+            // If we indeed deleted at least one message, we must refresh the view context and notify (to, e.g., delete hard links)
+
+            if let infos {
+                try? obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    // We deleted some persisted messages. We notify about that.
+                    InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted([infos])
+                    // Refresh objects in the view context
+                    InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, [infos])
+                }
+            }
+            
+            // If the user decide to read the message on this device, we must notify other devices.
+            // To make this possible, we compute a LimitedVisibilityMessageOpenedJSON that will be processed by another operation.
+            
+            if shouldSendLimitedVisibilityMessageOpenedJSON {
+                do {
+                    let limitedVisibilityMessageOpenedJSONToSend = try ownedIdentity.getLimitedVisibilityMessageOpenedJSON(discussionId: discussionId, messageId: messageId)
+                    limitedVisibilityMessageOpenedJSONsToSend = [limitedVisibilityMessageOpenedJSONToSend]
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                }
+            }
+            
+            // The following allows to make sure we properly refresh the discussion's messages in the view context.
+            // Although this is not required for the read message (thanks the view context's auto refresh feature), this is required to refresh messages that replied to it.
             
             do {
-                try context.save(logOnFailure: log)
-            } catch {
-                cancel(withReason: .coreDataError(error: error))
-                return
-            }
-                     
-        }
-       
-        // The following allows to make sure we properly refresh the discussion in the view context
-        // For now, it is not required since the viewContext is automatically refreshed. But, some day, we won't rely on automatic refresh.
-        let messageObjectIDs = persistedMessageReceivedObjectIDs
-        ObvStack.shared.viewContext.perform {
-            
-            for messageID in messageObjectIDs {
-                if let message = try? PersistedMessageReceived.get(with: messageID, within: ObvStack.shared.viewContext) {
-                    ObvStack.shared.viewContext.refresh(message, mergeChanges: false)
-                } else {
-                    assertionFailure()
-                }
-            }
-            
-            // We also look for messages containing a reply-to to the messages that have been interacted with
-            let registeredMessages = ObvStack.shared.viewContext.registeredObjects.compactMap({ $0 as? PersistedMessage })
-            registeredMessages.forEach { replyTo in
-                switch replyTo.genericRepliesTo {
-                case .available(message: let message):
-                    if let receivedMessage = message as? PersistedMessageReceived, messageObjectIDs.contains(receivedMessage.typedObjectID) {
-                        ObvStack.shared.viewContext.refresh(replyTo, mergeChanges: false)
+                let receivedMessageObjectID = try ownedIdentity.getObjectIDOfReceivedMessage(discussionId: discussionId, messageId: messageId)
+                try obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    viewContext.perform {
+                        guard let object = viewContext.registeredObject(for: receivedMessageObjectID) else { return }
+                        viewContext.refresh(object, mergeChanges: false)
+                        // We also look for messages containing a reply-to to the messages that have been interacted with
+                        let registeredMessages = ObvStack.shared.viewContext.registeredObjects.compactMap({ $0 as? PersistedMessage })
+                        registeredMessages.forEach { replyTo in
+                            switch replyTo.genericRepliesTo {
+                            case .available(message: let message):
+                                if message.objectID == receivedMessageObjectID {
+                                    ObvStack.shared.viewContext.refresh(replyTo, mergeChanges: false)
+                                }
+                            case .deleted, .notAvailableYet, .none:
+                                return
+                            }
+                        }
                     }
-                case .deleted, .notAvailableYet, .none:
-                    return
+                }
+            } catch {
+                if (error as? ObvUICoreData.PersistedDiscussion.ObvError) == .couldNotFindMessage {
+                    // This is ok as this happens when the message was 
+                } else {
+                    assertionFailure(error.localizedDescription)
                 }
             }
             
-            for discussionID in discussionObjectIDsToRefresh {
-                if let discussion = try? PersistedDiscussion.get(objectID: discussionID, within: ObvStack.shared.viewContext) {
-                    ObvStack.shared.viewContext.refresh(discussion, mergeChanges: false)
-                } else {
+            result = .processed
+            
+        } catch {
+            if let error = error as? ObvUICoreDataError {
+                switch error {
+                case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
+                    result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+                    return
+                case .couldNotFindDiscussionWithId(discussionId: let discussionId):
+                    switch discussionId {
+                    case .groupV2(let id):
+                        switch id {
+                        case .groupV2Identifier(let groupIdentifier):
+                            result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+                            return
+                        case .objectID:
+                            assertionFailure()
+                            return cancel(withReason: .coreDataError(error: error))
+                        }
+                    case .oneToOne, .groupV1:
+                        assertionFailure()
+                        return cancel(withReason: .coreDataError(error: error))
+                    }
+                default:
                     assertionFailure()
+                    return cancel(withReason: .coreDataError(error: error))
                 }
+            } else if let error = error as? ObvUICoreData.PersistedDiscussion.ObvError {
+                switch error {
+                case .couldNotFindMessage:
+                    // This can happen for a read once message, if it has already been deleted
+                    result = .processed
+                    return
+                default:
+                    assertionFailure()
+                    return cancel(withReason: .coreDataError(error: error))
+                }
+            } else {
+                assertionFailure()
+                return cancel(withReason: .coreDataError(error: error))
             }
         }
     }
-    
-}
 
+    
+    enum ReasonForCancel: LocalizedErrorWithLogType {
+        
+        case messageDoesNotExist
+        case coreDataError(error: Error)
+        case couldNotAllowReading
+        case couldNotFindOwnedIdentity
+        
+        var logType: OSLogType {
+            switch self {
+            case .coreDataError,
+                    .couldNotAllowReading,
+                    .couldNotFindOwnedIdentity:
+                return .fault
+            case .messageDoesNotExist:
+                return .info
+            }
+        }
+        
+        var errorDescription: String? {
+            switch self {
+            case .messageDoesNotExist:
+                return "We could not find the persisted message in database"
+            case .coreDataError(error: let error):
+                return "Core Data error: \(error.localizedDescription)"
+            case .couldNotAllowReading:
+                return "Could not allow reading"
+            case .couldNotFindOwnedIdentity:
+                return "Could not find owned identity"
+            }
+        }
+        
+    }
 
-enum AllowReadingOfReadOnceMessageOperationReasonForCancel: LocalizedErrorWithLogType {
-    
-    case messageDoesNotExist
-    case coreDataError(error: Error)
-    case couldNotAllowReading
-    
-    var logType: OSLogType {
-        switch self {
-        case .coreDataError,
-             .couldNotAllowReading:
-            return .fault
-        case .messageDoesNotExist:
-            return .info
-        }
-    }
-    
-    var errorDescription: String? {
-        switch self {
-        case .messageDoesNotExist:
-            return "We could not find the persisted message in database"
-        case .coreDataError(error: let error):
-            return "Core Data error: \(error.localizedDescription)"
-        case .couldNotAllowReading:
-            return "Could not allow reading"
-        }
-    }
-    
 }

@@ -23,8 +23,8 @@ import ObvCrypto
 
 private class ObvOperationWrapperForNoDuplicateQueue<WrappedObvOperationType: ObvOperation>: ObvOperationWrapper<WrappedObvOperationType> {
     
-    override var className: String {
-        return "ObvOperationWrapperForNoDuplicateQueue<\(String(describing: wrappedOperation.className))>"
+    override var debugClassName: String {
+        return "ObvOperationWrapperForNoDuplicateQueue<\(String(describing: wrappedOperation.debugClassName))>"
     }
 
     weak var queue: ObvOperationNoDuplicateQueue?

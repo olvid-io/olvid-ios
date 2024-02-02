@@ -19,20 +19,16 @@
 
 import Foundation
 
-// We keep a precision up to the microsecond
 extension Date: ObvCodable {
     
     public func obvEncode() -> ObvEncoded {
-        let precision = Double(10^6)
-        return Int(timeIntervalSince1970 * precision).obvEncode()
+        return Int(timeIntervalSince1970 * 1_000).obvEncode()
     }
     
     
     public init?(_ obvEncoded: ObvEncoded) {
-        let precision = Double(10^6)
         guard let val = Int(obvEncoded) else { return nil }
-        let timeIntervalSince1970 = Double(val) / precision
-        self = Date(timeIntervalSince1970: timeIntervalSince1970)
+        self = Date(timeIntervalSince1970: Double(val) / 1_000)
     }
     
 }

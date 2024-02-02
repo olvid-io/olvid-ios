@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,16 +26,19 @@ import ObvMetaManager
 import ObvEncoder
 import Network
 import OlvidUtils
+import ObvServerInterface
 
 
 final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate, ObvErrorMaker {
 
-    fileprivate let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
-    fileprivate let logCategory = "NetworkFetchFlowCoordinator"
-    
+    private static let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
+    private static let logCategory = "NetworkFetchFlowCoordinator"
+    private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
+
     private let queueForPostingNotifications = DispatchQueue(label: "NetworkFetchFlowCoordinator queue for notifications")
     private let internalQueue = OperationQueue.createSerialQueue(name: "NetworkFetchFlowCoordinator internal operation queue")
     private let syncQueue = DispatchQueue(label: "NetworkFetchFlowCoordinator internal queue")
+    private let nwPathMonitor = NWPathMonitor()
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
     
@@ -48,12 +51,13 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate, ObvErrorMaker
     private var retryManager = FetchRetryManager()
     private let prng: PRNGService
 
-    init(prng: PRNGService) {
+    init(prng: PRNGService, logPrefix: String) {
         self.prng = prng
+        let logSubsystem = "\(logPrefix).\(Self.defaultLogSubsystem)"
+        Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
         monitorNetworkChanges()
     }
     
-    private var nwPathMonitor: NWPathMonitor?
 }
 
 
@@ -62,9 +66,8 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate, ObvErrorMaker
 extension NetworkFetchFlowCoordinator {
     
     func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
@@ -76,110 +79,58 @@ extension NetworkFetchFlowCoordinator {
     
     // MARK: - Session's Challenge/Response/Token related methods
     
-    func resetServerSession(for identity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        try ServerSession.deleteAllSessionsOfIdentity(identity, within: obvContext)
-        try obvContext.addContextDidSaveCompletionHandler { [weak self] (error) in
-            guard error == nil else { return }
-            try? self?.serverSessionRequired(for: identity, flowId: obvContext.flowId)
+    func refreshAPIPermissions(of ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements {
+
+        guard let delegateManager else {
+            assertionFailure()
+            throw Self.makeError(message: "The delegate manager is not set")
         }
-    }
-    
-    func serverSessionRequired(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) throws {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        failedAttemptsCounterManager.reset(counter: .sessionCreation(ownedIdentity: identity))
+
+        try await delegateManager.serverSessionDelegate.deleteServerSession(of: ownedCryptoIdentity, flowId: flowId)
+
+        let (_, apiKeyElements) = try await getValidServerSessionToken(for: ownedCryptoIdentity, currentInvalidToken: nil, flowId: flowId)
         
-        try delegateManager.getAndSolveChallengeDelegate.getAndSolveChallenge(forIdentity: identity,
-                                                                              currentInvalidToken: nil,
-                                                                              discardExistingToken: false,
-                                                                              flowId: flowId)
+        return apiKeyElements
+        
     }
     
     
-    func serverSession(of identity: ObvCryptoIdentity, hasInvalidToken invalidToken: Data, flowId: FlowIdentifier) throws {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
+    func getValidServerSessionToken(for ownedCryptoIdentity: ObvCryptoIdentity, currentInvalidToken: Data?, flowId: FlowIdentifier) async throws -> (serverSessionToken: Data, apiKeyElements: APIKeyElements) {
+        guard let delegateManager else {
+            assertionFailure()
+            throw Self.makeError(message: "The delegate manager is not set")
         }
-        failedAttemptsCounterManager.reset(counter: .sessionCreation(ownedIdentity: identity))
-        try delegateManager.getAndSolveChallengeDelegate.getAndSolveChallenge(forIdentity: identity,
-                                                                              currentInvalidToken: invalidToken,
-                                                                              discardExistingToken: false,
-                                                                              flowId: flowId)
+        let (serverSessionToken, apiKeyElements) = try await delegateManager.serverSessionDelegate.getValidServerSessionToken(for: ownedCryptoIdentity, currentInvalidToken: currentInvalidToken, flowId: flowId)
+        
+        newToken(serverSessionToken, for: ownedCryptoIdentity, flowId: flowId)
+        newAPIKeyElementsForCurrentAPIKeyOf(ownedCryptoIdentity, apiKeyStatus: apiKeyElements.status, apiPermissions: apiKeyElements.permissions, apiKeyExpirationDate: apiKeyElements.expirationDate, flowId: flowId)
+        
+        return (serverSessionToken, apiKeyElements)
     }
     
 
-    func getAndSolveChallengeWasNotNeeded(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        // We do nothing
-    }
-    
-    
-    func failedToGetOrSolveChallenge(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        let delay = failedAttemptsCounterManager.incrementAndGetDelay(.sessionCreation(ownedIdentity: identity))
-        retryManager.executeWithDelay(delay) { [weak self] in
-            try? self?.delegateManager?.getAndSolveChallengeDelegate.getAndSolveChallenge(forIdentity: identity,
-                                                                                          currentInvalidToken: nil,
-                                                                                          discardExistingToken: false,
-                                                                                          flowId: flowId)
-        }
-    }
-    
-    
-    func newChallengeResponse(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) throws {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+    private func newToken(_ token: Data, for identity: ObvCryptoIdentity, flowId: FlowIdentifier) {
+        
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
-        failedAttemptsCounterManager.reset(counter: .sessionCreation(ownedIdentity: identity))
-        try delegateManager.getTokenDelegate.getToken(for: identity, flowId: flowId)
-    }
-
-    
-    func getTokenWasNotNeeded(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        // We do nothing
-    }
-
-    
-    func failedToGetToken(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        let delay = failedAttemptsCounterManager.incrementAndGetDelay(.sessionCreation(ownedIdentity: identity))
-        retryManager.executeWithDelay(delay) { [weak self] in
-            try? self?.delegateManager?.getTokenDelegate.getToken(for: identity, flowId: flowId)
-        }
-    }
-    
-    
-    func newToken(_ token: Data, for identity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
         
         guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator is not set", log: log, type: .fault)
+            os_log("The context creator is not set", log: Self.log, type: .fault)
+            assertionFailure()
             return
         }
 
         guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: log, type: .fault)
+            os_log("The identity delegate is not set", log: Self.log, type: .fault)
+            assertionFailure()
             return
         }
-        
+
         failedAttemptsCounterManager.reset(counter: .sessionCreation(ownedIdentity: identity))
         
         contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
-            
-            // We process any pending receipt validation and any pending Free trial query
-            delegateManager.verifyReceiptDelegate?.verifyReceiptsExpectingNewSesssion()
-            delegateManager.freeTrialQueryDelegate?.processFreeTrialQueriesExpectingNewSession()
             
             // We relaunch incomplete attachments
             delegateManager.downloadAttachmentChunksDelegate.resumeMissingAttachmentDownloads(flowId: flowId)
@@ -194,109 +145,155 @@ extension NetworkFetchFlowCoordinator {
                 let deviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(identity, within: obvContext)
                 delegateManager.messagesDelegate.downloadMessagesAndListAttachments(for: identity, andDeviceUid: deviceUid, flowId: flowId)
             } catch {
-                os_log("Could not call downloadMessagesAndListAttachments", log: log, type: .fault)
+                os_log("Could not call downloadMessagesAndListAttachments", log: Self.log, type: .fault)
             }
             
-            // We re-subscribe to push notifications
-            for pushNotificationType in ObvPushNotificationType.ByteId.allCases {
-                do {
-                    try delegateManager.serverPushNotificationsDelegate.processServerPushNotificationsToRegister(
-                        ownedCryptoId: identity,
-                        pushNotificationType: pushNotificationType,
-                        flowId: flowId)
-                } catch {
-                    assertionFailure()
-                    os_log("Could not call processServerPushNotificationsToRegister", log: log, type: .fault)
-                }
-            }
-            
-            // We pass the token to the WebSocket coordinator
+            // We pass the token to the WebSocket coordinator, this will allow re-scheduled tasks to be executed
             Task {
                 await delegateManager.webSocketDelegate.setServerSessionToken(to: token, for: identity)
             }
         }
         
     }
-        
-    func newAPIKeyElementsForAPIKey(serverURL: URL, apiKey: UUID, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?, flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
 
-        ObvNetworkFetchNotificationNew.newAPIKeyElementsForAPIKey(serverURL: serverURL,
-                                                                  apiKey: apiKey,
-                                                                  apiKeyStatus: apiKeyStatus,
-                                                                  apiPermissions: apiPermissions,
-                                                                  apiKeyExpirationDate: apiKeyExpirationDate)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-
-    }
     
-    
-    func apiKeyStatusQueryFailed(ownedIdentity: ObvCryptoIdentity, apiKey: UUID) {
+    func verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        ObvNetworkFetchNotificationNew.apiKeyStatusQueryFailed(ownedIdentity: ownedIdentity, apiKey: apiKey)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-
-    }
-    
-    
-    func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             assertionFailure()
-            return
+            throw Self.makeError(message: "The Delegate Manager is not set")
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
         guard let verifyReceiptDelegate = delegateManager.verifyReceiptDelegate else {
-            os_log("The verifyReceiptDelegate delegate is not set", log: log, type: .fault)
+            os_log("The verifyReceiptDelegate delegate is not set", log: Self.log, type: .fault)
             assertionFailure()
-            return
+            throw Self.makeError(message: "The verifyReceiptDelegate delegate is not set")
+        }
+
+        let receiptVerificationResults = try await verifyReceiptDelegate.verifyReceipt(appStoreReceiptElements: appStoreReceiptElements, flowId: flowId)
+        
+        for result in receiptVerificationResults {
+            switch result.value {
+            case .failed:
+                break
+            case .succeededAndSubscriptionIsValid, .succeededButSubscriptionIsExpired:
+                _ = try await refreshAPIPermissions(of: result.key, flowId: flowId)
+            }
         }
         
-        verifyReceiptDelegate.verifyReceipt(ownedCryptoIdentities: ownedCryptoIdentities, receiptData: receiptData, transactionIdentifier: transactionIdentifier, flowId: flowId)
+        return receiptVerificationResults
         
     }
-
-    func newAPIKeyElementsForCurrentAPIKeyOf(_ ownedIdentity: ObvCryptoIdentity, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?, flowId: FlowIdentifier) {
+    
+    
+    enum ObvError: LocalizedError {
+        case theDelegateManagerIsNotSet
+        case theIdentityDelegateIsNotSet
+        case invalidServerResponse
+        case serverReturnedGeneralError
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        var errorDescription: String? {
+            switch self {
+            case .theDelegateManagerIsNotSet:
+                return "The delegate manager is not set"
+            case .theIdentityDelegateIsNotSet:
+                return "The identity delegate is not set"
+            case .invalidServerResponse:
+                return "Invalid server response"
+            case .serverReturnedGeneralError:
+                return "The server returned a general error"
+            }
+        }
+    }
+    
+    
+    func queryAPIKeyStatus(for ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> APIKeyElements {
+        
+        let method = QueryApiKeyStatusServerMethod(ownedIdentity: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
+        let (data, response) = try await URLSession.shared.data(for: method.getURLRequest())
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw ObvError.invalidServerResponse
+        }
+        
+        let result = QueryApiKeyStatusServerMethod.parseObvServerResponse(responseData: data, using: Self.log)
+        
+        switch result {
+        case .failure:
+            throw ObvError.invalidServerResponse
+        case .success(let serverReturnStatus):
+            switch serverReturnStatus {
+            case .generalError:
+                throw ObvError.serverReturnedGeneralError
+            case .ok(apiKeyElements: let apiKeyElements):
+                return apiKeyElements
+            }
+        }
+        
+    }
+    
+    
+    
+    func registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> ObvRegisterApiKeyResult {
+        
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+        
+        guard let identityDelegate = delegateManager.identityDelegate else {
+            os_log("The identity delegate is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.theIdentityDelegateIsNotSet
+        }
+
+        let serverSessionToken = try await getValidServerSessionToken(for: ownedCryptoIdentity, currentInvalidToken: nil, flowId: flowId).serverSessionToken
+        
+        let method = ObvRegisterAPIKeyServerMethod(ownedIdentity: ownedCryptoIdentity, serverSessionToken: serverSessionToken, apiKey: apiKey, identityDelegate: identityDelegate, flowId: flowId)
+        let (data, response) = try await URLSession.shared.data(for: method.getURLRequest())
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw ObvError.invalidServerResponse
+        }
+        
+        let result = ObvRegisterAPIKeyServerMethod.parseObvServerResponse(responseData: data, using: Self.log)
+        
+        switch result {
+        case .failure(let error):
+            os_log("The call to ObvRegisterAPIKeyServerMethod did fail: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            return .failed
+        case .success(let serverReturnStatus):
+            switch serverReturnStatus {
+            case .ok:
+                // After registering a new API key on the server, we force the refresh of the session to make sure the API keys elements (permissions) are refreshed
+                _ = try? await getValidServerSessionToken(for: ownedCryptoIdentity, currentInvalidToken: serverSessionToken, flowId: flowId)
+                return .success
+            case .invalidSession:
+                _ = try await getValidServerSessionToken(for: ownedCryptoIdentity, currentInvalidToken: serverSessionToken, flowId: flowId)
+                return try await registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ownedCryptoIdentity, apiKey: apiKey, flowId: flowId)
+            case .invalidAPIKey:
+                return .invalidAPIKey
+            case .generalError:
+                return .failed
+            }
+        }
+        
+    }
+    
+    
+    private func newAPIKeyElementsForCurrentAPIKeyOf(_ ownedIdentity: ObvCryptoIdentity, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?, flowId: FlowIdentifier) {
+        
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
 
@@ -309,87 +306,20 @@ extension NetworkFetchFlowCoordinator {
     }
     
     
-    func newFreeTrialAPIKeyForOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        ObvNetworkFetchNotificationNew.newFreeTrialAPIKeyForOwnedIdentity(ownedIdentity: ownedIdentity, apiKey: apiKey, flowId: flowId)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-    }
-    
-    
-    func noMoreFreeTrialAPIKeyAvailableForOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        ObvNetworkFetchNotificationNew.noMoreFreeTrialAPIKeyAvailableForOwnedIdentity(ownedIdentity: ownedIdentity, flowId: flowId)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-    }
-    
-    
-    func freeTrialIsStillAvailableForOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        ObvNetworkFetchNotificationNew.freeTrialIsStillAvailableForOwnedIdentity(ownedIdentity: ownedIdentity, flowId: flowId)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-    }
-
-    
     // MARK: - Downloading message and listing attachments
 
-    func downloadingMessagesAndListingAttachmentFailed(for ownedCryptoIdentity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
+    func downloadingMessagesAndListingAttachmentFailed(for ownedCryptoIdentity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) async {
         let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadMessagesAndListAttachments(ownedIdentity: ownedCryptoIdentity))
-        retryManager.executeWithDelay(delay) { [weak self] in
-            self?.delegateManager?.messagesDelegate.downloadMessagesAndListAttachments(for: ownedCryptoIdentity, andDeviceUid: deviceUid, flowId: flowId)
-        }
+        await retryManager.waitForDelay(milliseconds: delay)
+        delegateManager?.messagesDelegate.downloadMessagesAndListAttachments(for: ownedCryptoIdentity, andDeviceUid: deviceUid, flowId: flowId)
     }
     
     
     func downloadingMessagesAndListingAttachmentWasNotNeeded(for ownedCryptoIdentity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
         // Although we did not find any new message on the server, we might still have unprocessed messages to process.
 
-        os_log("Downloading messages was not needed. We still try to process (old) unprocessed messages", log: log, type: .info)
+        os_log("Downloading messages was not needed. We still try to process (old) unprocessed messages", log: Self.log, type: .info)
         processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
 
     }
@@ -410,26 +340,23 @@ extension NetworkFetchFlowCoordinator {
         
         assert(!Thread.isMainThread)
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
 
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
         
         guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator is not set", log: log, type: .fault)
+            os_log("The context creator is not set", log: Self.log, type: .fault)
             return
         }
         
         guard let processDownloadedMessageDelegate = delegateManager.processDownloadedMessageDelegate else {
-            os_log("The processDownloadedMessageDelegate is not set", log: log, type: .fault)
+            os_log("The processDownloadedMessageDelegate is not set", log: Self.log, type: .fault)
             return
         }
 
@@ -438,7 +365,7 @@ extension NetworkFetchFlowCoordinator {
         
         syncQueue.async {
                                     
-            os_log("Processing unprocessed messages within flow %{public}@", log: log, type: .debug, flowId.debugDescription)
+            os_log("Processing unprocessed messages within flow %{public}@", log: Self.log, type: .debug, flowId.debugDescription)
                         
             var moreUnprocessedMessagesRemain = true
             var maxNumberOfOperations = 1_000
@@ -448,25 +375,25 @@ extension NetworkFetchFlowCoordinator {
                 maxNumberOfOperations -= 1
                 assert(maxNumberOfOperations > 0, "May happen if there were many unprocessed messages. But this is unlikely and should be investigated.")
                 
-                os_log("Initializing a ProcessBatchOfUnprocessedMessagesOperation (maxNumberOfOperations is %d)", log: log, type: .info, maxNumberOfOperations)
+                os_log("Initializing a ProcessBatchOfUnprocessedMessagesOperation (maxNumberOfOperations is %d)", log: Self.log, type: .info, maxNumberOfOperations)
                 let op1 = ProcessBatchOfUnprocessedMessagesOperation(ownedCryptoIdentity: ownedCryptoIdentity,
                                                                      queueForPostingNotifications: queueForPostingNotifications,
                                                                      notificationDelegate: notificationDelegate,
                                                                      processDownloadedMessageDelegate: processDownloadedMessageDelegate,
-                                                                     log: log)
+                                                                     log: Self.log)
                 let queueForComposedOperations = OperationQueue.createSerialQueue()
-                let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
+                let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: flowId)
                 internalQueue.addOperations([composedOp], waitUntilFinished: true)
-                composedOp.logReasonIfCancelled(log: log)
+                composedOp.logReasonIfCancelled(log: Self.log)
                 if composedOp.isCancelled {
-                    os_log("The ProcessBatchOfUnprocessedMessagesOperation cancelled: %{public}@", log: log, type: .fault, composedOp.reasonForCancel?.localizedDescription ?? "No reason given")
+                    os_log("The ProcessBatchOfUnprocessedMessagesOperation cancelled: %{public}@", log: Self.log, type: .fault, composedOp.reasonForCancel?.localizedDescription ?? "No reason given")
                     assertionFailure(composedOp.reasonForCancel.debugDescription)
                     moreUnprocessedMessagesRemain = false
                 } else {
-                    os_log("The ProcessBatchOfUnprocessedMessagesOperation succeeded", log: log, type: .info)
+                    os_log("The ProcessBatchOfUnprocessedMessagesOperation succeeded", log: Self.log, type: .info)
                     moreUnprocessedMessagesRemain = op1.moreUnprocessedMessagesRemain ?? false
                     if moreUnprocessedMessagesRemain {
-                        os_log("More unprocessed messages remain", log: log, type: .info)
+                        os_log("More unprocessed messages remain", log: Self.log, type: .info)
                     }
                 }
                 
@@ -476,18 +403,15 @@ extension NetworkFetchFlowCoordinator {
     }
     
 
-    func messagePayloadAndFromIdentityWereSet(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier) {
+    func messagePayloadAndFromIdentityWereSet(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier) {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
         
@@ -501,18 +425,15 @@ extension NetworkFetchFlowCoordinator {
     
     // MARK: - Message's extended content related methods
     
-    func downloadingMessageExtendedPayloadFailed(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func downloadingMessageExtendedPayloadFailed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
 
@@ -522,18 +443,15 @@ extension NetworkFetchFlowCoordinator {
     }
     
     
-    func downloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func downloadingMessageExtendedPayloadWasPerformed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
 
@@ -545,24 +463,22 @@ extension NetworkFetchFlowCoordinator {
     
     // MARK: - Attachment's related methods
     
-    func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    func resumeDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, forceResume: Bool, flowId: FlowIdentifier) {
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
         
-        delegateManager.downloadAttachmentChunksDelegate.resumeDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+        delegateManager.downloadAttachmentChunksDelegate.resumeDownloadOfAttachment(attachmentId: attachmentId, forceResume: forceResume, flowId: flowId)
         
     }
 
     
-    func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
         
@@ -570,11 +486,10 @@ extension NetworkFetchFlowCoordinator {
         
     }
     
-    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float] {
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             throw Self.makeError(message: "The Delegate Manager is not set")
         }
         
@@ -582,18 +497,15 @@ extension NetworkFetchFlowCoordinator {
         
     }
 
-    func attachmentWasCancelledByServer(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    func attachmentWasCancelledByServer(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
         
@@ -602,15 +514,13 @@ extension NetworkFetchFlowCoordinator {
 
     }
 
-    func attachmentWasDownloaded(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+    func attachmentWasDownloaded(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
         ObvNetworkFetchNotificationNew.inboxAttachmentWasDownloaded(attachmentId: attachmentId, flowId: flowId)
@@ -623,20 +533,17 @@ extension NetworkFetchFlowCoordinator {
 
     /// Called when a `PendingDeleteFromServer` was just created in DB. This also means that the message and its attachments have been deleted
     /// from the local inbox.
-    func newPendingDeleteToProcessForMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func newPendingDeleteToProcessForMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
-
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
 
         do {
             try delegateManager.deleteMessageAndAttachmentsFromServerDelegate.processPendingDeleteFromServer(messageId: messageId, flowId: flowId)
         } catch {
-            os_log("Could not process pending delete from server", log: log, type: .fault)
+            os_log("Could not process pending delete from server", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
@@ -644,33 +551,27 @@ extension NetworkFetchFlowCoordinator {
     }
 
     
-    func failedToProcessPendingDeleteFromServer(messageId: MessageIdentifier, flowId: FlowIdentifier) {
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+    func failedToProcessPendingDeleteFromServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async {
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        os_log("We could not delete message %{public}@ within flow %{public}@", log: log, type: .fault, messageId.debugDescription, flowId.debugDescription)
+        os_log("We could not delete message %{public}@ within flow %{public}@", log: Self.log, type: .fault, messageId.debugDescription, flowId.debugDescription)
         let delay = failedAttemptsCounterManager.incrementAndGetDelay(.processPendingDeleteFromServer(messageId: messageId))
-        retryManager.executeWithDelay(delay) {
-            try? delegateManager.deleteMessageAndAttachmentsFromServerDelegate.processPendingDeleteFromServer(messageId: messageId, flowId: flowId)
-        }
+        await retryManager.waitForDelay(milliseconds: delay)
+        try? delegateManager.deleteMessageAndAttachmentsFromServerDelegate.processPendingDeleteFromServer(messageId: messageId, flowId: flowId)
     }
 
 
-    func messageAndAttachmentsWereDeletedFromServerAndInboxes(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func messageAndAttachmentsWereDeletedFromServerAndInboxes(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
         
@@ -683,96 +584,18 @@ extension NetworkFetchFlowCoordinator {
     
     // MARK: - Push notification's related methods
 
-    func serverReportedThatAnotherDeviceIsAlreadyRegistered(forOwnedIdentity ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        
-        let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        // Post a serverReportedThatAnotherDeviceIsAlreadyRegistered notification (this will allow the identity manager to deactiviate the owned identity)
-        ObvNetworkFetchNotificationNew.serverReportedThatAnotherDeviceIsAlreadyRegistered(ownedIdentity: ownedIdentity, flowId: flowId)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-
-    }
-    
-    func serverReportedThatThisDeviceWasSuccessfullyRegistered(forOwnedIdentity ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-
-        let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-        
-        ObvNetworkFetchNotificationNew.serverReportedThatThisDeviceWasSuccessfullyRegistered(ownedIdentity: ownedIdentity, flowId: flowId)
-            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-        
-        // We might have missed push notifications during the registration process, so we list and download messages now
-                
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator is not set", log: log, type: .fault)
-            return
-        }
-
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: log, type: .fault)
-            return
-        }
-        
-        contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
-            
-            // We relaunch incomplete attachments
-            delegateManager.downloadAttachmentChunksDelegate.resumeMissingAttachmentDownloads(flowId: flowId)
-            
-            guard let identities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
-                os_log("Could not get owned identities", log: log, type: .fault)
-                assertionFailure()
-                return
-            }
-            
-            // We download new messages and list their attachments
-            for identity in identities {
-                do {
-                    let deviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(identity, within: obvContext)
-                    delegateManager.messagesDelegate.downloadMessagesAndListAttachments(for: identity, andDeviceUid: deviceUid, flowId: flowId)
-                } catch {
-                    os_log("Could not call downloadMessagesAndListAttachments", log: log, type: .fault)
-                }
-            }
-
-        }
-    }
-
-    
     func serverReportedThatThisDeviceIsNotRegistered(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
      
-        let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
+        os_log("We need to re-register to push notifications since the server reported that this device is not registered", log: Self.log, type: .info)
 
-        os_log("We need to re-register to push notifications since the server reported that this device is not registered", log: log, type: .info)
-
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
 
@@ -784,16 +607,14 @@ extension NetworkFetchFlowCoordinator {
     
     func fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         
-        let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-        
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
         
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             return
         }
         
@@ -806,9 +627,8 @@ extension NetworkFetchFlowCoordinator {
 
     func post(_ serverQuery: ServerQuery, within context: ObvContext) {
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The delegate manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The delegate manager is not set", log: Self.log, type: .fault)
             return
         }
 
@@ -817,44 +637,48 @@ extension NetworkFetchFlowCoordinator {
     }
 
 
-    func newPendingServerQueryToProcessWithObjectId(_ pendingServerQueryObjectId: NSManagedObjectID, flowId: FlowIdentifier) {
+    /// Called when a `PendingServerQuery` is inserted in database.
+    func newPendingServerQueryToProcessWithObjectId(_ pendingServerQueryObjectId: NSManagedObjectID, isWebSocket: Bool, flowId: FlowIdentifier) async {
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
 
-        delegateManager.serverQueryDelegate.postServerQuery(withObjectId: pendingServerQueryObjectId, flowId: flowId)
+        if isWebSocket {
+            do {
+                try await delegateManager.serverQueryWebSocketDelegate.handleServerQuery(pendingServerQueryObjectId: pendingServerQueryObjectId, flowId: flowId)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        } else {
+            delegateManager.serverQueryDelegate.postServerQuery(withObjectId: pendingServerQueryObjectId, flowId: flowId)
+        }
 
     }
 
 
-    func failedToProcessServerQuery(withObjectId objectId: NSManagedObjectID, flowId: FlowIdentifier) {
+    func failedToProcessServerQuery(withObjectId objectId: NSManagedObjectID, flowId: FlowIdentifier) async {
         let delay = failedAttemptsCounterManager.incrementAndGetDelay(.serverQuery(objectID: objectId))
-        retryManager.executeWithDelay(delay) { [weak self] in
-            self?.delegateManager?.serverQueryDelegate.postServerQuery(withObjectId: objectId, flowId: flowId)
-        }
+        await retryManager.waitForDelay(milliseconds: delay)
+        delegateManager?.serverQueryDelegate.postServerQuery(withObjectId: objectId, flowId: flowId)
     }
 
 
     func successfullProcessOfServerQuery(withObjectId objectId: NSManagedObjectID, flowId: FlowIdentifier) {
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
 
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
         guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The Context Creator is not set", log: log, type: .fault)
+            os_log("The Context Creator is not set", log: Self.log, type: .fault)
             return
         }
 
         guard let channelDelegate = delegateManager.channelDelegate else {
-            os_log("The channel delegate is not set", log: log, type: .fault)
+            os_log("The channel delegate is not set", log: Self.log, type: .fault)
             return
         }
 
@@ -862,17 +686,22 @@ extension NetworkFetchFlowCoordinator {
 
         let prng = self.prng
         contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
-
+            
             let serverQuery: PendingServerQuery
             do {
-                serverQuery = try PendingServerQuery.get(objectId: objectId, delegateManager: delegateManager, within: obvContext)
+                guard let _serverQuery = try PendingServerQuery.get(objectId: objectId, delegateManager: delegateManager, within: obvContext) else {
+                    os_log("Could not find pending server query in database", log: Self.log, type: .error)
+                    return
+                }
+                serverQuery = _serverQuery
             } catch {
-                os_log("Could not find pending server query in database", log: log, type: .fault)
+                os_log("Could not fetch pending server query in database: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
                 return
             }
 
             guard let serverResponseType = serverQuery.responseType else {
-                os_log("The server response type is not set", log: log, type: .fault)
+                os_log("The server response type is not set", log: Self.log, type: .fault)
                 assertionFailure()
                 return
             }
@@ -901,6 +730,20 @@ extension NetworkFetchFlowCoordinator {
                 channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.updateGroupBlob(uploadResult: uploadResult)
             case .getKeycloakData(result: let result):
                 channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.getKeycloakData(result: result)
+            case .ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult)
+            case .setOwnedDeviceName(success: let success):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.setOwnedDeviceName(success: success)
+            case .sourceGetSessionNumberMessage(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.sourceGetSessionNumberMessage(result: result)
+            case .targetSendEphemeralIdentity(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.targetSendEphemeralIdentity(result: result)
+            case .transferRelay(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.transferRelay(result: result)
+            case .transferWait(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.transferWait(result: result)
+            case .sourceWaitForTargetConnection(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.sourceWaitForTargetConnection(result: result)
             }
 
             let aResponseMessageShouldBePosted: Bool
@@ -913,42 +756,44 @@ extension NetworkFetchFlowCoordinator {
                 aResponseMessageShouldBePosted = true
             }
 
+            guard let ownedCryptoIdentity = try? serverQuery.ownedIdentity else {
+                assertionFailure()
+                serverQuery.deletePendingServerQuery(within: obvContext)
+                try? obvContext.save(logOnFailure: Self.log)
+                return
+            }
+            
             if aResponseMessageShouldBePosted {
                 let serverTimestamp = Date()
-                let responseMessage = ObvChannelServerResponseMessageToSend(toOwnedIdentity: serverQuery.ownedIdentity,
+                let responseMessage = ObvChannelServerResponseMessageToSend(toOwnedIdentity: ownedCryptoIdentity,
                                                                             serverTimestamp: serverTimestamp,
                                                                             responseType: channelServerResponseType,
                                                                             encodedElements: serverQuery.encodedElements,
                                                                             flowId: flowId)
 
                 do {
-                    _ = try channelDelegate.post(responseMessage, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(responseMessage, randomizedWith: prng, within: obvContext)
                 } catch {
-                    os_log("Could not process response to server query", log: log, type: .fault)
+                    os_log("Could not process response to server query", log: Self.log, type: .fault)
                     return
                 }
             }
 
-            serverQuery.delete(flowId: flowId)
+            serverQuery.deletePendingServerQuery(within: obvContext)
 
-            try? obvContext.save(logOnFailure: log)
+            try? obvContext.save(logOnFailure: Self.log)
 
         }
 
     }
 
-
-    func pendingServerQueryWasDeletedFromDatabase(objectId: NSManagedObjectID, flowId: FlowIdentifier) {
-
-    }
 
     // MARK: Handling with user data
 
-    func failedToProcessServerUserData(input: ServerUserDataInput, flowId: FlowIdentifier) {
+    func failedToProcessServerUserData(input: ServerUserDataInput, flowId: FlowIdentifier) async {
         let delay = failedAttemptsCounterManager.incrementAndGetDelay(.serverUserData(input: input))
-        retryManager.executeWithDelay(delay) { [weak self] in
-            self?.delegateManager?.serverUserDataDelegate.postUserData(input: input, flowId: flowId)
-        }
+        await retryManager.waitForDelay(milliseconds: delay)
+        delegateManager?.serverUserDataDelegate.postUserData(input: input, flowId: flowId)
     }
 
     // MARK: - Forwarding urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) and notifying successfull/failed listing (for performing fetchCompletionHandlers within the engine)
@@ -959,9 +804,8 @@ extension NetworkFetchFlowCoordinator {
     // MARK: - Monitor Network Path Status
     
     private func monitorNetworkChanges() {
-        nwPathMonitor = NWPathMonitor()
-        nwPathMonitor?.start(queue: DispatchQueue(label: "NetworkFetchMonitor"))
-        nwPathMonitor?.pathUpdateHandler = self.networkPathDidChange
+        nwPathMonitor.start(queue: DispatchQueue(label: "NetworkFetchMonitor"))
+        nwPathMonitor.pathUpdateHandler = self.networkPathDidChange
     }
 
     
@@ -971,14 +815,14 @@ extension NetworkFetchFlowCoordinator {
             let flowId = FlowIdentifier()
             await delegateManager?.webSocketDelegate.disconnectAll(flowId: flowId)
             await delegateManager?.webSocketDelegate.connectAll(flowId: flowId)
-            resetAllFailedFetchAttempsCountersAndRetryFetching()
+            await resetAllFailedFetchAttempsCountersAndRetryFetching()
         }
     }
 
     
-    func resetAllFailedFetchAttempsCountersAndRetryFetching() {
+    func resetAllFailedFetchAttempsCountersAndRetryFetching() async {
         failedAttemptsCounterManager.resetAll()
-        retryManager.executeAllWithNoDelay()
+        await retryManager.executeAllWithNoDelay()
     }
 
     
@@ -988,18 +832,15 @@ extension NetworkFetchFlowCoordinator {
         
         failedAttemptsCounterManager.reset(counter: .queryServerWellKnown(serverURL: server))
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
 
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
-        os_log("New well known was cached", log: log, type: .info)
+        os_log("New well known was cached", log: Self.log, type: .info)
 
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
@@ -1019,16 +860,13 @@ extension NetworkFetchFlowCoordinator {
 
         failedAttemptsCounterManager.reset(counter: .queryServerWellKnown(serverURL: server))
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
 
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
@@ -1046,16 +884,13 @@ extension NetworkFetchFlowCoordinator {
         
         failedAttemptsCounterManager.reset(counter: .queryServerWellKnown(serverURL: server))
 
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
 
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
         guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: log, type: .fault)
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
@@ -1066,19 +901,17 @@ extension NetworkFetchFlowCoordinator {
     }
     
     
-    func failedToQueryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) {
+    func failedToQueryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) async {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
 
         let delay = failedAttemptsCounterManager.incrementAndGetDelay(.queryServerWellKnown(serverURL: serverURL))
-        retryManager.executeWithDelay(delay) {
-            delegateManager.wellKnownCacheDelegate.queryServerWellKnown(serverURL: serverURL, flowId: flowId)
-        }
-                
+        await retryManager.waitForDelay(milliseconds: delay)
+        delegateManager.wellKnownCacheDelegate.queryServerWellKnown(serverURL: serverURL, flowId: flowId)
+
     }
     
     
@@ -1086,9 +919,8 @@ extension NetworkFetchFlowCoordinator {
     
     func successfulWebSocketRegistration(identity: ObvCryptoIdentity, deviceUid: UID) {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             return
         }
 

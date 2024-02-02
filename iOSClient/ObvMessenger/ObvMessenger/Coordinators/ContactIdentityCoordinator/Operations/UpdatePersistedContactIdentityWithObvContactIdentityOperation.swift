@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import OlvidUtils
 import os.log
 import ObvEngine
 import ObvUICoreData
+import CoreData
 
 
 final class UpdatePersistedContactIdentityWithObvContactIdentityOperation: ContextualOperationWithSpecificReasonForCancel<UpdatePersistedContactIdentityWithObvContactIdentityOperationReasonForCancel> {
@@ -33,30 +34,22 @@ final class UpdatePersistedContactIdentityWithObvContactIdentityOperation: Conte
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
+        do {
+            
+            guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvContactIdentity.contactIdentifier, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindContactIdentityInDatabase)
+            }
             
             do {
-
-                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindContactIdentityInDatabase)
-                }
-                
-                do {
-                    try persistedContactIdentity.updateContact(with: obvContactIdentity)
-                } catch {
-                    return cancel(withReason: .failedToUpdatePersistedObvContactIdentity(error: error))
-                }
-
+                try persistedContactIdentity.updateContact(with: obvContactIdentity)
             } catch {
-                return cancel(withReason: .coreDataError(error: error))
+                return cancel(withReason: .failedToUpdatePersistedObvContactIdentity(error: error))
             }
-
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

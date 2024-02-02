@@ -18,7 +18,8 @@
  */
 
 import Foundation
-import ObvUICoreData
+import ObvSettings
+
 
 extension URL {
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,68 +35,59 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            cancel(withReason: .contextIsNil)
-            return
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        // Get the persisted draft to send
+        
+        let draftToSend: PersistedDraft
+        do {
+            guard let _draftToSend = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindDraftInDatabase)
+            }
+            draftToSend = _draftToSend
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
-            
-            // Get the persisted draft to send
-            
-            let draftToSend: PersistedDraft
-            do {
-                guard let _draftToSend = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindDraftInDatabase)
-                }
-                draftToSend = _draftToSend
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+        // Make sure the draft is not empty
+        guard draftToSend.isNotEmpty else {
+            assertionFailure()
+            return cancel(withReason: .draftIsEmpty)
+        }
+        
+        // Create a PersistedMessageSent from the draft and reset the draft
+        
+        let persistedMessageSent: PersistedMessageSent
+        do {
+            persistedMessageSent = try PersistedMessageSent.createPersistedMessageSentFromDraft(draftToSend)
+        } catch {
+            tryToResetDraftOnHardFailure(draftObjectID: draftToSend.typedObjectID)
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
+        }
+        
+        do {
+            try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
+        }
+        
+        let discussionPermanentID = draftToSend.discussion.discussionPermanentID
+        let draftPermanentID = draftToSend.objectPermanentID
+        
+        draftToSend.reset()
+        
+        do {
+            self.messageSentPermanentID = persistedMessageSent.objectPermanentID
+            try obvContext.addContextDidSaveCompletionHandler { error in
+                guard error == nil else { assertionFailure(); return }
+                ObvMessengerInternalNotification.draftToSendWasReset(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID)
+                    .postOnDispatchQueue()
             }
-            
-            // Make sure the draft is not empty
-            guard draftToSend.isNotEmpty else {
-                assertionFailure()
-                return cancel(withReason: .draftIsEmpty)
-            }
-            
-            // Create a PersistedMessageSent from the draft and reset the draft
-            
-            let persistedMessageSent: PersistedMessageSent
-            do {
-                persistedMessageSent = try PersistedMessageSent(draft: draftToSend)
-            } catch {
-                tryToResetDraftOnHardFailure(draftObjectID: draftToSend.typedObjectID)
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-            do {
-                try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
-            }
-                        
-            let discussionPermanentID = draftToSend.discussion.discussionPermanentID
-            let draftPermanentID = draftToSend.objectPermanentID
-            
-            draftToSend.reset()
-
-            do {
-                self.messageSentPermanentID = persistedMessageSent.objectPermanentID
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { assertionFailure(); return }
-                    ObvMessengerInternalNotification.draftToSendWasReset(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID)
-                        .postOnDispatchQueue()
-                }
-            } catch {
-                assertionFailure(error.localizedDescription)
-            }
-            
+        } catch {
+            assertionFailure(error.localizedDescription)
         }
         
     }

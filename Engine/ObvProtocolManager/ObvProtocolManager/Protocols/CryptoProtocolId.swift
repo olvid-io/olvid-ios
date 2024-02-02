@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,27 +26,33 @@ import OlvidUtils
 /// This is a list of all registered protocols
 enum CryptoProtocolId: Int, CustomDebugStringConvertible, CaseIterable {
     
-    case DeviceDiscoveryForContactIdentity = 0
+    case contactDeviceDiscovery = 0
     // 2023-01-28 We remove the legacy TrustEstablishment protocol
-    case ChannelCreationWithContactDevice = 2
-    case DeviceDiscoveryForRemoteIdentity = 3
+    case channelCreationWithContactDevice = 2
+    case deviceDiscoveryForRemoteIdentity = 3
     case ContactMutualIntroduction = 4
     /* case GroupCreation = 5 */
-    case IdentityDetailsPublication = 6
-    case DownloadIdentityPhoto = 7
-    case GroupInvitation = 8
-    case GroupManagement = 9
-    case ContactManagement = 10
-    case TrustEstablishmentWithSAS = 11
-    case TrustEstablishmentWithMutualScan = 12
-    case FullRatchet = 13
-    case DownloadGroupPhoto = 14
-    case KeycloakContactAddition = 15
-    case ContactCapabilitiesDiscovery = 16
-    case OneToOneContactInvitation = 17
-    case GroupV2 = 18
-    case DownloadGroupV2Photo = 19
+    case identityDetailsPublication = 6
+    case downloadIdentityPhoto = 7
+    case groupInvitation = 8
+    case groupManagement = 9
+    case contactManagement = 10
+    case trustEstablishmentWithSAS = 11
+    case trustEstablishmentWithMutualScan = 12
+    case fullRatchet = 13
+    case downloadGroupPhoto = 14
+    case keycloakContactAddition = 15
+    case contactCapabilitiesDiscovery = 16
+    case oneToOneContactInvitation = 17
+    case groupV2 = 18
+    case downloadGroupV2Photo = 19
     case ownedIdentityDeletionProtocol = 20
+    case ownedDeviceDiscovery = 21
+    case channelCreationWithOwnedDevice = 22
+    case keycloakBindingAndUnbinding = 23
+    case ownedDeviceManagement = 24
+    case synchronization = 25
+    case ownedIdentityTransfer = 26
 
     func getConcreteCryptoProtocol(from instance: ProtocolInstance, prng: PRNGService) -> ConcreteCryptoProtocol? {
         return self.concreteCryptoProtocol.init(protocolInstance: instance, prng: prng)
@@ -54,44 +60,56 @@ enum CryptoProtocolId: Int, CustomDebugStringConvertible, CaseIterable {
     
     private var concreteCryptoProtocol: ConcreteCryptoProtocol.Type {
         switch self {
-        case .DeviceDiscoveryForContactIdentity:
-            return DeviceDiscoveryForContactIdentityProtocol.self
-        case .ChannelCreationWithContactDevice:
+        case .contactDeviceDiscovery:
+            return ContactDeviceDiscoveryProtocol.self
+        case .channelCreationWithContactDevice:
             return ChannelCreationWithContactDeviceProtocol.self
-        case .DeviceDiscoveryForRemoteIdentity:
+        case .deviceDiscoveryForRemoteIdentity:
             return DeviceDiscoveryForRemoteIdentityProtocol.self
         case .ContactMutualIntroduction:
             return ContactMutualIntroductionProtocol.self
-        case .IdentityDetailsPublication:
+        case .identityDetailsPublication:
             return IdentityDetailsPublicationProtocol.self
-        case .DownloadIdentityPhoto:
+        case .downloadIdentityPhoto:
             return DownloadIdentityPhotoChildProtocol.self
-        case .GroupInvitation:
+        case .groupInvitation:
             return GroupInvitationProtocol.self
-        case .GroupManagement:
+        case .groupManagement:
             return GroupManagementProtocol.self
-        case .ContactManagement:
+        case .contactManagement:
             return ContactManagementProtocol.self
-        case .TrustEstablishmentWithSAS:
+        case .trustEstablishmentWithSAS:
             return TrustEstablishmentWithSASProtocol.self
-        case .TrustEstablishmentWithMutualScan:
+        case .trustEstablishmentWithMutualScan:
             return TrustEstablishmentWithMutualScanProtocol.self
-        case .FullRatchet:
+        case .fullRatchet:
             return FullRatchetProtocol.self
-        case .DownloadGroupPhoto:
+        case .downloadGroupPhoto:
             return DownloadGroupPhotoChildProtocol.self
-        case .KeycloakContactAddition:
+        case .keycloakContactAddition:
             return KeycloakContactAdditionProtocol.self
-        case .ContactCapabilitiesDiscovery:
+        case .contactCapabilitiesDiscovery:
             return DeviceCapabilitiesDiscoveryProtocol.self
-        case .OneToOneContactInvitation:
+        case .oneToOneContactInvitation:
             return OneToOneContactInvitationProtocol.self
-        case .GroupV2:
+        case .groupV2:
             return GroupV2Protocol.self
-        case .DownloadGroupV2Photo:
+        case .downloadGroupV2Photo:
             return DownloadGroupV2PhotoProtocol.self
         case .ownedIdentityDeletionProtocol:
             return OwnedIdentityDeletionProtocol.self
+        case .ownedDeviceDiscovery:
+            return OwnedDeviceDiscoveryProtocol.self
+        case .channelCreationWithOwnedDevice:
+            return ChannelCreationWithOwnedDeviceProtocol.self
+        case .keycloakBindingAndUnbinding:
+            return KeycloakBindingAndUnbindingProtocol.self
+        case .ownedDeviceManagement:
+            return OwnedDeviceManagementProtocol.self
+        case .synchronization:
+            return SynchronizationProtocol.self
+        case .ownedIdentityTransfer:
+            return OwnedIdentityTransferProtocol.self
         }
     }
     
@@ -115,25 +133,31 @@ extension CryptoProtocolId {
     
     var debugDescription: String {
         switch self {
-        case .DeviceDiscoveryForContactIdentity: return "DeviceDiscoveryForContactIdentity"
-        case .ChannelCreationWithContactDevice: return "ChannelCreationWithContactDevice"
-        case .DeviceDiscoveryForRemoteIdentity: return "DeviceDiscoveryForRemoteIdentity"
+        case .contactDeviceDiscovery: return "ContactDeviceDiscoveryProtocol"
+        case .channelCreationWithContactDevice: return "ChannelCreationWithContactDevice"
+        case .deviceDiscoveryForRemoteIdentity: return "DeviceDiscoveryForRemoteIdentity"
         case .ContactMutualIntroduction: return "ContactMutualIntroduction"
-        case .IdentityDetailsPublication: return "IdentityDetailsPublication"
-        case .DownloadIdentityPhoto: return "DownloadIdentityPhoto"
-        case .GroupInvitation: return "GroupInvitation"
-        case .GroupManagement: return "GroupManagement"
-        case .ContactManagement: return "ContactManagement"
-        case .TrustEstablishmentWithSAS: return "TrustEstablishmentWithSAS"
-        case .FullRatchet: return "FullRatchet"
-        case .DownloadGroupPhoto: return "DownloadGroupPhoto"
-        case .KeycloakContactAddition: return "KeycloakContactAddition"
-        case .TrustEstablishmentWithMutualScan: return "TrustEstablishmentWithMutualScan"
-        case .ContactCapabilitiesDiscovery: return "ContactCapabilitiesDiscovery"
-        case .OneToOneContactInvitation: return "OneToOneContactInvitation"
-        case .GroupV2: return "GroupV2"
-        case .DownloadGroupV2Photo: return "DownloadGroupV2Photo"
+        case .identityDetailsPublication: return "IdentityDetailsPublication"
+        case .downloadIdentityPhoto: return "DownloadIdentityPhoto"
+        case .groupInvitation: return "GroupInvitation"
+        case .groupManagement: return "GroupManagement"
+        case .contactManagement: return "ContactManagement"
+        case .trustEstablishmentWithSAS: return "TrustEstablishmentWithSAS"
+        case .fullRatchet: return "FullRatchet"
+        case .downloadGroupPhoto: return "DownloadGroupPhoto"
+        case .keycloakContactAddition: return "KeycloakContactAddition"
+        case .trustEstablishmentWithMutualScan: return "TrustEstablishmentWithMutualScan"
+        case .contactCapabilitiesDiscovery: return "ContactCapabilitiesDiscovery"
+        case .oneToOneContactInvitation: return "OneToOneContactInvitation"
+        case .groupV2: return "GroupV2"
+        case .downloadGroupV2Photo: return "DownloadGroupV2Photo"
         case .ownedIdentityDeletionProtocol: return "OwnedIdentityDeletionProtocol"
+        case .ownedDeviceDiscovery: return "OwnedDeviceDiscoveryProtocol"
+        case .channelCreationWithOwnedDevice: return "ChannelCreationWithOwnedDeviceProtocol"
+        case .keycloakBindingAndUnbinding: return "KeycloakBindingAndUnbindingProtocol"
+        case .ownedDeviceManagement: return "OwnedDeviceManagementProtocol"
+        case .synchronization: return "SynchronizationProtocol"
+        case .ownedIdentityTransfer: return "OwnedIdentityTransferProtocol"
         }
     }
 

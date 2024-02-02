@@ -18,18 +18,7 @@
  */
 
 import SwiftUI
-
-
-struct OwnedIdentityHeaderView: View {
-
-    @ObservedObject var singleIdentity: SingleIdentity
-
-    var body: some View {
-        IdentityCardContentView(model: singleIdentity,
-                                displayMode: .header)
-    }
-
-}
+import ObvUICoreData
 
 
 struct ContactIdentityHeaderView: View {
@@ -50,16 +39,6 @@ struct ContactIdentityHeaderView: View {
 
 struct IdentityHeaderView_Previews: PreviewProvider {
     
-    static let ownedIdentity = SingleIdentity(
-        firstName: "Steve",
-        lastName: "Job",
-        position: "CEO",
-        company: "Apple",
-        isKeycloakManaged: false,
-        showGreenShield: false,
-        showRedShield: false,
-        identityColors: nil,
-        photoURL: nil)
     static let contactIdentity = SingleContactIdentity(
         firstName: "Steve",
         lastName: "Job",
@@ -68,13 +47,13 @@ struct IdentityHeaderView_Previews: PreviewProvider {
         customDisplayName: nil,
         publishedContactDetails: nil,
         contactStatus: .noNewPublishedDetails,
+        atLeastOneDeviceAllowsThisContactToReceiveMessages: true,
         contactHasNoDevice: false,
         contactIsOneToOne: true,
         isActive: true)
     
     static var previews: some View {
         Group {
-            OwnedIdentityHeaderView(singleIdentity: ownedIdentity)
             ContactIdentityHeaderView(singleIdentity: contactIdentity, editionMode: .none)
             ContactIdentityHeaderView(singleIdentity: contactIdentity, editionMode: .custom(icon: .pencil(), action: { }))
         }

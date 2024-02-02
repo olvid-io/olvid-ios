@@ -25,6 +25,7 @@ import ObvEngine
 import Combine
 import ObvUICoreData
 import ObvUI
+import ObvDesignSystem
 
 
 protocol KeycloakSearchViewControllerDelegate: AnyObject {

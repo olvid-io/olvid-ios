@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,11 +33,15 @@ public protocol ObvProtocolDelegate: ObvManager {
     
     func getInitialMessageForTrustEstablishmentProtocol(of: ObvCryptoIdentity, withFullDisplayName: String, forOwnedIdentity: ObvCryptoIdentity, withOwnedIdentityCoreDetails: ObvIdentityCoreDetails, usingProtocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend
 
-    func getInitialMessageForContactMutualIntroductionProtocol(of: ObvCryptoIdentity, withContactIdentityCoreDetails: ObvIdentityCoreDetails, with: ObvCryptoIdentity, withOtherContactIdentityCoreDetails: ObvIdentityCoreDetails, byOwnedIdentity: ObvCryptoIdentity, usingProtocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend
-    
+    func getInitialMessageForContactMutualIntroductionProtocol(of identity1: ObvCryptoIdentity, with identity2: ObvCryptoIdentity, byOwnedIdentity ownedIdentity: ObvCryptoIdentity, usingProtocolInstanceUid protocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend
+
     func getInitiateGroupCreationMessageForGroupManagementProtocol(groupCoreDetails: ObvGroupCoreDetails, photoURL: URL?, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, ownedIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend
     
+    func getDisbandGroupMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend
+
     func getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity: ObvCryptoIdentity, andTheDeviceUid: UID, ofTheContactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend
+    
+    func getInitialMessageForChannelCreationWithOwnedDeviceProtocol(ownedIdentity: ObvCryptoIdentity, remoteDeviceUid: UID) throws -> ObvChannelProtocolMessageToSend
     
     func getInitialMessageForIdentityDetailsPublicationProtocol(ownedIdentity: ObvCryptoIdentity, publishedIdentityDetailsVersion: Int) throws -> ObvChannelProtocolMessageToSend
     
@@ -57,9 +61,11 @@ public protocol ObvProtocolDelegate: ObvManager {
 
     func getTriggerReinviteMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, memberIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend
 
-    func getInitialMessageForDeviceDiscoveryForContactIdentityProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend
+    func getInitialMessageForContactDeviceDiscoveryProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend
     
     func getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithContactDeviceProtocolInstances(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt>
+
+    func getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithOwnedDeviceProtocolInstances(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt>
 
     func getInitialMessageForDownloadIdentityPhotoChildProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactIdentityDetailsElements: IdentityDetailsElements) throws -> ObvChannelProtocolMessageToSend
 
@@ -81,13 +87,15 @@ public protocol ObvProtocolDelegate: ObvManager {
 
     func getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
     
+    func getInitialMessageForDownloadGroupV2PhotoProtocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo) throws -> ObvChannelProtocolMessageToSend
+
     func getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
 
     func getInitiateGroupReDownloadMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
 
     func getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
 
-    func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
+    func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, remoteIdentity: ObvCryptoIdentity, remoteDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
 
     // MARK: - Keycloak pushed groups
     
@@ -97,8 +105,43 @@ public protocol ObvProtocolDelegate: ObvManager {
 
     // MARK: - Owned identities
     
-    func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
+    func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, globalOwnedIdentityDeletion: Bool) throws -> ObvChannelProtocolMessageToSend
+    
+    func getInitiateOwnedDeviceDiscoveryMessage(ownedCryptoIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend
+    
+    func getInitiateOwnedDeviceManagementMessage(ownedCryptoIdentity: ObvCryptoIdentity, request: ObvOwnedDeviceManagementRequest) throws -> ObvChannelProtocolMessageToSend
 
-    func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend
+    // func getInitiateTransferOnSourceDeviceMessageForOwnedIdentityTransferProtocol(ownedCryptoIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend
+
+    // MARK: - Allow to execute external operations on the queue executing protocol steps
+
+    func executeOnQueueForProtocolOperations<ReasonForCancelType: LocalizedErrorWithLogType>(operation: OperationWithSpecificReasonForCancel<ReasonForCancelType>) async throws
+
+    // MARK: - Keycloak binding and unbinding
+    
+    func getOwnedIdentityKeycloakBindingMessage(ownedCryptoIdentity: ObvCryptoIdentity, keycloakState: ObvKeycloakState, keycloakUserId: String) throws -> ObvChannelProtocolMessageToSend
+
+    func getOwnedIdentityKeycloakUnbindingMessage(ownedCryptoIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend
+    
+    // MARK: - SynchronizationProtocol
+    
+    func getInitiateSyncAtomMessageForSynchronizationProtocol(ownedCryptoIdentity: ObvCryptoIdentity, syncAtom: ObvSyncAtom) throws -> ObvChannelProtocolMessageToSend
+
+    // MARK: - Owned identity transfer protocol
+    
+    /// Called by the engine in order to start an owned identity transfer protocol on the source device.
+    /// - Parameters:
+    ///   - ownedCryptoIdentity: The crypto identity of the owned identity.
+    ///   - onAvailableSessionNumber: This block will be called by the protocol manager as soon as the session number is available, passing it as a parameter. Since getting this session number requires a network interaction with the transfer server, this block may take a "long" time before being called.
+    ///   - flowId: The flow identifier.
+    func initiateOwnedIdentityTransferProtocolOnSourceDevice(ownedCryptoIdentity: ObvCryptoIdentity, onAvailableSessionNumber: @escaping (ObvOwnedIdentityTransferSessionNumber) -> Void, onAvailableSASExpectedOnInput: @escaping (ObvOwnedIdentityTransferSas, String, UID) -> Void, flowId: FlowIdentifier) async throws
+
+    func initiateOwnedIdentityTransferProtocolOnTargetDevice(currentDeviceName: String, transferSessionNumber: ObvOwnedIdentityTransferSessionNumber, onIncorrectTransferSessionNumber: @escaping () -> Void, onAvailableSas: @escaping (UID, ObvOwnedIdentityTransferSas) -> Void, flowId: FlowIdentifier) async throws
+    
+    func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID) async throws
+    
+    func appIsShowingSasAndExpectingEndOfProtocol(protocolInstanceUID: UID, onSyncSnapshotReception: @escaping () -> Void, onSuccessfulTransfer: @escaping (ObvCryptoId, Error?) -> Void) async
+
+    func cancelAllOwnedIdentityTransferProtocols(flowId: FlowIdentifier) async throws
     
 }

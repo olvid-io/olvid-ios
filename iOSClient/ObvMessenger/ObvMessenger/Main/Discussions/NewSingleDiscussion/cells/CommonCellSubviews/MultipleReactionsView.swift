@@ -20,6 +20,7 @@
 import ObvUI
 import UIKit
 import ObvUICoreData
+import ObvDesignSystem
 
 
 struct ReactionAndCount: Equatable, Hashable, Comparable, Identifiable {

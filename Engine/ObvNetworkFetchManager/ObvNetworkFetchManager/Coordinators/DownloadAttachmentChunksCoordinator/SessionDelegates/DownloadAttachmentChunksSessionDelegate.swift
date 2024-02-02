@@ -28,7 +28,7 @@ final class DownloadAttachmentChunksSessionDelegate: NSObject {
     let uuid = UUID()
     private let logCategory = String(describing: DownloadAttachmentChunksSessionDelegate.self)
     private let log: OSLog
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let obvContext: ObvContext
     private let inbox: URL
     private let queueSynchronizingCallsToTracker = DispatchQueue(label: "Queue for sync tracker calls within DownloadAttachmentChunksSessionDelegate")
@@ -61,7 +61,7 @@ final class DownloadAttachmentChunksSessionDelegate: NSObject {
         }
     }
 
-    init(attachmentId: AttachmentIdentifier, obvContext: ObvContext, logSubsystem: String, inbox: URL) {
+    init(attachmentId: ObvAttachmentIdentifier, obvContext: ObvContext, logSubsystem: String, inbox: URL) {
         self.log = OSLog(subsystem: logSubsystem, category: logCategory)
         self.attachmentId = attachmentId
         self.obvContext = obvContext
@@ -80,11 +80,11 @@ final class DownloadAttachmentChunksSessionDelegate: NSObject {
 // MARK: - Tracker
 
 protocol AttachmentChunkDownloadProgressTracker: AnyObject {
-    func downloadAttachmentChunksSessionDidBecomeInvalid(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, error: DownloadAttachmentChunksSessionDelegate.ErrorForTracker?)
+    func downloadAttachmentChunksSessionDidBecomeInvalid(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: DownloadAttachmentChunksSessionDelegate.ErrorForTracker?)
     func urlSessionDidFinishEventsForSessionWithIdentifier(_ identifier: String)
-    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64), flowId: FlowIdentifier)
-    func attachmentChunkWasDecryptedAndWrittenToAttachmentFile(attachmentId: AttachmentIdentifier, chunkNumber: Int, flowId: FlowIdentifier)
-    func attachmentDownloadIsComplete(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+    func attachmentChunkDidProgress(attachmentId: ObvAttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64), flowId: FlowIdentifier)
+    func attachmentChunkWasDecryptedAndWrittenToAttachmentFile(attachmentId: ObvAttachmentIdentifier, chunkNumber: Int, flowId: FlowIdentifier)
+    func attachmentDownloadIsComplete(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
 }
 
 // MARK: - URLSessionDelegate

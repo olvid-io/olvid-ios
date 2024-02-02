@@ -34,7 +34,7 @@ public final class RefreshInboxAttachmentSignedUrlServerMethod: ObvServerDataMet
     public var serverURL: URL { return identity.serverURL }
     
     public let identity: ObvCryptoIdentity
-    public let attachmentId: AttachmentIdentifier
+    public let attachmentId: ObvAttachmentIdentifier
     public let expectedChunkCount: Int
     public let flowId: FlowIdentifier
     public let isActiveOwnedIdentityRequired = true
@@ -45,7 +45,7 @@ public final class RefreshInboxAttachmentSignedUrlServerMethod: ObvServerDataMet
     
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public init(identity: ObvCryptoIdentity, attachmentId: AttachmentIdentifier, expectedChunkCount: Int, flowId: FlowIdentifier) {
+    public init(identity: ObvCryptoIdentity, attachmentId: ObvAttachmentIdentifier, expectedChunkCount: Int, flowId: FlowIdentifier) {
         self.flowId = flowId
         self.identity = identity
         self.attachmentId = attachmentId

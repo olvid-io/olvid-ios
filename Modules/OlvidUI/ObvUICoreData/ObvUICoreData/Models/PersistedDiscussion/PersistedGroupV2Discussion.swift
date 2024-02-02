@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import CoreData
 import os.log
 import OlvidUtils
 import ObvTypes
+import ObvSettings
 
 
 @objc(PersistedGroupV2Discussion)
@@ -61,7 +62,7 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMake
 
     // Initializer
 
-    public convenience init(persistedGroupV2: PersistedGroupV2, shouldApplySharedConfigurationFromGlobalSettings: Bool, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil, permanentUUIDToKeep: UUID? = nil, draftToKeep: PersistedDraft? = nil, pinnedIndexToKeep: Int? = nil, timestampOfLastMessageToKeep: Date? = nil) throws {
+    public convenience init(persistedGroupV2: PersistedGroupV2, shouldApplySharedConfigurationFromGlobalSettings: Bool) throws {
         
         guard let context = persistedGroupV2.managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
@@ -79,20 +80,14 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMake
                       ownedIdentity: persistedOwnedIdentity,
                       forEntityName: PersistedGroupV2Discussion.entityName,
                       status: .active,
-                      shouldApplySharedConfigurationFromGlobalSettings: shouldApplySharedConfigurationFromGlobalSettings,
-                      sharedConfigurationToKeep: sharedConfigurationToKeep,
-                      localConfigurationToKeep: localConfigurationToKeep,
-                      permanentUUIDToKeep: permanentUUIDToKeep,
-                      draftToKeep: draftToKeep,
-                      pinnedIndexToKeep: pinnedIndexToKeep,
-                      timestampOfLastMessageToKeep: timestampOfLastMessageToKeep)
+                      shouldApplySharedConfigurationFromGlobalSettings: shouldApplySharedConfigurationFromGlobalSettings)
 
         self.groupIdentifier = persistedGroupV2.groupIdentifier
         self.rawOwnedIdentityIdentity = try persistedGroupV2.ownCryptoId.getIdentity()
 
         self.group = persistedGroupV2
         
-        try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: timestampOfLastMessageToKeep ?? Date())
+        try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: Date())
 
     }
     
@@ -133,7 +128,7 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMake
         try PersistedMessageSystem.insertOwnedIdentityIsNoLongerPartOfGroupV2AdminsMessage(within: self)
     }
     
-
+    
     // MARK: - Convenience DB getters
 
     struct Predicate {
@@ -146,6 +141,9 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMake
         }
         static func withOwnCryptoId(_ ownCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.rawOwnedIdentityIdentity, EqualToData: ownCryptoId.getIdentity())
+        }
+        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+            PersistedDiscussion.Predicate.persistedDiscussion(withObjectID: objectID)
         }
     }
     
@@ -165,6 +163,26 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMake
         return try context.fetch(request).first
     }
         
+    
+    static func getPersistedGroupV2Discussion(ownedIdentity: PersistedObvOwnedIdentity, groupV2DiscussionId: GroupV2DiscussionIdentifier) throws -> PersistedGroupV2Discussion? {
+        guard let context = ownedIdentity.managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        let request: NSFetchRequest<PersistedGroupV2Discussion> = PersistedGroupV2Discussion.fetchRequest()
+        switch groupV2DiscussionId {
+        case .objectID(let objectID):
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withObjectID(objectID),
+                Predicate.withOwnCryptoId(ownedIdentity.cryptoId),
+            ])
+        case .groupV2Identifier(groupV2Identifier: let groupV2Identifier):
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withOwnCryptoId(ownedIdentity.cryptoId),
+                Predicate.withGroupIdentifier(groupV2Identifier),
+            ])
+        }
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
 }
 
 

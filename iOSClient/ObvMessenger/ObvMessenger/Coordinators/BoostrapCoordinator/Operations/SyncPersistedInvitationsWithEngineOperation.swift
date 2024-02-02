@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvEngine
 import os.log
 import ObvTypes
 import ObvUICoreData
+import CoreData
 
 
 final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -31,26 +32,17 @@ final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWith
     let obvDialogsFromEngine: [ObvDialog]
     let obvEngine: ObvEngine
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SyncPersistedInvitationsWithEngineOperation.self))
+    private let syncAtomRequestDelegate: ObvSyncAtomRequestDelegate
 
-    // If this operation finishes, this variable stores the engine's dialog that should be processed
-    private(set) var obvDialogsFromEngineToProcess = [ObvDialog]()
-    
-    init(obvDialogsFromEngine: [ObvDialog], obvEngine: ObvEngine) {
+    init(obvDialogsFromEngine: [ObvDialog], obvEngine: ObvEngine, syncAtomRequestDelegate: ObvSyncAtomRequestDelegate) {
         self.obvDialogsFromEngine = obvDialogsFromEngine
         self.obvEngine = obvEngine
+        self.syncAtomRequestDelegate = syncAtomRequestDelegate
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        guard let viewContext = self.viewContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
         let uuidsWithinEngineForOwnedCryptoId: [ObvCryptoId: Set<UUID>] = obvDialogsFromEngine.reduce(into: [ObvCryptoId: Set<UUID>]()) { dict, obvDialog in
             if var existingSet = dict[obvDialog.ownedCryptoId] {
                 existingSet.insert(obvDialog.uuid)
@@ -59,22 +51,26 @@ final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWith
                 dict[obvDialog.ownedCryptoId] = Set([obvDialog.uuid])
             }
         }
-        
-        obvContext.performAndWait {
-            
-            for (ownedCryptoId, uuidsWithinEngine) in uuidsWithinEngineForOwnedCryptoId {
-            
-                // Get the persisted invitations within the app
-                
-                let invitations: [PersistedInvitation]
-                do {
-                    invitations = try PersistedInvitation.getAll(ownedCryptoId: ownedCryptoId, within: obvContext.context)
-                } catch {
-                    return cancel(withReason: .coreDataError(error: error))
-                }
-                
-                // Determine the invitations to create, delete, or update
 
+        do {
+            
+            // Get the owned identities within the app
+            
+            let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+            let ownedCryptoIdsWithApp = ownedIdentities.map({ $0.cryptoId })
+            
+            for ownedCryptoIdWithApp in ownedCryptoIdsWithApp {
+                
+                // Get the persisted invitations for this owned identity within the app within the app
+                
+                let invitations = try PersistedInvitation.getAll(ownedCryptoId: ownedCryptoIdWithApp, within: obvContext.context)
+                
+                // Determine the invitations for this owned identity within the engine
+                
+                let uuidsWithinEngine = uuidsWithinEngineForOwnedCryptoId[ownedCryptoIdWithApp] ?? Set()
+
+                // Determine the invitations to create, delete, or update
+                
                 let uuidsWithinApp = Set(invitations.map { $0.uuid })
                 let missingUuids = uuidsWithinEngine.subtracting(uuidsWithinApp)
                 let uuidsToDelete = uuidsWithinApp.subtracting(uuidsWithinEngine)
@@ -85,7 +81,11 @@ final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWith
                 do {
                     
                     let dialogsToProcess = obvDialogsFromEngine.filter({ missingUuids.contains($0.uuid) })
-                    let ops = dialogsToProcess.map { ProcessObvDialogOperation(obvDialog: $0, obvEngine: obvEngine) }
+                    let ops = dialogsToProcess.map {
+                        ProcessObvDialogOperation(obvDialog: $0,
+                                                  obvEngine: obvEngine,
+                                                  syncAtomRequestDelegate: syncAtomRequestDelegate)
+                    }
                     
                     ops.forEach {
                         $0.obvContext = obvContext
@@ -101,7 +101,11 @@ final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWith
                 do {
                     
                     let dialogsToProcess = obvDialogsFromEngine.filter({ uuidsToUpdate.contains($0.uuid) })
-                    let ops = dialogsToProcess.map { ProcessObvDialogOperation(obvDialog: $0, obvEngine: obvEngine) }
+                    let ops = dialogsToProcess.map {
+                        ProcessObvDialogOperation(obvDialog: $0,
+                                                  obvEngine: obvEngine,
+                                                  syncAtomRequestDelegate: syncAtomRequestDelegate)
+                    }
                     
                     ops.forEach {
                         $0.obvContext = obvContext
@@ -115,7 +119,7 @@ final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWith
                 
                 uuidsToDelete.forEach { uuid in
                     do {
-                        if let invitation = try PersistedInvitation.getPersistedInvitation(uuid: uuid, ownedCryptoId: ownedCryptoId, within: obvContext.context) {
+                        if let invitation = try PersistedInvitation.getPersistedInvitation(uuid: uuid, ownedCryptoId: ownedCryptoIdWithApp, within: obvContext.context) {
                             try invitation.delete()
                         }
                     } catch {
@@ -124,11 +128,13 @@ final class SyncPersistedInvitationsWithEngineOperation: ContextualOperationWith
                         // Continue anyway
                     }
                 }
-
+                
             }
             
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-            
+                
     }
     
 }

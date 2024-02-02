@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,17 +31,17 @@ extension DownloadIdentityPhotoChildProtocol {
     
     enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
-        case QueryServer = 0
-        case DownloadingPhoto = 1
+        case queryServer = 0
+        case downloadingPhoto = 1
 
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             
             switch self {
                 
-            case .QueryServer:
+            case .queryServer:
                 let step = QueryServerStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .DownloadingPhoto:
+            case .downloadingPhoto:
                 let step = ProcessPhotoStep(from: concreteProtocol, and: receivedMessage)
                 return step
             }
@@ -82,7 +82,7 @@ extension DownloadIdentityPhotoChildProtocol {
             let concreteMessage = ServerGetPhotoMessage(coreProtocolMessage: coreMessage)
             let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getUserData(of: receivedMessage.contactIdentity, label: label)
             guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
 
             return DownloadingPhotoState(contactIdentity: receivedMessage.contactIdentity, contactIdentityDetailsElements: receivedMessage.contactIdentityDetailsElements)
         }

@@ -13,7 +13,7 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU Affero General Public License for more details.
  *
- *  You should have received a copy of the GNU Affero General Public License
+ *  You should have received a copy of the GNU Affero General Public Licensecase a
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
   
@@ -23,12 +23,17 @@ import Foundation
 
 public enum SystemIcon: Hashable {
 
+    case airplayaudio
+    case airpods
+    case airpodsmax
+    case airpodspro
     case at
     case atCircle
     case atCircleFill
     case alarm
     case archivebox
     case archiveboxFill
+    case arrow2Squarepath
     case arrowClockwise
     case arrowCounterclockwise
     case arrowCounterclockwiseCircle
@@ -54,6 +59,7 @@ public enum SystemIcon: Hashable {
     case book
     case bookmark
     case bubbleLeftAndBubbleRight
+    case bubbleLeftAndBubbleRightFill
     case calendar
     case calendarBadgeClock
     case camera(_: SystemIconFillCircleCircleFillOption? = nil)
@@ -62,6 +68,7 @@ public enum SystemIcon: Hashable {
     case checkmarkCircle
     case checkmarkCircleFill
     case checkmarkSealFill
+    case checkmarkShield
     case checkmarkShieldFill
     case checkmarkSquareFill
     case chevronLeftForwardslashChevronRight
@@ -76,6 +83,7 @@ public enum SystemIcon: Hashable {
     case creditcardFill
     case display
     case docBadgeGearshape
+    case doc
     case docFill
     case docOnClipboardFill
     case docOnDoc
@@ -84,6 +92,8 @@ public enum SystemIcon: Hashable {
     case ellipsisCircle
     case ellipsisCircleFill
     case ellipsisRectangle
+    case envelope
+    case envelopeBadge
     case envelopeOpenFill
     case exclamationmarkCircle
     case exclamationmarkShieldFill
@@ -94,6 +104,7 @@ public enum SystemIcon: Hashable {
     case eyesInverse
     case figureStandLineDottedFigureStand
     case flameFill
+    case folder
     case folderCircle
     case folderFill
     case forwardFill
@@ -105,18 +116,27 @@ public enum SystemIcon: Hashable {
     case handThumbsup
     case handThumbsupFill
     case hare
+    case headphones
     case hourglass
     case icloud(_: SystemIconFillOption = .none)
     case infoCircle
+    case ipadLandscape
+    case iphone
     case iphoneGen3CircleFill
+    case laptopcomputerAndIphone
     case link
     case lock(_: SystemIconFillOption = .none, _: SystemIconShieldOption = .none)
     case network
+    case laptopcomputer
+    case macbookAndIphone
+    case magnifyingglass
     case micCircle
     case micCircleFill
+    case mic
     case micFill
     case minusCircle
     case minusCircleFill
+    case micSlashFill
     case moonZzzFill
     case multiply
     case muliplyCircleFill
@@ -134,6 +154,7 @@ public enum SystemIcon: Hashable {
     case person2Circle
     case person3
     case person3Fill
+    case personBadgeShieldCheckmark
     case personCropCircle
     case personCropCircleBadgeCheckmark
     case personCropCircleBadgeQuestionmark
@@ -141,13 +162,18 @@ public enum SystemIcon: Hashable {
     case personCropCircleFillBadgeCheckmark
     case personCropCircleFillBadgeMinus
     case personCropCircleFillBadgeXmark
+    case personCropRectangle
     case personTextRectangle
     case personFillQuestionmark
     case personFillViewfinder
     case personFillXmark
+    case personLineDottedPerson
     case personLineDottedPersonFill
     case phoneCircleFill
+    case phoneDownFill
     case phoneFill
+    case phoneArrowDownLeftFill
+    case phoneArrowUpRightFill
     case photo
     case photoOnRectangleAngled
     case pin
@@ -156,6 +182,7 @@ public enum SystemIcon: Hashable {
     case playCircleFill
     case plus
     case plusCircle
+    case poweroff
     case qrcode
     case qrcodeViewfinder
     case questionmarkCircle
@@ -171,6 +198,7 @@ public enum SystemIcon: Hashable {
     case shieldFill
     case speakerWave3Fill
     case speakerSlashFill
+    case squareAndArrowDownOnSquare
     case squareAndArrowUp
     case squareAndPencil
     case star
@@ -182,18 +210,29 @@ public enum SystemIcon: Hashable {
     case trash
     case trashFill
     case trashCircle
+    case tray
     case uiwindowSplit2x1
     case umbrella
     case unpin
+    case waveform
     case xmark
     case xmarkCircle
     case xmarkCircleFill
     case xmarkOctagon
     case xmarkOctagonFill
+    case xmarkSealFill
     case heartSlashFill
 
     public var systemName: String {
         switch self {
+        case .airplayaudio:
+            return "airplayaudio"
+        case .airpods:
+            return "airpods"
+        case .airpodsmax:
+            return "airpodsmax"
+        case .airpodspro:
+            return "airpodspro"
         case .at:
             return "at"
         case .atCircle:
@@ -264,6 +303,8 @@ public enum SystemIcon: Hashable {
             return "trash.fill"
         case .trashCircle:
             return "trash.circle"
+        case .tray:
+            return "tray"
         case .uiwindowSplit2x1:
             return "uiwindow.split.2x1"
         case .scanner:
@@ -288,6 +329,18 @@ public enum SystemIcon: Hashable {
             return "doc.on.doc"
         case .infoCircle:
             return "info.circle"
+        case .ipadLandscape:
+            if #available(iOS 14.0, *) {
+                return "ipad.landscape"
+            } else {
+                return "dot.square"
+            }
+        case .iphone:
+            if #available(iOS 14.0, *) {
+                return "iphone"
+            } else {
+                return "dot.square"
+            }
         case .iphoneGen3CircleFill:
             if #available(iOS 16.1, *) {
                 return "iphone.gen3.circle.fill"
@@ -296,6 +349,12 @@ public enum SystemIcon: Hashable {
             } else {
                 return "checkmark.circle"
             }
+        case .laptopcomputerAndIphone:
+        if #available(iOS 14, *) {
+            return "laptopcomputer.and.iphone"
+        } else {
+            return "desktopcomputer"
+        }
         case .personFillQuestionmark:
             if #available(iOS 14, *) {
                 return "person.fill.questionmark"
@@ -314,6 +373,12 @@ public enum SystemIcon: Hashable {
             } else {
                 return "qrcode.viewfinder"
             }
+        case .personLineDottedPerson:
+            if #available(iOS 16, *) {
+                return "person.line.dotted.person"
+            } else {
+                return "person.2"
+            }
         case .personLineDottedPersonFill:
             if #available(iOS 16, *) {
                 return "person.line.dotted.person.fill"
@@ -330,8 +395,12 @@ public enum SystemIcon: Hashable {
             return "eye.slash"
         case .hare:
             return "hare"
+        case .headphones:
+            return "headphones"
         case .hourglass:
             return "hourglass"
+        case .folder:
+            return "folder"
         case .folderCircle:
             return "folder.circle"
         case .arrowshapeTurnUpForward:
@@ -354,6 +423,8 @@ public enum SystemIcon: Hashable {
             return "checkmark.circle"
         case .qrcodeViewfinder:
             return "qrcode.viewfinder"
+        case .arrow2Squarepath:
+            return "arrow.2.squarepath"
         case .arrowClockwise:
             return "arrow.clockwise"
         case .arrowCounterclockwise:
@@ -400,6 +471,8 @@ public enum SystemIcon: Hashable {
             } else {
                 return "checkmark"
             }
+        case .checkmarkShield:
+            return "checkmark.shield"
         case .checkmarkShieldFill:
             return "checkmark.shield.fill"
         case .icloud(let fill):
@@ -434,6 +507,12 @@ public enum SystemIcon: Hashable {
             return "person.3"
         case .person3Fill:
             return "person.3.fill"
+        case .personBadgeShieldCheckmark:
+            if #available(iOS 16, *) {
+                return "person.badge.shield.checkmark"
+            } else {
+                return "person"
+            }
         case .chevronDown:
             return "chevron.down"
         case .chevronRight:
@@ -446,8 +525,22 @@ public enum SystemIcon: Hashable {
             return "text.bubble.fill"
         case .phoneCircleFill:
             return "phone.circle.fill"
+        case .phoneDownFill:
+            return "phone.down.fill"
         case .phoneFill:
             return "phone.fill"
+        case .phoneArrowDownLeftFill:
+            if #available(iOS 16.0, *) {
+                return "phone.arrow.down.left.fill"
+            } else {
+                return "phone.fill"
+            }
+        case .phoneArrowUpRightFill:
+            if #available(iOS 16.0, *) {
+                return "phone.arrow.up.right.fill"
+            } else {
+                return "phone.fill"
+            }
         case .ellipsisCircleFill:
             return "ellipsis.circle.fill"
         case .ellipsisCircle:
@@ -464,6 +557,8 @@ public enum SystemIcon: Hashable {
             }
         case .minusCircleFill:
             return "minus.circle.fill"
+        case .micSlashFill:
+            return "mic.slash.fill"
         case .minusCircle:
             return "minus.circle"
         case .arrowshapeTurnUpForwardFill:
@@ -482,6 +577,8 @@ public enum SystemIcon: Hashable {
             }
         case .paperplaneFill:
             return "paperplane.fill"
+        case .waveform:
+            return "waveform"
         case .xmark:
             return "xmark"
         case .xmarkCircle:
@@ -492,6 +589,10 @@ public enum SystemIcon: Hashable {
             return "xmark.octagon"
         case .xmarkOctagonFill:
             return "xmark.octagon.fill"
+        case .xmarkSealFill:
+            return "xmark.seal.fill"
+        case .squareAndArrowDownOnSquare:
+            return "square.and.arrow.down.on.square"
         case .squareAndArrowUp:
             return "square.and.arrow.up"
         case .checkmarkCircleFill:
@@ -552,12 +653,20 @@ public enum SystemIcon: Hashable {
             return "book"
         case .bubbleLeftAndBubbleRight:
             return "bubble.left.and.bubble.right"
+        case .bubbleLeftAndBubbleRightFill:
+            return "bubble.left.and.bubble.right.fill"
         case .arrowUpArrowDownCircle:
             return "arrow.up.arrow.down.circle"
         case .speakerSlashFill:
             return "speaker.slash.fill"
         case .plusCircle:
             return "plus.circle"
+        case .poweroff:
+            if #available(iOS 14.0, *) {
+                return "poweroff"
+            } else {
+                return "circle"
+            }
         case .arrowForward:
            return "arrow.forward"
         case .pencilSlash:
@@ -568,6 +677,8 @@ public enum SystemIcon: Hashable {
             return "mic.circle"
         case .micCircleFill:
             return "mic.circle.fill"
+        case .mic:
+            return "mic"
         case .micFill:
             return "mic.fill"
         case .playCircle:
@@ -600,6 +711,22 @@ public enum SystemIcon: Hashable {
             } else {
                 return "link"
             }
+        case .laptopcomputer:
+            if #available(iOS 14.0, *) {
+                return "laptopcomputer"
+            } else {
+                return "desktopcomputer"
+            }
+        case .macbookAndIphone:
+            if #available(iOS 16.1, *) {
+                return "macbook.and.iphone"
+            } else if #available(iOS 15.0, *) {
+                return "ipad.and.iphone"
+            } else {
+                return "desktopcomputer"
+            }
+        case .magnifyingglass:
+            return "magnifyingglass"
         case .star:
             return "star"
         case .starFill:
@@ -612,6 +739,8 @@ public enum SystemIcon: Hashable {
             return "archivebox"
         case .archiveboxFill:
             return "archivebox.fill"
+        case .doc:
+            return "doc"
         case .docFill:
             return "doc.fill"
         case .rectangleDashedAndPaperclip:
@@ -622,6 +751,10 @@ public enum SystemIcon: Hashable {
             }
         case .rectangleCompressVertical:
             return "rectangle.compress.vertical"
+        case .envelope:
+            return "envelope"
+        case .envelopeBadge:
+            return "envelope.badge"
         case .envelopeOpenFill:
             return "envelope.open.fill"
         case .speakerWave3Fill:
@@ -638,6 +771,8 @@ public enum SystemIcon: Hashable {
             }
         case .musicNoteList:
             return "music.note.list"
+        case .personCropRectangle:
+            return "person.crop.rectangle"
         case .personTextRectangle:
             if #available(iOS 15.0, *) {
                 return "person.text.rectangle"

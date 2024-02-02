@@ -23,6 +23,8 @@ import ObvTypes
 import ObvUI
 import ObvUICoreData
 import UI_SystemIcon
+import ObvSettings
+
 
 enum ObvMessengerConstants {
     
@@ -43,17 +45,7 @@ enum ObvMessengerConstants {
     }
     
     static let serverURL = URL(string: Bundle.main.infoDictionary!["OBV_SERVER_URL"]! as! String)!
-    
-    static let hardcodedAPIKey: UUID? = {
-        guard Bundle.main.infoDictionary!.keys.contains("HARDCODED_API_KEY") else { return nil }
-        return UUID(uuidString: Bundle.main.infoDictionary!["HARDCODED_API_KEY"]! as! String)
-    }()
-    
-    static let defaultServerAndAPIKey: ServerAndAPIKey? = {
-        guard let hardcodedAPIKey = ObvMessengerConstants.hardcodedAPIKey else { return nil }
-        return ServerAndAPIKey(server: serverURL, apiKey: hardcodedAPIKey)
-    }()
-    
+  
     static let toEmailForSendingInitializationFailureErrorMessage = "feedback@olvid.io"
     
     static let iCloudContainerIdentifierForEngineBackup = "iCloud.io.olvid.messenger.backup"
@@ -89,6 +81,14 @@ enum ObvMessengerConstants {
         return false
         #else
         return true
+        #endif
+    }
+    
+    static var targetEnvironmentIsMacCatalyst: Bool {
+        #if targetEnvironment(macCatalyst)
+        return true
+        #else
+        return false
         #endif
     }
 
@@ -167,4 +167,8 @@ enum ObvMessengerConstants {
         [.webrtcContinuousICE, .oneToOneContacts, .groupsV2]
     }()
     
+    // Other
+    
+    public static let maximumTimeIntervalForKeptForLaterMessages = TimeInterval(days: 2)
+
 }

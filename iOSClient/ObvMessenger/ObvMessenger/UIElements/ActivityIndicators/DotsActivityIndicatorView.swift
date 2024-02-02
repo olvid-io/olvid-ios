@@ -19,6 +19,8 @@
 
 import ObvUI
 import UIKit
+import ObvDesignSystem
+
 
 class DotsActivityIndicatorView: UIView, ActivityIndicator {
 

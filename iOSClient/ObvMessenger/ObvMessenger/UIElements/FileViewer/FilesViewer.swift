@@ -27,6 +27,7 @@ import CoreData
 import OlvidUtils
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
 
 
 protocol CustomQLPreviewControllerDelegate: QLPreviewControllerDelegate {

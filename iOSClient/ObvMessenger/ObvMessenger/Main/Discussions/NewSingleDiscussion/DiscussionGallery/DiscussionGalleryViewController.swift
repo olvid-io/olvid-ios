@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,6 +29,7 @@ import QuickLook
 import UIKit
 import UniformTypeIdentifiers
 import UI_SystemIcon
+import ObvDesignSystem
 
 
 fileprivate enum JoinKind: Int, CaseIterable {
@@ -508,7 +509,7 @@ extension JoinGalleryViewController {
                 do {
                     try await cacheDelegate.requestPreparedImage(objectID: join.typedObjectID, size: thumbnailSize)
                 } catch {
-                    cell.updateWith(join: join, thumbnail: .error(uti: join.uti))
+                    cell.updateWith(join: join, thumbnail: .error(contentType: join.contentType))
                     return
                 }
                 joinNeedsUpdate(objectID: join.typedObjectID)
@@ -758,7 +759,7 @@ extension JoinGalleryViewController {
             
             // Show in discussion action
 
-            if let messagePermanentID = join.message?.messagePermanentID, let ownedCryptoId = join.message?.discussion.ownedIdentity?.cryptoId {
+            if let messagePermanentID = join.message?.messagePermanentID, let ownedCryptoId = join.message?.discussion?.ownedIdentity?.cryptoId {
                 let action = UIAction(title: NSLocalizedString("SHOW_IN_DISCUSSION", comment: "")) { (_) in
                     let deepLink = ObvDeepLink.message(ownedCryptoId: ownedCryptoId, objectPermanentID: messagePermanentID)
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
@@ -798,7 +799,7 @@ fileprivate protocol GalleryViewCell: UICollectionViewCell {
 enum ThumbnailValue: Hashable {
     case computing
     case computed(_: UIImage)
-    case error(uti: String)
+    case error(contentType: UTType)
 }
 
 @available(iOS 15.0, *)
@@ -940,10 +941,10 @@ final class DocumentViewCell: UICollectionViewListCell, GalleryViewCell {
             let dateString = dateFormatter.string(from: date)
             subtitleElements.append(dateString)
         }
-        let uti = join.uti
+        let contentType = join.contentType
         let fileSize = Int(join.totalByteCount)
         subtitleElements.append(byteCountFormatter.string(fromByteCount: Int64(fileSize)))
-        if let uti = UTType(uti), let type = uti.localizedDescription {
+        if let type = contentType.localizedDescription {
             subtitleElements.append(type)
         }
         content.secondaryText = subtitleElements.joined(separator: " - ")
@@ -957,7 +958,7 @@ final class DocumentViewCell: UICollectionViewListCell, GalleryViewCell {
         listContentView.configuration = content
 
         let joinIsPlayable: Bool
-        joinIsPlayable = ObvUTIUtils.uti(uti, conformsTo: kUTTypeAudio)
+        joinIsPlayable = contentType.conforms(to: .audio)
 
         let imageConfiguration = DocumentCellConfiguration(thumbnail: self.thumbnail,
                                                            readingRequiresUserAction: self.readingRequiresUserAction,
@@ -1118,8 +1119,8 @@ extension ImageCellConfiguration {
         switch thumbnail {
         case .computing:
             return nil
-        case .error(uti: let uti):
-            let icon = ObvUTIUtils.getIcon(forUTI: uti)
+        case .error(contentType: let contentType):
+            let icon = contentType.systemIcon
             return IconView.Configuration(icon: icon, tintColor: .secondaryLabel)
         case .computed:
             return nil

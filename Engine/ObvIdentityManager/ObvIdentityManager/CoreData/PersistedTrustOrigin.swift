@@ -123,6 +123,20 @@ final class PersistedTrustOrigin: NSManagedObject, ObvManagedObject {
         self.trustTypeRaw = backupItem.trustTypeRaw
         self.rawObvGroupV2Identifier = backupItem.rawObvGroupV2Identifier
     }
+    
+    
+    /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
+    fileprivate convenience init(snapshotItem: PersistedTrustOriginSyncSnapshotItem, within obvContext: ObvContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: PersistedTrustOrigin.entityName, in: obvContext)!
+        self.init(entity: entityDescription, insertInto: obvContext)
+        self.identityServer = snapshotItem.identityServer
+        self.mediatorOrGroupOwnerCryptoIdentity = snapshotItem.mediatorOrGroupOwnerCryptoIdentity
+        self.mediatorOrGroupOwnerTrustLevelMajor = snapshotItem.mediatorOrGroupOwnerTrustLevelMajor
+        self.timestamp = snapshotItem.timestamp
+        self.trustTypeRaw = snapshotItem.trustTypeRaw
+        self.rawObvGroupV2Identifier = snapshotItem.rawObvGroupV2Identifier
+    }
+
 }
 
 
@@ -302,4 +316,106 @@ struct PersistedTrustOriginBackupItem: Codable, Hashable {
     func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
         // Nothing do to here
     }
+}
+
+
+// MARK: - For Snapshot purposes
+
+extension PersistedTrustOrigin {
+    
+    var snapshotItem: PersistedTrustOriginSyncSnapshotItem {
+        return PersistedTrustOriginSyncSnapshotItem(
+            identityServer: identityServer,
+            mediatorOrGroupOwnerCryptoIdentity: mediatorOrGroupOwnerCryptoIdentity,
+            mediatorOrGroupOwnerTrustLevelMajor: mediatorOrGroupOwnerTrustLevelMajor,
+            timestamp: timestamp,
+            trustTypeRaw: trustTypeRaw,
+            rawObvGroupV2Identifier: rawObvGroupV2Identifier)
+    }
+
+}
+
+
+struct PersistedTrustOriginSyncSnapshotItem: Codable, Hashable, Identifiable {
+
+    fileprivate let identityServer: URL?
+    fileprivate let mediatorOrGroupOwnerCryptoIdentity: ObvCryptoIdentity?
+    fileprivate let mediatorOrGroupOwnerTrustLevelMajor: NSNumber?
+    fileprivate let timestamp: Date
+    fileprivate let trustTypeRaw: Int
+    fileprivate let rawObvGroupV2Identifier: Data?
+
+    let id = ObvSyncSnapshotNodeUtils.generateIdentifier()
+
+    enum CodingKeys: String, CodingKey {
+        case identityServer = "identity_server"
+        case mediatorOrGroupOwnerCryptoIdentity = "mediator_or_group_owner_identity"
+        case mediatorOrGroupOwnerTrustLevelMajor = "mediator_or_group_owner_trust_level_major"
+        case timestamp = "timestamp"
+        case trustTypeRaw = "trust_type"
+        case rawObvGroupV2Identifier = "raw_obv_group_v2_identifier"
+        case domain = "domain"
+    }
+
+    
+    fileprivate init(identityServer: URL?, mediatorOrGroupOwnerCryptoIdentity: ObvCryptoIdentity?, mediatorOrGroupOwnerTrustLevelMajor: NSNumber?, timestamp: Date, trustTypeRaw: Int, rawObvGroupV2Identifier: Data?) {
+        self.identityServer = identityServer
+        self.mediatorOrGroupOwnerCryptoIdentity = mediatorOrGroupOwnerCryptoIdentity
+        self.mediatorOrGroupOwnerTrustLevelMajor = mediatorOrGroupOwnerTrustLevelMajor
+        self.timestamp = timestamp
+        self.trustTypeRaw = trustTypeRaw
+        self.rawObvGroupV2Identifier = rawObvGroupV2Identifier
+    }
+
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(identityServer, forKey: .identityServer)
+        try container.encodeIfPresent(mediatorOrGroupOwnerCryptoIdentity?.getIdentity(), forKey: .mediatorOrGroupOwnerCryptoIdentity)
+        try container.encodeIfPresent(mediatorOrGroupOwnerTrustLevelMajor?.intValue, forKey: .mediatorOrGroupOwnerTrustLevelMajor)
+        try container.encodeIfPresent(Int(timestamp.timeIntervalSince1970 * 1000), forKey: .timestamp)
+        try container.encodeIfPresent(trustTypeRaw, forKey: .trustTypeRaw)
+        try container.encodeIfPresent(rawObvGroupV2Identifier, forKey: .rawObvGroupV2Identifier)
+    }
+    
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.identityServer = try values.decodeIfPresent(URL.self, forKey: .identityServer)
+        if let identity = try values.decodeIfPresent(Data.self, forKey: .mediatorOrGroupOwnerCryptoIdentity) {
+            guard let cryptoIdentity = ObvCryptoIdentity(from: identity) else {
+                throw ObvError.couldNotParseIdentity
+            }
+            self.mediatorOrGroupOwnerCryptoIdentity = cryptoIdentity
+            if let trustLevel = try values.decodeIfPresent(Int.self, forKey: .mediatorOrGroupOwnerTrustLevelMajor) {
+                self.mediatorOrGroupOwnerTrustLevelMajor = NSNumber(value: trustLevel)
+            } else {
+                self.mediatorOrGroupOwnerTrustLevelMajor = nil
+            }
+        } else {
+            self.mediatorOrGroupOwnerCryptoIdentity = nil
+            self.mediatorOrGroupOwnerTrustLevelMajor = nil
+        }
+        let timestamp = try values.decode(Int.self, forKey: .timestamp)
+        self.timestamp = Date(timeIntervalSince1970: Double(timestamp)/1000.0)
+        self.trustTypeRaw = try values.decode(Int.self, forKey: .trustTypeRaw)
+        self.rawObvGroupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .rawObvGroupV2Identifier)
+    }
+ 
+    
+    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let persistedTrustOrigin = PersistedTrustOrigin(snapshotItem: self, within: obvContext)
+        try associations.associate(persistedTrustOrigin, to: self)
+    }
+    
+    
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+        // Nothing do to here
+    }
+    
+    
+    enum ObvError: Error {
+        case couldNotParseIdentity
+    }
+    
 }

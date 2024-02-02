@@ -19,6 +19,8 @@
 
 import ObvUI
 import UIKit
+import ObvDesignSystem
+
 
 class ObvRoundedButton: UIButton {
 
@@ -39,7 +41,7 @@ class ObvRoundedButton: UIButton {
         resetBackgroundColor()
         resetTintColor()
         self.tintColor = AppTheme.shared.colorScheme.secondaryLabel
-        self.adjustsImageWhenHighlighted = false
+        // self.adjustsImageWhenHighlighted = false
     }
 
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,8 @@ import CoreData
 import os.log
 import UIKit
 import OlvidUtils
+import UniformTypeIdentifiers
+import ObvSettings
 
 
 @objc(FyleMessageJoinWithStatus)
@@ -33,12 +35,13 @@ public class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin
 
     // MARK: - Properties
 
+    @NSManaged public private(set) var downsizedThumbnail: Data?
     @NSManaged private(set) public var fileName: String
     @NSManaged private(set) public var index: Int // Corresponds to the index of this attachment in the message. Used together with messageSortIndex to sort all joins received in a discussion
     @NSManaged public private(set) var isWiped: Bool
     @NSManaged private(set) var messageSortIndex: Double // Equal to the message sortIndex, used to sort FyleMessageJoinWithStatus instances in the gallery
     @NSManaged private var permanentUUID: UUID
-    @NSManaged public var rawStatus: Int
+    @NSManaged public internal(set) var rawStatus: Int
     @NSManaged public private(set) var totalByteCount: Int64 // Was totalUnitCount
     @NSManaged private(set) public var uti: String
     
@@ -53,6 +56,11 @@ public class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin
     @NSManaged private(set) public var fyle: Fyle? // If nil, this entity is eventually cascade-deleted
     
     // MARK: - Other variables
+    
+    public var contentType: UTType {
+        assert(UTType(uti) != nil)
+        return UTType(uti) ?? .data
+    }
     
     public var message: PersistedMessage? {
         assertionFailure("Must be overriden by subclasses")
@@ -74,11 +82,12 @@ public class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin
 
     // MARK: - Initializer
 
-    public convenience init(totalByteCount: Int64, fileName: String, uti: String, rawStatus: Int, messageSortIndex: Double, index: Int, fyle: Fyle, forEntityName entityName: String, within context: NSManagedObjectContext) {
+    convenience init(sha256: Data, totalByteCount: Int64, fileName: String, uti: String, rawStatus: Int, messageSortIndex: Double, index: Int, forEntityName entityName: String, within context: NSManagedObjectContext) throws {
 
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
 
+        self.downsizedThumbnail = nil // Will be received later
         self.index = index
         self.fileName = fileName
         self.uti = uti
@@ -87,10 +96,26 @@ public class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin
         self.permanentUUID = UUID()
         self.isWiped = false
         self.totalByteCount = totalByteCount
-        
-        self.fyle = fyle
+
+        try getOrCreateFyle(sha256: sha256)
+                
+
     }
 
+    
+    func getOrCreateFyle(sha256: Data) throws {
+        guard let context = self.managedObjectContext else {
+            throw Self.makeError(message: "Could not find context")
+        }
+        self.fyle = try Fyle.getOrCreate(sha256: sha256, within: context)
+    }
+    
+    
+    /// Shall only be called by one of the subclasses
+    func setTotalByteCount(to newTotalByteCount: Int64) {
+        guard self.totalByteCount != newTotalByteCount else { return }
+        self.totalByteCount = newTotalByteCount
+    }
 
     public func wipe() throws {
         self.isWiped = true
@@ -98,6 +123,7 @@ public class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin
         self.fileName = ""
         self.totalByteCount = 0
         self.uti = ""
+        deleteDownsizedThumbnail()
     }
 
 
@@ -112,6 +138,22 @@ public class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin
         return dcf
     }()
 
+    
+    // MARK: - Managing the downsized thumbnail
+    
+    func deleteDownsizedThumbnail() {
+        guard self.downsizedThumbnail != nil else { return }
+        self.downsizedThumbnail = nil
+    }
+
+    
+    /// Exclusively called from ``SentFyleMessageJoinWithStatus.setDownsizedThumbnailIfRequired(data:)`` and from ``ReceivedFyleMessageJoinWithStatus.setDownsizedThumbnailIfRequired(data:)``.
+    func setDownsizedThumbnailIfRequired(data: Data) -> Bool {
+        guard self.downsizedThumbnail != data else { return false }
+        self.downsizedThumbnail = data
+        return true
+    }
+    
 }
 
 

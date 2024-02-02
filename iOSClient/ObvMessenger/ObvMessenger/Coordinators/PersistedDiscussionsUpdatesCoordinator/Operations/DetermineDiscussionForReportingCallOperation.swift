@@ -21,6 +21,7 @@ import Foundation
 import OlvidUtils
 import os.log
 import ObvUICoreData
+import CoreData
 
 
 final class DetermineDiscussionForReportingCallOperation: ContextualOperationWithSpecificReasonForCancel<DetermineDiscussionForReportingCallOperationReasonForCancel>, OperationProvidingPersistedDiscussion {
@@ -34,67 +35,59 @@ final class DetermineDiscussionForReportingCallOperation: ContextualOperationWit
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
+        do {
             
-            do {
-                
-                guard let item = try PersistedCallLogItem.get(objectID: persistedCallLogItemObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .cannotFindPersistedCallLogItem)
-                }
-                
-                if let groupId = try item.getGroupIdentifier() {
-                    switch groupId {
-                    case .groupV1(let objectID):
-                        guard let contactGroup = try PersistedContactGroup.get(objectID: objectID.objectID, within: obvContext.context) else {
-                            return cancel(withReason: .cannotFindPersistedContactGroup)
-                        }
-                        persistedDiscussionObjectID = contactGroup.discussion.typedObjectID.downcast
-                        return
-                    case .groupV2(let objectID):
-                        guard let group = try PersistedGroupV2.get(objectID: objectID, within: obvContext.context) else {
-                            return cancel(withReason: .cannotFindPersistedGroupV2)
-                        }
-                        guard let discussion = group.discussion else {
-                            return cancel(withReason: .cannotFindPersistedGroupV2Discussion)
-                        }
-                        persistedDiscussionObjectID = discussion.typedObjectID.downcast
-                        return
+            guard let item = try PersistedCallLogItem.get(objectID: persistedCallLogItemObjectID, within: obvContext.context) else {
+                return cancel(withReason: .cannotFindPersistedCallLogItem)
+            }
+            
+            if let groupId = try item.getGroupIdentifier() {
+                switch groupId {
+                case .groupV1(let objectID):
+                    guard let contactGroup = try PersistedContactGroup.get(objectID: objectID.objectID, within: obvContext.context) else {
+                        return cancel(withReason: .cannotFindPersistedContactGroup)
                     }
-                } else {
-                    if item.isIncoming {
-                        guard let caller = item.logContacts.first(where: {$0.isCaller}),
-                              let callerIdentity = caller.contactIdentity else {
-                            return cancel(withReason: .cannotFindCaller)
-                        }
-                        if let oneToOneDiscussion = callerIdentity.oneToOneDiscussion {
-                            persistedDiscussionObjectID = oneToOneDiscussion.typedObjectID.downcast
-                            return
-                        } else {
-                            // Do not report this call.
-                            return
-                        }
-                    } else if item.logContacts.count == 1,
-                              let contact = item.logContacts.first,
-                              let contactIdentity = contact.contactIdentity,
-                              let oneToOneDiscussion = contactIdentity.oneToOneDiscussion {
+                    persistedDiscussionObjectID = contactGroup.discussion.typedObjectID.downcast
+                    return
+                case .groupV2(let objectID):
+                    guard let group = try PersistedGroupV2.get(objectID: objectID, within: obvContext.context) else {
+                        return cancel(withReason: .cannotFindPersistedGroupV2)
+                    }
+                    guard let discussion = group.discussion else {
+                        return cancel(withReason: .cannotFindPersistedGroupV2Discussion)
+                    }
+                    persistedDiscussionObjectID = discussion.typedObjectID.downcast
+                    return
+                }
+            } else {
+                if item.isIncoming {
+                    guard let caller = item.logContacts.first(where: {$0.isCaller}),
+                          let callerIdentity = caller.contactIdentity else {
+                        return cancel(withReason: .cannotFindCaller)
+                    }
+                    if let oneToOneDiscussion = callerIdentity.oneToOneDiscussion {
                         persistedDiscussionObjectID = oneToOneDiscussion.typedObjectID.downcast
+                        return
                     } else {
                         // Do not report this call.
                         return
                     }
-                    
+                } else if item.logContacts.count == 1,
+                          let contact = item.logContacts.first,
+                          let contactIdentity = contact.contactIdentity,
+                          let oneToOneDiscussion = contactIdentity.oneToOneDiscussion {
+                    persistedDiscussionObjectID = oneToOneDiscussion.typedObjectID.downcast
+                } else {
+                    // Do not report this call.
+                    return
                 }
                 
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
             }
             
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

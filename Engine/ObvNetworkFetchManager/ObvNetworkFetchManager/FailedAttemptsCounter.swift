@@ -32,21 +32,23 @@ struct FailedAttemptsCounterManager {
         case sessionCreation(ownedIdentity: ObvCryptoIdentity)
         case registerPushNotification(ownedIdentity: ObvCryptoIdentity)
         case downloadMessagesAndListAttachments(ownedIdentity: ObvCryptoIdentity)
-        case downloadAttachment(attachmentId: AttachmentIdentifier)
-        case processPendingDeleteFromServer(messageId: MessageIdentifier)
+        case downloadAttachment(attachmentId: ObvAttachmentIdentifier)
+        case processPendingDeleteFromServer(messageId: ObvMessageIdentifier)
         case serverQuery(objectID: NSManagedObjectID)
         case serverUserData(input: ServerUserDataInput)
         case queryServerWellKnown(serverURL: URL)
+        case freeTrialQuery(ownedIdentity: ObvCryptoIdentity)
     }
     
     private var _downloadMessagesAndListAttachments = [ObvCryptoIdentity: Int]()
     private var _sessionCreation = [ObvCryptoIdentity: Int]()
     private var _registerPushNotification = [ObvCryptoIdentity: Int]()
-    private var _downloadAttachment = [AttachmentIdentifier: Int]()
-    private var _processPendingDeleteFromServer = [MessageIdentifier: Int]()
+    private var _downloadAttachment = [ObvAttachmentIdentifier: Int]()
+    private var _processPendingDeleteFromServer = [ObvMessageIdentifier: Int]()
     private var _serverQuery = [NSManagedObjectID: Int]()
     private var _serverUserData = [ServerUserDataInput: Int]()
     private var _queryServerWellKnown = [URL: Int]()
+    private var _freeTrialQuery = [ObvCryptoIdentity: Int]()
 
     private var count: Int = 0
     
@@ -62,7 +64,11 @@ struct FailedAttemptsCounterManager {
             case .sessionCreation(ownedIdentity: let identity):
                 _sessionCreation[identity] = (_sessionCreation[identity] ?? 0) + increment
                 localCounter = _sessionCreation[identity] ?? 0
-                
+
+            case .freeTrialQuery(ownedIdentity: let identity):
+                _freeTrialQuery[identity] = (_freeTrialQuery[identity] ?? 0) + increment
+                localCounter = _freeTrialQuery[identity] ?? 0
+
             case .registerPushNotification(ownedIdentity: let identity):
                 _registerPushNotification[identity] = (_registerPushNotification[identity] ?? 0) + increment
                 localCounter = _registerPushNotification[identity] ?? 0
@@ -102,6 +108,9 @@ struct FailedAttemptsCounterManager {
             case .sessionCreation(ownedIdentity: let identity):
                 _sessionCreation.removeValue(forKey: identity)
 
+            case .freeTrialQuery(ownedIdentity: let identity):
+                _freeTrialQuery.removeValue(forKey: identity)
+
             case .registerPushNotification(ownedIdentity: let identity):
                 _registerPushNotification.removeValue(forKey: identity)
                 
@@ -126,6 +135,7 @@ struct FailedAttemptsCounterManager {
     
     mutating func resetAll() {
         queue.sync {
+            _freeTrialQuery.removeAll()
             _downloadMessagesAndListAttachments.removeAll()
             _sessionCreation.removeAll()
             _registerPushNotification.removeAll()

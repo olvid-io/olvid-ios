@@ -40,11 +40,11 @@ final class PendingDeleteFromServer: NSManagedObject, ObvManagedObject {
     // MARK: Other variables
     
     /// This identifier is expected to be non nil, unless this `PendingDeleteFromServer` was deleted on another thread.
-    private(set) var messageId: MessageIdentifier? {
+    private(set) var messageId: ObvMessageIdentifier? {
         get {
             guard let rawMessageIdOwnedIdentity = self.rawMessageIdOwnedIdentity else { return nil }
             guard let rawMessageIdUid = self.rawMessageIdUid else { return nil }
-            return MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
+            return ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
         }
         set {
             guard let newValue else { assertionFailure("We should not be setting a nil value"); return }
@@ -57,7 +57,7 @@ final class PendingDeleteFromServer: NSManagedObject, ObvManagedObject {
 
     // MARK: - Initializer
     
-    convenience init(messageId: MessageIdentifier, within obvContext: ObvContext) {
+    convenience init(messageId: ObvMessageIdentifier, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: PendingDeleteFromServer.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.messageId = messageId
@@ -81,7 +81,7 @@ extension PendingDeleteFromServer {
         static func withMessageIdUid(_ messageIdUid: UID) -> NSPredicate {
             NSPredicate(Key.rawMessageIdUid, EqualToData: messageIdUid.raw)
         }
-        static func withMessageId(_ messageId: MessageIdentifier) -> NSPredicate {
+        static func withMessageId(_ messageId: ObvMessageIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 withOwnedCryptoIdentity(messageId.ownedCryptoIdentity),
                 withMessageIdUid(messageId.uid),
@@ -93,7 +93,7 @@ extension PendingDeleteFromServer {
         return NSFetchRequest<PendingDeleteFromServer>(entityName: PendingDeleteFromServer.entityName)
     }
 
-    static func get(messageId: MessageIdentifier, within obvContext: ObvContext) throws -> PendingDeleteFromServer? {
+    static func get(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws -> PendingDeleteFromServer? {
         let request: NSFetchRequest<PendingDeleteFromServer> = PendingDeleteFromServer.fetchRequest()
         request.predicate = Predicate.withMessageId(messageId)
         request.fetchLimit = 1

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,17 +29,17 @@ extension DownloadGroupPhotoChildProtocol {
 
     enum StateId: Int, ConcreteProtocolStateId {
 
-        case InitialState = 0
-        case DownloadingPhoto = 1
-        case PhotoDownloaded = 2
-        case Cancelled = 3
+        case initialState = 0
+        case downloadingPhoto = 1
+        case photoDownloaded = 2
+        case cancelled = 3
 
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
-            case .InitialState     : return ConcreteProtocolInitialState.self
-            case .DownloadingPhoto : return DownloadingPhotoState.self
-            case .PhotoDownloaded  : return PhotoDownloadedState.self
-            case .Cancelled        : return CancelledState.self
+            case .initialState     : return ConcreteProtocolInitialState.self
+            case .downloadingPhoto : return DownloadingPhotoState.self
+            case .photoDownloaded  : return PhotoDownloadedState.self
+            case .cancelled        : return CancelledState.self
             }
         }
     }
@@ -48,7 +48,7 @@ extension DownloadGroupPhotoChildProtocol {
 
     struct DownloadingPhotoState: TypeConcreteProtocolState {
 
-        let id: ConcreteProtocolStateId = StateId.DownloadingPhoto
+        let id: ConcreteProtocolStateId = StateId.downloadingPhoto
 
         let groupInformation: GroupInformation
 
@@ -70,7 +70,7 @@ extension DownloadGroupPhotoChildProtocol {
 
     struct PhotoDownloadedState: TypeConcreteProtocolState {
 
-        let id: ConcreteProtocolStateId = StateId.PhotoDownloaded
+        let id: ConcreteProtocolStateId = StateId.photoDownloaded
 
         func obvEncode() -> ObvEncoded { return 0.obvEncode() }
 
@@ -85,7 +85,7 @@ extension DownloadGroupPhotoChildProtocol {
 
     struct CancelledState: TypeConcreteProtocolState {
 
-        let id: ConcreteProtocolStateId = StateId.Cancelled
+        let id: ConcreteProtocolStateId = StateId.cancelled
 
         init(_: ObvEncoded) throws {}
 

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,21 +28,21 @@ extension FullRatchetProtocol {
     
     enum StateId: Int, ConcreteProtocolStateId {
         
-        case InitialState = 0
-        case AliceWaitingForK1 = 1
-        case BobWaitingForK2 = 2
-        case AliceWaitingForAck = 3
-        case FullRatchetDone = 4
-        case Cancelled = 5
+        case initialState = 0
+        case aliceWaitingForK1 = 1
+        case bobWaitingForK2 = 2
+        case aliceWaitingForAck = 3
+        case fullRatchetDone = 4
+        case cancelled = 5
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
-            case .InitialState       : return ConcreteProtocolInitialState.self
-            case .AliceWaitingForK1  : return AliceWaitingForK1State.self
-            case .BobWaitingForK2    : return BobWaitingForK2State.self
-            case .AliceWaitingForAck : return AliceWaitingForAckState.self
-            case .FullRatchetDone    : return FullRatchetDoneState.self
-            case .Cancelled          : return CancelledState.self
+            case .initialState       : return ConcreteProtocolInitialState.self
+            case .aliceWaitingForK1  : return AliceWaitingForK1State.self
+            case .bobWaitingForK2    : return BobWaitingForK2State.self
+            case .aliceWaitingForAck : return AliceWaitingForAckState.self
+            case .fullRatchetDone    : return FullRatchetDoneState.self
+            case .cancelled          : return CancelledState.self
             }
         }
         
@@ -51,7 +51,7 @@ extension FullRatchetProtocol {
     
     struct AliceWaitingForK1State: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.AliceWaitingForK1
+        let id: ConcreteProtocolStateId = StateId.aliceWaitingForK1
                 
         let contactIdentity: ObvCryptoIdentity
         let contactDeviceUid: UID
@@ -83,7 +83,7 @@ extension FullRatchetProtocol {
 
     struct BobWaitingForK2State: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.BobWaitingForK2
+        let id: ConcreteProtocolStateId = StateId.bobWaitingForK2
                 
         let contactIdentity: ObvCryptoIdentity
         let contactDeviceUid: UID
@@ -118,7 +118,7 @@ extension FullRatchetProtocol {
 
     struct AliceWaitingForAckState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.AliceWaitingForAck
+        let id: ConcreteProtocolStateId = StateId.aliceWaitingForAck
                 
         let contactIdentity: ObvCryptoIdentity
         let contactDeviceUid: UID
@@ -149,7 +149,7 @@ extension FullRatchetProtocol {
 
     struct FullRatchetDoneState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.FullRatchetDone
+        let id: ConcreteProtocolStateId = StateId.fullRatchetDone
                 
         init(_: ObvEncoded) {}
         
@@ -162,7 +162,7 @@ extension FullRatchetProtocol {
 
     struct CancelledState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.Cancelled
+        let id: ConcreteProtocolStateId = StateId.cancelled
                 
         init(_: ObvEncoded) {}
         

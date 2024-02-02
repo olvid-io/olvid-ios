@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -193,7 +193,7 @@ extension ObvChannelManagerImplementation {
         for encryptedMessage in messages {
             
             do {
-                try delegateManager.networkReceivedMessageDecryptorDelegate.decryptAndProcess(encryptedMessage, within: obvContext)
+                try delegateManager.networkReceivedMessageDecryptorDelegate.decryptAndProcessNetworkReceivedMessageEncrypted(encryptedMessage, within: obvContext)
             } catch {
                 os_log("Failed to decrypt and process an encrypted message", log: log, type: .fault)
                 assertionFailure()
@@ -220,11 +220,11 @@ extension ObvChannelManagerImplementation {
 // MARK: - ObvChannelDelegate
 
 extension ObvChannelManagerImplementation {
-
+    
     
     // MARK: Posting a message
     
-    public func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
+    public func postChannelMessage(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, within obvContext: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>] {
         assert(!Thread.isMainThread)
         os_log("Posting a message within obvContext: %{public}@", log: log, type: .info, obvContext.name)
         debugPrint("🚨 Posting a message within obvContext: \(obvContext.name)")
@@ -238,7 +238,7 @@ extension ObvChannelManagerImplementation {
     
     
     // MARK: Decrypting a message
-
+    
     // This method only succeeds if the ObvNetworkReceivedMessageEncrypted actually is an Application message. It is typically used when decrypting Application's User Notifications sent through APNS.
     public func decrypt(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within flowId: FlowIdentifier) throws -> ObvNetworkReceivedMessageDecrypted {
         guard let contextCreator = self.contextCreator else {
@@ -262,7 +262,7 @@ extension ObvChannelManagerImplementation {
                                                   downloadTimestampFromServer: receivedMessage.downloadTimestampFromServer,
                                                   localDownloadTimestamp: receivedMessage.localDownloadTimestamp)
     }
-
+    
     
     // MARK: Oblivious Channels management
     
@@ -271,7 +271,7 @@ extension ObvChannelManagerImplementation {
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         try delegateManager.obliviousChannelLifeDelegate.deleteObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andTheRemoteDeviceWithUid: remoteDeviceUid, ofRemoteIdentity: remoteIdentity, within: obvContext)
     }
-
+    
     
     public func deleteObliviousChannelBetweenCurentDeviceWithUid(currentDeviceUid: UID, andTheRemoteDeviceWithUid remoteDeviceUid: UID, ofRemoteIdentity remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         os_log("🚗 deleteObliviousChannelBetweenCurentDeviceWithUid", log: log, type: .info)
@@ -285,7 +285,7 @@ extension ObvChannelManagerImplementation {
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         try delegateManager.obliviousChannelLifeDelegate.deleteAllObliviousChannelsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andTheDevicesOfContactIdentity: contactIdentity, within: obvContext)
     }
-
+    
     
     public func createObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity remoteCryptoIdentity: ObvCryptoIdentity, withRemoteDeviceUid remoteDeviceUid: UID, with seed: Seed, cryptoSuiteVersion: Int, within obvContext: ObvContext) throws {
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
@@ -315,11 +315,17 @@ extension ObvChannelManagerImplementation {
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         return try delegateManager.obliviousChannelLifeDelegate.aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andRemoteIdentity: remoteIdentity, withRemoteDeviceUid: remoteDeviceUid, within: obvContext)
     }
-
+    
     
     public func anObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity remoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid remoteDeviceUid: UID, within obvContext: ObvContext) throws -> Bool {
         try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
         return try delegateManager.obliviousChannelLifeDelegate.anObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andRemoteIdentity: remoteIdentity, withRemoteDeviceUid: remoteDeviceUid, within: obvContext)
+    }
+    
+    
+    public func anObliviousChannelExistsBetweenCurrentDeviceUid(_ currentDeviceUid: UID, andRemoteDeviceUid remoteDeviceUid: UID, of remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        try gateKeeper.waitUntilSlotIsAvailableForObvContext(obvContext)
+        return try delegateManager.obliviousChannelLifeDelegate.anObliviousChannelExistsBetweenCurrentDeviceUid(currentDeviceUid, andRemoteDeviceUid: remoteDeviceUid, of: remoteIdentity, within: obvContext)
     }
     
     

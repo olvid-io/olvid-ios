@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -59,22 +59,16 @@ public final class ObvOwnedCryptoIdentity: NSObject, NSCopying {
     }
 }
 
-// MARK: Create an ObvIdentity from an ObvOwnedCryptoIdentity
+// MARK: Create an ObvCryptoIdentity from an ObvOwnedCryptoIdentity
 extension ObvOwnedCryptoIdentity {
     public func getObvCryptoIdentity() -> ObvCryptoIdentity {
         return ObvCryptoIdentity(serverURL: serverURL, publicKeyForAuthentication: publicKeyForAuthentication, publicKeyForPublicKeyEncryption: publicKeyForPublicKeyEncryption)
     }
 }
 
-// MARK: Leverage ObvIdentity to create a UID describing an identity, computed from the public keys. This UID should not be used
-/// as a long term identifier. It is typically used as an UID in operations.
-extension ObvOwnedCryptoIdentity {
-    public var transientUid: UID {
-        return getObvCryptoIdentity().transientUid
-    }
-}
+// MARK: Implementing Equatable
 
-// Implementing Equatable (replacing the NSObject default implementation)
+/// Replacing the NSObject default implementation
 extension ObvOwnedCryptoIdentity {
     static func == (lhs: ObvOwnedCryptoIdentity, rhs: ObvOwnedCryptoIdentity) -> Bool {
         guard lhs.publicKeyForAuthentication.isEqualTo(other: rhs.publicKeyForAuthentication) else { return false }
@@ -95,7 +89,9 @@ extension ObvOwnedCryptoIdentity {
     }
 }
 
-// Implementing NSCopying (this solves a bug we encoutered while using `ObvCryptoIdentity`s with Core Data)
+// MARK: Implementing NSCopying
+
+/// This solves a bug we encoutered while using `ObvCryptoIdentity`s with Core Data
 extension ObvOwnedCryptoIdentity {
     public func copy(with zone: NSZone? = nil) -> Any {
         return ObvOwnedCryptoIdentity(serverURL: serverURL,
@@ -235,3 +231,19 @@ public struct ObvOwnedCryptoIdentityPrivateBackupItem: Codable, Hashable {
     
     
 }
+
+
+extension ObvOwnedCryptoIdentity {
+    
+    public var snapshotItem: ObvOwnedCryptoIdentityPrivateSnapshotItem {
+        return ObvOwnedCryptoIdentityPrivateSnapshotItem(obvOwnedCryptoIdentity: self)
+    }
+    
+}
+
+
+/// For now, there is no difference between a `ObvOwnedCryptoIdentityPrivateSnapshotItem` and a `ObvOwnedCryptoIdentityPrivateBackupItem`.
+/// If, in the future, we decide to modify a `ObvOwnedCryptoIdentityPrivateSnapshotItem`, we should *not* modify the `ObvOwnedCryptoIdentityPrivateBackupItem` struct.
+/// Instead, we should copy/paste the `ObvOwnedCryptoIdentityPrivateBackupItem` implementation to define `ObvOwnedCryptoIdentityPrivateSnapshotItem` and update
+/// the pasted code.
+public typealias ObvOwnedCryptoIdentityPrivateSnapshotItem = ObvOwnedCryptoIdentityPrivateBackupItem

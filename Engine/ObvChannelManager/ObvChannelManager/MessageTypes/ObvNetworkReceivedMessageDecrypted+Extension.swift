@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvTypes
 import ObvMetaManager
 
 
@@ -26,7 +27,7 @@ extension ObvNetworkReceivedMessageDecrypted {
     init(with message: ReceivedApplicationMessage, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date) {
 
         let attachmentIds = message.attachmentsInfos.enumerated().map {
-            AttachmentIdentifier(messageId: message.messageId, attachmentNumber: $0.offset)
+            ObvAttachmentIdentifier(messageId: message.messageId, attachmentNumber: $0.offset)
         }
         self = ObvNetworkReceivedMessageDecrypted(messageId: message.messageId,
                                                   attachmentIds: attachmentIds,

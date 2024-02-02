@@ -23,16 +23,30 @@ import Foundation
 /// Notification values
 ///
 /// Possible values:
-///   - 0x00 means iOS silent notification, production mode
-///   - 0x03 means iOS silent notification, sandbox mode
+///   - 0x00 means iOS silent notification, production mode (legacy)
+///   - 0x03 means iOS silent notification, sandbox mode (legacy)
 ///   - 0x04 means iOS notification with content, sandbox mode
 ///   - 0x05 means iOS notification with content, production mode
+///   - 0x06 means macOS notification
 public enum ObvEngineConstants {
+    
     #if OLVID_SERVER_DEVELOPMENT && !OLVID_SERVER_PRODUCTION
-    public static let remoteNotificationByteIdentifierForServer = Data([0x04])
+    
+        #if targetEnvironment(macCatalyst)
+            public static let remoteNotificationByteIdentifierForServer = Data([0x06])
+        #else
+            public static let remoteNotificationByteIdentifierForServer = Data([0x04])
+        #endif
+    
     #elseif !OLVID_SERVER_DEVELOPMENT && OLVID_SERVER_PRODUCTION
-    public static let remoteNotificationByteIdentifierForServer = Data([0x05])
+    
+        #if targetEnvironment(macCatalyst)
+            public static let remoteNotificationByteIdentifierForServer = Data([0x06])
+        #else
+            public static let remoteNotificationByteIdentifierForServer = Data([0x05])
+        #endif
+    
     #else
-    #error("unknown configuration")
+        #error("unknown configuration")
     #endif
 }

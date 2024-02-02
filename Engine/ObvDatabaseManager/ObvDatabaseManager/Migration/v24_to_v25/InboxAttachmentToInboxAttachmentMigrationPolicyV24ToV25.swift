@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -134,10 +134,10 @@ final class InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25: NSEntityMig
                 throw makeError(message: "Could not create/configure inbox")
             }
 
-            guard let messageId = MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid) else {
+            guard let messageId = ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid) else {
                 throw makeError(message: "Could not create message identifier")
             }
-            let attachmentId = AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+            let attachmentId = ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
             
             try createEmptyFileForWritingChunks(withinInbox: inbox, cleartextLength: totalCleartextLength, attachmentId: attachmentId)
             
@@ -173,25 +173,24 @@ extension InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25 {
         return try! AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
     }
     
-    private static func getAttachmentDirectory(withinInbox inbox: URL, messageId: MessageIdentifier) -> URL {
-        let sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
-        let directoryName = sha256.hash(messageId.rawValue).hexString()
+    private static func getAttachmentDirectory(withinInbox inbox: URL, messageId: ObvMessageIdentifier) -> URL {
+        let directoryName = messageId.directoryNameForMessageAttachments
         return inbox.appendingPathComponent(directoryName, isDirectory: true)
     }
 
-    private static func getAttachmentURL(withinInbox inbox: URL, attachmentId: AttachmentIdentifier) -> URL {
+    private static func getAttachmentURL(withinInbox inbox: URL, attachmentId: ObvAttachmentIdentifier) -> URL {
         let attachmentFileName = "\(attachmentId.attachmentNumber)"
         let url = InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25.getAttachmentDirectory(withinInbox: inbox, messageId: attachmentId.messageId).appendingPathComponent(attachmentFileName)
         return url
     }
 
-    private static func createAttachmentsDirectoryIfRequired(withinInbox inbox: URL, messageId: MessageIdentifier) throws {
+    private static func createAttachmentsDirectoryIfRequired(withinInbox inbox: URL, messageId: ObvMessageIdentifier) throws {
         let attachmentsDirectory = getAttachmentDirectory(withinInbox: inbox, messageId: messageId)
         guard !FileManager.default.fileExists(atPath: attachmentsDirectory.path) else { return }
         try FileManager.default.createDirectory(at: attachmentsDirectory, withIntermediateDirectories: false)
     }
 
-    private func createEmptyFileForWritingChunks(withinInbox inbox: URL, cleartextLength: Int, attachmentId: AttachmentIdentifier) throws {
+    private func createEmptyFileForWritingChunks(withinInbox inbox: URL, cleartextLength: Int, attachmentId: ObvAttachmentIdentifier) throws {
         
         let url = InboxAttachmentToInboxAttachmentMigrationPolicyV24ToV25.getAttachmentURL(withinInbox: inbox, attachmentId: attachmentId)
 

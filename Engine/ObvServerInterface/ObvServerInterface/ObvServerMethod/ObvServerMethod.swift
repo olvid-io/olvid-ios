@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,6 +30,7 @@ public protocol ObvServerMethod {
     var serverURL: URL { get }
     var pathComponent: String { get }
     var isActiveOwnedIdentityRequired: Bool { get }
+    var isDeletedOwnedIdentitySufficient: Bool { get }
     var ownedIdentity: ObvCryptoIdentity { get }
     var identityDelegate: ObvIdentityDelegate? { get set }
     var flowId: FlowIdentifier { get }
@@ -39,14 +40,26 @@ public protocol ObvServerMethod {
 
 public extension ObvServerMethod {
 
+    var isDeletedOwnedIdentitySufficient: Bool {
+        return false
+    }
+    
     func getURLRequest(dataToSend: Data?) throws -> URLRequest {
-        guard let identityDelegate = self.identityDelegate else {
-            assertionFailure()
-            throw ObvServerMethodError.ownedIdentityIsActiveCheckerDelegateIsNotSet
-        }
         if isActiveOwnedIdentityRequired {
-            guard try identityDelegate.isOwnedIdentityActive(ownedIdentity: self.ownedIdentity, flowId: flowId) else {
-                throw ObvServerMethodError.ownedIdentityIsNotActive
+            guard let identityDelegate = self.identityDelegate else {
+                assertionFailure()
+                throw ObvServerMethodError.ownedIdentityIsActiveCheckerDelegateIsNotSet
+            }
+            do {
+                guard try identityDelegate.isOwnedIdentityActive(ownedIdentity: self.ownedIdentity, flowId: flowId) else {
+                    throw ObvServerMethodError.ownedIdentityIsNotActive
+                }
+            } catch {
+                if isDeletedOwnedIdentitySufficient, let identityManagerError = error as? ObvIdentityManagerError, identityManagerError == .ownedIdentityNotFound {
+                    // The owned identity cannot be found but, since isDeletedOwnedIdentitySufficient is true, we continue
+                } else {
+                    throw error
+                }
             }
         }
         var request = URLRequest(url: serverURL.appendingPathComponent(pathComponent))
@@ -90,13 +103,28 @@ public extension ObvServerMethod {
 }
 
 public enum ObvServerMethodError: Error {
+    
     case ownedIdentityIsActiveCheckerDelegateIsNotSet
     case ownedIdentityIsNotActive
-    
+    case couldNotParseServerResponse
+    case returnedServerStatusIsInvalid
+    case serverDidNotReturnTheExpectedNumberOfElements
+    case couldNotDecodeElementReturnByServer(elementName: String)
+
     var localizedDescription: String {
         switch self {
-        case .ownedIdentityIsActiveCheckerDelegateIsNotSet: return "The (identity) delegate allowing to check whether the owned identity is active has not been set"
-        case .ownedIdentityIsNotActive: return "The owned identity is not active but is required to be active for this server method"
+        case .ownedIdentityIsActiveCheckerDelegateIsNotSet:
+            return "The (identity) delegate allowing to check whether the owned identity is active has not been set"
+        case .ownedIdentityIsNotActive:
+            return "The owned identity is not active but is required to be active for this server method"
+        case .couldNotParseServerResponse:
+            return "Could not parse the server response"
+        case .returnedServerStatusIsInvalid:
+            return "The returned server status is invalid"
+        case .serverDidNotReturnTheExpectedNumberOfElements:
+            return "The server did not return the expected number of elements"
+        case .couldNotDecodeElementReturnByServer(elementName: let elementName):
+            return "We could not decode the following element returned by the server: \(elementName)"
         }
     }
 }

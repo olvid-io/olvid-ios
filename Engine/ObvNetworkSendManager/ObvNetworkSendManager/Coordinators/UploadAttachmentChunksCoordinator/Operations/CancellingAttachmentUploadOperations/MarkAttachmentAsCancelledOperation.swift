@@ -42,7 +42,7 @@ final class MarkAttachmentAsCancelledOperation: Operation {
     }
 
     private let uuid = UUID()
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let logSubsystem: String
     private let log: OSLog
     private let logCategory = String(describing: ManuallyAcknowledgeChunksThenInvalidateAndCancelAndDeleteOutboxAttachmentSessionOperation.self)
@@ -51,7 +51,7 @@ final class MarkAttachmentAsCancelledOperation: Operation {
 
     private(set) var reasonForCancel: ReasonForCancel?
 
-    init(attachmentId: AttachmentIdentifier, logSubsystem: String, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) {
+    init(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) {
         self.attachmentId = attachmentId
         self.logSubsystem = logSubsystem
         self.log = OSLog(subsystem: logSubsystem, category: logCategory)

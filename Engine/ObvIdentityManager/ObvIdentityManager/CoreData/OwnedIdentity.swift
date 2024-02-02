@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,10 +37,9 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
 
     // MARK: Attributes
     
-    @NSManaged private(set) var apiKey: UUID
     // The following var is only used for filtering/searching purposes. It should *only* be set within the setter of `ownedCryptoIdentity`
     @NSManaged private(set) var cryptoIdentity: ObvCryptoIdentity // Unique (not enforced)
-    @NSManaged private(set) var isActive: Bool
+    @NSManaged private(set) var isActive: Bool // true iff the current device is registered on the server
     @NSManaged private(set) var isDeletionInProgress: Bool
     private(set) var ownedCryptoIdentity: ObvOwnedCryptoIdentity {
         get {
@@ -132,16 +131,16 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     }
 
     private var changedKeys = Set<String>()
-
+    private var ownedIdentityOnDeletion: ObvCryptoIdentity?
+    
     // MARK: - Initializer
     
     /// This initializer purpose is to create a longterm owned identity
-    convenience init?(apiKey: UUID, serverURL: URL, identityDetails: ObvIdentityDetails, accordingTo pkEncryptionImplemByteId: PublicKeyEncryptionImplementationByteId, and authEmplemByteId: AuthenticationImplementationByteId, keycloakState: ObvKeycloakState?, using prng: PRNGService, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) {
+    convenience init?(serverURL: URL, identityDetails: ObvIdentityDetails, accordingTo pkEncryptionImplemByteId: PublicKeyEncryptionImplementationByteId, and authEmplemByteId: AuthenticationImplementationByteId, keycloakState: ObvKeycloakState?, nameForCurrentDevice: String, using prng: PRNGService, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: OwnedIdentity.entityName)
         let entityDescription = NSEntityDescription.entity(forEntityName: OwnedIdentity.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.delegateManager = delegateManager
-        self.apiKey = apiKey
         // An owned identity is always active on creation. Several places within the engine assume this behaviour.
         self.isActive = true
         self.isDeletionInProgress = false
@@ -150,7 +149,7 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
                                                               andPublicKeyEncryptionImplementationByteId: pkEncryptionImplemByteId,
                                                               using: prng)
         self.contactIdentities = Set<ContactIdentity>()
-        guard let device = OwnedDevice(ownedIdentity: self, with: prng, delegateManager: delegateManager) else {
+        guard let device = OwnedDevice(ownedIdentity: self, name: nameForCurrentDevice, with: prng, delegateManager: delegateManager) else {
             os_log("Could not create a current device for the new owned identity", log: log, type: .fault)
             return nil
         }
@@ -183,9 +182,7 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     convenience init(backupItem: OwnedIdentityBackupItem, notificationDelegate: ObvNotificationDelegate, within obvContext: ObvContext) throws {
         let entityDescription = NSEntityDescription.entity(forEntityName: OwnedIdentity.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
-        self.apiKey = backupItem.apiKey
-        // We do *not* use the backupItem.isActive value. This information is used at the ObvIdentityManagerImplementation level, to decide whether to ask for reactivation of this owned identity or not.
-        self.isActive = false
+        self.isActive = backupItem.isActive
         self.isDeletionInProgress = false
         self.cryptoIdentity = backupItem.cryptoIdentity
         guard let ownedCryptoIdentity = backupItem.ownedCryptoIdentity else {
@@ -198,7 +195,6 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
             ObvIdentityNotificationNew.newOwnedIdentityWithinIdentityManager(cryptoIdentity: backupItem.cryptoIdentity)
                 .postOnBackgroundQueue(within: notificationDelegate)
         }
-        
     }
 
     
@@ -211,6 +207,27 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         self.otherDevices = Set<OwnedDevice>()
         self.publishedIdentityDetails = publishedIdentityDetails
         self.keycloakServer = keycloakServer
+    }
+    
+    
+    private var isInsertedWhileRestoringSyncSnapshot = false
+    
+    /// Used *exclusively* during a snapshot restore for creating an instance. Relatioships are recreater in a second step.
+    convenience init(cryptoIdentity: ObvCryptoIdentity, snapshotNode: OwnedIdentitySyncSnapshotNode, within obvContext: ObvContext) throws {
+
+        let entityDescription = NSEntityDescription.entity(forEntityName: OwnedIdentity.entityName, in: obvContext)!
+        self.init(entity: entityDescription, insertInto: obvContext)
+        self.isActive = true
+        self.isDeletionInProgress = false
+        self.cryptoIdentity = cryptoIdentity
+        guard let ownedCryptoIdentity = snapshotNode.privateIdentity?.getOwnedIdentity(cryptoIdentity: cryptoIdentity) else {
+            throw OwnedIdentity.makeError(message: "Could not recover owned crypto identity")
+        }
+        self.ownedCryptoIdentity = ownedCryptoIdentity
+        
+        // Prevents the sending of notifications
+        isInsertedWhileRestoringSyncSnapshot = true
+        
     }
     
     
@@ -237,27 +254,26 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
 extension OwnedIdentity {
     
     func updatePublishedDetailsWithNewDetails(_ newIdentityDetails: ObvIdentityDetails, delegateManager: ObvIdentityDelegateManager) throws {
-        guard let obvContext = self.obvContext else {
-            assertionFailure()
-            throw Self.makeError(message: "Could not find obv context")
-        }
-        try self.publishedIdentityDetails.updateWithNewIdentityDetails(newIdentityDetails,
-                                                                       delegateManager: delegateManager,
-                                                                       within: obvContext)
+        try self.publishedIdentityDetails.updateWithNewIdentityDetails(newIdentityDetails, delegateManager: delegateManager)
     }
     
     
-    func setAPIKey(to newApiKey: UUID, keycloakServerURL: URL?) throws {
-        if let currentKeycloakServerURL = keycloakServer?.serverURL {
-            guard currentKeycloakServerURL == keycloakServerURL else {
-                assertionFailure()
-                throw Self.makeError(message: "Error: trying to set an api key on a keycloak managed identity without specifying the keycloak server.")
-            }
-        }
-        self.apiKey = newApiKey
+    /// Returns `true` if we need to download a new profile picture
+    func updatePublishedDetailsWithOtherDetailsIfNewer(otherDetails: IdentityDetailsElements, delegateManager: ObvIdentityDelegateManager) throws -> Bool {
+        let photoDownloadNeeded = try self.publishedIdentityDetails.updateWithOtherDetailsIfNewer(otherDetails: otherDetails, delegateManager: delegateManager)
+        return photoDownloadNeeded
     }
 
     
+    func saveRegisteredKeycloakAPIKey(apiKey: UUID) throws {
+        guard self.isKeycloakManaged, let keycloakServer else {
+            assertionFailure()
+            throw ObvIdentityManagerError.ownedIdentityIsNotKeycloakManaged
+        }
+        keycloakServer.saveRegisteredKeycloakAPIKey(apiKey: apiKey)
+    }
+    
+
     func updatePhoto(withData photoData: Data, version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         if self.publishedIdentityDetails.version == version {
             try self.publishedIdentityDetails.setOwnedIdentityPhoto(data: photoData, delegateManager: delegateManager)
@@ -265,9 +281,18 @@ extension OwnedIdentity {
     }
 
     
-    func deactivate() {
-        isActive = false
-        /* After deactivating an owned identity, we must delete all devices and channels */
+    func deactivateAndDeleteAllContactDevices(delegateManager: ObvIdentityDelegateManager) {
+
+        if isActive {
+            isActive = false
+        }
+        
+        /* After deactivating an owned identity, we must delete all devices */
+        
+        self.otherDevices.forEach { otherOwnedDevice in
+            try? otherOwnedDevice.deleteThisDevice(delegateManager: delegateManager)
+        }
+        
         self.contactIdentities.forEach { contactIdentity in
             contactIdentity.devices.forEach { contactDevice in
                 try? contactDevice.deleteContactDevice()
@@ -281,6 +306,62 @@ extension OwnedIdentity {
         }
     }
 
+}
+
+
+// MARK: - Sync between owned devices
+
+extension OwnedIdentity {
+    
+    func processSyncAtom(_ syncAtom: ObvSyncAtom, delegateManager: ObvIdentityDelegateManager) throws {
+        
+        guard syncAtom.recipient == .identityManager else {
+            assertionFailure()
+            throw ObvIdentityManagerError.wrongSyncAtomRecipient
+        }
+        
+        switch syncAtom {
+        case .contactNickname,
+                .groupV1Nickname,
+                .groupV2Nickname,
+                .contactPersonalNote,
+                .groupV1PersonalNote,
+                .groupV2PersonalNote,
+                .ownProfileNickname,
+                .contactCustomHue,
+                .contactSendReadReceipt,
+                .groupV1ReadReceipt,
+                .groupV2ReadReceipt,
+                .settingDefaultSendReadReceipts,
+                .settingAutoJoinGroups,
+                .pinnedDiscussions:
+            throw ObvIdentityManagerError.wrongSyncAtomRecipient
+        case .trustContactDetails(contactCryptoId: let contactCryptoId, serializedIdentityDetailsElements: let serializedIdentityDetailsElements):
+            guard let contact = try ContactIdentity.get(contactIdentity: contactCryptoId.cryptoIdentity, ownedIdentity: self, delegateManager: delegateManager) else {
+                throw ObvIdentityManagerError.cryptoIdentityIsNotContact
+            }
+            try contact.processTrustContactDetailsSyncAtom(serializedIdentityDetailsElements: serializedIdentityDetailsElements, delegateManager: delegateManager)
+        case .trustGroupV1Details(groupOwner: let groupOwner, groupUid: let groupUid, serializedGroupDetailsElements: let serializedGroupDetailsElements):
+            guard let groupV1 = try ContactGroupJoined.get(groupUid: groupUid, groupOwnerCryptoIdentity: groupOwner.cryptoIdentity, ownedIdentity: self, delegateManager: delegateManager) else {
+                throw ObvIdentityManagerError.groupIsNotJoined
+            }
+            try groupV1.processTrustGroupV1DetailsSyncAtom(serializedGroupDetailsElements: serializedGroupDetailsElements, delegateManager: delegateManager)
+        case .trustGroupV2Details(groupIdentifier: let groupIdentifier, version: let version):
+            guard let encodedGroupIdentifier = ObvEncoded(withRawData: groupIdentifier),
+                  let groupIdentifier = ObvGroupV2.Identifier(encodedGroupIdentifier)
+            else {
+                assertionFailure()
+                throw ObvIdentityManagerError.couldNotDecodeGroupIdentifier
+            }
+            
+            guard let groupV2 = try ContactGroupV2.getContactGroupV2(withGroupIdentifier: GroupV2.Identifier(obvGroupV2Identifier: groupIdentifier), of: self, delegateManager: delegateManager) else {
+                throw ObvIdentityManagerError.groupDoesNotExist
+            }
+            try groupV2.processTrustGroupV2DetailsSyncAtom(version: version, delegateManager: delegateManager)
+        }
+        
+    }
+    
 }
 
 
@@ -315,7 +396,7 @@ extension OwnedIdentity {
     }
     
     
-    private func refreshCertifiedByOwnKeycloakAndTrustedDetailsForAllContacts(delegateManager: ObvIdentityDelegateManager) {
+    fileprivate func refreshCertifiedByOwnKeycloakAndTrustedDetailsForAllContacts(delegateManager: ObvIdentityDelegateManager) {
         for contact in contactIdentities {
             do {
                 try contact.refreshCertifiedByOwnKeycloakAndTrustedDetails(delegateManager: delegateManager)
@@ -447,18 +528,119 @@ extension OwnedIdentity {
 
 extension OwnedIdentity {
     
-    func addRemoteDeviceWith(uid: UID) throws {
+    func addIfNotExistRemoteDeviceWith(uid: UID, createdDuringChannelCreation: Bool) throws {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: "OwnedIdentity")
             os_log("The delegate manager is not set (6)", log: log, type: .fault)
             throw Self.makeError(message: "The delegate manager is not set (6)")
         }
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: "OwnedIdentity")
-        guard OwnedDevice(remoteDeviceUid: uid, ownedIdentity: self, delegateManager: delegateManager) != nil else {
+        guard otherDevices.first(where: { $0.uid == uid }) == nil else {
+            // The device already exists
+            return
+        }
+        guard uid != currentDeviceUid else {
+            // Trying to add the current device as a remote device
+            return
+        }
+        guard OwnedDevice(remoteDeviceUid: uid, ownedIdentity: self, createdDuringChannelCreation: createdDuringChannelCreation, delegateManager: delegateManager) != nil else {
+            assertionFailure()
             os_log("Could not add a remote device", log: log, type: .fault)
             throw Self.makeError(message: "Could not add a remote device")
         }
     }
+    
+    
+    func removeIfExistsOtherDeviceWith(uid: UID, delegateManager: ObvIdentityDelegateManager, flowId: FlowIdentifier) throws {
+        for device in otherDevices {
+            guard device.uid == uid else { continue }
+            try device.deleteThisDevice(delegateManager: delegateManager)
+        }
+    }
+
+
+    /// Returns a Boolean indicating whether the current device is part of the owned device discovery results.
+    func processEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, delegateManager: ObvIdentityDelegateManager) throws -> Bool {
+
+        let ownedDeviceDiscoveryResult = try OwnedDeviceDiscoveryResult.decrypt(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult, for: self.ownedCryptoIdentity)
+
+        // Update existing devices and add missing devices
+        
+        for device in ownedDeviceDiscoveryResult.devices {
+            
+            if let existingRemoteDevice = self.otherDevices.first(where: { $0.uid == device.uid }) {
+                
+                try existingRemoteDevice.updateThisDevice(with: device)
+                
+            } else if self.currentDevice.uid == device.uid {
+                
+                try self.currentDevice.updateThisDevice(with: device)
+                
+            } else {
+                
+                _ = OwnedDevice(remoteDeviceUid: device.uid,
+                                ownedIdentity: self,
+                                createdDuringChannelCreation: false,
+                                delegateManager: delegateManager)
+                
+            }
+            
+        }
+        
+        // We don't deactivate the current device if not part of the owned device discovery.
+        // Instead, we notify the engine by returning a Boolean.
+        
+        let currentDeviceIsPartOfOwnedDeviceDiscoveryResult = ownedDeviceDiscoveryResult.devices.map({ $0.uid }).contains(where: { $0 == self.currentDevice.uid })
+        
+        // Remove deactivated remote devices
+        
+        let otherDevicesToDeactivate = self.otherDevices.filter { otherDevice in
+            !ownedDeviceDiscoveryResult.devices.map({ $0.uid }).contains(where: { $0 == otherDevice.uid })
+        }
+        
+        for otherDeviceToDeactivate in otherDevicesToDeactivate {
+            try otherDeviceToDeactivate.deleteThisDevice(delegateManager: delegateManager)
+        }
+        
+        // We don't care about the ownedDeviceDiscoveryResult.isMultidevice Boolean
+        
+        return currentDeviceIsPartOfOwnedDeviceDiscoveryResult
+    }
+    
+    
+    func decryptEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData) throws -> OwnedDeviceDiscoveryResult {
+        let ownedDeviceDiscoveryResult = try OwnedDeviceDiscoveryResult.decrypt(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult, for: self.ownedCryptoIdentity)
+        return ownedDeviceDiscoveryResult
+    }
+    
+    
+    func decryptProtocolCiphertext(_ ciphertext: EncryptedData) throws -> Data {
+        
+        guard let cleartext = PublicKeyEncryption.decrypt(ciphertext, for: ownedCryptoIdentity) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not decrypt encrypted payload")
+        }
+        
+        return cleartext
+    }
+    
+    
+    func getInfosAboutOwnedDevice(withUid uid: UID) throws -> (name: String?, expirationDate: Date?, latestRegistrationDate: Date?) {
+        if currentDevice.uid == uid {
+            return currentDevice.infos
+        } else if let otherRemoteDevice = otherDevices.first(where: { $0.uid == uid }) {
+            return otherRemoteDevice.infos
+        } else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not find other remote device")
+        }
+    }
+    
+    
+    func setCurrentDeviceNameAfterBackupRestore(newName: String) {
+        currentDevice.setCurrentDeviceNameAfterBackupRestore(newName: newName)
+    }
+    
     
 }
 
@@ -591,7 +773,6 @@ extension OwnedIdentity {
     struct Predicate {
         enum Key: String {
             // Attributes
-            case apiKey = "apiKey"
             case cryptoIdentity = "cryptoIdentity"
             case isActive = "isActive"
             case isDeletionInProgress = "isDeletionInProgress"
@@ -609,12 +790,20 @@ extension OwnedIdentity {
         static func withCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
             NSPredicate(format: "%K == %@", Key.cryptoIdentity.rawValue, ownedCryptoIdentity)
         }
+        static func isKeycloakManaged(_ isKeycloakManaged: Bool) -> NSPredicate {
+            if isKeycloakManaged {
+                return NSPredicate(withNonNilValueForKey: Key.keycloakServer)
+            } else {
+                return NSPredicate(withNilValueForKey: Key.keycloakServer)
+            }
+        }
     }
     
     @nonobjc class func fetchRequest() -> NSFetchRequest<OwnedIdentity> {
         return NSFetchRequest<OwnedIdentity>(entityName: entityName)
     }
 
+    
     static func get(_ identity: ObvCryptoIdentity, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> OwnedIdentity? {
         let request: NSFetchRequest<OwnedIdentity> = OwnedIdentity.fetchRequest()
         request.predicate = Predicate.withCryptoIdentity(identity)
@@ -624,20 +813,35 @@ extension OwnedIdentity {
         return item
     }
     
+    
     static func getAll(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> [OwnedIdentity] {
         let request: NSFetchRequest<OwnedIdentity> = OwnedIdentity.fetchRequest()
+        request.propertiesToFetch = [
+            Predicate.Key.cryptoIdentity.rawValue,
+            Predicate.Key.ownedCryptoIdentity.rawValue,
+        ]
         let items = try obvContext.fetch(request)
         return items.map { $0.delegateManager = delegateManager; return $0 }
     }
+
     
-    static func getApiKey(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID? {
+    static func getAllCryptoIds(within context: NSManagedObjectContext) throws -> Set<ObvCryptoIdentity> {
         let request: NSFetchRequest<OwnedIdentity> = OwnedIdentity.fetchRequest()
-        request.predicate = Predicate.withCryptoIdentity(identity)
-        request.fetchLimit = 1
-        let item = try obvContext.fetch(request).first
-        return item?.apiKey
+        request.propertiesToFetch = [
+            Predicate.Key.cryptoIdentity.rawValue,
+        ]
+        let items = try context.fetch(request)
+        return Set(items.map(\.cryptoIdentity))
     }
+
     
+    static func getAllKeycloakManaged(delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> [OwnedIdentity] {
+        let request: NSFetchRequest<OwnedIdentity> = OwnedIdentity.fetchRequest()
+        request.predicate = Predicate.isKeycloakManaged(true)
+        let items = try obvContext.fetch(request)
+        return items.map { $0.delegateManager = delegateManager; return $0 }
+    }
+
 }
 
 
@@ -647,6 +851,7 @@ extension OwnedIdentity {
     
     override func willSave() {
         super.willSave()
+        self.ownedIdentityOnDeletion = cryptoIdentity
         if !isInserted {
             changedKeys = Set<String>(self.changedValues().keys)
         }
@@ -657,6 +862,14 @@ extension OwnedIdentity {
         
         defer {
             changedKeys.removeAll()
+            isInsertedWhileRestoringSyncSnapshot = false
+        }
+
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            let log = OSLog.init(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: String(describing: Self.self))
+            os_log("Insertion of an OwnedIdentity during a snapshot restore --> we don't send any notification", log: log, type: .info)
+            return
         }
 
         guard let delegateManager = delegateManager else {
@@ -676,10 +889,18 @@ extension OwnedIdentity {
         
         if isInserted {
             os_log("A new owned identity was inserted", log: log, type: .debug)
+            if self.isActive {
+                guard let flowId = obvContext?.flowId else { assertionFailure(); return }
+                ObvIdentityNotificationNew.newActiveOwnedIdentity(ownedCryptoIdentity: self.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+            }
         } else if isDeleted {
-            os_log("An owned identity was deleted", log: log, type: .debug)
-            ObvIdentityNotificationNew.ownedIdentityWasDeleted
-                .postOnBackgroundQueue(within: notificationDelegate)
+            assert(ownedIdentityOnDeletion != nil)
+            if let ownedIdentityOnDeletion {
+                os_log("An owned identity was deleted", log: log, type: .debug)
+                ObvIdentityNotificationNew.ownedIdentityWasDeleted(ownedIdentity: ownedIdentityOnDeletion)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+            }
         }
         
         if changedKeys.contains(Predicate.Key.isActive.rawValue) && !isDeleted {
@@ -721,8 +942,7 @@ extension OwnedIdentity {
     
     var backupItem: OwnedIdentityBackupItem {
         let contactGroupsOwned = contactGroups.filter { $0 is ContactGroupOwned } as! Set<ContactGroupOwned>
-        return OwnedIdentityBackupItem(apiKey: apiKey,
-                                       ownedCryptoIdentity: ownedCryptoIdentity,
+        return OwnedIdentityBackupItem(ownedCryptoIdentity: ownedCryptoIdentity,
                                        contactIdentities: contactIdentities,
                                        currentDevice: currentDevice,
                                        otherDevices: otherDevices,
@@ -738,7 +958,6 @@ extension OwnedIdentity {
 
 struct OwnedIdentityBackupItem: Codable, Hashable, ObvErrorMaker {
     
-    fileprivate let apiKey: UUID
     fileprivate let privateIdentity: ObvOwnedCryptoIdentityPrivateBackupItem
     let cryptoIdentity: ObvCryptoIdentity
     fileprivate let contactIdentities: Set<ContactIdentityBackupItem>
@@ -754,8 +973,7 @@ struct OwnedIdentityBackupItem: Codable, Hashable, ObvErrorMaker {
         return privateIdentity.getOwnedIdentity(cryptoIdentity: cryptoIdentity)
     }
     
-    fileprivate init(apiKey: UUID, ownedCryptoIdentity: ObvOwnedCryptoIdentity, contactIdentities: Set<ContactIdentity>, currentDevice: OwnedDevice, otherDevices: Set<OwnedDevice>, publishedIdentityDetails: OwnedIdentityDetailsPublished, contactGroupsOwned: Set<ContactGroupOwned>, contactGroupsV2: Set<ContactGroupV2>, keycloakServer: KeycloakServer?, isActive: Bool) {
-        self.apiKey = apiKey
+    fileprivate init(ownedCryptoIdentity: ObvOwnedCryptoIdentity, contactIdentities: Set<ContactIdentity>, currentDevice: OwnedDevice, otherDevices: Set<OwnedDevice>, publishedIdentityDetails: OwnedIdentityDetailsPublished, contactGroupsOwned: Set<ContactGroupOwned>, contactGroupsV2: Set<ContactGroupV2>, keycloakServer: KeycloakServer?, isActive: Bool) {
         self.cryptoIdentity = ownedCryptoIdentity.getObvCryptoIdentity()
         self.privateIdentity = ownedCryptoIdentity.privateBackupItem
         self.contactIdentities = Set(contactIdentities.map { $0.backupItem })
@@ -767,7 +985,6 @@ struct OwnedIdentityBackupItem: Codable, Hashable, ObvErrorMaker {
     }
     
     enum CodingKeys: String, CodingKey {
-        case apiKey = "api_key"
         case privateIdentity = "private_identity"
         case cryptoIdentity = "owned_identity"
         case contactIdentities = "contact_identities"
@@ -780,7 +997,6 @@ struct OwnedIdentityBackupItem: Codable, Hashable, ObvErrorMaker {
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(apiKey, forKey: .apiKey)
         try container.encode(cryptoIdentity.getIdentity(), forKey: .cryptoIdentity)
         try container.encode(privateIdentity, forKey: .privateIdentity)
         try container.encode(contactIdentities, forKey: .contactIdentities)
@@ -798,7 +1014,6 @@ struct OwnedIdentityBackupItem: Codable, Hashable, ObvErrorMaker {
     
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        self.apiKey = try values.decode(UUID.self, forKey: .apiKey)
         self.privateIdentity = try values.decode(ObvOwnedCryptoIdentityPrivateBackupItem.self, forKey: .privateIdentity)
         let identity = try values.decode(Data.self, forKey: .cryptoIdentity)
         guard let cryptoIdentity = ObvCryptoIdentity(from: identity) else {
@@ -912,4 +1127,296 @@ struct OwnedIdentityBackupItem: Codable, Hashable, ObvErrorMaker {
         
     }
 
+}
+
+
+
+// MARK: - For snapshots
+
+extension OwnedIdentity {
+    
+    var syncSnapshotNode: OwnedIdentitySyncSnapshotNode {
+        .init(ownedCryptoIdentity: ownedCryptoIdentity,
+              contactIdentities: contactIdentities,
+              publishedIdentityDetails: publishedIdentityDetails,
+              keycloakServer: keycloakServer,
+              contactGroups: contactGroups, 
+              contactGroupsV2: contactGroupsV2)
+    }
+
+}
+
+
+struct OwnedIdentitySyncSnapshotNode: ObvSyncSnapshotNode, Codable {
+    
+    private let domain: Set<CodingKeys>
+    fileprivate let privateIdentity: ObvOwnedCryptoIdentityPrivateSnapshotItem?
+    private let publishedIdentityDetails: OwnedIdentityDetailsPublishedSyncSnapshotNode?
+    private let keycloakServer: KeycloakServerSnapshotNode?
+    private let contacts: [ObvCryptoIdentity: ContactIdentitySyncSnapshotNode]
+    private let groupsV1: [GroupV1Identifier: ContactGroupSyncSnapshotNode]
+    private let groupsV2: [GroupV2.Identifier: ContactGroupV2SyncSnapshotNode]
+
+    let id = Self.generateIdentifier()
+
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        case privateIdentity = "private_identity"
+        case publishedIdentityDetails = "published_details"
+        case keycloak = "keycloak"
+        case contacts = "contacts"
+        case groups = "groups"
+        case groups2 = "groups2"
+        case domain = "domain"
+    }
+    
+    private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
+
+    
+    init(ownedCryptoIdentity: ObvOwnedCryptoIdentity, contactIdentities: Set<ContactIdentity>, publishedIdentityDetails: OwnedIdentityDetailsPublished, keycloakServer: KeycloakServer?, contactGroups: Set<ContactGroup>, contactGroupsV2: Set<ContactGroupV2>) {
+        self.privateIdentity = ownedCryptoIdentity.snapshotItem
+        self.publishedIdentityDetails = publishedIdentityDetails.snapshotNode
+        self.keycloakServer = keycloakServer?.snapshotNode
+        // contacts
+        do {
+            let pairs: [(ObvCryptoIdentity, ContactIdentitySyncSnapshotNode)] = contactIdentities
+                .compactMap { contact in
+                    guard let cryptoIdentity = contact.cryptoIdentity else { assertionFailure(); return nil }
+                    return (cryptoIdentity, contact.syncSnapshot)
+                }
+            self.contacts = Dictionary(pairs, uniquingKeysWith: { (first, _) in assertionFailure(); return first })
+        }
+        // groupsV1
+        do {
+            let pairs: [(GroupV1Identifier, ContactGroupSyncSnapshotNode)] = contactGroups.compactMap {
+                guard let groupV1Identifier = $0.groupV1Identifier else { assertionFailure(); return nil }
+                return (groupV1Identifier, $0.syncSnapshot)
+            }
+            self.groupsV1 = Dictionary(pairs, uniquingKeysWith: { (first, _) in assertionFailure(); return first })
+        }
+        // groupsV2
+        do {
+            let keysAndValues: [(GroupV2.Identifier, ContactGroupV2SyncSnapshotNode)] = contactGroupsV2.compactMap { group in
+                guard let groupIdentifier = group.groupIdentifier else { assertionFailure(); return nil }
+                guard let snapshotNode = group.snapshotNode else { assertionFailure(); return nil }
+                return (groupIdentifier, snapshotNode)
+            }
+            self.groupsV2 = Dictionary(keysAndValues, uniquingKeysWith: { (first, _) in assertionFailure(); return first })
+        }
+        self.domain = Self.defaultDomain
+    }
+    
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(domain, forKey: .domain)
+        try container.encode(privateIdentity, forKey: .privateIdentity)
+        try container.encode(publishedIdentityDetails, forKey: .publishedIdentityDetails)
+        try container.encodeIfPresent(keycloakServer, forKey: .keycloak)
+        // Encode the contacts using the ObvCryptoIdentity as a JSON key
+        do {
+            let dict: [String: ContactIdentitySyncSnapshotNode] = .init(contacts, keyMapping: { $0.getIdentity().base64EncodedString() }, valueMapping: { $0 })
+            try container.encode(dict, forKey: .contacts)
+        }
+        // Encode groupsV1 using the GroupV1Identifier as a JSON key
+        do {
+            let dict: [String: ContactGroupSyncSnapshotNode] = .init(groupsV1, keyMapping: { $0.description }, valueMapping: { $0 })
+            try container.encode(dict, forKey: .groups)
+        }
+        // Encode groupsV2 using the GroupV2.Identifier as a JSON key
+        do {
+            let dict: [String: ContactGroupV2SyncSnapshotNode] = .init(groupsV2, keyMapping: { $0.description }, valueMapping: { $0 })
+            try container.encode(dict, forKey: .groups2)
+        }
+    }
+    
+    
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.domain = try values.decode(Set<CodingKeys>.self, forKey: .domain)
+        self.privateIdentity = try values.decodeIfPresent(ObvOwnedCryptoIdentityPrivateSnapshotItem.self, forKey: .privateIdentity)
+        self.publishedIdentityDetails = try values.decodeIfPresent(OwnedIdentityDetailsPublishedSyncSnapshotNode.self, forKey: .publishedIdentityDetails)
+        self.keycloakServer = try values.decodeIfPresent(KeycloakServerSnapshotNode.self, forKey: .keycloak)
+        // Decode contacts (the keys are the contact identities)
+        do {
+            let dict = try values.decodeIfPresent([String: ContactIdentitySyncSnapshotNode].self, forKey: .contacts) ?? [:]
+            self.contacts = Dictionary(dict, keyMapping: { $0.base64EncodedToData?.identityToObvCryptoIdentity }, valueMapping: { $0 })
+        }
+        // Decode groupsV1 (the keys are GroupV1Identifier)
+        do {
+            let dict = try values.decodeIfPresent([String: ContactGroupSyncSnapshotNode].self, forKey: .groups) ?? [:]
+            self.groupsV1 = Dictionary(dict, keyMapping: { GroupV1Identifier($0) }, valueMapping: { $0 })
+        }
+        // Decode groupsV2 (the keys are GroupV2.Identifier)
+        do {
+            let dict = try values.decodeIfPresent([String: ContactGroupV2SyncSnapshotNode].self, forKey: .groups2) ?? [:]
+            self.groupsV2 = Dictionary(dict, keyMapping: { GroupV2.Identifier($0) }, valueMapping: { $0 })
+        }
+    }
+    
+    
+    func restoreInstance(cryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        
+        guard domain.contains(.privateIdentity) && domain.contains(.publishedIdentityDetails) else {
+            assertionFailure()
+            throw ObvError.tryingToRestoreIncompleteNode
+        }
+        
+        let ownedIdentity = try OwnedIdentity(cryptoIdentity: cryptoIdentity, snapshotNode: self, within: obvContext)
+        try associations.associate(ownedIdentity, to: self)
+
+        let ownedCryptoIdentity = ownedIdentity.cryptoIdentity
+        let ownedIdentityIdentity = ownedIdentity.cryptoIdentity.getIdentity()
+
+        if domain.contains(.contacts) {
+            try contacts.forEach { (cryptoIdentity, contactNode) in
+                try contactNode.restoreInstance(within: obvContext, contactCryptoId: cryptoIdentity, ownedIdentityIdentity: ownedIdentityIdentity, associations: &associations)
+            }
+        }
+
+        guard let publishedIdentityDetails else {
+            assertionFailure()
+            throw ObvError.publishedIdentityDetailsAreNil
+        }
+        
+        try publishedIdentityDetails.restoreInstance(within: obvContext, associations: &associations)
+
+        if domain.contains(.groups) {
+            try groupsV1.forEach { (groupV1Identifier, groupV1Node) in
+                try groupV1Node.restoreInstance(within: obvContext, ownedCryptoIdentity: ownedCryptoIdentity, groupV1Identifier: groupV1Identifier, associations: &associations)
+            }
+        }
+
+        if domain.contains(.groups2) {
+            try groupsV2.forEach { (groupIdentifier, groupV2Node) in
+                try groupV2Node.restoreInstance(within: obvContext, groupIdentifier: groupIdentifier, ownedIdentity: ownedIdentityIdentity, associations: &associations)
+            }
+        }
+        
+        if domain.contains(.keycloak) {
+            try keycloakServer?.restoreInstance(within: obvContext, associations: &associations, rawOwnedIdentity: ownedIdentityIdentity)
+        }
+        
+    }
+
+    
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, prng: PRNGService, customDeviceName: String, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
+
+        // Fetch all core data instances
+        
+        let ownedIdentity: OwnedIdentity = try associations.getObject(associatedTo: self, within: obvContext)
+                
+        let contactGroupsV1: [GroupV1Identifier: ContactGroup] = try .init(groupsV1, keyMapping: { $0 }, valueMapping: { try associations.getObject(associatedTo: $0, within: obvContext) })
+
+        let contactGroupsV2: [GroupV2.Identifier: ContactGroupV2] = try .init(groupsV2, keyMapping: { $0 }, valueMapping: { try associations.getObject(associatedTo: $0, within: obvContext) })
+        
+        let contactIdentities: [ObvCryptoIdentity: ContactIdentity] = try .init(contacts, keyMapping: { $0 }, valueMapping: { try associations.getObject(associatedTo: $0, within: obvContext) })
+        
+        let currentDevice = OwnedDeviceSnapshotItem.generateNewCurrentDevice(prng: prng, customDeviceName: customDeviceName, within: obvContext)
+
+        guard let publishedIdentityDetails else {
+            assertionFailure()
+            throw ObvError.tryingToRestoreIncompleteNode
+        }
+        
+        let ownedIdentityDetailsPublished: OwnedIdentityDetailsPublished = try associations.getObject(associatedTo: publishedIdentityDetails, within: obvContext)
+        
+        let keycloakServer: KeycloakServer? = try associations.getObjectIfPresent(associatedTo: self.keycloakServer, within: obvContext)
+
+        // Restore the relationships of this instance
+
+        ownedIdentity.restoreRelationships(
+            contactGroups: Set(contactGroupsV1.values),
+            contactGroupsV2: Set(contactGroupsV2.values),
+            contactIdentities: Set(contactIdentities.values),
+            currentDevice: currentDevice,
+            publishedIdentityDetails: ownedIdentityDetailsPublished,
+            keycloakServer: keycloakServer)
+
+        // Restore the relationships of this instance relationships
+
+        try self.contacts.forEach { (contactCryptoIdentity, contactNode) in
+            try contactNode.restoreRelationships(associations: associations, within: obvContext)
+        }
+        
+        try self.publishedIdentityDetails?.restoreRelationships(associations: associations, within: obvContext)
+
+        try self.groupsV1.forEach { (groupV1Identifier, groupV1Node) in
+            try groupV1Node.restoreRelationships(associations: associations, groupV1Identifier: groupV1Identifier, contactIdentities: contactIdentities, within: obvContext)
+        }
+        
+        try self.groupsV2.forEach { (groupIdentifier, groupV2Node) in
+            try groupV2Node.restoreRelationships(associations: associations, ownedIdentity: ownedIdentity.cryptoIdentity.getIdentity(), contactIdentities: contactIdentities, within: obvContext)
+        }
+        
+        try self.keycloakServer?.restoreRelationships(associations: associations, within: obvContext)
+        
+        // If there is a photoServerLabel within the published details, we create an instance of IdentityServerUserData
+        
+        if let photoServerLabel = publishedIdentityDetails.photoServerLabel {
+            _ = IdentityServerUserData.createForOwnedIdentityDetails(ownedIdentity: ownedIdentity.cryptoIdentity,
+                                                                     label: photoServerLabel,
+                                                                     within: obvContext)
+        }
+        
+        // We scan each owned group. For each, of there is a photoServerLabel within the published details, we create an instance of IdentityServerUserData
+        
+        for contactGroup in contactGroupsV1.values {
+            guard let ownedGroup = contactGroup as? ContactGroupOwned else { continue }
+            guard let photoServerLabel = ownedGroup.publishedDetails.photoServerLabel else { continue }
+            _ = GroupServerUserData.createForOwnedGroupDetails(ownedIdentity: ownedIdentity.cryptoIdentity,
+                                                               label: photoServerLabel,
+                                                               groupUid: ownedGroup.groupUid,
+                                                               within: obvContext)
+        }
+        
+        // We scan each group V2 for which we are an administrator. If we are in charge of the profile picture (i.e., we are the uploader of the profile picture), we create a GroupV2ServerUserData entry
+        
+        for group in contactGroupsV2.values {
+            guard let serverPhotoInfo = group.trustedDetails?.serverPhotoInfo, let groupIdentifier = group.groupIdentifier else { continue }
+            if serverPhotoInfo.identity == ownedIdentity.cryptoIdentity {
+                _ = try? GroupV2ServerUserData.getOrCreateIfRequiredForAdministratedGroupV2Details(
+                    ownedIdentity: ownedIdentity.cryptoIdentity,
+                    label: serverPhotoInfo.photoServerKeyAndLabel.label,
+                    groupIdentifier: groupIdentifier,
+                    within: obvContext)
+            }
+        }
+        
+        // Refresh the keycloak badges
+        
+        ownedIdentity.refreshCertifiedByOwnKeycloakAndTrustedDetailsForAllContacts(delegateManager: delegateManager)
+        
+    }
+    
+    enum ObvError: Error {
+        case duplicateContact
+        case tryingToRestoreIncompleteNode
+        case mismatchBetweenDomainAndValues
+        case publishedIdentityDetailsAreNil
+    }
+    
+}
+
+
+
+
+// MARK: - Private Helpers
+
+private extension String {
+    
+    var base64EncodedToData: Data? {
+        guard let data = Data(base64Encoded: self) else { assertionFailure(); return nil }
+        return data
+    }
+    
+}
+
+
+private extension Data {
+    
+    var identityToObvCryptoIdentity: ObvCryptoIdentity? {
+        guard let cryptoIdentity = ObvCryptoIdentity(from: self) else { assertionFailure(); return nil }
+        return cryptoIdentity
+    }
+    
 }

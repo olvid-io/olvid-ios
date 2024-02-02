@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -54,7 +54,7 @@ final class ContactGroupDetailsTrusted: ContactGroupDetails {
     convenience init(contactGroupJoined: ContactGroupJoined, groupDetailsElementsWithPhoto: GroupDetailsElementsWithPhoto, delegateManager: ObvIdentityDelegateManager) throws {
         
         guard let obvContext = contactGroupJoined.obvContext else {
-            throw ObvIdentityManagerError.contextIsNil.error(withDomain: ContactGroupDetailsTrusted.errorDomain)
+            throw ObvIdentityManagerError.contextIsNil
         }
         
         try self.init(groupDetailsElementsWithPhoto: groupDetailsElementsWithPhoto,
@@ -69,6 +69,11 @@ final class ContactGroupDetailsTrusted: ContactGroupDetails {
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
     convenience init(backupItem: ContactGroupDetailsBackupItem, within obvContext: ObvContext) {
         self.init(backupItem: backupItem, forEntityName: ContactGroupDetailsTrusted.entityName, within: obvContext)
+    }
+
+    /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
+    convenience init(snapshotNode: ContactGroupDetailsSyncSnapshotNode, within obvContext: ObvContext) {
+        self.init(snapshotNode: snapshotNode, forEntityName: ContactGroupDetailsTrusted.entityName, within: obvContext)
     }
 
 }

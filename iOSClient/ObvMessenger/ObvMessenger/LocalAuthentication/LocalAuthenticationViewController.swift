@@ -19,10 +19,12 @@
 
 import UIKit
 import ObvUI
+import ObvUICoreData
+import ObvSettings
 
 
 class LocalAuthenticationViewController: UIViewController {
-
+    
     private enum AuthenticationStatus {
         case initial
         case shouldPerformLocalAuthentication
@@ -60,11 +62,14 @@ class LocalAuthenticationViewController: UIViewController {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override var canBecomeFirstResponder: Bool { true }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Use the LaunchScreen's view to ensure a smooth transition
         let launchScreenStoryBoard = UIStoryboard(name: "LaunchScreen", bundle: nil)
         guard let launchViewController = launchScreenStoryBoard.instantiateInitialViewController() else { assertionFailure(); return }
+        launchViewController.view.translatesAutoresizingMaskIntoConstraints = false
         self.view.addSubview(launchViewController.view)
         self.view.pinAllSidesToSides(of: launchViewController.view)
 
@@ -91,6 +96,8 @@ class LocalAuthenticationViewController: UIViewController {
         ]
         NSLayoutConstraint.activate(constraints)
 
+        view.backgroundColor = .red
+        
         configure()
     }
 
@@ -181,7 +188,9 @@ class LocalAuthenticationViewController: UIViewController {
     
     @objc private func authenticateButtonTapped() {
         Task {
-            await performLocalAuthentication(uptimeAtTheTimeOfChangeoverToNotActiveState: nil)
+            await performLocalAuthentication(
+                customPasscodePresentingViewController: self,
+                uptimeAtTheTimeOfChangeoverToNotActiveState: nil)
         }
     }
     
@@ -191,12 +200,17 @@ class LocalAuthenticationViewController: UIViewController {
     }
 
     @MainActor
-    func performLocalAuthentication(uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?) async {
+    func performLocalAuthentication(customPasscodePresentingViewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?) async {
         guard let localAuthenticationDelegate = self.localAuthenticationDelegate else {
             assertionFailure()
             return
         }
-        let laResult = await localAuthenticationDelegate.performLocalAuthentication(viewController: self, uptimeAtTheTimeOfChangeoverToNotActiveState: uptimeAtTheTimeOfChangeoverToNotActiveState, localizedReason: Strings.startOlvid)
+        let policy = ObvMessengerSettings.Privacy.localAuthenticationPolicy
+        let laResult = await localAuthenticationDelegate.performLocalAuthentication(
+            customPasscodePresentingViewController: customPasscodePresentingViewController,
+            uptimeAtTheTimeOfChangeoverToNotActiveState: uptimeAtTheTimeOfChangeoverToNotActiveState,
+            localizedReason: Strings.startOlvid,
+            policy: policy)
         switch laResult {
         case .authenticated(let authenticationWasPerformed):
             await setAuthenticationStatus(to: .authenticated(authenticationWasPerformed: authenticationWasPerformed))

@@ -21,6 +21,7 @@ import Foundation
 import OlvidUtils
 import ObvTypes
 import ObvUICoreData
+import CoreData
 
 
 final class UpdateNormalizedSearchKeyOnPersistedDiscussionsOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -32,18 +33,14 @@ final class UpdateNormalizedSearchKeyOnPersistedDiscussionsOperation: Contextual
         super.init()
     }
     
-    override func main() {
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            try PersistedDiscussion.updateNormalizedSearchKeysForOwnedIdentity(ownedIdentity, within: obvContext.context)
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
-        obvContext.performAndWait {
-            do {
-                try PersistedDiscussion.updateNormalizedSearchKeysForOwnedIdentity(ownedIdentity, within: obvContext.context)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-        }
+        
     }
 }
 

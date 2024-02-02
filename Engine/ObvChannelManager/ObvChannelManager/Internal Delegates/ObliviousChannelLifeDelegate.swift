@@ -43,6 +43,8 @@ protocol ObliviousChannelLifeDelegate {
 
     func anObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid: UID, within: ObvContext) throws -> Bool
 
+    func anObliviousChannelExistsBetweenCurrentDeviceUid(_ currentDeviceUid: UID, andRemoteDeviceUid remoteDeviceUid: UID, of remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
+
     func aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid: UID, within: ObvContext) throws -> Bool
 
     func aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity: ObvCryptoIdentity, within: ObvContext) throws -> Bool

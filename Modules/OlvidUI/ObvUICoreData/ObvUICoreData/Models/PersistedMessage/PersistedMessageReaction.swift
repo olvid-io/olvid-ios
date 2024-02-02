@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -53,24 +53,27 @@ public class PersistedMessageReaction: NSManagedObject {
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
 
-        try self.setEmoji(with: emoji, at: timestamp)
+        self.rawEmoji = emoji
+        self.timestamp = timestamp
         self.message = message
     }
     
     
     func updateEmoji(with newEmoji: String?, at newTimestamp: Date) throws {
+        
         guard self.timestamp < newTimestamp else { return }
-        try self.setEmoji(with: newEmoji, at: newTimestamp)
-    }
-    
-    
-    private func setEmoji(with newEmoji: String?, at reactionTimestamp: Date) throws {
+        
         if let newEmoji {
             guard newEmoji.count == 1 else { throw PersistedMessageReaction.makeError(message: "Invalid emoji: \(newEmoji)") }
         }
-        self.rawEmoji = newEmoji
-        self.timestamp = reactionTimestamp
+        if self.rawEmoji != newEmoji {
+            self.rawEmoji = newEmoji
+        }
+        if self.timestamp != newTimestamp {
+            self.timestamp = newTimestamp
+        }
     }
+    
     
     func delete() throws {
         guard let context = self.managedObjectContext else { throw PersistedMessageReaction.makeError(message: "Cannot find context") }

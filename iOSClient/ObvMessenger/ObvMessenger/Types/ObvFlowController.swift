@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,9 +25,10 @@ import CoreData
 import ObvCrypto
 import OlvidUtils
 import ObvUICoreData
+import ObvSettings
 
 
-protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate, SingleOwnedIdentityFlowViewControllerDelegate, ObvErrorMaker {
+protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate, ObvErrorMaker {
 
     var flowDelegate: ObvFlowControllerDelegate? { get }
     var log: OSLog { get }
@@ -121,7 +122,7 @@ extension ObvFlowController {
     }
 
     func userWantsToDisplay(persistedMessage message: PersistedMessage) {
-        let discussion = message.discussion
+        guard let discussion = message.discussion else { assertionFailure(); return }
         userWantsToDisplayImpl(persistedDiscussion: discussion, messageToShow: message)
     }
 
@@ -261,11 +262,7 @@ extension ObvFlowController {
             if someSingleDiscussionVC.discussionPermanentID != discussion.discussionPermanentID {
                 return someSingleDiscussionVC
             } else {
-                if #available(iOS 15.0, *), !ObvMessengerSettings.Interface.useOldDiscussionInterface {
-                    return try getNewSingleDiscussionViewController(for:discussion, initialScroll: .newMessageSystemOrLastMessage)
-                } else {
-                    return try getSingleDiscussionViewController(for: discussion)
-                }
+                return try getNewSingleDiscussionViewController(for:discussion, initialScroll: .newMessageSystemOrLastMessage)
             }
         }
         self.setViewControllers(newStack, animated: false)
@@ -273,42 +270,20 @@ extension ObvFlowController {
     
     
     func buildSingleDiscussionVC(discussion: PersistedDiscussion, messageToShow: PersistedMessage?) throws -> SomeSingleDiscussionViewController {
-        if #available(iOS 15.0, *), !ObvMessengerSettings.Interface.useOldDiscussionInterface {
-            let initialScroll: NewSingleDiscussionViewController.InitialScroll
-            if let messageToShow = messageToShow {
-                initialScroll = .specificMessage(messageToShow)
-            } else {
-                initialScroll = .newMessageSystemOrLastMessage
-            }
-            let singleDiscussionVC = try getNewSingleDiscussionViewController(for: discussion, initialScroll: initialScroll)
-            return singleDiscussionVC
+        let initialScroll: NewSingleDiscussionViewController.InitialScroll
+        if let messageToShow = messageToShow {
+            initialScroll = .specificMessage(messageToShow)
         } else {
-            let singleDiscussionVC = try getSingleDiscussionViewController(for: discussion)
-            return singleDiscussionVC
+            initialScroll = .newMessageSystemOrLastMessage
         }
+        let singleDiscussionVC = try getNewSingleDiscussionViewController(for: discussion, initialScroll: initialScroll)
+        return singleDiscussionVC
     }
 
     
-    @available(iOS 15.0, *)
     func getNewSingleDiscussionViewController(for discussion: PersistedDiscussion, initialScroll: NewSingleDiscussionViewController.InitialScroll) throws -> NewSingleDiscussionViewController {
         assert(Thread.isMainThread)
         let singleDiscussionVC = try NewSingleDiscussionViewController(discussion: discussion, delegate: self, initialScroll: initialScroll)
-        singleDiscussionVC.hidesBottomBarWhenPushed = true
-        return singleDiscussionVC
-    }
-    
-    
-    func getSingleDiscussionViewController(for discussion: PersistedDiscussion) throws -> SingleDiscussionViewController {
-        guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else {
-            throw Self.makeError(message: "Could not determine owned identity")
-        }
-        let singleDiscussionVC = SingleDiscussionViewController(ownedCryptoId: ownedCryptoId, collectionViewLayout: UICollectionViewLayout())
-        singleDiscussionVC.discussion = discussion
-        singleDiscussionVC.composeMessageViewDataSource = ComposeMessageDataSourceWithDraft(draft: discussion.draft)
-        singleDiscussionVC.composeMessageViewDocumentPickerDelegate = ComposeMessageViewDocumentPickerAdapterWithDraft(draft: discussion.draft)
-        singleDiscussionVC.strongComposeMessageViewSendMessageDelegate = ComposeMessageViewSendMessageAdapterWithDraft(draft: discussion.draft)
-        singleDiscussionVC.uiApplication = UIApplication.shared
-        singleDiscussionVC.delegate = self
         singleDiscussionVC.hidesBottomBarWhenPushed = true
         return singleDiscussionVC
     }
@@ -431,9 +406,7 @@ extension ObvFlowController {
                 return
             }
 
-            let vcToPresent = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity, obvEngine: obvEngine)
-
-            vcToPresent.delegate = self
+            let vcToPresent = SingleOwnedIdentityFlowViewController(ownedIdentity: ownedIdentity, obvEngine: obvEngine, delegate: flowDelegate)
 
             viewControllerToPresent = vcToPresent
 
@@ -479,6 +452,19 @@ extension ObvFlowController {
 
 extension ObvFlowController {
 
+    func userWantsToNavigateToListOfContactDevicesView(_ contact: PersistedObvContactIdentity, within nav: UINavigationController?) {
+        let appropriateNav = nav ?? self
+        let vc = ListOfContactDevicesViewController(persistedContact: contact, obvEngine: obvEngine)
+        appropriateNav.pushViewController(vc, animated: true)
+    }
+    
+    
+    func userWantsToNavigateToListOfTrustOriginsView(_ trustOrigins: [ObvTrustOrigin], within nav: UINavigationController?) {
+        let appropriateNav = nav ?? self
+        let vc = ListOfTrustOriginsViewController(trustOrigins: trustOrigins)
+        appropriateNav.pushViewController(vc, animated: true)
+    }
+    
     
     func userWantsToNavigateToSingleGroupView(_ group: DisplayedContactGroup, within nav: UINavigationController?) {
         
@@ -534,80 +520,32 @@ extension ObvFlowController {
         flowDelegate?.userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(with: contactCryptoId, using: newContactIdentityDetails)
     }
     
-    func userWantsToEditContactNickname(persistedContactObjectId: NSManagedObjectID) {
-        assert(Thread.isMainThread)
-        
-        guard let persistedObvContactIdentity = try? PersistedObvContactIdentity.get(objectID: persistedContactObjectId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-        
-        let title = NSLocalizedString("Set Contact Nickname", comment: "")
-        let message = NSLocalizedString("This nickname will only be visible to you and used instead of your contact name within the Olvid interface.", comment: "UIAlertController message")
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addTextField { textField in
-            textField.font = UIFont.preferredFont(forTextStyle: UIFont.TextStyle.headline)
-            textField.autocapitalizationType = .words
-            if let customDisplayName = persistedObvContactIdentity.customDisplayName {
-                textField.text = customDisplayName
-            } else {
-                textField.text = persistedObvContactIdentity.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? persistedObvContactIdentity.fullDisplayName
-            }
-        }
-        guard let textField = alert.textFields?.first else { return }
-        let removeNicknameAction = UIAlertAction(title: CommonString.removeNickname, style: .destructive) { [weak self] (_) in
-            self?.setContactNickname(to: nil, persistedContactObjectId: persistedContactObjectId)
-        }
-        let cancelAction = UIAlertAction(title: CommonString.Word.Cancel, style: UIAlertAction.Style.cancel)
-        let okAction = UIAlertAction(title: CommonString.Word.Ok, style: UIAlertAction.Style.default) { [weak self] (action) in
-            if let newNickname = textField.text, !newNickname.isEmpty {
-                self?.setContactNickname(to: newNickname, persistedContactObjectId: persistedContactObjectId)
-            } else {
-                self?.setContactNickname(to: nil, persistedContactObjectId: persistedContactObjectId)
-            }
-        }
-        alert.addAction(removeNicknameAction)
-        alert.addAction(cancelAction)
-        alert.addAction(okAction)
-        if let presentedViewController = self.presentedViewController {
-            presentedViewController.present(alert, animated: true)
-        } else {
-            self.present(alert, animated: true, completion: nil)
-        }
 
+    func userWantsToInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                assert(flowDelegate != nil)
+                try await flowDelegate?.userWantsToInviteContactsToOneToOne(ownedCryptoId: ownedCryptoId, users: [(contactCryptoId, nil)])
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        }
     }
     
     
-    private func setContactNickname(to newNickname: String?, persistedContactObjectId: NSManagedObjectID) {
-        ObvStack.shared.performBackgroundTask { [weak self] (context) in
-            guard let _self = self else { return }
-            do {
-                guard let writableContact = try PersistedObvContactIdentity.get(objectID: persistedContactObjectId, within: context) else { assertionFailure(); return }
-                try writableContact.setCustomDisplayName(to: newNickname)
-                try context.save(logOnFailure: _self.log)
-            } catch {
-                os_log("Could not remove contact custom display name", log: _self.log, type: .error)
-            }
-        }
+    /// Method part of the `SingleGroupV2ViewControllerDelegate`, called when the user wants to add all the group members as one2one contacts at once.
+    func userWantsToInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>) async throws {
+        assert(flowDelegate != nil)
+        let users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)] = contactCryptoIds.map { ($0, nil) }
+        try await flowDelegate?.userWantsToInviteContactsToOneToOne(ownedCryptoId: ownedCryptoId, users: users)
     }
 
-    
-    func userWantsToInviteContactToOneToOne(persistedContactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) {
-        let log = self.log
-        ObvStack.shared.performBackgroundTask { [weak self] (context) in
-            do {
-                guard let contact = try PersistedObvContactIdentity.get(objectID: persistedContactObjectID, within: context) else { assertionFailure(); return }
-                assert(!contact.isOneToOne)
-                guard let ownedIdentity = contact.ownedIdentity else { assertionFailure(); return }
-                try self?.obvEngine.sendOneToOneInvitation(ownedIdentity: ownedIdentity.cryptoId, contactIdentity: contact.cryptoId)
-            } catch {
-                os_log("Could not invite contact to OneToOne: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-            }
-        }
-    }
-    
     
     func userWantsToCancelSentInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) {
         let log = self.log
-        ObvStack.shared.performBackgroundTask { [weak self] (context) in
+        let obvEngine = self.obvEngine
+        ObvStack.shared.performBackgroundTask { (context) in
             do {
                 guard let oneToOneInvitationSent = try PersistedInvitationOneToOneInvitationSent.get(fromOwnedIdentity: ownedCryptoId,
                                                                                                      toContact: contactCryptoId,
@@ -616,7 +554,10 @@ extension ObvFlowController {
                 }
                 guard var dialog = oneToOneInvitationSent.obvDialog else { assertionFailure(); return }
                 try dialog.cancelOneToOneInvitationSent()
-                self?.obvEngine.respondTo(dialog)
+                let dialogForEngine = dialog
+                Task {
+                    try? await obvEngine.respondTo(dialogForEngine)
+                }
             } catch {
                 os_log("Could not invite contact to OneToOne: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
@@ -796,16 +737,17 @@ extension ObvFlowController {
 
 }
 
-// MARK: - SingleOwnedIdentityFlowViewControllerDelegate 
-extension ObvFlowController {
-    func userWantsToDismissSingleOwnedIdentityFlowViewController(_ viewController: SingleOwnedIdentityFlowViewController) {
-        viewController.dismiss(animated: true)
-    }
+
+// MARK: - Errors
+
+enum ObvFlowControllerError: Error {
+    case couldNotFindOwnedIdentity
 }
+    
 
 // MARK: - ObvFlowControllerDelegate
 
-protocol ObvFlowControllerDelegate: AnyObject {
+protocol ObvFlowControllerDelegate: AnyObject, SingleOwnedIdentityFlowViewControllerDelegate {
 
     func getAndRemoveAirDroppedFileURLs() -> [URL]
     @MainActor func userSelectedURL(_ url: URL, within viewController: UIViewController)
@@ -813,5 +755,6 @@ protocol ObvFlowControllerDelegate: AnyObject {
     func rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String)
     func userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(with: ObvCryptoId, using: ObvIdentityDetails)
     func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void)
+    func userWantsToInviteContactsToOneToOne(ownedCryptoId: ObvCryptoId, users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)]) async throws
 
 }

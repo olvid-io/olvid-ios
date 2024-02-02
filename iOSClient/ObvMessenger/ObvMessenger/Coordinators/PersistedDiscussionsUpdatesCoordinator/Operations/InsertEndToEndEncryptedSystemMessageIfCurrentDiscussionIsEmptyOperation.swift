@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,8 @@ import Foundation
 import OlvidUtils
 import os.log
 import ObvUICoreData
+import CoreData
+
 
 final class InsertEndToEndEncryptedSystemMessageIfCurrentDiscussionIsEmptyOperation: ContextualOperationWithSpecificReasonForCancel<InsertEndToEndEncryptedSystemMessageIfCurrentDiscussionIsEmptyOperationReasonForCancel> {
     
@@ -33,23 +35,15 @@ final class InsertEndToEndEncryptedSystemMessageIfCurrentDiscussionIsEmptyOperat
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            
-            do {
-                guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindDiscussion)
-                }
-                try discussion.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: markAsRead, messageTimestamp: Date())
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindDiscussion)
             }
-            
+            try discussion.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: markAsRead, messageTimestamp: Date())
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

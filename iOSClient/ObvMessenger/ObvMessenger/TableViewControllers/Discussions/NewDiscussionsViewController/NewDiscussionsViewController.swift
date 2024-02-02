@@ -27,6 +27,7 @@ import OlvidUtils
 import OSLog
 import SwiftUI
 import UIKit
+import ObvDesignSystem
 
 
 protocol NewDiscussionsViewControllerDelegate: AnyObject {
@@ -302,8 +303,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else { return UISwipeActionsConfiguration(actions: []) }
         switch (selectedItem) {
         case .persistedDiscussion(let listItemID):
-            let deleteAllMessagesAction = self.createDeleteAllMessagesAction(for: listItemID)
-            let archiveDiscussionAction = self.createArchiveDiscussionAction(for: listItemID)
+            let deleteAllMessagesAction = self.createDeleteAllMessagesContextualAction(for: listItemID)
+            let archiveDiscussionAction = self.createArchiveDiscussionContextualAction(for: listItemID)
             let configuration = UISwipeActionsConfiguration(actions: [deleteAllMessagesAction, archiveDiscussionAction])
             configuration.performsFirstActionWithFullSwipe = false
             return configuration
@@ -318,8 +319,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
             guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else { return UISwipeActionsConfiguration(actions: []) }
             switch (selectedItem) {
             case .persistedDiscussion(let listItemID):
-                let unpinAction = self.createUnpinAction(for: listItemID)
-                let markAllMessagesAsNotNewAction = self.createMarkAllMessagesAsNotNewAction(for: listItemID)
+                let unpinAction = self.createUnpinContextualAction(for: listItemID)
+                let markAllMessagesAsNotNewAction = self.createMarkAllMessagesAsNotNewContextualAction(for: listItemID)
                 let configuration = UISwipeActionsConfiguration(actions: [unpinAction, markAllMessagesAsNotNewAction])
                 configuration.performsFirstActionWithFullSwipe = false
                 return configuration
@@ -328,8 +329,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
             guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else { return UISwipeActionsConfiguration(actions: []) }
             switch (selectedItem) {
             case .persistedDiscussion(let listItemID):
-                let pinAction = self.createPinAction(for: listItemID)
-                let markAllMessagesAsNotNewAction = self.createMarkAllMessagesAsNotNewAction(for: listItemID)
+                let pinAction = self.createPinContextualAction(for: listItemID)
+                let markAllMessagesAsNotNewAction = self.createMarkAllMessagesAsNotNewContextualAction(for: listItemID)
                 let configuration = UISwipeActionsConfiguration(actions: [pinAction, markAllMessagesAsNotNewAction])
                 configuration.performsFirstActionWithFullSwipe = false
                 return configuration
@@ -338,7 +339,7 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     }
     
     
-    private func createMarkAllMessagesAsNotNewAction(for listItemID: (ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
+    private func createMarkAllMessagesAsNotNewContextualAction(for listItemID: (ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
         let markAllAsNotNewAction = UIContextualAction(style: UIContextualAction.Style.normal, title: PersistedMessage.Strings.markAllAsRead) { (action, view, handler) in
             guard let discussion: PersistedDiscussion = try? PersistedDiscussion.get(objectID: listItemID.objectID, within: ObvStack.shared.viewContext) else { return }
             ObvMessengerInternalNotification.userWantsToMarkAllMessagesAsNotNewWithinDiscussion(persistedDiscussionObjectID: discussion.objectID, completionHandler: handler)
@@ -346,9 +347,19 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         }
         return markAllAsNotNewAction
     }
+    
+    
+    private func createMarkAllMessagesAsNotNewAction(for listItemID: (ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIAction {
+        let title = NSLocalizedString("MENU_ACTION_TITLE_MARK_ALL_MESSAGES_AS_READ", comment: "")
+        return UIAction(title: title) { _ in
+            guard let discussion: PersistedDiscussion = try? PersistedDiscussion.get(objectID: listItemID.objectID, within: ObvStack.shared.viewContext) else { return }
+            ObvMessengerInternalNotification.userWantsToMarkAllMessagesAsNotNewWithinDiscussion(persistedDiscussionObjectID: discussion.objectID, completionHandler: { _ in })
+                .postOnDispatchQueue()
+        }
+    }
 
     
-    private func createDeleteAllMessagesAction(for listItemID: (ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
+    private func createDeleteAllMessagesContextualAction(for listItemID: (ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
         let deleteAction = UIContextualAction(style: .destructive, title: CommonString.Word.Delete) { [weak self] (action, view, handler) in
             guard let discussion: PersistedDiscussion = try? PersistedDiscussion.get(objectID: listItemID.objectID, within: ObvStack.shared.viewContext) else { return }
             self?.delegate?.userAskedToDeleteDiscussion(discussion, completionHandler: handler)
@@ -356,9 +367,18 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         deleteAction.image = UIImage(systemIcon: .trash)
         return deleteAction
     }
+    
+    
+    private func createDeleteAllMessagesAction(for listItemID: (ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIAction {
+        let title = NSLocalizedString("MENU_ACTION_TITLE_DELETE_ALL_MESSAGES", comment: "")
+        return UIAction(title: title, attributes: .destructive) { [weak self] _ in
+            guard let discussion: PersistedDiscussion = try? PersistedDiscussion.get(objectID: listItemID.objectID, within: ObvStack.shared.viewContext) else { return }
+            self?.delegate?.userAskedToDeleteDiscussion(discussion, completionHandler: { _ in })
+        }
+    }
 
     
-    private func createPinAction(for listItemID: (TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
+    private func createPinContextualAction(for listItemID: (TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
         let pinAction = UIContextualAction(style: .normal, title: CommonString.Word.Pin) { [weak self] (action, view, handler) in
             self?.pinDiscussion(listItemID: listItemID, handler: handler)
         }
@@ -367,6 +387,54 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         return pinAction
     }
 
+    
+    private func createPinAction(for listItemID: (TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIAction {
+        let title = NSLocalizedString("MENU_ACTION_TITLE_PIN_DISCUSSION", comment: "")
+        return UIAction(title: title) { [weak self] _ in
+            self?.pinDiscussion(listItemID: listItemID, handler: { _ in })
+        }
+    }
+
+    
+    func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) -> UIContextMenuConfiguration? {
+
+        // Only provide a menu on a Mac
+        
+        guard ObvMessengerConstants.targetEnvironmentIsMacCatalyst else {
+            return nil
+        }
+        
+        // For now, we only show a menu for one item at a time
+
+        guard let indexPath = indexPaths.first, indexPaths.count == 1 else {
+            debugPrint(indexPaths)
+            return nil
+        }
+        guard let sectionKind = dataSource.sectionIdentifier(for: indexPath.section) else { return nil }
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
+
+        // Create the actions
+
+        var actions = [UIAction]()
+        switch item {
+        case .persistedDiscussion(let listItemID):
+            actions += [createMarkAllMessagesAsNotNewAction(for: listItemID)]
+            switch sectionKind {
+            case .pinnedDiscussions:
+                actions += [createUnpinAction(for: listItemID)]
+            case .discussions:
+                actions += [createPinAction(for: listItemID)]
+            }
+            actions += [createArchiveDiscussionAction(for: listItemID)]
+            actions += [createDeleteAllMessagesAction(for: listItemID)]
+        }
+        
+        return UIContextMenuConfiguration(actionProvider: { _ in
+            return UIMenu(children: actions)
+        })
+        
+    }
+    
 
     private let millisecondsToWaitAfterCallingHandler = 500
 
@@ -395,7 +463,7 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     }
 
 
-    private func createUnpinAction(for listItemID: (TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
+    private func createUnpinContextualAction(for listItemID: (TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
         let unpinAction = UIContextualAction(style: .normal, title: CommonString.Word.Unpin) { [weak self] (action, view, handler) in
             self?.unpinDiscussion(listItemID: listItemID, handler: handler)
         }
@@ -403,15 +471,31 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         unpinAction.image = UIImage(systemIcon: .unpin)
         return unpinAction
     }
-
     
-    private func createArchiveDiscussionAction(for listItemID: (ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
+    
+    private func createUnpinAction(for listItemID: (TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIAction {
+        let title = NSLocalizedString("MENU_ACTION_TITLE_UNPIN_DISCUSSION", comment: "")
+        return UIAction(title: title) { [weak self] _ in
+            self?.unpinDiscussion(listItemID: listItemID, handler: nil)
+        }
+    }
+    
+
+    private func createArchiveDiscussionContextualAction(for listItemID: (ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIContextualAction {
         let archiveDiscussionAction = UIContextualAction(style: .destructive, title: CommonString.Word.Archive) { [weak self] (action, view, handler) in
             self?.archiveDiscussion(listItemID: listItemID, handler: handler)
         }
         archiveDiscussionAction.backgroundColor = UIColor.systemOrange
         archiveDiscussionAction.image = UIImage(systemIcon: .archivebox)
         return archiveDiscussionAction
+    }
+    
+    
+    private func createArchiveDiscussionAction(for listItemID: (ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>)) -> UIAction {
+        let title = NSLocalizedString("MENU_ACTION_TITLE_ARCHIVE_DISCUSSION", comment: "")
+        return UIAction(title: title) { [weak self] _ in
+            self?.archiveDiscussion(listItemID: listItemID, handler: nil)
+        }
     }
     
     
@@ -451,6 +535,7 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
 
     private func reorderingCompleted() {
         let snapshot = dataSource.snapshot()
+        guard snapshot.sectionIdentifiers.contains(where: { $0 == .pinnedDiscussions }) else { return }
         let discussionObjectIds = snapshot.itemIdentifiers(inSection: .pinnedDiscussions).map {
             switch $0 {
             case .persistedDiscussion(let listItemID):

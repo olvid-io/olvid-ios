@@ -16,14 +16,16 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
-  
 
 import Foundation
 import Combine
 import CoreData
 import ObvUICoreData
 import os.log
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
+import ObvDesignSystem
+import ObvSettings
+
 
 @available(iOS 16, *)
 extension HorizontalListOfSelectedDiscussionsViewController.Cell {
@@ -60,7 +62,7 @@ extension HorizontalListOfSelectedDiscussionsViewController.Cell.ViewModel {
                 
             case .groupV2(withGroup: let group):
                 if let group {
-                    subtitle = String.localizedStringWithFormat(NSLocalizedString("WITH_N_PARTICIPANTS", comment: ""), group.otherMembers.count)
+                    subtitle = String(format: "WITH_N_PARTICIPANTS", group.otherMembers.count)
                 } else {
                     subtitle = nil
                 }
@@ -68,7 +70,7 @@ extension HorizontalListOfSelectedDiscussionsViewController.Cell.ViewModel {
                 
             case .groupV1(withContactGroup: let group):
                 if let group {
-                    subtitle = String.localizedStringWithFormat(NSLocalizedString("WITH_N_PARTICIPANTS", comment: ""), group.contactIdentities.count)
+                    subtitle = String(format: "WITH_N_PARTICIPANTS", group.contactIdentities.count)
                 } else {
                     subtitle = nil
                 }

@@ -25,6 +25,6 @@ import OlvidUtils
 
 protocol DownloadPrivateURLsForAttachmentChunksDownloadDelegate {
     
-    func downloadPrivateUrlsForAttachmentWithId(_ attachmentId: AttachmentIdentifier, withinFlowId flowId: FlowIdentifier)
+    func downloadPrivateUrlsForAttachmentWithId(_ attachmentId: ObvAttachmentIdentifier, withinFlowId flowId: FlowIdentifier)
 
 }

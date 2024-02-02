@@ -24,7 +24,7 @@ import ObvTypes
 /// This struct represents an encrypted message received through the network, either via a push notification (in which case the number of attachments is not known, and the encryptedExtendedContent may be available) or via the normal connection we have with the server (in which case the number of attachments is known, while the encrypted content is not available as it is downloaded asynchronously).
 public struct ObvNetworkReceivedMessageEncrypted: Hashable {
 
-    public let messageId: MessageIdentifier
+    public let messageId: ObvMessageIdentifier
     public let encryptedContent: EncryptedData
     public let knownAttachmentCount: Int?
     public let messageUploadTimestampFromServer: Date
@@ -33,7 +33,7 @@ public struct ObvNetworkReceivedMessageEncrypted: Hashable {
     public let wrappedKey: EncryptedData
     public let availableEncryptedExtendedContent: EncryptedData?
 
-    public init(messageId: MessageIdentifier, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, encryptedContent: EncryptedData, wrappedKey: EncryptedData, knownAttachmentCount: Int?, availableEncryptedExtendedContent: EncryptedData?) {
+    public init(messageId: ObvMessageIdentifier, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, encryptedContent: EncryptedData, wrappedKey: EncryptedData, knownAttachmentCount: Int?, availableEncryptedExtendedContent: EncryptedData?) {
         self.messageId = messageId
         self.encryptedContent = encryptedContent
         self.knownAttachmentCount = knownAttachmentCount

@@ -26,7 +26,7 @@ import OlvidUtils
 
 protocol ReceivedMessageDelegate {
     
-    func processReceivedMessage(withId: MessageIdentifier, flowId: FlowIdentifier)
+    func processReceivedMessage(withId: ObvMessageIdentifier, flowId: FlowIdentifier)
     func deleteObsoleteReceivedMessages(flowId: FlowIdentifier)
     func processAllReceivedMessages(flowId: FlowIdentifier)
     
@@ -34,6 +34,11 @@ protocol ReceivedMessageDelegate {
     func abortProtocol(withProtocolInstanceUid: UID, forOwnedIdentity: ObvCryptoIdentity)
     func createBlockForAbortingProtocol(withProtocolInstanceUid uid: UID, forOwnedIdentity identity: ObvCryptoIdentity) -> (() -> Void)
     func createBlockForAbortingProtocol(withProtocolInstanceUid uid: UID, forOwnedIdentity identity: ObvCryptoIdentity, within obvContext: ObvContext) -> (() -> Void)
+    func deleteOwnedIdentityTransferProtocolInstances(flowId: FlowIdentifier)
+    func deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(flowId: FlowIdentifier)
     func deleteProtocolInstancesInAFinalState(flowId: FlowIdentifier)
+
+    // Allow to execute external operations on the queue executing protocol steps
+    func executeOnQueueForProtocolOperations<ReasonForCancelType: LocalizedErrorWithLogType>(operation: OperationWithSpecificReasonForCancel<ReasonForCancelType>) async throws
 
 }

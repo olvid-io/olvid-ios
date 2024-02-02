@@ -39,7 +39,7 @@ final class ReCreateURLSessionWithNewDelegateForAttachmentDownloadOperation: Ope
     }
     
     private let uuid = UUID()
-    let attachmentId: AttachmentIdentifier
+    let attachmentId: ObvAttachmentIdentifier
     private let logSubsystem: String
     private let log: OSLog
     private let flowId: FlowIdentifier
@@ -52,7 +52,7 @@ final class ReCreateURLSessionWithNewDelegateForAttachmentDownloadOperation: Ope
     private(set) var reasonForCancel: ReasonForCancel?
     private(set) var urlSession: URLSession?
 
-    init(attachmentId: AttachmentIdentifier, logSubsystem: String, flowId: FlowIdentifier, inbox: URL, contextCreator: ObvCreateContextDelegate, attachmentChunkDownloadProgressTracker: AttachmentChunkDownloadProgressTracker) {
+    init(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, flowId: FlowIdentifier, inbox: URL, contextCreator: ObvCreateContextDelegate, attachmentChunkDownloadProgressTracker: AttachmentChunkDownloadProgressTracker) {
         self.attachmentId = attachmentId
         self.logSubsystem = logSubsystem
         self.log = OSLog(subsystem: logSubsystem, category: logCategory)

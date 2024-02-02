@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,7 @@
 import Foundation
 import CoreData
 import OlvidUtils
+import UniformTypeIdentifiers
 
 @objc(PersistedDraftFyleJoin)
 public final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvIdentifiableManagedObject, ObvErrorMaker {
@@ -38,13 +39,18 @@ public final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvIdentif
     
     @NSManaged public private(set) var draft: PersistedDraft? // If nil, this entity is eventually cascade-deleted
     @NSManaged private(set) public var fyle: Fyle? // If nil, this entity is eventually cascade-deleted
-
+    
     // MARK: Computed properties
-
+    
     public var objectPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin> {
         ObvManagedObjectPermanentID<PersistedDraftFyleJoin>(uuid: self.permanentUUID)
     }
-
+    
+    public var contentType: UTType {
+        assert(UTType(uti) != nil)
+        return UTType(uti) ?? .data
+    }
+    
 }
 
 
@@ -169,7 +175,7 @@ extension PersistedDraftFyleJoin {
     }
 
 
-    public static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
+    static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = PersistedDraftFyleJoin.fetchRequest()
         request.predicate = Predicate.withoutDraft
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)

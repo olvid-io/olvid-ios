@@ -20,6 +20,8 @@
 import UIKit
 import UI_SystemIcon
 import UI_SystemIcon_UIKit
+import ObvDesignSystem
+
 
 /// This `UIButton` subclass is the UIKit equivalent of the `OlvidButton` used in our SwiftUI structs.
 public final class ObvImageButton: UIButton {
@@ -42,8 +44,8 @@ public final class ObvImageButton: UIButton {
         layer.cornerRadius = 12.0
         layer.cornerCurve = .continuous
         resetColors()
-        titleEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
-        imageEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 8)
+        //titleEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+        //imageEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 8)
     }
     
     
@@ -92,7 +94,7 @@ public final class ObvImageButton: UIButton {
     internal func resetColors() {
         setTitleColor(.white, for: .normal)
         setTitleColor(.white.withAlphaComponent(0.2), for: .highlighted)
-        adjustsImageWhenHighlighted = false
+        // adjustsImageWhenHighlighted = false
         if !isEnabled {
             self.backgroundColor = AppTheme.shared.colorScheme.secondarySystemFill
         } else {

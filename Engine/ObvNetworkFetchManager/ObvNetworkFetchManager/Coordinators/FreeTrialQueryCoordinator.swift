@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,359 +19,159 @@
 
 import Foundation
 import os.log
-import ObvCrypto
 import ObvTypes
 import ObvServerInterface
-import ObvMetaManager
 import OlvidUtils
+import ObvCrypto
 
 
-final class FreeTrialQueryCoordinator: NSObject {
+actor FreeTrialQueryCoordinator: FreeTrialQueryDelegate {
     
-    fileprivate let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
-    fileprivate let logCategory = "FreeTrialQueryCoordinator"
+    private static let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
+    private static let logCategory = "ServerPushNotificationsCoordinator"
+    private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
 
-    private let localQueue = DispatchQueue(label: "FreeTrialQueryCoordinatorQueue")
-    private let queueForNotifications = DispatchQueue(label: "FreeTrialQueryCoordinator queue for notifications")
-    
-    private lazy var session: URLSession! = {
-        let sessionConfiguration = URLSessionConfiguration.ephemeral
-        return URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: nil)
-    }()
+    private var failedAttemptsCounterManager = FailedAttemptsCounterManager()
+    private var retryManager = FetchRetryManager()
 
-    private var _currentTasks = [UIBackgroundTaskIdentifier: (ownedIdentity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier, dataReceived: Data)]()
-    private var currentTasksQueue = DispatchQueue(label: "FreeTrialQueryCoordinatorQueueForCurrentTasks")
-    
-    private var queriesWaitingForNewServerSession = [(ownedIdentity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier)]()
-}
-
-// MARK: - Synchronized access to the current download tasks
-
-extension FreeTrialQueryCoordinator {
-    
-    private func currentTaskExistsFor(_ identity: ObvCryptoIdentity, retrieveAPIKey: Bool) -> Bool {
-        var exist = true
-        currentTasksQueue.sync {
-            exist = _currentTasks.values.contains(where: { $0.ownedIdentity == identity && $0.retrieveAPIKey == retrieveAPIKey })
-        }
-        return exist
+    func setDelegateManager(_ delegateManager: ObvNetworkFetchDelegateManager) {
+        self.delegateManager = delegateManager
     }
     
-    private func removeInfoFor(_ task: URLSessionTask) -> (ownedIdentity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (ObvCryptoIdentity, Bool, FlowIdentifier, Data)? = nil
-        currentTasksQueue.sync {
-            info = _currentTasks.removeValue(forKey: UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier))
-        }
-        return info
-    }
-    
-    private func getInfoFor(_ task: URLSessionTask) -> (ownedIdentity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (ObvCryptoIdentity, Bool, FlowIdentifier, Data)? = nil
-        currentTasksQueue.sync {
-            info = _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)]
-        }
-        return info
-    }
-    
-    private func insert(_ task: URLSessionTask, for identity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier) {
-        currentTasksQueue.sync {
-            _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)] = (identity, retrieveAPIKey, flowId, Data())
-        }
-    }
-    
-    private func accumulate(_ data: Data, forTask task: URLSessionTask) {
-        currentTasksQueue.sync {
-            guard let (ownedIdentity, retrieveAPIKey, identifierForNotifications, currentData) = _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)] else { return }
-            var newData = currentData
-            newData.append(data)
-            _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)] = (ownedIdentity, retrieveAPIKey, identifierForNotifications, newData)
-        }
-    }
-    
-}
- 
-
-// MARK: - FreeTrialQueryDelegate
-
-extension FreeTrialQueryCoordinator: FreeTrialQueryDelegate {
-    
-    private enum SyncQueueOutput {
-        case previousTaskExists
-        case serverSessionRequired
-        case newTaskToRun(task: URLSessionTask)
-        case failedToCreateTask(error: Error)
-    }
-
-    
-    func queryFreeTrial(for identity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier) {
+    func queryFreeTrial(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> Bool {
         
         guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
         }
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        var syncQueueOutput: SyncQueueOutput? // The state after the localQueue.sync is executed
-        
-        localQueue.sync {
+        let sessionToken = try await delegateManager.serverSessionDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: nil, flowId: flowId).serverSessionToken
+
+        let task = Task {
             
-            guard !currentTaskExistsFor(identity, retrieveAPIKey: retrieveAPIKey) else {
-                syncQueueOutput = .previousTaskExists
-                return
+            let method = FreeTrialServerMethod(ownedIdentity: ownedCryptoId, token: sessionToken, retrieveAPIKey: false, flowId: flowId)
+            method.identityDelegate = delegateManager.identityDelegate
+
+            let (data, response) = try await URLSession.shared.data(for: method.getURLRequest())
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                throw ObvError.invalidServerResponse
             }
             
-            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: identity) else {
-                    syncQueueOutput = .serverSessionRequired
-                    return
-                }
-                
-                guard let token = serverSession.token else {
-                    syncQueueOutput = .serverSessionRequired
-                    return
-                }
-                
-                let method = FreeTrialServerMethod(ownedIdentity: identity, token: token, retrieveAPIKey: retrieveAPIKey, flowId: flowId)
-                method.identityDelegate = delegateManager.identityDelegate
-                let task: URLSessionDataTask
-                do {
-                    task = try method.dataTask(within: self.session)
-                } catch let error {
-                    syncQueueOutput = .failedToCreateTask(error: error)
-                    return
-                }
-                
-                insert(task, for: identity, retrieveAPIKey: retrieveAPIKey, flowId: flowId)
-                
-                syncQueueOutput = .newTaskToRun(task: task)
-                
-            }
-        }
-        
-        guard syncQueueOutput != nil else {
-            assertionFailure()
-            os_log("syncQueueOutput is nil", log: log, type: .fault)
-            return
-        }
-
-        let queueForCallingDelegate = DispatchQueue(label: "FreeTrialQueryCoordinator queue for calling delegate in queryFreeTrial")
-
-        switch syncQueueOutput! {
-        
-        case .previousTaskExists:
-            os_log("A running task already exists for identity %{public}@", log: log, type: .debug, identity.debugDescription)
-            assertionFailure()
-
-        case .serverSessionRequired:
-            os_log("Server session required for identity %@ with flow identifier %{public}@", log: log, type: .debug, identity.debugDescription, flowId.debugDescription)
-            queueForCallingDelegate.async {
-                do {
-                    try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: identity, flowId: flowId)
-                } catch {
-                    os_log("Call serverSessionRequired did fail", log: log, type: .fault)
-                    assertionFailure()
-                }
-            }
-
-        case .newTaskToRun(task: let task):
-            os_log("New task to run for identity %{public}@", log: log, type: .debug, identity.debugDescription)
-            task.resume()
-
-        case .failedToCreateTask(error: let error):
-            os_log("Could not create task for FreeTrialServerMethod: %{public}@", log: log, type: .error, error.localizedDescription)
-            assertionFailure()
-            return
-
-        }
-    }
-
-    
-    func processFreeTrialQueriesExpectingNewSession() {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        var queries = [(ownedIdentity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier)]()
-        localQueue.sync {
-            queries = queriesWaitingForNewServerSession
-            queriesWaitingForNewServerSession.removeAll()
-        }
-
-        os_log("Processing %d queries that were waiting for a new server session", log: log, type: .info, queries.count)
-
-        for query in queries {
-            queryFreeTrial(for: query.ownedIdentity, retrieveAPIKey: query.retrieveAPIKey, flowId: query.flowId)
-        }
-    }
-    
-}
-
-
-// MARK: - URLSessionDataDelegate
-
-extension FreeTrialQueryCoordinator: URLSessionDataDelegate {
-    
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        accumulate(data, forTask: dataTask)
-    }
-
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
-            os_log("The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-
-        guard let (ownedIdentity, retrieveAPIKey, flowId, dataReceived) = getInfoFor(task) else { return }
-        
-        guard error == nil else {
-            os_log("The FreeTrialServerMethod task failed for identity %{public}@: %@", log: log, type: .error, ownedIdentity.debugDescription, error!.localizedDescription)
-            _ = removeInfoFor(task)
-            assertionFailure()
-            return
-        }
-
-        // If we reach this point, the data task did complete without error
-        
-        if retrieveAPIKey {
-            
-            guard let (status, returnedValues) = FreeTrialServerMethod.parseObvServerResponseWhenRetrievingFreeTrialAPIKey(responseData: dataReceived, using: log) else {
-                os_log("Could not parse the server response for the FreeTrialServerMethod while retrieving an API key task for identity %{public}@", log: log, type: .fault, ownedIdentity.debugDescription)
-                _ = removeInfoFor(task)
+            guard let returnStatus = FreeTrialServerMethod.parseObvServerResponseWhenTestingWhetherFreeTrialIsStillAvailable(responseData: data, using: Self.log) else {
                 assertionFailure()
-                return
+                throw ObvError.couldNotParseReturnStatusFromServer
             }
             
-            switch status {
-            case .ok:
-                let apiKey = returnedValues!
-                _ = removeInfoFor(task)
-                queueForNotifications.async {
-                    delegateManager.networkFetchFlowDelegate.newFreeTrialAPIKeyForOwnedIdentity(ownedIdentity, apiKey: apiKey, flowId: flowId)
-                }
-                return
-                
+            return returnStatus
+            
+        }
+
+        do {
+            let returnStatus = try await task.value
+            switch returnStatus {
             case .invalidSession:
-                os_log("The server session is invalid.", log: log, type: .info)
-                _ = removeInfoFor(task)
-                localQueue.sync {
-                    queriesWaitingForNewServerSession.append((ownedIdentity, retrieveAPIKey, flowId))
-                }
-                queueForNotifications.async { [weak self] in
-                    self?.createNewServerSession(ownedIdentity: ownedIdentity, delegateManager: delegateManager, flowId: flowId, log: log)
-                }
-                return
-                
-            case .freeTrialAlreadyUsed:
-                os_log("The server reported that no more free trial is available for identity %{public}@", log: log, type: .info, ownedIdentity.debugDescription)
-                _ = removeInfoFor(task)
-                queueForNotifications.async {
-                    delegateManager.networkFetchFlowDelegate.noMoreFreeTrialAPIKeyAvailableForOwnedIdentity(ownedIdentity, flowId: flowId)
-                }
-                return
-
-            case .generalError:
-                os_log("The server reported a general error", log: log, type: .fault, ownedIdentity.debugDescription)
-                assertionFailure()
-                _ = removeInfoFor(task)
-                return
-            }
-            
-        } else {
-            
-            guard let status = FreeTrialServerMethod.parseObvServerResponseWhenTestingWhetherFreeTrialIsStillAvailable(responseData: dataReceived, using: log) else {
-                os_log("Could not parse the server response for the FreeTrialServerMethod for identity %{public}@", log: log, type: .fault, ownedIdentity.debugDescription)
-                _ = removeInfoFor(task)
-                assertionFailure()
-                return
-            }
-
-            switch status {
+                _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: sessionToken, flowId: flowId)
+                return try await queryFreeTrial(for: ownedCryptoId, flowId: flowId)
             case .ok:
-                _ = removeInfoFor(task)
-                queueForNotifications.async {
-                    delegateManager.networkFetchFlowDelegate.freeTrialIsStillAvailableForOwnedIdentity(ownedIdentity, flowId: flowId)
-                }
-                return
-
-            case .invalidSession:
-                os_log("The server session is invalid.", log: log, type: .info)
-                _ = removeInfoFor(task)
-                localQueue.sync {
-                    queriesWaitingForNewServerSession.append((ownedIdentity, retrieveAPIKey, flowId))
-                }
-                queueForNotifications.async { [weak self] in
-                    self?.createNewServerSession(ownedIdentity: ownedIdentity, delegateManager: delegateManager, flowId: flowId, log: log)
-                }
-                return
-                
+                return true
             case .freeTrialAlreadyUsed:
-                os_log("The server reported that no more free trial is available for identity %{public}@", log: log, type: .info, ownedIdentity.debugDescription)
-                _ = removeInfoFor(task)
-                queueForNotifications.async {
-                    delegateManager.networkFetchFlowDelegate.noMoreFreeTrialAPIKeyAvailableForOwnedIdentity(ownedIdentity, flowId: flowId)
-                }
-                return
-
+                return false
             case .generalError:
-                os_log("The server reported a general error", log: log, type: .fault, ownedIdentity.debugDescription)
-                _ = removeInfoFor(task)
-                assertionFailure()
-                return
+                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.freeTrialQuery(ownedIdentity: ownedCryptoId))
+                await retryManager.waitForDelay(milliseconds: delay)
+                _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: sessionToken, flowId: flowId)
+                return try await queryFreeTrial(for: ownedCryptoId, flowId: flowId)
             }
-
+        } catch {
+            assertionFailure()
+            throw error
         }
-
+        
     }
     
     
-    private func createNewServerSession(ownedIdentity: ObvCryptoIdentity, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier, log: OSLog) {
-        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); return }
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: ownedIdentity) else {
-                do {
-                    try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedIdentity, flowId: flowId)
-                } catch {
-                    os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
-                    assertionFailure()
-                }
-                return
+    /// Starts a free trial and returns refresh API permission reflecting the result of starting the free trial.
+    func startFreeTrial(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements {
+        
+        guard let delegateManager = delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+        
+        let sessionToken = try await delegateManager.serverSessionDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: nil, flowId: flowId).serverSessionToken
+
+        let task = Task {
+            
+            let method = FreeTrialServerMethod(ownedIdentity: ownedCryptoId, token: sessionToken, retrieveAPIKey: true, flowId: flowId)
+            method.identityDelegate = delegateManager.identityDelegate
+
+            let (data, response) = try await URLSession.shared.data(for: method.getURLRequest())
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                throw ObvError.invalidServerResponse
             }
             
-            guard let token = serverSession.token else {
-                do {
-                    try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedIdentity, flowId: flowId)
-                } catch {
-                    os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
-                    assertionFailure()
-                }
-                return
-            }
-            
-            do {
-                try delegateManager.networkFetchFlowDelegate.serverSession(of: ownedIdentity, hasInvalidToken: token, flowId: flowId)
-            } catch {
-                os_log("Call to to serverSession(of: ObvCryptoIdentity, hasInvalidToken: Data, flowId: FlowIdentifier) did fail", log: log, type: .fault)
+            guard let (returnStatus, values) = FreeTrialServerMethod.parseObvServerResponseWhenRetrievingFreeTrialAPIKey(responseData: data, using: Self.log) else {
                 assertionFailure()
+                throw ObvError.couldNotParseReturnStatusFromServer
             }
+            
+            return (returnStatus, values)
+            
         }
 
+        do {
+            let (returnStatus, _) = try await task.value
+            switch returnStatus {
+            case .ok:
+                let newAPIKeyElements = try await delegateManager.networkFetchFlowDelegate.refreshAPIPermissions(of: ownedCryptoId, flowId: flowId)
+                return newAPIKeyElements
+            case .invalidSession:
+                _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: sessionToken, flowId: flowId)
+                let newAPIKeyElements = try await startFreeTrial(for: ownedCryptoId, flowId: flowId)
+                return newAPIKeyElements
+            case .freeTrialAlreadyUsed:
+                throw ObvError.freeTrialAlreadyUsed
+            case .generalError:
+                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.freeTrialQuery(ownedIdentity: ownedCryptoId))
+                await retryManager.waitForDelay(milliseconds: delay)
+                _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: sessionToken, flowId: flowId)
+                let newAPIKeyElements = try await startFreeTrial(for: ownedCryptoId, flowId: flowId)
+                return newAPIKeyElements
+            }
+        } catch {
+            assertionFailure()
+            throw error
+        }
+        
     }
+
+    
+    enum ObvError: LocalizedError {
+        case theDelegateManagerIsNotSet
+        case invalidServerResponse
+        case couldNotParseReturnStatusFromServer
+        case freeTrialAlreadyUsed
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidServerResponse:
+                return "Invalid server response"
+            case .theDelegateManagerIsNotSet:
+                return "The delegate manager is not set"
+            case .couldNotParseReturnStatusFromServer:
+                return "Could not parse return status from server"
+            case .freeTrialAlreadyUsed:
+                return "Free trial already used"
+            }
+        }
+    }
+
 }

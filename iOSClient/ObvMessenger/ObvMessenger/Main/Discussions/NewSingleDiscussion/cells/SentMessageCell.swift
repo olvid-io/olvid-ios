@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,8 @@ import CoreData
 import os.log
 import ObvUI
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
 
 
 @available(iOS 14.0, *)
@@ -140,7 +142,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         // Look for an https URL within the text
         
         content.singleLinkConfiguration = nil
-        let doFetchContentRichURLsMetadataSetting = message.discussion.localConfiguration.doFetchContentRichURLsMetadata ?? ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata
+        let doFetchContentRichURLsMetadataSetting = message.discussion?.localConfiguration.doFetchContentRichURLsMetadata ?? ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata
         switch doFetchContentRichURLsMetadataSetting {
         case .never:
             break
@@ -165,10 +167,14 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         if message.isLocallyWiped {
             content.wipedViewConfiguration = .locallyWiped
         } else if message.isRemoteWiped {
-            if let ownedCryptoId = message.discussion.ownedIdentity?.cryptoId,
+            if let ownedCryptoId = message.discussion?.ownedIdentity?.cryptoId,
                let deleterCryptoId = message.deleterCryptoId,
                let contact = try? PersistedObvContactIdentity.get(contactCryptoId: deleterCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
                 content.wipedViewConfiguration = .remotelyWiped(deleterName: contact.customOrShortDisplayName)
+            } else if let ownedCryptoId = message.discussion?.ownedIdentity?.cryptoId,
+                      let deleterCryptoId = message.deleterCryptoId,
+                      deleterCryptoId == ownedCryptoId {
+                content.wipedViewConfiguration = .remotelyWiped(deleterName: CommonString.Word.You)
             } else {
                 content.wipedViewConfiguration = .remotelyWiped(deleterName: nil)
             }
@@ -257,12 +263,49 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         contentView.textBubble.delegate = textBubbleDelegate
     }
 
-    
+
     private func singleImageViewConfigurationForImageAttachment(_ imageAttachment: SentFyleMessageJoinWithStatus, size: CGSize, requiresCellSizing: Bool) -> SingleImageView.Configuration {
         let imageAttachmentObjectID = (imageAttachment as FyleMessageJoinWithStatus).typedObjectID
         let hardlink = cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: imageAttachmentObjectID)
         let config: SingleImageView.Configuration
+        let message = imageAttachment.sentMessage
         switch imageAttachment.status {
+        case .downloadable, .downloading:
+            if let downsizedThumbnail = cacheDelegate?.getCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID.downcast) {
+                if imageAttachment.status == .downloadable {
+                    config = .downloadableSent(sentJoinObjectID: imageAttachment.typedObjectID,
+                                               progress: imageAttachment.progressObject,
+                                               downsizedThumbnail: downsizedThumbnail)
+                } else {
+                    config = .downloadingSent(sentJoinObjectID: imageAttachment.typedObjectID,
+                                              progress: imageAttachment.progressObject,
+                                              downsizedThumbnail: downsizedThumbnail)
+                }
+            } else {
+                if imageAttachment.status == .downloadable {
+                    config = .downloadableSent(sentJoinObjectID: imageAttachment.typedObjectID,
+                                               progress: imageAttachment.progressObject,
+                                               downsizedThumbnail: nil)
+                } else {
+                    config = .downloadingSent(sentJoinObjectID: imageAttachment.typedObjectID,
+                                              progress: imageAttachment.progressObject,
+                                              downsizedThumbnail: nil)
+                }
+                if let data = imageAttachment.downsizedThumbnail {
+                    cacheDelegate?.requestDownsizedThumbnail(objectID: imageAttachment.typedObjectID.downcast, data: data, completionWhenImageCached: { [weak self] result in
+                        switch result {
+                        case .failure:
+                            break
+                        case .success:
+                            if requiresCellSizing {
+                                self?.cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: message.typedObjectID.downcast)
+                            } else {
+                                self?.setNeedsUpdateConfiguration()
+                            }
+                        }
+                    })
+                }
+            }
         case .uploading, .uploadable:
             assert(cacheDelegate != nil)
             if let hardlink = hardlink {
@@ -272,6 +315,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, progress: imageAttachment.progressObject)
                     Task {
                         do {
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
                             if requiresCellSizing {
                                 cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: imageAttachment.sentMessage.typedObjectID.downcast)
@@ -287,13 +331,16 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                 config = .uploadableOrUploading(hardlink: nil, thumbnail: nil, progress: imageAttachment.progressObject)
             }
         case .complete:
-            if let hardlink = hardlink {
+            if let hardlink = hardlink, hardlink.hardlinkURL != nil {
                 if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
+                    cacheDelegate?.removeCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID.downcast)
                     config = .complete(downsizedThumbnail: nil, hardlink: hardlink, thumbnail: image)
                 } else {
-                    config = .complete(downsizedThumbnail: nil, hardlink: hardlink, thumbnail: nil)
+                    let downsizedThumbnail = cacheDelegate?.getCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID.downcast)
+                    config = .complete(downsizedThumbnail: downsizedThumbnail, hardlink: hardlink, thumbnail: nil)
                     Task {
                         do {
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
                             if requiresCellSizing {
                                 cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: imageAttachment.sentMessage.typedObjectID.downcast)
@@ -305,9 +352,27 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                         }
                     }
                 }
+            } else if let downsizedThumbnail = cacheDelegate?.getCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID.downcast) {
+                config = .downloadingSent(sentJoinObjectID: imageAttachment.typedObjectID,
+                                          progress: imageAttachment.progressObject,
+                                          downsizedThumbnail: downsizedThumbnail)
             } else {
-                config = .complete(downsizedThumbnail: nil, hardlink: nil, thumbnail: nil)
+                config = .downloadingSent(sentJoinObjectID: imageAttachment.typedObjectID,
+                                          progress: imageAttachment.progressObject,
+                                          downsizedThumbnail: nil)
+                if let data = imageAttachment.downsizedThumbnail {
+                    cacheDelegate?.requestDownsizedThumbnail(objectID: imageAttachment.typedObjectID.downcast, data: data, completionWhenImageCached: { [weak self] result in
+                        switch result {
+                        case .failure:
+                            break
+                        case .success:
+                            self?.setNeedsUpdateConfiguration()
+                        }
+                    })
+                }
             }
+        case .cancelledByServer:
+            config = .cancelledByServer
         }
         return config
     }
@@ -327,6 +392,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progressObject)
                     Task {
                         do {
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
                             setNeedsUpdateConfiguration()
                         } catch {
@@ -346,6 +412,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                     config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, wasOpened: nil)
                     Task {
                         do {
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
                             setNeedsUpdateConfiguration()
                         } catch {
@@ -356,6 +423,12 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             } else {
                 config = .complete(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, wasOpened: nil)
             }
+        case .cancelledByServer:
+            config = .cancelledByServer(fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
+        case .downloadable:
+            config = .downloadableSent(sentJoinObjectID: attachment.typedObjectID, progress: attachment.progressObject, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
+        case .downloading:
+            config = .downloadingSent(sentJoinObjectID: attachment.typedObjectID, progress: attachment.progressObject, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
         }
         return config
     }
@@ -421,12 +494,39 @@ extension SentMessageCell {
             .compactMap({ $0.activityItemProvider })
     }
     
-    var itemProvidersForAllAttachments: [UIActivityItemProvider]? {
+    var activityItemProvidersForAllAttachments: [UIActivityItemProvider]? {
         message?.fyleMessageJoinWithStatuses
             .compactMap({ cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: ($0 as FyleMessageJoinWithStatus).typedObjectID) })
             .compactMap({ $0.activityItemProvider })
     }
     
+    var itemProvidersForAllAttachments: [NSItemProvider]? {
+        message?.fyleMessageJoinWithStatuses
+            .compactMap({ cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: ($0 as FyleMessageJoinWithStatus).typedObjectID) })
+            .compactMap({ $0.itemProvider })
+    }
+    
+    var uiDragItemsForAllAttachments: [UIDragItem]? {
+        message?.fyleMessageJoinWithStatuses
+            .compactMap({ cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: ($0 as FyleMessageJoinWithStatus).typedObjectID) })
+            .compactMap({ $0 })
+            .compactMap({ ($0, $0.uiDragItem) })
+            .compactMap({ (hardLinkToFyle, uiDragItem) in
+                if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardLinkToFyle, size: sizeForUIDragItemPreview) {
+                    uiDragItem?.previewProvider = {
+                        UIDragPreview(view: UIImageView(image: image))
+                    }
+                }
+                return uiDragItem
+            })
+    }
+
+    var hardlinkURLsForAllAttachments: [URL]? {
+        message?.fyleMessageJoinWithStatuses
+            .compactMap({ cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: ($0 as FyleMessageJoinWithStatus).typedObjectID) })
+            .compactMap({ $0.hardlinkURL })
+    }
+
     var infoViewController: UIViewController? {
         guard let message = message else { return nil }
         guard message.infoActionCanBeMadeAvailable == true else { return nil }

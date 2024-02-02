@@ -168,7 +168,7 @@ public struct BackupSeed: LosslessStringConvertible, CustomStringConvertible, Eq
 public struct DerivedKeysForBackup: Equatable {
     
     // Warning: Adding a local var requires updating the method required in order to implement Equatable
-    public let backupKeyUid: UID
+    public let backupKeyUid: UID // Not used for testing equality (due to a bug in the Android version  of the app)
     public let publicKeyForEncryption: PublicKeyForPublicKeyEncryption
     public let privateKeyForEncryption: PrivateKeyForPublicKeyEncryption?
     public let macKey: MACKey
@@ -195,7 +195,7 @@ public struct DerivedKeysForBackup: Equatable {
     }
     
     public static func == (lhs: DerivedKeysForBackup, rhs: DerivedKeysForBackup) -> Bool {
-        guard lhs.backupKeyUid == rhs.backupKeyUid else { return false }
+        // We do *not* test the equality of the backupKeyUid (due to a bug in the Android version  of the app)
         guard lhs.publicKeyForEncryption.getCompactKey() == rhs.publicKeyForEncryption.getCompactKey() else { return false }
         guard lhs.macKey.data == rhs.macKey.data else { return false }
         return true

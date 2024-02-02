@@ -33,6 +33,7 @@ enum ObvDeepLinkHost: CaseIterable {
     case requestRecordPermission
     case settings
     case backupSettings
+    case voipSettings
     case privacySettings
     case message
     case allGroups
@@ -67,6 +68,7 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
     case settings
     case backupSettings
     case privacySettings
+    case voipSettings
     case message(ownedCryptoId: ObvCryptoId, objectPermanentID: ObvManagedObjectPermanentID<PersistedMessage>)
     case allGroups(ownedCryptoId: ObvCryptoId)
 
@@ -97,6 +99,8 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
         case .settings:
             return host.name
         case .backupSettings:
+            return host.name
+        case .voipSettings:
             return host.name
         case .privacySettings:
             return host.name
@@ -159,6 +163,8 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
             self = .settings
         case .backupSettings:
             self = .backupSettings
+        case .voipSettings:
+            self = .voipSettings
         case .privacySettings:
             self = .privacySettings
         case .message:
@@ -187,6 +193,7 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
         case .requestRecordPermission: return .requestRecordPermission
         case .settings: return .settings
         case .backupSettings: return .backupSettings
+        case .voipSettings: return .voipSettings
         case .privacySettings: return .privacySettings
         case .message: return .message
         case .allGroups: return .allGroups
@@ -219,6 +226,8 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
         case .settings:
             return nil
         case .backupSettings:
+            return nil
+        case .voipSettings:
             return nil
         case .privacySettings:
             return nil

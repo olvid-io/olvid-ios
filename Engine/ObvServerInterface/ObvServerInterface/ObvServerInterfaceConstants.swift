@@ -21,6 +21,6 @@ import Foundation
 
 public struct ObvServerInterfaceConstants {
     
-    public static let serverAPIVersion = 13
+    public static let serverAPIVersion = 15
     
 }

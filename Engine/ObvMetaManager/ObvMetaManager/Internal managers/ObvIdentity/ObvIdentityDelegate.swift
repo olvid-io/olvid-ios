@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,7 +23,8 @@ import ObvTypes
 import OlvidUtils
 import JWS
 
-public protocol ObvIdentityDelegate: ObvBackupableManager {
+public protocol 
+ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     
     
     // MARK: - API related to owned identities
@@ -38,24 +39,28 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func isOwnedIdentityActive(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> Bool
 
-    func deactivateOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within: ObvContext) throws
+    func deactivateOwnedIdentityAndDeleteContactDevices(ownedIdentity: ObvCryptoIdentity, within: ObvContext) throws
 
     func reactivateOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within: ObvContext) throws
 
-    func generateOwnedIdentity(withApiKey: UUID, onServerURL: URL, with: ObvIdentityDetails, accordingTo: PublicKeyEncryptionImplementationByteId, and: AuthenticationImplementationByteId, keycloakState: ObvKeycloakState?, using: PRNGService, within: ObvContext) -> ObvCryptoIdentity?
-    
-    func getApiKeyOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> UUID
-
-    func setAPIKey(_ apiKey: UUID, forOwnedIdentity identity: ObvCryptoIdentity, keycloakServerURL: URL?, within obvContext: ObvContext) throws
+    func generateOwnedIdentity(onServerURL serverURL: URL, with identityDetails: ObvIdentityDetails, accordingTo pkEncryptionImplemByteId: PublicKeyEncryptionImplementationByteId, and authEmplemByteId: AuthenticationImplementationByteId, nameForCurrentDevice: String, keycloakState: ObvKeycloakState?, using prng: PRNGService, within obvContext: ObvContext) -> ObvCryptoIdentity?
 
     // Implemented within ObvIdentityDelegateExtension.swift
-    func generateOwnedIdentity(withApiKey: UUID, onServerURL: URL, with: ObvIdentityDetails, keycloakState: ObvKeycloakState?, using: PRNGService, within: ObvContext) -> ObvCryptoIdentity?
+    func generateOwnedIdentity(onServerURL serverURL: URL, with identityDetails: ObvIdentityDetails, nameForCurrentDevice: String, keycloakState: ObvKeycloakState?, using prng: PRNGService, within obvContext: ObvContext) -> ObvCryptoIdentity?
     
     func markOwnedIdentityForDeletion(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws
     
     func deleteOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws
 
     func getOwnedIdentities(within: ObvContext) throws -> Set<ObvCryptoIdentity>
+    
+    func getActiveOwnedIdentitiesAndCurrentDeviceName(within obvContext: ObvContext) throws -> [ObvCryptoIdentity: String?]
+    
+    func getActiveOwnedIdentitiesThatAreNotKeycloakManaged(within: ObvContext) throws -> Set<ObvCryptoIdentity>
+    
+    func saveRegisteredKeycloakAPIKey(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, within obvContext: ObvContext) throws
+
+    func getRegisteredKeycloakAPIKey(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID?
 
     func getOwnedIdentitiesAndCurrentDeviceUids(within obvContext: ObvContext) throws -> [(ownedCryptoIdentity: ObvCryptoIdentity, currentDeviceUid: UID)]
 
@@ -71,9 +76,14 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func updatePublishedIdentityDetailsOfOwnedIdentity(_ identity: ObvCryptoIdentity, with newIdentityDetails: ObvIdentityDetails, within obvContext: ObvContext) throws
 
+    /// Returns `true` iff a new photo needs to be downloaded
+    func updateOwnedPublishedDetailsWithOtherDetailsIfNewer(_ ownedIdentity: ObvCryptoIdentity, with otherIdentityDetails: IdentityDetailsElements, within obvContext: ObvContext) throws -> Bool
+
     func getDeterministicSeedForOwnedIdentity(_: ObvCryptoIdentity, diversifiedUsing: Data, within: ObvContext) throws -> Seed
     
-    func getFreshMaskingUIDForPushNotifications(for: ObvCryptoIdentity, within: ObvContext) throws -> UID
+    func getDeterministicSeed(diversifiedUsing data: Data, secretMACKey: MACKey, forProtocol seedProtocol: ObvConstants.SeedProtocol) throws -> Seed
+
+    func getFreshMaskingUIDForPushNotifications(for identity: ObvCryptoIdentity, pushToken: Data, within obvContext: ObvContext) throws -> UID
 
     func getOwnedIdentityAssociatedToMaskingUID(_ maskingUID: UID, within obvContext: ObvContext) throws -> ObvCryptoIdentity?
     
@@ -88,7 +98,7 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func createContactGroupV2AdministratedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, serializedGroupCoreDetails: Data, photoURL: URL?, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, within obvContext: ObvContext) throws -> (groupIdentifier: GroupV2.Identifier, groupAdminServerAuthenticationPublicKey: PublicKeyForAuthentication, serverPhotoInfo: GroupV2.ServerPhotoInfo?, encryptedServerBlob: EncryptedData, photoURL: URL?)
     
-    func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverBlob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys, within obvContext: ObvContext) throws
+    func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverBlob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys, createdByMeOnOtherDevice: Bool, within obvContext: ObvContext) throws
 
     func removeOtherMembersOrPendingMembersFromGroupV2(withGroupIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, identitiesToRemove: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws
 
@@ -130,6 +140,8 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func getAllGroupsV2IdentifierVersionAndKeysForContact(_ contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [GroupV2.IdentifierVersionAndKeys]
 
+    func getAllGroupsV2IdentifierVersionAndKeys(ofOwnedIdentity ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [GroupV2.IdentifierVersionAndKeys]
+
     func getAllNonPendingAdministratorsIdentitiesOfGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
     
     
@@ -141,6 +153,8 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     
     func getIdentifiersOfAllKeycloakGroupsWhereContactIsPending(ownedCryptoId: ObvCryptoIdentity, contactCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<GroupV2.Identifier>
         
+    func getAllKeycloakContactsThatArePendingInSomeKeycloakGroup(within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<ObvCryptoIdentity>]
+
     // MARK: - API related to keycloak management
 
     func isOwnedIdentityKeycloakManaged(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
@@ -159,8 +173,8 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func setOwnedIdentityKeycloakUserId(ownedIdentity: ObvCryptoIdentity, keycloakUserId userId: String?, within obvContext: ObvContext) throws
 
-    /// This method binds an owned identity to a keycloak server. It returns a set of all the identities that are managed by the same keycloak server than the owned identity.
-    func bindOwnedIdentityToKeycloak(ownedCryptoIdentity: ObvCryptoIdentity, keycloakUserId userId: String, keycloakState: ObvKeycloakState, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
+    /// This method binds an owned identity to a keycloak server. Upon context save, it notifies about the set of all the identities that are managed by the same keycloak server than the owned identity.
+    func bindOwnedIdentityToKeycloak(ownedCryptoIdentity: ObvCryptoIdentity, keycloakUserId userId: String, keycloakState: ObvKeycloakState, within obvContext: ObvContext) throws
 
     // This method unbinds the owned identity from any keycloak server and creates new published details for this identity using the currently published details, after removing any signed details.
     func unbindOwnedIdentityFromKeycloak(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
@@ -194,7 +208,9 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     
     func getOtherDeviceUidsOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> Set<UID>
 
-    func addDeviceForOwnedIdentity(_: ObvCryptoIdentity, withUid: UID, within: ObvContext) throws
+    func addOtherDeviceForOwnedIdentity(_: ObvCryptoIdentity, withUid: UID, createdDuringChannelCreation: Bool, within: ObvContext) throws
+
+    func removeOtherDeviceForOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, otherDeviceUid: UID, within obvContext: ObvContext) throws
 
     /// This method throws if the identity is not an owned identity. Otherwise it returns `true` iff the UID passed corresponds to the UID of a remote device of the owned identity.
     func isDevice(withUid: UID, aRemoteDeviceOfOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> Bool
@@ -203,18 +219,29 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func deleteAllDevicesOfContactIdentity(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
 
+    func processEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
     
+    func decryptEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> OwnedDeviceDiscoveryResult
+    
+    func decryptProtocolCiphertext(_ ciphertext: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Data
+
+    func getInfosAboutOwnedDevice(withUid uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (name: String?, expirationDate: Date?, latestRegistrationDate: Date?)
+    
+    func setCurrentDeviceNameOfOwnedIdentityAfterBackupRestore(ownedCryptoIdentity: ObvCryptoIdentity, nameForCurrentDevice: String, within obvContext: ObvContext) throws
+
     // MARK: - API related to contact identities
     
     func addContactIdentity(_: ObvCryptoIdentity, with: ObvIdentityCoreDetails, andTrustOrigin: TrustOrigin, forOwnedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within: ObvContext) throws
 
-    func addTrustOriginIfTrustWouldBeIncreased(_: TrustOrigin, toContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within: ObvContext) throws
+    func addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(_: TrustOrigin, toContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws
     
     func getTrustOrigins(forContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> [TrustOrigin]
     
     func getTrustLevel(forContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> TrustLevel
     
     func getContactsOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> Set<ObvCryptoIdentity>
+    
+    func getContactsWithNoDeviceOfOwnedIdentity(_ ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity>
     
     /// This method throws if the second identity is not an owned identity or if the first identity is not a contact of that owned identity. Otherwise it returns the display name of the contact identity.
     func getIdentityDetailsOfContactIdentity(_: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> (publishedIdentityDetails: ObvIdentityDetails?, trustedIdentityDetails: ObvIdentityDetails)
@@ -233,10 +260,13 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     
     func deleteContactIdentity(_: ObvCryptoIdentity, forOwnedIdentity: ObvCryptoIdentity, failIfContactIsPartOfACommonGroup: Bool, within: ObvContext) throws
     
+    func getDateOfLastBootstrappedContactDeviceDiscovery(forContactCryptoId contactCryptoId: ObvCryptoIdentity, ofOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Date
+
+    func setDateOfLastBootstrappedContactDeviceDiscovery(forContactCryptoId contactCryptoId: ObvCryptoIdentity, ofOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, to newDate: Date, within obvContext: ObvContext) throws
     
     // MARK: - API related to contact devices
     
-    func addDeviceForContactIdentity(_: ObvCryptoIdentity, withUid: UID, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws
+    func addDeviceForContactIdentity(_: ObvCryptoIdentity, withUid: UID, ofOwnedIdentity: ObvCryptoIdentity, createdDuringChannelCreation: Bool, within: ObvContext) throws
     
     func removeDeviceForContactIdentity(_: ObvCryptoIdentity, withUid: UID, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws
     
@@ -245,9 +275,8 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     /// This method throws if the second identity is not an owned identity or if the first identity is not a contact of that owned identity. Otherwise it returns `true` iff the UID passed corresponds to the UID of contact device of the contact identity.
     func isDevice(withUid: UID, aDeviceOfContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> Bool
 
-    /// This method returns an array of all the device uids known within the identity manager. This includes *both* owned device and contact devices.
+    /// This method returns a set of all the device uids known within the identity manager. This includes *both* owned device and contact devices.
     func getAllRemoteOwnedDevicesUidsAndContactDeviceUids(within: ObvContext) throws -> Set<ObliviousChannelIdentifier>
-    
     
     // MARK: - API related to contact groups
     
@@ -284,6 +313,8 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     func discardLatestDetailsOfContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, within obvContext: ObvContext) throws
 
     func publishLatestDetailsOfContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, within obvContext: ObvContext) throws
+
+    func updatePendingMembersAndGroupMembersOfContactGroupOwned(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupMembers: Set<CryptoIdentityWithCoreDetails>, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, groupMembersVersion: Int, within obvContext: ObvContext) throws
 
     func updatePendingMembersAndGroupMembersOfContactGroupJoined(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, groupMembers: Set<CryptoIdentityWithCoreDetails>, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, groupMembersVersion: Int, within obvContext: ObvContext) throws
 
@@ -346,6 +377,10 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
     func setCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, newCapabilities: Set<ObvCapability>, within obvContext: ObvContext) throws
     
     func setRawCapabilitiesOfOtherDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, deviceUID: UID, newRawCapabilities: Set<String>, within obvContext: ObvContext) throws
+    
+    // MARK: - API related to sync between owned devices
+    
+    func processSyncAtom(_ syncAtom: ObvSyncAtom, ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
 
     // MARK: - User Data
 
@@ -357,4 +392,18 @@ public protocol ObvIdentityDelegate: ObvBackupableManager {
 
     func updateUserDataNextRefreshTimestamp(for ownedIdentity: ObvCryptoIdentity, with label: UID, within obvContext: ObvContext)
 
+    // MARK: - Getting informations about missing photos
+
+    func getInformationsAboutContactsWithMissingContactPictureOnDisk(within obvContext: ObvContext) throws -> [(ownedCryptoId: ObvCryptoIdentity, contactCryptoId: ObvCryptoIdentity, contactIdentityDetailsElements: IdentityDetailsElements)]
+
+    func getInformationsAboutOwnedIdentitiesWithMissingPictureOnDisk(within obvContext: ObvContext) throws -> [(ownedCryptoId: ObvCryptoIdentity, ownedIdentityDetailsElements: IdentityDetailsElements)]
+
+    func getInformationsAboutGroupsV1WithMissingContactPictureOnDisk(within obvContext: ObvContext) throws -> [(ownedIdentity: ObvCryptoIdentity, groupInfo: GroupInformation)]
+
+    func getInformationsAboutGroupsV2WithMissingContactPictureOnDisk(within obvContext: ObvContext) throws -> [(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo)]
+
+    // MARK: - Restoring snapshots
+    
+    func restoreObvSyncSnapshotNode(_ syncSnapshotNode: any ObvSyncSnapshotNode, customDeviceName: String, within obvContext: ObvContext) throws
+    
 }

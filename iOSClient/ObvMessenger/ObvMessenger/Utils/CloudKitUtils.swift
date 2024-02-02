@@ -87,17 +87,24 @@ final class CloudKitBackupRecordIterator: AsyncIteratorProtocol {
 
         return try await withCheckedThrowingContinuation { cont in
             @Atomic var records: [CKRecord] = []
-            op.recordFetchedBlock = { record in
-                records += [record]
+            op.recordMatchedBlock = { (_, result) in
+                switch result {
+                case .success(let record):
+                    records += [record]
+                case .failure(let error):
+                    assertionFailure(error.localizedDescription)
+                }
             }
-            op.queryCompletionBlock = { cursor, error in
-                if let error = error {
+            op.queryResultBlock = { result in
+                switch result {
+                case .failure(let error):
                     cont.resume(throwing: error)
                     return
+                case .success(let cursor):
+                    self.cursor = cursor
+                    self.hasNext = self.cursor != nil
+                    cont.resume(returning: records)
                 }
-                self.cursor = cursor
-                self.hasNext = self.cursor != nil
-                cont.resume(returning: records)
             }
             self.database.add(op)
         }

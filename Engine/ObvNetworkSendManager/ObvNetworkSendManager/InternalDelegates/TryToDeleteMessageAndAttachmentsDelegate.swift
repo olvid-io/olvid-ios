@@ -24,6 +24,6 @@ import OlvidUtils
 
 protocol TryToDeleteMessageAndAttachmentsDelegate {
     
-    func tryToDeleteMessageAndAttachments(messageId: MessageIdentifier, flowId: FlowIdentifier)
+    func tryToDeleteMessageAndAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     
 }

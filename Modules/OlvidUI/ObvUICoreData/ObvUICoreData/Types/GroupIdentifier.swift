@@ -28,6 +28,6 @@ public enum GroupIdentifierBasedOnObjectID {
 }
 
 public enum GroupIdentifier {
-    case groupV1(groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId))
-    case groupV2(groupV2Identifier: Data)
+    case groupV1(groupV1Identifier: GroupV1Identifier)
+    case groupV2(groupV2Identifier: GroupV2Identifier)
 }

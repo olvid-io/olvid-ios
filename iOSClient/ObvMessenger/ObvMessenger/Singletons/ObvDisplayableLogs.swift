@@ -19,6 +19,8 @@
 
 import Foundation
 import ObvUICoreData
+import ObvSettings
+
 
 final class ObvDisplayableLogs {
 
@@ -47,22 +49,20 @@ final class ObvDisplayableLogs {
         let now = Date()
         let dateFormatterForLog = self.dateFormatterForLog
         let dateFormatterForFilename = self.dateFormatterForFilename
-        if #available(iOS 13.4, *) {
-            let logURL = self.logURL
-            internalQueue.async {
-                guard let data = dateFormatterForLog.string(from: now).appending(" - ").appending(string).appending("\n").data(using: .utf8) else { return }
+        let logURL = self.logURL
+        internalQueue.async {
+            guard let data = dateFormatterForLog.string(from: now).appending(" - ").appending(string).appending("\n").data(using: .utf8) else { return }
+            if let fh = try? FileHandle(forWritingTo: logURL) {
+                defer { try? fh.close() }
+                _ = try? fh.seekToEnd()
+                fh.write(data)
+            } else {
+                guard let firstline = dateFormatterForFilename.string(from: now).appending("\n").data(using: .utf8) else { return }
+                try? firstline.write(to: logURL)
                 if let fh = try? FileHandle(forWritingTo: logURL) {
                     defer { try? fh.close() }
                     _ = try? fh.seekToEnd()
                     fh.write(data)
-                } else {
-                    guard let firstline = dateFormatterForFilename.string(from: now).appending("\n").data(using: .utf8) else { return }
-                    try? firstline.write(to: logURL)
-                    if let fh = try? FileHandle(forWritingTo: logURL) {
-                        defer { try? fh.close() }
-                        _ = try? fh.seekToEnd()
-                        fh.write(data)
-                    }
                 }
             }
         }

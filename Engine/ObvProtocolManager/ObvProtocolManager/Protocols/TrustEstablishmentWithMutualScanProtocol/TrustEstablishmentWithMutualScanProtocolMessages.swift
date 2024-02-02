@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,19 +26,20 @@ import ObvTypes
 extension TrustEstablishmentWithMutualScanProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
-        case Initial = 0
-        case AliceSendsSignatureToBob = 1
-        case AlicePropagatesQRCode = 2
-        case BobSendsConfirmationAndDetailsToAlice = 3
-        case BobPropagatesSignature = 4
+        
+        case initial = 0
+        case aliceSendsSignatureToBob = 1
+        case alicePropagatesQRCode = 2
+        case bobSendsConfirmationAndDetailsToAlice = 3
+        case bobPropagatesSignature = 4
 
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .Initial                               : return InitialMessage.self
-            case .AliceSendsSignatureToBob              : return AliceSendsSignatureToBobMessage.self
-            case .AlicePropagatesQRCode                 : return AlicePropagatesQRCodeMessage.self
-            case .BobSendsConfirmationAndDetailsToAlice : return BobSendsConfirmationAndDetailsToAliceMessage.self
-            case .BobPropagatesSignature                : return BobPropagatesSignatureMessage.self
+            case .initial                               : return InitialMessage.self
+            case .aliceSendsSignatureToBob              : return AliceSendsSignatureToBobMessage.self
+            case .alicePropagatesQRCode                 : return AlicePropagatesQRCodeMessage.self
+            case .bobSendsConfirmationAndDetailsToAlice : return BobSendsConfirmationAndDetailsToAliceMessage.self
+            case .bobPropagatesSignature                : return BobPropagatesSignatureMessage.self
             }
         }
 
@@ -49,7 +50,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
     struct InitialMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.Initial
+        let id: ConcreteProtocolMessageId = MessageId.initial
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -81,7 +82,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
     struct AliceSendsSignatureToBobMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.AliceSendsSignatureToBob
+        let id: ConcreteProtocolMessageId = MessageId.aliceSendsSignatureToBob
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -127,7 +128,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
     struct AlicePropagatesQRCodeMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.AlicePropagatesQRCode
+        let id: ConcreteProtocolMessageId = MessageId.alicePropagatesQRCode
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -159,7 +160,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
     struct BobSendsConfirmationAndDetailsToAliceMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.BobSendsConfirmationAndDetailsToAlice
+        let id: ConcreteProtocolMessageId = MessageId.bobSendsConfirmationAndDetailsToAlice
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -195,7 +196,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
     struct BobPropagatesSignatureMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.BobPropagatesSignature
+        let id: ConcreteProtocolMessageId = MessageId.bobPropagatesSignature
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message

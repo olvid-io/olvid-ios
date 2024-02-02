@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -69,19 +69,16 @@ public protocol LocalizedErrorWithLogType: LocalizedError {
 public enum CoreDataOperationReasonForCancel: LocalizedErrorWithLogType {
     
     case coreDataError(error: Error)
-    case contextIsNil
 
     public var logType: OSLogType {
         switch self {
-        case .coreDataError, .contextIsNil:
+        case .coreDataError:
             return .fault
         }
     }
 
     public var errorDescription: String? {
         switch self {
-        case .contextIsNil:
-            return "Context is nil"
         case .coreDataError(error: let error):
             return "Core Data error: \(error.localizedDescription)"
         }

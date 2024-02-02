@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,8 @@ import ObvEngine
 import OlvidUtils
 import ObvCrypto
 import ObvTypes
+import ObvSettings
+
 
 
 @objc(PersistedOneToOneDiscussion)
@@ -61,10 +63,21 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
         ObvManagedObjectPermanentID<PersistedOneToOneDiscussion>(uuid: self.permanentUUID)
     }
 
+    public var oneToOneIdentifier: OneToOneIdentifierJSON {
+        get throws {
+            guard let ownedCryptoId = ownedIdentity?.cryptoId else {
+                throw Self.makeError(message: "Could not get ownedCryptoId")
+            }
+            guard let contactCryptoId = contactIdentity?.cryptoId else {
+                throw Self.makeError(message: "Could not get contactCryptoId")
+            }
+            return OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
+        }
+    }
 
     // MARK: - Initializer
     
-    public convenience init(contactIdentity: PersistedObvContactIdentity, status: Status, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil, permanentUUIDToKeep: UUID? = nil, draftToKeep: PersistedDraft? = nil, pinnedIndexToKeep: Int? = nil, timestampOfLastMessageToKeep: Date? = nil) throws {
+    private convenience init(contactIdentity: PersistedObvContactIdentity, status: Status) throws {
         guard let ownedIdentity = contactIdentity.ownedIdentity else {
             os_log("Could not find owned identity. This is ok if it was just deleted.", log: PersistedOneToOneDiscussion.log, type: .error)
             throw Self.makeError(message: "Could not find owned identity. This is ok if it was just deleted.")
@@ -73,18 +86,18 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
                       ownedIdentity: ownedIdentity,
                       forEntityName: PersistedOneToOneDiscussion.entityName,
                       status: status,
-                      shouldApplySharedConfigurationFromGlobalSettings: true,
-                      sharedConfigurationToKeep: sharedConfigurationToKeep,
-                      localConfigurationToKeep: localConfigurationToKeep,
-                      permanentUUIDToKeep: permanentUUIDToKeep,
-                      draftToKeep: draftToKeep,
-                      pinnedIndexToKeep: pinnedIndexToKeep,
-                      timestampOfLastMessageToKeep: timestampOfLastMessageToKeep)
+                      shouldApplySharedConfigurationFromGlobalSettings: true)
 
         self.contactIdentity = contactIdentity
 
-        try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: timestampOfLastMessageToKeep ?? Date())
+        try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: Date())
 
+    }
+    
+    
+    static func createPersistedOneToOneDiscussion(for contactIdentity: PersistedObvContactIdentity, status: Status) throws -> PersistedOneToOneDiscussion  {
+        let oneToOneDiscussion = try self.init(contactIdentity: contactIdentity, status: status)
+        return oneToOneDiscussion
     }
     
     
@@ -103,6 +116,7 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
         if newStatus == .locked {
             _ = try PersistedMessageSystem(.contactWasDeleted,
                                            optionalContactIdentity: nil,
+                                           optionalOwnedCryptoId: nil,
                                            optionalCallLogItem: nil,
                                            discussion: self,
                                            timestamp: Date())
@@ -122,6 +136,285 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
         }
     }
         
+    
+    // MARK: - Receiving discussion shared configurations
+    
+    /// Called when receiving a shared configuration from a contact. Returns `true` iff the shared configuration had to be updated.
+    ///
+    /// Since a contact of a OneToOne discussion is always allowed to change the shared configuration, no particular check is made here, and we can call the super implementation.
+    func mergeDiscussionSharedConfiguration(discussionSharedConfiguration: SharedConfiguration, receivedFrom contact: PersistedObvContactIdentity) throws -> (sharedSettingHadToBeUpdated: Bool, weShouldSendBackOurSharedSettings: Bool) {
+        
+        guard self.contactIdentity == contact else {
+            throw ObvError.unexpectedContact
+        }
+        
+        let (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettingsIfAllowedTo) = try super.mergeReceivedDiscussionSharedConfiguration(discussionSharedConfiguration)
+        
+        // We are always allowed to change the settings of a oneToOne discussion
+        let weShouldSendBackOurSharedSettings = weShouldSendBackOurSharedSettingsIfAllowedTo
+        
+        return (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettings)
+        
+    }
+    
+    
+    /// Called when receiving a ``DiscussionSharedConfigurationJSON`` from an owned identity. Returns `true` iff the shared configuration had to be updated.
+    ///
+    /// Since an owned identiy of a OneToOne discussion is always allowed to change the shared configuration, no particular check is made here, and we can call the super implementation.
+    func mergeDiscussionSharedConfiguration(discussionSharedConfiguration: SharedConfiguration, receivedFrom ownedIdentity: PersistedObvOwnedIdentity) throws -> (sharedSettingHadToBeUpdated: Bool, weShouldSendBackOurSharedSettings: Bool) {
+    
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+        
+        let (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettingsIfAllowedTo) = try super.mergeReceivedDiscussionSharedConfiguration(discussionSharedConfiguration)
+
+        // We are always allowed to change the settings of a oneToOne discussion
+        let weShouldSendBackOurSharedSettings = weShouldSendBackOurSharedSettingsIfAllowedTo
+
+        return (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettings)
+        
+    }
+    
+    
+    /// Called when an owned identity decided to change this discussion's shared configuration from the current device.
+    func replaceDiscussionSharedConfiguration(with expiration: ExpirationJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity) throws -> Bool {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+
+        let sharedSettingHadToBeUpdated = try super.replaceReceivedDiscussionSharedConfiguration(with: expiration)
+        
+        return sharedSettingHadToBeUpdated
+
+    }
+    
+    
+    // MARK: - Processing wipe requests
+
+    func processWipeMessageRequest(of messagesToDelete: [MessageReferenceJSON], receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> [InfoAboutWipedOrDeletedPersistedMessage] {
+        
+        guard self.contactIdentity == contact else {
+            throw ObvError.unexpectedContact
+        }
+        
+        let infos = try super.processWipeMessageRequest(of: messagesToDelete, from: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return infos
+                            
+    }
+    
+    
+    func processWipeMessageRequest(of messagesToDelete: [MessageReferenceJSON], receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> [InfoAboutWipedOrDeletedPersistedMessage] {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+        
+        let infos = try super.processWipeMessageRequest(of: messagesToDelete, from: ownedIdentity.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+        return infos
+                            
+    }
+    
+    
+    // MARK: - Processing discussion (all messages) wipe requests
+
+    
+    override func processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws {
+        
+        guard self.contactIdentity == contact else {
+            throw ObvError.unexpectedContact
+        }
+
+        try super.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+    }
+
+    
+    override func processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+
+        try super.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+    }
+
+    
+    // MARK: - Processing delete requests from the owned identity
+
+    override func processMessageDeletionRequestRequestedFromCurrentDevice(of ownedIdentity: PersistedObvOwnedIdentity, messageToDelete: PersistedMessage, deletionType: DeletionType) throws -> InfoAboutWipedOrDeletedPersistedMessage {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+
+        let info = try super.processMessageDeletionRequestRequestedFromCurrentDevice(of: ownedIdentity, messageToDelete: messageToDelete, deletionType: deletionType)
+        
+        return info
+        
+    }
+
+    
+    override func processDiscussionDeletionRequestFromCurrentDevice(of ownedIdentity: PersistedObvOwnedIdentity, deletionType: DeletionType) throws {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+
+        try super.processDiscussionDeletionRequestFromCurrentDevice(of: ownedIdentity, deletionType: deletionType)
+        
+    }
+
+    
+    // MARK: - Receiving messages and attachments from a contact or another owned device
+
+    override func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, attachmentFullyReceivedOrCancelledByServer: [ObvAttachment]) {
+        
+        guard self.contactIdentity == contact else {
+            throw ObvError.unexpectedContact
+        }
+        
+        return try super.createOrOverridePersistedMessageReceived(
+            from: contact,
+            obvMessage: obvMessage,
+            messageJSON: messageJSON,
+            returnReceiptJSON: returnReceiptJSON,
+            overridePreviousPersistedMessage: overridePreviousPersistedMessage)
+        
+    }
+    
+    
+    override func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> [ObvOwnedAttachment] {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedContact
+        }
+
+        let attachmentFullyReceivedOrCancelledByServer = try super.createPersistedMessageSentFromOtherOwnedDevice(
+            from: ownedIdentity,
+            obvOwnedMessage: obvOwnedMessage,
+            messageJSON: messageJSON,
+            returnReceiptJSON: returnReceiptJSON)
+        
+        return attachmentFullyReceivedOrCancelledByServer
+
+        
+    }
+    
+    
+    // MARK: - Processing edit requests
+
+    func processUpdateMessageRequest(_ updateMessageJSON: UpdateMessageJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        guard self.contactIdentity == contact else {
+            throw ObvError.unexpectedContact
+        }
+
+        let updatedMessage = try super.processUpdateMessageRequest(updateMessageJSON, receivedFromContactCryptoId: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return updatedMessage
+        
+    }
+
+    
+    func processUpdateMessageRequest(_ updateMessageJSON: UpdateMessageJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        let updatedMessage = try super.processUpdateMessageRequest(updateMessageJSON, receivedFromOwnedCryptoId: ownedIdentity.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return updatedMessage
+        
+    }
+    
+    
+    override func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: String?) throws {
+
+        try super.processLocalUpdateMessageRequest(from: ownedIdentity, for: messageSent, newTextBody: newTextBody)
+        
+    }
+
+
+    // MARK: - Process reaction requests
+
+    override func processSetOrUpdateReactionOnMessageLocalRequest(from ownedIdentity: PersistedObvOwnedIdentity, for message: PersistedMessage, newEmoji: String?) throws {
+        
+        try super.processSetOrUpdateReactionOnMessageLocalRequest(from: ownedIdentity, for: message, newEmoji: newEmoji)
+
+    }
+
+    
+    override func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        guard self.contactIdentity == contact else {
+            throw ObvError.unexpectedContact
+        }
+
+        let updatedMessage = try super.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return updatedMessage
+        
+    }
+    
+    
+    override func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+
+        let updatedMessage = try super.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return updatedMessage
+        
+    }
+
+    
+    // MARK: - Process screen capture detections
+
+    override func processDetectionThatSensitiveMessagesWereCaptured(_ screenCaptureDetectionJSON: ScreenCaptureDetectionJSON, from contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws {
+        
+        guard self.contactIdentity == contact else {
+            throw ObvError.unexpectedContact
+        }
+
+        try super.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+    }
+
+    
+    override func processDetectionThatSensitiveMessagesWereCaptured(_ screenCaptureDetectionJSON: ScreenCaptureDetectionJSON, from ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+
+        try super.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+    }
+
+    
+    override func processLocalDetectionThatSensitiveMessagesWereCapturedInThisDiscussion(by ownedIdentity: PersistedObvOwnedIdentity) throws {
+        
+        try super.processLocalDetectionThatSensitiveMessagesWereCapturedInThisDiscussion(by: ownedIdentity)
+        
+    }
+ 
+    
+    // MARK: - Inserting system messages within discussions
+
+    func oneToOneContactWasIntroducedTo(otherContact: PersistedObvContactIdentity) throws {
+        
+        guard otherContact.ownedIdentity == self.ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+        
+        try PersistedMessageSystem.insertContactWasIntroducedToAnotherContact(within: self, otherContact: otherContact)
+        
+    }
+
 }
 
 
@@ -147,6 +440,9 @@ extension PersistedOneToOneDiscussion {
         static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedOneToOneDiscussion>) -> NSPredicate {
             PersistedDiscussion.Predicate.withPermanentID(permanentID.downcast)
         }
+        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+            PersistedDiscussion.Predicate.persistedDiscussion(withObjectID: objectID)
+        }
     }
     
     
@@ -154,6 +450,21 @@ extension PersistedOneToOneDiscussion {
         return NSFetchRequest<PersistedOneToOneDiscussion>(entityName: PersistedOneToOneDiscussion.entityName)
     }
     
+    
+    /// Fetches the `PersistedOneToOneDiscussion` on the basis of the `oneToOneIdentifier` of the discussion (which, for now, corresponds to the identity of the contact).
+    public static func fetchPersistedOneToOneDiscussion(oneToOneIdentifier: OneToOneIdentifierJSON, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> PersistedOneToOneDiscussion? {
+        guard let contactCryptoId = oneToOneIdentifier.getContactIdentity(ownedIdentity: ownedCryptoId) else {
+            throw ObvError.inconsistentOneToOneIdentifier
+        }
+        let request: NSFetchRequest<PersistedOneToOneDiscussion> = PersistedOneToOneDiscussion.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+            Predicate.withContactCryptoId(contactCryptoId),
+        ])
+        request.fetchLimit = 1
+        return (try context.fetch(request)).first
+    }
+
     
     /// Returns a `NSFetchRequest` for all the one-tone discussions of the owned identity, sorted by the discussion title.
     public static func getFetchRequestForAllActiveOneToOneDiscussionsSortedByTitleForOwnedIdentity(with ownedCryptoId: ObvCryptoId) -> FetchRequestControllerModel<PersistedDiscussion> {
@@ -205,6 +516,61 @@ extension PersistedOneToOneDiscussion {
         return try context.fetch(request).first
     }
 
+    
+    static func getPersistedOneToOneDiscussion(ownedIdentity: PersistedObvOwnedIdentity, oneToOneDiscussionId: OneToOneDiscussionIdentifier) throws -> PersistedOneToOneDiscussion? {
+        guard let context = ownedIdentity.managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        let request: NSFetchRequest<PersistedOneToOneDiscussion> = PersistedOneToOneDiscussion.fetchRequest()
+        switch oneToOneDiscussionId {
+        case .objectID(let objectID):
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withObjectID(objectID),
+                Predicate.withOwnedCryptoId(ownedIdentity.cryptoId),
+            ])
+        case .contactCryptoId(let contactCryptoId):
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withOwnedCryptoId(ownedIdentity.cryptoId),
+                Predicate.withContactCryptoId(contactCryptoId),
+            ])
+        }
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+}
+
+
+extension PersistedOneToOneDiscussion {
+    
+    enum ObvError: Error {
+        case inconsistentOneToOneIdentifier
+        case unexpectedContact
+        case unexpectedOwnedIdentity
+        case aContactCannotWipeMessageFromLockedOrPrediscussion
+        case unexpectedDiscussionForMessageToDelete
+        case noContext
+        case unexpectedDiscussionKind
+
+        var localizedDescription: String {
+            switch self {
+            case .inconsistentOneToOneIdentifier:
+                return "Inconsitent one2one identifier"
+            case .unexpectedContact:
+                return "Unexpected contact"
+            case .unexpectedOwnedIdentity:
+                return "Unexpected owned identity"
+            case .aContactCannotWipeMessageFromLockedOrPrediscussion:
+                return "A contact cannot wipe a message from a locked or a pre-discussion"
+            case .unexpectedDiscussionForMessageToDelete:
+                return "Unexpected discussion for message to delete"
+            case .noContext:
+                return "No context"
+            case .unexpectedDiscussionKind:
+                return "Unexpected discussion kind"
+            }
+        }
+
+    }
+    
 }
 
 public extension TypeSafeManagedObjectID where T == PersistedOneToOneDiscussion {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,13 +18,16 @@
  */
 
 import Foundation
+import UniformTypeIdentifiers
+import ObvSettings
 
 
 public struct FyleElementForFyleMessageJoinWithStatus: FyleElement {
 
     public let fyleURL: URL
     public let fileName: String
-    public let uti: String
+    //public let uti: String
+    public let contentType: UTType
     public let sha256: Data
     public let fullFileIsAvailable: Bool
 
@@ -32,10 +35,10 @@ public struct FyleElementForFyleMessageJoinWithStatus: FyleElement {
     let messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>
     let fyleMessageJoinPermanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>
 
-    public init(fyleURL: URL, fileName: String, uti: String, sha256: Data, fullFileIsAvailable: Bool, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, fyleMessageJoinPermanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>) {
+    public init(fyleURL: URL, fileName: String, contentType: UTType, sha256: Data, fullFileIsAvailable: Bool, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, fyleMessageJoinPermanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>) {
         self.fyleURL = fyleURL
         self.fileName = fileName
-        self.uti = uti
+        self.contentType = contentType
         self.sha256 = sha256
         self.fullFileIsAvailable = fullFileIsAvailable
         self.discussionPermanentID = discussionPermanentID
@@ -44,29 +47,34 @@ public struct FyleElementForFyleMessageJoinWithStatus: FyleElement {
     }
 
     init?(_ fyleMessageJoinWithStatus: FyleMessageJoinWithStatus) throws {
+        
         guard let fyle = fyleMessageJoinWithStatus.fyle else { return nil }
         guard let message = fyleMessageJoinWithStatus.message else { return nil }
         let fyleURL = fyle.url
         
+        guard let discussionPermanentID = message.discussion?.discussionPermanentID else {
+            throw Self.makeError(message: "Could not find discussion")
+        }
+
         self.init(fyleURL: fyleURL,
                   fileName: fyleMessageJoinWithStatus.fileName,
-                  uti: fyleMessageJoinWithStatus.uti,
+                  contentType: fyleMessageJoinWithStatus.contentType,
                   sha256: fyle.sha256,
                   fullFileIsAvailable: fyleMessageJoinWithStatus.fullFileIsAvailable,
-                  discussionPermanentID: message.discussion.discussionPermanentID,
+                  discussionPermanentID: discussionPermanentID,
                   messagePermanentID: message.messagePermanentID,
                   fyleMessageJoinPermanentID: fyleMessageJoinWithStatus.fyleMessageJoinPermanentID)
     }
 
     public func replacingFullFileIsAvailable(with newFullFileIsAvailable: Bool) -> FyleElement {
-        FyleElementForFyleMessageJoinWithStatus(fyleURL: fyleURL,
-                                                fileName: fileName,
-                                                uti: uti,
-                                                sha256: sha256,
-                                                fullFileIsAvailable: newFullFileIsAvailable,
-                                                discussionPermanentID: discussionPermanentID,
-                                                messagePermanentID: messagePermanentID,
-                                                fyleMessageJoinPermanentID: fyleMessageJoinPermanentID)
+        Self.init(fyleURL: fyleURL,
+                  fileName: fileName,
+                  contentType: contentType,
+                  sha256: sha256,
+                  fullFileIsAvailable: newFullFileIsAvailable,
+                  discussionPermanentID: discussionPermanentID,
+                  messagePermanentID: messagePermanentID,
+                  fyleMessageJoinPermanentID: fyleMessageJoinPermanentID)
     }
 
     public static func makeError(message: String) -> Error { NSError(domain: "FyleElementForFyleMessageJoinWithStatus", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }

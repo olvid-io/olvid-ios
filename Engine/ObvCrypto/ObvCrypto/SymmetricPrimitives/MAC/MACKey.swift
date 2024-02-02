@@ -47,6 +47,13 @@ public final class MACKeyDecoder {
             return HMACWithSHA256Key(obvDictionaryOfInternalElements: obvDic)
         }
     }
+    public static func obvDecodeOrThrow(_ encodedKey: ObvEncoded) throws -> MACKey {
+        guard let key = Self.decode(encodedKey) else { assertionFailure(); throw ObvError.decodingFailed}
+        return key
+    }
+    enum ObvError: Error {
+        case decodingFailed
+    }
 }
 
 struct HMACWithSHA256Key: MACKey, Equatable {

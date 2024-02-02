@@ -23,6 +23,7 @@ import CoreData
 import ObvEngine
 import ObvUICoreData
 import ObvUI
+import ObvSettings
 
 
 class PendingGroupMembersTableViewController: UITableViewController {

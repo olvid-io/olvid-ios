@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,27 +29,29 @@ extension ContactMutualIntroductionProtocol {
 
     enum MessageId: Int, ConcreteProtocolMessageId {
         
-        case Initial = 0
-        case MediatorInvitation = 1
-        case AcceptMediatorInviteDialog = 2
-        case PropagateConfirmation = 3
-        case NotifyContactOfAcceptedInvitation = 4
-        case PropagateContactNotificationOfAcceptedInvitation = 5
-        case Ack = 6
-        case DialogInformative = 7
-        case TrustLevelIncreased = 8
+        case initial = 0
+        case mediatorInvitation = 1
+        case acceptMediatorInviteDialog = 2
+        case propagateConfirmation = 3
+        case notifyContactOfAcceptedInvitation = 4
+        case propagateContactNotificationOfAcceptedInvitation = 5
+        case ack = 6
+        case dialogInformative = 7
+        case trustLevelIncreased = 8
+        case propagatedInitial = 9
         
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .Initial                                          : return InitialMessage.self
-            case .MediatorInvitation                               : return MediatorInvitationMessage.self
-            case .AcceptMediatorInviteDialog                       : return AcceptMediatorInviteDialogMessage.self
-            case .PropagateConfirmation                            : return PropagateConfirmationMessage.self
-            case .NotifyContactOfAcceptedInvitation                : return NotifyContactOfAcceptedInvitationMessage.self
-            case .PropagateContactNotificationOfAcceptedInvitation : return PropagateContactNotificationOfAcceptedInvitationMessage.self
-            case .Ack                                              : return AckMessage.self
-            case .DialogInformative                                : return DialogInformativeMessage.self
-            case .TrustLevelIncreased                              : return TrustLevelIncreasedMessage.self
+            case .initial                                          : return InitialMessage.self
+            case .mediatorInvitation                               : return MediatorInvitationMessage.self
+            case .acceptMediatorInviteDialog                       : return AcceptMediatorInviteDialogMessage.self
+            case .propagateConfirmation                            : return PropagateConfirmationMessage.self
+            case .notifyContactOfAcceptedInvitation                : return NotifyContactOfAcceptedInvitationMessage.self
+            case .propagateContactNotificationOfAcceptedInvitation : return PropagateContactNotificationOfAcceptedInvitationMessage.self
+            case .ack                                              : return AckMessage.self
+            case .dialogInformative                                : return DialogInformativeMessage.self
+            case .trustLevelIncreased                              : return TrustLevelIncreasedMessage.self
+            case .propagatedInitial                                : return PropagatedInitialMessage.self
             }
         }
     }
@@ -59,37 +61,29 @@ extension ContactMutualIntroductionProtocol {
     
     struct InitialMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.Initial
+        let id: ConcreteProtocolMessageId = MessageId.initial
         let coreProtocolMessage: CoreProtocolMessage
 
         let contactIdentityA: ObvCryptoIdentity
-        let contactIdentityCoreDetailsA: ObvIdentityCoreDetails
         let contactIdentityB: ObvCryptoIdentity
-        let contactIdentityCoreDetailsB: ObvIdentityCoreDetails
 
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityCoreDetailsA = try! contactIdentityCoreDetailsA.jsonEncode()
-            let encodedContactIdentityCoreDetailsB = try! contactIdentityCoreDetailsB.jsonEncode()
-            return [contactIdentityA.obvEncode(), encodedContactIdentityCoreDetailsA.obvEncode(), contactIdentityB.obvEncode(), encodedContactIdentityCoreDetailsB.obvEncode()]
+            get throws {
+                return [contactIdentityA.obvEncode(), contactIdentityB.obvEncode()]
+            }
         }
         
         // Initializers
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            let encodedContactIdentityCoreDetailsA: Data
-            let encodedContactIdentityCoreDetailsB: Data
-            (contactIdentityA, encodedContactIdentityCoreDetailsA, contactIdentityB, encodedContactIdentityCoreDetailsB) = try message.encodedInputs.obvDecode()
-            self.contactIdentityCoreDetailsA = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetailsA)
-            self.contactIdentityCoreDetailsB = try ObvIdentityCoreDetails(encodedContactIdentityCoreDetailsB)
+            (contactIdentityA, contactIdentityB) = try message.encodedInputs.obvDecode()
         }
         
-        init(coreProtocolMessage: CoreProtocolMessage, contactIdentityA: ObvCryptoIdentity, contactIdentityCoreDetailsA: ObvIdentityCoreDetails, contactIdentityB: ObvCryptoIdentity, contactIdentityCoreDetailsB: ObvIdentityCoreDetails) {
+        init(coreProtocolMessage: CoreProtocolMessage, contactIdentityA: ObvCryptoIdentity, contactIdentityB: ObvCryptoIdentity) {
             self.coreProtocolMessage = coreProtocolMessage
             self.contactIdentityA = contactIdentityA
-            self.contactIdentityCoreDetailsA = contactIdentityCoreDetailsA
             self.contactIdentityB = contactIdentityB
-            self.contactIdentityCoreDetailsB = contactIdentityCoreDetailsB
         }
 
     }
@@ -99,15 +93,17 @@ extension ContactMutualIntroductionProtocol {
     
     struct MediatorInvitationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.MediatorInvitation
+        let id: ConcreteProtocolMessageId = MessageId.mediatorInvitation
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactIdentity: ObvCryptoIdentity
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
         
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.jsonEncode()
-            return [contactIdentity.obvEncode(), encodedContactIdentityDetails.obvEncode()]
+            get throws {
+                let encodedContactIdentityDetails = try contactIdentityCoreDetails.jsonEncode()
+                return [contactIdentity.obvEncode(), encodedContactIdentityDetails.obvEncode()]
+            }
         }
         
         // Initializers
@@ -132,7 +128,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct AcceptMediatorInviteDialogMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.AcceptMediatorInviteDialog
+        let id: ConcreteProtocolMessageId = MessageId.acceptMediatorInviteDialog
         let coreProtocolMessage: CoreProtocolMessage
         
         let dialogUuid: UUID // Only used when this protocol receives this message
@@ -167,7 +163,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct PropagateConfirmationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.PropagateConfirmation
+        let id: ConcreteProtocolMessageId = MessageId.propagateConfirmation
         let coreProtocolMessage: CoreProtocolMessage
 
         let invitationAccepted: Bool
@@ -176,8 +172,10 @@ extension ContactMutualIntroductionProtocol {
         let mediatorIdentity: ObvCryptoIdentity
         
         var encodedInputs: [ObvEncoded] {
-            let encodedContactIdentityDetails = try! contactIdentityCoreDetails.jsonEncode()
-            return [invitationAccepted.obvEncode(), contactIdentity.obvEncode(), encodedContactIdentityDetails.obvEncode(), mediatorIdentity.obvEncode()]
+            get throws {
+                let encodedContactIdentityDetails = try contactIdentityCoreDetails.jsonEncode()
+                return [invitationAccepted.obvEncode(), contactIdentity.obvEncode(), encodedContactIdentityDetails.obvEncode(), mediatorIdentity.obvEncode()]
+            }
         }
 
         // Initializers
@@ -204,7 +202,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct NotifyContactOfAcceptedInvitationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.NotifyContactOfAcceptedInvitation
+        let id: ConcreteProtocolMessageId = MessageId.notifyContactOfAcceptedInvitation
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactDeviceUids: [UID]
@@ -254,7 +252,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct PropagateContactNotificationOfAcceptedInvitationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.PropagateContactNotificationOfAcceptedInvitation
+        let id: ConcreteProtocolMessageId = MessageId.propagateContactNotificationOfAcceptedInvitation
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactDeviceUids: [UID]
@@ -298,7 +296,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct AckMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.Ack
+        let id: ConcreteProtocolMessageId = MessageId.ack
         let coreProtocolMessage: CoreProtocolMessage
         
         var encodedInputs: [ObvEncoded] { return [] }
@@ -321,7 +319,7 @@ extension ContactMutualIntroductionProtocol {
 
     struct DialogInformativeMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.DialogInformative
+        let id: ConcreteProtocolMessageId = MessageId.dialogInformative
         let coreProtocolMessage: CoreProtocolMessage
         
         var encodedInputs: [ObvEncoded] { return [] }
@@ -343,7 +341,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct TrustLevelIncreasedMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.TrustLevelIncreased
+        let id: ConcreteProtocolMessageId = MessageId.trustLevelIncreased
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactIdentity: ObvCryptoIdentity
@@ -370,4 +368,37 @@ extension ContactMutualIntroductionProtocol {
         }
         
     }
+    
+    
+    // MARK: - PropagatedInitialMessage
+    
+    struct PropagatedInitialMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.propagatedInitial
+        let coreProtocolMessage: CoreProtocolMessage
+
+        let contactIdentityA: ObvCryptoIdentity
+        let contactIdentityB: ObvCryptoIdentity
+
+        var encodedInputs: [ObvEncoded] {
+            get throws {
+                return [contactIdentityA.obvEncode(), contactIdentityB.obvEncode()]
+            }
+        }
+        
+        // Initializers
+
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            (contactIdentityA, contactIdentityB) = try message.encodedInputs.obvDecode()
+        }
+        
+        init(coreProtocolMessage: CoreProtocolMessage, contactIdentityA: ObvCryptoIdentity, contactIdentityB: ObvCryptoIdentity) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.contactIdentityA = contactIdentityA
+            self.contactIdentityB = contactIdentityB
+        }
+
+    }
+
 }

@@ -26,7 +26,7 @@ import ObvMetaManager
 import OlvidUtils
 
 @objc(OwnedIdentityMaskingUID)
-final class OwnedIdentityMaskingUID: NSManagedObject, ObvManagedObject {
+final class OwnedIdentityMaskingUID: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     // MARK: Internal constants
     
@@ -34,7 +34,7 @@ final class OwnedIdentityMaskingUID: NSManagedObject, ObvManagedObject {
     private static let ownedIdentityKey = "ownedIdentity"
     private static let maskingUIDKey = "maskingUID"
     
-    private static let errorDomain = "OwnedIdentityMaskingUID"
+    internal static let errorDomain = "OwnedIdentityMaskingUID"
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { NSError(domain: OwnedIdentityMaskingUID.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
@@ -61,11 +61,11 @@ final class OwnedIdentityMaskingUID: NSManagedObject, ObvManagedObject {
     
     // MARK: - Initializer
     
-    private convenience init(ownedIdentity: OwnedIdentity, prng: PRNG) throws {
+    private convenience init(ownedIdentity: OwnedIdentity, pushToken: Data) throws {
         guard let obvContext = ownedIdentity.obvContext else { throw OwnedIdentityMaskingUID.makeError(message: "Coud not find ObvContext within the owned identity instance (1)") }
         let entityDescription = NSEntityDescription.entity(forEntityName: OwnedIdentityMaskingUID.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
-        self.maskingUID = UID.gen(with: prng)
+        self.maskingUID = try Self.generateDeterministricUID(ownedCryptoId: ownedIdentity.cryptoIdentity, pushToken: pushToken)
         self.ownedIdentity = ownedIdentity
     }
     
@@ -80,7 +80,7 @@ extension OwnedIdentityMaskingUID {
     }
     
 
-    static func getOrCreate(for ownedIdentity: OwnedIdentity, prng: PRNG) throws -> UID {
+    static func getOrCreate(for ownedIdentity: OwnedIdentity, pushToken: Data) throws -> UID {
         
         guard let obvContext = ownedIdentity.obvContext else { throw makeError(message: "Could not find ObvContext within the owned identity instance") }
         
@@ -89,9 +89,13 @@ extension OwnedIdentityMaskingUID {
         request.fetchLimit = 1
         let item: OwnedIdentityMaskingUID
         if let _item = try obvContext.fetch(request).first {
+            let newMaskingUID = try generateDeterministricUID(ownedCryptoId: ownedIdentity.cryptoIdentity, pushToken: pushToken)
+            if _item.maskingUID != newMaskingUID {
+                _item.maskingUID = newMaskingUID
+            }
             item = _item
         } else {
-            item = try OwnedIdentityMaskingUID(ownedIdentity: ownedIdentity, prng: prng)
+            item = try .init(ownedIdentity: ownedIdentity, pushToken: pushToken)
         }
         return item.maskingUID
     }
@@ -105,4 +109,13 @@ extension OwnedIdentityMaskingUID {
         return item?.ownedIdentity
     }
     
+    
+    private static func generateDeterministricUID(ownedCryptoId: ObvCryptoIdentity, pushToken: Data) throws -> UID {
+        let seedData = Data([ownedCryptoId.getIdentity(), pushToken].joined())
+        guard let seed = Seed(with: seedData) else { assertionFailure(); throw Self.makeError(message: "Could not generate seed")}
+        let prng = ObvCryptoSuite.sharedInstance.concretePRNG().init(with: seed)
+        return UID.gen(with: prng)
+    }
+    
+
 }

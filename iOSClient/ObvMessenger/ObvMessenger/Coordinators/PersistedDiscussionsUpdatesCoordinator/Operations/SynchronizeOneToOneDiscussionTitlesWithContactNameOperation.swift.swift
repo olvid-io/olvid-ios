@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,36 +21,30 @@ import Foundation
 import OlvidUtils
 import os.log
 import ObvUICoreData
+import CoreData
 
 
 final class SynchronizeOneToOneDiscussionTitlesWithContactNameOperation: ContextualOperationWithSpecificReasonForCancel<SynchronizeOneToOneDiscussionTitlesWithContactNameOperationReasonForCancel> {
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SynchronizeOneToOneDiscussionTitlesWithContactNameOperation.self))
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            do {
-                let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
-                for ownedIdentity in ownedIdentities {
-                    ownedIdentity.contacts.forEach { contact in
-                        do {
-                            try contact.resetOneToOneDiscussionTitle()
-                        } catch {
-                            os_log("One of the one2one discussion title could not be reset", log: log, type: .fault)
-                            assertionFailure()
-                            // Continue anyway
-                        }
+        do {
+            let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+            for ownedIdentity in ownedIdentities {
+                ownedIdentity.contacts.forEach { contact in
+                    do {
+                        try contact.resetOneToOneDiscussionTitle()
+                    } catch {
+                        os_log("One of the one2one discussion title could not be reset", log: log, type: .fault)
+                        assertionFailure()
+                        // Continue anyway
                     }
                 }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
             }
-            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

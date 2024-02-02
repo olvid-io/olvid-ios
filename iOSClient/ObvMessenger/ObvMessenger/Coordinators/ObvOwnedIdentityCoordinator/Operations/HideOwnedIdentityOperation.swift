@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import OlvidUtils
 import os.log
 import ObvTypes
 import ObvUICoreData
+import CoreData
 
 
 final class HideOwnedIdentityOperation: ContextualOperationWithSpecificReasonForCancel<HideOwnedIdentityOperationReasonForCancel> {
@@ -36,30 +37,25 @@ final class HideOwnedIdentityOperation: ContextualOperationWithSpecificReasonFor
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
         guard password.count >= ObvMessengerConstants.minimumLengthOfPasswordForHiddenProfiles else {
             return cancel(withReason: .passwordTooShort)
         }
         
-        obvContext.performAndWait {
-            do {
-                let nonHiddenOwnedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: obvContext.context)
-                guard let ownedIdentity = nonHiddenOwnedIdentities.first(where: { $0.cryptoId == ownedCryptoId }) else {
-                    return cancel(withReason: .couldNotFindOwnedIdentity)
-                }
-                guard nonHiddenOwnedIdentities.count > 1 else {
-                    return cancel(withReason: .cannotHideTheSoleOwnedIdentity)
-                }
-                try ownedIdentity.hideProfileWithPassword(password)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            let nonHiddenOwnedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: obvContext.context)
+            guard let ownedIdentity = nonHiddenOwnedIdentities.first(where: { $0.cryptoId == ownedCryptoId }) else {
+                return cancel(withReason: .couldNotFindOwnedIdentity)
             }
+            guard nonHiddenOwnedIdentities.count > 1 else {
+                return cancel(withReason: .cannotHideTheSoleOwnedIdentity)
+            }
+            try ownedIdentity.hideProfileWithPassword(password)
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
+        
     }
 }
 

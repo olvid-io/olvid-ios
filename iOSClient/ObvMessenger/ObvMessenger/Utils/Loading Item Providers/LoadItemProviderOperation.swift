@@ -19,12 +19,14 @@
 
 import Foundation
 import MobileCoreServices
+import UniformTypeIdentifiers
 import os.log
 import UIKit
 import Contacts
 import OlvidUtils
 import ObvUI
 import ObvUICoreData
+import ObvSettings
 
 
 /// This operation takes an `itemProvider` and loads it.
@@ -35,12 +37,12 @@ import ObvUICoreData
 /// - It keeps track of the UTI and of the file name so as to return an appropriate `loadedFileRepresentation`.
 final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<LoadItemProviderOperationReasonForCancel>, OperationProvidingLoadedItemProvider {
     
-    private let preferredUTIs = [kUTTypeFileURL, kUTTypeJPEG, kUTTypePNG, kUTTypeMPEG4, kUTTypeMP3, kUTTypeQuickTimeMovie].map({ $0 as String })
-    private let ignoredUTIs = [UTI.Bitmoji.avatarID, UTI.Bitmoji.comicID, UTI.Bitmoji.packID, UTI.Apple.groupActivitiesActivity]
+    private let preferredTypes: [UTType] = [.fileURL, .jpeg, .png, .mpeg4Movie, .mp3, .quickTimeMovie]
+    private let ignoredTypes: Set<UTType?> = Set([.groupActivitiesActivity, .Bitmoji.avatarID, .Bitmoji.comicID, .Bitmoji.packID])
 
     private let itemProviderOrItemURL: ItemProviderOrItemURL
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "LoadItemProviderOperation")
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "LoadItemProviderOperation")
 
     // Called iff a progress is available for tracking the loading progress
     private let progressAvailable: (Progress) -> Void
@@ -89,11 +91,22 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
     
     private func process(_ itemURL: URL) {
         assert(!itemURL.path.contains("PluginKitPlugin")) // This is a particular case, but we know the loading won't work in that case
-        let uti = ObvUTIUtils.utiOfFile(atURL: itemURL) ?? String(kUTTypeData)
+        let fileType: UTType = Self.determineFileType(at: itemURL)
         let filename = (itemURL as NSURL).lastPathComponent ?? "File"
-        loadedItemProvider = .file(tempURL: itemURL, uti: uti, filename: filename)
+        loadedItemProvider = .file(tempURL: itemURL, fileType: fileType, filename: filename)
         _isFinished = true
         return
+    }
+    
+    
+    private static func determineFileType(at url: URL) -> UTType {
+        if (url as NSURL).pathExtension == UTType.olvidBackup.preferredFilenameExtension {
+            return .olvidBackup
+        } else if let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType {
+            return type
+        } else {
+            return .data
+        }
     }
     
     
@@ -101,42 +114,43 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
 
         // Find the most appropriate UTI to load
         
-        let availableTypeIdentifiers = itemProvider.registeredTypeIdentifiers(fileOptions: NSItemProviderFileOptions(rawValue: 0))
-        os_log("Available type identifiers of the attachment: %{public}@", log: log, type: .info, availableTypeIdentifiers.debugDescription)
-        guard !availableTypeIdentifiers.isEmpty else { assertionFailure(); return cancel(withReason: .itemHasNoRegisteredTypeIdentifier) }
+        let availableContentTypes = itemProvider.registeredTypeIdentifiers(fileOptions: NSItemProviderFileOptions(rawValue: 0))
+            .compactMap({ UTType($0) })
+        os_log("Available type identifiers of the attachment: %{public}@", log: Self.log, type: .info, availableContentTypes.debugDescription)
+        guard !availableContentTypes.isEmpty else { assertionFailure(); return cancel(withReason: .itemHasNoRegisteredTypeIdentifier) }
         
-        let filteredTypeIdentifiers = availableTypeIdentifiers.filter({ !ignoredUTIs.contains($0) })
-        guard !filteredTypeIdentifiers.isEmpty else {
-            os_log("No acceptable UTI was found, we do not load any item provider", log: log, type: .info)
+        let filteredContentTypes = availableContentTypes.filter({ !ignoredTypes.contains($0) })
+        guard !filteredContentTypes.isEmpty else {
+            os_log("No acceptable content type was found, we do not load any item provider", log: Self.log, type: .info)
             _isFinished = true
             return
         }
 
-        let availablePreferredUTIs = preferredUTIs.filter({ filteredTypeIdentifiers.contains($0) })
-        let utiToLoad: String
-        if !availablePreferredUTIs.isEmpty {
-            // This is the easy case, where the file provider does provide an UTI we "prefer"
-            utiToLoad = preferredUTIs.first(where: { availablePreferredUTIs.contains($0) })!
+        let availablePreferredContentTypes = preferredTypes.filter({ filteredContentTypes.contains($0) })
+        let contentTypeToLoad: UTType
+        if !availablePreferredContentTypes.isEmpty {
+            // This is the easy case, where the file provider does provide a content type we "prefer"
+            contentTypeToLoad = preferredTypes.first(where: { availablePreferredContentTypes.contains($0) })!
         } else {
             // There is no "preferred" UTI available. We simply take the first UTI available
-            assert(filteredTypeIdentifiers.count == 1, "We should have a special rule and include one of the UTIs in the list of preferred UTIs")
-            utiToLoad = filteredTypeIdentifiers.first!
+            assert(filteredContentTypes.count == 1, "We should have a special rule and include one of the UTIs in the list of preferred UTIs")
+            contentTypeToLoad = filteredContentTypes.first!
         }
 
-        assert(itemProvider.hasItemConformingToTypeIdentifier(utiToLoad))
+        assert(itemProvider.hasItemConformingToTypeIdentifier(contentTypeToLoad.identifier))
         
         // We have found an appropriate UTI for the item provider
         // We can load it
         
-        os_log("Type identifier to load is: %{public}@", log: log, type: .info, utiToLoad)
+        os_log("Content type to load is: %{public}@", log: Self.log, type: .info, contentTypeToLoad.debugDescription)
 
         var progress: Progress?
         
-        if utiToLoad.utiConformsTo(kUTTypeVCard) {
+        if contentTypeToLoad.conforms(to: .vCard) {
         
-            os_log("Type identifier to load conforms to kUTTypeVCard", log: log, type: .info)
+            os_log("Type identifier to load conforms to kUTTypeVCard", log: Self.log, type: .info)
 
-            progress = itemProvider.loadDataRepresentation(forTypeIdentifier: String(kUTTypeVCard), completionHandler: { [weak self] (data, error) in
+            progress = itemProvider.obvLoadDataRepresentation(for: .vCard, completionHandler: { [weak self] (data, error) in
                 guard error == nil else {
                     if let progress = self?.operationProgress, progress.isCancelled {
                         // The user cancelled the file loading, there is nothing left to do
@@ -166,16 +180,16 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     self?.cancel(withReason: .couldNotCopyItem(error: error))
                     return
                 }
-                self?.loadedItemProvider = .file(tempURL: tempURL, uti: utiToLoad, filename: filename)
+                self?.loadedItemProvider = .file(tempURL: tempURL, fileType: contentTypeToLoad, filename: filename)
                 self?._isFinished = true
                 return
             })
             
-        } else if utiToLoad.utiConformsTo(kUTTypeText) {
+        } else if contentTypeToLoad.conforms(to: .text) {
             
-            os_log("Type identifier to load conforms to kUTTypeText", log: log, type: .info)
+            os_log("Type identifier to load conforms to kUTTypeText", log: Self.log, type: .info)
 
-            itemProvider.loadItem(forTypeIdentifier: String(kUTTypeText)) { [weak self] (item, error) in
+            itemProvider.loadItem(forTypeIdentifier: UTType.text.identifier) { [weak self] (item, error) in
                 guard error == nil else {
                     self?.cancel(withReason: .loadFileRepresentationFailed(error: error!))
                     return
@@ -193,7 +207,7 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                         self?.cancel(withReason: .couldNotCopyItem(error: error))
                         return
                     }
-                    self?.loadedItemProvider = .file(tempURL: tempURL, uti: String(kUTTypeText), filename: filename)
+                    self?.loadedItemProvider = .file(tempURL: tempURL, fileType: .text, filename: filename)
                     self?._isFinished = true
                     return
                 } else {
@@ -202,11 +216,11 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                 }
             }
                    
-        } else if utiToLoad.utiConformsTo(kUTTypeFileURL) {
+        } else if contentTypeToLoad.conforms(to: .fileURL) {
             
-            os_log("Type identifier to load conforms to kUTTypeFileURL", log: log, type: .info)
+            os_log("Type identifier to load conforms to kUTTypeFileURL", log: Self.log, type: .info)
 
-            itemProvider.loadItem(forTypeIdentifier: String(kUTTypeFileURL)) { [weak self] (item, error) in
+            itemProvider.loadItem(forTypeIdentifier: UTType.fileURL.identifier) { [weak self] (item, error) in
                 guard error == nil else {
                     self?.cancel(withReason: .loadFileRepresentationFailed(error: error!))
                     return
@@ -223,60 +237,64 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     self?.cancel(withReason: .couldNotCopyItem(error: error))
                     return
                 }
-                let utiForFile = ObvUTIUtils.utiOfFile(atURL: pickerURL) ?? utiToLoad
-                self?.loadedItemProvider = .file(tempURL: tempURL, uti: utiForFile, filename: filename)
+                let fileType = (try? pickerURL.resourceValues(forKeys: [.contentTypeKey]).contentType) ?? contentTypeToLoad
+                self?.loadedItemProvider = .file(tempURL: tempURL, fileType: fileType, filename: filename)
                 self?._isFinished = true
                 return
 
             }
             
-        } else if utiToLoad.utiConformsTo(kUTTypeURL) {
+        } else if contentTypeToLoad.conforms(to: .url) {
             
-            os_log("Type identifier to load conforms to kUTTypeURL", log: log, type: .info)
+            os_log("Type identifier to load conforms to kUTTypeURL", log: Self.log, type: .info)
 
-            itemProvider.loadItem(forTypeIdentifier: String(kUTTypeURL)) { [weak self] (item, error) in
+            itemProvider.loadItem(forTypeIdentifier: UTType.url.identifier) { [weak self] (item, error) in
                 guard error == nil else {
+                    os_log("Load of type kUTTypeURL did fail: %{public}@", log: Self.log, type: .fault, error!.localizedDescription)
                     self?.cancel(withReason: .loadFileRepresentationFailed(error: error!))
                     return
                 }
+                os_log("Loaded type kUTTypeURL", log: Self.log, type: .info)
                 guard let url = item as? URL else {
+                    os_log("The item of type type kUTTypeURL could not be casted to an URL", log: Self.log, type: .fault)
                     self?.cancel(withReason: .couldNotLoadURL)
                     return
                 }
+                os_log("The item of type type kUTTypeURL was casted to the following URL: %{public}@", log: Self.log, type: .info, url.description)
                 self?.loadedItemProvider = .url(content: url)
                 self?._isFinished = true
                 return
             }
             
-        } else if utiToLoad == String(kUTTypeImage) {
+        } else if contentTypeToLoad == .image {
 
-            os_log("Type identifier to load is kUTTypeImage", log: log, type: .info)
+            os_log("Type identifier to load is kUTTypeImage", log: Self.log, type: .info)
 
             // Note that we do not check whether the uti "conforms" to kUTTypeImage. This would be the case of jpeg and png images, which we want to load "as is"
             
-            itemProvider.loadItem(forTypeIdentifier: String(kUTTypeImage)) { [weak self] (item, error) in
+            itemProvider.loadItem(forTypeIdentifier: UTType.image.identifier) { [weak self] (item, error) in
                 guard error == nil else {
                     self?.cancel(withReason: .loadFileRepresentationFailed(error: error!))
                     return
                 }
                 guard let image = item as? UIImage else {
                     assertionFailure()
-                    self?.cancel(withReason: .noneOfTheItemTypeIdentifiersCouldBeLoaded(itemTypeIdentifiers: availableTypeIdentifiers))
+                    self?.cancel(withReason: .noneOfTheItemTypeIdentifiersCouldBeLoaded(contentTypes: availableContentTypes))
                     return
                 }
                 let filename: String
                 let data: Data
-                let utiForFile: String
+                let contentTypeOfFile: UTType
                 if let pngData = image.pngData() {
                     filename = "image.png"
                     data = pngData
-                    utiForFile = kUTTypePNG as String
+                    contentTypeOfFile = .png
                 } else if let jpegData = image.jpegData(compressionQuality: 1.0) {
                     filename = "image.jpeg"
                     data = jpegData
-                    utiForFile = kUTTypeJPEG as String
+                    contentTypeOfFile = .jpeg
                 } else {
-                    self?.cancel(withReason: .noneOfTheItemTypeIdentifiersCouldBeLoaded(itemTypeIdentifiers: availableTypeIdentifiers))
+                    self?.cancel(withReason: .noneOfTheItemTypeIdentifiersCouldBeLoaded(contentTypes: availableContentTypes))
                     return
                 }
                 let tempURL = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(UUID().uuidString)
@@ -288,7 +306,7 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     self?.cancel(withReason: .couldNotCopyItem(error: error))
                     return
                 }
-                self?.loadedItemProvider = .file(tempURL: tempURL, uti: utiForFile, filename: filename)
+                self?.loadedItemProvider = .file(tempURL: tempURL, fileType: contentTypeOfFile, filename: filename)
                 self?._isFinished = true
                 return
 
@@ -296,12 +314,11 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
             
         } else {
             
-            os_log("Type identifier requires to load a file representation", log: log, type: .info)
-            let log = self.log
-            progress = itemProvider.loadFileRepresentation(forTypeIdentifier: utiToLoad) { [weak self] (url, error) in
-                os_log("Within the completion handler of loadFileRepresentation", log: log, type: .info)
+            os_log("Type identifier requires to load a file representation", log: Self.log, type: .info)
+            progress = itemProvider.loadFileRepresentation(forTypeIdentifier: contentTypeToLoad.identifier) { [weak self] (url, error) in
+                os_log("Within the completion handler of loadFileRepresentation", log: Self.log, type: .info)
                 guard error == nil else {
-                    os_log("The loadFileRepresentation completion returned an error: %{public}@", log: log, type: .info, String(describing: error?.localizedDescription))
+                    os_log("The loadFileRepresentation completion returned an error: %{public}@", log: Self.log, type: .info, String(describing: error?.localizedDescription))
                     if let progress = self?.operationProgress, progress.isCancelled {
                         // The user cancelled the file loading, there is nothing left to do
                         self?._isFinished = true
@@ -323,7 +340,7 @@ final class LoadItemProviderOperation: OperationWithSpecificReasonForCancel<Load
                     self?.cancel(withReason: .couldNotCopyItem(error: error))
                     return
                 }
-                self?.loadedItemProvider = .file(tempURL: tempURL, uti: utiToLoad, filename: filename)
+                self?.loadedItemProvider = .file(tempURL: tempURL, fileType: contentTypeToLoad, filename: filename)
                 self?._isFinished = true
                 return
             }
@@ -349,22 +366,22 @@ enum ItemProviderOrItemURL {
 
 
 enum LoadedItemProvider {
-    case file(tempURL: URL, uti: String, filename: String)
+    case file(tempURL: URL, fileType: UTType, filename: String)
     case text(content: String)
     case url(content: URL)
 }
 
 
-fileprivate extension String {
-    func utiConformsTo(_ otherUTI: CFString) -> Bool {
-        UTTypeConformsTo(self as CFString, otherUTI)
-    }
-}
+//fileprivate extension String {
+//    func utiConformsTo(_ otherUTI: CFString) -> Bool {
+//        UTTypeConformsTo(self as CFString, otherUTI)
+//    }
+//}
 
 
 enum LoadItemProviderOperationReasonForCancel: LocalizedErrorWithLogType {
     
-    case noneOfTheItemTypeIdentifiersCouldBeLoaded(itemTypeIdentifiers: [String])
+    case noneOfTheItemTypeIdentifiersCouldBeLoaded(contentTypes: [UTType])
     case loadFileRepresentationFailed(error: Error)
     case pickerURLIsNil
     case itemHasNoRegisteredTypeIdentifier
@@ -379,8 +396,8 @@ enum LoadItemProviderOperationReasonForCancel: LocalizedErrorWithLogType {
     
     var errorDescription: String? {
         switch self {
-        case .noneOfTheItemTypeIdentifiersCouldBeLoaded(itemTypeIdentifiers: let itemTypeIdentifiers):
-            return "None of the item type identifiers could be loaded: \(itemTypeIdentifiers.debugDescription)"
+        case .noneOfTheItemTypeIdentifiersCouldBeLoaded(contentTypes: let contentTypes):
+            return "None of the item type identifiers could be loaded: \(contentTypes.debugDescription)"
         case .loadFileRepresentationFailed(error: let error):
             return "Failed to load representation: \(error.localizedDescription)"
         case .pickerURLIsNil:
@@ -412,4 +429,39 @@ fileprivate struct UTI {
         static let groupActivitiesActivity = "com.apple.group-activities.activity"
     }
     
+}
+
+
+fileprivate extension UTType {
+    
+    static var groupActivitiesActivity: UTType? {
+        .init("com.apple.group-activities.activity")
+    }
+    
+    struct Bitmoji {
+        static var avatarID: UTType? {
+            .init("com.bitmoji.metadata.avatarID")
+        }
+        static var packID: UTType? {
+            .init("com.bitmoji.metadata.packID")
+        }
+        static var comicID: UTType? {
+            .init("com.bitmoji.metadata.comicID")
+        }
+    }
+    
+}
+
+
+fileprivate extension NSItemProvider {
+    
+    /// Trivial wrapper around the ``NSItemProvider.loadDataRepresentation(for:completionHandler:)`` method since it is only available under iOS 16
+    func obvLoadDataRepresentation(for contentType: UTType, completionHandler: @escaping @Sendable (Data?, (Error)?) -> Void) -> Progress {
+        if #available(iOS 16, *) {
+            return loadDataRepresentation(for: contentType, completionHandler: completionHandler)
+        } else {
+            return loadDataRepresentation(forTypeIdentifier: contentType.identifier, completionHandler: completionHandler)
+        }
+    }
+
 }

@@ -25,27 +25,27 @@ import ObvCrypto
 enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
     
     // For outbox messages
-    case outboxMessageWasUploaded(messageId: MessageIdentifier)
-    case deletionOfOutboxMessage(withId: MessageIdentifier)
+    case outboxMessageWasUploaded(messageId: ObvMessageIdentifier)
+    case deletionOfOutboxMessage(withId: ObvMessageIdentifier)
     
     // For inbox messages
     case uidsOfMessagesToProcess(ownedCryptoIdentity: ObvCryptoIdentity)
-    case networkReceivedMessageWasProcessed(messageId: MessageIdentifier)
-    case applicationMessageDecrypted(messageId: MessageIdentifier)
-    case extendedMessagePayloadWasDownloaded(messageId: MessageIdentifier)
+    case networkReceivedMessageWasProcessed(messageId: ObvMessageIdentifier)
+    case applicationMessageDecrypted(messageId: ObvMessageIdentifier)
+    case extendedMessagePayloadWasDownloaded(messageId: ObvMessageIdentifier)
     case protocolMessageToProcess
-    case endOfProcessingOfProtocolMessage(withId: MessageIdentifier)
-    case deletionOfInboxMessage(withId: MessageIdentifier)
+    case endOfProcessingOfProtocolMessage(withId: ObvMessageIdentifier)
+    case deletionOfInboxMessage(withId: ObvMessageIdentifier)
     
     // For outbox attachments
-    case attachmentUploadRequestIsTakenCareOfForAttachment(withId: AttachmentIdentifier)
+    case attachmentUploadRequestIsTakenCareOfForAttachment(withId: ObvAttachmentIdentifier)
     
     // For inbox attachments
-    case decisionToDownloadAttachmentOrNotHasBeenTaken(attachmentId: AttachmentIdentifier)
+    case decisionToDownloadAttachmentOrNotHasBeenTaken(attachmentId: ObvAttachmentIdentifier)
     
     // For posting return receipts
-    case returnReceiptWasPostedForMessage(messageId: MessageIdentifier)
-    case returnReceiptWasPostedForAttachment(attachmentId: AttachmentIdentifier)
+    case returnReceiptWasPostedForMessage(messageId: ObvMessageIdentifier)
+    case returnReceiptWasPostedForAttachment(attachmentId: ObvAttachmentIdentifier)
 
     
     static func == (lhs: Expectation, rhs: Expectation) -> Bool {

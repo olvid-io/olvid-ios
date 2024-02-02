@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,35 +26,35 @@ extension OneToOneContactInvitationProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
 
-        case Initial = 0
-        case OneToOneInvitation = 1
-        case DialogInvitationSent = 2
-        case PropagateOneToOneInvitation = 3
-        case DialogAcceptOneToOneInvitation = 4
-        case OneToOneResponse = 5
-        case PropagateOneToOneResponse = 6
-        case Abort = 7
-        case ContactUpgradedToOneToOne = 8
-        case PropagateAbort = 9
-        case InitialOneToOneStatusSyncRequest = 10
-        case OneToOneStatusSyncRequest = 11
-        case DialogInformative = 100
+        case initial = 0
+        case oneToOneInvitation = 1
+        case dialogInvitationSent = 2
+        case propagateOneToOneInvitation = 3
+        case dialogAcceptOneToOneInvitation = 4
+        case oneToOneResponse = 5
+        case propagateOneToOneResponse = 6
+        case abort = 7
+        case contactUpgradedToOneToOne = 8
+        case propagateAbort = 9
+        case initialOneToOneStatusSyncRequest = 10
+        case oneToOneStatusSyncRequest = 11
+        case dialogInformative = 100
 
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .Initial                          : return InitialMessage.self
-            case .OneToOneInvitation               : return OneToOneInvitationMessage.self
-            case .DialogInvitationSent             : return DialogInvitationSentMessage.self
-            case .PropagateOneToOneInvitation      : return PropagateOneToOneInvitationMessage.self
-            case .DialogAcceptOneToOneInvitation   : return DialogAcceptOneToOneInvitationMessage.self
-            case .OneToOneResponse                 : return OneToOneResponseMessage.self
-            case .PropagateOneToOneResponse        : return PropagateOneToOneResponseMessage.self
-            case .Abort                            : return AbortMessage.self
-            case .ContactUpgradedToOneToOne        : return ContactUpgradedToOneToOneMessage.self
-            case .PropagateAbort                   : return PropagateAbortMessage.self
-            case .InitialOneToOneStatusSyncRequest : return InitialOneToOneStatusSyncRequestMessage.self
-            case .OneToOneStatusSyncRequest        : return OneToOneStatusSyncRequestMessage.self
-            case .DialogInformative                : return DialogInformativeMessage.self
+            case .initial                          : return InitialMessage.self
+            case .oneToOneInvitation               : return OneToOneInvitationMessage.self
+            case .dialogInvitationSent             : return DialogInvitationSentMessage.self
+            case .propagateOneToOneInvitation      : return PropagateOneToOneInvitationMessage.self
+            case .dialogAcceptOneToOneInvitation   : return DialogAcceptOneToOneInvitationMessage.self
+            case .oneToOneResponse                 : return OneToOneResponseMessage.self
+            case .propagateOneToOneResponse        : return PropagateOneToOneResponseMessage.self
+            case .abort                            : return AbortMessage.self
+            case .contactUpgradedToOneToOne        : return ContactUpgradedToOneToOneMessage.self
+            case .propagateAbort                   : return PropagateAbortMessage.self
+            case .initialOneToOneStatusSyncRequest : return InitialOneToOneStatusSyncRequestMessage.self
+            case .oneToOneStatusSyncRequest        : return OneToOneStatusSyncRequestMessage.self
+            case .dialogInformative                : return DialogInformativeMessage.self
             }
         }
 
@@ -65,7 +65,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct InitialMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.Initial
+        let id: ConcreteProtocolMessageId = MessageId.initial
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -95,7 +95,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct DialogInvitationSentMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.DialogInvitationSent
+        let id: ConcreteProtocolMessageId = MessageId.dialogInvitationSent
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -130,7 +130,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct OneToOneInvitationMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.OneToOneInvitation
+        let id: ConcreteProtocolMessageId = MessageId.oneToOneInvitation
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -158,7 +158,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct PropagateOneToOneInvitationMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.PropagateOneToOneInvitation
+        let id: ConcreteProtocolMessageId = MessageId.propagateOneToOneInvitation
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -188,7 +188,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct DialogAcceptOneToOneInvitationMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.DialogAcceptOneToOneInvitation
+        let id: ConcreteProtocolMessageId = MessageId.dialogAcceptOneToOneInvitation
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -230,7 +230,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct OneToOneResponseMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.OneToOneResponse
+        let id: ConcreteProtocolMessageId = MessageId.oneToOneResponse
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -262,7 +262,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct PropagateOneToOneResponseMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.PropagateOneToOneResponse
+        let id: ConcreteProtocolMessageId = MessageId.propagateOneToOneResponse
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -294,7 +294,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct AbortMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.Abort
+        let id: ConcreteProtocolMessageId = MessageId.abort
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -320,7 +320,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct ContactUpgradedToOneToOneMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.ContactUpgradedToOneToOne
+        let id: ConcreteProtocolMessageId = MessageId.contactUpgradedToOneToOne
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -347,7 +347,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct DialogInformativeMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.DialogInformative
+        let id: ConcreteProtocolMessageId = MessageId.dialogInformative
         let coreProtocolMessage: CoreProtocolMessage
         
         var encodedInputs: [ObvEncoded] { return [] }
@@ -369,7 +369,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct PropagateAbortMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.PropagateAbort
+        let id: ConcreteProtocolMessageId = MessageId.propagateAbort
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -395,7 +395,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct InitialOneToOneStatusSyncRequestMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.InitialOneToOneStatusSyncRequest
+        let id: ConcreteProtocolMessageId = MessageId.initialOneToOneStatusSyncRequest
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -429,7 +429,7 @@ extension OneToOneContactInvitationProtocol {
 
     struct OneToOneStatusSyncRequestMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.OneToOneStatusSyncRequest
+        let id: ConcreteProtocolMessageId = MessageId.oneToOneStatusSyncRequest
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message

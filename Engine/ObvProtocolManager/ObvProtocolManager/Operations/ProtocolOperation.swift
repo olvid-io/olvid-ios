@@ -33,7 +33,7 @@ final class ProtocolOperation: ObvOperation, ObvErrorMaker {
     private static let logCategory = "ProtocolOperation"
     let log: OSLog
     
-    override var className: String {
+    override var debugClassName: String {
         return "ProtocolOperation"
     }
     
@@ -41,7 +41,7 @@ final class ProtocolOperation: ObvOperation, ObvErrorMaker {
     
     // MARK: Instance variables and constants
     
-    let receivedMessageId: MessageIdentifier
+    let receivedMessageId: ObvMessageIdentifier
     weak var delegateManager: ObvProtocolDelegateManager? = nil
     private(set) var reasonForCancel: PossibleReasonForCancel? = nil
     let prng: PRNGService
@@ -86,7 +86,7 @@ final class ProtocolOperation: ObvOperation, ObvErrorMaker {
 
     // MARK: Initializer
     
-    init(receivedMessageId: MessageIdentifier, flowId: FlowIdentifier, delegateManager: ObvProtocolDelegateManager, prng: PRNGService) {
+    init(receivedMessageId: ObvMessageIdentifier, flowId: FlowIdentifier, delegateManager: ObvProtocolDelegateManager, prng: PRNGService) {
         self.receivedMessageId = receivedMessageId
         self.flowId = flowId
         self.delegateManager = delegateManager
@@ -231,7 +231,7 @@ final class ProtocolOperation: ObvOperation, ObvErrorMaker {
                                                                                                                            within: obvContext)
             for message in messagesToSend {
                 guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else { throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend") }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
         } catch let error {
             os_log("Could not post a protocol message in order to notify the parent protocol instance: %@", log: log, type: .fault, error.localizedDescription)

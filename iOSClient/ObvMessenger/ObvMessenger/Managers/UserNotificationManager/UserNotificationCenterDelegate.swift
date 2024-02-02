@@ -90,7 +90,7 @@ extension UserNotificationCenterDelegate {
         guard let rawId = notification.request.content.userInfo[UserNotificationKeys.id] as? Int,
               let id = ObvUserNotificationID(rawValue: rawId) else {
                   assertionFailure()
-            return .alert
+            return [.list, .banner]
         }
 
         // If we reach this point, we know we are initialized and active. We decide what to show depending on the current activity of the user.
@@ -99,23 +99,23 @@ extension UserNotificationCenterDelegate {
             switch id {
             case .newReactionNotificationWithHiddenContent, .newReaction:
                 // Always show reaction notification even if it is a reaction for the current discussion.
-                return .alert
+                return [.list, .banner]
             case .newMessageNotificationWithHiddenContent, .newMessage, .missedCall:
                 // The current activity type is `continueDiscussion`. We check whether the notification concerns the current "single discussion". If this is the case, we do not display the notification, otherwise, we do.
                 guard let persistedDiscussionPermanentIDDescription = notification.request.content.userInfo[UserNotificationKeys.persistedDiscussionPermanentIDDescription] as? String,
                       let expectedEntityName = PersistedDiscussion.entity().name,
                       let notificationPersistedDiscussionPermanentID = ObvManagedObjectPermanentID<PersistedDiscussion>(persistedDiscussionPermanentIDDescription, expectedEntityName: expectedEntityName) else {
                           assertionFailure()
-                    return .alert
+                    return [.list, .banner]
                 }
 
                 if notificationPersistedDiscussionPermanentID == currentDiscussionPermanentID {
                     return []
                 } else {
-                    return .alert
+                    return [.list, .banner]
                 }
-            case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .oneToOneInvitationReceived, .shouldGrantRecordPermissionToReceiveIncomingCalls:
-                return .alert
+            case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .oneToOneInvitationReceived, .shouldGrantRecordPermissionToReceiveIncomingCalls:
+                return [.list, .banner]
             case .staticIdentifier:
                 assertionFailure()
                 return []
@@ -131,8 +131,8 @@ extension UserNotificationCenterDelegate {
                     requestIdentifiersThatPlayedSound.insert(notification.request.identifier)
                     return .sound
                 }
-            case .newReactionNotificationWithHiddenContent, .newReaction, .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .autoconfirmedContactIntroduction, .increaseMediatorTrustLevelRequired, .missedCall, .oneToOneInvitationReceived, .staticIdentifier, .shouldGrantRecordPermissionToReceiveIncomingCalls:
-                return .alert
+            case .newReactionNotificationWithHiddenContent, .newReaction, .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .missedCall, .oneToOneInvitationReceived, .staticIdentifier, .shouldGrantRecordPermissionToReceiveIncomingCalls:
+                return [.list, .banner]
             }
         case .displayInvitations:
             /* The user is currently looking at the invitiation tab.
@@ -141,7 +141,7 @@ extension UserNotificationCenterDelegate {
              * or if it concerned a sas exchange or a mutual trust confirmation.
              * Now, we always show it
              */
-            return .alert
+            return [.list, .banner]
         case .other,
              .displaySingleContact,
              .displayContacts,
@@ -149,7 +149,7 @@ extension UserNotificationCenterDelegate {
              .displaySingleGroup,
              .displaySettings,
              .unknown:
-            return .alert
+            return [.list, .banner]
         }
         
     }
@@ -265,10 +265,10 @@ extension UserNotificationCenterDelegate {
     @MainActor
     private func handleCallBackAction(callUUID: UUID) async throws {
         guard let item = try PersistedCallLogItem.get(callUUID: callUUID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-        let contacts = item.logContacts.compactMap { $0.contactIdentity?.typedObjectID }
-        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(
-            contactIDs: contacts,
-            groupId: try? item.getGroupIdentifier())
+        let contactCryptoIds = item.logContacts.compactMap { $0.contactIdentity?.cryptoId }
+        guard let ownedCryptoId = item.ownedCryptoId else { return }
+        let groupId = item.groupIdentifier
+        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId)
             .postOnDispatchQueue()
     }
 
@@ -305,37 +305,27 @@ extension UserNotificationCenterDelegate {
             var localDialog = obvDialog
             try localDialog.setResponseToAcceptInvite(acceptInvite: acceptInvite)
             let dialogForResponse = localDialog
-            DispatchQueue(label: "Background queue for responding to a dialog").async {
-                obvEngine.respondTo(dialogForResponse)
-            }
+            try await obvEngine.respondTo(dialogForResponse)
         case .acceptMediatorInvite:
             var localDialog = obvDialog
             try localDialog.setResponseToAcceptMediatorInvite(acceptInvite: acceptInvite)
             let dialogForResponse = localDialog
-            DispatchQueue(label: "Background queue for responding to a dialog").async {
-                obvEngine.respondTo(dialogForResponse)
-            }
+            try await obvEngine.respondTo(dialogForResponse)
         case .acceptGroupInvite:
             var localDialog = obvDialog
             try localDialog.setResponseToAcceptGroupInvite(acceptInvite: acceptInvite)
             let dialogForResponse = localDialog
-            DispatchQueue(label: "Background queue for responding to a dialog").async {
-                obvEngine.respondTo(dialogForResponse)
-            }
+            try await obvEngine.respondTo(dialogForResponse)
         case .acceptGroupV2Invite:
             var localDialog = obvDialog
             try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: acceptInvite)
             let dialogForResponse = localDialog
-            DispatchQueue(label: "Background queue for responding to a dialog").async {
-                obvEngine.respondTo(dialogForResponse)
-            }
+            try await obvEngine.respondTo(dialogForResponse)
         case .oneToOneInvitationReceived:
             var localDialog = obvDialog
             try localDialog.setResponseToOneToOneInvitationReceived(invitationAccepted: acceptInvite)
             let dialogForResponse = localDialog
-            DispatchQueue(label: "Background queue for responding to a dialog").async {
-                obvEngine.respondTo(dialogForResponse)
-            }
+            try await obvEngine.respondTo(dialogForResponse)
         default:
             assertionFailure()
             return

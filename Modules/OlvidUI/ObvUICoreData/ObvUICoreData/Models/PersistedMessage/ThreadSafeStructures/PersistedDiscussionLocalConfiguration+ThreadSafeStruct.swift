@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvTypes
+import ObvSettings
 
 
 // MARK: - Thread safe struct

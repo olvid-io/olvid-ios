@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvEngine
 import ObvUI
+import ObvDesignSystem
 
 
 final class UserTriesToAccessPaidFeatureHostingController: UIHostingController<UserTriesToAccessPaidFeatureView> {
@@ -79,8 +80,6 @@ struct UserTriesToAccessPaidFeatureView: View {
                                        maxHeight: .none,
                                        alignment: .center)
                                 .font(.body)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 16)
                         }
                         .padding(.bottom)
                         OlvidButton(style: .blue, title: Text("BUTTON_LABEL_CHECK_SUBSCRIPTION"), systemIcon: .eyesInverse) {

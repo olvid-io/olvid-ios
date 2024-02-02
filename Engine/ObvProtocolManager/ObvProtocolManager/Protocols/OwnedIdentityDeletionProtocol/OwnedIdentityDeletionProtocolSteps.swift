@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,7 @@ import ObvCrypto
 import OlvidUtils
 import ObvEncoder
 
+
 // MARK: - Protocol Steps
 
 extension OwnedIdentityDeletionProtocol {
@@ -32,46 +33,31 @@ extension OwnedIdentityDeletionProtocol {
     enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
         case startDeletion = 0
-        case determineNextStepToExecute = 1
-        case processOtherProtocolInstances = 2
-        case processGroupsV1 = 3
-        case processGroupsV2 = 4
-        case processContacts = 5
-        case processChannels = 6
-        case processContactOwnedIdentityWasDeletedMessage = 7
+        case finalizeDeletion = 1
+        case processContactOwnedIdentityWasDeletedMessage = 2
 
         
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             switch self {
                 
             case .startDeletion:
-                let step = StartDeletionStep(from: concreteProtocol, and: receivedMessage)
-                return step
+                if let step = StartDeletionFromInitiateOwnedIdentityDeletionMessageStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else if let step = StartDeletionFromPropagateOwnedIdentityDeletionMessageStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else {
+                    return nil
+                }
                 
-            case .determineNextStepToExecute:
-                let step = DetermineNextStepToExecuteStep(from: concreteProtocol, and: receivedMessage)
-                return step
+            case .finalizeDeletion:
+                if let step = FinalizeDeletionStepFromDeactivateOwnedDeviceServerQueryMessageStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else if let step = FinalizeDeletionStepFromFinalizeOwnedIdentityDeletionMessageStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
+                } else {
+                    return nil
+                }
                 
-            case .processOtherProtocolInstances:
-                let step = ProcessOtherProtocolInstancesStep(from: concreteProtocol, and: receivedMessage)
-                return step
-
-            case .processGroupsV1:
-                let step = ProcessGroupsV1Step(from: concreteProtocol, and: receivedMessage)
-                return step
-
-            case .processGroupsV2:
-                let step = ProcessGroupsV2Step(from: concreteProtocol, and: receivedMessage)
-                return step
-                
-            case .processContacts:
-                let step = ProcessContactsStep(from: concreteProtocol, and: receivedMessage)
-                return step
-
-            case .processChannels:
-                let step = ProcessChannelsStep(from: concreteProtocol, and: receivedMessage)
-                return step
-
             case .processContactOwnedIdentityWasDeletedMessage:
                 switch receivedMessage.receptionChannelInfo {
                 case .AsymmetricChannel:
@@ -92,181 +78,278 @@ extension OwnedIdentityDeletionProtocol {
         
     // MARK: - StartDeletionStep
     
-    final class StartDeletionStep: ProtocolStep, TypedConcreteProtocolStep {
+    class StartDeletionStep: ProtocolStep {
         
-        let startState: ConcreteProtocolInitialState
-        let receivedMessage: InitiateOwnedIdentityDeletionMessage
-        
-        init?(startState: ConcreteProtocolInitialState, receivedMessage: InitiateOwnedIdentityDeletionMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+        private let startState: ConcreteProtocolInitialState
+        private let receivedMessage: ReceivedMessageType
+
+        enum ReceivedMessageType {
+            case initiateOwnedIdentityDeletionMessage(receivedMessage: InitiateOwnedIdentityDeletionMessage)
+            case propagateGlobalOwnedIdentityDeletionMessage(receivedMessage: PropagateGlobalOwnedIdentityDeletionMessage)
+        }
+
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: ReceivedMessageType, concreteCryptoProtocol: ConcreteCryptoProtocol) {
             
             self.startState = startState
             self.receivedMessage = receivedMessage
             
-            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
-                       receivedMessage: receivedMessage,
-                       concreteCryptoProtocol: concreteCryptoProtocol)
+            switch receivedMessage {
+            case .initiateOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage):
+                super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                           expectedReceptionChannelInfo: .Local,
+                           receivedMessage: receivedMessage,
+                           concreteCryptoProtocol: concreteCryptoProtocol)
+            case .propagateGlobalOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage):
+                super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           receivedMessage: receivedMessage,
+                           concreteCryptoProtocol: concreteCryptoProtocol)
+            }
 
         }
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
                         
-            let ownedCryptoIdentityToDelete = receivedMessage.ownedCryptoIdentityToDelete
-            let notifyContacts = receivedMessage.notifyContacts
-            
-            // Make sure that the current owned identity is the one we are deleting
-            
-            guard ownedIdentity == ownedCryptoIdentityToDelete else {
-                assertionFailure()
-                return FinalState()
+            let globalOwnedIdentityDeletion: Bool
+            let propagationNeeded: Bool
+            switch receivedMessage {
+            case .initiateOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage):
+                globalOwnedIdentityDeletion = receivedMessage.globalOwnedIdentityDeletion
+                propagationNeeded = true
+            case .propagateGlobalOwnedIdentityDeletionMessage:
+                globalOwnedIdentityDeletion = true
+                propagationNeeded = false
             }
+            
+            // If the user request a global deletion, we make sure the identity is active
+            
+            let ownedIdentityIsActive = try identityDelegate.isOwnedIdentityActive(ownedIdentity: ownedIdentity, flowId: obvContext.flowId)
+            if globalOwnedIdentityDeletion {
+                guard ownedIdentityIsActive || !propagationNeeded else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Owned identity must be active when requeting a global deletion")
+                }
+            }
+            
+            // Perform pre-deletion tasks (note that ObvDialogs are deleted asynchronously by the engine coordinator, when receiving the notification from the identity manager that the owned identity has been deleted).
+            
+            try prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, within: obvContext)
+            try networkPostDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, within: obvContext)
+            try networkFetchDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, within: obvContext)
+            
+            // In case we are performing a *global* deletion, we want our other devices to execute this protocol too
+            // Note that in the case we perform a *local* deletion, we want our other owned devices to perform a simple owned device discovery.
+            // We wait until the end of the server query (that deactivates this device) before sending them a InitiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDeviceMessage.
 
+            if propagationNeeded && ownedIdentityIsActive && globalOwnedIdentityDeletion {
+                let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
+                if !otherDeviceUIDs.isEmpty {
+                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let concreteMessage = PropagateGlobalOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+            }
+            
             // Mark the owned identity for deletion
             
-            try identityDelegate.markOwnedIdentityForDeletion(ownedCryptoIdentityToDelete, within: obvContext)
+            try identityDelegate.markOwnedIdentityForDeletion(ownedIdentity, within: obvContext)
+
+            // If our owned identity is active on the current device, we want to deactivate it on the server.
+            // Otherwise, we simply want to immediately continue this deletion protocol.
             
-            // Post a local message for this protocol so at the launch the `DetermineNextStepToExecuteStep`
-
-            let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
-            let concreteMessage = ContinueOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
-            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate ContinueOwnedIdentityDeletionMessage") }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-
-            // Return the new state
-
-            return DeletionCurrentStatusState(notifyContacts: notifyContacts)
-
-        }
-        
-    }
-    
-    
-    // MARK: - DetermineNextStepToExecuteStep
-    
-    final class DetermineNextStepToExecuteStep: ProtocolStep, TypedConcreteProtocolStep {
-        
-        let startState: DeletionCurrentStatusState
-        let receivedMessage: ContinueOwnedIdentityDeletionMessage
-        
-        init?(startState: DeletionCurrentStatusState, receivedMessage: ContinueOwnedIdentityDeletionMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
-            
-            self.startState = startState
-            self.receivedMessage = receivedMessage
-            
-            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
-                       receivedMessage: receivedMessage,
-                       concreteCryptoProtocol: concreteCryptoProtocol)
-
-        }
-        
-        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-
-            let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
-            let concreteMessage: GenericProtocolMessageToSendGenerator
-
-            if !startState.otherProtocolInstancesHaveBeenProcessed {
-                concreteMessage = ProcessOtherProtocolInstancesMessage(coreProtocolMessage: coreMessage)
-            } else if !startState.groupsV1HaveBeenProcessed {
-                concreteMessage = ProcessGroupsV1Message(coreProtocolMessage: coreMessage)
-            } else if !startState.groupsV2HaveBeenProcessed {
-                concreteMessage = ProcessGroupsV2Message(coreProtocolMessage: coreMessage)
-            } else if !startState.contactsHaveBeenProcessed {
-                concreteMessage = ProcessContactsMessage(coreProtocolMessage: coreMessage)
-            } else if !startState.channelsHaveBeenProcessed {
-                concreteMessage = ProcessChannelsMessage(coreProtocolMessage: coreMessage)
+            if ownedIdentityIsActive {
+                                
+                let currentDeviceUID = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
+                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let concreteMessage = DeactivateOwnedDeviceServerQueryMessage(coreProtocolMessage: coreMessage)
+                let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.deactivateOwnedDevice(
+                    ownedDeviceUID: currentDeviceUID,
+                    isCurrentDevice: true)
+                guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: concreteCryptoProtocol.prng, within: obvContext)
+                
             } else {
                 
-                // When everything has been processed, we request the deletion of the owned identity
-                
-                do {
-                    try identityDelegate.deleteOwnedIdentity(ownedIdentity, within: obvContext)
-                } catch {
-                    assertionFailure(error.localizedDescription)                    
-                }
-                
-                return FinalState()
+                let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
+                let concreteMessage = FinalizeOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
+                guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate ContinueOwnedIdentityDeletionMessage") }
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: concreteCryptoProtocol.prng, within: obvContext)
+
+            }
+            
+            return FirstDeletionStepPerformedState(globalOwnedIdentityDeletion: globalOwnedIdentityDeletion, propagationNeeded: propagationNeeded)
+                        
+        }
+        
+        
+        private func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+            
+            // Delete all received messages
+            
+            try ReceivedMessage.batchDeleteAllReceivedMessagesForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+            
+            // Delete signatures, commitments,... received relating to this owned identity
+            
+            try ChannelCreationPingSignatureReceived.batchDeleteAllChannelCreationPingSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+            try TrustEstablishmentCommitmentReceived.batchDeleteAllTrustEstablishmentCommitmentReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+            try MutualScanSignatureReceived.batchDeleteAllMutualScanSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
+            try GroupV2SignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
+            try ContactOwnedIdentityDeletionSignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
+            try ProtocolInstance.deleteAllProtocolInstancesOfOwnedIdentity(ownedIdentity, withProtocolInstanceUidDistinctFrom: self.protocolInstanceUid, within: obvContext)
+            try ReceivedMessage.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
+            
+        }
+
+    }
+    
+    
+    // MARK: StartDeletionFromInitiateOwnedIdentityDeletionMessageStep
+    
+    final class StartDeletionFromInitiateOwnedIdentityDeletionMessageStep: StartDeletionStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: InitiateOwnedIdentityDeletionMessage
+
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: InitiateOwnedIdentityDeletionMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: startState,
+                       receivedMessage: .initiateOwnedIdentityDeletionMessage(receivedMessage: receivedMessage),
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+        
+    }
+
+    
+    // MARK: StartDeletionFromPropagateOwnedIdentityDeletionMessageStep
+    
+    final class StartDeletionFromPropagateOwnedIdentityDeletionMessageStep: StartDeletionStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: PropagateGlobalOwnedIdentityDeletionMessage
+
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: PropagateGlobalOwnedIdentityDeletionMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: startState,
+                       receivedMessage: .propagateGlobalOwnedIdentityDeletionMessage(receivedMessage: receivedMessage),
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+        
+    }
+
+    
+    // MARK: FinalizeDeletionStep
+    
+    class FinalizeDeletionStep: ProtocolStep {
+        
+        private let startState: FirstDeletionStepPerformedState
+        private let receivedMessage: ReceivedMessageType
+
+        enum ReceivedMessageType {
+            case deactivateOwnedDeviceServerQueryMessage(receivedMessage: DeactivateOwnedDeviceServerQueryMessage)
+            case finalizeOwnedIdentityDeletionMessage(receivedMessage: FinalizeOwnedIdentityDeletionMessage)
+        }
+
+        init?(startState: FirstDeletionStepPerformedState, receivedMessage: ReceivedMessageType, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            switch receivedMessage {
+            case .deactivateOwnedDeviceServerQueryMessage(receivedMessage: let receivedMessage):
+                super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                           expectedReceptionChannelInfo: .Local,
+                           receivedMessage: receivedMessage,
+                           concreteCryptoProtocol: concreteCryptoProtocol)
+            case .finalizeOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage):
+                super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                           expectedReceptionChannelInfo: .Local,
+                           receivedMessage: receivedMessage,
+                           concreteCryptoProtocol: concreteCryptoProtocol)
             }
 
-            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate ContinueOwnedIdentityDeletionMessage") }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-
-            return startState
-            
-        }
-        
-    }
-    
-    
-    // MARK: - ProcessOtherProtocolInstancesStep
-    
-    /// By the end of this step, all (send and receive) network messages are deleted as well as other protocol instances.
-    final class ProcessOtherProtocolInstancesStep: ProtocolStep, TypedConcreteProtocolStep {
-        
-        let startState: DeletionCurrentStatusState
-        let receivedMessage: ProcessOtherProtocolInstancesMessage
-        
-        init?(startState: DeletionCurrentStatusState, receivedMessage: ProcessOtherProtocolInstancesMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
-            
-            self.startState = startState
-            self.receivedMessage = receivedMessage
-            
-            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
-                       receivedMessage: receivedMessage,
-                       concreteCryptoProtocol: concreteCryptoProtocol)
-
         }
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            // Delete all other protocol instances
+            let globalOwnedIdentityDeletion = startState.globalOwnedIdentityDeletion
+            let propagationNeeded = startState.propagationNeeded
             
-            try ProtocolInstance.deleteAllProtocolInstancesOfOwnedIdentity(ownedIdentity, withProtocolInstanceUidDistinctFrom: self.protocolInstanceUid, within: obvContext)
-                     
-            // Post a local message for this protocol so at the launch the `DetermineNextStepToExecuteStep`
+            let ownedIdentityIsActive = try identityDelegate.isOwnedIdentityActive(ownedIdentity: ownedIdentity, flowId: obvContext.flowId)
             
-            let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
-            let concreteMessage = ContinueOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
-            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate ContinueOwnedIdentityDeletionMessage") }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+            // In case we are performing a *local* deletion, we want our other owned devices to perform a simple owned device discovery
 
-            // Return the new state
+            if propagationNeeded && ownedIdentityIsActive && !globalOwnedIdentityDeletion {
+                let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
+                if !otherDeviceUIDs.isEmpty {
+                    let coreMessage = getCoreMessageForOtherProtocol(
+                        for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true),
+                        otherCryptoProtocolId: .ownedDeviceDiscovery,
+                        otherProtocolInstanceUid: UID.gen(with: prng))
+                    let concreteMessage = OwnedDeviceDiscoveryProtocol.InitiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDeviceMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+            }
+            
+            // Process groups v1 and v2
 
-            let newState = startState.getStateWhenOtherProtocolInstancesHaveBeenProcessed()
-            return newState
+            try processGroupsV1(globalOwnedIdentityDeletion: globalOwnedIdentityDeletion, propagationNeeded: propagationNeeded, ownedIdentityIsActive: ownedIdentityIsActive)
+            try processGroupsV2(globalOwnedIdentityDeletion: globalOwnedIdentityDeletion, propagationNeeded: propagationNeeded, ownedIdentityIsActive: ownedIdentityIsActive)
+            
+            // Process contacts
+            
+            try processContacts(globalOwnedIdentityDeletion: globalOwnedIdentityDeletion, propagationNeeded: propagationNeeded, ownedIdentityIsActive: ownedIdentityIsActive)
+            
+            // Process channels
+            
+            try processChannels(globalOwnedIdentityDeletion: globalOwnedIdentityDeletion, propagationNeeded: propagationNeeded, ownedIdentityIsActive: ownedIdentityIsActive)
+            
+            // When everything has been processed, we request the deletion of the owned identity
+            
+            do {
+                try identityDelegate.deleteOwnedIdentity(ownedIdentity, within: obvContext)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+
+            // Delete all server session (note that the InitiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDeviceMessage posted above does not need one)
+
+            let flowId = obvContext.flowId
+            let networkFetchDelegate = self.networkFetchDelegate
+            let ownedIdentity = self.ownedIdentity
+            try obvContext.addContextDidSaveCompletionHandler { error in
+                guard error == nil else { assertionFailure(); return }
+                Task {
+                    do {
+                        try await networkFetchDelegate.finalizeOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, flowId: flowId)
+                    } catch {
+                        assertionFailure("Could not delete server session of the deleted owned identity: \(error.localizedDescription)")
+                    }
+                }
+
+            }
+
+            // We are done
+            
+            return FinalState()
 
         }
         
-    }
-    
-
-    
-    // MARK: - ProcessGroupsV1Step
-    
-    /// By the end of this step, all groups V1 (both owned and joined) are deleted. If the state's `notifyContacts` Boolean is `true`, other group members are kicked or notified.
-    final class ProcessGroupsV1Step: ProtocolStep, TypedConcreteProtocolStep {
         
-        let startState: DeletionCurrentStatusState
-        let receivedMessage: ProcessGroupsV1Message
-        
-        init?(startState: DeletionCurrentStatusState, receivedMessage: ProcessGroupsV1Message, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+        /// Helper method for this step.
+        /// By the end of this method, all groups V1 (both owned and joined) are deleted. If `globalOwnedIdentityDeletion`, `propagationNeeded`, and `ownedIdentityIsActive` are `true`, other group members are kicked or notified.
+        private func processGroupsV1(globalOwnedIdentityDeletion: Bool, propagationNeeded: Bool, ownedIdentityIsActive: Bool) throws {
             
-            self.startState = startState
-            self.receivedMessage = receivedMessage
-            
-            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
-                       receivedMessage: receivedMessage,
-                       concreteCryptoProtocol: concreteCryptoProtocol)
-
-        }
-        
-        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
-
             let allGroupStructures = try identityDelegate.getAllGroupStructures(ownedIdentity: ownedIdentity, within: obvContext)
 
-            if startState.notifyContacts {
+            if globalOwnedIdentityDeletion && propagationNeeded && ownedIdentityIsActive {
                                 
                 // Leave all joined groups by executing now the LeaveGroupJoinedStep of the GroupManagementProtocol
                 
@@ -296,7 +379,7 @@ extension OwnedIdentityDeletionProtocol {
                         continue
                     }
                     let groupManagementProtocolState = try leaveGroupJoinedStep.executeStep(within: obvContext)
-                    guard groupManagementProtocolState?.rawId == GroupManagementProtocol.StateId.Final.rawValue else {
+                    guard groupManagementProtocolState?.rawId == GroupManagementProtocol.StateId.final.rawValue else {
                         assertionFailure()
                         continue
                     }
@@ -331,7 +414,7 @@ extension OwnedIdentityDeletionProtocol {
                         continue
                     }
                     let groupManagementProtocolState = try removeGroupMembersStep.executeStep(within: obvContext)
-                    guard groupManagementProtocolState?.rawId == GroupManagementProtocol.StateId.Final.rawValue else {
+                    guard groupManagementProtocolState?.rawId == GroupManagementProtocol.StateId.final.rawValue else {
                         assertionFailure()
                         continue
                     }
@@ -361,47 +444,15 @@ extension OwnedIdentityDeletionProtocol {
                 }
             }
             
-            // Post a local message for this protocol so at the launch the `DetermineNextStepToExecuteStep`
-            
-            let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
-            let concreteMessage = ContinueOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
-            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate ContinueOwnedIdentityDeletionMessage") }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-
-            // Return the new state
-
-            let newState = startState.getStateWhenGroupsV1HaveBeenProcessed()
-            return newState
-            
         }
-        
-    }
 
-    
-    // MARK: - ProcessGroupsV2Step
-    
-    final class ProcessGroupsV2Step: ProtocolStep, TypedConcreteProtocolStep {
         
-        let startState: DeletionCurrentStatusState
-        let receivedMessage: ProcessGroupsV2Message
-        
-        init?(startState: DeletionCurrentStatusState, receivedMessage: ProcessGroupsV2Message, concreteCryptoProtocol: ConcreteCryptoProtocol) {
-            
-            self.startState = startState
-            self.receivedMessage = receivedMessage
-            
-            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
-                       receivedMessage: receivedMessage,
-                       concreteCryptoProtocol: concreteCryptoProtocol)
-
-        }
-        
-        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+        /// Helper method for this step
+        private func processGroupsV2(globalOwnedIdentityDeletion: Bool, propagationNeeded: Bool, ownedIdentityIsActive: Bool) throws {
             
             let allGroups = try identityDelegate.getAllObvGroupV2(of: ownedIdentity, within: obvContext)
             
-            if startState.notifyContacts {
+            if globalOwnedIdentityDeletion && propagationNeeded && ownedIdentityIsActive {
                 
                 // Leave all groups that we joined or where we are *not* the only administrator.
                 // Groups for which we are the sole administrator are disbanded.
@@ -551,79 +602,59 @@ extension OwnedIdentityDeletionProtocol {
                 
             }
             
-            // Post a local message for this protocol so at the launch the `DetermineNextStepToExecuteStep`
-            
-            let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
-            let concreteMessage = ContinueOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
-            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate ContinueOwnedIdentityDeletionMessage") }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-
-            // Return the new state
-
-            let newState = startState.getStateWhenGroupsV2HaveBeenProcessed()
-            return newState
-            
         }
-        
-    }
 
-    
-    // MARK: - ProcessContactsStep
-    
-    final class ProcessContactsStep: ProtocolStep, TypedConcreteProtocolStep {
         
-        let startState: DeletionCurrentStatusState
-        let receivedMessage: ProcessContactsMessage
-        
-        init?(startState: DeletionCurrentStatusState, receivedMessage: ProcessContactsMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
-            
-            self.startState = startState
-            self.receivedMessage = receivedMessage
-            
-            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
-                       receivedMessage: receivedMessage,
-                       concreteCryptoProtocol: concreteCryptoProtocol)
-
-        }
-        
-        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+        /// Helper method for this step
+        private func processContacts(globalOwnedIdentityDeletion: Bool, propagationNeeded: Bool, ownedIdentityIsActive: Bool) throws {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: OwnedIdentityDeletionProtocol.logCategory)
 
             let allContacts = try identityDelegate.getContactsOfOwnedIdentity(ownedIdentity, within: obvContext)
             
-            if startState.notifyContacts {
-            
-                // Notify all contacts that our own identity is about to be deleted.
-                
-                for contact in allContacts {
-                
-                    // We first send a broadcast message allowing to be radical in the way our contacts will delete our own identity (and to delete it also with contacts without channels).
-                    // This only works with contacts who understand this protocol.
-
-                    do {
+            if propagationNeeded && ownedIdentityIsActive {
+                if globalOwnedIdentityDeletion {
+                    
+                    // Notify all contacts that our own identity is about to be deleted.
+                    
+                    for contact in allContacts {
                         
-                        let signature: Data
+                        // We first send a broadcast message allowing to be radical in the way our contacts will delete our own identity (and to delete it also with contacts without channels).
+                        // This only works with contacts who understand this protocol.
+                        
                         do {
-                            let challengeType = ChallengeType.ownedIdentityDeletion(notifiedContactIdentity: contact)
-                            guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
-                                os_log("Could not compute signature", log: log, type: .fault)
-                                assertionFailure()
-                                // Continue with the next contact
-                                continue
+                            
+                            let signature: Data
+                            do {
+                                let challengeType = ChallengeType.ownedIdentityDeletion(notifiedContactIdentity: contact)
+                                guard let sig = try? solveChallengeDelegate.solveChallenge(challengeType, for: ownedIdentity, using: prng, within: obvContext) else {
+                                    os_log("Could not compute signature", log: log, type: .fault)
+                                    assertionFailure()
+                                    // Continue with the next contact
+                                    continue
+                                }
+                                signature = sig
                             }
-                            signature = sig
+                            
+                            let coreMessage = getCoreMessage(for: .AsymmetricChannelBroadcast(to: contact, fromOwnedIdentity: ownedIdentity))
+                            let concreteMessage = ContactOwnedIdentityWasDeletedMessage(coreProtocolMessage: coreMessage, deletedContactOwnedIdentity: ownedIdentity, signature: signature)
+                            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+                            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                         }
-
-                        let coreMessage = getCoreMessage(for: .AsymmetricChannelBroadcast(to: contact, fromOwnedIdentity: ownedIdentity))
-                        let concreteMessage = ContactOwnedIdentityWasDeletedMessage(coreProtocolMessage: coreMessage, deletedContactOwnedIdentity: ownedIdentity, signature: signature)
+                        
+                    }
+                    
+                } else {
+                    
+                    if !allContacts.isEmpty {
+                        let channel = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: allContacts, fromOwnedIdentity: ownedIdentity)
+                        let coreMessage = getCoreMessageForOtherProtocol(for: channel, otherCryptoProtocolId: .contactManagement, otherProtocolInstanceUid: UID.gen(with: prng))
+                        let concreteMessage = ContactManagementProtocol.PerformContactDeviceDiscoveryMessage(coreProtocolMessage: coreMessage)
                         guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
-                        _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     }
                                         
                 }
-                
             }
             
             // Locally delete all contacts and their associated channels
@@ -643,65 +674,61 @@ extension OwnedIdentityDeletionProtocol {
                 }
             }
             
-            // Post a local message for this protocol so at the launch the `DetermineNextStepToExecuteStep`
-            
-            let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
-            let concreteMessage = ContinueOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
-            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate ContinueOwnedIdentityDeletionMessage") }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-
-            // Return the new state
-
-            let newState = startState.getStateWhenContactsHaveBeenProcessed()
-            return newState
-
         }
-        
-    }
 
-    
-    // MARK: - ProcessChannelsStep
-    
-    final class ProcessChannelsStep: ProtocolStep, TypedConcreteProtocolStep {
         
-        let startState: DeletionCurrentStatusState
-        let receivedMessage: ProcessChannelsMessage
-        
-        init?(startState: DeletionCurrentStatusState, receivedMessage: ProcessChannelsMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
-            
-            self.startState = startState
-            self.receivedMessage = receivedMessage
-            
-            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
-                       receivedMessage: receivedMessage,
-                       concreteCryptoProtocol: concreteCryptoProtocol)
-
-        }
-        
-        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+        /// Helper method for this step
+        private func processChannels(globalOwnedIdentityDeletion: Bool, propagationNeeded: Bool, ownedIdentityIsActive: Bool) throws {
             
             let currentDeviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
             
             try channelDelegate.deleteAllObliviousChannelsWithTheCurrentDeviceUid(currentDeviceUid, within: obvContext)
             
-            // Post a local message for this protocol so at the launch the `DetermineNextStepToExecuteStep`
-            
-            let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
-            let concreteMessage = ContinueOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
-            guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate ContinueOwnedIdentityDeletionMessage") }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-
-            // Return the new state
-
-            let newState = startState.getStateWhenChannelsHaveBeenProcessed()
-            return newState
-
         }
+
+    }
+    
+    
+    // MARK: FinalizeDeletionStepFromDeactivateOwnedDeviceServerQueryMessageStep
+    
+    final class FinalizeDeletionStepFromDeactivateOwnedDeviceServerQueryMessageStep: FinalizeDeletionStep, TypedConcreteProtocolStep {
+        
+        let startState: FirstDeletionStepPerformedState
+        let receivedMessage: DeactivateOwnedDeviceServerQueryMessage
+
+        init?(startState: FirstDeletionStepPerformedState, receivedMessage: DeactivateOwnedDeviceServerQueryMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: startState,
+                       receivedMessage: .deactivateOwnedDeviceServerQueryMessage(receivedMessage: receivedMessage),
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+        
+    }
+    
+    
+    // MARK: FinalizeDeletionStepFromFinalizeOwnedIdentityDeletionMessageStep
+    
+    final class FinalizeDeletionStepFromFinalizeOwnedIdentityDeletionMessageStep: FinalizeDeletionStep, TypedConcreteProtocolStep {
+        
+        let startState: FirstDeletionStepPerformedState
+        let receivedMessage: FinalizeOwnedIdentityDeletionMessage
+
+        init?(startState: FirstDeletionStepPerformedState, receivedMessage: FinalizeOwnedIdentityDeletionMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: startState,
+                       receivedMessage: .finalizeOwnedIdentityDeletionMessage(receivedMessage: receivedMessage),
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
         
     }
 
-    
+
     // MARK: - ProcessContactOwnedIdentityWasDeletedMessageStep
     
     class ProcessContactOwnedIdentityWasDeletedMessageStep: ProtocolStep {
@@ -778,7 +805,7 @@ extension OwnedIdentityDeletionProtocol {
                     let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
                     let concreteMessage = ContactOwnedIdentityWasDeletedMessage(coreProtocolMessage: coreMessage, deletedContactOwnedIdentity: deletedContactOwnedIdentity, signature: signature)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
             }
             
@@ -857,7 +884,7 @@ extension OwnedIdentityDeletionProtocol {
                             continue
                         }
                         let groupManagementProtocolState = try removeGroupMembersStep.executeStep(within: obvContext)
-                        guard groupManagementProtocolState?.rawId == GroupManagementProtocol.StateId.Final.rawValue else {
+                        guard groupManagementProtocolState?.rawId == GroupManagementProtocol.StateId.final.rawValue else {
                             assertionFailure()
                             continue
                         }
@@ -900,7 +927,7 @@ extension OwnedIdentityDeletionProtocol {
                             changeset: changeset,
                             flowId: obvContext.flowId)
                         
-                        _ = try channelDelegate.post(initiateGroupUpdateMessage, randomizedWith: prng, within: obvContext)
+                        _ = try channelDelegate.postChannelMessage(initiateGroupUpdateMessage, randomizedWith: prng, within: obvContext)
                         
                     }
                         

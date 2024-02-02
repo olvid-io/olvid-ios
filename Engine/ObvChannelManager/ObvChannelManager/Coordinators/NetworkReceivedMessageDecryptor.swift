@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,7 +38,9 @@ final class NetworkReceivedMessageDecryptor: NetworkReceivedMessageDecryptorDele
 
 }
 
+
 // MARK: Implementing ObvNetworkReceivedMessageDecryptorDelegate
+
 extension NetworkReceivedMessageDecryptor {
     
     // This method only succeeds if the ObvNetworkReceivedMessageEncrypted actually is an Application message. It is typically used when decrypting Application's User Notifications sent through APNS.
@@ -67,7 +69,7 @@ extension NetworkReceivedMessageDecryptor {
     
     
     /// This method is called on each new received message.
-    func decryptAndProcess(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within obvContext: ObvContext) throws {
+    func decryptAndProcessNetworkReceivedMessageEncrypted(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within obvContext: ObvContext) throws {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvChannelDelegateManager.defaultLogSubsystem, category: NetworkReceivedMessageDecryptor.logCategory)
@@ -99,7 +101,7 @@ extension NetworkReceivedMessageDecryptor {
             os_log("🔑 A received wrapped key was decrypted using an Asymmetric Channel", log: log, type: .debug)
             decryptAndProcess(receivedMessage, with: messageKey, channelType: channelInfo, within: obvContext)
         } else {
-            os_log("🔑 The received message %@ could not be decrypted", log: log, type: .error, receivedMessage.messageId.debugDescription)
+            os_log("🔑 The received message %@ could not be decrypted", log: log, type: .fault, receivedMessage.messageId.debugDescription)
             networkFetchDelegate.deleteMessageAndAttachments(messageId: receivedMessage.messageId, within: obvContext)
         }
         

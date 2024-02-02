@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,29 +29,29 @@ extension ContactMutualIntroductionProtocol {
     
     enum StateId: Int, ConcreteProtocolStateId {
         
-        case InitialState = 0
+        case initialState = 0
 
         // Mediator's side
-        case ContactsIntroduced = 1
+        case contactsIntroduced = 1
         
         // Contacts' sides
-        case InvitationReceived = 2
-        case InvitationRejected = 4
-        case InvitationAccepted = 3
-        case WaitingForAck = 5
-        case MutualTrustEstablished = 6
-        case Cancelled = 7
+        case invitationReceived = 2
+        case invitationRejected = 4
+        case invitationAccepted = 3
+        case waitingForAck = 5
+        case mutualTrustEstablished = 6
+        case cancelled = 7
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
-            case .InitialState           : return ConcreteProtocolInitialState.self
-            case .ContactsIntroduced     : return ContactsIntroducedState.self
-            case .InvitationReceived     : return InvitationReceivedState.self
-            case .InvitationRejected     : return InvitationRejectedState.self
-            case .InvitationAccepted     : return InvitationAcceptedState.self
-            case .WaitingForAck          : return WaitingForAckState.self
-            case .MutualTrustEstablished : return MutualTrustEstablishedState.self
-            case .Cancelled              : return CancelledState.self
+            case .initialState           : return ConcreteProtocolInitialState.self
+            case .contactsIntroduced     : return ContactsIntroducedState.self
+            case .invitationReceived     : return InvitationReceivedState.self
+            case .invitationRejected     : return InvitationRejectedState.self
+            case .invitationAccepted     : return InvitationAcceptedState.self
+            case .waitingForAck          : return WaitingForAckState.self
+            case .mutualTrustEstablished : return MutualTrustEstablishedState.self
+            case .cancelled              : return CancelledState.self
             }
         }
     }
@@ -61,7 +61,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct ContactsIntroducedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.ContactsIntroduced
+        let id: ConcreteProtocolStateId = StateId.contactsIntroduced
         
         init(_: ObvEncoded) {}
         
@@ -76,7 +76,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct InvitationReceivedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.InvitationReceived
+        let id: ConcreteProtocolStateId = StateId.invitationReceived
         
         let contactIdentity: ObvCryptoIdentity
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
@@ -108,7 +108,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct InvitationRejectedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.InvitationRejected
+        let id: ConcreteProtocolStateId = StateId.invitationRejected
         
         init(_: ObvEncoded) throws {}
         
@@ -123,7 +123,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct InvitationAcceptedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.InvitationAccepted
+        let id: ConcreteProtocolStateId = StateId.invitationAccepted
         
         let contactIdentity: ObvCryptoIdentity
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
@@ -158,7 +158,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct WaitingForAckState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.WaitingForAck
+        let id: ConcreteProtocolStateId = StateId.waitingForAck
         
         let contactIdentity: ObvCryptoIdentity
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
@@ -193,7 +193,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct MutualTrustEstablishedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.MutualTrustEstablished
+        let id: ConcreteProtocolStateId = StateId.mutualTrustEstablished
         
         init(_: ObvEncoded) throws {}
         
@@ -208,7 +208,7 @@ extension ContactMutualIntroductionProtocol {
     
     struct CancelledState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.Cancelled
+        let id: ConcreteProtocolStateId = StateId.cancelled
         
         init(_: ObvEncoded) throws {}
         
@@ -218,6 +218,4 @@ extension ContactMutualIntroductionProtocol {
         
     }
 
-    
-    
 }

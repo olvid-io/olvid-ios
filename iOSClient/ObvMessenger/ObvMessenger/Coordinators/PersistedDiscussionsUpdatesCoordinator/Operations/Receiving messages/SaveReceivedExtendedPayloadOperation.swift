@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import os.log
 import ObvEngine
 import ObvEncoder
 import ObvUICoreData
+import CoreData
 
 
 final class SaveReceivedExtendedPayloadOperation: ContextualOperationWithSpecificReasonForCancel<SaveReceivedExtendedPayloadOperationReasonForCancel> {
@@ -34,61 +35,67 @@ final class SaveReceivedExtendedPayloadOperation: ContextualOperationWithSpecifi
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
         guard let attachementImages = extractReceivedExtendedPayloadOp.attachementImages else {
             return cancel(withReason: .downsizedImagesIsNil)
         }
-
-        let obvMessage = extractReceivedExtendedPayloadOp.obvMessage
-
-        obvContext.performAndWait {
-
-            do {
-                guard let message = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: obvMessage.fromContactIdentity, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindReceivedMessageInDatabase)
-                }
-
-                var permanentIDOfMessageToRefreshInViewContext: ObvManagedObjectPermanentID<PersistedMessageReceived>? = nil
+        
+        let input = extractReceivedExtendedPayloadOp.input
+        
+        do {
+            
+            let permanentIDOfMessageToRefreshInViewContext: TypeSafeManagedObjectID<PersistedMessage>?
+            
+            switch input {
+            case .messageSentByContact(obvMessage: let obvMessage):
                 
-                for attachementImage in attachementImages {
-                    let attachmentNumber = attachementImage.attachmentNumber
-                    guard attachmentNumber < message.fyleMessageJoinWithStatuses.count else {
-                        return cancel(withReason: .unexpectedAttachmentNumber)
-                    }
-
-                    guard case .data(let data) = attachementImage.dataOrURL else {
-                        continue
-                    }
-
-                    let fyleMessageJoinWithStatus = message.fyleMessageJoinWithStatuses[attachmentNumber]
-
-                    if fyleMessageJoinWithStatus.setDownsizedThumbnailIfRequired(data: data) {
-                        // the setDownsizedThumbnailIfRequired returned true, meaning that the downsized thumbnail has been set. We will need to refresh the message in the view context.
-                        permanentIDOfMessageToRefreshInViewContext = message.objectPermanentID
-                    }
+                
+                // Grab the persisted contact who sent the message
+                
+                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvMessage.fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
                 }
                 
-                if let permanentIDOfMessageToRefreshInViewContext {
-                    try? obvContext.addContextDidSaveCompletionHandler { error in
-                        guard error == nil else { return }
-                        ObvStack.shared.viewContext.perform {
-                            if let draftInViewContext = ObvStack.shared.viewContext.registeredObjects
-                                .filter({ !$0.isDeleted })
-                                .first(where: { ($0 as? PersistedMessageReceived)?.objectPermanentID == permanentIDOfMessageToRefreshInViewContext }) {
-                                ObvStack.shared.viewContext.refresh(draftInViewContext, mergeChanges: false)
-                            }
+                // Save the extended payload sent by this contact
+                
+                let permanentIDOfSentMessageToRefreshInViewContext = try persistedContactIdentity.saveExtendedPayload(foundIn: attachementImages, for: obvMessage)
+                
+                permanentIDOfMessageToRefreshInViewContext = permanentIDOfSentMessageToRefreshInViewContext?.downcast
+                
+            case .messageSentByOtherDeviceOfOwnedIdentity(obvOwnedMessage: let obvOwnedMessage):
+                
+                // Grab the persisted owned identity who sent the message on another owned device
+                
+                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: obvOwnedMessage.ownedCryptoId, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindOwnedIdentityInDatabase)
+                }
+                
+                // Save the extended payload sent from another device of the owned identity
+                
+                let permanentIDOfMessageReceivedToRefreshInViewContext = try persistedObvOwnedIdentity.saveExtendedPayload(foundIn: attachementImages, for: obvOwnedMessage)
+                
+                permanentIDOfMessageToRefreshInViewContext = permanentIDOfMessageReceivedToRefreshInViewContext?.downcast
+                
+            }
+            
+            // If we saved an extended payload, we refresh the message in the view context
+            
+            if let permanentIDOfMessageToRefreshInViewContext {
+                try? obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    ObvStack.shared.viewContext.perform {
+                        if let draftInViewContext = ObvStack.shared.viewContext.registeredObjects
+                            .filter({ !$0.isDeleted })
+                            .first(where: { ($0 as? PersistedMessage)?.typedObjectID == permanentIDOfMessageToRefreshInViewContext }) {
+                            ObvStack.shared.viewContext.refresh(draftInViewContext, mergeChanges: false)
                         }
                     }
                 }
-                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
             }
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }
@@ -100,15 +107,15 @@ enum SaveReceivedExtendedPayloadOperationReasonForCancel: LocalizedErrorWithLogT
     case contextIsNil
     case coreDataError(error: Error)
     case downsizedImagesIsNil
-    case couldNotFindReceivedMessageInDatabase
-    case unexpectedAttachmentNumber
+    case couldNotFindPersistedObvContactIdentityInDatabase
+    case couldNotFindOwnedIdentityInDatabase
 
     
     var logType: OSLogType {
         switch self {
         case .coreDataError, .contextIsNil:
             return .fault
-        case .downsizedImagesIsNil, .couldNotFindReceivedMessageInDatabase, .unexpectedAttachmentNumber:
+        case .downsizedImagesIsNil, .couldNotFindPersistedObvContactIdentityInDatabase, .couldNotFindOwnedIdentityInDatabase:
             return .error
         }
     }
@@ -117,9 +124,9 @@ enum SaveReceivedExtendedPayloadOperationReasonForCancel: LocalizedErrorWithLogT
         switch self {
         case .contextIsNil: return "Context is nil"
         case .coreDataError(error: let error): return "Core Data error: \(error.localizedDescription)"
-        case .couldNotFindReceivedMessageInDatabase: return "Could not find received message in database"
-        case .unexpectedAttachmentNumber: return "Unexpected attachment number"
         case .downsizedImagesIsNil: return "Downsized images is nil"
+        case .couldNotFindPersistedObvContactIdentityInDatabase: return "Could not find contact in database"
+        case .couldNotFindOwnedIdentityInDatabase: return "Could not find owned identity in database"
         }
     }
 

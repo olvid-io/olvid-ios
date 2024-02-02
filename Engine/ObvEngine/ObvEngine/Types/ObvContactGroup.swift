@@ -45,6 +45,10 @@ public struct ObvContactGroup {
         }
     }
 
+    public var groupIdentifier: GroupV1Identifier {
+        return .init(groupUid: groupUid, groupOwner: groupOwner.cryptoId)
+    }
+    
     public enum GroupType {
         case owned
         case joined

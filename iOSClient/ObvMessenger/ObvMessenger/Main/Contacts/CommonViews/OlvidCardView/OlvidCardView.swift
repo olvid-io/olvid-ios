@@ -22,6 +22,9 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 import ObvUI
+import ObvDesignSystem
+import ObvSettings
+
 
 class OlvidCardView: UIView {
 
@@ -76,7 +79,7 @@ extension OlvidCardView {
         self.titleLabel.text = groupDetails.coreDetails.name
         self.subtitleLabel.text = groupDetails.coreDetails.description
         
-        circledInitials.identityColors = AppTheme.shared.groupColors(forGroupUid: groupUid)
+        circledInitials.identityColors = AppTheme.shared.groupColors(forGroupUid: groupUid, using: ObvMessengerSettings.Interface.identityColorStyle)
         if let photoURL = groupDetails.photoURL {
             circledInitials.showPhoto(fromUrl: photoURL)
         } else {

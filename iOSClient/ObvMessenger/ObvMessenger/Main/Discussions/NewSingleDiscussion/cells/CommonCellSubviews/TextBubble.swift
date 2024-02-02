@@ -286,7 +286,6 @@ private extension UITextView {
         return _textkit1_userIdentity(for: point)
     }
 
-    @available(iOS, deprecated: 15, message: "Please remove me and use the TextKit 2 implementation")
     private func _textkit1_userIdentity(for point: CGPoint) -> MentionableIdentity? {
         let glyphIndex = layoutManager.glyphIndex(for: point, in: textContainer)
 

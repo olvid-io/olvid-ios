@@ -44,13 +44,11 @@ final class MessagesCoordinator: NSObject {
     }()
     
     private var _currentTasks = [UIBackgroundTaskIdentifier: (ownedIdentity: ObvCryptoIdentity, currentDeviceUid: UID, flowId: FlowIdentifier, dataReceived: Data)]()
-    private var _currentExtendedPayloadDownloadTasks = [Int: (messageId: MessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
+    private var _currentExtendedPayloadDownloadTasks = [Int: (messageId: ObvMessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
     private var currentTasksQueue = DispatchQueue(label: "MessagesCoordinator queue for current task")
 
     private static func makeError(message: String) -> Error { NSError(domain: "MessagesCoordinator", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { MessagesCoordinator.makeError(message: message) }
-
-    private let queueForCallingDelegate = DispatchQueue(label: "MessagesCoordinator queue for calling delegate methods")
 
 }
 
@@ -104,7 +102,7 @@ extension MessagesCoordinator {
 
 extension MessagesCoordinator {
     
-    private func extendedPayloadDownloadTaskExistsFor(_ messageId: MessageIdentifier) -> Bool {
+    private func extendedPayloadDownloadTaskExistsFor(_ messageId: ObvMessageIdentifier) -> Bool {
         var exist = true
         currentTasksQueue.sync {
             exist = _currentExtendedPayloadDownloadTasks.values.contains(where: { $0.messageId == messageId })
@@ -112,23 +110,23 @@ extension MessagesCoordinator {
         return exist
     }
     
-    private func removeInfoForExtendedPayloadDownloadTask(_ task: URLSessionTask) -> (messageId: MessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (MessageIdentifier, FlowIdentifier, Data)? = nil
+    private func removeInfoForExtendedPayloadDownloadTask(_ task: URLSessionTask) -> (messageId: ObvMessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvMessageIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentExtendedPayloadDownloadTasks.removeValue(forKey: task.taskIdentifier)
         }
         return info
     }
     
-    private func getInfoForExtendedPayloadDownloadTask(_ task: URLSessionTask) -> (messageId: MessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (MessageIdentifier, FlowIdentifier, Data)? = nil
+    private func getInfoForExtendedPayloadDownloadTask(_ task: URLSessionTask) -> (messageId: ObvMessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvMessageIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentExtendedPayloadDownloadTasks[task.taskIdentifier]
         }
         return info
     }
     
-    private func insertExtendedPayloadDownloadTask(_ task: URLSessionTask, for messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    private func insertExtendedPayloadDownloadTask(_ task: URLSessionTask, for messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         currentTasksQueue.sync {
             _currentExtendedPayloadDownloadTasks[task.taskIdentifier] = (messageId, flowId, Data())
         }
@@ -187,7 +185,7 @@ extension MessagesCoordinator: MessagesDelegate {
             }
             
             contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: identity) else {
+                guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: identity) else {
                     syncQueueOutput = .serverSessionRequired
                     return
                 }
@@ -227,21 +225,22 @@ extension MessagesCoordinator: MessagesDelegate {
             
         case .previousTaskExists:
             os_log("A running task already exists for identity %@ with flow identifier %{public}@", log: log, type: .debug, identity.debugDescription, flowId.debugDescription)
-            queueForCallingDelegate.async {
+            Task {
                 delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentWasNotNeeded(for: identity, andDeviceUid: deviceUid, flowId: flowId)
             }
             
         case .serverSessionRequired:
             os_log("Server session required for identity %@ with flow identifier %{public}@", log: log, type: .debug, identity.debugDescription, flowId.debugDescription)
-            queueForCallingDelegate.async {
+            Task.detached {
                 do {
-                    try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: identity, flowId: flowId)
+                    _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: identity, currentInvalidToken: nil, flowId: flowId)
                 } catch {
-                    os_log("Call serverSessionRequired did fail", log: log, type: .fault)
+                    os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
                     assertionFailure()
                 }
             }
-            
+            return
+
         case .failedToCreateTask(error: let error):
             if let serverMethodError = error as? ObvServerMethodError {
                 switch serverMethodError {
@@ -249,10 +248,18 @@ extension MessagesCoordinator: MessagesDelegate {
                     os_log("Could not create task for ObvServerDownloadMessagesAndListAttachmentsMethod (ownedIdentityIsActiveCheckerDelegateIsNotSet): %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
                 case .ownedIdentityIsNotActive:
                     os_log("Could not create task for ObvServerDownloadMessagesAndListAttachmentsMethod (ownedIdentityIsNotActive): %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
-                    queueForCallingDelegate.async {
+                    Task {
                         delegateManager.networkFetchFlowDelegate.fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: identity, flowId: flowId)
                     }
                     return
+                case .couldNotParseServerResponse:
+                    os_log("Could not create task for ObvServerDownloadMessagesAndListAttachmentsMethod: %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
+                case .returnedServerStatusIsInvalid:
+                    os_log("Could not create task for ObvServerDownloadMessagesAndListAttachmentsMethod: %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
+                case .serverDidNotReturnTheExpectedNumberOfElements:
+                    os_log("Could not create task for ObvServerDownloadMessagesAndListAttachmentsMethod: %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
+                case .couldNotDecodeElementReturnByServer:
+                    os_log("Could not create task for ObvServerDownloadMessagesAndListAttachmentsMethod: %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
                 }
             } else {
                 os_log("Could not create task for ObvServerDownloadMessagesAndListAttachmentsMethod: %{public}@", log: log, type: .error, error.localizedDescription)
@@ -272,7 +279,7 @@ extension MessagesCoordinator: MessagesDelegate {
     /// The reason why this method is defined within this coordinator is because this allows to synchronize it with the list of new messages.
     /// For this method to actually do something, the message and all its attachments must be marked for deletion, i.e., the `canBeDeleted`
     /// must return `true` when called on the message.
-    func processMarkForDeletionForMessageAndAttachmentsAndCreatePendingDeleteFromServer(messageId: MessageIdentifier, flowId: FlowIdentifier) throws {
+    func processMarkForDeletionForMessageAndAttachmentsAndCreatePendingDeleteFromServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -303,7 +310,7 @@ extension MessagesCoordinator: MessagesDelegate {
                 }
                 
                 for attachment in message.attachments {
-                    try? attachment.deleteDownload(fromInbox: delegateManager.inbox)
+                    try? attachment.deleteDownload(fromInbox: delegateManager.inbox, within: obvContext)
                 }
 
                 try? message.deleteAttachmentsDirectory(fromInbox: delegateManager.inbox)
@@ -351,7 +358,7 @@ extension MessagesCoordinator: MessagesDelegate {
             guard idsOfNewMessages.count == 1 else { throw makeError(message: "Could not save message") }
         }
         
-        queueForCallingDelegate.async { [weak self] in
+        Task { [weak self] in
             self?.delegateManager?.networkFetchFlowDelegate.aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(ownedCryptoIdentity: ownedIdentity, flowId: flowId)
         }
         
@@ -373,7 +380,7 @@ extension MessagesCoordinator {
     }
 
     
-    func downloadExtendedMessagePayload(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func downloadExtendedMessagePayload(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -413,7 +420,7 @@ extension MessagesCoordinator {
                     return
                 }
                 
-                guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: messageId.ownedCryptoIdentity) else {
+                guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: messageId.ownedCryptoIdentity) else {
                     syncQueueOutput = .serverSessionRequired
                     return
                 }
@@ -458,15 +465,16 @@ extension MessagesCoordinator {
             
         case .serverSessionRequired:
             os_log("Server session required for identity %@ with flow identifier %{public}@", log: log, type: .debug, messageId.ownedCryptoIdentity.debugDescription, flowId.debugDescription)
-            queueForCallingDelegate.async {
+            Task.detached {
                 do {
-                    try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: messageId.ownedCryptoIdentity, flowId: flowId)
+                    _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: messageId.ownedCryptoIdentity, currentInvalidToken: nil, flowId: flowId)
                 } catch {
-                    os_log("Call serverSessionRequired did fail", log: log, type: .fault)
+                    os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
                     assertionFailure()
                 }
             }
-            
+            return
+
         case .failedToCreateTask(error: let error):
             if let serverMethodError = error as? ObvServerMethodError {
                 switch serverMethodError {
@@ -478,6 +486,14 @@ extension MessagesCoordinator {
                         delegateManager.networkFetchFlowDelegate.fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: messageId.ownedCryptoIdentity, flowId: flowId)
                     }
                     return
+                case .couldNotParseServerResponse:
+                    os_log("Could not create task for ObvServerDownloadMessageExtendedPayloadMethod: %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
+                case .returnedServerStatusIsInvalid:
+                    os_log("Could not create task for ObvServerDownloadMessageExtendedPayloadMethod: %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
+                case .serverDidNotReturnTheExpectedNumberOfElements:
+                    os_log("Could not create task for ObvServerDownloadMessageExtendedPayloadMethod: %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
+                case .couldNotDecodeElementReturnByServer:
+                    os_log("Could not create task for ObvServerDownloadMessageExtendedPayloadMethod: %{public}@", log: log, type: .error, serverMethodError.localizedDescription)
                 }
             } else {
                 os_log("Could not create task for ObvServerDownloadMessageExtendedPayloadMethod: %{public}@", log: log, type: .error, error.localizedDescription)
@@ -542,8 +558,8 @@ extension MessagesCoordinator: URLSessionDataDelegate {
             guard error == nil else {
                 os_log("The DownloadMessagesAndListAttachmentsCoordinator task failed for identity %{public}@: %{public}@", log: log, type: .error, ownedIdentity.debugDescription, error!.localizedDescription)
                 _ = removeInfoFor(task)
-                queueForCallingDelegate.async {
-                    delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentFailed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
+                Task {
+                    await delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentFailed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
                 }
                 return
             }
@@ -553,8 +569,8 @@ extension MessagesCoordinator: URLSessionDataDelegate {
             guard let (status, timestampFromServer, returnedValues) = ObvServerDownloadMessagesAndListAttachmentsMethod.parseObvServerResponse(responseData: responseData, using: log) else {
                 os_log("Could not parse the server response for the ObvServerDownloadMessagesAndListAttachmentsMethod for identity %{public}@", log: log, type: .fault, ownedIdentity.debugDescription)
                 _ = removeInfoFor(task)
-                queueForCallingDelegate.async {
-                    delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentFailed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
+                Task {
+                    await delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentFailed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
                 }
                 return
             }
@@ -567,7 +583,7 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                 
                 localQueue.sync {
                     
-                    let idsOfNewMessages: [MessageIdentifier]
+                    let idsOfNewMessages: [ObvMessageIdentifier]
                     do {
                         idsOfNewMessages = try saveMessagesAndAttachmentsFromServer(listOfMessageAndAttachmentsOnServer,
                                                                                     downloadTimestampFromServer: downloadTimestampFromServer,
@@ -577,8 +593,8 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save the messages and list of attachments", log: log, type: .fault)
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentFailed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentFailed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
                         }
                         return
                     }
@@ -597,26 +613,13 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                 os_log("The session is invalid", log: log, type: .error)
                 
                 contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                    guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: ownedIdentity) else {
+                    guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedIdentity), let token = serverSession.token else {
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
+                        Task.detached {
                             do {
-                                try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedIdentity, flowId: flowId)
+                                _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedIdentity, currentInvalidToken: nil, flowId: flowId)
                             } catch {
-                                os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
-                                assertionFailure()
-                            }
-                        }
-                        return
-                    }
-                    
-                    guard let token = serverSession.token else {
-                        _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            do {
-                                try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedIdentity, flowId: flowId)
-                            } catch {
-                                os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
+                                os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
                                 assertionFailure()
                             }
                         }
@@ -624,11 +627,11 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                     }
                     
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
+                    Task.detached {
                         do {
-                            try delegateManager.networkFetchFlowDelegate.serverSession(of: ownedIdentity, hasInvalidToken: token, flowId: flowId)
+                            _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedIdentity, currentInvalidToken: token, flowId: flowId)
                         } catch {
-                            os_log("Call to serverSession(of: ObvCryptoIdentity, hasInvalidToken: Data, flowId: FlowIdentifier) did fail", log: log, type: .fault)
+                            os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
                             assertionFailure()
                         }
                     }
@@ -647,8 +650,8 @@ extension MessagesCoordinator: URLSessionDataDelegate {
             case .generalError:
                 os_log("Server reported general error during the ObvServerListMessagesAndAttachmentsMethod download task for identity %@", log: log, type: .fault, ownedIdentity.debugDescription)
                 _ = removeInfoFor(task)
-                queueForCallingDelegate.async {
-                    delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentFailed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
+                Task {
+                    await delegateManager.networkFetchFlowDelegate.downloadingMessagesAndListingAttachmentFailed(for: ownedIdentity, andDeviceUid: deviceUid, flowId: flowId)
                 }
                 return
             }
@@ -715,26 +718,13 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                 os_log("The session is invalid", log: log, type: .error)
                 
                 contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                    guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: messageId.ownedCryptoIdentity) else {
+                    guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: messageId.ownedCryptoIdentity), let token = serverSession.token else {
                         _ = removeInfoForExtendedPayloadDownloadTask(task)
-                        queueForCallingDelegate.async {
+                        Task.detached {
                             do {
-                                try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: messageId.ownedCryptoIdentity, flowId: flowId)
+                                _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: messageId.ownedCryptoIdentity, currentInvalidToken: nil, flowId: flowId)
                             } catch {
-                                os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
-                                assertionFailure()
-                            }
-                        }
-                        return
-                    }
-                    
-                    guard let token = serverSession.token else {
-                        _ = removeInfoForExtendedPayloadDownloadTask(task)
-                        queueForCallingDelegate.async {
-                            do {
-                                try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: messageId.ownedCryptoIdentity, flowId: flowId)
-                            } catch {
-                                os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
+                                os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
                                 assertionFailure()
                             }
                         }
@@ -742,11 +732,11 @@ extension MessagesCoordinator: URLSessionDataDelegate {
                     }
                     
                     _ = removeInfoForExtendedPayloadDownloadTask(task)
-                    queueForCallingDelegate.async {
+                    Task.detached {
                         do {
-                            try delegateManager.networkFetchFlowDelegate.serverSession(of: messageId.ownedCryptoIdentity, hasInvalidToken: token, flowId: flowId)
+                            _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: messageId.ownedCryptoIdentity, currentInvalidToken: token, flowId: flowId)
                         } catch {
-                            os_log("Call to serverSession(of: ObvCryptoIdentity, hasInvalidToken: Data, flowId: FlowIdentifier) did fail", log: log, type: .fault)
+                            os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
                             assertionFailure()
                         }
                     }
@@ -780,7 +770,7 @@ extension MessagesCoordinator: URLSessionDataDelegate {
     
     /// When receiving an encrypted extended message payload from the server, we call this method to fetch the message from database, use the decryption key to decrypt the
     /// extended payload, and store the decrypted payload back to database
-    private func decryptAndSaveExtendedMessagePayload(messageId: MessageIdentifier, encryptedExtendedMessagePayload: EncryptedData, flowId: FlowIdentifier) throws {
+    private func decryptAndSaveExtendedMessagePayload(messageId: ObvMessageIdentifier, encryptedExtendedMessagePayload: EncryptedData, flowId: FlowIdentifier) throws {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -820,7 +810,7 @@ extension MessagesCoordinator: URLSessionDataDelegate {
     
     
     /// If we fail to download an extended message payload (or if we cannot decrypt it), we remove any information about this payload from the database
-    private func removeExtendedMessagePayload(messageId: MessageIdentifier, flowId: FlowIdentifier) throws {
+    private func removeExtendedMessagePayload(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -856,7 +846,7 @@ extension MessagesCoordinator: URLSessionDataDelegate {
     
     
     /// This method is used when receiving a list of messages (and their attachments) from the server. It saves each one in the `InboxMessage` database. It returns the `MessageIdentifier` of all the messages it manages to save.
-    private func saveMessagesAndAttachmentsFromServer(_ listOfMessageAndAttachmentsOnServer: [ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer], downloadTimestampFromServer: Date, localDownloadTimestamp: Date, ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> [MessageIdentifier] {
+    private func saveMessagesAndAttachmentsFromServer(_ listOfMessageAndAttachmentsOnServer: [ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer], downloadTimestampFromServer: Date, localDownloadTimestamp: Date, ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> [ObvMessageIdentifier] {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -871,13 +861,13 @@ extension MessagesCoordinator: URLSessionDataDelegate {
             throw makeError(message: "The context creator manager is not set")
         }
 
-        var idsOfNewMessages = [MessageIdentifier]()
+        var idsOfNewMessages = [ObvMessageIdentifier]()
 
         try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
             
             for messageAndAttachmentsOnServer in listOfMessageAndAttachmentsOnServer {
                 
-                let messageId = MessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: messageAndAttachmentsOnServer.messageUidFromServer)
+                let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: messageAndAttachmentsOnServer.messageUidFromServer)
                 
                 // Check that the message does not already exist in DB
                 do {

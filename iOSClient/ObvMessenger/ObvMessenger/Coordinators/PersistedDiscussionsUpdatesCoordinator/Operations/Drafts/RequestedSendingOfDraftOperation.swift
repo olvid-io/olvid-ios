@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,24 +33,18 @@ final class RequestedSendingOfDraftOperation: ContextualOperationWithSpecificRea
         super.init()
     }
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            do {
-                guard let draft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindDraftInDatabase)
-                }
-                guard draft.isNotEmpty else {
-                    return cancel(withReason: .draftIsEmpty)
-                }
-                draft.send()
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            guard let draft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindDraftInDatabase)
             }
+            guard draft.isNotEmpty else {
+                return cancel(withReason: .draftIsEmpty)
+            }
+            draft.send()
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

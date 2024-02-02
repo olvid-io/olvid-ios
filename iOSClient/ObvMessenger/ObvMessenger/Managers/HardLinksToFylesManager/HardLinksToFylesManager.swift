@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import QuickLook
 import MobileCoreServices
 import CoreData
 import ObvUICoreData
+import ObvSettings
 
 
 /// The purpose of this coordinator is to manage all the hard links to fyles within Olvid. It subscribes to `RequestHardLinkToFyle` notifications.
@@ -255,24 +256,26 @@ final class HardLinksToFylesManager {
 final class HardLinkToFyle: NSObject, QLPreviewItem {
 
     let creationDate = Date()
-    let uti: String
+    let contentType: UTType
     let fyleURL: URL
     let fileName: String
     private(set) var hardlinkURL: URL?
     private(set) var activityItemProvider: ActivityItemProvider?
+    private (set) var itemProvider: NSItemProvider?
+    private (set) var uiDragItem: UIDragItem?
 
     override func isEqual(_ object: Any?) -> Bool {
         guard let otherObject = object as? HardLinkToFyle else { return false }
-        return self.uti == otherObject.uti && self.fyleURL == otherObject.fyleURL && self.fileName == otherObject.fileName && self.hardlinkURL == otherObject.hardlinkURL
+        return self.contentType == otherObject.contentType && self.fyleURL == otherObject.fyleURL && self.fileName == otherObject.fileName && self.hardlinkURL == otherObject.hardlinkURL
     }
     
     override var debugDescription: String {
-        "HardLinkToFyle(creationDate: \(creationDate.debugDescription) uti: \(uti), fileName: \(fileName), fyleURL: \(fyleURL), hardlinkURL: \(hardlinkURL?.path ?? "nil")"
+        "HardLinkToFyle(creationDate: \(creationDate.debugDescription) contentType: \(contentType.debugDescription), fileName: \(fileName), fyleURL: \(fyleURL), hardlinkURL: \(hardlinkURL?.path ?? "nil")"
     }
     
     override var hash: Int {
         var hasher = Hasher()
-        hasher.combine(uti)
+        hasher.combine(contentType)
         hasher.combine(fyleURL)
         hasher.combine(fileName)
         hasher.combine(hardlinkURL)
@@ -286,11 +289,11 @@ final class HardLinkToFyle: NSObject, QLPreviewItem {
     final class ActivityItemProvider: UIActivityItemProvider {
         
         private let hardlinkURL: URL
-        private let uti: String
+        private let contentType: UTType
         
-        fileprivate init(hardlinkURL: URL, uti: String) {
+        fileprivate init(hardlinkURL: URL, contentType: UTType) {
             self.hardlinkURL = hardlinkURL
-            self.uti = uti
+            self.contentType = contentType
             super.init(placeholderItem: hardlinkURL)
         }
         
@@ -299,7 +302,7 @@ final class HardLinkToFyle: NSObject, QLPreviewItem {
         }
 
         var excludedActivityTypes: [UIActivity.ActivityType]? {
-            if ObvUTIUtils.uti(self.uti, conformsTo: kUTTypeImage) {
+            if contentType.conforms(to: .image) {
                 return [.openInIBooks]
             } else {
                 return []
@@ -311,9 +314,11 @@ final class HardLinkToFyle: NSObject, QLPreviewItem {
     fileprivate init(fyleElement: FyleElement, currentSessionDirectoryForHardlinks: URL, log: OSLog) throws {
         let log = HardLinksToFylesManager.log
         os_log("Starting creation of HardLinkToFyle for fyle %{public}@", log: log, type: .info, fyleElement.fyleURL.lastPathComponent)
-        self.uti = fyleElement.uti
+        self.contentType = fyleElement.contentType
         self.fyleURL = fyleElement.fyleURL
         self.fileName = fyleElement.fileName
+        self.itemProvider = NSItemProvider(fyleElement: fyleElement)
+        self.uiDragItem = UIDragItem(fyleElement: fyleElement)
         guard fyleElement.fullFileIsAvailable else {
             os_log("Since the full file for fyle %{public}@ is not available, the hardlink won't contain a hardlink URL", log: log, type: .info, fyleElement.fyleURL.lastPathComponent)
             self.hardlinkURL = nil
@@ -324,31 +329,32 @@ final class HardLinkToFyle: NSObject, QLPreviewItem {
         os_log("Since the full file for fyle %{public}@ is available, we create a hardlink on disk now", log: log, type: .info, fyleElement.fyleURL.lastPathComponent)
         let directoryForHardLink = fyleElement.directoryForHardLink(in: currentSessionDirectoryForHardlinks)
         try FileManager.default.createDirectory(at: directoryForHardLink, withIntermediateDirectories: true, attributes: nil)
-        let appropriateFilename = HardLinkToFyle.determineAppropriateFilename(originalFilename: fyleElement.fileName, uti: fyleElement.uti)
+        let appropriateFilename = HardLinkToFyle.determineAppropriateFilename(originalFilename: fyleElement.fileName, contentType: fyleElement.contentType)
         let hardlinkURL = directoryForHardLink.appendingPathComponent(appropriateFilename, isDirectory: false)
         try HardLinkToFyle.linkOrCopyItem(at: fyleElement.fyleURL, to: hardlinkURL, log: log)
         self.hardlinkURL = hardlinkURL
-        self.activityItemProvider = ActivityItemProvider(hardlinkURL: hardlinkURL, uti: fyleElement.uti)
+        self.activityItemProvider = ActivityItemProvider(hardlinkURL: hardlinkURL, contentType: fyleElement.contentType)
         super.init()
     }
     
-    private static func determineAppropriateFilename(originalFilename: String, uti: String) -> String {
+
+    private static func determineAppropriateFilename(originalFilename: String, contentType: UTType) -> String {
         let escapedFilename = originalFilename.replacingOccurrences(of: "/", with: "_")
         // We have a specific case of .m4a files to fix the issue where Android sends audio/mpeg as a MIME type of .m4a files
-        if let utiFromFilename = ObvUTIUtils.utiOfFile(withName: escapedFilename), (utiFromFilename == uti || ObvUTIUtils.uti(utiFromFilename, conformsTo: kUTTypeMPEG4Audio)) {
+        if let contentTypeFromFilename = UTType(filenameExtension: (originalFilename as NSString).pathExtension), (contentTypeFromFilename == contentType || contentTypeFromFilename.conforms(to: .mpeg4Audio)) {
             return escapedFilename
+        } else if let preferredFilenameExtension = contentType.preferredFilenameExtension {
+            return [escapedFilename, preferredFilenameExtension].joined(separator: ".")
         } else {
-            if let filenameExtension = ObvUTIUtils.preferredTagWithClass(inUTI: uti, inTagClass: .FilenameExtension) {
-                return [escapedFilename, filenameExtension].joined(separator: ".")
-            } else {
-                return escapedFilename
-            }
+            return escapedFilename
         }
     }
     
+
+    
     private static func linkOrCopyItem(at fyleURL: URL, to hardlinkURL: URL, log: OSLog) throws {
         let log = HardLinksToFylesManager.log
-        os_log("Trying to link or copy item to disk during the creaton of the HardLinkToFyle for fyle %{public}@ to the following hardlink URL: %{public}@", log: log, type: .info, fyleURL.lastPathComponent, hardlinkURL.description)
+        os_log("Trying to link or copy item to disk during the creation of the HardLinkToFyle for fyle %{public}@ to the following hardlink URL: %{public}@", log: log, type: .info, fyleURL.lastPathComponent, hardlinkURL.description)
         guard !FileManager.default.fileExists(atPath: hardlinkURL.path) else {
             os_log("The hardlink URL already exists for the HardLinkToFyle for fyle %{public}@", log: log, type: .info, fyleURL.lastPathComponent)
             return
@@ -392,7 +398,8 @@ extension FyleJoin {
 struct FyleElementForDraftFyleJoin: FyleElement {
     
     let fileName: String
-    let uti: String
+    let contentType: UTType
+    //let uti: String
     let fullFileIsAvailable: Bool
     let fyleURL: URL
     let sha256: Data
@@ -400,15 +407,15 @@ struct FyleElementForDraftFyleJoin: FyleElement {
     init?(_ fyleJoin: FyleJoin) {
         guard let fyle = fyleJoin.fyle else { return nil }
         self.fileName = fyleJoin.fileName
-        self.uti = fyleJoin.uti
+        self.contentType = fyleJoin.contentType
         self.fullFileIsAvailable = true
         self.fyleURL = fyle.url
         self.sha256 = fyle.sha256
     }
     
-    private init(fileName: String, uti: String, fullFileIsAvailable: Bool, fyleURL: URL, sha256: Data) {
+    private init(fileName: String, contentType: UTType, fullFileIsAvailable: Bool, fyleURL: URL, sha256: Data) {
         self.fileName = fileName
-        self.uti = uti
+        self.contentType = contentType
         self.fullFileIsAvailable = fullFileIsAvailable
         self.fyleURL = fyleURL
         self.sha256 = sha256
@@ -423,6 +430,30 @@ struct FyleElementForDraftFyleJoin: FyleElement {
     }
     
     func replacingFullFileIsAvailable(with newFullFileIsAvailable: Bool) -> FyleElement {
-        FyleElementForDraftFyleJoin(fileName: fileName, uti: uti, fullFileIsAvailable: newFullFileIsAvailable, fyleURL: fyleURL, sha256: sha256)
+        Self.init(fileName: fileName, contentType: contentType, fullFileIsAvailable: newFullFileIsAvailable, fyleURL: fyleURL, sha256: sha256)
     }
+}
+
+
+// MARK: - System types' extensions
+
+fileprivate extension NSItemProvider {
+    
+    convenience init?(fyleElement: FyleElement) {
+        guard fyleElement.fullFileIsAvailable else { return nil }
+        self.init(item: fyleElement.fyleURL as NSURL, typeIdentifier: fyleElement.contentType.identifier)
+        self.suggestedName = fyleElement.fileName
+    }
+    
+}
+
+
+fileprivate extension UIDragItem {
+    
+    convenience init?(fyleElement: FyleElement) {
+        guard fyleElement.fullFileIsAvailable else { return nil }
+        guard let itemProvider = NSItemProvider(fyleElement: fyleElement) else { return nil }
+        self.init(itemProvider: itemProvider)
+    }
+    
 }

@@ -22,6 +22,7 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 import ObvUI
+import ObvDesignSystem
 
 
 final class ObvSemanticColorScheme {

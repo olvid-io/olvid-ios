@@ -28,6 +28,7 @@ public final class CompositionOfOneContextualOperation<ReasonForCancelType1: Loc
     let flowId: FlowIdentifier
     let op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>
     let queueForComposedOperations: OperationQueue
+    public private(set) var executionStartDate: Date?
 
     public init(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>, contextCreator: ObvContextCreator, queueForComposedOperations: OperationQueue, log: OSLog, flowId: FlowIdentifier) {
         self.contextCreator = contextCreator
@@ -46,10 +47,13 @@ public final class CompositionOfOneContextualOperation<ReasonForCancelType1: Loc
     
     public override func main() {
 
+        assert(executionStartDate == nil)
+        executionStartDate = Date.now
+        
         let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
         defer { obvContext.performAllEndOfScopeCompletionHAndlers() }
         
-        assert(queueForComposedOperations.operationCount == 0)
+        assert(queueForComposedOperations.operationCount < 5)
 
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext
@@ -65,7 +69,6 @@ public final class CompositionOfOneContextualOperation<ReasonForCancelType1: Loc
             do {
                 guard obvContext.context.hasChanges else {
                     debugPrint("🙃 No need to save completion handler for op1: \(op1.debugDescription)")
-                    obvContext.makeAssertionChecks()
                     return
                 }
                 try obvContext.save(logOnFailure: log)
@@ -76,6 +79,16 @@ public final class CompositionOfOneContextualOperation<ReasonForCancelType1: Loc
 
     }
          
+    
+    public func logExecutionDuration(log: OSLog) {
+        let op1Description = op1.description
+        self.appendCompletionBlock { [weak self] in
+            guard let executionStartDate = self?.executionStartDate else { assertionFailure(); return }
+            let duration = Date.now.timeIntervalSince(executionStartDate)
+            os_log("⏱️ CompositionOfOneContextualOperation<%{public}@> took %f seconds", log: log, type: .info, op1Description, duration)
+        }
+    }
+
 }
 
 

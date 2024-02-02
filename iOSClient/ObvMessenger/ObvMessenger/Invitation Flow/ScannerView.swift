@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,12 +20,12 @@
 import SwiftUI
 import AVFoundation
 import os.log
-import ObvUI
+import ObvDesignSystem
 
 
 protocol ScannerHostingViewDelegate: AnyObject {
-    func scannerViewActionButtonWasTapped()
-    func qrCodeWasScanned(olvidURL: OlvidURL)
+    func scannerViewActionButtonWasTapped() async
+    func qrCodeWasScanned(olvidURL: OlvidURL) async
 }
 
 
@@ -56,11 +56,15 @@ final class ScannerHostingView: UIHostingController<ScannerView>, ScannerViewSto
     // ScannerViewStoreDelegate
     
     func buttonAction() {
-        delegate?.scannerViewActionButtonWasTapped()
+        Task { [weak self] in
+            await self?.delegate?.scannerViewActionButtonWasTapped()
+        }
     }
     
     func qrCodeWasScanned(olvidURL: OlvidURL) {
-        delegate?.qrCodeWasScanned(olvidURL: olvidURL)
+        Task { [weak self] in
+            await self?.delegate?.qrCodeWasScanned(olvidURL: olvidURL)
+        }
     }
 
     

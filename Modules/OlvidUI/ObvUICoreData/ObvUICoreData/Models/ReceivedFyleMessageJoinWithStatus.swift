@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,13 +20,16 @@
 import Foundation
 import CoreData
 import CoreServices
-import ObvEngine
+import ObvTypes
+import os.log
+import ObvSettings
 
 
 @objc(ReceivedFyleMessageJoinWithStatus)
 public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Identifiable {
     
     private static let entityName = "ReceivedFyleMessageJoinWithStatus"
+    private static let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "ReceivedFyleMessageJoinWithStatus")
 
     public enum FyleStatus: Int {
         case downloadable = 0
@@ -37,7 +40,6 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus,
         
     // MARK: Properties
     
-    @NSManaged public private(set) var downsizedThumbnail: Data?
     @NSManaged public private(set) var wasOpened: Bool
 
     // MARK: Relationships
@@ -62,8 +64,9 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus,
 
     // MARK: - Initializer
     
-    // Called when a fyle is already available
-    public convenience init(metadata: FyleMetadata, obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws {
+    private convenience init(obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws {
+
+        let metadata = try FyleMetadata.jsonDecode(obvAttachment.metadata)
 
         guard let receivedMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvAttachment.messageIdentifier,
                                                                      from: obvAttachment.fromContactIdentity,
@@ -73,62 +76,127 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus,
             throw Self.makeError(message: "Trying to create a ReceivedFyleMessageJoinWithStatus for a wiped received message")
         }
         
-        // Pre-compute a few things
-        
-        let fyle: Fyle
-        do {
-            let _fyle = try Fyle.get(sha256: metadata.sha256, within: context)
-            guard _fyle != nil else { throw Self.makeError(message: "Could not get Fyle (1)") }
-            fyle = _fyle!
-        }
+        try self.init(sha256: metadata.sha256,
+                      totalByteCount: 0, // Reset bellow
+                      fileName: metadata.fileName,
+                      uti: metadata.contentType.identifier,
+                      rawStatus: FyleStatus.complete.rawValue, // Reset later
+                      messageSortIndex: receivedMessage.sortIndex,
+                      index: obvAttachment.number,
+                      forEntityName: ReceivedFyleMessageJoinWithStatus.entityName,
+                      within: context)
 
-        let rawStatus: Int
-        let totalByteCount: Int64
+        guard let fyle else {
+            assertionFailure()
+            throw Self.makeError(message: "The fyle should have been created by the superclass initializer")
+        }
+        
         if let fileSize = fyle.getFileSize() {
-            rawStatus = FyleStatus.complete.rawValue
-            totalByteCount = fileSize
+            self.rawStatus = FyleStatus.complete.rawValue
+            self.setTotalByteCount(to: fileSize)
         } else {
-            rawStatus = obvAttachment.downloadPaused ? FyleStatus.downloadable.rawValue : FyleStatus.downloading.rawValue
-            totalByteCount = obvAttachment.totalUnitCount
+            self.rawStatus = obvAttachment.downloadPaused ? FyleStatus.downloadable.rawValue : FyleStatus.downloading.rawValue
+            self.setTotalByteCount(to: obvAttachment.totalUnitCount)
         }
-        
-        // Call the superclass initializer
-
-        self.init(totalByteCount: totalByteCount,
-                  fileName: metadata.fileName,
-                  uti: metadata.uti,
-                  rawStatus: rawStatus,
-                  messageSortIndex: receivedMessage.sortIndex,
-                  index: obvAttachment.number,
-                  fyle: fyle,
-                  forEntityName: ReceivedFyleMessageJoinWithStatus.entityName,
-                  within: context)
 
         // Set the remaining properties and relationships
         
-        self.downsizedThumbnail = nil
         self.receivedMessage = receivedMessage
+    }
+    
+    
+    /// Returns `true` if the attachment is fully received, i.e., if the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
+    /// Also returns `true` if the attachment was cancelled by the server.
+    static func createOrUpdateReceivedFyleMessageJoinWithStatus(with obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws -> Bool {
+        
+        let join: ReceivedFyleMessageJoinWithStatus
+        if let previousJoin = try ReceivedFyleMessageJoinWithStatus.get(obvAttachment: obvAttachment, within: context) {
+            join = previousJoin
+            if join.fyle == nil {
+                assertionFailure("This is unexpected as the join should have been cascade deleted when the fyle was deleted")
+                let metadata = try FyleMetadata.jsonDecode(obvAttachment.metadata)
+                try join.getOrCreateFyle(sha256: metadata.sha256)
+            }
+        } else {
+            join = try Self.init(
+                obvAttachment: obvAttachment,
+                within: context)
+            assert(join.fyle != nil, "The fyle should have been created by the init of the superclass")
+        }
+        
+        let attachmentFullyReceivedOrCancelledByServer = try join.updateReceivedFyleMessageJoinWithStatus(with: obvAttachment)
+            
+        return attachmentFullyReceivedOrCancelledByServer
+        
+    }
+
+    
+    /// Returns `true` if the attachment is fully received, i.e., if the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
+    /// Also returns `true` if the attachment was cancelled by the server.
+    private func updateReceivedFyleMessageJoinWithStatus(with obvAttachment: ObvAttachment) throws -> Bool {
+        
+        // Update the status of the ReceivedFyleMessageJoinWithStatus depending on the status of the ObvAttachment
+
+        var attachmentCancelledByServer = false
+        var attachmentFullyReceived = false
+        
+        switch obvAttachment.status {
+
+        case .paused:
+            tryToSetStatusTo(.downloadable)
+            
+        case .resumed:
+            tryToSetStatusTo(.downloading)
+
+        case .downloaded:
+            guard let fyle else {
+                assertionFailure("Could not find fyle although this join should have been cascade deleted when the fyle was deleted")
+                throw Self.makeError(message: "Could not find fyle")
+            }
+            try fyle.updateFyle(with: obvAttachment)
+            attachmentFullyReceived = (fyle.getFileSize() == totalByteCount)
+            if attachmentFullyReceived {
+                tryToSetStatusTo(.complete)
+                deleteDownsizedThumbnail()
+            }
+
+        case .cancelledByServer:
+            tryToSetStatusTo(.cancelledByServer)
+            attachmentCancelledByServer = true
+
+        case .markedForDeletion:
+            break
+
+        }
+
+        return attachmentFullyReceived || attachmentCancelledByServer
+        
     }
     
     
     public override func wipe() throws {
         try super.wipe()
         tryToSetStatusTo(.complete)
-        deleteDownsizedThumbnail()
     }
+
     
+    /// Set the downsized thumbnail if required. Returns `true` if this was the case, or `false` otherwise.
+    ///
+    /// Exclusively called from ``PersistedMessageReceived.saveExtendedPayload(foundIn:)``.
+    override func setDownsizedThumbnailIfRequired(data: Data) -> Bool {
+        assert(self.downsizedThumbnail == nil)
+        guard !isWiped else { assertionFailure(); return false }
+        guard requiresDownsizedThumbnail() else { return false }
+        return super.setDownsizedThumbnailIfRequired(data: data)
+    }
+
 }
 
 // MARK: - Other methods
 
 extension ReceivedFyleMessageJoinWithStatus {
 
-    public func deleteDownsizedThumbnail() {
-        self.downsizedThumbnail = nil
-    }
-    
-    
-    public func tryToSetStatusTo(_ newStatus: FyleStatus) {
+    private func tryToSetStatusTo(_ newStatus: FyleStatus) {
         guard self.status != .complete else { return }
         self.rawStatus = newStatus.rawValue
         self.message?.setHasUpdate()
@@ -140,6 +208,19 @@ extension ReceivedFyleMessageJoinWithStatus {
         }
     }
 
+    public func tryToSetStatusToCancelledByServer() {
+        tryToSetStatusTo(.cancelledByServer)
+    }
+    
+    public func tryToSetStatusToDownloading() {
+        tryToSetStatusTo(.downloading)
+    }
+    
+    public func tryToSetStatusToDownloadable() {
+        tryToSetStatusTo(.downloadable)
+    }
+
+    
     public func markAsOpened() {
         guard !self.wasOpened else { return }
         self.wasOpened = true
@@ -157,7 +238,7 @@ extension ReceivedFyleMessageJoinWithStatus {
     func attachementImage() -> NotificationAttachmentImage? {
         guard !receivedMessage.readingRequiresUserAction else { return nil }
         if let fyleElement = fyleElementOfReceivedJoin(), fyleElement.fullFileIsAvailable {
-            guard ObvUTIUtils.uti(fyleElement.uti, conformsTo: kUTTypeJPEG) else { return nil }
+            guard fyleElement.contentType.conforms(to: .jpeg) else { return nil }
             return .url(attachmentNumber: index, fyleElement.fyleURL)
         } else if let data = downsizedThumbnail {
             return .data(attachmentNumber: index, data)
@@ -167,21 +248,11 @@ extension ReceivedFyleMessageJoinWithStatus {
     }
 
     // `true` if this join is not complete, or if the fyle is not completely available on disk
-    func requiresDownsizedThumbnail() -> Bool {
+    private func requiresDownsizedThumbnail() -> Bool {
         guard let fyle = self.fyle else { return true }
         return self.status != .complete || fyle.getFileSize() != self.totalByteCount
     }
     
-    /// Set the downsized thumbnail if required. Returns `true` if this was the case, or `false` otherwise.
-    public func setDownsizedThumbnailIfRequired(data: Data) -> Bool {
-        assert(self.downsizedThumbnail == nil)
-        guard !isWiped else { assertionFailure(); return false }
-        guard requiresDownsizedThumbnail() else { return false }
-        guard self.downsizedThumbnail != data else { return false }
-        self.downsizedThumbnail = data
-        return true
-    }
-
 }
 
 
@@ -234,10 +305,14 @@ extension ReceivedFyleMessageJoinWithStatus {
     }
     
     
-    public static func get(metadata: FyleMetadata, obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus? {
-        guard let receivedMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvAttachment.messageIdentifier,
-                                                                     from: obvAttachment.fromContactIdentity,
-                                                                     within: context) else { throw makeError(message: "Could not find the associated PersistedMessageReceived") }
+    private static func get(obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws -> ReceivedFyleMessageJoinWithStatus? {
+        let metadata = try FyleMetadata.jsonDecode(obvAttachment.metadata)
+        guard let receivedMessage = try PersistedMessageReceived.get(
+            messageIdentifierFromEngine: obvAttachment.messageIdentifier,
+            from: obvAttachment.fromContactIdentity,
+            within: context) else {
+            throw makeError(message: "Could not find the associated PersistedMessageReceived")
+        }
         let request: NSFetchRequest<ReceivedFyleMessageJoinWithStatus> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             FyleMessageJoinWithStatus.Predicate.withSha256(metadata.sha256),
@@ -249,7 +324,7 @@ extension ReceivedFyleMessageJoinWithStatus {
     }
  
     
-    public static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
+    static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
         request.predicate = NSPredicate(format: "%K == NIL", Predicate.Key.receivedMessage.rawValue)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
@@ -263,7 +338,16 @@ extension ReceivedFyleMessageJoinWithStatus {
 }
 
 
-// Reacting to changes
+// MARK: - Downcasting
+
+public extension TypeSafeManagedObjectID where T == ReceivedFyleMessageJoinWithStatus {
+    var downcast: TypeSafeManagedObjectID<FyleMessageJoinWithStatus> {
+        TypeSafeManagedObjectID<FyleMessageJoinWithStatus>(objectID: objectID)
+    }
+}
+
+
+// MARK: - Reacting to changes
 
 extension ReceivedFyleMessageJoinWithStatus {
     

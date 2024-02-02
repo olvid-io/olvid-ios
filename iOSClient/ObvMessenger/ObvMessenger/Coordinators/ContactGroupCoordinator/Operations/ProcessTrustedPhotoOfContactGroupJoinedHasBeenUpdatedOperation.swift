@@ -34,34 +34,26 @@ final class ProcessTrustedPhotoOfContactGroupJoinedHasBeenUpdatedOperation: Cont
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        obvContext.performAndWait {
+        do {
             
-            do {
-
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
-                    return
-                }
-
-                let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-
-                guard let groupJoined = try PersistedContactGroupJoined.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
-                    return
-                }
-
-                groupJoined.updatePhoto(with: obvContactGroup.trustedOrLatestPhotoURL)
-
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
+                return
             }
             
+            let groupIdentifier = obvContactGroup.groupIdentifier
+            
+            guard let groupJoined = try PersistedContactGroupJoined.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
+                return
+            }
+            
+            groupJoined.updatePhoto(with: obvContactGroup.trustedOrLatestPhotoURL)
+            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }

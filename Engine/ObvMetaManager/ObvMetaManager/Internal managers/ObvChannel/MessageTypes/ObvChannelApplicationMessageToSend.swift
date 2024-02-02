@@ -31,8 +31,12 @@ public struct ObvChannelApplicationMessageToSend: ObvChannelMessageToSend {
     public let withUserContent: Bool
     public let isVoipMessageForStartingCall: Bool
     
-    public init(toContactIdentities: Set<ObvCryptoIdentity>, fromIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayload: Data?, withUserContent: Bool, isVoipMessageForStartingCall: Bool, attachments: [Attachment]) {
-        self.channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: toContactIdentities, fromOwnedIdentity: fromIdentity)
+    public init(toContactIdentities: Set<ObvCryptoIdentity>, fromIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayload: Data?, withUserContent: Bool, isVoipMessageForStartingCall: Bool, attachments: [Attachment], alsoPostToOtherOwnedDevices: Bool) {
+        if alsoPostToOtherOwnedDevices {
+            self.channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity(contactIdentities: toContactIdentities, fromOwnedIdentity: fromIdentity)
+        } else {
+            self.channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: toContactIdentities, fromOwnedIdentity: fromIdentity)
+        }
         self.attachments = attachments
         self.messagePayload = messagePayload
         self.extendedMessagePayload = extendedMessagePayload

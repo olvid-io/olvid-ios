@@ -57,7 +57,7 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
         os_log("post(_: ObvNetworkMessageToSend, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func cancelPostOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) throws {
+    public func cancelPostOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws {
         os_log("cancelPostOfMessage(messageId: MessageIdentifier) does nothing in this dummy implementation", log: log, type: .error)
     }
     
@@ -70,7 +70,7 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
         return false
     }
     
-    public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+    public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float] {
         os_log("requestUploadAttachmentProgressesUpdatedSince does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "requestUploadAttachmentProgressesUpdatedSince does nothing in this dummy implementation")
     }
@@ -90,7 +90,7 @@ public final class ObvNetworkSendManagerImplementationDummy: ObvNetworkPostDeleg
     
     public func replayTransactionsHistory(transactions: [NSPersistentHistoryTransaction], within: ObvContext) {}
     
-    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) async {}
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: ObvMessageIdentifier, flowId: FlowIdentifier) async {}
 
     public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(withTimestampFromServerEarlierOrEqualTo referenceDate: Date, flowId: FlowIdentifier) async {}
 

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,29 +27,29 @@ import ObvCrypto
 
 extension DeviceCapabilitiesDiscoveryProtocol {
     
-    enum StepId: Int, ConcreteProtocolStepId {
+    enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
-        case AddOwnCapabilitiesAndSendThemToAllContactsAndOwnedDevices = 0
-        case SendOwnCapabilitiesToContactDevice = 1
-        case SendOwnCapabilitiesToOtherOwnedDevice = 2
-        case ProcessReceivedContactDeviceCapabilities = 3
-        case ProcessReceivedOwnedDeviceCapabilities = 4
+        case addOwnCapabilitiesAndSendThemToAllContactsAndOwnedDevices = 0
+        case sendOwnCapabilitiesToContactDevice = 1
+        case sendOwnCapabilitiesToOtherOwnedDevice = 2
+        case processReceivedContactDeviceCapabilities = 3
+        case processReceivedOwnedDeviceCapabilities = 4
 
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             switch self {
-            case .AddOwnCapabilitiesAndSendThemToAllContactsAndOwnedDevices:
+            case .addOwnCapabilitiesAndSendThemToAllContactsAndOwnedDevices:
                 let step = AddOwnCapabilitiesAndSendThemToAllContactsAndOwnedDevicesStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .SendOwnCapabilitiesToContactDevice:
+            case .sendOwnCapabilitiesToContactDevice:
                 let step = SendOwnCapabilitiesToContactDeviceStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .SendOwnCapabilitiesToOtherOwnedDevice:
+            case .sendOwnCapabilitiesToOtherOwnedDevice:
                 let step = SendOwnCapabilitiesToOtherOwnedDeviceStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessReceivedContactDeviceCapabilities:
+            case .processReceivedContactDeviceCapabilities:
                 let step = ProcessReceivedContactDeviceCapabilitiesStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessReceivedOwnedDeviceCapabilities:
+            case .processReceivedOwnedDeviceCapabilities:
                 let step = ProcessReceivedOwnedDeviceCapabilitiesStep(from: concreteProtocol, and: receivedMessage)
                 return step
             }
@@ -110,7 +110,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                 let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
                 let newProtocolInstanceUid = UID.gen(with: prng)
                 let coreMessage = CoreProtocolMessage(channelType: channel,
-                                                      cryptoProtocolId: .OneToOneContactInvitation,
+                                                      cryptoProtocolId: .oneToOneContactInvitation,
                                                       protocolInstanceUid: newProtocolInstanceUid)
                 let message = OneToOneContactInvitationProtocol.InitialOneToOneStatusSyncRequestMessage(coreProtocolMessage: coreMessage, contactsToSync: allContactIdentities)
                 guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -118,7 +118,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                     throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
                 }
                 do {
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Failed to request our own OneToOne status to our contact", log: log, type: .fault)
                     throw error
@@ -140,7 +140,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                         throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
                     }
                     do {
-                        _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     } catch {
                         os_log("Failed to inform our contacts of the change of the current device new capabilities (2): %{public}@", log: log, type: .fault, error.localizedDescription)
                         throw error
@@ -161,7 +161,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                         assertionFailure()
                         throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
             }
 
@@ -215,7 +215,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
             }
             do {
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Failed to inform one of our contacts of the change of the current device new capabilities (3)", log: log, type: .fault)
                 throw error
@@ -270,7 +270,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                 throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
             }
             do {
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Failed to inform one of our contacts of the change of the current device new capabilities (3)", log: log, type: .fault)
                 throw error
@@ -344,7 +344,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                     throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
                 }
                 do {
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Failed to inform our contact of the current device capabilities", log: log, type: .fault)
                     throw error
@@ -420,7 +420,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                     throw DeviceCapabilitiesDiscoveryProtocol.makeError(message: "Implementation error")
                 }
                 do {
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Failed to inform our other owned device of the current device capabilities", log: log, type: .fault)
                     throw error

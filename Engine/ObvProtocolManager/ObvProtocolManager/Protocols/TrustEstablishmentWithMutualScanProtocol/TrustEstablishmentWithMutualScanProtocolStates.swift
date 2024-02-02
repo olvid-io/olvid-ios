@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,17 +26,17 @@ extension TrustEstablishmentWithMutualScanProtocol {
     
     enum StateId: Int, ConcreteProtocolStateId {
         
-        case Initial = 0
-        case WaitingForConfirmation = 1
-        case Finished = 2
-        case Cancelled = 3
+        case initial = 0
+        case waitingForConfirmation = 1
+        case finished = 2
+        case cancelled = 3
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
-            case .Initial                : return ConcreteProtocolInitialState.self
-            case .WaitingForConfirmation : return WaitingForConfirmationState.self
-            case .Finished               : return FinishedState.self
-            case .Cancelled: return CancelledState.self
+            case .initial                : return ConcreteProtocolInitialState.self
+            case .waitingForConfirmation : return WaitingForConfirmationState.self
+            case .finished               : return FinishedState.self
+            case .cancelled: return CancelledState.self
             }
         }
         
@@ -45,7 +45,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
     
     struct WaitingForConfirmationState: TypeConcreteProtocolState {
 
-        let id: ConcreteProtocolStateId = StateId.WaitingForConfirmation
+        let id: ConcreteProtocolStateId = StateId.waitingForConfirmation
 
         let bobIdentity: ObvCryptoIdentity
 
@@ -65,7 +65,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
     
     struct FinishedState: TypeConcreteProtocolState {
 
-        let id: ConcreteProtocolStateId = StateId.Finished
+        let id: ConcreteProtocolStateId = StateId.finished
 
         init(_: ObvEncoded) {}
 
@@ -78,7 +78,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
     
     struct CancelledState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.Cancelled
+        let id: ConcreteProtocolStateId = StateId.cancelled
         
         init(_: ObvEncoded) {}
         

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,35 +23,31 @@ import OlvidUtils
 import os.log
 import ObvTypes
 import ObvUICoreData
+import CoreData
 
 final class RefreshBadgeCountsForAllOwnedIdentitiesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+            ownedIdentities.forEach { ownedIdentity in
+                do {
+                    try ownedIdentity.refreshBadgeCountForDiscussionsTab()
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                    // In production, continue anyway
+                }
+                do {
+                    try ownedIdentity.refreshBadgeCountForInvitationsTab()
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                    // In production, continue anyway
+                }
+            }
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
-            do {
-                let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
-                ownedIdentities.forEach { ownedIdentity in
-                    do {
-                        try ownedIdentity.refreshBadgeCountForDiscussionsTab()
-                    } catch {
-                        assertionFailure(error.localizedDescription)
-                        // In production, continue anyway
-                    }
-                    do {
-                        try ownedIdentity.refreshBadgeCountForInvitationsTab()
-                    } catch {
-                        assertionFailure(error.localizedDescription)
-                        // In production, continue anyway
-                    }
-                }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-        }
     }
 }

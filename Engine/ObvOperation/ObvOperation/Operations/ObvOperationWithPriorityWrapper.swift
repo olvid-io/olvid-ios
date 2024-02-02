@@ -23,8 +23,8 @@ import os.log
 
 open class ObvOperationWithPriorityWrapper<WrappedObvOperationType: ObvOperationWithPriority>: ObvOperationWithPriority, OperationDelegate {
 
-    override open var className: String {
-        return "ObvOperationWithPriorityWrapper<\(wrappedOperation.className)>"
+    open override var debugClassName: String {
+        return "ObvOperationWithPriorityWrapper<\(wrappedOperation.debugClassName)>"
     }
 
     let log = OSLog(subsystem: ObvOperation.defaultLogSubsystem, category: "ObvOperationWithPriorityWrapper")

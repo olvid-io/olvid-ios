@@ -20,6 +20,7 @@
 import UIKit
 import ObvTypes
 import ObvUICoreData
+import ObvSettings
 
 
 class InterfaceSettingsTableViewController: UITableViewController {
@@ -49,21 +50,13 @@ class InterfaceSettingsTableViewController: UITableViewController {
     
     private enum Section: CaseIterable {
         case customizeMessageComposeArea
-        case interfaceOptions
         case identityColorStyle
         static var shown: [Section] {
-            var result = [Section]()
-            if #available(iOS 15, *) {
-                result += [customizeMessageComposeArea]
-                result += [interfaceOptions]
-            }
-            result += [identityColorStyle]
-            return result
+            Section.allCases
         }
         var numberOfItems: Int {
             switch self {
             case .customizeMessageComposeArea: return CustomizeMessageComposeAreaItem.shown.count
-            case .interfaceOptions: return InterfaceOptionsItem.shown.count
             case .identityColorStyle: return IdentityColorStyleItem.shown.count
             }
         }
@@ -77,9 +70,7 @@ class InterfaceSettingsTableViewController: UITableViewController {
         case customizeMessageComposeArea
         static var shown: [CustomizeMessageComposeAreaItem] {
             var result = [CustomizeMessageComposeAreaItem]()
-            if #available(iOS 15, *) {
-                result += [customizeMessageComposeArea]
-            }
+            result += [customizeMessageComposeArea]
             return result
         }
         static func shownItemAt(item: Int) -> CustomizeMessageComposeAreaItem? {
@@ -93,26 +84,6 @@ class InterfaceSettingsTableViewController: UITableViewController {
     }
 
     
-    private enum InterfaceOptionsItem: CaseIterable {
-        case useOldDiscussionInterface
-        static var shown: [InterfaceOptionsItem] {
-            var result = [InterfaceOptionsItem]()
-            if #available(iOS 15, *) {
-                result += [useOldDiscussionInterface]
-            }
-            return result
-        }
-        static func shownItemAt(item: Int) -> InterfaceOptionsItem? {
-            return shown[safe: item]
-        }
-        var cellIdentifier: String {
-            switch self {
-            case .useOldDiscussionInterface: return "useOldDiscussionInterface"
-            }
-        }
-    }
-
-        
     private enum IdentityColorStyleItem: CaseIterable {
         case identityColorStyle
         static var shown: [IdentityColorStyleItem] {
@@ -160,30 +131,10 @@ extension InterfaceSettingsTableViewController {
             switch item {
             case .customizeMessageComposeArea:
                 let cell = UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
-                if #available(iOS 14, *) {
-                    var configuration = cell.defaultContentConfiguration()
-                    configuration.text = Strings.newComposeMessageViewActionOrder
-                    cell.contentConfiguration = configuration
-                } else {
-                    cell.textLabel?.text = Strings.newComposeMessageViewActionOrder
-                }
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = Strings.newComposeMessageViewActionOrder
+                cell.contentConfiguration = configuration
                 cell.accessoryType = .disclosureIndicator
-                return cell
-            }
-        case .interfaceOptions:
-            guard let item = InterfaceOptionsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
-            switch item {
-            case .useOldDiscussionInterface:
-                let cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
-                cell.selectionStyle = .none
-                cell.title = Strings.useOldDiscussionInterface
-                cell.switchIsOn = ObvMessengerSettings.Interface.useOldDiscussionInterface
-                cell.blockOnSwitchValueChanged = { (value) in
-                    ObvMessengerSettings.Interface.useOldDiscussionInterface = value
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
-                        tableView.reloadData()
-                    }
-                }
                 return cell
             }
         case .identityColorStyle:
@@ -191,15 +142,10 @@ extension InterfaceSettingsTableViewController {
             switch item {
             case .identityColorStyle:
                 let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-                if #available(iOS 14, *) {
-                    var configuration = cell.defaultContentConfiguration()
-                    configuration.text = Strings.identityColorStyle
-                    configuration.secondaryText = ObvMessengerSettings.Interface.identityColorStyle.description
-                    cell.contentConfiguration = configuration
-                } else {
-                    cell.textLabel?.text = Strings.identityColorStyle
-                    cell.detailTextLabel?.text = ObvMessengerSettings.Interface.identityColorStyle.description
-                }
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = Strings.identityColorStyle
+                configuration.secondaryText = ObvMessengerSettings.Interface.identityColorStyle.description
+                cell.contentConfiguration = configuration
                 cell.accessoryType = .disclosureIndicator
                 return cell
             }
@@ -214,13 +160,9 @@ extension InterfaceSettingsTableViewController {
             guard let item = CustomizeMessageComposeAreaItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
             switch item {
             case .customizeMessageComposeArea:
-                if #available(iOS 15, *) {
-                    let vc = ComposeMessageViewSettingsViewController(input: .global)
-                    navigationController?.pushViewController(vc, animated: true)
-                }
+                let vc = ComposeMessageViewSettingsViewController(input: .global)
+                navigationController?.pushViewController(vc, animated: true)
             }
-        case .interfaceOptions:
-            return
         case .identityColorStyle:
             guard let item = IdentityColorStyleItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
             switch item {

@@ -140,6 +140,25 @@ final public class CoreDataStack<PersistentContainerType: NSPersistentContainer>
     }
 
     
+    public func performBackgroundTaskAndWaitOrThrow<T>(_ block: (NSManagedObjectContext) throws -> T) throws -> T {
+        let context = persistentContainer.newBackgroundContext()
+        context.transactionAuthor = transactionAuthor
+        var error: Error? = nil
+        var returnedValue: T!
+        context.performAndWait {
+            do {
+                returnedValue = try block(context)
+            } catch let _error {
+                error = _error
+            }
+        }
+        if let error = error {
+            throw error
+        }
+        return returnedValue
+    }
+
+    
     public func managedObjectID(forURIRepresentation url: URL) -> NSManagedObjectID? {
         return persistentContainer.persistentStoreCoordinator.managedObjectID(forURIRepresentation: url)
     }

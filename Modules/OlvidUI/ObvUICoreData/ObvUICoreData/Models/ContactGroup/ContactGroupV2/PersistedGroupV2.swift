@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -16,7 +16,6 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
-  
 
 import Foundation
 import CoreData
@@ -25,7 +24,10 @@ import ObvTypes
 import CryptoKit
 import os.log
 import Platform_Base
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import ObvEngine
+import UI_ObvCircledInitials
+import ObvSettings
+
 
 @objc(PersistedGroupV2)
 public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
@@ -45,7 +47,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     @NSManaged private var ownPermissionEditOrRemoteDeleteOwnMessages: Bool
     @NSManaged private var ownPermissionRemoteDeleteAnything: Bool
     @NSManaged private var ownPermissionSendMessage: Bool
-    @NSManaged private var personalNote: String?
+    @NSManaged public private(set) var personalNote: String?
     @NSManaged private var rawOwnedIdentityIdentity: Data // Part of primary key
     @NSManaged private var rawPublishedDetailsStatus: Int
     @NSManaged public private(set) var updateInProgress: Bool
@@ -130,13 +132,12 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     
     
     public var circledInitialsConfiguration: CircledInitialsConfiguration {
-        .groupV2(photoURL: self.displayPhotoURL, groupIdentifier: groupIdentifier, showGreenShield: keycloakManaged)
+        .groupV2(photo: .url(url: self.displayPhotoURL), groupIdentifier: groupIdentifier, showGreenShield: keycloakManaged)
     }
 
     
     public var circledInitialsConfigurationPublished: CircledInitialsConfiguration {
-        let photoURL = self.displayPhotoURLPublished
-        return .groupV2(photoURL: photoURL, groupIdentifier: groupIdentifier, showGreenShield: keycloakManaged)
+        return .groupV2(photo: .url(url: self.displayPhotoURLPublished), groupIdentifier: groupIdentifier, showGreenShield: keycloakManaged)
     }
 
     // Initializer
@@ -186,7 +187,6 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         self.ownPermissionEditOrRemoteDeleteOwnMessages = obvGroupV2.ownPermissions.contains(.editOrRemoteDeleteOwnMessages)
         self.ownPermissionRemoteDeleteAnything = obvGroupV2.ownPermissions.contains(.remoteDeleteAnything)
         self.ownPermissionSendMessage = obvGroupV2.ownPermissions.contains(.sendMessage)
-        self.personalNote = nil
         self.rawOwnedIdentityIdentity = obvGroupV2.ownIdentity.getIdentity()
         self.updateInProgress = obvGroupV2.updateInProgress
         displayedContactGroup?.updateUsingUnderlyingGroup()
@@ -194,22 +194,29 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
     
     
+    /// Returns `true` iff the personal note had to be updated in database
+    func setNote(to newNote: String?) -> Bool {
+        if self.personalNote != newNote {
+            self.personalNote = newNote
+            return true
+        } else {
+            return false
+        }
+    }
+
+    
     /// The `namesOfOtherMembers` attribute is essentially used to display a group name when no specific name was specified.
     /// This method allows to update this attribute.
     private func updateNamesOfOtherMembers() {
         let names = otherMembers.map({ $0.displayedCustomDisplayNameOrFirstNameOrLastName ?? "" }).sorted()
-        if #available(iOS 15, *) {
-            self.namesOfOtherMembers = names.formatted(.list(type: .and, width: .short))
-        } else {
-            self.namesOfOtherMembers = names.joined(separator: ", ")
-        }
+        self.namesOfOtherMembers = names.formatted(.list(type: .and, width: .short))
         displayedContactGroup?.updateUsingUnderlyingGroup()
         try? discussion?.resetTitle(to: self.displayName)
     }
     
     
-    /// This method moves the photo at the indicated URL to a proper location.
-    public func updateCustomPhotoWithPhotoAtURL(_ url: URL?, within obvContext: ObvContext) throws {
+    /// This method saves the photo to a proper location.
+    func updateCustomPhotoWithPhoto(_ newPhoto: UIImage?, within obvContext: ObvContext) throws {
         
         defer {
             displayedContactGroup?.updateUsingUnderlyingGroup()
@@ -238,28 +245,26 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         
         self.customPhotoFilename = nil
         
-        // If received url is nil, there is nothing left to do
+        // If received new photo is nil, there is nothing left to do
         
-        guard let url = url else { return }
+        guard let newPhoto else { return }
 
-        // Make sure there is a file a the received URL
-        
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            throw Self.makeError(message: "Could not find file at url \(url.debugDescription)")
-        }
-        
-        // Move the file at the received URL to a proper location (if the context saves without error)
+        // Create a file at a proper location
 
         let newCustomFilename = UUID().uuidString
         self.customPhotoFilename = newCustomFilename
         let customPhotoURL = ObvUICoreDataConstants.ContainerURL.forCustomGroupProfilePictures.appendingPathComponent(newCustomFilename)
-
-        do {
-            try FileManager.default.linkItem(at: url, to: customPhotoURL)
-        } catch {
-            try FileManager.default.copyItem(at: url, to: customPhotoURL)
+        guard let jpegData = newPhoto.jpegData(compressionQuality: 0.75) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract jpeg data for custom group photo")
         }
-        
+        do {
+            try jpegData.write(to: customPhotoURL)
+        } catch {
+            assertionFailure()
+            throw Self.makeError(message: "Could not write custom photo to file")
+        }
+
         // If the context saves with an error, remove the file we just created
         
         try obvContext.addContextDidSaveCompletionHandler { error in
@@ -271,11 +276,15 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
     
     
-    public func updateCustomNameWith(with newCustomName: String?) throws {
-        guard self.customName != newCustomName else { return }
+    /// Returns `true` iff the group custom name had to be updated.
+    func updateCustomNameWith(with newCustomName: String?) throws -> Bool {
+        guard self.customName != newCustomName else {
+            return false
+        }
         self.customName = newCustomName
         displayedContactGroup?.updateUsingUnderlyingGroup()
         try discussion?.resetTitle(to: self.displayName)
+        return true
     }
     
 
@@ -423,12 +432,12 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         
         if obvGroupV2.keycloakManaged {
             do {
-                if let serializedSharedSettings = obvGroupV2.serializedSharedSettings, let lastModificationTimestamp = obvGroupV2.lastModificationTimestamp {
+                if let serializedSharedSettings = obvGroupV2.serializedSharedSettings {
                     if let serializedSharedSettingsAsData = serializedSharedSettings.data(using: .utf8) {
                         let discussionSharedConfigurationForKeycloakGroupJSON = try DiscussionSharedConfigurationForKeycloakGroupJSON.jsonDecode(serializedSharedSettingsAsData)
                         if let expirationJSON = discussionSharedConfigurationForKeycloakGroupJSON.expiration {
                             assert(rawDiscussion != nil)
-                            _ = try rawDiscussion?.sharedConfiguration.replacePersistedDiscussionSharedConfiguration(with: expirationJSON, initiator: .keycloak(lastModificationTimestamp: lastModificationTimestamp))
+                            _ = try rawDiscussion?.sharedConfiguration.replacePersistedDiscussionSharedConfiguration(with: expirationJSON)
                         }
                     } else {
                         assertionFailure("We could not parse the shared settings sent by the keycloak server") // In production, continue anyway
@@ -465,7 +474,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
     
     
-    public static func createOrUpdate(obvGroupV2: ObvGroupV2, createdByMe: Bool, within context: NSManagedObjectContext) throws -> PersistedGroupV2 {
+    static func createOrUpdate(obvGroupV2: ObvGroupV2, createdByMe: Bool, within context: NSManagedObjectContext) throws -> PersistedGroupV2 {
         if let persistedGroup = try PersistedGroupV2.getWithObvGroupV2(obvGroupV2, within: context) {
             persistedGroup.updateAttributes(obvGroupV2: obvGroupV2)
             try persistedGroup.updateRelationships(obvGroupV2: obvGroupV2,
@@ -514,12 +523,16 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     
     public func setUpdateInProgress() {
         assert(!keycloakManaged)
-        self.updateInProgress = true
+        if !self.updateInProgress {
+            self.updateInProgress = true
+        }
     }
     
     
     public func removeUpdateInProgress() {
-        self.updateInProgress = false
+        if self.updateInProgress {
+            self.updateInProgress = false
+        }
     }
     
     
@@ -542,6 +555,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
             case updateInProgress = "updateInProgress"
             case rawOtherMembers = "rawOtherMembers"
+            case customPhotoFilename = "customPhotoFilename"
         }
         static func withOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
             NSPredicate(Key.rawOwnedIdentityIdentity, EqualToData: ownedIdentity.identity)
@@ -565,11 +579,24 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
                 NSPredicate(format: predicateFormat, contactIdentity)
             ])
         }
+        public static var withCustomPhotoFilename: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.customPhotoFilename)
+        }
     }
 
     
     @nonobjc class func fetchRequest() -> NSFetchRequest<PersistedGroupV2> {
         return NSFetchRequest<PersistedGroupV2>(entityName: self.entityName)
+    }
+
+    
+    public static func getAllCustomPhotoURLs(within context: NSManagedObjectContext) throws -> Set<URL> {
+        let request: NSFetchRequest<PersistedGroupV2> = PersistedGroupV2.fetchRequest()
+        request.predicate = Predicate.withCustomPhotoFilename
+        request.propertiesToFetch = [Predicate.Key.customPhotoFilename.rawValue]
+        let details = try context.fetch(request)
+        let photoURLs = Set(details.compactMap({ $0.customPhotoURL }))
+        return photoURLs
     }
 
     
@@ -594,7 +621,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
 
     
-    public static func get(ownIdentity: ObvCryptoId, appGroupIdentifier: Data, within context: NSManagedObjectContext) throws -> PersistedGroupV2? {
+    public static func get(ownIdentity: ObvCryptoId, appGroupIdentifier: GroupV2Identifier, within context: NSManagedObjectContext) throws -> PersistedGroupV2? {
         return try getWithPrimaryKey(ownCryptoId: ownIdentity, groupIdentifier: appGroupIdentifier, within: context)
     }
 
@@ -816,12 +843,598 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             ObvMessengerCoreDataNotification.persistedGroupV2WasDeleted(objectID: self.typedObjectID)
                 .postOnDispatchQueue()
         } else if changedKeys.contains(Predicate.Key.updateInProgress.rawValue) && self.updateInProgress == false {
-            ObvMessengerCoreDataNotification.persistedGroupV2UpdateIsFinished(objectID: self.typedObjectID)
-                .postOnDispatchQueue()
+            if let ownedCryptoId = try? self.ownCryptoId {
+                ObvMessengerCoreDataNotification.persistedGroupV2UpdateIsFinished(objectID: self.typedObjectID, ownedCryptoId: ownedCryptoId, groupIdentifier: self.groupIdentifier)
+                    .postOnDispatchQueue()
+            }
+        }
+        
+        if isInserted {
+            if let ownedCryptoId = try? self.ownCryptoId {
+                ObvMessengerCoreDataNotification.aPersistedGroupV2WasInsertedInDatabase(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
+                    .postOnDispatchQueue()
+            }
         }
         
     }
     
+    
+    // MARK: - Receiving discussion shared configurations
+
+    /// Called when receiving a shared discussion configuration from a contact  indicating this particular group as the target. This method makes sure the contact is allowed to change the configuration.
+    func mergeReceivedDiscussionSharedConfiguration(discussionSharedConfiguration: PersistedDiscussion.SharedConfiguration, receivedFrom contact: PersistedObvContactIdentity) throws -> (sharedSettingHadToBeUpdated: Bool, weShouldSendBackOurSharedSettings: Bool) {
+                
+        let contactIdentity = contact.identity
+        
+        guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            throw Self.makeError(message: "Owned identity is not part of group")
+        }
+
+        guard let initiatorAsMember = self.otherMembers.first(where: { $0.identity == contactIdentity }) else {
+            throw Self.makeError(message: "The initiator is not part of the group")
+        }
+        
+        guard initiatorAsMember.isAllowedToChangeSettings else {
+            throw Self.makeError(message: "The initiator is not allowed to change settings")
+        }
+
+        guard let discussion = self.discussion else {
+            throw Self.makeError(message: "Could not find discussion")
+        }
+        
+        let (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettingsIfAllowedTo) = try discussion.mergeReceivedDiscussionSharedConfiguration(discussionSharedConfiguration)
+        
+        let weShouldSendBackOurSharedSettings: Bool
+        if self.ownPermissionChangeSettings {
+            weShouldSendBackOurSharedSettings = weShouldSendBackOurSharedSettingsIfAllowedTo
+        } else {
+            weShouldSendBackOurSharedSettings = false
+        }
+        
+        return (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettings)
+        
+    }
+
+    
+    /// Called when receiving a shared discussion configuration from another device of an owned identity  indicating this particular group as the target. This method makes sure the contact is allowed to change the configuration.
+    func mergeReceivedDiscussionSharedConfiguration(discussionSharedConfiguration: PersistedDiscussion.SharedConfiguration, receivedFrom ownedIdentity: PersistedObvOwnedIdentity) throws -> (sharedSettingHadToBeUpdated: Bool, weShouldSendBackOurSharedSettings: Bool) {
+
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw Self.makeError(message: "Owned identity is not part of group")
+        }
+        
+        guard self.ownedIdentityIsAllowedToChangeSettings else {
+            throw Self.makeError(message: "The owned identity is not allowed to change settings")
+        }
+        
+        guard let discussion = self.discussion else {
+            throw Self.makeError(message: "Could not find discussion")
+        }
+
+        let (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettingsIfAllowedTo) = try discussion.mergeReceivedDiscussionSharedConfiguration(discussionSharedConfiguration)
+        
+        let weShouldSendBackOurSharedSettings: Bool
+        if self.ownPermissionChangeSettings {
+            weShouldSendBackOurSharedSettings = weShouldSendBackOurSharedSettingsIfAllowedTo
+        } else {
+            weShouldSendBackOurSharedSettings = false
+        }
+
+        return (sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettings)
+        
+    }
+
+    func replaceReceivedDiscussionSharedConfiguration(with expiration: ExpirationJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity) throws -> Bool {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw Self.makeError(message: "Owned identity is not part of group")
+        }
+        
+        guard self.ownedIdentityIsAllowedToChangeSettings else {
+            throw Self.makeError(message: "The owned identity is not allowed to change settings")
+        }
+        
+        guard let discussion = self.discussion else {
+            throw Self.makeError(message: "Could not find discussion")
+        }
+
+        let sharedSettingHadToBeUpdated = try discussion.replaceReceivedDiscussionSharedConfiguration(with: expiration)
+        
+        return sharedSettingHadToBeUpdated
+
+    }
+
+    
+    // MARK: - Processing wipe requests from contacts and other owned devices
+
+    func processWipeMessageRequest(of messagesToDelete: [MessageReferenceJSON], receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> [InfoAboutWipedOrDeletedPersistedMessage] {
+        
+        guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
+            throw ObvError.wipeRequestedByNonGroupMember
+        }
+
+        guard requester.isAllowedToRemoteDeleteAnything || requester.isAllowedToEditOrRemoteDeleteOwnMessages else {
+            assertionFailure()
+            throw ObvError.wipeRequestedByMemberNotAllowedToRemoteDelete
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        let infos = try discussion.processWipeMessageRequest(of: messagesToDelete, from: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return infos
+        
+    }
+    
+    
+    func processWipeMessageRequest(of messagesToDelete: [MessageReferenceJSON], receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> [InfoAboutWipedOrDeletedPersistedMessage] {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+        
+        // We do not check whether the owned identity is allowed to wipe
+        
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        let infos = try discussion.processWipeMessageRequest(of: messagesToDelete, from: ownedIdentity.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return infos
+
+    }
+    
+    
+    // MARK: - Processing delete requests from the owned identity (made on this device)
+
+    func processMessageDeletionRequestRequestedFromCurrentDevice(of ownedIdentity: PersistedObvOwnedIdentity, messageToDelete: PersistedMessage, deletionType: DeletionType) throws -> InfoAboutWipedOrDeletedPersistedMessage {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+        
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        switch deletionType {
+        case .local:
+            break
+        case .global:
+            guard self.ownedIdentityIsAllowedToRemoteDeleteAnything || (self.ownedIdentityIsAllowedToEditOrRemoteDeleteOwnMessages && messageToDelete is PersistedMessageSent) else {
+                assertionFailure()
+                throw ObvError.ownedIdentityIsNotAllowedToDeleteThisMessage
+            }
+        }
+
+        let info = try discussion.processMessageDeletionRequestRequestedFromCurrentDevice(
+            of: ownedIdentity,
+            messageToDelete: messageToDelete,
+            deletionType: deletionType)
+
+        return info
+        
+    }
+    
+    
+    // MARK: - Receiving messages and attachments from a contact or another owned device
+
+    func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, attachmentFullyReceivedOrCancelledByServer: [ObvAttachment]) {
+        
+        guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
+            throw ObvError.wipeRequestedByNonGroupMember
+        }
+
+        guard requester.isAllowedToSendMessage else {
+            throw ObvError.messageReceivedByMemberNotAllowedToSendMessage
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        return try discussion.createOrOverridePersistedMessageReceived(
+            from: contact,
+            obvMessage: obvMessage,
+            messageJSON: messageJSON,
+            returnReceiptJSON: returnReceiptJSON,
+            overridePreviousPersistedMessage: overridePreviousPersistedMessage)
+        
+    }
+    
+    
+    func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> [ObvOwnedAttachment] {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+        
+        guard ownedIdentityIsAllowedToSendMessage else {
+            throw ObvError.ownedIdentityIsNotAllowedToSendMessages
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        let attachmentFullyReceivedOrCancelledByServer = try discussion.createPersistedMessageSentFromOtherOwnedDevice(
+            from: ownedIdentity,
+            obvOwnedMessage: obvOwnedMessage,
+            messageJSON: messageJSON,
+            returnReceiptJSON: returnReceiptJSON)
+        
+        return attachmentFullyReceivedOrCancelledByServer
+        
+    }
+    
+    
+    // MARK: - Processing edit requests
+
+    func processUpdateMessageRequest(_ updateMessageJSON: UpdateMessageJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+
+        guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
+            throw ObvError.wipeRequestedByNonGroupMember
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+        
+        // Check that the contact is allowed to edit her messages. Note that the check whether the message was written by her is done later.
+        
+        guard requester.isAllowedToEditOrRemoteDeleteOwnMessages else {
+            throw ObvError.updateRequestReceivedByMemberNotAllowedToToEditOrRemoteDeleteOwnMessages
+        }
+        
+        // Request the update
+        
+        let updatedMessage = try discussion.processUpdateMessageRequest(updateMessageJSON, receivedFromContactCryptoId: contact.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        return updatedMessage
+        
+    }
+
+    
+    func processUpdateMessageRequest(_ updateMessageJSON: UpdateMessageJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        // Check that the owned identity is allowed to edit her messages. Note that the check whether the message was written by her is done later.
+
+        guard ownedIdentityIsAllowedToEditOrRemoteDeleteOwnMessages else {
+            throw ObvError.ownedIdentityIsNotAllowedToEditOrRemoteDeleteOwnMessages
+        }
+        
+        // Request the update
+        
+        let updatedMessage = try discussion.processUpdateMessageRequest(updateMessageJSON, receivedFromOwnedCryptoId: ownedIdentity.cryptoId, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        return updatedMessage
+
+    }
+    
+    
+    func processLocalUpdateMessageRequest(from ownedIdentity: PersistedObvOwnedIdentity, for messageSent: PersistedMessageSent, newTextBody: String?) throws {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        // Check that the owned identity is allowed to edit her messages.
+
+        guard ownedIdentityIsAllowedToEditOrRemoteDeleteOwnMessages else {
+            throw ObvError.ownedIdentityIsNotAllowedToEditOrRemoteDeleteOwnMessages
+        }
+
+        // Request the update
+
+        try discussion.processLocalUpdateMessageRequest(from: ownedIdentity, for: messageSent, newTextBody: newTextBody)
+        
+    }
+
+    
+    // MARK: - Processing discussion (all messages) remote wipe requests
+
+    
+    func processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws {
+        
+        guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
+            throw ObvError.wipeRequestedByNonGroupMember
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+        
+        // Check that the contact is allowed to make this request
+        
+        guard requester.isAllowedToRemoteDeleteAnything else {
+            throw ObvError.requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo
+        }
+
+        try discussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+    }
+
+    
+    func processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        // Check that the owned identity is allowed to perform a remote deletion
+        guard self.ownedIdentityIsAllowedToRemoteDeleteAnything else {
+            throw ObvError.ownedIdentityIsNotAllowedToDeleteDiscussion
+        }
+        
+        try discussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+    }
+    
+    
+    func processDiscussionDeletionRequestFromCurrentDevice(of ownedIdentity: PersistedObvOwnedIdentity, deletionType: DeletionType) throws {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        switch deletionType {
+        case .local:
+            break
+        case .global:
+            guard self.ownedIdentityIsAllowedToRemoteDeleteAnything else {
+                throw ObvError.ownedIdentityIsNotAllowedToDeleteDiscussion
+            }
+        }
+        
+        try discussion.processDiscussionDeletionRequestFromCurrentDevice(of: ownedIdentity, deletionType: deletionType)
+        
+    }
+
+    
+    // MARK: - Process reaction requests
+
+    func processSetOrUpdateReactionOnMessageLocalRequest(from ownedIdentity: PersistedObvOwnedIdentity, for message: PersistedMessage, newEmoji: String?) throws {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        guard ownedIdentityIsAllowedToSendMessage else {
+            throw ObvError.ownedIdentityIsNotAllowedToSendMessages
+        }
+        
+        try discussion.processSetOrUpdateReactionOnMessageLocalRequest(from: ownedIdentity, for: message, newEmoji: newEmoji)
+        
+    }
+
+    
+    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+
+        guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
+            throw ObvError.wipeRequestedByNonGroupMember
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+        
+        // Check that the contact is allowed to react
+        
+        guard requester.isAllowedToSendMessage else {
+            throw ObvError.messageReceivedByMemberNotAllowedToSendMessage
+        }
+
+        let updatedMessage = try discussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return updatedMessage
+
+    }
+
+
+    func processSetOrUpdateReactionOnMessageRequest(_ reactionJSON: ReactionJSON, receivedFrom ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        guard ownedIdentityIsAllowedToSendMessage else {
+            throw ObvError.ownedIdentityIsNotAllowedToSendMessages
+        }
+                
+        let updatedMessage = try discussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return updatedMessage
+
+    }
+    
+    
+    // MARK: - Process screen capture detections
+
+    func processDetectionThatSensitiveMessagesWereCaptured(_ screenCaptureDetectionJSON: ScreenCaptureDetectionJSON, from contact: PersistedObvContactIdentity, messageUploadTimestampFromServer: Date) throws {
+        
+        guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) != nil else {
+            throw ObvError.wipeRequestedByNonGroupMember
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        try discussion.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+    }
+    
+    
+    func processDetectionThatSensitiveMessagesWereCaptured(_ screenCaptureDetectionJSON: ScreenCaptureDetectionJSON, from ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        try discussion.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+    }
+
+    
+    func processLocalDetectionThatSensitiveMessagesWereCapturedInThisDiscussion(by ownedIdentity: PersistedObvOwnedIdentity) throws {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        try discussion.processLocalDetectionThatSensitiveMessagesWereCapturedInThisDiscussion(by: ownedIdentity)
+        
+    }
+
+
+    // MARK: - Process requests for group v2 shared settings
+
+    func processQuerySharedSettingsRequest(from contact: PersistedObvContactIdentity, querySharedSettingsJSON: QuerySharedSettingsJSON) throws -> (weShouldSendBackOurSharedSettings: Bool, discussionId: DiscussionIdentifier) {
+        
+        guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) != nil else {
+            throw ObvError.wipeRequestedByNonGroupMember
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        let discussionId = try discussion.identifier
+        let weShouldSendBackOurSharedSettings = try discussion.processQuerySharedSettingsRequest(querySharedSettingsJSON: querySharedSettingsJSON)
+        
+        return (weShouldSendBackOurSharedSettings, discussionId)
+        
+    }
+
+    
+    func processQuerySharedSettingsRequest(from ownedIdentity: PersistedObvOwnedIdentity, querySharedSettingsJSON: QuerySharedSettingsJSON) throws -> (weShouldSendBackOurSharedSettings: Bool, discussionId: DiscussionIdentifier) {
+        
+        guard self.ownedIdentityIdentity == ownedIdentity.identity else {
+            throw ObvError.ownedIdentityIsNotPartOfThisGroup
+        }
+
+        guard let discussion else {
+            throw ObvError.couldNotFindGroupDiscussion
+        }
+
+        let discussionId = try discussion.identifier
+        let weShouldSendBackOurSharedSettings = try discussion.processQuerySharedSettingsRequest(querySharedSettingsJSON: querySharedSettingsJSON)
+        
+        return (weShouldSendBackOurSharedSettings, discussionId)
+        
+    }
+
+    
+    // MARK: - ObvError
+    
+    public enum ObvError: LocalizedError {
+        
+        case wipeRequestedByNonGroupMember
+        case wipeRequestedByMemberNotAllowedToRemoteDelete
+        case couldNotFindGroupDiscussion
+        case messageReceivedByMemberNotAllowedToSendMessage
+        case ownedIdentityIsNotPartOfThisGroup
+        case ownedIdentityIsNotAllowedToSendMessages
+        case ownedIdentityIsNotAllowedToDeleteThisMessage
+        case updateRequestReceivedByMemberNotAllowedToToEditOrRemoteDeleteOwnMessages
+        case ownedIdentityIsNotAllowedToEditOrRemoteDeleteOwnMessages
+        case requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo
+        case ownedIdentityIsNotAllowedToDeleteDiscussion
+        
+        public var errorDescription: String? {
+            switch self {
+            case .wipeRequestedByNonGroupMember:
+                return "Wipe requested by non group member"
+            case .wipeRequestedByMemberNotAllowedToRemoteDelete:
+                return "Wipe requested by member not allowed to remote delete"
+            case .couldNotFindGroupDiscussion:
+                return "Could not find group discussion"
+            case .messageReceivedByMemberNotAllowedToSendMessage:
+                return "Message received by a group member not allowed to send messages"
+            case .ownedIdentityIsNotPartOfThisGroup:
+                return "Owned identity is not part of this group"
+            case .ownedIdentityIsNotAllowedToSendMessages:
+                return "Owned identity is not allowed to send messages"
+            case .ownedIdentityIsNotAllowedToDeleteThisMessage:
+                return "Owned identity is not allowed to delete this message"
+            case .updateRequestReceivedByMemberNotAllowedToToEditOrRemoteDeleteOwnMessages:
+                return "Update request received from a group member who is not allowed to update her messages"
+            case .ownedIdentityIsNotAllowedToEditOrRemoteDeleteOwnMessages:
+                return "Owned identity is not allowed to edit or remote delete own messages"
+            case .requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo:
+                return "Request to delete all messages within this group discussion received from a contact who is not allowed to do so"
+            case .ownedIdentityIsNotAllowedToDeleteDiscussion:
+                return "Owned identity is not allowed to delete this group discussion"
+            }
+        }
+        
+    }
+
 }
 
 
@@ -1397,13 +2010,11 @@ extension PersistedGroupV2Member: MentionableIdentity {
         }
 
         guard let cryptoId else {
-            assertionFailure("failed to create cryptoId for un-synced contact")
-
             return .icon(.lockFill)
         }
 
         return .contact(initial: mentionPersistedName, //ignore the nickname, the user hasn't been synced yet
-                        photoURL: nil,
+                        photo: nil,
                         showGreenShield: false,
                         showRedShield: false,
                         cryptoId: cryptoId,
@@ -1429,4 +2040,79 @@ extension PersistedGroupV2Member: MentionableIdentity {
     public var innerIdentity: MentionableIdentityTypes.InnerIdentity {
         return .groupV2Member(typedObjectID)
     }
+}
+
+
+
+// MARK: - For snapshot purposes
+
+extension PersistedGroupV2 {
+    
+    var syncSnapshotNode: PersistedGroupV2SyncSnapshotNode {
+        .init(customName: customName,
+              personalNote: personalNote,
+              discussion: discussion)
+    }
+    
+}
+
+
+struct PersistedGroupV2SyncSnapshotNode: ObvSyncSnapshotNode {
+    
+    private let domain: Set<CodingKeys>
+    private let customName: String?
+    private let personalNote: String?
+    private let discussionConfiguration: PersistedDiscussionConfigurationSyncSnapshotNode?
+
+    let id = Self.generateIdentifier()
+
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        case customName = "custom_name"
+        case personalNote = "personal_note"
+        case discussionConfiguration = "discussion_customization"
+        case domain = "domain"
+    }
+
+    private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
+
+    
+    init(customName: String?, personalNote: String?, discussion: PersistedGroupV2Discussion?) {
+        self.customName = customName
+        self.personalNote = personalNote
+        self.discussionConfiguration = discussion?.syncSnapshotNode
+        self.domain = Self.defaultDomain
+    }
+    
+    
+    // Synthesized implementation of encode(to encoder: Encoder)
+
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let rawKeys = try values.decode(Set<String>.self, forKey: .domain)
+        self.domain = Set(rawKeys.compactMap({ CodingKeys(rawValue: $0) }))
+        self.customName = try values.decodeIfPresent(String.self, forKey: .customName)
+        self.personalNote = try values.decodeIfPresent(String.self, forKey: .personalNote)
+        self.discussionConfiguration = try values.decodeIfPresent(PersistedDiscussionConfigurationSyncSnapshotNode.self, forKey: .discussionConfiguration)
+    }
+
+    
+    func useToUpdate(_ group: PersistedGroupV2) {
+        
+        if domain.contains(.customName) {
+            _  = try? group.updateCustomNameWith(with: customName)
+        }
+        
+        if domain.contains(.personalNote) {
+            _ = group.setNote(to: personalNote)
+        }
+        
+        if domain.contains(.discussionConfiguration) {
+            if let discussion = group.discussion {
+                discussionConfiguration?.useToUpdate(discussion)
+            }
+        }
+        
+    }
+    
 }

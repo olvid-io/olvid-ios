@@ -21,6 +21,7 @@ import Foundation
 import ObvCrypto
 import ObvTypes
 import os.log
+import ObvSettings
 
 
 // MARK: - Thread safe structure

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import OlvidUtils
 import ObvTypes
 import os.log
 import ObvUICoreData
+import CoreData
 
 
 /// This operation is typically called when binding an owned identity to a keycloak server. In that case, the engine will return a list of all the contacts that are bound to the same keycloak server.
@@ -39,33 +40,24 @@ final class UpdateListOfContactsCertifiedByOwnKeycloakOperation: ContextualOpera
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UpdateListOfContactsCertifiedByOwnKeycloakOperation.self))
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
+        // We first mark *all* the contacts of the owned identity as *not* keycloak managed
+        
+        do {
+            try PersistedObvContactIdentity.markAllContactOfOwnedIdentityAsNotCertifiedBySameKeycloak(ownedCryptoId: ownedIdentity, within: obvContext.context)
             
-            // We first mark *all* the contacts of the owned identity as *not* keycloak managed
+            // We then fetch all the contacts corresponding to the contact Id's received in the new list and mark the corresponding
+            // `PersistedObvContactIdentity` instances as certified by the same keycloak
             
-            do {
-                try PersistedObvContactIdentity.markAllContactOfOwnedIdentityAsNotCertifiedBySameKeycloak(ownedCryptoId: ownedIdentity, within: obvContext.context)
-                
-                // We then fetch all the contacts corresponding to the contact Id's received in the new list and mark the corresponding
-                // `PersistedObvContactIdentity` instances as certified by the same keycloak
-                
-                for contactCryptoId in contactsCertifiedByOwnKeycloak {
-                    let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedIdentity, whereOneToOneStatusIs: .any, within: obvContext.context)
-                    contact?.markAsCertifiedByOwnKeycloak()
-                }
-                                
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+            for contactCryptoId in contactsCertifiedByOwnKeycloak {
+                let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedIdentity, whereOneToOneStatusIs: .any, within: obvContext.context)
+                contact?.markAsCertifiedByOwnKeycloak()
             }
-
             
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

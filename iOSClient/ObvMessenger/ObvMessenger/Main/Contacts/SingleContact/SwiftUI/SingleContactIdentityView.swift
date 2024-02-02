@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import ObvEngine
 import ObvUI
 import ObvUICoreData
 import SwiftUI
+import ObvDesignSystem
 
 
 struct SingleContactIdentityView: View {
@@ -53,83 +54,96 @@ struct SingleContactIdentityInnerView: View {
     @Environment(\.presentationMode) var presentationMode
     
     var body: some View {
-        ZStack {
+        ScrollView {
+            VStack {
+                ContactIdentityHeaderView(singleIdentity: contact,
+                                          editionMode: .custom(icon: .pencil(), action: { contact.userWantsToEditContactNickname() }))
+                .padding(.top, 16)
+                
+                
+                if contact.isActive {
+                    if !contact.contactHasNoDevice && !contact.atLeastOneDeviceAllowsThisContactToReceiveMessages {
+                        CreatingChannelExplanationView(restartChannelCreationButtonTapped: contact.userWantsToRestartChannelCreation)
+                            .padding(.top, 16)
+                    } else {
+                        HStack {
+                            OlvidButton(style: contact.contactIsOneToOne ? .standardWithBlueText : .standard,
+                                        title: Text(CommonString.Word.Chat),
+                                        systemIcon: .textBubbleFill,
+                                        action: {
+                                if contact.contactIsOneToOne {
+                                    contact.userWantsToDiscuss()
+                                } else {
+                                    showAlertCannotDiscussWithNonOneToOne.toggle()
+                                }
+                            })
+                            OlvidButton(style: .standardWithBlueText,
+                                        title: Text(CommonString.Word.Call),
+                                        systemIcon: .phoneFill,
+                                        action: contact.userWantsToCallContact)
+                            .disabled(!contact.atLeastOneDeviceAllowsThisContactToReceiveMessages)
+                        }
+                        .padding(.top, 16)
+                    }
+                    if contact.showReblockView, let contactCryptoId = contact.persistedContact?.cryptoId, let ownedCryptoId = contact.persistedContact?.ownedIdentity?.cryptoId {
+                        ContactCanBeReblockedExplanationView(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
+                            .padding(.top, 16)
+                    }
+                } else if let contactCryptoId = contact.persistedContact?.cryptoId, let ownedCryptoId = contact.persistedContact?.ownedIdentity?.cryptoId {
+                    ContactIsNotActiveExplanationView(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
+                }
+                
+                if let persistedContact = contact.persistedContact, let textOfNote = persistedContact.note, !textOfNote.isEmpty {
+                    PersonalNoteView(model: persistedContact)
+                        .padding(.top, 16)
+                }
+                
+                ContactIdentityCardViews(contact: contact,
+                                         contactStatus: $contact.contactStatus)
+                .padding(.top, 16)
+                .padding(.bottom, 16)
+                
+                if !displayedContactGroupFetchRequest.wrappedValue.isEmpty {
+                    GroupsCardView(displayedContactGroups: displayedContactGroupFetchRequest.wrappedValue,
+                                   userWantsToNavigateToSingleGroupView: contact.userWantsToNavigateToSingleGroupView,
+                                   tappedGroup: $contact.tappedGroup)
+                    .padding(.top, 16)
+                }
+                
+                if let persistedContact = contact.persistedContact {
+                    ContactDevicesCardView(
+                        contact: persistedContact,
+                        userWantsToNavigateToListOfContactDevicesView: contact.userWantsToNavigateToListOfContactDevicesView)
+                    .padding(.top, 16)
+                }
+                
+                TrustOriginsCardView(
+                    trustOrigins: contact.trustOrigins,
+                    userWantsToNavigateToListOfTrustOriginsView: contact.userWantsToNavigateToListOfTrustOriginsView)
+                .padding(.top, 16)
+                
+                BottomButtonsView(contact: contact,
+                                  userWantsToDeleteContact: {contact.userWantsToDeleteContact { success in
+                    guard success else { return }
+                    presentationMode.wrappedValue.dismiss()
+                }})
+                .padding(.top, 16)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 32)
+            .alert(isPresented: $showAlertCannotDiscussWithNonOneToOne) {
+                Alert(title: Text("INVITE_REQUIRED_ALERT_TITLE"),
+                      message: Text("YOU_NEED_TO_INVITE_\(contact.getFirstName(for: .trusted))_BEFORE_HAVING_DISCUSSION_ALERT_MESSAGE"),
+                      primaryButton: .cancel(Text("Cancel")),
+                      secondaryButton: .default(Text("Invite")) {
+                    contact.userWantsToInviteContactToOneToOne()
+                })
+            }
+        }.background {
             Color(AppTheme.shared.colorScheme.systemBackground)
                 .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                 .edgesIgnoringSafeArea(.all)
-            ScrollView {
-                VStack {
-                    ContactIdentityHeaderView(singleIdentity: contact,
-                                              editionMode: .custom(icon: .pencil(), action: { contact.userWantsToEditContactNickname() }))
-                        .padding(.top, 16)
-                    
-                    
-                    if contact.isActive {
-                        if contact.contactHasNoDevice {
-                            CreatingChannelExplanationView(restartChannelCreationButtonTapped: contact.userWantsToRestartChannelCreation)
-                                .padding(.top, 16)
-                        } else {
-                            HStack {
-                                OlvidButton(style: contact.contactIsOneToOne ? .standardWithBlueText : .standard,
-                                            title: Text(CommonString.Word.Chat),
-                                            systemIcon: .textBubbleFill,
-                                            action: {
-                                    if contact.contactIsOneToOne {
-                                        contact.userWantsToDiscuss()
-                                    } else {
-                                        showAlertCannotDiscussWithNonOneToOne.toggle()
-                                    }
-                                })
-                                OlvidButton(style: .standardWithBlueText,
-                                            title: Text(CommonString.Word.Call),
-                                            systemIcon: .phoneFill,
-                                            action: contact.userWantsToCallContact)
-                                    .disabled(contact.contactHasNoDevice)
-                            }
-                            .padding(.top, 16)
-                        }
-                        if contact.showReblockView, let contactCryptoId = contact.persistedContact?.cryptoId, let ownedCryptoId = contact.persistedContact?.ownedIdentity?.cryptoId {
-                            ContactCanBeReblockedExplanationView(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
-                                .padding(.top, 16)
-                        }
-                    } else if let contactCryptoId = contact.persistedContact?.cryptoId, let ownedCryptoId = contact.persistedContact?.ownedIdentity?.cryptoId {
-                        ContactIsNotActiveExplanationView(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
-                    }
-                    
-                    ContactIdentityCardViews(contact: contact,
-                                             contactStatus: $contact.contactStatus)
-                        .padding(.top, 16)
-                        .padding(.bottom, 16)
-
-                    if !displayedContactGroupFetchRequest.wrappedValue.isEmpty {
-                        GroupsCardView(displayedContactGroups: displayedContactGroupFetchRequest.wrappedValue,
-                                       userWantsToNavigateToSingleGroupView: contact.userWantsToNavigateToSingleGroupView,
-                                       tappedGroup: $contact.tappedGroup)
-                        .padding(.top, 16)
-                    }
-
-                    TrustOriginsCardView(trustOrigins: contact.trustOrigins)
-                        .padding(.top, 16)
-                    
-                    BottomButtonsView(contact: contact,
-                                      userWantsToDeleteContact: {contact.userWantsToDeleteContact { success in
-                                        guard success else { return }
-                                        presentationMode.wrappedValue.dismiss()
-                                      }})
-                        .padding(.top, 16)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 32)
-                .alert(isPresented: $showAlertCannotDiscussWithNonOneToOne) {
-                    Alert(title: Text("INVITE_REQUIRED_ALERT_TITLE"),
-                          message: Text("YOU_NEED_TO_INVITE_\(contact.getFirstName(for: .trusted))_BEFORE_HAVING_DISCUSSION_ALERT_MESSAGE"),
-                          primaryButton: .cancel(Text("Cancel")),
-                          secondaryButton: .default(Text("Invite")) {
-                        contact.userWantsToInviteContactToOneToOne()
-                    })
-                }
-            }
         }
     }
 }
@@ -225,23 +239,43 @@ private struct GroupCellView: View {
     @ObservedObject var group: DisplayedContactGroup
     let showChevron: Bool
     let selected: Bool
-
+    
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: group.displayedTitle,
+              titlePart2: nil,
+              subtitle: group.subtitle,
+              subsubtitle: nil)
+    }
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: nil,
+              icon: .person3Fill,
+              profilePicture: group.displayedImage,
+              showGreenShield: group.isKeycloakManaged,
+              showRedShield: false)
+    }
+    
+    private var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: textViewModel,
+              profilePictureViewModelContent: profilePictureViewModelContent)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: group.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared),
+              foreground: group.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared))
+    }
+    
+    private var circleAndTitlesViewModel: CircleAndTitlesView.Model {
+        .init(content: circleAndTitlesViewModelContent,
+              colors: initialCircleViewModelColors,
+              displayMode: .normal,
+              editionMode: .none)
+    }
+    
     var body: some View {
         HStack {
 
-            CircleAndTitlesView(titlePart1: group.displayedTitle,
-                                titlePart2: nil,
-                                subtitle: group.subtitle,
-                                subsubtitle: nil,
-                                circleBackgroundColor: group.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared),
-                                circleTextColor: group.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared),
-                                circledTextView: nil,
-                                systemImage: .person3Fill,
-                                profilePicture: group.displayedImage,
-                                showGreenShield: group.isKeycloakManaged,
-                                showRedShield: false,
-                                editionMode: .none,
-                                displayMode: .normal)
+            CircleAndTitlesView(model: circleAndTitlesViewModel)
 
             Spacer()
 
@@ -276,27 +310,103 @@ private struct GroupCellView: View {
 fileprivate struct TrustOriginsCardView: View {
     
     let trustOrigins: [ObvTrustOrigin]
-    
-    private let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.timeStyle = .short
-        df.dateStyle = .short
-        df.doesRelativeDateFormatting = true
-        return df
-    }()
+    let userWantsToNavigateToListOfTrustOriginsView: () -> Void
+    @State private var selected = false
 
     var body: some View {
         VStack(alignment: .leading) {
+            ObvCardView {
+                HStack(alignment: .firstTextBaseline) {
+                    Image(systemIcon: .checkmarkShield)
+                        .foregroundColor(Color(.systemGreen))
+                        .font(.system(size: 22))
+                        .frame(width: 40)
+
+                    Text("TRUST_ORIGINS")
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .font(.system(.headline, design: .rounded))
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                    
+                    Spacer()
+                 
+                    ObvChevron(selected: selected)
+                    
+                }
+                .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
+                .onTapGesture {
+                    withAnimation {
+                        selected = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(200)) {
+                            userWantsToNavigateToListOfTrustOriginsView()
+                        }
+                    }
+                }
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(200)) {
+                        withAnimation {
+                            selected = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+}
+
+
+fileprivate struct ContactDevicesCardView: View {
+    
+    let contact: PersistedObvContactIdentity
+    let userWantsToNavigateToListOfContactDevicesView: () -> Void
+    @State private var selected = false
+    
+    var body: some View {
+        VStack(alignment: .leading) {
             HStack {
-                Text("TRUST_ORIGINS")
+                Text("Devices")
                     .font(.system(.headline, design: .rounded))
                 Spacer()
             }
             ObvCardView {
-                TrustOriginsView(trustOrigins: trustOrigins, dateFormatter: dateFormatter)
+                HStack(alignment: .firstTextBaseline) {
+                    Image(systemIcon: .laptopcomputerAndIphone)
+                        .foregroundColor(Color(.systemBlue))
+                        .font(.system(size: 22))
+                        .frame(width: 40)
+
+                    Text(String.localizedStringWithFormat(NSLocalizedString("CONTACT_HAS_N_DEVICES", comment: ""), contact.customOrShortDisplayName, contact.devices.count))
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .font(.system(.headline, design: .rounded))
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                    
+                    Spacer()
+                 
+                    ObvChevron(selected: selected)
+                    
+                }
+                .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
+                .onTapGesture {
+                    withAnimation {
+                        selected = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(200)) {
+                            userWantsToNavigateToListOfContactDevicesView()
+                        }
+                    }
+                }
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(200)) {
+                        withAnimation {
+                            selected = false
+                        }
+                    }
+                }
             }
         }
     }
+
     
 }
 
@@ -339,7 +449,7 @@ fileprivate struct ContactIdentityCardViews: View {
     }
     
     private func actionsForMainCard(hasOneToOneInvitationSent: Bool) -> [OlvidButtonAction] {
-        guard !contact.contactHasNoDevice && contact.isActive else { return [] }
+        guard contact.atLeastOneDeviceAllowsThisContactToReceiveMessages && contact.isActive else { return [] }
         if contact.contactIsOneToOne {
             return [introduceAction]
         } else if hasOneToOneInvitationSent {
@@ -350,7 +460,10 @@ fileprivate struct ContactIdentityCardViews: View {
     }
     
     private func explanationForMainCard(hasOneToOneInvitationSent: Bool) -> Text? {
-        guard !contact.contactHasNoDevice && contact.isActive else { return nil }
+        // This test in correct only because we do not use this SingleIdentityView to show keycloak-only users.
+        // Instead of this simple test, we should query the MainFlowViewController to see if there is a one2one invitation
+        // that can be sent to the user (keycloak and/or protocol).
+        guard contact.atLeastOneDeviceAllowsThisContactToReceiveMessages && contact.isActive else { return nil }
         if contact.contactIsOneToOne {
             return nil
         } else if hasOneToOneInvitationSent {
@@ -407,19 +520,6 @@ fileprivate struct BottomButtonsView: View {
     var body: some View {
         VStack(spacing: 8) {
             
-            if !contact.contactHasNoDevice {
-                OlvidButton(style: .standard,
-                            title: Text("RECREATE_CHANNEL"),
-                            systemIcon: .restartCircle,
-                            action: { confirmRecreateTheSecureChannelSheetPresented.toggle() })
-                    .actionSheet(isPresented: $confirmRecreateTheSecureChannelSheetPresented) {
-                        ActionSheet(title: Text("RECREATE_CHANNEL"), message: Text("Do you really wish to recreate the secure channel?"), buttons: [
-                            .default(Text("Yes"), action: contact.userWantsToRecreateTheSecureChannel),
-                            .cancel(),
-                        ])
-                    }
-            }
-            
             if let persistedContact = contact.persistedContact {
                 OlvidButton(style: .standard,
                             title: Text("SHOW_CONTACT_DETAILS"),
@@ -457,7 +557,7 @@ fileprivate struct CreatingChannelExplanationView: View {
                         .font(.headline)
                         .fontWeight(.semibold)
                     Spacer()
-                    ObvActivityIndicator(isAnimating: .constant(true), style: .medium, color: nil)
+                    ProgressView()
                 }
                 HStack {
                     Text("ESTABLISHING_SECURE_CHANNEL_EXPLANATION")
@@ -624,6 +724,7 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                company: "Apple",
                                                publishedContactDetails: nil,
                                                contactStatus: .noNewPublishedDetails,
+                                               atLeastOneDeviceAllowsThisContactToReceiveMessages: true,
                                                contactHasNoDevice: false,
                                                contactIsOneToOne: true,
                                                isActive: true,
@@ -635,6 +736,7 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                                company: "NeXT",
                                                                publishedContactDetails: otherIdentityDetails,
                                                                contactStatus: .seenPublishedDetails,
+                                                               atLeastOneDeviceAllowsThisContactToReceiveMessages: true,
                                                                contactHasNoDevice: false,
                                                                contactIsOneToOne: true,
                                                                isActive: true,
@@ -646,7 +748,8 @@ struct SingleContactIdentityView_Previews: PreviewProvider {
                                                             company: "Olvid",
                                                             publishedContactDetails: nil,
                                                             contactStatus: .noNewPublishedDetails,
-                                                            contactHasNoDevice: true,
+                                                            atLeastOneDeviceAllowsThisContactToReceiveMessages: false,
+                                                            contactHasNoDevice: false,
                                                             contactIsOneToOne: true,
                                                             isActive: true,
                                                             trustOrigins: trustOrigins)

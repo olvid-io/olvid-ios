@@ -112,13 +112,13 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
         return message.uploaded && !self.acknowledged && !self.cancelExternallyRequested
     }
     
-    private(set) var messageId: MessageIdentifier {
-        get { MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
+    private(set) var messageId: ObvMessageIdentifier {
+        get { ObvMessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
         set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
     }
 
-    var attachmentId: AttachmentIdentifier {
-        AttachmentIdentifier(messageId: self.messageId, attachmentNumber: self.attachmentNumber)
+    var attachmentId: ObvAttachmentIdentifier {
+        ObvAttachmentIdentifier(messageId: self.messageId, attachmentNumber: self.attachmentNumber)
     }
     
     var canBeDeleted: Bool { acknowledged || cancelExternallyRequested }
@@ -153,7 +153,7 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
         guard let messageId = message.messageId else {
             throw Self.makeError(message: "Could not determine the message Id")
         }
-        guard try OutboxAttachment.get(attachmentId: AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber), within: obvContext) == nil else {
+        guard try OutboxAttachment.get(attachmentId: ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber), within: obvContext) == nil else {
             throw Self.makeError(message: "An OutboxAttachment with the same primary key already exists")
         }
         let entityDescription = NSEntityDescription.entity(forEntityName: OutboxAttachment.entityName, in: obvContext)!
@@ -291,7 +291,7 @@ extension OutboxAttachment {
     }
 
     
-    static func get(attachmentId: AttachmentIdentifier, within obvContext: ObvContext) throws -> OutboxAttachment? {
+    static func get(attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) throws -> OutboxAttachment? {
         let request: NSFetchRequest<OutboxAttachment> = OutboxAttachment.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %d",
                                         rawMessageIdOwnedIdentityKey, attachmentId.messageId.ownedCryptoIdentity.getIdentity() as NSData,

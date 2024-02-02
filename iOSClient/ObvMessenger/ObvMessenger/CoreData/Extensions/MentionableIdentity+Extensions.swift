@@ -27,7 +27,7 @@ extension Sequence where Element: PersistedUserMentionInMessage {
     var mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT: MentionableIdentityTypes.MentionableIdentityFromRange {
         assert(Thread.isMainThread, "expected to be run from the main thread…")
 
-        return ObvStack.shared.viewContext.obvPerformAndWait {
+        return ObvStack.shared.viewContext.performAndWait {
             return reduce(into: [:]) { accumulator, item in
                 guard let mentionRange = try? item.mentionRange else {
                     return
@@ -49,7 +49,7 @@ extension Sequence where Element: PersistedUserMentionInDraft {
     var mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT: MentionableIdentityTypes.MentionableIdentityFromRange {
         assert(Thread.isMainThread, "expected to be run from the main thread…")
 
-        return ObvStack.shared.viewContext.obvPerformAndWait {
+        return ObvStack.shared.viewContext.performAndWait {
             return reduce(into: [:]) { accumulator, item in
                 guard let mentionRange = try? item.mentionRange else {
                     return

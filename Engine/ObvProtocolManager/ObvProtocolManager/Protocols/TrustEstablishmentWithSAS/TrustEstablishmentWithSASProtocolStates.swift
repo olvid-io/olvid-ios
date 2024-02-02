@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,30 +32,30 @@ extension TrustEstablishmentWithSASProtocol {
     
     enum StateId: Int, ConcreteProtocolStateId {
         
-        case InitialState = 0
+        case initialState = 0
         // Alice's side
-        case WaitingForSeed = 1
+        case waitingForSeed = 1
         // Bob's side
-        case WaitingForConfirmation = 2
-        case WaitingForDecommitment = 6
+        case waitingForConfirmation = 2
+        case waitingForDecommitment = 6
         // On Alice's and Bob's sides
-        case WaitingForUserSAS = 7
-        case ContactIdentityTrustedLegacy = 8
-        case ContactSASChecked = 11
-        case MutualTrustConfirmed = 9
-        case Cancelled = 10
+        case waitingForUserSAS = 7
+        case contactIdentityTrustedLegacy = 8
+        case contactSASChecked = 11
+        case mutualTrustConfirmed = 9
+        case cancelled = 10
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
-            case .InitialState                  : return ConcreteProtocolInitialState.self
-            case .WaitingForSeed                : return WaitingForSeedState.self
-            case .WaitingForConfirmation        : return WaitingForConfirmationState.self
-            case .WaitingForDecommitment        : return WaitingForDecommitmentState.self
-            case .WaitingForUserSAS             : return WaitingForUserSASState.self
-            case .ContactIdentityTrustedLegacy  : return ContactIdentityTrustedLegacyState.self
-            case .ContactSASChecked             : return ContactSASCheckedState.self
-            case .MutualTrustConfirmed          : return MutualTrustConfirmedState.self
-            case .Cancelled                     : return CancelledState.self
+            case .initialState                  : return ConcreteProtocolInitialState.self
+            case .waitingForSeed                : return WaitingForSeedState.self
+            case .waitingForConfirmation        : return WaitingForConfirmationState.self
+            case .waitingForDecommitment        : return WaitingForDecommitmentState.self
+            case .waitingForUserSAS             : return WaitingForUserSASState.self
+            case .contactIdentityTrustedLegacy  : return ContactIdentityTrustedLegacyState.self
+            case .contactSASChecked             : return ContactSASCheckedState.self
+            case .mutualTrustConfirmed          : return MutualTrustConfirmedState.self
+            case .cancelled                     : return CancelledState.self
             }
         }
         
@@ -64,7 +64,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct WaitingForSeedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.WaitingForSeed
+        let id: ConcreteProtocolStateId = StateId.waitingForSeed
         
         let contactIdentity: ObvCryptoIdentity // The contact identity we seek to trust
         let decommitment: Data
@@ -91,7 +91,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct WaitingForConfirmationState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.WaitingForConfirmation
+        let id: ConcreteProtocolStateId = StateId.waitingForConfirmation
         
         let contactIdentity: ObvCryptoIdentity // The contact identity we seek to trust
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
@@ -132,7 +132,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct WaitingForDecommitmentState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.WaitingForDecommitment
+        let id: ConcreteProtocolStateId = StateId.waitingForDecommitment
         
         let contactIdentity: ObvCryptoIdentity // The contact identity we seek to trust
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
@@ -176,7 +176,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct WaitingForUserSASState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.WaitingForUserSAS
+        let id: ConcreteProtocolStateId = StateId.waitingForUserSAS
         
         let contactIdentity: ObvCryptoIdentity // The contact identity we seek to trust
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
@@ -222,7 +222,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct ContactIdentityTrustedLegacyState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.ContactIdentityTrustedLegacy
+        let id: ConcreteProtocolStateId = StateId.contactIdentityTrustedLegacy
         
         let contactIdentity: ObvCryptoIdentity
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
@@ -251,7 +251,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct ContactSASCheckedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.ContactSASChecked
+        let id: ConcreteProtocolStateId = StateId.contactSASChecked
         
         let contactIdentity: ObvCryptoIdentity
         let contactIdentityCoreDetails: ObvIdentityCoreDetails
@@ -285,7 +285,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct MutualTrustConfirmedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.MutualTrustConfirmed
+        let id: ConcreteProtocolStateId = StateId.mutualTrustConfirmed
         
         init(_: ObvEncoded) {}
         
@@ -298,7 +298,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct CancelledState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.Cancelled
+        let id: ConcreteProtocolStateId = StateId.cancelled
         
         init(_: ObvEncoded) {}
         

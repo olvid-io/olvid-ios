@@ -29,7 +29,7 @@ import OlvidUtils
 final class GetSignedURLsSessionDelegate: NSObject {
     
     private let uuid = UUID()
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let obvContext: ObvContext
     private let log: OSLog
     private var dataReceived = Data()
@@ -62,7 +62,7 @@ final class GetSignedURLsSessionDelegate: NSObject {
         }
     }
 
-    init(attachmentId: AttachmentIdentifier, obvContext: ObvContext, logSubsystem: String, attachmentChunksSignedURLsTracker: AttachmentChunksSignedURLsTracker) {
+    init(attachmentId: ObvAttachmentIdentifier, obvContext: ObvContext, logSubsystem: String, attachmentChunksSignedURLsTracker: AttachmentChunksSignedURLsTracker) {
         self.attachmentId = attachmentId
         self.obvContext = obvContext
         self.log = OSLog(subsystem: logSubsystem, category: logCategory)
@@ -76,7 +76,7 @@ final class GetSignedURLsSessionDelegate: NSObject {
 // MARK: - Tracker
 
 protocol AttachmentChunksSignedURLsTracker: AnyObject {
-    func getSignedURLsSessionDidBecomeInvalid(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, error: GetSignedURLsSessionDelegate.ErrorForTracker?)
+    func getSignedURLsSessionDidBecomeInvalid(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: GetSignedURLsSessionDelegate.ErrorForTracker?)
 }
 
 

@@ -27,22 +27,22 @@ protocol NetworkSendFlowDelegate {
     
     func post(_: ObvNetworkMessageToSend, within: ObvContext) throws
     
-    func newOutboxMessage(messageId: MessageIdentifier, flowId: FlowIdentifier)
+    func newOutboxMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     
-    func failedUploadAndGetUidOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier)
-    func successfulUploadOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier)
-    func messageAndAttachmentsWereExternallyCancelledAndCanSafelyBeDeletedNow(messageId: MessageIdentifier, flowId: FlowIdentifier)
+    func failedUploadAndGetUidOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+    func successfulUploadOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+    func messageAndAttachmentsWereExternallyCancelledAndCanSafelyBeDeletedNow(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 
-    func newProgressForAttachment(attachmentId: AttachmentIdentifier)
+    func newProgressForAttachment(attachmentId: ObvAttachmentIdentifier)
     func storeCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier)
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) -> Bool
-    func signedURLsDownloadFailedForAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func acknowledgedAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func attachmentFailedToUpload(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+    func signedURLsDownloadFailedForAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+    func acknowledgedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+    func attachmentFailedToUpload(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
 
-    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float]
+    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float]
 
-    func messageAndAttachmentsWereDeletedFromTheirOutboxes(messageId: MessageIdentifier, flowId: FlowIdentifier)
+    func messageAndAttachmentsWereDeletedFromTheirOutboxes(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     
     func sendNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 

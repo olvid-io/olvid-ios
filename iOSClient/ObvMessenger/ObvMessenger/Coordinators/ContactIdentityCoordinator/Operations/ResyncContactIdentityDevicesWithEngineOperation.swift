@@ -23,71 +23,69 @@ import os.log
 import ObvTypes
 import ObvEngine
 import ObvUICoreData
+import CoreData
 
 
 final class ResyncContactIdentityDevicesWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<ResyncContactIdentityDevicesWithEngineOperationReasonForCancel> {
 
-    let ownedCryptoId: ObvCryptoId
-    let contactCryptoId: ObvCryptoId
+    let contactIdentifier: ObvContactIdentifier
     let obvEngine: ObvEngine
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "ResyncContactIdentityDevicesWithEngineOperation")
     
-    init(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
-        self.ownedCryptoId = ownedCryptoId
-        self.contactCryptoId = contactCryptoId
+    init(contactIdentifier: ObvContactIdentifier, obvEngine: ObvEngine) {
+        self.contactIdentifier = contactIdentifier
         self.obvEngine = obvEngine
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         let engineContactDevices: Set<ObvContactDevice>
         do {
-            engineContactDevices = try obvEngine.getAllObliviousChannelsEstablishedWithContactIdentity(with: contactCryptoId, ofOwnedIdentyWith: ownedCryptoId)
+            engineContactDevices = try obvEngine.getAllObvContactDevicesOfContact(with: contactIdentifier)
         } catch {
-            os_log("Could not get all Oblivious Channels established with contact. Could not sync with engine.", log: Self.log, type: .fault)
-            return cancel(withReason: .couldNotGetAllObliviousChannelsEstablishedWithContactIdentity(error: error))
+            os_log("Could not get all Oblivious Channels established with contact. Could not sync with engine. This is ok if the contact was just deleted.", log: Self.log, type: .fault)
+            return cancel(withReason: .couldNotGetContactDevicesFromEngine(error: error))
         }
         
-        obvContext.performAndWait {
+        do {
+            
+            guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                os_log("The contact cannot be found, it might be added in a few seconds.", log: Self.log, type: .error)
+                return
+            }
+            
+            var objectIDsOfDevicesToRefreshInViewContext = Set(persistedContactIdentity.devices.map({ $0.objectID }))
+            
+            try persistedContactIdentity.synchronizeDevices(with: engineContactDevices)
+            
+            objectIDsOfDevicesToRefreshInViewContext.formUnion(Set(persistedContactIdentity.devices.map({ $0.objectID })))
+            let objectIdOfContact = persistedContactIdentity.objectID
             
             do {
-                
-                guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
-                    os_log("Could not get the persisted owned identity", log: Self.log, type: .fault)
-                    assertionFailure()
-                    return cancel(withReason: .couldNotFindPersistedObvOwnedIdentity)
+                try? obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    DispatchQueue.main.async {
+                        let devicesInViewContext = ObvStack.shared.viewContext.registeredObjects
+                            .filter { object in
+                                objectIDsOfDevicesToRefreshInViewContext.contains(where: { $0 == object.objectID })
+                            }
+                        devicesInViewContext.forEach { object in
+                            ObvStack.shared.viewContext.refresh(object, mergeChanges: false)
+                        }
+                        if let contactInViewContext = ObvStack.shared.viewContext.registeredObjects.first(where: { $0.objectID == objectIdOfContact }) {
+                            ObvStack.shared.viewContext.refresh(contactInViewContext, mergeChanges: false)
+                        }
+                        
+                    }
                 }
-                
-                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(cryptoId: contactCryptoId, ownedIdentity: persistedOwnedIdentity, whereOneToOneStatusIs: .any) else {
-                    os_log("Could not get the persisted obv contact identity", log: Self.log, type: .fault)
-                    assertionFailure()
-                    return cancel(withReason: .couldNotFindPersistedContact)
-                }
-                
-                let localContactDevicesIdentifiers = Set(persistedContactIdentity.devices.map { $0.identifier })
-                let missingDevices = engineContactDevices.filter { !localContactDevicesIdentifiers.contains($0.identifier) }
-                for missingDevice in missingDevices {
-                    try persistedContactIdentity.insert(missingDevice)
-                }
-                
-                let engineContactDeviceIdentifiers = engineContactDevices.map { $0.identifier }
-                let identifiersOfDevicesToRemove = localContactDevicesIdentifiers.filter { !engineContactDeviceIdentifiers.contains($0) }
-                for contactDeviceIdentifier in identifiersOfDevicesToRemove {
-                    try PersistedObvContactDevice.delete(contactDeviceIdentifier: contactDeviceIdentifier, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId, within: obvContext.context)
-                }
-                                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
             }
-
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }
 
@@ -97,7 +95,7 @@ enum ResyncContactIdentityDevicesWithEngineOperationReasonForCancel: LocalizedEr
     
     case coreDataError(error: Error)
     case contextIsNil
-    case couldNotGetAllObliviousChannelsEstablishedWithContactIdentity(error: Error)
+    case couldNotGetContactDevicesFromEngine(error: Error)
     case couldNotFindPersistedObvOwnedIdentity
     case couldNotFindPersistedContact
 
@@ -106,9 +104,10 @@ enum ResyncContactIdentityDevicesWithEngineOperationReasonForCancel: LocalizedEr
         case .coreDataError,
              .contextIsNil,
              .couldNotFindPersistedObvOwnedIdentity,
-             .couldNotFindPersistedContact,
-             .couldNotGetAllObliviousChannelsEstablishedWithContactIdentity:
+             .couldNotFindPersistedContact:
             return .fault
+        case .couldNotGetContactDevicesFromEngine:
+            return .error
         }
     }
     
@@ -118,8 +117,8 @@ enum ResyncContactIdentityDevicesWithEngineOperationReasonForCancel: LocalizedEr
             return "Context is nil"
         case .coreDataError(error: let error):
             return "Core Data error: \(error.localizedDescription)"
-        case .couldNotGetAllObliviousChannelsEstablishedWithContactIdentity(error: let error):
-            return "Could not get all oblivious channels established with contact identity: \(error.localizedDescription)"
+        case .couldNotGetContactDevicesFromEngine(error: let error):
+            return "Could not get contact devices from engine: \(error.localizedDescription)"
         case .couldNotFindPersistedObvOwnedIdentity:
             return "Could not find persisted owned identity"
         case .couldNotFindPersistedContact:

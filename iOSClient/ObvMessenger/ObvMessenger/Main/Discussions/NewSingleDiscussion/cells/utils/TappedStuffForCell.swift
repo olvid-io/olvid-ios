@@ -27,12 +27,15 @@ enum TappedStuffForCell {
     case messageThatRequiresUserAction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>)
     case receivedFyleMessageJoinWithStatusToResumeDownload(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
     case receivedFyleMessageJoinWithStatusToPauseDownload(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
+    case sentFyleMessageJoinWithStatusReceivedFromOtherOwnedDeviceToResumeDownload(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>)
+    case sentFyleMessageJoinWithStatusReceivedFromOtherOwnedDeviceToPauseDownload(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>)
     case reaction(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>)
     case missedMessageBubble
     case circledInitials(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
     case replyTo(replyToMessageObjectID: NSManagedObjectID)
     case systemCellShowingUpdatedDiscussionSharedSettings
     case systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission
+    case systemCellShowingCallLogItemRejectedBecauseOfVoIPSettings
     case behaveAsIfTheDiscussionTitleWasTapped
 }
 

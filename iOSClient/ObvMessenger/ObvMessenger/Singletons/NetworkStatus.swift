@@ -25,13 +25,12 @@ final class NetworkStatus {
     
     static let shared = NetworkStatus()
     
-    private let monitor: NWPathMonitor
+    private let monitor = NWPathMonitor()
     private let networkQueue = DispatchQueue(label: "Queue for monitoring network path changes")
     private var currentInterfaceType: NWInterface.InterfaceType?
     private var currentIsConnectedStatus: Bool
  
     init() {
-        monitor = NWPathMonitor()
         currentIsConnectedStatus = (monitor.currentPath.status == .satisfied)
         monitor.pathUpdateHandler = { [weak self] in self?.pathUpdateHandler(nWPath: $0) }
         monitor.start(queue: networkQueue)

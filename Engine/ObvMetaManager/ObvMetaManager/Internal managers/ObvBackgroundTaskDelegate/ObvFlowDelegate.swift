@@ -30,7 +30,7 @@ public protocol ObvFlowDelegate: ObvSimpleFlowDelegate {
 
     // Posting message and attachments
     
-    func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier]) throws
+    func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier]) throws
     
     // Resuming a protocol
     
@@ -38,19 +38,19 @@ public protocol ObvFlowDelegate: ObvSimpleFlowDelegate {
     
     // Posting a return receipt (for message or an attachment)
 
-    func startBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier
-    func stopBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws
+    func startBackgroundActivityForPostingReturnReceipt(messageId: ObvMessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier
+    func stopBackgroundActivityForPostingReturnReceipt(messageId: ObvMessageIdentifier, attachmentNumber: Int?) throws
 
     // Downloading messages, downloading/pausing attachment
     
     func startBackgroundActivityForDownloadingMessages(ownedIdentity: ObvCryptoIdentity) -> FlowIdentifier?
     
-    func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+    func attachmentDownloadDecisionHasBeenTaken(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
     
     // Deleting a message or an attachment
     
-    func startBackgroundActivityForDeletingAMessage(messageId: MessageIdentifier) -> FlowIdentifier?
-    func startBackgroundActivityForDeletingAnAttachment(attachmentId: AttachmentIdentifier) -> FlowIdentifier?
+    func startBackgroundActivityForDeletingAMessage(messageId: ObvMessageIdentifier) -> FlowIdentifier?
+    func startBackgroundActivityForDeletingAnAttachment(attachmentId: ObvAttachmentIdentifier) -> FlowIdentifier?
 
     // Handling the completion handler received together with a remote push notification
     

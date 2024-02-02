@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,35 +32,36 @@ import ObvMetaManager
 extension TrustEstablishmentWithSASProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
-        case Initial = 0
-        case AliceSendsCommitment = 1
-        case AlicePropagatesHerInviteToOtherDevices = 2
-        case BobPropagatesCommitmentToOtherDevices = 4
-        case BobDialogInvitationConfirmation = 5
-        case BobPropagatesConfirmationToOtherDevices = 6
-        case BobSendsSeed = 8
-        case AliceSendsDecommitment = 9
-        case DialogSasExchange = 10
-        case PropagateEnteredSasToOtherDevices = 12
-        case MutualTrustConfirmation = 13
-        case DialogForMutualTrustConfirmation = 14
-        case DialogInformative = 15
+        
+        case initial = 0
+        case aliceSendsCommitment = 1
+        case alicePropagatesHerInviteToOtherDevices = 2
+        case bobPropagatesCommitmentToOtherDevices = 4
+        case bobDialogInvitationConfirmation = 5
+        case bobPropagatesConfirmationToOtherDevices = 6
+        case bobSendsSeed = 8
+        case aliceSendsDecommitment = 9
+        case dialogSasExchange = 10
+        case propagateEnteredSasToOtherDevices = 12
+        case mutualTrustConfirmation = 13
+        case dialogForMutualTrustConfirmation = 14
+        case dialogInformative = 15
         
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .Initial                                 : return InitialMessage.self
-            case .AliceSendsCommitment                    : return AliceSendsCommitmentMessage.self
-            case .AlicePropagatesHerInviteToOtherDevices  : return AlicePropagatesHerInviteToOtherDevicesMessage.self
-            case .BobPropagatesCommitmentToOtherDevices   : return BobPropagatesCommitmentToOtherDevicesMessage.self
-            case .BobDialogInvitationConfirmation         : return BobDialogInvitationConfirmationMessage.self
-            case .BobPropagatesConfirmationToOtherDevices : return BobPropagatesConfirmationToOtherDevicesMessage.self
-            case .BobSendsSeed                            : return BobSendsSeedMessage.self
-            case .AliceSendsDecommitment                  : return AliceSendsDecommitmentMessage.self
-            case .DialogSasExchange                       : return DialogSasExchangeMessage.self
-            case .PropagateEnteredSasToOtherDevices       : return PropagateEnteredSasToOtherDevicesMessage.self
-            case .MutualTrustConfirmation                 : return MutualTrustConfirmationMessageMessage.self
-            case .DialogForMutualTrustConfirmation        : return DialogForMutualTrustConfirmationMessage.self
-            case .DialogInformative                       : return DialogInformativeMessage.self
+            case .initial                                 : return InitialMessage.self
+            case .aliceSendsCommitment                    : return AliceSendsCommitmentMessage.self
+            case .alicePropagatesHerInviteToOtherDevices  : return AlicePropagatesHerInviteToOtherDevicesMessage.self
+            case .bobPropagatesCommitmentToOtherDevices   : return BobPropagatesCommitmentToOtherDevicesMessage.self
+            case .bobDialogInvitationConfirmation         : return BobDialogInvitationConfirmationMessage.self
+            case .bobPropagatesConfirmationToOtherDevices : return BobPropagatesConfirmationToOtherDevicesMessage.self
+            case .bobSendsSeed                            : return BobSendsSeedMessage.self
+            case .aliceSendsDecommitment                  : return AliceSendsDecommitmentMessage.self
+            case .dialogSasExchange                       : return DialogSasExchangeMessage.self
+            case .propagateEnteredSasToOtherDevices       : return PropagateEnteredSasToOtherDevicesMessage.self
+            case .mutualTrustConfirmation                 : return MutualTrustConfirmationMessageMessage.self
+            case .dialogForMutualTrustConfirmation        : return DialogForMutualTrustConfirmationMessage.self
+            case .dialogInformative                       : return DialogInformativeMessage.self
             }
         }
     }
@@ -68,7 +69,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct InitialMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.Initial
+        let id: ConcreteProtocolMessageId = MessageId.initial
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -104,7 +105,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct AliceSendsCommitmentMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.AliceSendsCommitment
+        let id: ConcreteProtocolMessageId = MessageId.aliceSendsCommitment
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -144,7 +145,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct AlicePropagatesHerInviteToOtherDevicesMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.AlicePropagatesHerInviteToOtherDevices
+        let id: ConcreteProtocolMessageId = MessageId.alicePropagatesHerInviteToOtherDevices
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -178,7 +179,7 @@ extension TrustEstablishmentWithSASProtocol {
 
     struct BobPropagatesCommitmentToOtherDevicesMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.BobPropagatesCommitmentToOtherDevices
+        let id: ConcreteProtocolMessageId = MessageId.bobPropagatesCommitmentToOtherDevices
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -218,7 +219,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct BobDialogInvitationConfirmationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.BobDialogInvitationConfirmation
+        let id: ConcreteProtocolMessageId = MessageId.bobDialogInvitationConfirmation
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -248,7 +249,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct BobPropagatesConfirmationToOtherDevicesMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.BobPropagatesConfirmationToOtherDevices
+        let id: ConcreteProtocolMessageId = MessageId.bobPropagatesConfirmationToOtherDevices
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -275,7 +276,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct BobSendsSeedMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.BobSendsSeed
+        let id: ConcreteProtocolMessageId = MessageId.bobSendsSeed
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -312,7 +313,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct AliceSendsDecommitmentMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.AliceSendsDecommitment
+        let id: ConcreteProtocolMessageId = MessageId.aliceSendsDecommitment
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -339,7 +340,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct DialogSasExchangeMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.DialogSasExchange
+        let id: ConcreteProtocolMessageId = MessageId.dialogSasExchange
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -369,7 +370,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct PropagateEnteredSasToOtherDevicesMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.PropagateEnteredSasToOtherDevices
+        let id: ConcreteProtocolMessageId = MessageId.propagateEnteredSasToOtherDevices
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -396,7 +397,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct MutualTrustConfirmationMessageMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.MutualTrustConfirmation
+        let id: ConcreteProtocolMessageId = MessageId.mutualTrustConfirmation
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -418,7 +419,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct DialogForMutualTrustConfirmationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.DialogForMutualTrustConfirmation
+        let id: ConcreteProtocolMessageId = MessageId.dialogForMutualTrustConfirmation
         let coreProtocolMessage: CoreProtocolMessage
         
         // Properties specific to this concrete protocol message
@@ -455,7 +456,7 @@ extension TrustEstablishmentWithSASProtocol {
     
     struct DialogInformativeMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.DialogInformative
+        let id: ConcreteProtocolMessageId = MessageId.dialogInformative
         let coreProtocolMessage: CoreProtocolMessage
         
         var encodedInputs: [ObvEncoded] { return [] }

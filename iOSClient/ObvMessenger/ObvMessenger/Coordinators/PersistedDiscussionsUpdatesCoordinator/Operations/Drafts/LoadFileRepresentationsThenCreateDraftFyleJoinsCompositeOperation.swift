@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import os.log
 import CoreData
 import ObvCrypto
 import ObvUICoreData
+import UniformTypeIdentifiers
 
 
 /// This is a legacy operation, use `NewLoadFileRepresentationsThenCreateDraftFyleJoinsCompositeOperation` instead
@@ -116,7 +117,7 @@ fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperati
                 
                 switch loadedItemProvider {
                 
-                case .file(tempURL: let tempURL, uti: let uti, filename: let filename):
+                case .file(tempURL: let tempURL, fileType: let fileType, filename: let filename):
                     
                     // Compute the sha256 of the file
                     let sha256: Data
@@ -137,7 +138,7 @@ fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperati
                     
                     // Create a PersistedDraftFyleJoin (if required)
                     do {
-                        try createDraftFyleJoin(draftPermanentID: draftPermanentID, fileName: filename, uti: uti, fyle: fyle, within: context)
+                        try createDraftFyleJoin(draftPermanentID: draftPermanentID, fileName: filename, fileType: fileType, fyle: fyle, within: context)
                     } catch {
                         cancelAndContinue(withReason: .couldNotCreateDraftFyleJoin)
                         tempURLsToDelete.append(tempURL)
@@ -195,9 +196,9 @@ fileprivate final class CreateDraftFyleJoinsFromLoadedFileRepresentationsOperati
     }
 
     
-    private func createDraftFyleJoin(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fileName: String, uti: String, fyle: Fyle, within context: NSManagedObjectContext) throws {
+    private func createDraftFyleJoin(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fileName: String, fileType: UTType, fyle: Fyle, within context: NSManagedObjectContext) throws {
         if try PersistedDraftFyleJoin.get(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, within: context) == nil {
-            guard PersistedDraftFyleJoin(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, fileName: fileName, uti: uti, within: context) != nil else {
+            guard PersistedDraftFyleJoin(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, fileName: fileName, uti: fileType.identifier, within: context) != nil else {
                 throw makeError(message: "Could not create PersistedDraftFyleJoin")
             }
         }

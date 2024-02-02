@@ -22,6 +22,7 @@ import CoreData
 import UIKit
 import os.log
 import ObvUICoreData
+import ObvSettings
 
 
 final class ProfilePictureManager {
@@ -58,6 +59,9 @@ final class ProfilePictureManager {
         try! FileManager.default.createDirectory(at: profilePicturesCacheDirectory, withIntermediateDirectories: true, attributes: nil)
     }
 
+
+    /// Legacy method. We should move away from the pattern where this `ProfilePictureManager` is used to save files.
+    /// For example, we chose a different approach in the new view controller allowing to choose a custom contact photo (where we only manipulate an UIImage, until the user requests a save).
     private func saveImage(_ image: UIImage, into url: URL) -> URL? {
         guard let jpegData = image.jpegData(compressionQuality: 0.75) else {
             assertionFailure()
@@ -139,7 +143,7 @@ final class ProfilePictureManager {
     }
 
     private func getAllCustomPhotoURLOnDisk() throws -> Set<URL> {
-        Set(try FileManager.default.contentsOfDirectory(at: self.customContactProfilePicturesDirectory, includingPropertiesForKeys: nil))
+        return Set(try FileManager.default.contentsOfDirectory(at: self.customContactProfilePicturesDirectory, includingPropertiesForKeys: nil).map({ $0.resolvingSymlinksInPath() }))
     }
 
 }

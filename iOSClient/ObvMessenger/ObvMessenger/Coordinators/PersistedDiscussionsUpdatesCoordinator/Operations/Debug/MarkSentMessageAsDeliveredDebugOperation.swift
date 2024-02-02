@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,15 +23,12 @@ import os.log
 import ObvTypes
 import ObvCrypto
 import ObvUICoreData
+import CoreData
 
 
 final class MarkSentMessageAsDeliveredDebugOperation: ContextualOperationWithSpecificReasonForCancel<MarkSentMessageAsDeliveredDebugOperationReasonForCancel> {
     
-    override func main() {
-        
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         let appropriateDependencies = dependencies.compactMap({ $0 as? CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation })
         guard appropriateDependencies.count == 1, let messageSentPermanentID = appropriateDependencies.first!.messageSentPermanentID else {
@@ -39,37 +36,32 @@ final class MarkSentMessageAsDeliveredDebugOperation: ContextualOperationWithSpe
         }
         
         let prng = ObvCryptoSuite.sharedInstance.prngService()
-
-        obvContext.performAndWait {
-
-            do {
-                guard let persistedMessageSent = try PersistedMessageSent.getManagedObject(withPermanentID: messageSentPermanentID, within: obvContext.context) else {
-                    return cancel(withReason: .internalError)
-                }
-                
-                // Simulate the sending and reception of the message
-                
-                for recipientInfos in persistedMessageSent.unsortedRecipientsInfos {
-                    let randomMessageIdentifierFromEngine = UID.gen(with: prng).raw
-                    let randomNonce = prng.genBytes(count: 16)
-                    let randomKey = prng.genBytes(count: 32)
-                    recipientInfos.setMessageIdentifierFromEngine(to: randomMessageIdentifierFromEngine,
-                                                                  andReturnReceiptElementsTo: (randomNonce, randomKey))
-                }
-
-                for recipientInfos in persistedMessageSent.unsortedRecipientsInfos {
-                    recipientInfos.setTimestampMessageSent(to: Date())
-                }
-
-                for recipientInfos in persistedMessageSent.unsortedRecipientsInfos {
-                    persistedMessageSent.messageSentWasDeliveredToRecipient(withCryptoId: recipientInfos.recipientCryptoId, noLaterThan: Date(), andRead: false)
-                }
-
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        
+        do {
+            guard let persistedMessageSent = try PersistedMessageSent.getManagedObject(withPermanentID: messageSentPermanentID, within: obvContext.context) else {
+                return cancel(withReason: .internalError)
             }
             
+            // Simulate the sending and reception of the message
             
+            for recipientInfos in persistedMessageSent.unsortedRecipientsInfos {
+                let randomMessageIdentifierFromEngine = UID.gen(with: prng).raw
+                let randomNonce = prng.genBytes(count: 16)
+                let randomKey = prng.genBytes(count: 32)
+                recipientInfos.setMessageIdentifierFromEngine(to: randomMessageIdentifierFromEngine,
+                                                              andReturnReceiptElementsTo: (randomNonce, randomKey))
+            }
+            
+            for recipientInfos in persistedMessageSent.unsortedRecipientsInfos {
+                recipientInfos.setTimestampMessageSent(to: Date())
+            }
+            
+            for recipientInfos in persistedMessageSent.unsortedRecipientsInfos {
+                persistedMessageSent.messageSentWasDeliveredToRecipient(withCryptoId: recipientInfos.recipientCryptoId, noLaterThan: Date(), andRead: false)
+            }
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

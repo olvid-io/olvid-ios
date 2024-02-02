@@ -66,9 +66,21 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
             tapToReadView.messageObjectID = nil
             removeImageURL()
             bubble.backgroundColor = .systemFill
+        case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, downsizedThumbnail: _):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadableSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            removeImageURL()
+            bubble.backgroundColor = .systemFill
         case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, downsizedThumbnail: _):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            removeImageURL()
+            bubble.backgroundColor = .systemFill
+        case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, downsizedThumbnail: _):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadingSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
             tapToReadView.messageObjectID = nil
             removeImageURL()
             bubble.backgroundColor = .systemFill
@@ -176,12 +188,7 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
                 return
             }
             let duration = gifDelayTimes.map({ $0.doubleValue }).reduce(0, +)
-            let animatedImage: UIImage?
-            if #available(iOS 15.0, *) {
-                animatedImage = await UIImage.animatedImage(with: images, duration: duration)?.byPreparingForDisplay()
-            } else {
-                animatedImage = UIImage.animatedImage(with: images, duration: duration)
-            }
+            let animatedImage = await UIImage.animatedImage(with: images, duration: duration)?.byPreparingForDisplay()
             DispatchQueue.main.async { [weak self] in
                 guard localRefreshId == self?.currentRefreshId else { return }
                 self?.imageView.image = animatedImage

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -47,54 +47,46 @@ final class MarkSentFyleMessageJoinWithStatusAsCompleteOperation: ContextualOper
         self.init(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo: messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo)
     }
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
+        do {
             
-            do {
+            for (messageIdentifierFromEngine, restrictToAttachmentNumbers) in messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo {
                 
-                for (messageIdentifierFromEngine, restrictToAttachmentNumbers) in messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo {
+                let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, within: obvContext.context)
+                guard !infos.isEmpty, let persistedMessageSent = infos.first?.messageSent else {
+                    continue
+                }
+                
+                let attachmentNumbers: [Int]
+                if let restrictToAttachmentNumbers {
+                    attachmentNumbers = restrictToAttachmentNumbers
+                } else {
+                    attachmentNumbers = Array(0..<persistedMessageSent.fyleMessageJoinWithStatuses.count)
+                }
+                
+                for attachmentNumber in attachmentNumbers {
+                    // Mark all the approprate `PersistedAttachmentSentRecipientInfos` as complete
+                    infos.forEach { info in
+                        info.attachmentInfos.first(where: { $0.index == attachmentNumber })?.status = .complete
+                    }
                     
-                    let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfos(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, within: obvContext.context)
-                    guard !infos.isEmpty, let persistedMessageSent = infos.first?.messageSent else {
+                    guard attachmentNumber < persistedMessageSent.fyleMessageJoinWithStatuses.count else {
+                        assertionFailure()
                         continue
                     }
                     
-                    let attachmentNumbers: [Int]
-                    if let restrictToAttachmentNumbers {
-                        attachmentNumbers = restrictToAttachmentNumbers
-                    } else {
-                        attachmentNumbers = Array(0..<persistedMessageSent.fyleMessageJoinWithStatuses.count)
-                    }
-                    
-                    for attachmentNumber in attachmentNumbers {
-                        // Mark all the approprate `PersistedAttachmentSentRecipientInfos` as complete
-                        infos.forEach { info in
-                            info.attachmentInfos.first(where: { $0.index == attachmentNumber })?.status = .complete
-                        }
-                        
-                        guard attachmentNumber < persistedMessageSent.fyleMessageJoinWithStatuses.count else {
-                            assertionFailure()
-                            continue
-                        }
-                        
-                        // Mark the appropriate `SentFyleMessageJoinWithStatus` as complete
-                        let fyleMessageJoinWithStatus = persistedMessageSent.fyleMessageJoinWithStatuses[attachmentNumber]
-                        fyleMessageJoinWithStatus.markAsComplete()
-                    }
-                    
-                } // End of for (messageIdentifierFromEngine, restrictToAttachmentNumbers) in messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo
+                    // Mark the appropriate `SentFyleMessageJoinWithStatus` as complete
+                    let fyleMessageJoinWithStatus = persistedMessageSent.fyleMessageJoinWithStatuses[attachmentNumber]
+                    fyleMessageJoinWithStatus.markAsComplete()
+                }
                 
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-                
+            } // End of for (messageIdentifierFromEngine, restrictToAttachmentNumbers) in messageIdentifierFromEngineAndAttachmentNumbersToRestrictTo
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 
 }

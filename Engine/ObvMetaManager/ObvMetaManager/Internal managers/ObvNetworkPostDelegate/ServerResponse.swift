@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -54,6 +54,13 @@ extension ServerResponse {
         case requestGroupBlobLock(result: RequestGroupBlobLockResult)
         case updateGroupBlob(uploadResult: UploadResult)
         case getKeycloakData(result: GetUserDataResult)
+        case ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: EncryptedData)
+        case setOwnedDeviceName(success: Bool)
+        case sourceGetSessionNumberMessage(result: SourceGetSessionNumberResult)
+        case targetSendEphemeralIdentity(result: TargetSendEphemeralIdentityResult)
+        case transferRelay(result: OwnedIdentityTransferRelayMessageResult)
+        case transferWait(result: OwnedIdentityTransferWaitResult)
+        case sourceWaitForTargetConnection(result: SourceWaitForTargetConnectionResult)
 
         private var rawValue: Int {
             switch self {
@@ -79,6 +86,20 @@ extension ServerResponse {
                 return 9
             case .getKeycloakData:
                 return 10
+            case .ownedDeviceDiscovery:
+                return 11
+            case .setOwnedDeviceName:
+                return 12
+            case .sourceGetSessionNumberMessage:
+                return 13
+            case .targetSendEphemeralIdentity:
+                return 14
+            case .transferRelay:
+                return 15
+            case .transferWait:
+                return 16
+            case .sourceWaitForTargetConnection:
+                return 17
             }
         }
         
@@ -106,6 +127,20 @@ extension ServerResponse {
             case .updateGroupBlob(uploadResult: let uploadResult):
                 return [rawValue.obvEncode(), uploadResult.obvEncode()].obvEncode()
             case .getKeycloakData(result: let result):
+                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+            case .ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
+                return [rawValue.obvEncode(), encryptedOwnedDeviceDiscoveryResult.obvEncode()].obvEncode()
+            case .setOwnedDeviceName(success: let success):
+                return [rawValue.obvEncode(), success.obvEncode()].obvEncode()
+            case .sourceGetSessionNumberMessage(result: let result):
+                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+            case .targetSendEphemeralIdentity(result: let result):
+                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+            case .transferRelay(result: let result):
+                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+            case .transferWait(result: let result):
+                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+            case .sourceWaitForTargetConnection(result: let result):
                 return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
             }
         }
@@ -162,6 +197,34 @@ extension ServerResponse {
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = GetUserDataResult(listOfEncoded[1]) else { return nil }
                 self = .getKeycloakData(result: result)
+            case 11:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let encryptedOwnedDeviceDiscoveryResult = EncryptedData(listOfEncoded[1]) else { return nil }
+                self = .ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult)
+            case 12:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let success = Bool(listOfEncoded[1]) else { return nil }
+                self = .setOwnedDeviceName(success: success)
+            case 13:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = SourceGetSessionNumberResult(listOfEncoded[1]) else { return nil }
+                self = .sourceGetSessionNumberMessage(result: result)
+            case 14:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = TargetSendEphemeralIdentityResult(listOfEncoded[1]) else { return nil }
+                self = .targetSendEphemeralIdentity(result: result)
+            case 15:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = OwnedIdentityTransferRelayMessageResult(listOfEncoded[1]) else { return nil }
+                self = .transferRelay(result: result)
+            case 16:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = OwnedIdentityTransferWaitResult(listOfEncoded[1]) else { return nil }
+                self = .transferWait(result: result)
+            case 17:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = SourceWaitForTargetConnectionResult(listOfEncoded[1]) else { return nil }
+                self = .sourceWaitForTargetConnection(result: result)
             default:
                 assertionFailure()
                 return nil

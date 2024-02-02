@@ -36,6 +36,9 @@ public protocol ObvCreateContextDelegate: ObvManager, ObvContextCreator {
     func performBackgroundTaskAndWaitOrThrow(file: StaticString, line: Int, function: StaticString, _ block: (NSManagedObjectContext) throws -> Void) throws
     func performBackgroundTaskAndWaitOrThrow(flowId: FlowIdentifier, file: StaticString, line: Int, function: StaticString, _ block: (ObvContext) throws -> Void) throws
 
+    func performBackgroundTaskAndWaitOrThrow<T>(flowId: FlowIdentifier, file: StaticString, line: Int, function: StaticString, _ block: (ObvContext) throws -> T) throws -> T
+    func performBackgroundTaskAndWaitOrThrow<T>(file: StaticString, line: Int, function: StaticString, _ block: (NSManagedObjectContext) throws -> T) throws -> T
+
     func debugPrintCurrentBackgroundContexts()
 
 }
@@ -66,5 +69,13 @@ extension ObvCreateContextDelegate {
         try self.performBackgroundTaskAndWaitOrThrow(flowId: flowId, file: file, line: line, function: function, block)
     }
 
+    public func performBackgroundTaskAndWaitOrThrow<T>(flowId: FlowIdentifier, file: StaticString = #fileID, line: Int = #line, function: StaticString = #function, _ block: (ObvContext) throws -> T) throws -> T {
+        return try self.performBackgroundTaskAndWaitOrThrow(flowId: flowId, file: file, line: line, function: function, block)
+    }
+
+
+    func performBackgroundTaskAndWaitOrThrow<T>(file: StaticString, line: Int, function: StaticString, _ block: (NSManagedObjectContext) throws -> T) throws -> T {
+        return try self.performBackgroundTaskAndWaitOrThrow(file: file, line: line, function: function, block)
+    }
 
 }

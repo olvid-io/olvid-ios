@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
 
 
 struct ContactDetailedInfosView: View {
@@ -41,13 +42,13 @@ struct ContactDetailedInfosView: View {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var circledTextView: Text? {
+    private var circledText: String? {
         let component = [titlePart1, titlePart2]
             .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
             .filter({ !$0.isEmpty })
             .first
         if let char = component?.first {
-            return Text(String(char))
+            return String(char)
         } else {
             return nil
         }
@@ -56,6 +57,38 @@ struct ContactDetailedInfosView: View {
     private var profilePicture: UIImage? {
         guard let url = contact.customPhotoURL ?? contact.photoURL else { return nil }
         return UIImage(contentsOfFile: url.path)
+    }
+    
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: titlePart1,
+              titlePart2: titlePart2,
+              subtitle: contact.identityCoreDetails?.position,
+              subsubtitle: contact.identityCoreDetails?.company)
+    }
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: circledText,
+              icon: .person,
+              profilePicture: profilePicture,
+              showGreenShield: contact.isCertifiedByOwnKeycloak,
+              showRedShield: !contact.isActive)
+    }
+    
+    private var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: textViewModel,
+              profilePictureViewModelContent: profilePictureViewModelContent)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: contact.cryptoId.colors.background,
+              foreground: contact.cryptoId.colors.text)
+    }
+    
+    private var circleAndTitlesViewModel: CircleAndTitlesView.Model {
+        .init(content: circleAndTitlesViewModelContent,
+              colors: initialCircleViewModelColors,
+              displayMode: .normal,
+              editionMode: .none)
     }
     
     var body: some View {
@@ -68,21 +101,8 @@ struct ContactDetailedInfosView: View {
                                 
                 ObvCardView(padding: 0) {
                     VStack(alignment: .leading, spacing: 0) {
-                        
-                        CircleAndTitlesView(
-                            titlePart1: titlePart1,
-                            titlePart2: titlePart2,
-                            subtitle: contact.identityCoreDetails?.position,
-                            subsubtitle: contact.identityCoreDetails?.company,
-                            circleBackgroundColor: contact.cryptoId.colors.background,
-                            circleTextColor: contact.cryptoId.colors.text,
-                            circledTextView: circledTextView,
-                            systemImage: .person,
-                            profilePicture: profilePicture,
-                            showGreenShield: contact.isCertifiedByOwnKeycloak,
-                            showRedShield: !contact.isActive,
-                            editionMode: .none,
-                            displayMode: .normal)
+
+                        CircleAndTitlesView(model: circleAndTitlesViewModel)
                             .padding()
 
                         OlvidButton(style: .blue, title: Text(CommonString.Word.Back), systemIcon: .arrowshapeTurnUpBackwardFill) {
@@ -155,9 +175,7 @@ struct ContactDetailedInfosView: View {
                             Text("None")
                         } else {
                             ForEach(contact.sortedDevices.indices, id: \.self) { index in
-                                ObvSimpleListItemView(
-                                    title: Text("DEVICE \(index+1)"),
-                                    value: contact.sortedDevices[index].identifier.hexString())
+                                SingleContactDeviceView(index: index, device: contact.sortedDevices[index])
                             }
                         }
                     } header: {
@@ -176,7 +194,7 @@ struct ContactDetailedInfosView: View {
                             } else {
                                 HStack {
                                     Spacer()
-                                    ObvProgressView()
+                                    ProgressView()
                                     Spacer()
                                 }
                             }
@@ -208,4 +226,43 @@ struct ContactDetailedInfosView: View {
     }
 
 
+}
+
+
+
+fileprivate struct SingleContactDeviceView: View {
+    
+    let index: Int
+    @ObservedObject var device: PersistedObvContactDevice
+    
+    private var secureChannelStatus: LocalizedStringKey {
+        switch device.secureChannelStatus {
+        case .creationInProgress, .none:
+            return "SECURE_CHANNEL_CREATION_IN_PROGRESS"
+        case .created:
+            return "SECURE_CHANNEL_CREATED"
+        }
+    }
+    
+    var body: some View {
+        HStack(alignment: .center, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("DEVICE \(index+1)")
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                    .font(.headline)
+                    .padding(.bottom, 4.0)
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    .font(.body)
+                Text(secureChannelStatus)
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    .font(.body)
+                    .padding(.bottom, 4.0)
+                Text(device.identifier.hexString())
+                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                    .font(.body)
+                HStack { Spacer() }
+            }
+        }
+    }
+    
 }

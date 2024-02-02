@@ -45,58 +45,66 @@ public final class QueryApiKeyStatusServerMethod: ObvServerDataMethod {
         self.flowId = flowId
     }
  
-    public enum PossibleReturnStatus: UInt8 {
+    private enum ServerReturnStatus: UInt8 {
         case ok = 0x00
         case generalError = 0xff
+    }
+    
+    public enum PossibleReturnStatus {
+        case ok(apiKeyElements: APIKeyElements)
+        case generalError
     }
 
     lazy public var dataToSend: Data? = {
         return [ownedIdentity.getIdentity(),
                 apiKey].obvEncode().rawData
     }()
-
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, (apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?)?)? {
+    
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> Result<PossibleReturnStatus, Error> {
         
         guard let (rawServerReturnedStatus, listOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
-            os_log("Could not parse the server response", log: log, type: .error)
-            return nil
+            let error = ObvServerMethodError.couldNotParseServerResponse
+            os_log("%{public}@", log: log, type: .error, error.localizedDescription)
+            return .failure(error)
         }
         
-        guard let serverReturnedStatus = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else {
-            os_log("The returned server status is invalid", log: log, type: .error)
-            return nil
+        guard let serverReturnedStatus = ServerReturnStatus(rawValue: rawServerReturnedStatus) else {
+            let error = ObvServerMethodError.returnedServerStatusIsInvalid
+            os_log("%{public}@", log: log, type: .error, error.localizedDescription)
+            return .failure(error)
         }
         
         switch serverReturnedStatus {
         case .ok:
             guard listOfReturnedDatas.count == 3 else {
-                os_log("The server did not return the expected number of elements", log: log, type: .error)
-                return nil
+                let error = ObvServerMethodError.serverDidNotReturnTheExpectedNumberOfElements
+                os_log("%{public}@", log: log, type: .error, error.localizedDescription)
+                return .failure(error)
             }
-            guard let rawApiKeyStatus = Int(listOfReturnedDatas[0]) else {
-                os_log("We could not recover the raw api key status", log: log, type: .error)
-                return nil
-            }
-            guard let apiKeyStatus = APIKeyStatus(rawValue: rawApiKeyStatus) else {
-                os_log("We could not cast the raw api key status", log: log, type: .error)
-                return nil
+            guard let rawApiKeyStatus = Int(listOfReturnedDatas[0]), let apiKeyStatus = APIKeyStatus(rawValue: rawApiKeyStatus) else {
+                let error = ObvServerMethodError.couldNotDecodeElementReturnByServer(elementName: "rawApiKeyStatus")
+                os_log("%{public}@", log: log, type: .error, error.localizedDescription)
+                return .failure(error)
             }
             guard let rawApiPermissions = Int(listOfReturnedDatas[1]) else {
-                os_log("We could not recover the raw api permissions", log: log, type: .error)
-                return nil
+                let error = ObvServerMethodError.couldNotDecodeElementReturnByServer(elementName: "rawApiPermissions")
+                os_log("%{public}@", log: log, type: .error, error.localizedDescription)
+                return .failure(error)
             }
             let apiPermissions = APIPermissions(rawValue: rawApiPermissions)
             guard let apiKeyExpirationInMilliseconds = Int(listOfReturnedDatas[2]) else {
-                os_log("We could not recover the API Key expiration", log: log, type: .error)
-                return nil
+                let error = ObvServerMethodError.couldNotDecodeElementReturnByServer(elementName: "apiKeyExpirationInMilliseconds")
+                os_log("%{public}@", log: log, type: .error, error.localizedDescription)
+                return .failure(error)
             }
             let apiKeyExpiration = apiKeyExpirationInMilliseconds > 0 ? Date(timeIntervalSince1970: Double(apiKeyExpirationInMilliseconds)/1000.0) : nil
             os_log("We received a proper token, server nonce, API Key Status/Permissions/Expiration", log: log, type: .debug)
-            return (serverReturnedStatus, (apiKeyStatus, apiPermissions, apiKeyExpiration))
+            let apiKeyElements = APIKeyElements(status: apiKeyStatus, permissions: apiPermissions, expirationDate: apiKeyExpiration)
+            return .success(.ok(apiKeyElements: apiKeyElements))
             
         case .generalError:
             os_log("The server reported a general error", log: log, type: .error)
-            return (serverReturnedStatus, nil)
+            return .success(.generalError)
 
         }
     }

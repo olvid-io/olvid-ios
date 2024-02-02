@@ -20,7 +20,10 @@
 import Foundation
 import CoreData
 import ObvUICoreData
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
+import ObvSettings
+import ObvDesignSystem
+
 
 @available(iOS 16.0, *)
 extension NewDiscussionsViewController.Cell {

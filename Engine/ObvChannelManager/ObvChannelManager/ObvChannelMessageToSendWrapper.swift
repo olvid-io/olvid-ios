@@ -107,7 +107,7 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
         let messagesToSend: [ObvNetworkMessageToSend] = headersForServer.map { (serverURL, headersForThisServer) in
             let uid = UID.gen(with: prng)
             let ownedCryptoIdentity = self.protocolMessage.channelType.fromOwnedIdentity
-            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoIdentity, uid: uid)
+            let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedCryptoIdentity, uid: uid)
             return ObvNetworkMessageToSend(messageId: messageId,
                                            encryptedContent: encryptedContent.encryptedMessagePayload,
                                            encryptedExtendedMessagePayload: encryptedContent.encryptedExtendedMessagePayload,
@@ -193,7 +193,7 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
         let messagesToSend: [ObvNetworkMessageToSend] = headersForServer.map { (serverURL, headersForThisServer) in
             let uid = UID.gen(with: prng)
             let ownedCryptoIdentity = self.applicationMessage.channelType.fromOwnedIdentity
-            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedCryptoIdentity, uid: uid)
+            let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedCryptoIdentity, uid: uid)
             return ObvNetworkMessageToSend(messageId: messageId,
                                            encryptedContent: encryptedContent.encryptedMessagePayload,
                                            encryptedExtendedMessagePayload: encryptedContent.encryptedExtendedMessagePayload,

@@ -22,7 +22,8 @@ import CoreData
 import os.log
 import ObvEngine
 import OlvidUtils
-import struct ObvTypes.ObvCryptoId
+import ObvSettings
+import ObvTypes
 
 
 @objc(PersistedDiscussionLocalConfiguration)
@@ -96,7 +97,7 @@ public final class PersistedDiscussionLocalConfiguration: NSManagedObject, ObvEr
         }
     }
 
-    public var doSendReadReceipt: Bool? {
+    public private(set) var doSendReadReceipt: Bool? {
         get {
             rawDoSendReadReceipt?.boolValue
         }
@@ -105,6 +106,15 @@ public final class PersistedDiscussionLocalConfiguration: NSManagedObject, ObvEr
             rawDoSendReadReceipt = (newValue == nil ? nil : newValue! as NSNumber)
         }
     }
+    
+    
+    /// Returns `true` iff the value had to be changed in database
+    func setDoSendReadReceipt(to newValue: Bool?) -> Bool {
+        guard doSendReadReceipt != newValue else { return false }
+        doSendReadReceipt = newValue
+        return true
+    }
+
     
     public var doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice? {
         get {
@@ -487,4 +497,38 @@ extension PersistedDiscussionLocalConfiguration {
     func setMuteNotificationsEndDate(with muteNotificationsEndDate: Date) {
         self.muteNotificationsEndDate = muteNotificationsEndDate
     }
+}
+
+
+// MARK: - For snapshot purposes
+
+extension PersistedDiscussionLocalConfiguration {
+    
+    var syncSnapshotNode: PersistedDiscussionLocalConfigurationSyncSnapshotItem {
+        .init(doSendReadReceipt: doSendReadReceipt)
+    }
+    
+}
+
+
+struct PersistedDiscussionLocalConfigurationSyncSnapshotItem: Codable, Hashable {
+
+    private let doSendReadReceipt: Bool?
+    
+    init(doSendReadReceipt: Bool?) {
+        self.doSendReadReceipt = doSendReadReceipt
+    }
+
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        case doSendReadReceipt = "send_read_receipt"
+    }
+
+    // Synthesized implementation of encode(to encoder: Encoder)
+    
+    // Synthesized implementation of init(from decoder: Decoder)
+
+    func useToUpdate(_ configuration: PersistedDiscussionLocalConfiguration) {
+        _ = configuration.setDoSendReadReceipt(to: doSendReadReceipt)
+    }
+    
 }

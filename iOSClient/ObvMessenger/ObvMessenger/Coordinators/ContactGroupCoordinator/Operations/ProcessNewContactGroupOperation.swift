@@ -34,31 +34,23 @@ final class ProcessNewContactGroupOperation: ContextualOperationWithSpecificReas
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        obvContext.performAndWait {
+        do {
             
-            do {
-
-                // We create a new persisted contact group associated to this engine's contact group
-                
-                switch obvContactGroup.groupType {
-                case .owned:
-                    _ = try PersistedContactGroupOwned(contactGroup: obvContactGroup, within: obvContext.context)
-                case .joined:
-                    _ = try PersistedContactGroupJoined(contactGroup: obvContactGroup, within: obvContext.context)
-                }
-
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+            // We create a new persisted contact group associated to this engine's contact group
+            
+            switch obvContactGroup.groupType {
+            case .owned:
+                _ = try PersistedContactGroupOwned(contactGroup: obvContactGroup, within: obvContext.context)
+            case .joined:
+                _ = try PersistedContactGroupJoined(contactGroup: obvContactGroup, within: obvContext.context)
             }
             
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }

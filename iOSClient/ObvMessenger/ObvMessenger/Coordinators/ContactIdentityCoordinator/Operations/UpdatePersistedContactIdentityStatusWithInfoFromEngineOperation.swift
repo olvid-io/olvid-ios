@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import OlvidUtils
 import ObvEngine
 import os.log
 import ObvUICoreData
+import CoreData
 
 final class UpdatePersistedContactIdentityStatusWithInfoFromEngineOperation: ContextualOperationWithSpecificReasonForCancel<UpdatePersistedContactIdentityStatusWithInfoFromEngineOperationReasonForCancel> {
     
@@ -36,47 +37,41 @@ final class UpdatePersistedContactIdentityStatusWithInfoFromEngineOperation: Con
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            do {
-
-                guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindContactIdentityInDatabase)
-                }
-
-                if trustedIdentityDetailsWereUpdated {
-                    persistedContactIdentity.setContactStatus(to: .noNewPublishedDetails)
-                }
-                
-                if publishedIdentityDetailsWereUpdated {
-                    assert(obvContactIdentity.publishedIdentityDetails != nil)
-                    if let receivedPublishedDetails = obvContactIdentity.publishedIdentityDetails {
-                        let identicalPhotos: Bool
-                        if obvContactIdentity.trustedIdentityDetails.photoURL == receivedPublishedDetails.photoURL {
-                            identicalPhotos = true
-                        } else if let trustedPhotoURL = obvContactIdentity.trustedIdentityDetails.photoURL, let newPhotoURL = receivedPublishedDetails.photoURL {
-                            identicalPhotos = FileManager.default.contentsEqual(atPath: trustedPhotoURL.path, andPath: newPhotoURL.path)
-                        } else {
-                            identicalPhotos = false
-                        }
-                        if obvContactIdentity.trustedIdentityDetails.coreDetails == receivedPublishedDetails.coreDetails && identicalPhotos {
-                            persistedContactIdentity.setContactStatus(to: .noNewPublishedDetails)
-                        } else {
-                            persistedContactIdentity.setContactStatus(to: .unseenPublishedDetails)
-                        }
+        do {
+            
+            guard let persistedContactIdentity = try PersistedObvContactIdentity.get(persisted: obvContactIdentity.contactIdentifier, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindContactIdentityInDatabase)
+            }
+            
+            if trustedIdentityDetailsWereUpdated {
+                persistedContactIdentity.setContactStatus(to: .noNewPublishedDetails)
+            }
+            
+            if publishedIdentityDetailsWereUpdated {
+                assert(obvContactIdentity.publishedIdentityDetails != nil)
+                if let receivedPublishedDetails = obvContactIdentity.publishedIdentityDetails {
+                    let identicalPhotos: Bool
+                    if obvContactIdentity.trustedIdentityDetails.photoURL == receivedPublishedDetails.photoURL {
+                        identicalPhotos = true
+                    } else if let trustedPhotoURL = obvContactIdentity.trustedIdentityDetails.photoURL, let newPhotoURL = receivedPublishedDetails.photoURL {
+                        identicalPhotos = FileManager.default.contentsEqual(atPath: trustedPhotoURL.path, andPath: newPhotoURL.path)
+                    } else {
+                        identicalPhotos = false
+                    }
+                    if obvContactIdentity.trustedIdentityDetails.coreDetails == receivedPublishedDetails.coreDetails && identicalPhotos {
+                        persistedContactIdentity.setContactStatus(to: .noNewPublishedDetails)
+                    } else {
+                        persistedContactIdentity.setContactStatus(to: .unseenPublishedDetails)
                     }
                 }
-
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
             }
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }
 

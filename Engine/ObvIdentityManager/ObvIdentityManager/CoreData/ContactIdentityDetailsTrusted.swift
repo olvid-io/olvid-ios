@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,6 +49,7 @@ final class ContactIdentityDetailsTrusted: ContactIdentityDetails {
                   delegateManager: delegateManager)
     }
 
+    
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
     fileprivate convenience init(backupItem: ContactIdentityDetailsTrustedBackupItem, within obvContext: ObvContext) {
         self.init(serializedIdentityCoreDetails: backupItem.serializedIdentityCoreDetails,
@@ -57,6 +58,17 @@ final class ContactIdentityDetailsTrusted: ContactIdentityDetails {
                   entityName: ContactIdentityDetailsTrusted.entityName,
                   within: obvContext)
     }
+    
+    
+    /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
+    fileprivate convenience init(snapshotNode: ContactIdentityDetailsTrustedSyncSnapShotNode, within obvContext: ObvContext) {
+        self.init(serializedIdentityCoreDetails: snapshotNode.serializedIdentityCoreDetails,
+                  version: snapshotNode.version,
+                  photoServerKeyAndLabel: snapshotNode.photoServerKeyAndLabel,
+                  entityName: ContactIdentityDetailsTrusted.entityName,
+                  within: obvContext)
+    }
+
 }
 
 
@@ -127,9 +139,9 @@ extension ContactIdentityDetailsTrusted {
 
         if !isDeleted, let ownedIdentity = contactIdentity.ownedIdentity {
             
-            if let trustedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) {
+            if let trustedIdentityDetails = self.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory), let contactCryptoIdentity = self.contactIdentity.cryptoIdentity {
                 let NotificationType = ObvIdentityNotification.NewTrustedContactIdentityDetails.self
-                let userInfo = [NotificationType.Key.contactCryptoIdentity: self.contactIdentity.cryptoIdentity,
+                let userInfo = [NotificationType.Key.contactCryptoIdentity: contactCryptoIdentity,
                                 NotificationType.Key.ownedCryptoIdentity: ownedIdentity.cryptoIdentity,
                                 NotificationType.Key.trustedIdentityDetails: trustedIdentityDetails] as [String: Any]
                 notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
@@ -267,4 +279,130 @@ struct ContactIdentityDetailsTrustedBackupItem: Codable, Hashable {
         // Nothing do to here
     }
 
+}
+
+
+// MARK: - For Snapshot purposes
+
+extension ContactIdentityDetailsTrusted {
+    
+    var snapshotNode: ContactIdentityDetailsTrustedSyncSnapShotNode {
+        return ContactIdentityDetailsTrustedSyncSnapShotNode(
+            serializedIdentityCoreDetails: serializedIdentityCoreDetails,
+            photoServerKeyAndLabel: photoServerKeyAndLabel,
+            version: self.version)
+    }
+    
+}
+
+
+struct ContactIdentityDetailsTrustedSyncSnapShotNode: ObvSyncSnapshotNode {
+
+    fileprivate let serializedIdentityCoreDetails: Data
+    fileprivate let photoServerKeyAndLabel: PhotoServerKeyAndLabel?
+    fileprivate let version: Int
+    private let domain: Set<CodingKeys>
+
+    let id = Self.generateIdentifier()
+
+    private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
+
+    // Allows to prevent association failures in two items have identical variables
+    private let transientUuid = UUID()
+
+    static func == (lhs: ContactIdentityDetailsTrustedSyncSnapShotNode, rhs: ContactIdentityDetailsTrustedSyncSnapShotNode) -> Bool {
+        return lhs.transientUuid == rhs.transientUuid
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(transientUuid)
+    }
+
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        // Attributes inherited from OwnedIdentityDetails
+        case serializedIdentityCoreDetails = "serialized_details"
+        case version = "version"
+        // Local attributes
+        case photoServerKeyEncoded = "photo_server_key"
+        case photoServerLabel = "photo_server_label"
+        // Domain
+        case domain = "domain"
+    }
+
+    fileprivate init(serializedIdentityCoreDetails: Data, photoServerKeyAndLabel: PhotoServerKeyAndLabel?, version: Int) {
+        self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
+        self.photoServerKeyAndLabel = photoServerKeyAndLabel
+        self.version = version
+        self.domain = Self.defaultDomain
+    }
+
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        // Attributes inherited from OwnedIdentityDetails
+        guard let serializedIdentityCoreDetailsAsString = String(data: serializedIdentityCoreDetails, encoding: .utf8) else {
+            throw ObvError.couldNotSerializeCoreDetails
+        }
+        try container.encode(serializedIdentityCoreDetailsAsString, forKey: .serializedIdentityCoreDetails)
+        try container.encode(version, forKey: .version)
+        // Local attributes
+        let photoServerKeyEncoded = photoServerKeyAndLabel?.key.obvEncode().rawData
+        try container.encodeIfPresent(photoServerKeyEncoded, forKey: .photoServerKeyEncoded)
+        try container.encodeIfPresent(photoServerKeyAndLabel?.label.raw, forKey: .photoServerLabel)
+        // Domain
+        try container.encode(domain, forKey: .domain)
+    }
+
+    
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        
+        let rawKeys = try values.decode(Set<String>.self, forKey: .domain)
+        self.domain = Set(rawKeys.compactMap({ CodingKeys(rawValue: $0) }))
+        guard domain.contains(.version) && domain.contains(.serializedIdentityCoreDetails) else { throw ObvError.tryingToRestoreIncompleteSnapshot }
+        
+        let serializedIdentityCoreDetailsAsString = try values.decode(String.self, forKey: .serializedIdentityCoreDetails)
+        guard let serializedIdentityCoreDetailsAsData = serializedIdentityCoreDetailsAsString.data(using: .utf8) else {
+            throw ObvError.couldNotDeserializeCoreDetails
+        }
+        self.serializedIdentityCoreDetails = serializedIdentityCoreDetailsAsData
+        self.version = try values.decode(Int.self, forKey: .version)
+
+        if domain.contains(.photoServerLabel) && domain.contains(.photoServerKeyEncoded) && values.allKeys.contains(.photoServerLabel) && values.allKeys.contains(.photoServerKeyEncoded) {
+            if let photoServerKeyEncodedRaw = try values.decodeIfPresent(Data.self, forKey: .photoServerKeyEncoded),
+               let photoServerKeyEncoded = ObvEncoded(withRawData: photoServerKeyEncodedRaw),
+               let key = try? AuthenticatedEncryptionKeyDecoder.decode(photoServerKeyEncoded),
+               let photoServerLabelRaw = try? values.decodeIfPresent(Data.self, forKey: .photoServerLabel),
+               let photoServerLabelAsUID = UID(uid: photoServerLabelRaw) {
+                self.photoServerKeyAndLabel = .init(key: key, label: photoServerLabelAsUID)
+            } else {
+                assert(!values.allKeys.contains(where: { $0 == .photoServerLabel }), "The key is present, but we did not manage to decode the value")
+                assert(!values.allKeys.contains(where: { $0 == .photoServerKeyEncoded }), "The key is present, but we did not manage to decode the value")
+                self.photoServerKeyAndLabel = nil
+            }
+        } else {
+            self.photoServerKeyAndLabel = nil
+        }
+        
+    }
+    
+    
+    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let contactIdentityDetailsTrusted = ContactIdentityDetailsTrusted(snapshotNode: self, within: obvContext)
+        try associations.associate(contactIdentityDetailsTrusted, to: self)
+    }
+
+    
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+        // Nothing do to here
+    }
+
+    
+    enum ObvError: Error {
+        case couldNotSerializeCoreDetails
+        case couldNotDeserializeCoreDetails
+        case tryingToRestoreIncompleteSnapshot
+        case couldNotParsePhotoServerKey
+        case couldNotDecodePhotoServerLabel
+    }
 }

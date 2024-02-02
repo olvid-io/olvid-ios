@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -80,13 +80,14 @@ final class ReceivedMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     // MARK: Other variables
     
-    private(set) var messageId: MessageIdentifier {
-        get { return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
+    private(set) var messageId: ObvMessageIdentifier {
+        get { return ObvMessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
         set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
     }
 
     weak var delegateManager: ObvProtocolDelegateManager?
     var obvContext: ObvContext?
+    private var messageIdOnDeletion: ObvMessageIdentifier?
 
     // MARK: - Initializer
     
@@ -100,9 +101,25 @@ final class ReceivedMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         self.protocolMessageRawId = message.protocolMessageRawId
         self.cryptoProtocolId = message.cryptoProtocolId
         self.receptionChannelInfo = message.receptionChannelInfo
-        self.messageId = MessageIdentifier(ownedCryptoIdentity: message.toOwnedIdentity, uid: message.receivedMessageUID ?? UID.gen(with: prng))
+        self.messageId = ObvMessageIdentifier(ownedCryptoIdentity: message.toOwnedIdentity, uid: message.receivedMessageUID ?? UID.gen(with: prng))
         self.delegateManager = delegateManager
         self.timestamp = message.timestamp
+        
+        // Instead of using the didSave method to call the delegate method, we add a "didSave" completion to the obvContext.
+        // This allows to make sure the completions are executed in the right order (first in, first out).
+        // Since the ReceivedMessage received from the network are processed according to their timestamp, this allows to preserver that order.
+        
+        do {
+            let flowId = obvContext.flowId
+            let messageId = self.messageId
+            try obvContext.addContextDidSaveCompletionHandler { error in
+                guard error == nil else { return }
+                delegateManager.receivedMessageDelegate.processReceivedMessage(withId: messageId, flowId: flowId)
+            }
+        } catch {
+            assertionFailure(error.localizedDescription)
+            // Continue anyway
+        }
     }
 
     
@@ -128,7 +145,7 @@ extension ReceivedMessage {
             case receptionChannelInfo = "receptionChannelInfo"
             case timestamp = "timestamp"
         }
-        static func withMessageIdentifier(_ messageId: MessageIdentifier) -> NSPredicate {
+        static func withMessageIdentifier(_ messageId: ObvMessageIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 withOwnedCryptoIdentity(messageId.ownedCryptoIdentity),
                 NSPredicate(Key.rawMessageIdUid, EqualToData: messageId.uid.raw),
@@ -143,6 +160,9 @@ extension ReceivedMessage {
         static func withTimestamp(earlierThan timestamp: Date) -> NSPredicate {
             NSPredicate(Key.timestamp, earlierThan: timestamp)
         }
+        static func withCryptoProtocolId(_ cryptoProtocolId: CryptoProtocolId) -> NSPredicate {
+            NSPredicate(Key.protocolRawId, EqualToInt: cryptoProtocolId.rawValue)
+        }
     }
     
     @nonobjc class func fetchRequest() -> NSFetchRequest<ReceivedMessage> {
@@ -156,7 +176,7 @@ extension ReceivedMessage {
 
 extension ReceivedMessage {
     
-    static func get(messageId: MessageIdentifier, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> ReceivedMessage? {
+    static func get(messageId: ObvMessageIdentifier, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) -> ReceivedMessage? {
         let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
         request.predicate = Predicate.withMessageIdentifier(messageId)
         request.fetchLimit = 1
@@ -172,13 +192,14 @@ extension ReceivedMessage {
             Predicate.withProtocolInstanceUid(protocolInstanceUid),
             Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
         ])
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestamp.rawValue, ascending: true)]
         request.fetchBatchSize = 1_000
         let items = (try? obvContext.fetch(request))
         return items?.map { $0.delegateManager = delegateManager; return $0 }
     }
     
     
-    static func delete(messageId: MessageIdentifier, within obvContext: ObvContext) throws {
+    static func delete(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
         request.predicate = Predicate.withMessageIdentifier(messageId)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
@@ -198,6 +219,14 @@ extension ReceivedMessage {
     }
     
     
+    static func deleteAllAssociatedWithOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
+        request.predicate = Predicate.withOwnedCryptoIdentity(ownedIdentity)
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
+        _ = try obvContext.execute(deleteRequest)
+    }
+    
+    
     static func getAllReceivedMessageOlderThan(timestamp: Date, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> [ReceivedMessage] {
         let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
         request.predicate = Predicate.withTimestamp(earlierThan: timestamp)
@@ -208,11 +237,12 @@ extension ReceivedMessage {
     }
     
     
-    static func getAllMessageIds(within obvContext: ObvContext) throws -> Set<MessageIdentifier> {
+    static func getAllMessageIds(within obvContext: ObvContext) throws -> [ObvMessageIdentifier] {
         let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
         request.propertiesToFetch = [Predicate.Key.rawMessageIdUid.rawValue, Predicate.Key.rawMessageIdOwnedIdentity.rawValue]
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.timestamp.rawValue, ascending: true)]
         let items = try obvContext.fetch(request)
-        return Set(items.map { $0.messageId })
+        return items.map { $0.messageId }
     }
     
     
@@ -223,12 +253,30 @@ extension ReceivedMessage {
         _ = try obvContext.execute(request)
     }
     
+    
+    static func deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<ReceivedMessage> = ReceivedMessage.fetchRequest()
+        request.predicate = Predicate.withCryptoProtocolId(.ownedIdentityTransfer)
+        request.propertiesToFetch = []
+        let items = try obvContext.fetch(request)
+        try items.forEach { try $0.deleteReceivedMessage() }
+    }
+    
 }
 
 
 // MARK: Managing notifications and calls to delegates
 extension ReceivedMessage {
         
+    override func willSave() {
+        super.willSave()
+        
+        if isDeleted {
+            messageIdOnDeletion = self.messageId
+        }
+        
+    }
+    
     override func didSave() {
         super.didSave()
 
@@ -238,9 +286,15 @@ extension ReceivedMessage {
             return
         }
 
-        if isInserted, let flowId = self.obvContext?.flowId {
-            delegateManager.receivedMessageDelegate.processReceivedMessage(withId: messageId, flowId: flowId)
+        if isDeleted {
+            assert(messageIdOnDeletion != nil)
+            assert(delegateManager.notificationDelegate != nil)
+            if let messageIdOnDeletion, let notificationDelegate = delegateManager.notificationDelegate {
+                ObvProtocolNotification.protocolReceivedMessageWasDeleted(protocolMessageId: messageIdOnDeletion)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+            }
         }
+        
     }
     
 }

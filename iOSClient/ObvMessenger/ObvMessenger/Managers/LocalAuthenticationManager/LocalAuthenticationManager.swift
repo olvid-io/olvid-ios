@@ -23,6 +23,8 @@ import ObvCrypto
 import LocalAuthentication
 import UIKit
 import ObvUICoreData
+import ObvSettings
+
 
 enum VerifyPasscodeResult {
     case valid
@@ -46,14 +48,14 @@ protocol VerifyPasscodeDelegate: AnyObject {
 protocol CreatePasscodeDelegate: AnyObject {
     func clearPasscode() async
     func savePasscode(_ passcode: String, passcodeIsPassword: Bool) async throws
-    func requestCustomPasscode(viewController: UIViewController) async -> LocalAuthenticationResult
+    func requestCustomPasscode(customPasscodePresentingViewController: UIViewController) async -> LocalAuthenticationResult
 }
 
 protocol LocalAuthenticationDelegate: AnyObject {
     var remainingLockoutTime: TimeInterval? { get async }
     var isLockedOut: Bool { get async }
 
-    func performLocalAuthentication(viewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?, localizedReason: String) async -> LocalAuthenticationResult
+    func performLocalAuthentication(customPasscodePresentingViewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?, localizedReason: String, policy: ObvLocalAuthenticationPolicy) async -> LocalAuthenticationResult
 }
 
 
@@ -122,8 +124,13 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
         ObvMessengerSettings.Privacy.passcodeIsPassword = passcodeIsPassword
     }
 
-    func performLocalAuthentication(viewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?, localizedReason: String) async -> LocalAuthenticationResult {
-        let result = await self.internalPerformLocalAuthentication(viewController: viewController, uptimeAtTheTimeOfChangeoverToNotActiveState: uptimeAtTheTimeOfChangeoverToNotActiveState, localizedReason: localizedReason)
+    
+    func performLocalAuthentication(customPasscodePresentingViewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?, localizedReason: String, policy: ObvLocalAuthenticationPolicy) async -> LocalAuthenticationResult {
+        let result = await self.internalPerformLocalAuthentication(
+            customPasscodePresentingViewController: customPasscodePresentingViewController,
+            uptimeAtTheTimeOfChangeoverToNotActiveState: uptimeAtTheTimeOfChangeoverToNotActiveState,
+            localizedReason: localizedReason,
+            policy: policy)
         switch result {
         case .authenticated:
             ObvMessengerSettings.Privacy.userHasBeenLockedOut = false
@@ -133,7 +140,8 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
         return result
     }
 
-    private func internalPerformLocalAuthentication(viewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?, localizedReason: String) async -> LocalAuthenticationResult {
+    
+    private func internalPerformLocalAuthentication(customPasscodePresentingViewController: UIViewController, uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?, localizedReason: String, policy: ObvLocalAuthenticationPolicy) async -> LocalAuthenticationResult {
         guard !isLockedOut else {
             return .lockedOut
         }
@@ -151,7 +159,8 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
         guard !userIsAlreadyAuthenticated else {
             return .authenticated(authenticationWasPerformed: false)
         }
-        switch ObvMessengerSettings.Privacy.localAuthenticationPolicy {
+        // switch ObvMessengerSettings.Privacy.localAuthenticationPolicy {
+        switch policy {
         case .none:
             return .authenticated(authenticationWasPerformed: false)
         case .deviceOwnerAuthentication:
@@ -173,23 +182,27 @@ final actor LocalAuthenticationManager: LocalAuthenticationDelegate, VerifyPassc
         case .biometricsWithCustomPasscodeFallback:
             let laContext = LAContext()
             var error: NSError?
+            debugPrint("🔐 LocalAuthenticationManager laContext.evaluatePolicy")
             guard laContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-                return await requestCustomPasscode(viewController: viewController)
+                return await requestCustomPasscode(customPasscodePresentingViewController: customPasscodePresentingViewController)
             }
             do {
+                debugPrint("🔐 LocalAuthenticationManager laContext.evaluatePolicy")
                 try await laContext.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: localizedReason)
                 return .authenticated(authenticationWasPerformed: true)
             } catch {
-                return await requestCustomPasscode(viewController: viewController)
+                return await requestCustomPasscode(customPasscodePresentingViewController: customPasscodePresentingViewController)
             }
         case .customPasscode:
-            return await requestCustomPasscode(viewController: viewController)
+            return await requestCustomPasscode(customPasscodePresentingViewController: customPasscodePresentingViewController)
         }
     }
 
-    func requestCustomPasscode(viewController: UIViewController) async -> LocalAuthenticationResult {
+    func requestCustomPasscode(customPasscodePresentingViewController: UIViewController) async -> LocalAuthenticationResult {
         let passcodeViewController = await VerifyPasscodeViewController(verifyPasscodeDelegate: self)
-        await viewController.present(passcodeViewController, animated: true)
+        // Since we are about to present the VerifyPasscodeViewController, we dismiss any presented view controller
+        await customPasscodePresentingViewController.presentedViewController?.dismiss(animated: false)
+        await customPasscodePresentingViewController.present(passcodeViewController, animated: true)
         switch await passcodeViewController.getResult() {
         case .succeed:
             return .authenticated(authenticationWasPerformed: true)

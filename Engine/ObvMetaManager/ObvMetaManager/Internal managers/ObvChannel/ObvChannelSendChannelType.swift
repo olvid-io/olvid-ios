@@ -29,11 +29,13 @@ public enum ObvChannelSendChannelType {
     case Local(ownedIdentity: ObvCryptoIdentity) // Send from/to this owned identity
     case AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set<ObvCryptoIdentity>, fromOwnedIdentity: ObvCryptoIdentity)
     case AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity)
+    case AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity(contactIdentities: Set<ObvCryptoIdentity>, fromOwnedIdentity: ObvCryptoIdentity)
     case ObliviousChannel(to: ObvCryptoIdentity, remoteDeviceUids: [UID], fromOwnedIdentity: ObvCryptoIdentity, necessarilyConfirmed: Bool)
     case AsymmetricChannel(to: ObvCryptoIdentity, remoteDeviceUids: [UID], fromOwnedIdentity: ObvCryptoIdentity)
     case AsymmetricChannelBroadcast(to: ObvCryptoIdentity, fromOwnedIdentity: ObvCryptoIdentity)
     case UserInterface(uuid: UUID, ownedIdentity: ObvCryptoIdentity, dialogType: ObvChannelDialogToSendType)
     case ServerQuery(ownedIdentity: ObvCryptoIdentity) // The identity is one of our own, used to receive the server response
+    
     
     /// Only owned identities can "send" on a channel. Note that when sending a message to self, the `fromOwnedIdentity` is identical to the `toIdentity`
     public var fromOwnedIdentity: ObvCryptoIdentity {
@@ -45,10 +47,12 @@ public enum ObvChannelSendChannelType {
              .AsymmetricChannelBroadcast(to: _, fromOwnedIdentity: let fromOwnedIdentity),
              .UserInterface(uuid: _, ownedIdentity: let fromOwnedIdentity, dialogType: _),
              .ServerQuery(ownedIdentity: let fromOwnedIdentity),
-             .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: _, fromOwnedIdentity: let fromOwnedIdentity):
+             .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: _, fromOwnedIdentity: let fromOwnedIdentity),
+             .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity(contactIdentities: _, fromOwnedIdentity: let fromOwnedIdentity):
             return fromOwnedIdentity
         }
     }
+    
     
     /// The toIdentity can be a contact identity, or an owned identity, depending on the case.
     public var toIdentity: ObvCryptoIdentity? {
@@ -61,10 +65,12 @@ public enum ObvChannelSendChannelType {
              .UserInterface(uuid: _, ownedIdentity: let toIdentity, dialogType: _),
              .ServerQuery(ownedIdentity: let toIdentity):
             return toIdentity
-        case .AllConfirmedObliviousChannelsWithContactIdentities:
+        case .AllConfirmedObliviousChannelsWithContactIdentities,
+                .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity:
             return nil
         }
     }
+    
     
     public var toIdentities: Set<ObvCryptoIdentity>? {
         switch self {
@@ -76,9 +82,10 @@ public enum ObvChannelSendChannelType {
              .UserInterface,
              .ServerQuery:
             return nil
-        case .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: let toIdentities, fromOwnedIdentity: _):
+        case .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: let toIdentities, fromOwnedIdentity: _),
+                .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity(contactIdentities: let toIdentities, fromOwnedIdentity: _):
             return toIdentities
         }
-
     }
+    
 }

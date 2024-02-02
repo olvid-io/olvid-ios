@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import os.log
 import ObvServerInterface
 import ObvMetaManager
 import ObvTypes
+import ObvEncoder
 import ObvCrypto
 import OlvidUtils
 
@@ -52,11 +53,18 @@ final class ServerQueryCoordinator: NSObject {
         sessionConfiguration.useOlvidSettings(sharedContainerIdentifier: delegateManager?.sharedContainerIdentifier)
         return URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: nil)
     }()
+    
+    /// We create a specific session for the case when the query is a Keycloak revocation test. The reason: the keycloak might not be reachable (e.g., the keycloak is on a private network)
+    /// and we need the test to fail when it is the case. This is only possible if the `waitsForConnectivity` parameter is false.
+    private lazy var sessionForKeycloakRevocation: URLSession! = {
+        let sessionConfiguration = URLSessionConfiguration.ephemeral
+        sessionConfiguration.useOlvidSettings(sharedContainerIdentifier: delegateManager?.sharedContainerIdentifier)
+        sessionConfiguration.waitsForConnectivity = false // So as to fail early if the keycloak server is not available
+        return URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: nil)
+    }()
 
     private var _currentTasks = [UIBackgroundTaskIdentifier: (objectId: NSManagedObjectID, dataReceived: Data, flowId: FlowIdentifier)]()
     private var currentTasksQueue = DispatchQueue(label: "ServerQueryCoordinatorQueueForCurrentTasks")
-
-    private let queueForCallingDelegate = DispatchQueue(label: "ServerQueryCoordinator queue for calling delegate methods")
 
     let prng: PRNGService
     let downloadedUserData: URL
@@ -141,7 +149,7 @@ extension ServerQueryCoordinator {
         }
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             do {
-                let serverQueries = try PendingServerQuery.getAllServerQuery(for: ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext)
+                let serverQueries = try PendingServerQuery.getAllServerQuery(for: ownedCryptoIdentity, isWebSocket: .bool(false), delegateManager: delegateManager, within: obvContext)
                 for serverQuery in serverQueries {
                     postServerQuery(withObjectId: serverQuery.objectID, flowId: flowId)
                 }
@@ -172,8 +180,65 @@ extension ServerQueryCoordinator {
             do {
                 let serverQueries = try PendingServerQuery.getAllServerQuery(delegateManager: delegateManager, within: obvContext)
                 for serverQuery in serverQueries {
-                    postServerQuery(withObjectId: serverQuery.objectID, flowId: flowId)
+                    if serverQuery.isWebSocket {
+                        // WebSocket server queries should have been deleted by now: they relate to an obsolete owned identity transfer protocol
+                        assertionFailure()
+                    } else {
+                        // Other server queries can be re-posted
+                        postServerQuery(withObjectId: serverQuery.objectID, flowId: flowId)
+                    }
                 }
+            } catch(let error) {
+                os_log("Could fetch server queries for the given owned identity.", log: log, type: .error, error.localizedDescription)
+                return
+
+            }
+
+        }
+    }
+    
+    
+    // Used during boostrap
+    
+    func deletePendingServerQueryOfNonExistingOwnedIdentities(flowId: FlowIdentifier) {
+        
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+
+        guard let identityDelegate = delegateManager.identityDelegate else {
+            os_log("The identity delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+        
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+            do {
+                let existingOwnedIdentities = try identityDelegate.getOwnedIdentities(within: obvContext)
+                let serverQueries = try PendingServerQuery.getAllServerQuery(delegateManager: delegateManager, within: obvContext)
+                for serverQuery in serverQueries {
+                    guard !serverQuery.isDeleted else { continue }
+                    if let ownedCryptoIdentity = try? serverQuery.ownedIdentity {
+                        if !existingOwnedIdentities.contains(ownedCryptoIdentity) {
+                            serverQuery.deletePendingServerQuery(within: obvContext)
+                        }
+                    } else {
+                        assertionFailure()
+                        serverQuery.deletePendingServerQuery(within: obvContext)
+                    }
+                }
+                try obvContext.save(logOnFailure: log)
             } catch(let error) {
                 os_log("Could fetch server queries for the given owned identity.", log: log, type: .error, error.localizedDescription)
                 return
@@ -192,12 +257,16 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
 
     private enum SyncQueueOutput {
         case previousTaskExists
+        case serverqueryDeletedAsOwnedIdentityIsNotActive
         case couldNotFindServerQueryInDatabase
         case newTaskToRun(task: URLSessionTask)
         case failedToCreateTask(methodName: String, error: Error)
         case serverSessionRequired(for: ObvCryptoIdentity, flowId: FlowIdentifier)
+        case webSocketQueryHandledByAnotherCoordinator
+        case serverQueryOwnedIdentityCannotBeParsed
     }
 
+    
     func postServerQuery(withObjectId objectId: NSManagedObjectID, flowId: FlowIdentifier) {
 
         guard let delegateManager = delegateManager else {
@@ -210,6 +279,13 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
 
         guard let contextCreator = delegateManager.contextCreator else {
             os_log("The context creator manager is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        guard let identityDelegate = delegateManager.identityDelegate else {
+            os_log("The identity delegate is not set", log: log, type: .fault)
+            assertionFailure()
             return
         }
 
@@ -226,14 +302,37 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
 
                 let serverQuery: PendingServerQuery
                 do {
-                    serverQuery = try PendingServerQuery.get(objectId: objectId,
-                                                             delegateManager: delegateManager,
-                                                             within: obvContext)
+                    let _serverQuery = try PendingServerQuery.get(objectId: objectId, delegateManager: delegateManager, within: obvContext)
+                    guard let _serverQuery else {
+                        syncQueueOutput = .couldNotFindServerQueryInDatabase
+                        return
+                    }
+                    serverQuery = _serverQuery
                 } catch {
+                    assertionFailure()
                     syncQueueOutput = .couldNotFindServerQueryInDatabase
                     return
                 }
-                let ownedIdentity = serverQuery.ownedIdentity
+                
+                guard let ownedIdentity = try? serverQuery.ownedIdentity else {
+                    syncQueueOutput = .serverQueryOwnedIdentityCannotBeParsed
+                    return
+                }
+                
+                // Make sure the owned identity still exists
+                
+                do {
+                    guard try identityDelegate.isOwnedIdentityActive(ownedIdentity: ownedIdentity, flowId: flowId) else {
+                        // The owned identity does not exist anymore, we delete the server query
+                        serverQuery.deletePendingServerQuery(within: obvContext)
+                        try obvContext.save(logOnFailure: log)
+                        syncQueueOutput = .serverqueryDeletedAsOwnedIdentityIsNotActive
+                        return
+                    }
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                    return
+                }
 
                 // If we reach this point, we do need to send the server query to the server
 
@@ -242,14 +341,141 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
 
                     os_log("Creating a ObvServerDeviceDiscoveryMethod of the contact identity %@", log: log, type: .debug, contactIdentity.debugDescription)
 
-                    let method = ObvServerDeviceDiscoveryMethod(ownedIdentity: serverQuery.ownedIdentity, toIdentity: contactIdentity, flowId: flowId)
+                    let method = ObvServerDeviceDiscoveryMethod(ownedIdentity: ownedIdentity, toIdentity: contactIdentity, flowId: flowId)
                     method.identityDelegate = delegateManager.identityDelegate
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
                         assertionFailure(error.localizedDescription)
                         syncQueueOutput = .failedToCreateTask(methodName: "ObvServerDeviceDiscoveryMethod", error: error)
+                        return
+                    }
+
+                    insert(task, forObjectId: objectId, flowId: flowId)
+
+                    syncQueueOutput = .newTaskToRun(task: task)
+                    return
+                    
+                case .ownedDeviceDiscovery:
+
+                    os_log("Creating an ObvServerOwnedDeviceDiscoveryMethod of the owned identity %@", log: log, type: .debug, ownedIdentity.debugDescription)
+
+                    let method = ObvServerOwnedDeviceDiscoveryMethod(ownedIdentity: ownedIdentity, flowId: flowId)
+                    method.identityDelegate = delegateManager.identityDelegate
+                    let task: URLSessionDataTask
+                    do {
+                        task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
+                    } catch let error {
+                        assertionFailure(error.localizedDescription)
+                        syncQueueOutput = .failedToCreateTask(methodName: "ObvServerOwnedDeviceDiscoveryMethod", error: error)
+                        return
+                    }
+
+                    insert(task, forObjectId: objectId, flowId: flowId)
+
+                    syncQueueOutput = .newTaskToRun(task: task)
+                    return
+                    
+                case .setOwnedDeviceName(ownedDeviceUID: let ownedDeviceUID, encryptedOwnedDeviceName: let encryptedOwnedDeviceName, isCurrentDevice: _):
+                    
+                    os_log("Creating an ObvServerOwnedDeviceManagementMethod (setOwnedDeviceName) of the owned identity %@", log: log, type: .debug, ownedIdentity.debugDescription)
+
+                    guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedIdentity) else {
+                        syncQueueOutput = .serverSessionRequired(for: ownedIdentity, flowId: flowId)
+                        return
+                    }
+                    guard let token = serverSession.token else {
+                        syncQueueOutput = .serverSessionRequired(for: ownedIdentity, flowId: flowId)
+                        return
+                    }
+
+                    let method = OwnedDeviceManagementServerMethod(
+                        ownedIdentity: ownedIdentity,
+                        token: token,
+                        queryType: .setOwnedDeviceName(ownedDeviceUID: ownedDeviceUID, encryptedOwnedDeviceName: encryptedOwnedDeviceName),
+                        flowId: flowId)
+                    
+                    method.identityDelegate = delegateManager.identityDelegate
+                    let task: URLSessionDataTask
+                    do {
+                        task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
+                    } catch let error {
+                        assertionFailure(error.localizedDescription)
+                        syncQueueOutput = .failedToCreateTask(methodName: "OwnedDeviceManagementServerMethod", error: error)
+                        return
+                    }
+
+                    insert(task, forObjectId: objectId, flowId: flowId)
+
+                    syncQueueOutput = .newTaskToRun(task: task)
+                    return
+                    
+                case .deactivateOwnedDevice(ownedDeviceUID: let ownedDeviceUID, isCurrentDevice: _):
+                    
+                    os_log("Creating an ObvServerOwnedDeviceManagementMethod (deactivateOwnedDevice) of the owned identity %@", log: log, type: .debug, ownedIdentity.debugDescription)
+
+                    guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedIdentity) else {
+                        syncQueueOutput = .serverSessionRequired(for: ownedIdentity, flowId: flowId)
+                        return
+                    }
+                    guard let token = serverSession.token else {
+                        syncQueueOutput = .serverSessionRequired(for: ownedIdentity, flowId: flowId)
+                        return
+                    }
+
+                    let method = OwnedDeviceManagementServerMethod(
+                        ownedIdentity: ownedIdentity,
+                        token: token,
+                        queryType: .deactivateOwnedDevice(ownedDeviceUID: ownedDeviceUID),
+                        flowId: flowId)
+                    
+                    method.identityDelegate = delegateManager.identityDelegate
+                    let task: URLSessionDataTask
+                    do {
+                        task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
+                    } catch let error {
+                        assertionFailure(error.localizedDescription)
+                        syncQueueOutput = .failedToCreateTask(methodName: "OwnedDeviceManagementServerMethod", error: error)
+                        return
+                    }
+
+                    insert(task, forObjectId: objectId, flowId: flowId)
+
+                    syncQueueOutput = .newTaskToRun(task: task)
+                    return
+                    
+                case .setUnexpiringOwnedDevice(ownedDeviceUID: let ownedDeviceUID):
+                    
+                    os_log("Creating an ObvServerOwnedDeviceManagementMethod (setUnexpiringOwnedDevice) of the owned identity %@ for device %{public}@", log: log, type: .debug, ownedIdentity.debugDescription, ownedDeviceUID.debugDescription)
+
+                    guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedIdentity) else {
+                        syncQueueOutput = .serverSessionRequired(for: ownedIdentity, flowId: flowId)
+                        return
+                    }
+                    guard let token = serverSession.token else {
+                        syncQueueOutput = .serverSessionRequired(for: ownedIdentity, flowId: flowId)
+                        return
+                    }
+
+                    let method = OwnedDeviceManagementServerMethod(
+                        ownedIdentity: ownedIdentity,
+                        token: token,
+                        queryType: .setUnexpiringOwnedDevice(ownedDeviceUID: ownedDeviceUID),
+                        flowId: flowId)
+                    
+                    method.identityDelegate = delegateManager.identityDelegate
+                    let task: URLSessionDataTask
+                    do {
+                        task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
+                    } catch let error {
+                        assertionFailure(error.localizedDescription)
+                        syncQueueOutput = .failedToCreateTask(methodName: "OwnedDeviceManagementServerMethod", error: error)
                         return
                     }
 
@@ -263,7 +489,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
 
                     let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption()
 
-                    guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: ownedIdentity) else {
+                    guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedIdentity) else {
                         syncQueueOutput = .serverSessionRequired(for: ownedIdentity, flowId: flowId)
                         return
                     }
@@ -295,6 +521,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
                         syncQueueOutput = .failedToCreateTask(methodName: "ObvServerPutUserDataMethod", error: error)
                         return
@@ -309,12 +536,13 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
 
                     os_log("Creating a ObvServerGetUserDataMethod of the contact identity %@", log: log, type: .debug, contactIdentity.debugDescription)
 
-                    let method = ObvServerGetUserDataMethod(ownedIdentity: serverQuery.ownedIdentity, toIdentity: contactIdentity, serverLabel: label, flowId: flowId)
+                    let method = ObvServerGetUserDataMethod(ownedIdentity: ownedIdentity, toIdentity: contactIdentity, serverLabel: label, flowId: flowId)
                     method.identityDelegate = delegateManager.identityDelegate
 
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
                         syncQueueOutput = .failedToCreateTask(methodName: "ObvServerGetUserDataMethod", error: error)
                         return
@@ -340,7 +568,8 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
 
                     let task: URLSessionDataTask
                     do {
-                        task = try method.dataTask(within: self.session)
+                        task = try method.dataTask(within: self.sessionForKeycloakRevocation)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
                         syncQueueOutput = .failedToCreateTask(methodName: "ObvServerCheckKeycloakRevocationMethod", error: error)
                         return
@@ -353,7 +582,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     
                 case .createGroupBlob(groupIdentifier: let groupIdentifier, serverAuthenticationPublicKey: let serverAuthenticationPublicKey, encryptedBlob: let encryptedBlob):
                     
-                    guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: ownedIdentity) else {
+                    guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedIdentity) else {
                         syncQueueOutput = .serverSessionRequired(for: ownedIdentity, flowId: flowId)
                         return
                     }
@@ -373,8 +602,9 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
-                        syncQueueOutput = .failedToCreateTask(methodName: "ObvServerCheckKeycloakRevocationMethod", error: error)
+                        syncQueueOutput = .failedToCreateTask(methodName: "ObvServerCreateGroupBlobServerMethod", error: error)
                         return
                     }
 
@@ -393,8 +623,9 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
-                        syncQueueOutput = .failedToCreateTask(methodName: "ObvServerCheckKeycloakRevocationMethod", error: error)
+                        syncQueueOutput = .failedToCreateTask(methodName: "ObvServerGetGroupBlobServerMethod", error: error)
                         return
                     }
 
@@ -414,6 +645,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
                         syncQueueOutput = .failedToCreateTask(methodName: "ObvServerDeleteGroupBlobServerMethod", error: error)
                         return
@@ -435,6 +667,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
                         syncQueueOutput = .failedToCreateTask(methodName: "ObvServerPutGroupLogServerMethod", error: error)
                         return
@@ -457,6 +690,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
                         syncQueueOutput = .failedToCreateTask(methodName: "ObvServerGroupBlobLockServerMethod", error: error)
                         return
@@ -481,6 +715,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
                         syncQueueOutput = .failedToCreateTask(methodName: "ObvServerGroupBlobUpdateServerMethod", error: error)
                         return
@@ -499,6 +734,7 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     let task: URLSessionDataTask
                     do {
                         task = try method.dataTask(within: self.session)
+                        task.taskDescription = serverQuery.queryType.taskDescription
                     } catch let error {
                         syncQueueOutput = .failedToCreateTask(methodName: "GetKeycloakDataServerMethod", error: error)
                         return
@@ -509,6 +745,12 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
                     syncQueueOutput = .newTaskToRun(task: task)
                     return
 
+                case .sourceGetSessionNumber, .sourceWaitForTargetConnection, .targetSendEphemeralIdentity, .transferRelay, .transferWait, .closeWebsocketConnection:
+                    
+                    assertionFailure("This query is be handled by the ServerQueryWebSocketCoordinator, this one should not have been called")
+                    syncQueueOutput = .webSocketQueryHandledByAnotherCoordinator
+                    return
+                    
                 }
 
             }
@@ -522,6 +764,10 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
         }
 
         switch syncQueueOutput! {
+            
+        case .serverqueryDeletedAsOwnedIdentityIsNotActive:
+            os_log("Server query was deleted as the identity is not active", log: log, type: .error)
+            return
 
         case .previousTaskExists:
             os_log("A running task already exists for pending server query %{public}@", log: log, type: .debug, objectId.debugDescription)
@@ -537,12 +783,28 @@ extension ServerQueryCoordinator: ServerQueryDelegate {
 
         case .serverSessionRequired(for: let ownedIdentity, flowId: let flowId):
             // REMARK we will be called again by NetworkFetchFlowCoordinator#newToken
-            queueForCallingDelegate.async {
-                try? delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedIdentity, flowId: flowId)
+            Task.detached { [weak self] in
+                do {
+                    _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedIdentity, currentInvalidToken: nil, flowId: flowId)
+                } catch {
+                    os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
+                    assertionFailure()
+                }
             }
+            return
         case .newTaskToRun(task: let task):
             os_log("New task to run for the server query %{public}@", log: log, type: .debug, objectId.debugDescription)
             task.resume()
+
+        case .webSocketQueryHandledByAnotherCoordinator:
+            os_log("This coordinator received a server query that should be handled by another coordinator", log: log, type: .fault)
+            return
+            
+        case .serverQueryOwnedIdentityCannotBeParsed:
+            os_log("This coordinator received a server query for which we could not parse the owned identity. This server query should be deleted during next bootstrap", log: log, type: .fault)
+            assertionFailure()
+            return
+
         }
     }
 }
@@ -575,9 +837,65 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
 
         guard error == nil else {
             os_log("The task failed for server query %{public}@: %@", log: log, type: .error, objectId.debugDescription, error!.localizedDescription)
+
             _ = removeInfoFor(task)
-            queueForCallingDelegate.async {
-                delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+            
+            // 2023-12-08
+            // If the error domain is NSURLErrorDomain and the code is NSURLErrorCannotConnectToHost and the task was a checkKeycloakRevocation, it means that the keycloak is not accessible.
+            // In that very specific case we can only rely on revocation lists and return
+            
+            if let nsError = error as? NSError, nsError.domain == NSURLErrorDomain, let queryType = ServerQuery.QueryType(taskDescription: task.taskDescription), queryType.isCheckKeycloakRevocation {
+
+                contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+                    
+                    let serverQuery: PendingServerQuery
+                    do {
+                        let _serverQuery = try PendingServerQuery.get(objectId: objectId, delegateManager: delegateManager, within: obvContext)
+                        guard let _serverQuery else {
+                            os_log("Could not find server query in database", log: log, type: .error)
+                            return
+                        }
+                        serverQuery = _serverQuery
+                    } catch {
+                        os_log("Could not fetch server query from database: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        assertionFailure()
+                        return
+                    }
+                    
+                    guard serverQuery.queryType.isCheckKeycloakRevocation else {
+                        assertionFailure()
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        }
+                        return
+                    }
+
+                    let serverResponseType = ServerResponse.ResponseType.checkKeycloakRevocation(verificationSuccessful: true)
+                    serverQuery.responseType = serverResponseType
+
+                    do {
+                        try obvContext.save(logOnFailure: log)
+                    } catch {
+                        os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        }
+                        return
+                    }
+
+                    Task {
+                        delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+
+                }
+                
+            } else {
+                
+                Task {
+                    await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                }
+                
             }
             return
         }
@@ -588,12 +906,23 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
 
             let serverQuery: PendingServerQuery
             do {
-                serverQuery = try PendingServerQuery.get(objectId: objectId,
-                                                         delegateManager: delegateManager,
-                                                         within: obvContext)
+                let _serverQuery = try PendingServerQuery.get(objectId: objectId, delegateManager: delegateManager, within: obvContext)
+                guard let _serverQuery else {
+                    os_log("Could not find server query in database", log: log, type: .error)
+                    _ = removeInfoFor(task)
+                    return
+                }
+                serverQuery = _serverQuery
             } catch {
-                os_log("Could not find server query in database", log: log, type: .fault)
+                os_log("Could not fetch server query from database: %{public}@", log: log, type: .fault, error.localizedDescription)
                 _ = removeInfoFor(task)
+                assertionFailure()
+                return
+            }
+
+            guard let ownedIdentity = try? serverQuery.ownedIdentity else {
+                os_log("This coordinator received a server query for which we could not parse the owned identity in urlSession(_:task:didCompleteWithError:). This server query should be deleted during next bootstrap", log: log, type: .fault)
+                assertionFailure()
                 return
             }
 
@@ -604,8 +933,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 guard let (status, deviceUids) = ObvServerDeviceDiscoveryMethod.parseObvServerResponse(responseData: responseData, using: log) else {
                     os_log("Could not parse the server response for the ObvServerDeviceDiscoveryMethod task of pending server query %{public}@", log: log, type: .fault, objectId.debugDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -623,14 +952,14 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
                     }
 
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
+                    Task {
                         delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
@@ -638,8 +967,259 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 case .generalError:
                     os_log("Server reported general error during the ObvServerDeviceDiscoveryMethod task for pending server query %@", log: log, type: .fault, objectId.debugDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+                }
+                
+            case .ownedDeviceDiscovery:
+                
+                let result = ObvServerOwnedDeviceDiscoveryMethod.parseObvServerResponse(responseData: responseData, using: log)
+                
+                switch result {
+                case .success(let status):
+                    
+                    os_log("The ObvServerOwnedDeviceDiscoveryMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+
+                    switch status {
+                    case .ok(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
+                        
+                        let serverResponseType = ServerResponse.ResponseType.ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult)
+                        serverQuery.responseType = serverResponseType
+
+                        do {
+                            try obvContext.save(logOnFailure: log)
+                        } catch {
+                            os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
+                            _ = removeInfoFor(task)
+                            Task {
+                                await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                            }
+                            return
+                        }
+
+                        _ = removeInfoFor(task)
+                        Task {
+                            delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
+                        }
+                        return
+
+                    case .generalError:
+                        
+                        _ = removeInfoFor(task)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        }
+                        return
+                        
+                    }
+                    
+                case .failure(let error):
+                    
+                    os_log("The ObvServerOwnedDeviceDiscoveryMethod failed: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    _ = removeInfoFor(task)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+
+                }
+                
+            case .setOwnedDeviceName(ownedDeviceUID: _, encryptedOwnedDeviceName: _, isCurrentDevice: let isCurrentDevice):
+                
+                let result = OwnedDeviceManagementServerMethod.parseObvServerResponse(responseData: responseData, using: log)
+
+                switch result {
+                case .success(let status):
+
+                    os_log("The OwnedDeviceManagementServerMethod returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+
+                    switch status {
+                        
+                    case .invalidSession:
+                        processInvalidSessionForTask(task, ownedIdentity: ownedIdentity, flowId: flowId)
+                        return
+                        
+                    case .deviceNotRegistered:
+                        // In case the device for which we are setting a new name is the current device, we try again.
+                        // Otherwise, we fail
+                        if isCurrentDevice {
+                            _ = removeInfoFor(task)
+                            Task {
+                                await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                            }
+                            return
+                        } else {
+                            let serverResponseType = ServerResponse.ResponseType.setOwnedDeviceName(success: false)
+                            serverQuery.responseType = serverResponseType
+                            // Continues after the end of the status block
+                        }
+
+                    case .ok:
+                        
+                        let serverResponseType = ServerResponse.ResponseType.setOwnedDeviceName(success: true)
+                        serverQuery.responseType = serverResponseType
+                        // Continues after the end of the status block
+
+                    case .generalError:
+
+                        let serverResponseType = ServerResponse.ResponseType.setOwnedDeviceName(success: false)
+                        serverQuery.responseType = serverResponseType
+                        // Continues after the end of the status block
+                        
+                    }
+                    
+                    // Common to .ok, .generalError, and .deviceNotRegistered (in case we are setting the name of a remote device, not of the current one)
+                    
+                    do {
+                        try obvContext.save(logOnFailure: log)
+                    } catch {
+                        os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        _ = removeInfoFor(task)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        }
+                        return
+                    }
+
+                    _ = removeInfoFor(task)
+                    Task {
+                        delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+                    
+                case .failure(let error):
+                    os_log("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
+                    _ = removeInfoFor(task)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+                }
+                
+            case .deactivateOwnedDevice(ownedDeviceUID: _, isCurrentDevice: _):
+                
+                let result = OwnedDeviceManagementServerMethod.parseObvServerResponse(responseData: responseData, using: log)
+
+                switch result {
+                case .success(let status):
+
+                    os_log("The OwnedDeviceManagementServerMethod (deactivateOwnedDevice) returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+
+                    switch status {
+                        
+                    case .invalidSession:
+                        processInvalidSessionForTask(task, ownedIdentity: ownedIdentity, flowId: flowId)
+                        return
+                        
+                    case .deviceNotRegistered:
+                        // In case the device we are deactivating is not registered, there is nothing left to do for which we are setting a new name is the current device, we try again.
+                        let serverResponseType = ServerResponse.ResponseType.setOwnedDeviceName(success: true)
+                        serverQuery.responseType = serverResponseType
+                        // Continues after the end of the status block
+
+                    case .ok:
+                        
+                        let serverResponseType = ServerResponse.ResponseType.setOwnedDeviceName(success: true)
+                        serverQuery.responseType = serverResponseType
+                        // Continues after the end of the status block
+
+                    case .generalError:
+
+                        let serverResponseType = ServerResponse.ResponseType.setOwnedDeviceName(success: false)
+                        serverQuery.responseType = serverResponseType
+                        // Continues after the end of the status block
+                        
+                    }
+                    
+                    // Common to .ok, .generalError, and .deviceNotRegistered
+                    
+                    do {
+                        try obvContext.save(logOnFailure: log)
+                    } catch {
+                        os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        _ = removeInfoFor(task)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        }
+                        return
+                    }
+
+                    _ = removeInfoFor(task)
+                    Task {
+                        delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+                    
+                case .failure(let error):
+                    os_log("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
+                    _ = removeInfoFor(task)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+                }
+
+            case .setUnexpiringOwnedDevice(ownedDeviceUID: _):
+                
+                let result = OwnedDeviceManagementServerMethod.parseObvServerResponse(responseData: responseData, using: log)
+
+                switch result {
+                case .success(let status):
+
+                    os_log("The OwnedDeviceManagementServerMethod (setUnexpiringOwnedDevice) returned status is %{public}@", log: log, type: .debug, String(reflecting: status))
+
+                    switch status {
+                        
+                    case .invalidSession:
+                        processInvalidSessionForTask(task, ownedIdentity: ownedIdentity, flowId: flowId)
+                        return
+                        
+                    case .deviceNotRegistered:
+                        // In case the device we are deactivating is not registered, there is nothing left to do for which we are setting a new name is the current device, we try again.
+                        let serverResponseType = ServerResponse.ResponseType.setOwnedDeviceName(success: true)
+                        serverQuery.responseType = serverResponseType
+                        // Continues after the end of the status block
+
+                    case .ok:
+                        
+                        let serverResponseType = ServerResponse.ResponseType.setOwnedDeviceName(success: true)
+                        serverQuery.responseType = serverResponseType
+                        // Continues after the end of the status block
+
+                    case .generalError:
+
+                        let serverResponseType = ServerResponse.ResponseType.setOwnedDeviceName(success: false)
+                        serverQuery.responseType = serverResponseType
+                        // Continues after the end of the status block
+                        
+                    }
+                    
+                    // Common to .ok, .generalError, and .deviceNotRegistered
+                    
+                    do {
+                        try obvContext.save(logOnFailure: log)
+                    } catch {
+                        os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        _ = removeInfoFor(task)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        }
+                        return
+                    }
+
+                    _ = removeInfoFor(task)
+                    Task {
+                        delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
+                    }
+                    return
+                    
+                case .failure(let error):
+                    os_log("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
+                    _ = removeInfoFor(task)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -662,20 +1242,20 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                         } catch {
                             os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                             _ = removeInfoFor(task)
-                            queueForCallingDelegate.async {
-                                delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                            Task {
+                                await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                             }
                             return
                         }
 
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
+                        Task {
                             delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
 
                     case .invalidSession:
-                        processInvalidSessionForTask(task, ownedIdentity: serverQuery.ownedIdentity, flowId: flowId)
+                        processInvalidSessionForTask(task, ownedIdentity: ownedIdentity, flowId: flowId)
                         return
 
                     case .generalError:
@@ -686,8 +1266,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 case .failure(let error):
                     os_log("Could not parse the server response for the ObvServerPutUserDataMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -697,8 +1277,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 guard let (status, userDataPath) = ObvServerGetUserDataMethod.parseObvServerResponse(responseData: responseData, using: log, downloadedUserData: downloadedUserData, serverLabel: label) else {
                     os_log("Could not parse the server response for the ObvServerGetUserDataMethod task of pending server query %{public}@", log: log, type: .fault, objectId.debugDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -735,14 +1315,14 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 } catch {
                     os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
 
                 _ = removeInfoFor(task)
-                queueForCallingDelegate.async {
+                Task {
                     delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                 }
                 return
@@ -752,8 +1332,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 guard let (status, verificationSuccessful) = ObvServerCheckKeycloakRevocationMethod.parseObvServerResponse(responseData: responseData, using: log) else {
                     os_log("Could not parse the server response for the ObvServerCheckKeycloakRevocationMethod task of pending server query %{public}@", log: log, type: .fault, objectId.debugDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -771,14 +1351,14 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
                     }
 
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
+                    Task {
                         delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
@@ -800,7 +1380,7 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     switch status {
                         
                     case .invalidSession, .generalError:
-                        processInvalidSessionForTask(task, ownedIdentity: serverQuery.ownedIdentity, flowId: flowId)
+                        processInvalidSessionForTask(task, ownedIdentity: ownedIdentity, flowId: flowId)
                         return
 
                     case .ok:
@@ -824,14 +1404,14 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
                     }
 
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
+                    Task {
                         delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
@@ -839,8 +1419,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 case .failure(let error):
                     os_log("Could not parse the server response for the ObvServerCreateGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -858,8 +1438,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                         
                     case .groupIsLocked:
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
 
@@ -890,14 +1470,14 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
                     }
 
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
+                    Task {
                         delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
@@ -905,8 +1485,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 case .failure(let error):
                     os_log("Could not parse the server response for the ObvServerGetGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -924,8 +1504,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                         
                     case .groupIsLocked:
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
 
@@ -950,14 +1530,14 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
                     }
 
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
+                    Task {
                         delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
@@ -965,8 +1545,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 case .failure(let error):
                     os_log("Could not parse the server response for the ObvServerDeleteGroupBlobServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -984,8 +1564,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                         
                     case .groupIsLocked, .generalError:
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
 
@@ -999,14 +1579,14 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                         } catch {
                             os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                             _ = removeInfoFor(task)
-                            queueForCallingDelegate.async {
-                                delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                            Task {
+                                await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                             }
                             return
                         }
 
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
+                        Task {
                             delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
@@ -1016,8 +1596,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 case .failure(let error):
                     os_log("Could not parse the server response for the ObvServerPutGroupLogServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -1036,8 +1616,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     case .groupIsLocked, .generalError:
                         
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
 
@@ -1062,14 +1642,14 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
                     }
 
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
+                    Task {
                         delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
@@ -1078,8 +1658,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 case .failure(let error):
                     os_log("Could not parse the server response for the ObvServerGroupBlobLockServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
 
@@ -1099,8 +1679,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     case .generalError, .groupIsLocked:
                         
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
 
@@ -1131,14 +1711,14 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoFor(task)
-                        queueForCallingDelegate.async {
-                            delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                         }
                         return
                     }
 
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
+                    Task {
                         delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
@@ -1146,8 +1726,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 case .failure(let error):
                     os_log("Could not parse the server response for the ObvServerGroupBlobUpdateServerMethod task of pending server query %{public}@: %{public}@", log: log, type: .fault, objectId.debugDescription, error.localizedDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
 
@@ -1159,8 +1739,8 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                     assertionFailure()
                     os_log("Could not parse the server response for the GetKeycloakDataServerMethod task of pending server query %{public}@", log: log, type: .fault, objectId.debugDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
@@ -1197,16 +1777,21 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
                 } catch {
                     os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                     _ = removeInfoFor(task)
-                    queueForCallingDelegate.async {
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerQuery(withObjectId: objectId, flowId: flowId)
                     }
                     return
                 }
 
                 _ = removeInfoFor(task)
-                queueForCallingDelegate.async {
+                Task {
                     delegateManager.networkFetchFlowDelegate.successfullProcessOfServerQuery(withObjectId: objectId, flowId: flowId)
                 }
+                return
+                
+            case .sourceGetSessionNumber, .sourceWaitForTargetConnection, .targetSendEphemeralIdentity, .transferRelay, .transferWait, .closeWebsocketConnection:
+                
+                assertionFailure("This case should never happen as this type of server query is handled by the ServerQueryWebSocketCoordinator")
                 return
 
             }
@@ -1235,26 +1820,13 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
         }
 
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: ownedIdentity) else {
+            guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedIdentity), let token = serverSession.token else {
                 _ = removeInfoFor(task)
-                queueForCallingDelegate.async {
+                Task.detached { [weak self] in
                     do {
-                        try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedIdentity, flowId: flowId)
+                        _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedIdentity, currentInvalidToken: nil, flowId: flowId)
                     } catch {
-                        os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
-                        assertionFailure()
-                    }
-                }
-                return
-            }
-            
-            guard let token = serverSession.token else {
-                _ = removeInfoFor(task)
-                queueForCallingDelegate.async {
-                    do {
-                        try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedIdentity, flowId: flowId)
-                    } catch {
-                        os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
+                        os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
                         assertionFailure()
                     }
                 }
@@ -1262,11 +1834,11 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
             }
             
             _ = removeInfoFor(task)
-            queueForCallingDelegate.async {
+            Task.detached { [weak self] in
                 do {
-                    try delegateManager.networkFetchFlowDelegate.serverSession(of: ownedIdentity, hasInvalidToken: token, flowId: flowId)
+                    _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedIdentity, currentInvalidToken: token, flowId: flowId)
                 } catch {
-                    os_log("Call to serverSession(of: ObvCryptoIdentity, hasInvalidToken: Data, flowId: FlowIdentifier) did fail", log: log, type: .fault)
+                    os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
                     assertionFailure()
                 }
             }
@@ -1276,3 +1848,27 @@ extension ServerQueryCoordinator: URLSessionDataDelegate {
 
     }
 }
+
+
+
+// MARK: - Storing the ServerQuery.QueryType into the task description
+
+fileprivate extension ServerQuery.QueryType {
+    
+    var taskDescription: String {
+        self.obvEncode().rawData.base64EncodedString()
+    }
+
+    init?(taskDescription: String?) {
+        guard let taskDescription else { assertionFailure(); return nil }
+        guard let rawData = Data(base64Encoded: taskDescription),
+              let obvEncoded = ObvEncoded(withRawData: rawData) else {
+            assertionFailure()
+            return nil
+        }
+        self.init(obvEncoded)
+    }
+    
+}
+
+

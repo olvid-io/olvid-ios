@@ -25,32 +25,26 @@ import ObvMetaManager
 import OlvidUtils
 
 
+/// See also ``struct ObvOwnedDevice``
 public struct ObvRemoteOwnedDevice: Hashable, CustomStringConvertible {
     
     public let identifier: Data
-    public let ownedIndentity: ObvOwnedIdentity
+    public let ownedCryptoId: ObvCryptoId
+    
+    init(remoteDeviceUid: UID, ownedCryptoIdentity: ObvCryptoIdentity) {
+        self.identifier = remoteDeviceUid.raw
+        self.ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
+    }
     
 }
 
 
 // MARK: Implementing CustomStringConvertible
-extension ObvRemoteOwnedDevice {
-    public var description: String {
-        return "ObvRemoteOwnedDevice<\(ownedIndentity.description)>"
-    }
-}
 
-internal extension ObvRemoteOwnedDevice {
+extension ObvRemoteOwnedDevice {
     
-    init?(remoteOwnedDeviceUid: UID, ownedCryptoIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) {
-        guard let ownedIdentity = ObvOwnedIdentity(ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return nil }
-        do {
-            guard try identityDelegate.isDevice(withUid: remoteOwnedDeviceUid, aRemoteDeviceOfOwnedIdentity: ownedCryptoIdentity, within: obvContext) else { return nil }
-        } catch {
-            return nil
-        }
-        self.identifier = remoteOwnedDeviceUid.raw
-        self.ownedIndentity = ownedIdentity
+    public var description: String {
+        return "ObvRemoteOwnedDevice<\(ownedCryptoId.description)>"
     }
     
 }

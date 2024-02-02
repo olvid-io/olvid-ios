@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,7 @@ import CoreDataStack
 import OlvidUtils
 import ObvTypes
 import ObvUICoreData
+import ObvSettings
 
 
 final class ContactIdentityCoordinator: ObvErrorMaker {
@@ -34,6 +35,7 @@ final class ContactIdentityCoordinator: ObvErrorMaker {
     private var observationTokens = [NSObjectProtocol]()
     private let coordinatorsQueue: OperationQueue
     private let queueForComposedOperations: OperationQueue
+    weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
 
     static let errorDomain = "ContactIdentityCoordinator"
     
@@ -56,17 +58,14 @@ final class ContactIdentityCoordinator: ObvErrorMaker {
             ObvMessengerInternalNotification.observeUserWantsToDeleteContact { [weak self] contactCryptoId, ownedCryptoId, viewController, completionHandler in
                 Task { [weak self] in await self?.processUserWantsToDeleteContact(with: contactCryptoId, ownedCryptoId: ownedCryptoId, viewController: viewController, completionHandler: completionHandler) }
             },
-            ObvMessengerInternalNotification.observeResyncContactIdentityDevicesWithEngine { [weak self] contactCryptoId, ownedCryptoId in
-                self?.processResyncContactIdentityDevicesWithEngineNotification(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-            },
-            ObvMessengerInternalNotification.observeResyncContactIdentityDetailsStatusWithEngine { [weak self] contactCryptoId, ownedCryptoId in
-                self?.processResyncContactIdentityDetailsStatusWithEngineNotification(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+            ObvMessengerInternalNotification.observeResyncContactIdentityDevicesWithEngine { [weak self] obvContactIdentifier in
+                self?.processResyncContactIdentityDevicesWithEngineNotification(obvContactIdentifier: obvContactIdentifier)
             },
             ObvMessengerInternalNotification.observeUserDidSeeNewDetailsOfContact { [weak self] contactCryptoId, ownedCryptoId in
                 self?.processUserDidSeeNewDetailsOfContactNotification(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
             },
-            ObvMessengerInternalNotification.observeUserWantsToEditContactNicknameAndPicture { [weak self] persistedContactObjectID, customDisplayName, customPhotoURL in
-                self?.updateCustomNicknameAndPictureForContact(persistedContactObjectID: persistedContactObjectID, customDisplayName: customDisplayName, customPhotoURL: customPhotoURL)
+            ObvMessengerInternalNotification.observeUserWantsToEditContactNicknameAndPicture { [weak self] persistedContactObjectID, customDisplayName, customPhoto in
+                self?.updateCustomNicknameAndPictureForContact(persistedContactObjectID: persistedContactObjectID, customDisplayName: customDisplayName, customPhoto: customPhoto)
             },
             ObvMessengerInternalNotification.observeUserWantsToChangeContactsSortOrder { [weak self] ownedCryptoId, sortOrder in
                 self?.processUserWantToChangeContactsSortOrderNotification(ownedCryptoId: ownedCryptoId, sortOrder: sortOrder)
@@ -89,25 +88,25 @@ final class ContactIdentityCoordinator: ObvErrorMaker {
             ObvMessengerInternalNotification.observeUiRequiresSignedContactDetails { [weak self] ownedIdentityCryptoId, contactCryptoId, completion in
                 self?.processUiRequiresSignedContactDetails(ownedIdentityCryptoId: ownedIdentityCryptoId, contactCryptoId: contactCryptoId, completion: completion)
             },
+            ObvMessengerInternalNotification.observeUserWantsToUpdatePersonalNoteOnContact { [weak self] contactIdentifier, newText in
+                self?.processUserWantsToUpdatePersonalNoteOnContact(contactIdentifier: contactIdentifier, newText: newText)
+            },
         ])
         
         // Listening to ObvEngine Notification
         
         observationTokens.append(contentsOf: [
-            ObvEngineNotificationNew.observeDeletedObliviousChannelWithContactDevice(within: NotificationCenter.default) { [weak self] obvContactDevice in
-                self?.processDeletedObliviousChannelWithContactDevice(obvContactDevice: obvContactDevice)
+            ObvEngineNotificationNew.observeDeletedObliviousChannelWithContactDevice(within: NotificationCenter.default) { [weak self] obvContactIdentifier in
+                self?.processDeletedObliviousChannelWithContactDevice(obvContactIdentifier: obvContactIdentifier)
             },
             ObvEngineNotificationNew.observeNewTrustedContactIdentity(within: NotificationCenter.default) { [weak self] obvContactIdentity in
                 self?.processNewTrustedContactIdentity(obvContactIdentity: obvContactIdentity)
             },
-            ObvEngineNotificationNew.observeNewObliviousChannelWithContactDevice(within: NotificationCenter.default) { [weak self] obvContactDevice in
-                self?.processNewObliviousChannelWithContactDevice(obvContactDevice: obvContactDevice)
+            ObvEngineNotificationNew.observeNewObliviousChannelWithContactDevice(within: NotificationCenter.default) { [weak self] obvContactIdentifier in
+                self?.processNewObliviousChannelWithContactDevice(obvContactIdentifier: obvContactIdentifier)
             },
             ObvEngineNotificationNew.observeTrustedPhotoOfContactIdentityHasBeenUpdated(within: NotificationCenter.default) { [weak self] obvContactIdentity in
                 self?.processTrustedPhotoOfContactIdentityHasBeenUpdated(obvContactIdentity: obvContactIdentity)
-            },
-            ObvEngineNotificationNew.observeUpdatedSetOfContactsCertifiedByOwnKeycloak(within: NotificationCenter.default) { [weak self] ownedIdentity, contactsCertifiedByOwnKeycloak in
-                self?.processUpdatedSetOfContactsCertifiedByOwnKeycloakNotification(ownedIdentity: ownedIdentity, contactsCertifiedByOwnKeycloak: contactsCertifiedByOwnKeycloak)
             },
             ObvEngineNotificationNew.observeOwnedIdentityUnbindingFromKeycloakPerformed(within: NotificationCenter.default) { [weak self] ownedIdentity, result in
                 self?.processOwnedIdentityUnbindingFromKeycloakPerformedNotification(ownedIdentity: ownedIdentity, result: result)
@@ -124,18 +123,15 @@ final class ContactIdentityCoordinator: ObvErrorMaker {
             ObvEngineNotificationNew.observeContactWasDeleted(within: NotificationCenter.default) { [weak self] ownedCryptoId, contactCryptoId in
                 self?.processContactWasDeleted(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
             },
+            ObvEngineNotificationNew.observeNewContactDevice(within: NotificationCenter.default) { [weak self] obvContactIdentifier in
+                self?.processNewContactDevice(obvContactIdentifier: obvContactIdentifier)
+            },
         ])
 
     }
     
     
-    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
-        do {
-            try obvEngine.requestSetOfContactsCertifiedByOwnKeycloakForAllOwnedCryptoIds()
-        } catch {
-            os_log("Could not bootstrap list of all contactact certified by same keycloak server as owned identity", log: Self.log, type: .fault)
-        }
-    }
+    func applicationAppearedOnScreen(forTheFirstTime: Bool) async {}
 
     
 }
@@ -207,24 +203,29 @@ extension ContactIdentityCoordinator {
             completion(nil)
         }
     }
-
     
-    private func updateCustomNicknameAndPictureForContact(persistedContactObjectID: NSManagedObjectID, customDisplayName: String?, customPhotoURL: URL?) {
-        let op1 = UpdateCustomNicknameAndPictureForContactOperation(persistedContactObjectID: persistedContactObjectID, customDisplayName: customDisplayName, customPhotoURL: customPhotoURL)
+    
+    private func processUserWantsToUpdatePersonalNoteOnContact(contactIdentifier: ObvContactIdentifier, newText: String?) {
+        let op1 = UpdatePersonalNoteOnContactOperation(contactIdentifier: contactIdentifier, newText: newText, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }
 
 
-    private func processResyncContactIdentityDevicesWithEngineNotification(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
-        let op1 = ResyncContactIdentityDevicesWithEngineOperation(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId, obvEngine: obvEngine)
+    private func updateCustomNicknameAndPictureForContact(persistedContactObjectID: NSManagedObjectID, customDisplayName: String?, customPhoto: UIImage?) {
+        let op1 = UpdateCustomNicknameAndPictureForContactOperation(
+            persistedContactObjectID: persistedContactObjectID,
+            customDisplayName: customDisplayName,
+            customPhoto: .image(image: customPhoto),
+            makeSyncAtomRequest: true,
+            syncAtomRequestDelegate: syncAtomRequestDelegate)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }
-    
-    
-    private func processResyncContactIdentityDetailsStatusWithEngineNotification(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
-        let op1 = ResyncContactIdentityDetailsStatusWithEngineOperation(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId, obvEngine: obvEngine)
+
+
+    private func processResyncContactIdentityDevicesWithEngineNotification(obvContactIdentifier: ObvContactIdentifier) {
+        let op1 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentifier, obvEngine: obvEngine)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }
@@ -434,7 +435,8 @@ extension ContactIdentityCoordinator {
 
     private func processNewTrustedContactIdentity(obvContactIdentity: ObvContactIdentity) {
         let op1 = ProcessNewTrustedContactIdentityOperation(obvContactIdentity: obvContactIdentity)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        let op2 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentity.contactIdentifier, obvEngine: obvEngine)
+        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
         self.coordinatorsQueue.addOperation(composedOp)
     }
 
@@ -444,17 +446,24 @@ extension ContactIdentityCoordinator {
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }
-
     
-    private func processNewObliviousChannelWithContactDevice(obvContactDevice: ObvContactDevice) {
-        let op1 = ProcessNewObliviousChannelWithContactDeviceOperation(obvContactDevice: obvContactDevice)
+    
+    private func processNewObliviousChannelWithContactDevice(obvContactIdentifier: ObvContactIdentifier) {
+        let op1 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentifier, obvEngine: obvEngine)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }
  
     
-    private func processDeletedObliviousChannelWithContactDevice(obvContactDevice: ObvContactDevice) {
-        let op1 = ProcessDeletedObliviousChannelWithContactDeviceOperation(obvContactDevice: obvContactDevice)
+    private func processNewContactDevice(obvContactIdentifier: ObvContactIdentifier) {
+        let op1 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentifier, obvEngine: obvEngine)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
+    }
+
+    
+    private func processDeletedObliviousChannelWithContactDevice(obvContactIdentifier: ObvContactIdentifier) {
+        let op1 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentifier, obvEngine: obvEngine)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }
@@ -494,14 +503,7 @@ extension ContactIdentityCoordinator {
         self.coordinatorsQueue.addOperation(composedOp)
     }
     
-    
-    private func processUpdatedSetOfContactsCertifiedByOwnKeycloakNotification(ownedIdentity: ObvCryptoId, contactsCertifiedByOwnKeycloak: Set<ObvCryptoId>) {
-        let op1 = UpdateListOfContactsCertifiedByOwnKeycloakOperation(ownedIdentity: ownedIdentity, contactsCertifiedByOwnKeycloak: contactsCertifiedByOwnKeycloak)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
-    }
-    
-    
+
     private func processOwnedIdentityUnbindingFromKeycloakPerformedNotification(ownedIdentity: ObvCryptoId, result: Result<Void,Error>) {
         let op1 = UpdateListOfContactsCertifiedByOwnKeycloakOperation(ownedIdentity: ownedIdentity, contactsCertifiedByOwnKeycloak: Set<ObvCryptoId>([]))
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)

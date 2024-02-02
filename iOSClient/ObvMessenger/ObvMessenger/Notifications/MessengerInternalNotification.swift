@@ -82,22 +82,22 @@ struct MessengerInternalNotification {
         static let name = NSNotification.Name("MessengerInternalNotification.UserTriedToAccessCameraButAccessIsDenied")
     }
     
-    // MARK: - UserWantsToDeleteOwnedContactGroup
-
-    struct UserWantsToDeleteOwnedContactGroup {
-        static let name = NSNotification.Name("MessengerInternalNotification.UserWantsToDeleteOwnedContactGroup")
-        struct Key {
-            static let groupUid = "groupUid"
-            static let ownedCryptoId = "ownedCryptoId"
-        }
-        static func parse(_ notification: Notification) -> (groupUid: UID, ownedCryptoId: ObvCryptoId)? {
-            guard notification.name == name else { return nil }
-            guard let userInfo = notification.userInfo else { return nil }
-            guard let groupUid = userInfo[Key.groupUid] as? UID else { return nil }
-            guard let ownedCryptoId = userInfo[Key.ownedCryptoId] as? ObvCryptoId else { return nil }
-            return (groupUid, ownedCryptoId)
-        }
-    }
+//    // MARK: - UserWantsToDeleteOwnedContactGroup
+//
+//    struct UserWantsToDeleteOwnedContactGroup {
+//        static let name = NSNotification.Name("MessengerInternalNotification.UserWantsToDeleteOwnedContactGroup")
+//        struct Key {
+//            static let groupUid = "groupUid"
+//            static let ownedCryptoId = "ownedCryptoId"
+//        }
+//        static func parse(_ notification: Notification) -> (groupUid: UID, ownedCryptoId: ObvCryptoId)? {
+//            guard notification.name == name else { return nil }
+//            guard let userInfo = notification.userInfo else { return nil }
+//            guard let groupUid = userInfo[Key.groupUid] as? UID else { return nil }
+//            guard let ownedCryptoId = userInfo[Key.ownedCryptoId] as? ObvCryptoId else { return nil }
+//            return (groupUid, ownedCryptoId)
+//        }
+//    }
 
     // MARK: - UserWantsToLeaveJoinedContactGroup
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,11 +32,12 @@ import ObvUICoreData
 import Components_TextInputShortcutsResultView
 import _Discussions_Mentions_Builders_Shared
 import Discussions_ScrollToBottomButton
-import Discussions_AttachmentsDropView
 import UniformTypeIdentifiers
+import ObvDesignSystem
+
 
 @available(iOS 15.0, *)
-final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, ObvErrorMaker, TextBubbleDelegate, NewComposeMessageViewDatasource {
+final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, ObvErrorMaker, TextBubbleDelegate, NewComposeMessageViewDatasource, UICollectionViewDropDelegate, UICollectionViewDragDelegate {
     
     static let errorDomain = "NewSingleDiscussionViewController"
     let currentOwnedCryptoId: ObvCryptoId
@@ -62,12 +63,13 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var currentKbdSize = CGRect.zero
     private let queueForApplyingSnapshots = DispatchQueue(label: "NewSingleDiscussionViewController queue for snapshots")
     private let cacheDelegate = DiscussionCacheManager()
-    private var messagesToMarkAsNotNewWhenScrollingEnds = Set<TypeSafeManagedObjectID<PersistedMessage>>()
+    private var messagesToMarkAsNotNewWhenScrollingEnds = [MessageIdentifier]()
     private var atLeastOneSnapshotWasApplied = false
     private var isRegisteredToKeyboardNotifications = false
     private var visibilityTrackerForSensitiveMessages: VisibilityTrackerForSensitiveMessages
     private lazy var scrollToBottomButton = ScrollToBottomButton(observing: collectionView, initialVerticalVisibilityThreshold: 0)
     private let viewDidLayoutSubviewsSubject = PassthroughSubject<Void, Never>()
+    private var isDragSessionInProgress = false
 
     /// We must adapt the collection view's insets when the frame of the main content view of the composition view changes, when the keyboard shows/hides, but only when we are not scrolling.
     /// To do so, we three values representing those states, and adapt the insets when appropriate. We use the ``NewComposeMessageView`` published main content view frame, the published ``currentScrolling`` value, and the following ``toggledWhenKeyboardDidHideOrShow`` variable, toggled whenever the keyboard changes state.
@@ -103,13 +105,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var timerForRefreshingCellCountdowns: Timer?
 
     private var filesViewer: FilesViewer?
-
-    private lazy var attachmentsDropView = AttachmentsDropView(
-        allowedTypes: [.image, .movie, .pdf, .data, .item],
-        directoryForTemporaryFiles: ObvUICoreDataConstants.ContainerURL.forTemporaryDroppedItems.url
-    )..{
-        $0.delegate = self
-    }
 
     /// Allows to keep track of the message the user wants to forward until she chose the appropriate discussions.
     private var messageToForward: PersistedMessage?
@@ -376,7 +371,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
             }
             collectionView.adjustedScrollToItem(at: indexPath, at: .centeredVertically, completion: completionAndAnimate)
         case .newMessageSystemOrLastMessage:
-            if let unreadMessagesSystemMessage = unreadMessagesSystemMessage {
+            if let unreadMessagesSystemMessage {
                 guard let indexPath = frc.indexPath(forObject: unreadMessagesSystemMessage) else { assertionFailure(); return }
                 collectionView.adjustedScrollToItem(at: indexPath, at: .centeredVertically, completion: completion)
             } else {
@@ -420,7 +415,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                     self?.configureNewComposeMessageViewVisibility(animate: true)
                 }
             },
-            ObvMessengerCoreDataNotification.observePersistedGroupV2UpdateIsFinished { [weak self] groupV2ObjectID in
+            ObvMessengerCoreDataNotification.observePersistedGroupV2UpdateIsFinished { [weak self] groupV2ObjectID, _, _ in
                 OperationQueue.main.addOperation {
                     guard let group = try? PersistedGroupV2.get(objectID: groupV2ObjectID, within: ObvStack.shared.viewContext) else { return }
                     guard group.discussion?.typedObjectID.downcast == discussionObjectID else { return }
@@ -456,6 +451,11 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                     os_log("🛫 Start call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
                     self?.theUserLeftTheDiscussion()
                     os_log("🛫 End call to theUserLeftTheDiscussion as scene enters background", log: log, type: .info)
+                }
+            },
+            ObvMessengerCoreDataNotification.observeStatusOfSentFyleMessageJoinDidChange { [weak self] (sentJoinID, messageID, discussionID) in
+                Task {
+                    await self?.processStatusOfSentFyleMessageJoinDidChange(sentJoinID: sentJoinID, messageID: messageID, discussionID: discussionID)
                 }
             },
         ])
@@ -586,6 +586,8 @@ extension NewSingleDiscussionViewController {
         collectionView.alwaysBounceVertical = true
         collectionView.scrollsToTop = false
         collectionView.contentInsetAdjustmentBehavior = .automatic
+        collectionView.dropDelegate = self
+        collectionView.dragDelegate = self
 
         NSLayoutConstraint.activate([
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -611,7 +613,6 @@ extension NewSingleDiscussionViewController {
         spinner.startAnimating()
 
         view.addSubview(scrollToBottomButton)
-        view.addSubview(attachmentsDropView)
 
         let attachmentsDropViewLayoutGuide = UILayoutGuide()
 
@@ -630,14 +631,6 @@ extension NewSingleDiscussionViewController {
             composeMessageView!.topAnchor.constraint(equalToSystemSpacingBelow: attachmentsDropViewLayoutGuide.bottomAnchor, multiplier: 1),
         ])
 
-        NSLayoutConstraint.activate([
-            attachmentsDropView.topAnchor.constraint(equalTo: attachmentsDropViewLayoutGuide.topAnchor),
-            attachmentsDropView.trailingAnchor.constraint(equalTo: attachmentsDropViewLayoutGuide.trailingAnchor),
-            attachmentsDropView.bottomAnchor.constraint(equalTo: attachmentsDropViewLayoutGuide.bottomAnchor),
-            attachmentsDropView.leadingAnchor.constraint(equalTo: attachmentsDropViewLayoutGuide.leadingAnchor),
-        ])
-
-        view.addInteraction(UIDropInteraction(attachmentsDropView))
     }
 
     
@@ -819,24 +812,30 @@ extension NewSingleDiscussionViewController {
 
     
     @objc func callButtonTapped() {
+        // Dismiss the keyboard (since we will most probably switch to the call view controller)
+        // Then try to call
         guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
         switch try? discussion.kind {
         case .oneToOne(withContactIdentity: let contactIdentity):
-            guard let contactID = contactIdentity?.typedObjectID else { return }
-            ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [contactID], groupId: nil)
+            guard let contactCryptoId = contactIdentity?.cryptoId,
+                  let ownedCryptoId = contactIdentity?.ownedIdentity?.cryptoId else {
+                return
+            }
+            ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set([contactCryptoId]), groupId: nil)
                 .postOnDispatchQueue(internalQueue)
         case .groupV1(withContactGroup: let contactGroup):
-            if let contactGroup = contactGroup {
-                let objecID = contactGroup.typedObjectID
-                let contactIdentities = contactGroup.contactIdentities
-                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: .groupV1(objecID))
+            if let contactGroup = contactGroup, let groupV1Identifier = try? contactGroup.getGroupId() {
+                let contactCryptoIds = contactGroup.contactIdentities.compactMap { $0.cryptoId }
+                guard let ownedCryptoId = contactGroup.ownedIdentity?.cryptoId else { return }
+                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: .groupV1(groupV1Identifier: groupV1Identifier))
                     .postOnDispatchQueue(internalQueue)
             }
         case .groupV2(withGroup: let group):
             if let group {
-                let groupObjectID = group.typedObjectID
-                let contactObjectIDs = group.contactsAmongNonPendingOtherMembers.map({ $0.typedObjectID })
-                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactObjectIDs, groupId: .groupV2(groupObjectID))
+                guard let ownedCryptoId = try? group.ownCryptoId else { return }
+                let contactCryptoIds = group.contactsAmongNonPendingOtherMembers.compactMap { $0.cryptoId }
+                let groupV2Identifier = group.groupIdentifier
+                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: .groupV2(groupV2Identifier: groupV2Identifier))
                     .postOnDispatchQueue(internalQueue)
             }
         case .none:
@@ -1044,7 +1043,6 @@ extension NewSingleDiscussionViewController {
         cancellables.append(
             $messagesToReconfigure
                 .filter { !$0.isEmpty }
-                .removeDuplicates()
                 .debounce(for: 0.3, scheduler: RunLoop.main)
                 .map { [weak self] messageObjectIDs -> [NSManagedObjectID] in
                     assert(Thread.isMainThread)
@@ -1054,7 +1052,9 @@ extension NewSingleDiscussionViewController {
                 .receive(on: queueForApplyingSnapshots)
                 .sink { [weak self] objectIDs in
                     guard var snapshot = self?.dataSource.snapshot() else { return }
-                    snapshot.reconfigureItems(objectIDs)
+                    let messageObjectIDsToReconfigure = objectIDs.filter({ snapshot.itemIdentifiers.contains($0)})
+                    guard !messageObjectIDsToReconfigure.isEmpty else { return }
+                    snapshot.reconfigureItems(messageObjectIDsToReconfigure)
                     self?.dataSource.apply(snapshot, animatingDifferences: false)
                 }
         )
@@ -1067,6 +1067,13 @@ extension NewSingleDiscussionViewController {
         messagesToReconfigure.insert(messageID)
     }
     
+    
+    /// When the status of an attachment sent from another owned device changes, we reconfigure de cell of the corresponding message. This, e.g., makes it possible to actually see the photo once it is fully downloaded.
+    @MainActor
+    private func processStatusOfSentFyleMessageJoinDidChange(sentJoinID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, messageID: TypeSafeManagedObjectID<PersistedMessageSent>, discussionID: TypeSafeManagedObjectID<PersistedDiscussion>) async {
+        guard self.discussionObjectID == discussionID else { return }
+        cellNeedsToBeReconfiguredAndResized(messageID: messageID.downcast)
+    }
     
 }
 
@@ -1146,7 +1153,7 @@ extension NewSingleDiscussionViewController {
                 guard let insertedObjects = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return }
                 let newSentMessages = insertedObjects
                     .compactMap({ $0 as? PersistedMessageSent })
-                    .filter({ $0.discussion.typedObjectID == _self.discussionObjectID })
+                    .filter({ $0.discussion?.typedObjectID == _self.discussionObjectID })
                 guard !newSentMessages.isEmpty else { return }
                 _self.objectIDsOfMessagesToConsiderInNewMessagesCell.removeAll()
                 // We asynchronously call `insertOrUpdateSystemMessageCountingNewMessages`.
@@ -1170,7 +1177,7 @@ extension NewSingleDiscussionViewController {
                 guard let insertedObjects = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return }
                 let insertedReceivedMessages = insertedObjects
                     .compactMap({ $0 as? PersistedMessageReceived })
-                    .filter({ $0.discussion.typedObjectID == _self.discussionObjectID })
+                    .filter({ $0.discussion?.typedObjectID == _self.discussionObjectID })
                 let objectIDsOfInsertedReceivedMessages = Set(insertedReceivedMessages.map({ $0.typedObjectID.downcast }))
                 guard !objectIDsOfInsertedReceivedMessages.isSubset(of: _self.objectIDsOfMessagesToConsiderInNewMessagesCell) else { return }
                 _self.objectIDsOfMessagesToConsiderInNewMessagesCell.formUnion(objectIDsOfInsertedReceivedMessages)
@@ -1191,7 +1198,7 @@ extension NewSingleDiscussionViewController {
                 guard let insertedObjects = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return }
                 let insertedSystemMessages = insertedObjects
                     .compactMap({ $0 as? PersistedMessageSystem })
-                    .filter({ $0.discussion.typedObjectID == _self.discussionObjectID })
+                    .filter({ $0.discussion?.typedObjectID == _self.discussionObjectID })
                 let insertedRelevantSystemMessages = insertedSystemMessages
                     .filter({ $0.isRelevantForCountingUnread })
                     .filter({ $0.optionalContactIdentity != nil })
@@ -1273,12 +1280,12 @@ extension NewSingleDiscussionViewController {
         // This will allow to mark visible messages as not new.
         guard windowSceneActivationState == .foregroundActive else { return }
         
-        let messageObjectId: TypeSafeManagedObjectID<PersistedMessage>
+        let messageId: MessageIdentifier
         if let receivedCell = cell as? ReceivedMessageCell, let receivedMessage = receivedCell.message, receivedMessage.status == .new {
-            messageObjectId = receivedMessage.typedObjectID.downcast
+            messageId = .received(id: .objectID(objectID: receivedMessage.objectID))
         } else if let systemCell = cell as? SystemMessageCell, let systemMessage = systemCell.message, systemMessage.status == .new {
             if systemMessage.isRelevantForCountingUnread {
-                messageObjectId = systemMessage.typedObjectID.downcast
+                messageId = .system(id: .objectID(objectID: systemMessage.objectID))
             } else {
                 return
             }
@@ -1290,11 +1297,18 @@ extension NewSingleDiscussionViewController {
         // This would introduce animation glitches. Instead, we postpone the notification
         if currentScrolling == .none {
             // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markAsNotNewTheMessageInCell for \([messageObjectId].count) messages")
-            ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: [messageObjectId])
+            guard let discussionId = try? discussion.identifier else { assertionFailure(); return }
+            ObvMessengerInternalNotification.messagesAreNotNewAnymore(
+                ownedCryptoId: currentOwnedCryptoId,
+                discussionId: discussionId,
+                messageIds: [messageId])
                 .postOnDispatchQueue()
         } else {
             // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] As currentScrolling is \(currentScrolling.debugDescription), we do not post messagesAreNotNewAnymore notification for \([messageObjectId].count) messages")
-            messagesToMarkAsNotNewWhenScrollingEnds.insert(messageObjectId)
+            // We insert the messageId in the list only if it does not already exists init (note that this code works because the messageIds have a well defined objectID in our particular case).
+            if messagesToMarkAsNotNewWhenScrollingEnds.first(where: { $0.objectID == messageId.objectID }) == nil {
+                messagesToMarkAsNotNewWhenScrollingEnds.append(messageId)
+            }
         }
     }
 
@@ -1320,14 +1334,18 @@ extension NewSingleDiscussionViewController {
         let visibleNewReceivedMessages = visibleReceivedCells.compactMap({ $0.message }).filter({ $0.status == .new })
         let visibleNewSystemMessages = visibleSystemCells.compactMap({ $0.message }).filter({ $0.status == .new })
 
-        let objectIDsOfNewVisibleReceivedMessages = Set(visibleNewReceivedMessages.map({ $0.typedObjectID.downcast }))
-        let objectIDsOfNewVisibleSystemMessages = Set(visibleNewSystemMessages.map({ $0.typedObjectID.downcast }))
+        let messageIdsOfNewVisibleReceivedMessages = visibleNewReceivedMessages.map({ $0.identifier })
+        let messageIdsOfNewVisibleSystemMessages = visibleNewSystemMessages.map({ $0.identifier })
 
-        let objectIDsOfNewVisibleMessages = objectIDsOfNewVisibleReceivedMessages.union(objectIDsOfNewVisibleSystemMessages)
+        let messageIdsOfNewVisibleMessages = messageIdsOfNewVisibleReceivedMessages + messageIdsOfNewVisibleSystemMessages
 
-        if !objectIDsOfNewVisibleMessages.isEmpty {
+        if !messageIdsOfNewVisibleMessages.isEmpty {
             // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in markNewVisibleReceivedAndRelevantSystemMessagesAsNotNew for \(objectIDsOfNewVisibleMessages.count) messages")
-            ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: objectIDsOfNewVisibleMessages)
+            guard let discussionId = try? discussion.identifier else { assertionFailure(); return }
+            ObvMessengerInternalNotification.messagesAreNotNewAnymore(
+                ownedCryptoId: currentOwnedCryptoId,
+                discussionId: discussionId,
+                messageIds: messageIdsOfNewVisibleMessages)
                 .postOnDispatchQueue(internalQueue)
         }
 
@@ -1413,7 +1431,11 @@ extension NewSingleDiscussionViewController {
         guard !messagesToMarkAsNotNewWhenScrollingEnds.isEmpty else { return }
         guard currentScrolling == .none else { return }
         // ObvDisplayableLogs.shared.log("[NewSingleDiscussionViewController] Posting messagesAreNotNewAnymore notification in processReceivedMessagesThatBecameNotNewDuringScrolling for \(messagesToMarkAsNotNewWhenScrollingEnds.count) messages")
-        ObvMessengerInternalNotification.messagesAreNotNewAnymore(persistedMessageObjectIDs: messagesToMarkAsNotNewWhenScrollingEnds)
+        guard let discussionId = try? discussion.identifier else { assertionFailure(); return }
+        ObvMessengerInternalNotification.messagesAreNotNewAnymore(
+            ownedCryptoId: currentOwnedCryptoId,
+            discussionId: discussionId,
+            messageIds: messagesToMarkAsNotNewWhenScrollingEnds)
             .postOnDispatchQueue(internalQueue)
         messagesToMarkAsNotNewWhenScrollingEnds.removeAll()
     }
@@ -1514,7 +1536,7 @@ extension NewSingleDiscussionViewController {
                 }
 
                 // Share all attachments (photos and other) at once
-                if let itemProvidersForAllAttachments = cell.itemProvidersForAllAttachments, !itemProvidersForAllAttachments.isEmpty, cell.itemProvidersForImages?.count != itemProvidersForAllAttachments.count {
+                if let itemProvidersForAllAttachments = cell.activityItemProvidersForAllAttachments, !itemProvidersForAllAttachments.isEmpty, cell.itemProvidersForImages?.count != itemProvidersForAllAttachments.count {
                     let action = UIAction(title: Strings.shareAttachments(itemProvidersForAllAttachments.count)) { [weak self] (_) in
                         let uiActivityVC = UIActivityViewController(activityItems: itemProvidersForAllAttachments, applicationActivities: nil)
                         uiActivityVC.popoverPresentationController?.sourceView = cell
@@ -1531,6 +1553,22 @@ extension NewSingleDiscussionViewController {
                 }
             }
             
+            // Save to Files (iOS/iPadOS) or present a standard save panel (macOS)
+            
+            if persistedMessage.shareActionCanBeMadeAvailable {
+                
+                if let hardlinkURLsForAllAttachments = cell.hardlinkURLsForAllAttachments, !hardlinkURLsForAllAttachments.isEmpty {
+                    let action = UIAction(title: Strings.saveAttachments(hardlinkURLsForAllAttachments.count)) { [weak self] (_) in
+                        let picker = UIDocumentPickerViewController(forExporting: hardlinkURLsForAllAttachments, asCopy: true)
+                        picker.shouldShowFileExtensions = true
+                        self?.present(picker, animated: true)
+                    }
+                    action.image = UIImage(systemIcon: .squareAndArrowDownOnSquare)
+                    children.append(action)
+                }
+                
+            }
+            
             // Reply to message action
             if let draftObjectID = cell.persistedDraftObjectID, persistedMessage.replyToActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Reply) { [weak self] _ in
@@ -1543,9 +1581,9 @@ extension NewSingleDiscussionViewController {
             }
 
             // Edit message action
-            if persistedMessage.editBodyActionCanBeMadeAvailable {
+            if persistedMessage.editBodyActionCanBeMadeAvailable, let sentMessage = persistedMessage as? PersistedMessageSent {
                 let action = UIAction(title: CommonString.Word.Edit) { [weak self] (_) in
-                    let sentMessageObjectID = persistedMessage.objectID
+                    guard let ownedCryptoId = self?.currentOwnedCryptoId else { assertionFailure(); return }
                     let currentTextBody = persistedMessage.textBody
                     let vc = BodyEditViewController(currentBody: currentTextBody) { [weak self] in
                         self?.presentedViewController?.dismiss(animated: true)
@@ -1553,8 +1591,10 @@ extension NewSingleDiscussionViewController {
                         guard let _self = self else { return }
                         self?.presentedViewController?.dismiss(animated: true, completion: {
                             guard newTextBody != currentTextBody else { return }
-                            ObvMessengerInternalNotification.userWantsToSendEditedVersionOfSentMessage(sentMessageObjectID: sentMessageObjectID,
-                                                                                                       newTextBody: newTextBody ?? "")
+                            ObvMessengerInternalNotification.userWantsToSendEditedVersionOfSentMessage(
+                                ownedCryptoId: ownedCryptoId,
+                                sentMessageObjectID: sentMessage.typedObjectID,
+                                newTextBody: newTextBody ?? "")
                                 .postOnDispatchQueue(_self.internalQueue)
                         })
                     }
@@ -1568,7 +1608,7 @@ extension NewSingleDiscussionViewController {
             // Forward message action
             if persistedMessage.forwardActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Word.Forward) { [weak self] (_) in
-                    guard let ownedCryptoId = persistedMessage.discussion.ownedIdentity?.cryptoId else { return }
+                    guard let ownedCryptoId = persistedMessage.discussion?.ownedIdentity?.cryptoId else { return }
                     let vc: UIViewController
                     if #available(iOS 16, *) {
                         let viewModel = NewDiscussionsSelectionViewController.ViewModel(
@@ -1605,18 +1645,19 @@ extension NewSingleDiscussionViewController {
                 let action = UIAction(title: CommonString.Word.Call) { (_) in
                     guard let systemMessage = persistedMessage as? PersistedMessageSystem else { return }
                     guard let item = systemMessage.optionalCallLogItem else { return }
-                    let groupId = try? item.getGroupIdentifier()
+                    let groupId = item.groupIdentifier
 
-                    var contactsToCall = [TypeSafeManagedObjectID<PersistedObvContactIdentity>]()
-                    for logContact in item.logContacts {
-                        guard let contactIdentity = logContact.contactIdentity else { continue }
-                        contactsToCall.append(contactIdentity.typedObjectID)
-                    }
-
-                    if contactsToCall.count == 1 {
-                        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: contactsToCall, groupId: groupId).postOnDispatchQueue()
+                    let contactCryptoIds = item.logContacts.compactMap { $0.contactIdentity?.cryptoId }
+                    let ownedCryptoIds = item.logContacts.compactMap { $0.contactIdentity?.ownedIdentity?.cryptoId }
+                    guard ownedCryptoIds.count == 1 else { assertionFailure(); return }
+                    guard let ownedCryptoId = ownedCryptoIds.first else { return }
+                    
+                    if contactCryptoIds.count == 1 {
+                        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId)
+                            .postOnDispatchQueue()
                     } else {
-                        ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactsToCall, groupId: groupId).postOnDispatchQueue()
+                        ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId)
+                            .postOnDispatchQueue()
                     }
                 }
                 action.image = UIImage(systemIcon: .phoneFill)
@@ -1626,8 +1667,9 @@ extension NewSingleDiscussionViewController {
             // Delete reaction action
             if persistedMessage.deleteOwnReactionActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Title.deleteOwnReaction) { (_) in
-                    guard let messageID = cell.persistedMessageObjectID else { return }
-                    ObvMessengerInternalNotification.userWantsToUpdateReaction(messageObjectID: messageID, emoji: nil).postOnDispatchQueue()
+                    guard let ownedCryptoId = persistedMessage.discussion?.ownedIdentity?.cryptoId else { assertionFailure(); return }
+                    ObvMessengerInternalNotification.userWantsToUpdateReaction(ownedCryptoId: ownedCryptoId, messageObjectID: persistedMessage.typedObjectID, newEmoji: nil)
+                        .postOnDispatchQueue()
                 }
                 action.image = UIImage(systemIcon: .heartSlashFill)
                 children.append(action)
@@ -1653,10 +1695,11 @@ extension NewSingleDiscussionViewController {
     
     /// Helper method called after the user decided to forward a message from this discussion to another. In case the message was forwarded to exactly one discussion, we navigate to that discussion.
     private func navigateIfAppropriateToDiscussionWhereMessageWasForwarded(discussionPermanentIDs: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>, persistedMessage: PersistedMessage) {
+        guard let persistedMessageDiscussion = persistedMessage.discussion else { assertionFailure(); return }
         if discussionPermanentIDs.count == 1,
            let discussionPermanentID = discussionPermanentIDs.first,
-           discussionPermanentID != persistedMessage.discussion.discussionPermanentID,
-           let ownedCryptoId = persistedMessage.discussion.ownedIdentity?.cryptoId {
+           discussionPermanentID != persistedMessageDiscussion.discussionPermanentID,
+           let ownedCryptoId = persistedMessageDiscussion.ownedIdentity?.cryptoId {
             // We assume the discussion belongs the current owned identity
             let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: discussionPermanentID)
             ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
@@ -1683,7 +1726,7 @@ extension NewSingleDiscussionViewController {
         case .none:
             
             guard let persistedMessage = try? PersistedMessage.get(with: objectId, within: ObvStack.shared.viewContext) else { return }
-            guard persistedMessage.discussion.typedObjectID == self.discussionObjectID else { return }
+            guard persistedMessage.discussion?.typedObjectID == self.discussionObjectID else { return }
             
             let numberOfAttachedFyles: Int
             if let persistedMessageSent = persistedMessage as? PersistedMessageSent {
@@ -2047,7 +2090,11 @@ extension NewSingleDiscussionViewController {
         static let shareAttachments = { (count: Int) in
             return String.localizedStringWithFormat(NSLocalizedString("share count attachments", comment: "Localized dict string allowing to display a title"), count)
         }
-                
+
+        static let saveAttachments = { (count: Int) in
+            return String.localizedStringWithFormat(NSLocalizedString("save count attachments", comment: "Localized dict string allowing to display a title"), count)
+        }
+
         static var replyingToYourself: String {
             NSLocalizedString("REPLYING_TO_YOURSELF", comment: "")
         }
@@ -2132,7 +2179,11 @@ extension NewSingleDiscussionViewController {
             userDidTapOnFyleMessageJoinWithHardLink(hardlinkTapped: hardLink)
             
         case .messageThatRequiresUserAction(messageObjectID: let messageObjectID):
-            ObvMessengerInternalNotification.userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: Set([messageObjectID]))
+            guard let discussionId = try? discussion.identifier else { assertionFailure(); return }
+            ObvMessengerInternalNotification.userWantsToReadReceivedMessageThatRequiresUserAction(
+                ownedCryptoId: currentOwnedCryptoId,
+                discussionId: discussionId,
+                messageId: .objectID(objectID: messageObjectID.objectID))
                 .postOnDispatchQueue()
             
         case .receivedFyleMessageJoinWithStatusToResumeDownload(receivedJoinObjectID: let receivedJoinObjectID):
@@ -2141,6 +2192,12 @@ extension NewSingleDiscussionViewController {
         case .receivedFyleMessageJoinWithStatusToPauseDownload(receivedJoinObjectID: let receivedJoinObjectID):
             NewSingleDiscussionNotification.userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: receivedJoinObjectID).postOnDispatchQueue()
             
+        case .sentFyleMessageJoinWithStatusReceivedFromOtherOwnedDeviceToResumeDownload(sentJoinObjectID: let sentJoinObjectID):
+            NewSingleDiscussionNotification.userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(sentJoinObjectID: sentJoinObjectID).postOnDispatchQueue()
+
+        case .sentFyleMessageJoinWithStatusReceivedFromOtherOwnedDeviceToPauseDownload(sentJoinObjectID: let sentJoinObjectID):
+            NewSingleDiscussionNotification.userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(sentJoinObjectID: sentJoinObjectID).postOnDispatchQueue()
+
         case .reaction(messageObjectID: let messageObjectID):
             userTappedOnReactionView(messageObjectID: messageObjectID)
             
@@ -2158,6 +2215,10 @@ extension NewSingleDiscussionViewController {
         case .systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission:
             systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermissionWasTapped()
             
+        case .systemCellShowingCallLogItemRejectedBecauseOfVoIPSettings:
+            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: ObvDeepLink.voipSettings)
+                .postOnDispatchQueue()
+                        
         case .systemCellShowingUpdatedDiscussionSharedSettings:
             settingsButtonTapped()
             
@@ -2221,6 +2282,7 @@ extension NewSingleDiscussionViewController {
     
     private func userDoubleTappedOnMessage(messageID: TypeSafeManagedObjectID<PersistedMessage>) {
         guard let message = try? PersistedMessage.get(with: messageID, within: ObvStack.shared.viewContext) else { return }
+        guard let ownedCryptoId = message.discussion?.ownedIdentity?.cryptoId else { return }
         guard !message.isWiped else { return }
         guard (try? message.ownedIdentityIsAllowedToSetReaction) == true else { return }
         var selectedEmoji: String?
@@ -2228,15 +2290,27 @@ extension NewSingleDiscussionViewController {
             selectedEmoji = ownReaction.emoji
         }
         let model = EmojiPickerViewModel(selectedEmoji: selectedEmoji) { emoji in
-            ObvMessengerInternalNotification.userWantsToUpdateReaction(messageObjectID: messageID, emoji: emoji).postOnDispatchQueue()
+            ObvMessengerInternalNotification.userWantsToUpdateReaction(ownedCryptoId: ownedCryptoId, messageObjectID: messageID, newEmoji: emoji)
+                .postOnDispatchQueue()
         }
         let vc = EmojiPickerHostingViewController(model: model)
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [ .medium() ]
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 30.0
+        
+        if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+            
+            let nav = UINavigationController(rootViewController: vc)
+            present(nav, animated: true)
+
+        } else {
+
+            if let sheet = vc.sheetPresentationController {
+                sheet.detents = [ .medium() ]
+                sheet.prefersGrabberVisible = true
+                sheet.preferredCornerRadius = 30.0
+            }
+            present(vc, animated: true)
+
         }
-        present(vc, animated: true)
+        
     }
 
     
@@ -2247,12 +2321,23 @@ extension NewSingleDiscussionViewController {
             assertionFailure()
             return
         }
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [ .medium(), .large() ]
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 30.0
+        
+        if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+            
+            let nav = UINavigationController(rootViewController: vc)
+            present(nav, animated: true)
+            
+        } else {
+            
+            if let sheet = vc.sheetPresentationController {
+                sheet.detents = [ .medium(), .large() ]
+                sheet.prefersGrabberVisible = true
+                sheet.preferredCornerRadius = 30.0
+            }
+            present(vc, animated: true)
+            
         }
-        present(vc, animated: true)
+        
     }
 
     
@@ -2404,8 +2489,7 @@ extension NewSingleDiscussionViewController: AudioPlayerViewDelegate {
 
 // MARK: - TextBubbleDelegate
 
-@available(iOS 15.0, *)
-extension NewSingleDiscussionViewController: TextBubbleDelegate {
+extension NewSingleDiscussionViewController {
     func textBubble(_ textBubble: TextBubble, userDidTapOn mentionableIdentity: any MentionableIdentity) {
         delegate?.singleDiscussionViewController(self, userDidTapOn: mentionableIdentity)
     }
@@ -2564,26 +2648,51 @@ extension NewSingleDiscussionViewController: DiscussionsSelectionViewControllerD
 
 }
 
-@available(iOS 15.0, *)
-extension NewSingleDiscussionViewController: AttachmentsDropViewDelegate {
-    func attachmentsDropViewShouldBegingDropSession(_ view: AttachmentsDropView) -> Bool {
-        assert(Thread.isMainThread)
 
-        guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { return false }
+// MARK: - UICollectionViewDropDelegate
 
-        switch discussion.status {
-        case .preDiscussion,
-                .locked:
-            return false
-
-        case .active:
-            return true
-        }
+extension NewSingleDiscussionViewController {
+    
+    func collectionView(_ collectionView: UICollectionView, canHandle session: UIDropSession) -> Bool {
+        debugPrint("🫵 \(self.debugDescription) canHandle")
+        guard !isDragSessionInProgress else { return false }
+        return true
     }
     
-    func attachmentsDropView(_ view: AttachmentsDropView, didDrop items: [NSItemProvider]) {
-        assert(Thread.isMainThread)
-        composeMessageView.addAttachments(from: items)
+    func collectionView(_ collectionView: UICollectionView, dropSessionDidUpdate session: UIDropSession, withDestinationIndexPath destinationIndexPath: IndexPath?) -> UICollectionViewDropProposal {
+        guard !isDragSessionInProgress else {
+            return UICollectionViewDropProposal(operation: .forbidden)
+        }
+        return UICollectionViewDropProposal(operation: .copy)
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, performDropWith coordinator: UICollectionViewDropCoordinator) {
+        
+        let itemProviders = coordinator.items.map(\.dragItem.itemProvider)
+        Task {
+            await composeMessageView.addAttachments(from: itemProviders, attachAllItems: true)
+        }
+
+    }
+    
+}
+
+
+// MARK: - UICollectionViewDragDelegate
+
+extension NewSingleDiscussionViewController {
+    
+    func collectionView(_ collectionView: UICollectionView, dragSessionWillBegin session: UIDragSession) {
+        isDragSessionInProgress = true
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, dragSessionDidEnd session: UIDragSession) {
+        isDragSessionInProgress = false
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, itemsForBeginning session: UIDragSession, at indexPath: IndexPath) -> [UIDragItem] {
+        guard let cell = collectionView.cellForItem(at: indexPath) as? CellWithMessage else { return [] }
+        return cell.uiDragItemsForAllAttachments ?? []
     }
     
 }

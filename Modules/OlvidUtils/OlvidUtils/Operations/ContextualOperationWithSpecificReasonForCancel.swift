@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,7 +28,9 @@ protocol ContextualOperation: Operation {
 }
 
 
-open class ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType: LocalizedErrorWithLogType>: OperationWithSpecificReasonForCancel<ReasonForCancelType>, ContextualOperation {
+open class ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType: LocalizedErrorWithLogType>: OperationWithSpecificReasonForCancel<ReasonForCancelType>, ContextualOperation, ObvErrorMaker {
+
+    public static var errorDomain: String { String(describing: self) }
 
     public var obvContext: ObvContext?
     public var viewContext: NSManagedObjectContext?
@@ -36,6 +38,27 @@ open class ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType: L
     open override var debugDescription: String {
         let memoryAddress = Unmanaged.passUnretained(self).toOpaque().debugDescription
         return "\(String(describing: type(of: self)))<\(memoryAddress)>"
+    }
+    
+    final public override func main() {
+        guard let obvContext else {
+            assertionFailure()
+            self.cancel()
+            return
+        }
+        guard let viewContext else {
+            assertionFailure()
+            self.cancel()
+            return
+        }
+        obvContext.performAndWait {
+            main(obvContext: obvContext, viewContext: viewContext)
+        }
+    }
+    
+    /// This method is the one to override in subclasses, instead of the ``main()`` method. It is executed on a thread that is appropriate for the `ObvContext`.
+    open func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        // Expected to be overridden in subclasses
     }
     
 }

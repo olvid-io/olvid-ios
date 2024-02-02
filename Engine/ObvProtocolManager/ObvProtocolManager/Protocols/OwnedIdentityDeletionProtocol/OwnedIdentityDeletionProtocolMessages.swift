@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,23 +31,17 @@ extension OwnedIdentityDeletionProtocol {
         
         case initiateOwnedIdentityDeletion = 0
         case contactOwnedIdentityWasDeleted = 1
-        case continueOwnedIdentityDeletion = 100
-        case processOtherProtocolInstances = 101
-        case processGroupsV1 = 102
-        case processGroupsV2 = 103
-        case processContacts = 104
-        case processChannels = 105
+        case propagateGlobalOwnedIdentityDeletion = 2
+        case deactivateOwnedDeviceServerQuery = 106
+        case finalizeOwnedIdentityDeletion = 107
         
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .initiateOwnedIdentityDeletion  : return InitiateOwnedIdentityDeletionMessage.self
-            case .continueOwnedIdentityDeletion  : return ContinueOwnedIdentityDeletionMessage.self
-            case .processOtherProtocolInstances  : return ProcessOtherProtocolInstancesMessage.self
-            case .processGroupsV1                : return ProcessGroupsV1Message.self
-            case .processGroupsV2                : return ProcessGroupsV2Message.self
-            case .processContacts                : return ProcessContactsMessage.self
-            case .contactOwnedIdentityWasDeleted : return ContactOwnedIdentityWasDeletedMessage.self
-            case .processChannels                : return ProcessChannelsMessage.self
+            case .initiateOwnedIdentityDeletion        : return InitiateOwnedIdentityDeletionMessage.self
+            case .contactOwnedIdentityWasDeleted       : return ContactOwnedIdentityWasDeletedMessage.self
+            case .deactivateOwnedDeviceServerQuery     : return DeactivateOwnedDeviceServerQueryMessage.self
+            case .propagateGlobalOwnedIdentityDeletion : return PropagateGlobalOwnedIdentityDeletionMessage.self
+            case .finalizeOwnedIdentityDeletion        : return FinalizeOwnedIdentityDeletionMessage.self
             }
         }
     }
@@ -62,38 +56,61 @@ extension OwnedIdentityDeletionProtocol {
         
         // Properties specific to this concrete protocol message
         
-        let ownedCryptoIdentityToDelete: ObvCryptoIdentity
-        let notifyContacts: Bool
+        let globalOwnedIdentityDeletion: Bool
         
         // Init when sending this message
         
-        init(coreProtocolMessage: CoreProtocolMessage, ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool) {
+        init(coreProtocolMessage: CoreProtocolMessage, globalOwnedIdentityDeletion: Bool) {
             self.coreProtocolMessage = coreProtocolMessage
-            self.ownedCryptoIdentityToDelete = ownedCryptoIdentityToDelete
-            self.notifyContacts = notifyContacts
+            self.globalOwnedIdentityDeletion = globalOwnedIdentityDeletion
         }
         
         var encodedInputs: [ObvEncoded] {
-            [ownedCryptoIdentityToDelete.obvEncode(), notifyContacts.obvEncode()]
+            [globalOwnedIdentityDeletion.obvEncode()]
         }
         
         // Init when receiving this message
         
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 2 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
-            self.ownedCryptoIdentityToDelete = try message.encodedInputs[0].obvDecode()
-            self.notifyContacts = try message.encodedInputs[1].obvDecode()
+            guard message.encodedInputs.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            self.globalOwnedIdentityDeletion = try message.encodedInputs[0].obvDecode()
         }
         
     }
+
     
-    
-    // MARK: - ContinueOwnedIdentityDeletionMessage
-    
-    struct ContinueOwnedIdentityDeletionMessage: ConcreteProtocolMessage {
+    // MARK: - PropagateGlobalOwnedIdentityDeletionMessage
+
+    struct PropagateGlobalOwnedIdentityDeletionMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.continueOwnedIdentityDeletion
+        let id: ConcreteProtocolMessageId = MessageId.propagateGlobalOwnedIdentityDeletion
+        let coreProtocolMessage: CoreProtocolMessage
+                
+        // Init when sending this message
+        
+        init(coreProtocolMessage: CoreProtocolMessage) {
+            self.coreProtocolMessage = coreProtocolMessage
+        }
+        
+        var encodedInputs: [ObvEncoded] {
+            []
+        }
+        
+        // Init when receiving this message
+        
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+        }
+        
+    }
+
+    
+    // MARK: - FinalizeOwnedIdentityDeletionMessage
+    
+    struct FinalizeOwnedIdentityDeletionMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.finalizeOwnedIdentityDeletion
         let coreProtocolMessage: CoreProtocolMessage
         
         // Init when sending this message
@@ -102,7 +119,9 @@ extension OwnedIdentityDeletionProtocol {
             self.coreProtocolMessage = coreProtocolMessage
         }
         
-        var encodedInputs: [ObvEncoded] { [] }
+        var encodedInputs: [ObvEncoded] {
+            []
+        }
         
         // Init when receiving this message
         
@@ -111,103 +130,7 @@ extension OwnedIdentityDeletionProtocol {
         }
         
     }
-    
-    
-    // MARK: - ProcessOtherProtocolInstancesMessage
-    
-    struct ProcessOtherProtocolInstancesMessage: ConcreteProtocolMessage {
-        
-        let id: ConcreteProtocolMessageId = MessageId.processOtherProtocolInstances
-        let coreProtocolMessage: CoreProtocolMessage
-        
-        // Init when sending this message
-        
-        init(coreProtocolMessage: CoreProtocolMessage) {
-            self.coreProtocolMessage = coreProtocolMessage
-        }
-        
-        var encodedInputs: [ObvEncoded] { [] }
-        
-        // Init when receiving this message
-        
-        init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-        }
-        
-    }
-    
-    
-    // MARK: - ProcessGroupsV1Message
-    
-    struct ProcessGroupsV1Message: ConcreteProtocolMessage {
-        
-        let id: ConcreteProtocolMessageId = MessageId.processGroupsV1
-        let coreProtocolMessage: CoreProtocolMessage
-        
-        // Init when sending this message
-        
-        init(coreProtocolMessage: CoreProtocolMessage) {
-            self.coreProtocolMessage = coreProtocolMessage
-        }
-        
-        var encodedInputs: [ObvEncoded] { [] }
-        
-        // Init when receiving this message
-        
-        init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-        }
-        
-    }
-    
-    
-    // MARK: - ProcessGroupsV2Message
-    
-    struct ProcessGroupsV2Message: ConcreteProtocolMessage {
-        
-        let id: ConcreteProtocolMessageId = MessageId.processGroupsV2
-        let coreProtocolMessage: CoreProtocolMessage
-        
-        // Init when sending this message
-        
-        init(coreProtocolMessage: CoreProtocolMessage) {
-            self.coreProtocolMessage = coreProtocolMessage
-        }
-        
-        var encodedInputs: [ObvEncoded] { [] }
-        
-        // Init when receiving this message
-        
-        init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-        }
-        
-    }
-    
-    
-    // MARK: - ProcessContactsMessage
-    
-    struct ProcessContactsMessage: ConcreteProtocolMessage {
-        
-        let id: ConcreteProtocolMessageId = MessageId.processContacts
-        let coreProtocolMessage: CoreProtocolMessage
-        
-        // Init when sending this message
-        
-        init(coreProtocolMessage: CoreProtocolMessage) {
-            self.coreProtocolMessage = coreProtocolMessage
-        }
-        
-        var encodedInputs: [ObvEncoded] { [] }
-        
-        // Init when receiving this message
-        
-        init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-        }
-        
-    }
-    
+
     
     // MARK: - ContactOwnedIdentityWasDeletedMessage
 
@@ -246,27 +169,33 @@ extension OwnedIdentityDeletionProtocol {
     }
     
     
-    // MARK: - ProcessChannelsMessage
-    
-    struct ProcessChannelsMessage: ConcreteProtocolMessage {
+    struct DeactivateOwnedDeviceServerQueryMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.processChannels
+        let id: ConcreteProtocolMessageId = MessageId.deactivateOwnedDeviceServerQuery
         let coreProtocolMessage: CoreProtocolMessage
         
-        // Init when sending this message
+        let success: Bool // Only meaningfull when the message is sent to this protocol
+        
+        var encodedInputs: [ObvEncoded] { return [] }
+        
+        // Initializers
+
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            let encodedElements = message.encodedInputs
+            guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
+            let encodedSuccess = encodedElements[0]
+            guard let success = Bool(encodedSuccess) else {
+                assertionFailure()
+                throw Self.makeError(message: "Failed to decode")
+            }
+            self.success = success
+        }
         
         init(coreProtocolMessage: CoreProtocolMessage) {
             self.coreProtocolMessage = coreProtocolMessage
+            self.success = true
         }
-        
-        var encodedInputs: [ObvEncoded] { [] }
-        
-        // Init when receiving this message
-        
-        init(with message: ReceivedMessage) throws {
-            self.coreProtocolMessage = CoreProtocolMessage(with: message)
-        }
-        
     }
-    
+
 }

@@ -31,22 +31,26 @@ extension IdentityDetailsPublicationProtocol {
     
     enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
-        case StartPhotoUpload = 0
-        case ReceiveDetails = 1
-        case SendDetails = 2
+        case startPhotoUpload = 0
+        case receiveDetails = 1
+        case sendDetails = 2
+        case receiveOwnedDetails = 3
         
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             
             switch self {
                 
-            case .StartPhotoUpload:
+            case .startPhotoUpload:
                 let step = StartPhotoUploadStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ReceiveDetails:
+            case .receiveDetails:
                 let step = ReceiveDetailsStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .SendDetails:
+            case .sendDetails:
                 let step = SendDetailsStep(from: concreteProtocol, and: receivedMessage)
+                return step
+            case .receiveOwnedDetails:
+                let step = ReceiveOwnedDetailsStep(from: concreteProtocol, and: receivedMessage)
                 return step
             }
         }
@@ -115,7 +119,7 @@ extension IdentityDetailsPublicationProtocol {
                 let concreteMessage = ServerPutPhotoMessage.init(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: photoServerKeyAndLabel.label, dataURL: photoURL, dataKey: photoServerKeyAndLabel.key)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
 
                 return UploadingPhotoState(ownedIdentityDetailsElements: ownedIdentityDetailsElements)
                 
@@ -137,13 +141,24 @@ extension IdentityDetailsPublicationProtocol {
                                                              contactIdentityDetailsElements: ownedIdentityDetailsElements)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
                     do {
-                        _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     } catch {
                         os_log("Could not post SendDetailsMessage in StartPhotoUploadStep to the identity %@", log: log, type: .error, contactIndentity.debugDescription)
                     }
             
                 }
                 
+                // Propagate the change to our other owned devices
+                
+                let otherDeviceUids = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
+                if !otherDeviceUids.isEmpty {
+                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUids), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let concreteMessage = PropagateOwnDetailsMessage(coreProtocolMessage: coreMessage,
+                                                                     ownedIdentityDetailsElements: ownedIdentityDetailsElements)
+                    guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+
                 return DetailsSentState()
                 
             }
@@ -189,14 +204,24 @@ extension IdentityDetailsPublicationProtocol {
                                                          contactIdentityDetailsElements: ownedIdentityDetailsElements)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
                 do {
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not post SendDetailsMessage in SendDetailsStep to identity %@", log: log, type: .error, contactIdentity.debugDescription)
                 }
 
             }
             
+            // Propagate the change to our other owned devices
             
+            let otherDeviceUids = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
+            if !otherDeviceUids.isEmpty {
+                let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUids), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                let concreteMessage = PropagateOwnDetailsMessage(coreProtocolMessage: coreMessage,
+                                                                 ownedIdentityDetailsElements: ownedIdentityDetailsElements)
+                guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+            }
+
             return DetailsSentState()
             
         }
@@ -258,7 +283,7 @@ extension IdentityDetailsPublicationProtocol {
                     // Launch a child protocol instance for downloading the photo. To do so, we post an appropriate message on the loopback channel. In this particular case, we do not need to "link" this protocol to the current protocol.
                     
                     let childProtocolInstanceUid = UID.gen(with: prng)
-                    let coreMessage = getCoreMessageForOtherLocalProtocol(otherCryptoProtocolId: .DownloadIdentityPhoto,
+                    let coreMessage = getCoreMessageForOtherLocalProtocol(otherCryptoProtocolId: .downloadIdentityPhoto,
                                                                           otherProtocolInstanceUid: childProtocolInstanceUid)
                     let childProtocolInitialMessage = DownloadIdentityPhotoChildProtocol.InitialMessage(
                         coreProtocolMessage: coreMessage,
@@ -268,7 +293,7 @@ extension IdentityDetailsPublicationProtocol {
                         assertionFailure()
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
             }
@@ -288,4 +313,59 @@ extension IdentityDetailsPublicationProtocol {
 
     }
     
+    
+    // MARK: - ReceiveOwnedDetailsStep
+    
+    final class ReceiveOwnedDetailsStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: PropagateOwnDetailsMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: IdentityDetailsPublicationProtocol.PropagateOwnDetailsMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: IdentityDetailsPublicationProtocol.logCategory)
+
+            let ownedIdentityDetailsElements = receivedMessage.ownedIdentityDetailsElements
+
+            let photoDownloadNeeded = try identityDelegate.updateOwnedPublishedDetailsWithOtherDetailsIfNewer(ownedIdentity, with: ownedIdentityDetailsElements, within: obvContext)
+            
+            do {
+                if photoDownloadNeeded {
+                    let childProtocolInstanceUid = UID.gen(with: prng)
+                    let coreMessage = getCoreMessageForOtherLocalProtocol(
+                        otherCryptoProtocolId: .downloadIdentityPhoto,
+                        otherProtocolInstanceUid: childProtocolInstanceUid)
+                    let childProtocolInitialMessage = DownloadIdentityPhotoChildProtocol.InitialMessage(
+                        coreProtocolMessage: coreMessage,
+                        contactIdentity: ownedIdentity,
+                        contactIdentityDetailsElements: ownedIdentityDetailsElements)
+                    guard let messageToSend = childProtocolInitialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+            } catch {
+                os_log("Failed to request the download of the new owned profile picture: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                // In production, continue
+            }
+            
+            return DetailsReceivedState()
+
+        }
+
+    }
+
 }

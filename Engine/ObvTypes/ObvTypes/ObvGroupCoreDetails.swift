@@ -53,7 +53,7 @@ extension ObvGroupCoreDetails: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
-        try container.encodeIfPresent(description, forKey: .description)
+        try container.encodeIfPresent(description?.isEmpty == true ? nil : description, forKey: .description)
     }
 
     
@@ -67,7 +67,13 @@ extension ObvGroupCoreDetails: Codable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         let name = (try values.decode(String.self, forKey: .name))
         let description = try values.decodeIfPresent(String.self, forKey: .description)
-        self.init(name: name, description: description)
+        let appropriateDescription: String?
+        if let description {
+            appropriateDescription = description.isEmpty ? nil : description
+        } else {
+            appropriateDescription = description
+        }
+        self.init(name: name, description: appropriateDescription)
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,15 +29,15 @@ extension ContactManagementProtocol {
     
     enum StateId: Int, ConcreteProtocolStateId {
         
-        case InitialState = 0
-        case Final = 1
-        case Cancelled = 99
+        case initialState = 0
+        case final = 1
+        case cancelled = 99
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
-            case .InitialState : return ConcreteProtocolInitialState.self
-            case .Final        : return FinalState.self
-            case .Cancelled    : return CancelledState.self
+            case .initialState : return ConcreteProtocolInitialState.self
+            case .final        : return FinalState.self
+            case .cancelled    : return CancelledState.self
             }
         }
         
@@ -47,7 +47,7 @@ extension ContactManagementProtocol {
     
     struct FinalState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.Final
+        let id: ConcreteProtocolStateId = StateId.final
         
         func obvEncode() -> ObvEncoded { return 0.obvEncode() }
         
@@ -62,7 +62,7 @@ extension ContactManagementProtocol {
     
     struct CancelledState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.Cancelled
+        let id: ConcreteProtocolStateId = StateId.cancelled
         
         init(_: ObvEncoded) throws {}
         

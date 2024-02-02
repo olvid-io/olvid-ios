@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,8 @@ import OlvidUtils
 import ObvEngine
 import os.log
 import ObvUICoreData
+import CoreData
+import ObvSettings
 
 
 final class AutoAcceptPendingGroupInvitesIfPossibleOperation: ContextualOperationWithSpecificReasonForCancel<AutoAcceptPendingGroupInvitesIfPossibleOperationReasonForCancel> {
@@ -34,78 +36,82 @@ final class AutoAcceptPendingGroupInvitesIfPossibleOperation: ContextualOperatio
         super.init()
     }
 
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         // If the app settings is sich that we should never auto-accept group invitations, we are done.
         guard ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom != .noOne else { return }
         
-        obvContext.performAndWait {
-
-            do {
-
-                let allGroupInvites = try PersistedInvitation.getAllGroupInvitesForAllOwnedIdentities(within: obvContext.context)
-
-                for groupInvite in allGroupInvites {
-
-                    guard let ownedIdentity = groupInvite.ownedIdentity else { continue }
-                    guard let obvDialog = groupInvite.obvDialog else { assertionFailure(); continue }
-
-                    switch obvDialog.category {
-
-                    case .acceptGroupInvite(groupMembers: _, groupOwner: let groupOwner):
-                        
-                        switch ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom {
-                        case .noOne:
-                            continue
-                        case .oneToOneContactsOnly:
-                            let groupOwner = try PersistedObvContactIdentity.get(cryptoId: groupOwner.cryptoId, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .oneToOne)
-                            let groupOwnerIsAOneToOneContact = (groupOwner != nil)
-                            if groupOwnerIsAOneToOneContact {
-                                var localDialog = obvDialog
-                                try localDialog.setResponseToAcceptGroupInvite(acceptInvite: true)
-                                obvEngine.respondTo(localDialog)
-                            }
-                        case .everyone:
+        do {
+            
+            let allGroupInvites = try PersistedInvitation.getAllGroupInvitesForAllOwnedIdentities(within: obvContext.context)
+            
+            for groupInvite in allGroupInvites {
+                
+                guard let ownedIdentity = groupInvite.ownedIdentity else { continue }
+                guard let obvDialog = groupInvite.obvDialog else { assertionFailure(); continue }
+                
+                switch obvDialog.category {
+                    
+                case .acceptGroupInvite(groupMembers: _, groupOwner: let groupOwner):
+                    
+                    switch ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom {
+                    case .noOne:
+                        continue
+                    case .oneToOneContactsOnly:
+                        let groupOwner = try PersistedObvContactIdentity.get(cryptoId: groupOwner.cryptoId, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .oneToOne)
+                        let groupOwnerIsAOneToOneContact = (groupOwner != nil)
+                        if groupOwnerIsAOneToOneContact {
                             var localDialog = obvDialog
                             try localDialog.setResponseToAcceptGroupInvite(acceptInvite: true)
-                            obvEngine.respondTo(localDialog)
-                        }
-                        
-                    case .acceptGroupV2Invite(inviter: let inviter, group: _):
-                        
-                        switch ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom {
-                        case .noOne:
-                            continue
-                        case .oneToOneContactsOnly:
-                            let inviterContact = try PersistedObvContactIdentity.get(cryptoId: inviter, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .oneToOne)
-                            let groupOwnerIsAOneToOneContact = (inviterContact != nil)
-                            if groupOwnerIsAOneToOneContact {
-                                var localDialog = obvDialog
-                                try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: true)
-                                obvEngine.respondTo(localDialog)
+                            let dialogForEngine = localDialog
+                            Task {
+                                try? await obvEngine.respondTo(dialogForEngine)
                             }
-                        case .everyone:
+                        }
+                    case .everyone:
+                        var localDialog = obvDialog
+                        try localDialog.setResponseToAcceptGroupInvite(acceptInvite: true)
+                        let dialogForEngine = localDialog
+                        Task {
+                            try? await obvEngine.respondTo(dialogForEngine)
+                        }
+                    }
+                    
+                case .acceptGroupV2Invite(inviter: let inviter, group: _):
+                    
+                    switch ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom {
+                    case .noOne:
+                        continue
+                    case .oneToOneContactsOnly:
+                        let inviterContact = try PersistedObvContactIdentity.get(cryptoId: inviter, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .oneToOne)
+                        let groupOwnerIsAOneToOneContact = (inviterContact != nil)
+                        if groupOwnerIsAOneToOneContact {
                             var localDialog = obvDialog
                             try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: true)
-                            obvEngine.respondTo(localDialog)
+                            let dialogForEngine = localDialog
+                            Task {
+                                try? await obvEngine.respondTo(dialogForEngine)
+                            }
                         }
-
-                    default:
-
-                        assertionFailure("There is a bug with the getAllGroupInvites query")
-                        continue
-
+                    case .everyone:
+                        var localDialog = obvDialog
+                        try localDialog.setResponseToAcceptGroupV2Invite(acceptInvite: true)
+                        let dialogForEngine = localDialog
+                        Task {
+                            try? await obvEngine.respondTo(dialogForEngine)
+                        }
                     }
+                    
+                default:
+                    
+                    assertionFailure("There is a bug with the getAllGroupInvites query")
+                    continue
+                    
                 }
-                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
             }
             
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

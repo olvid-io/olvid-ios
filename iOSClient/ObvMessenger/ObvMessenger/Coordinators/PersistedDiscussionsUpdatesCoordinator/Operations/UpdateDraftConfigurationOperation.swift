@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,26 +36,22 @@ final class UpdateDraftConfigurationOperation: ContextualOperationWithSpecificRe
         super.init()
     }
 
-    override func main() {
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            do {
-                guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindDraft)
-                }
-                draft.update(with: value)
-                let draftObjectID = self.draftObjectID
-                try obvContext.addContextDidSaveCompletionHandler { error in
-                    guard error == nil else { return }
-                    ObvMessengerInternalNotification.draftExpirationWasBeenUpdated(persistedDraftObjectID: draftObjectID).postOnDispatchQueue()
-                }
-            } catch(let error) {
-                return cancel(withReason: .coreDataError(error: error))
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindDraft)
             }
+            draft.update(with: value)
+            let draftObjectID = self.draftObjectID
+            try obvContext.addContextDidSaveCompletionHandler { error in
+                guard error == nil else { return }
+                ObvMessengerInternalNotification.draftExpirationWasBeenUpdated(persistedDraftObjectID: draftObjectID).postOnDispatchQueue()
+            }
+        } catch(let error) {
+            return cancel(withReason: .coreDataError(error: error))
         }
+        
     }
 
 }

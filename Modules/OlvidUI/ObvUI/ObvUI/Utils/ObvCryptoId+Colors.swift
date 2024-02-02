@@ -20,6 +20,9 @@
 import Foundation
 import ObvTypes
 import ObvUICoreData
+import ObvDesignSystem
+import ObvSettings
+
 
 public extension ObvCryptoId {
     

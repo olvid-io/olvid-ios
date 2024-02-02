@@ -24,7 +24,7 @@ import ObvEncoder
 
 public struct ObvNetworkMessageToSend {
 
-    public let messageId: MessageIdentifier
+    public let messageId: ObvMessageIdentifier
     public let encryptedContent: EncryptedData
     public let encryptedExtendedMessagePayload: EncryptedData?
     public let serverURL: URL
@@ -34,7 +34,7 @@ public struct ObvNetworkMessageToSend {
 
     public let attachments: [Attachment]?
     
-    public init(messageId: MessageIdentifier, encryptedContent: EncryptedData, encryptedExtendedMessagePayload: EncryptedData?, isAppMessageWithUserContent: Bool, isVoipMessageForStartingCall: Bool, serverURL: URL, headers: [Header], attachments: [Attachment]? = nil) {
+    public init(messageId: ObvMessageIdentifier, encryptedContent: EncryptedData, encryptedExtendedMessagePayload: EncryptedData?, isAppMessageWithUserContent: Bool, isVoipMessageForStartingCall: Bool, serverURL: URL, headers: [Header], attachments: [Attachment]? = nil) {
         self.messageId = messageId
         self.encryptedContent = encryptedContent
         self.encryptedExtendedMessagePayload = encryptedExtendedMessagePayload

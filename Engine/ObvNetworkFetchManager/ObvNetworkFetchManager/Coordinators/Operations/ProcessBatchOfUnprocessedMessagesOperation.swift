@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import OlvidUtils
 import ObvMetaManager
 import os.log
 import ObvCrypto
+import CoreData
 
 
 final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -46,8 +47,7 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
         super.init()
     }
     
-    
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         os_log("🔑 Starting ProcessAllUnprocessedMessagesOperation %{public}@", log: log, type: .info, debugUuid.debugDescription)
         defer {
@@ -56,64 +56,57 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
             }
             os_log("🔑 Ending ProcessAllUnprocessedMessagesOperation %{public}@", log: log, type: .info, debugUuid.debugDescription)
         }
-        
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
+                
         do {
             
-            try obvContext.performAndWaitOrThrow {
-                
-                // Find all inbox messages that still need to be processed
-                
-                let messages = try InboxMessage.getBatchOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, batchSize: Self.batchSize, within: obvContext)
-                
-                guard !messages.isEmpty else {
-                    moreUnprocessedMessagesRemain = false
-                    ObvNetworkFetchNotificationNew.noInboxMessageToProcess(flowId: obvContext.flowId, ownedCryptoIdentity: ownedCryptoIdentity)
-                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-                    return
-                }
-                
-                moreUnprocessedMessagesRemain = true
-                
-                for message in messages {
-                    os_log("🔑 Will process message %{public}@", log: log, type: .info, message.messageId.debugDescription)
-                    assert(message.extendedMessagePayloadKey == nil)
-                    assert(message.messagePayload == nil)
-                    assert(!message.markedForDeletion)
-                }
-                
-                // If we reach this point, we have at least one message to process.
-                // We notify about this.
-
-                for message in messages {
-                    guard let inboxMessageId = message.messageId else { assertionFailure(); continue }
-                    ObvNetworkFetchNotificationNew.newInboxMessageToProcess(messageId: inboxMessageId, attachmentIds: message.attachmentIds, flowId: obvContext.flowId)
-                        .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-                }
-                
-                // We then create the appropriate struct that is appropriate to pass each message to our delegate (i.e., the channel manager).
-                
-                let networkReceivedEncryptedMessages: [ObvNetworkReceivedMessageEncrypted] = messages.compactMap {
-                    guard let inboxMessageId = $0.messageId else { assertionFailure(); return nil }
-                    return ObvNetworkReceivedMessageEncrypted(
-                        messageId: inboxMessageId,
-                        messageUploadTimestampFromServer: $0.messageUploadTimestampFromServer,
-                        downloadTimestampFromServer: $0.downloadTimestampFromServer,
-                        localDownloadTimestamp: $0.localDownloadTimestamp,
-                        encryptedContent: $0.encryptedContent,
-                        wrappedKey: $0.wrappedKey,
-                        knownAttachmentCount: $0.attachments.count,
-                        availableEncryptedExtendedContent: nil) // The encrypted extended content is not available yet
-                }
-                
-                // We ask our delegate to process these messages
-
-                processDownloadedMessageDelegate.processNetworkReceivedEncryptedMessages(Set(networkReceivedEncryptedMessages), within: obvContext)
-
+            // Find all inbox messages that still need to be processed
+            
+            let messages = try InboxMessage.getBatchOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, batchSize: Self.batchSize, within: obvContext)
+            
+            guard !messages.isEmpty else {
+                moreUnprocessedMessagesRemain = false
+                ObvNetworkFetchNotificationNew.noInboxMessageToProcess(flowId: obvContext.flowId, ownedCryptoIdentity: ownedCryptoIdentity)
+                    .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+                return
             }
+            
+            moreUnprocessedMessagesRemain = true
+            
+            for message in messages {
+                os_log("🔑 Will process message %{public}@", log: log, type: .info, message.messageId.debugDescription)
+                assert(message.extendedMessagePayloadKey == nil)
+                assert(message.messagePayload == nil)
+                assert(!message.markedForDeletion)
+            }
+            
+            // If we reach this point, we have at least one message to process.
+            // We notify about this.
+            
+            for message in messages {
+                guard let inboxMessageId = message.messageId else { assertionFailure(); continue }
+                ObvNetworkFetchNotificationNew.newInboxMessageToProcess(messageId: inboxMessageId, attachmentIds: message.attachmentIds, flowId: obvContext.flowId)
+                    .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+            }
+            
+            // We then create the appropriate struct that is appropriate to pass each message to our delegate (i.e., the channel manager).
+            
+            let networkReceivedEncryptedMessages: [ObvNetworkReceivedMessageEncrypted] = messages.compactMap {
+                guard let inboxMessageId = $0.messageId else { assertionFailure(); return nil }
+                return ObvNetworkReceivedMessageEncrypted(
+                    messageId: inboxMessageId,
+                    messageUploadTimestampFromServer: $0.messageUploadTimestampFromServer,
+                    downloadTimestampFromServer: $0.downloadTimestampFromServer,
+                    localDownloadTimestamp: $0.localDownloadTimestamp,
+                    encryptedContent: $0.encryptedContent,
+                    wrappedKey: $0.wrappedKey,
+                    knownAttachmentCount: $0.attachments.count,
+                    availableEncryptedExtendedContent: nil) // The encrypted extended content is not available yet
+            }
+            
+            // We ask our delegate to process these messages
+            
+            processDownloadedMessageDelegate.processNetworkReceivedEncryptedMessages(Set(networkReceivedEncryptedMessages), within: obvContext)
+            
             
         } catch {
             return cancel(withReason: .coreDataError(error: error))

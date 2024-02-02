@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,6 +37,7 @@ final class ContactGroupCoordinator: ObvErrorMaker {
     static let errorDomain = "ContactGroupCoordinator"
     private let coordinatorsQueue: OperationQueue
     private let queueForComposedOperations: OperationQueue
+    weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
 
     init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
         self.obvEngine = obvEngine
@@ -75,11 +76,20 @@ extension ContactGroupCoordinator {
             ObvMessengerInternalNotification.observeUserWantsToUpdateGroupV2() { [weak self] groupObjectID, changeset in
                 self?.processUserWantsToUpdateGroupV2(groupObjectID: groupObjectID, changeset: changeset)
             },
-            ObvMessengerInternalNotification.observeUserWantsToUpdateCustomNameAndGroupV2Photo() { [weak self] groupObjectID, customName, customPhotoURL in
-                self?.processUserWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: groupObjectID, customName: customName, customPhotoURL: customPhotoURL)
+            ObvMessengerInternalNotification.observeUserWantsToUpdateCustomNameAndGroupV2Photo() { [weak self] ownedCryptoId, groupIdentifier, customName, customPhoto in
+                self?.processUserWantsToUpdateCustomNameAndGroupV2Photo(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, customName: customName, customPhoto: customPhoto)
             },
             ObvMessengerInternalNotification.observeUserHasSeenPublishedDetailsOfGroupV2() { [weak self] groupObjectID in
                 self?.processUserHasSeenPublishedDetailsOfGroupV2(groupObjectID: groupObjectID)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToSetCustomNameOfJoinedGroupV1() { [weak self] (ownedCryptoId, groupIdentifier, groupNameCustom) in
+                self?.processUserWantsToSetCustomNameOfJoinedGroupV1(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, groupNameCustom: groupNameCustom)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToUpdatePersonalNoteOnGroupV1 { [weak self] ownedCryptoId, groupIdentifier, newText in
+                self?.processUserWantsToUpdatePersonalNoteOnGroupV1(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, newText: newText)
+            },
+            ObvMessengerInternalNotification.observeUserWantsToUpdatePersonalNoteOnGroupV2 { [weak self] ownedCryptoId, groupIdentifier, newText in
+                self?.processUserWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, newText: newText)
             },
         ])
         
@@ -276,8 +286,13 @@ extension ContactGroupCoordinator {
     }
     
     
-    private func processUserWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, customName: String?, customPhotoURL: URL?) {
-        let op1 = UpdateCustomNameAndGroupV2PhotoOperation(groupObjectID: groupObjectID, customName: customName, customPhotoURL: customPhotoURL)
+    private func processUserWantsToUpdateCustomNameAndGroupV2Photo(ownedCryptoId: ObvCryptoId, groupIdentifier: Data, customName: String?, customPhoto: UIImage?) {
+        let op1 = UpdateCustomNameAndGroupV2PhotoOperation(
+            ownedCryptoId: ownedCryptoId,
+            groupIdentifier: groupIdentifier,
+            update: .customNameAndCustomPhoto(customName: customName, customPhoto: customPhoto),
+            makeSyncAtomRequest: true,
+            syncAtomRequestDelegate: syncAtomRequestDelegate)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         coordinatorsQueue.addOperation(composedOp)
     }
@@ -290,11 +305,35 @@ extension ContactGroupCoordinator {
     }
 
     
+    private func processUserWantsToSetCustomNameOfJoinedGroupV1(ownedCryptoId: ObvCryptoId, groupIdentifier: GroupV1Identifier, groupNameCustom: String?) {
+        let op1 = SetCustomNameOfJoinedGroupV1Operation(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, groupNameCustom: groupNameCustom, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
+    }
+
+    
+    private func processUserWantsToUpdatePersonalNoteOnGroupV1(ownedCryptoId: ObvCryptoId, groupIdentifier: GroupV1Identifier, newText: String?) {
+        let op1 = UpdatePersonalNoteOnGroupV1Operation(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, newText: newText, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
+    }
+
+    
+    private func processUserWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data, newText: String?) {
+        let op1 = UpdatePersonalNoteOnGroupV2Operation(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, newText: newText, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
+    }
+
+    
     private func processGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: ObvCryptoId, groupIdentifier: Data) {
-        do {
-            try obvEngine.replaceTrustedDetailsByPublishedDetailsOfGroupV2(ownedCryptoId: ownCryptoId, groupIdentifier: groupIdentifier)
-        } catch {
-            assertionFailure(error.localizedDescription)
+        let obvEngine = self.obvEngine
+        Task.detached {
+            do {
+                try await obvEngine.replaceTrustedDetailsByPublishedDetailsOfGroupV2(ownedCryptoId: ownCryptoId, groupIdentifier: groupIdentifier)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
         }
     }
     

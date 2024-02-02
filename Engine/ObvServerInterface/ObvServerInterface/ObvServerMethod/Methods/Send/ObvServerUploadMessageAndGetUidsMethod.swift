@@ -42,6 +42,7 @@ public final class ObvServerUploadMessageAndGetUidsMethod: ObvServerDataMethod {
     private let isAppMessageWithUserContent: Bool
     private let isVoipMessageForStartingCall: Bool
     public let isActiveOwnedIdentityRequired = true
+    public let isDeletedOwnedIdentitySufficient = true // When deleting an owned identity, we (sometimes) send messages to let our contacts know about this. This Boolean makes it possible to send the messages even if the owned identity cannot be found.
     public let flowId: FlowIdentifier
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil

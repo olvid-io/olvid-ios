@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -66,6 +66,10 @@ public final class ObvProtocolManager: ObvProtocolDelegate, ObvFullRatchetProtoc
         
     }
     
+    enum ObvError: Error {
+        case channelDelegateIsNotSet
+    }
+    
 }
 
 // MARK: - Implementing ObvManager
@@ -77,7 +81,11 @@ extension ObvProtocolManager {
                 ObvEngineDelegateType.ObvChannelDelegate,
                 ObvEngineDelegateType.ObvIdentityDelegate,
                 ObvEngineDelegateType.ObvSolveChallengeDelegate,
-                ObvEngineDelegateType.ObvNotificationDelegate]
+                ObvEngineDelegateType.ObvNotificationDelegate,
+                ObvEngineDelegateType.ObvNetworkPostDelegate,
+                ObvEngineDelegateType.ObvNetworkFetchDelegate,
+                ObvEngineDelegateType.ObvSyncSnapshotDelegate,
+        ]
     }
     
     public func fulfill(requiredDelegate delegate: AnyObject, forDelegateType delegateType: ObvEngineDelegateType) throws {
@@ -107,6 +115,21 @@ extension ObvProtocolManager {
                 throw Self.makeError(message: "The ObvSolveChallengeDelegate is not set")
             }
             delegateManager.solveChallengeDelegate = delegate
+        case .ObvNetworkPostDelegate:
+            guard let delegate = delegate as? ObvNetworkPostDelegate else {
+                throw Self.makeError(message: "The ObvNetworkPostDelegate is not set")
+            }
+            delegateManager.networkPostDelegate = delegate
+        case .ObvNetworkFetchDelegate:
+            guard let delegate = delegate as? ObvNetworkFetchDelegate else {
+                throw Self.makeError(message: "The ObvNetworkFetchDelegate is not set")
+            }
+            delegateManager.networkFetchDelegate = delegate
+        case .ObvSyncSnapshotDelegate:
+            guard let delegate = delegate as? ObvSyncSnapshotDelegate else {
+                throw Self.makeError(message: "The ObvSyncSnapshotDelegate is not set")
+            }
+            delegateManager.syncSnapshotDelegate = delegate
         default:
             throw Self.makeError(message: "Unexpected delegate type")
         }
@@ -115,6 +138,7 @@ extension ObvProtocolManager {
 
     public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) throws {
         delegateManager.contactTrustLevelWatcher.finalizeInitialization()
+        delegateManager.protocolStarterDelegate.finalizeInitialization(flowId: flowId, runningLog: runningLog)
     }
     
 
@@ -126,6 +150,8 @@ extension ObvProtocolManager {
             Task(priority: .low) {
                 await deleteOldUploadingUserData()
             }
+            delegateManager.receivedMessageDelegate.deleteOwnedIdentityTransferProtocolInstances(flowId: flowId)
+            delegateManager.receivedMessageDelegate.deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(flowId: flowId)
             delegateManager.receivedMessageDelegate.deleteProtocolInstancesInAFinalState(flowId: flowId)
             delegateManager.receivedMessageDelegate.deleteObsoleteReceivedMessages(flowId: flowId)
             // Now that we cleaned the databases, we can try to re-process all protocol's `ReceivedMessage`s
@@ -207,7 +233,7 @@ extension ObvProtocolManager {
                                                                                  bobDeviceUid: remoteDeviceUid)
 
             let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                                  cryptoProtocolId: .FullRatchet,
+                                                  cryptoProtocolId: .fullRatchet,
                                                   protocolInstanceUid: protocolInstanceUid)
 
             let initialMessage = FullRatchetProtocol.InitialMessage(coreProtocolMessage: coreMessage,
@@ -220,7 +246,7 @@ extension ObvProtocolManager {
             }
 
             debugPrint("🚨 Will post message for full ratchet \(obvContext.name)")
-            _ = try channelDelegate.post(initialMessageToSend, randomizedWith: prng, within: obvContext)
+            _ = try channelDelegate.postChannelMessage(initialMessageToSend, randomizedWith: prng, within: obvContext)
             debugPrint("🚨 Did post message for full ratchet \(obvContext.name)")
 
             do {
@@ -298,7 +324,7 @@ extension ObvProtocolManager {
         let receivedMessage: ReceivedMessage
         
         if let receivedMessageUID = genericReceivedMessage.receivedMessageUID {
-            let messageId = MessageIdentifier(ownedCryptoIdentity: genericReceivedMessage.toOwnedIdentity, uid: receivedMessageUID)
+            let messageId = ObvMessageIdentifier(ownedCryptoIdentity: genericReceivedMessage.toOwnedIdentity, uid: receivedMessageUID)
             if let existingReceivedMessage = ReceivedMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) {
                 os_log("A ReceivedMessage with messageId %{public}@ already exist, we do not try to create a new one", log: log, type: .info, messageId.debugDescription)
                 receivedMessage = existingReceivedMessage
@@ -357,16 +383,27 @@ extension ObvProtocolManager {
     }
     
     
+    public func getDisbandGroupMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getDisbandGroupMessageForGroupManagementProtocol(
+            groupUid: groupUid,
+            ownedIdentity: ownedIdentity,
+            within: obvContext)
+    }
+
+    
     public func getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity ownedIdentity: ObvCryptoIdentity, andTheDeviceUid contactDeviceUid: UID, ofTheContactIdentity contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity: ownedIdentity, andTheDeviceUid: contactDeviceUid, ofTheContactIdentity: contactIdentity)
     }
     
     
-    public func getInitialMessageForContactMutualIntroductionProtocol(of contact1: ObvCryptoIdentity, withContactIdentityCoreDetails contactCoreDetails1: ObvIdentityCoreDetails, with contact2: ObvCryptoIdentity, withOtherContactIdentityCoreDetails contactCoreDetails2: ObvIdentityCoreDetails, byOwnedIdentity ownedIdentity: ObvCryptoIdentity, usingProtocolInstanceUid protocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend {
-        return try delegateManager.protocolStarterDelegate.getInitialMessageForContactMutualIntroductionProtocol(of: contact1,
-                                                                                                                 withIdentityCoreDetails: contactCoreDetails1,
-                                                                                                                 with: contact2,
-                                                                                                                 withOtherIdentityCoreDetails: contactCoreDetails2,
+    public func getInitialMessageForChannelCreationWithOwnedDeviceProtocol(ownedIdentity: ObvCryptoIdentity, remoteDeviceUid: UID) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitialMessageForChannelCreationWithOwnedDeviceProtocol(ownedIdentity: ownedIdentity, remoteDeviceUid: remoteDeviceUid)
+    }
+
+    
+    public func getInitialMessageForContactMutualIntroductionProtocol(of identity1: ObvCryptoIdentity, with identity2: ObvCryptoIdentity, byOwnedIdentity ownedIdentity: ObvCryptoIdentity, usingProtocolInstanceUid protocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitialMessageForContactMutualIntroductionProtocol(of: identity1,
+                                                                                                                 with: identity2,
                                                                                                                  byOwnedIdentity: ownedIdentity,
                                                                                                                  usingProtocolInstanceUid: protocolInstanceUid)
     }
@@ -419,15 +456,19 @@ extension ObvProtocolManager {
     }
     
     
-    public func getInitialMessageForDeviceDiscoveryForContactIdentityProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
-        return try delegateManager.protocolStarterDelegate.getInitialMessageForDeviceDiscoveryForContactIdentityProtocol(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity)
+    public func getInitialMessageForContactDeviceDiscoveryProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitialMessageForContactDeviceDiscoveryProtocol(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity)
     }
     
     
     public func getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithContactDeviceProtocolInstances(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt> {
         return try ChannelCreationWithContactDeviceProtocolInstance.getAll(within: obvContext)
     }
-    
+
+    public func getAllObliviousChannelIdentifiersHavingARunningChannelCreationWithOwnedDeviceProtocolInstances(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifierAlt> {
+        return try ChannelCreationWithOwnedDeviceProtocolInstance.getAll(within: obvContext)
+    }
+
     public func getInitialMessageForDownloadIdentityPhotoChildProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactIdentityDetailsElements: IdentityDetailsElements) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitialMessageForDownloadIdentityPhotoChildProtocol(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, contactIdentityDetailsElements: contactIdentityDetailsElements)
     }
@@ -470,6 +511,10 @@ extension ObvProtocolManager {
         return try delegateManager.protocolStarterDelegate.getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, changeset: changeset, flowId: flowId)
     }
     
+    public func getInitialMessageForDownloadGroupV2PhotoProtocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitialMessageForDownloadGroupV2PhotoProtocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, serverPhotoInfo: serverPhotoInfo)
+    }
+    
     public func getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         return try delegateManager.protocolStarterDelegate.getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, groupIdentifier: groupIdentifier, flowId: flowId)
     }
@@ -483,8 +528,8 @@ extension ObvProtocolManager {
     }
     
     /// When a channel is (re)created with a contact device, the engine will call this method so as to make sure our contact knows about the group informations we have about groups v2 that we have in common.
-    public func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
-        return try delegateManager.protocolStarterDelegate.getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, contactDeviceUID: contactDeviceUID, flowId: flowId)
+    public func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, remoteIdentity: ObvCryptoIdentity, remoteDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, remoteIdentity: remoteIdentity, remoteDeviceUID: remoteDeviceUID, flowId: flowId)
         
     }
     
@@ -511,26 +556,117 @@ extension ObvProtocolManager {
     
     
     // MARK: - Owned identities
-    
-    /// Called when an owned identity is about to be deleted.
-    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         
-        // Delete all received messages
-        
-        try ReceivedMessage.batchDeleteAllReceivedMessagesForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
-        
-        // Delete signatures, commitments,... received relating to this owned identity
-        
-        try ChannelCreationPingSignatureReceived.batchDeleteAllChannelCreationPingSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
-        try TrustEstablishmentCommitmentReceived.batchDeleteAllTrustEstablishmentCommitmentReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
-        try MutualScanSignatureReceived.batchDeleteAllMutualScanSignatureReceivedForOwnedCryptoIdentity(ownedCryptoIdentity, within: obvContext)
-        try GroupV2SignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
-        try ContactOwnedIdentityDeletionSignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
-        
+    public func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, globalOwnedIdentityDeletion: Bool) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ownedCryptoIdentityToDelete, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
     }
     
-    public func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
-        return try delegateManager.protocolStarterDelegate.getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ownedCryptoIdentityToDelete, notifyContacts: notifyContacts, flowId: flowId)
+    public func getInitiateOwnedDeviceDiscoveryMessage(ownedCryptoIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateOwnedDeviceDiscoveryMessage(ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+
+    
+    public func getInitiateOwnedDeviceManagementMessage(ownedCryptoIdentity: ObvCryptoIdentity, request: ObvOwnedDeviceManagementRequest) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateOwnedDeviceManagementMessage(ownedCryptoIdentity: ownedCryptoIdentity, request: request)
+    }
+    
+    // MARK: - Keycloak binding and unbinding
+    
+    public func getOwnedIdentityKeycloakBindingMessage(ownedCryptoIdentity: ObvCryptoIdentity, keycloakState: ObvKeycloakState, keycloakUserId: String) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getOwnedIdentityKeycloakBindingMessage(
+            ownedCryptoIdentity: ownedCryptoIdentity,
+            keycloakState: keycloakState,
+            keycloakUserId: keycloakUserId)
+    }
+    
+    public func getOwnedIdentityKeycloakUnbindingMessage(ownedCryptoIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getOwnedIdentityKeycloakUnbindingMessage(ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+    
+    
+    // MARK: - SynchronizationProtocol
+    
+    public func getInitiateSyncAtomMessageForSynchronizationProtocol(ownedCryptoIdentity: ObvCryptoIdentity, syncAtom: ObvSyncAtom) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateSyncAtomMessageForSynchronizationProtocol(ownedCryptoIdentity: ownedCryptoIdentity, syncAtom: syncAtom)
+    }
+    
+    
+//    public func sendTriggerSyncSnapshotMessageToAllExistingSynchronizationProtocolInstances(within obvContext: ObvContext) throws {
+//        guard let channelDelegate = delegateManager.channelDelegate else {
+//            throw ObvError.channelDelegateIsNotSet
+//        }
+//        let currentSynchronizationProtocolInstances = try ProtocolInstance.getAll(cryptoProtocolId: .synchronization, delegateManager: delegateManager, within: obvContext)
+//        for protocolInstance in currentSynchronizationProtocolInstances {
+//            let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: protocolInstance.ownedCryptoIdentity),
+//                                                  cryptoProtocolId: .synchronization,
+//                                                  protocolInstanceUid: protocolInstance.uid)
+//            let message = SynchronizationProtocol.TriggerSyncSnapshotMessage(coreProtocolMessage: coreMessage, forceSendSnapshot: false)
+//            guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); continue }
+//            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+//        }
+//    }
+    
+    
+//    public func getTriggerSyncSnapshotMessageForSynchronizationProtocol(ownedCryptoIdentity: ObvCryptoIdentity, currentDeviceUid: UID, otherOwnedDeviceUid: UID, forceSendSnapshot: Bool) throws -> ObvChannelProtocolMessageToSend {
+//        return try delegateManager.protocolStarterDelegate.getTriggerSyncSnapshotMessageForSynchronizationProtocol(ownedCryptoIdentity: ownedCryptoIdentity, currentDeviceUid: currentDeviceUid, otherOwnedDeviceUid: otherOwnedDeviceUid, forceSendSnapshot: forceSendSnapshot)
+//    }
+    
+    
+//    public func getInitiateSyncSnapshotMessageForSynchronizationProtocol(ownedCryptoIdentity: ObvCryptoIdentity, currentDeviceUid: UID, otherOwnedDeviceUid: UID) throws -> ObvChannelProtocolMessageToSend {
+//        return try delegateManager.protocolStarterDelegate.getInitiateSyncSnapshotMessageForSynchronizationProtocol(ownedCryptoIdentity: ownedCryptoIdentity, currentDeviceUid: currentDeviceUid, otherOwnedDeviceUid: otherOwnedDeviceUid)
+//    }
+
+    
+    // MARK: - Owned identity transfer protocol
+
+    public func initiateOwnedIdentityTransferProtocolOnSourceDevice(ownedCryptoIdentity: ObvCryptoIdentity, onAvailableSessionNumber: @escaping (ObvOwnedIdentityTransferSessionNumber) -> Void, onAvailableSASExpectedOnInput: @escaping (ObvOwnedIdentityTransferSas, String, UID) -> Void, flowId: FlowIdentifier) async throws {
+        try await delegateManager.protocolStarterDelegate.initiateOwnedIdentityTransferProtocolOnSourceDevice(
+            ownedCryptoIdentity: ownedCryptoIdentity,
+            onAvailableSessionNumber: onAvailableSessionNumber,
+            onAvailableSASExpectedOnInput: onAvailableSASExpectedOnInput,
+            flowId: flowId)
+    }
+
+    public func initiateOwnedIdentityTransferProtocolOnTargetDevice(currentDeviceName: String, transferSessionNumber: ObvOwnedIdentityTransferSessionNumber, onIncorrectTransferSessionNumber: @escaping () -> Void, onAvailableSas: @escaping (UID, ObvOwnedIdentityTransferSas) -> Void, flowId: FlowIdentifier) async throws {
+        try await delegateManager.protocolStarterDelegate.initiateOwnedIdentityTransferProtocolOnTargetDevice(
+            currentDeviceName: currentDeviceName,
+            transferSessionNumber: transferSessionNumber,
+            onIncorrectTransferSessionNumber: onIncorrectTransferSessionNumber,
+            onAvailableSas: onAvailableSas,
+            flowId: flowId)
+    }
+    
+    
+    public func appIsShowingSasAndExpectingEndOfProtocol(protocolInstanceUID: UID, onSyncSnapshotReception: @escaping () -> Void, onSuccessfulTransfer: @escaping (ObvCryptoId, Error?) -> Void) async {
+        await delegateManager.protocolStarterDelegate.appIsShowingSasAndExpectingEndOfProtocol(
+            protocolInstanceUID: protocolInstanceUID,
+            onSyncSnapshotReception: onSyncSnapshotReception,
+            onSuccessfulTransfer: onSuccessfulTransfer)
+    }
+    
+    
+    public func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID) async throws {
+        try await delegateManager.protocolStarterDelegate.continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(
+            enteredSAS: enteredSAS,
+            deviceToKeepActive: deviceToKeepActive,
+            ownedCryptoId: ownedCryptoId,
+            protocolInstanceUID: protocolInstanceUID)
+    }
+ 
+    
+    public func cancelAllOwnedIdentityTransferProtocols(flowId: FlowIdentifier) async throws {
+        try await delegateManager.protocolStarterDelegate.cancelAllOwnedIdentityTransferProtocols(flowId: flowId)
+    }
+    
+}
+
+
+// MARK: - Allow to execute external operations on the queue executing protocol steps
+
+extension ObvProtocolManager {
+    
+    public func executeOnQueueForProtocolOperations<ReasonForCancelType: LocalizedErrorWithLogType>(operation: OperationWithSpecificReasonForCancel<ReasonForCancelType>) async throws {
+        try await delegateManager.receivedMessageDelegate.executeOnQueueForProtocolOperations(operation: operation)
     }
     
 }

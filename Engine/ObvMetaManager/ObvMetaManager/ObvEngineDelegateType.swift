@@ -35,4 +35,5 @@ public enum ObvEngineDelegateType: Int, Hashable, CaseIterable {
     case ObvNotificationDelegate
     case ObvFlowDelegate
     case ObvSimpleFlowDelegate
+    case ObvSyncSnapshotDelegate
 }

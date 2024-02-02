@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -16,16 +16,17 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
-  
 
 import SwiftUI
 import ObvTypes
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
 
 
 protocol OwnedIdentityDetailedInfosViewDelegate: AnyObject {
     func userWantsToDismissOwnedIdentityDetailedInfosView() async
+    func getKeycloakAPIKey(ownedCryptoId: ObvCryptoId) async throws -> UUID?
 }
 
 
@@ -34,6 +35,7 @@ struct OwnedIdentityDetailedInfosView: View {
     @ObservedObject var ownedIdentity: PersistedObvOwnedIdentity
     weak var delegate: OwnedIdentityDetailedInfosViewDelegate?
     @State private var signedContactDetails: SignedObvKeycloakUserDetails? = nil
+    @State private var ownedIdentityKeycloakApiKey: UUID?
     
     private var titlePart1: String? {
         ownedIdentity.identityCoreDetails.firstName?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -43,13 +45,13 @@ struct OwnedIdentityDetailedInfosView: View {
         ownedIdentity.identityCoreDetails.lastName?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var circledTextView: Text? {
+    private var circledText: String? {
         let component = [titlePart1, titlePart2]
             .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
             .filter({ !$0.isEmpty })
             .first
         if let char = component?.first {
-            return Text(String(char))
+            return String(char)
         } else {
             return nil
         }
@@ -58,6 +60,38 @@ struct OwnedIdentityDetailedInfosView: View {
     private var profilePicture: UIImage? {
         guard let url = ownedIdentity.photoURL else { return nil }
         return UIImage(contentsOfFile: url.path)
+    }
+    
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: titlePart1,
+              titlePart2: titlePart2,
+              subtitle: ownedIdentity.identityCoreDetails.position,
+              subsubtitle: ownedIdentity.identityCoreDetails.company)
+    }
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: circledText,
+              icon: .person,
+              profilePicture: profilePicture,
+              showGreenShield: ownedIdentity.isKeycloakManaged,
+              showRedShield: false)
+    }
+    
+    private var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: textViewModel,
+              profilePictureViewModelContent: profilePictureViewModelContent)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: ownedIdentity.cryptoId.colors.background,
+              foreground: ownedIdentity.cryptoId.colors.text)
+    }
+    
+    private var circleAndTitlesViewModel: CircleAndTitlesView.Model {
+        .init(content: circleAndTitlesViewModelContent,
+              colors: initialCircleViewModelColors,
+              displayMode: .normal,
+              editionMode: .none)
     }
     
     var body: some View {
@@ -70,21 +104,8 @@ struct OwnedIdentityDetailedInfosView: View {
                                 
                 ObvCardView(padding: 0) {
                     VStack(alignment: .leading, spacing: 0) {
-                        
-                        CircleAndTitlesView(
-                            titlePart1: titlePart1,
-                            titlePart2: titlePart2,
-                            subtitle: ownedIdentity.identityCoreDetails.position,
-                            subsubtitle: ownedIdentity.identityCoreDetails.company,
-                            circleBackgroundColor: ownedIdentity.cryptoId.colors.background,
-                            circleTextColor: ownedIdentity.cryptoId.colors.text,
-                            circledTextView: circledTextView,
-                            systemImage: .person,
-                            profilePicture: profilePicture,
-                            showGreenShield: ownedIdentity.isKeycloakManaged,
-                            showRedShield: false,
-                            editionMode: .none,
-                            displayMode: .normal)
+
+                        CircleAndTitlesView(model: circleAndTitlesViewModel)
                             .padding()
 
                         OlvidButton(style: .blue, title: Text(CommonString.Word.Back), systemIcon: .arrowshapeTurnUpBackwardFill) {
@@ -148,6 +169,16 @@ struct OwnedIdentityDetailedInfosView: View {
                         Text("CAPABILITIES")
                     }
                     
+                    if !ownedIdentity.devices.isEmpty {
+                        Section {
+                            ForEach(ownedIdentity.sortedDevices) { ownedDevice in
+                                OwnedDeviceInfosView(ownedDevice: ownedDevice)
+                            }
+                        } header: {
+                            Text("Devices")
+                        }
+                    }
+
                     if ownedIdentity.isKeycloakManaged {
                         Section {
                             if let signedContactDetails = signedContactDetails {
@@ -160,10 +191,13 @@ struct OwnedIdentityDetailedInfosView: View {
                             } else {
                                 HStack {
                                     Spacer()
-                                    ObvProgressView()
+                                    ProgressView()
                                     Spacer()
                                 }
                             }
+                            ObvSimpleListItemView(
+                                title: Text("API Key"),
+                                value: ownedIdentityKeycloakApiKey?.uuidString ?? CommonString.Word.None)
                         } header: {
                             Text("DETAILS_SIGNED_BY_IDENTITY_PROVIDER")
                         }
@@ -185,8 +219,30 @@ struct OwnedIdentityDetailedInfosView: View {
                     }
                 })
                 .postOnDispatchQueue()
+            let ownedCryptoId = ownedIdentity.ownedCryptoId
+            Task {
+                self.ownedIdentityKeycloakApiKey = try? await self.delegate?.getKeycloakAPIKey(ownedCryptoId: ownedCryptoId)
+            }
         }
     }
 
 
+}
+
+
+private struct OwnedDeviceInfosView: View {
+    
+    let ownedDevice: PersistedObvOwnedDevice
+    
+    private var title: String {
+        return ownedDevice.name
+    }
+    
+    var body: some View {
+        ObvSimpleListItemView(
+            title: Text(title),
+            value: ownedDevice.identifier.hexString())
+    
+    }
+    
 }

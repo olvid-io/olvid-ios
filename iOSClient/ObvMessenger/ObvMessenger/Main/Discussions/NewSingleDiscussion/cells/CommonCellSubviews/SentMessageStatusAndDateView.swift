@@ -57,6 +57,7 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
         case .read: return .eyeFill
         case .couldNotBeSentToOneOrMoreRecipients: return .exclamationmarkCircle
         case .hasNoRecipient: return .iphoneGen3CircleFill
+        case .sentFromAnotherOwnedDevice: return .iphoneGen3CircleFill
         }
     }
     

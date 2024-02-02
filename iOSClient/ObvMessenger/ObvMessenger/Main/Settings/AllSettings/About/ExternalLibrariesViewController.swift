@@ -19,6 +19,8 @@
 
 import ObvUI
 import UIKit
+import ObvDesignSystem
+
 
 private enum Licence {
     case webrtc

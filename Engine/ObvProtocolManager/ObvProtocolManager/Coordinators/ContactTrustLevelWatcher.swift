@@ -137,7 +137,7 @@ final class ContactTrustLevelWatcher {
                     }
 
                     do {
-                        _ = try channelDelegate.post(protocolMessageToSend, randomizedWith: _self.prng, within: obvContext)
+                        _ = try channelDelegate.postChannelMessage(protocolMessageToSend, randomizedWith: _self.prng, within: obvContext)
                     } catch {
                         os_log("Could not post message", log: log, type: .fault)
                         return
@@ -220,7 +220,7 @@ final class ContactTrustLevelWatcher {
                 }
                 
                 do {
-                    _ = try channelDelegate.post(protocolMessageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(protocolMessageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not post message", log: log, type: .fault)
                     return

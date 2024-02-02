@@ -44,15 +44,15 @@ final class DeletedOutboxMessage: NSManagedObject, ObvManagedObject {
 
     // MARK: Other variables
 
-    private(set) var messageId: MessageIdentifier {
-        get { return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
+    private(set) var messageId: ObvMessageIdentifier {
+        get { return ObvMessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
         set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
     }
 
     weak var delegateManager: ObvNetworkSendDelegateManager?
     var obvContext: ObvContext?
 
-    private convenience init(messageId: MessageIdentifier, timestampFromServer: Date, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) {
+    private convenience init(messageId: ObvMessageIdentifier, timestampFromServer: Date, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: DeletedOutboxMessage.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.messageId = messageId
@@ -61,7 +61,7 @@ final class DeletedOutboxMessage: NSManagedObject, ObvManagedObject {
         self.insertionDate = Date()
     }
     
-    static func getOrCreate(messageId: MessageIdentifier, timestampFromServer: Date, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> DeletedOutboxMessage {
+    static func getOrCreate(messageId: ObvMessageIdentifier, timestampFromServer: Date, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> DeletedOutboxMessage {
         if let existingDeletedOutboxMessage = try DeletedOutboxMessage.getDeletedOutboxMessage(messageId: messageId, delegateManager: delegateManager, within: obvContext) {
             assertionFailure("In practice, this should never occur")
             return existingDeletedOutboxMessage
@@ -85,7 +85,7 @@ extension DeletedOutboxMessage {
             case timestampFromServer = "timestampFromServer"
         }
         
-        static func withMessageId(_ messageId: MessageIdentifier) -> NSPredicate {
+        static func withMessageId(_ messageId: ObvMessageIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: messageId.ownedCryptoIdentity.getIdentity()),
                 NSPredicate(Key.rawMessageIdUid, EqualToData: messageId.uid.raw),
@@ -113,7 +113,7 @@ extension DeletedOutboxMessage {
         return items.map { $0.delegateManager = delegateManager; return $0 }
     }
     
-    private static func getDeletedOutboxMessage(messageId: MessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> DeletedOutboxMessage? {
+    private static func getDeletedOutboxMessage(messageId: ObvMessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> DeletedOutboxMessage? {
         let request: NSFetchRequest<DeletedOutboxMessage> = DeletedOutboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageId(messageId)
         request.fetchLimit = 1
@@ -123,7 +123,7 @@ extension DeletedOutboxMessage {
         return item
     }
     
-    static func batchDelete(messageId: MessageIdentifier, within obvContext: ObvContext) throws {
+    static func batchDelete(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: DeletedOutboxMessage.entityName)
         fetchRequest.predicate = Predicate.withMessageId(messageId)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)

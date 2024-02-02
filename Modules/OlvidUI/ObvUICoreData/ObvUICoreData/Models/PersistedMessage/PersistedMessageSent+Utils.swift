@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -41,30 +41,16 @@ extension PersistedMessageSent {
         return try context.count(for: request)
     }
 
-    
-    /// Called when a sent message with limited visibility reached the end of this visibility (in which case the `requester` is `nil`)
-    /// or when a message was globally wiped (in which case the requester is non nil)
-    public func wipe(requester: RequesterOfMessageDeletion?) throws {
-        if let requester {
-            try throwIfRequesterIsNotAllowedToDeleteMessage(requester: requester)
-        }
-        switch requester {
-        case .ownedIdentity, .none:
-            guard !isLocallyWiped else { return }
-        case .contact:
-            guard !isRemoteWiped else { return }
-        }
+
+    /// Called when a sent message with limited visibility reached the end of this visibility.
+    private func wipeExpiredMessageSent() throws {
+        guard !isLocallyWiped else { return }
         for join in fyleMessageJoinWithStatuses {
             try join.wipe()
         }
         self.deleteBodyAndMentions()
         try? self.reactions.forEach { try $0.delete() }
-        switch requester {
-        case .ownedIdentity, .none:
-            try addMetadata(kind: .wiped, date: Date())
-        case .contact(_, let contactCryptoId, _):
-            try addMetadata(kind: .remoteWiped(remoteCryptoId: contactCryptoId), date: Date())
-        }
+        try addMetadata(kind: .wiped, date: Date())
         // It makes no sense to keep an existing visibility expiration (if one exists) since we just wiped the message.
         try expirationForSentLimitedVisibility?.delete()
         // It makes no sense to keep unprocessed PersistedMessageSentRecipientInfos since we won't resend this message anymore
@@ -75,20 +61,23 @@ extension PersistedMessageSent {
     
     /// If `retainWipedOutboundMessages` is `true`, this method only wipes the message. Otherwise, it deletes it.
     /// For now, this method is always used with a `nil` requester (meaning that no check will be performed before wiping or deleting messages), since it is called on expired sent messages.
-    public func wipeOrDelete(requester: RequesterOfMessageDeletion?) throws -> InfoAboutWipedOrDeletedPersistedMessage {
+    public func wipeOrDeleteExpiredMessageSent() throws -> InfoAboutWipedOrDeletedPersistedMessage {
         if retainWipedOutboundMessages {
+            guard let discussion else {
+                throw ObvError.discussionIsNil
+            }
             do {
                 let wipeInfo = InfoAboutWipedOrDeletedPersistedMessage(kind: .wiped,
-                                                                       discussionPermanentID: self.discussion.discussionPermanentID,
+                                                                       discussionPermanentID: discussion.discussionPermanentID,
                                                                        messagePermanentID: self.messagePermanentID)
-                try wipe(requester: requester)
+                try wipeExpiredMessageSent()
                 return wipeInfo
             } catch {
                 assertionFailure()
-                return try delete(requester: requester)
+                return try deleteExpiredMessage()
             }
         } else {
-            return try delete(requester: requester)
+            return try deleteExpiredMessage()
         }
     }
 

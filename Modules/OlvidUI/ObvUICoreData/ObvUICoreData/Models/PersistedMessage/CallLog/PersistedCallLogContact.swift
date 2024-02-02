@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,6 +36,9 @@ public enum CallReportKind: Int, CustomDebugStringConvertible, CaseIterable {
     case anyIncomingCall = 11 /// incoming call without informations
     case anyOutgoingCall = 12 /// outgoing call without informations
     case filteredIncomingCall = 13
+    case answeredOnOtherDevice = 14
+    case rejectedOnOtherDevice = 15
+    case rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse = 16
 
     public var debugDescription: String {
         switch self {
@@ -53,6 +56,9 @@ public enum CallReportKind: Int, CustomDebugStringConvertible, CaseIterable {
         case .anyIncomingCall: return "anyIncomingCall"
         case .anyOutgoingCall: return "anyOutgoingCall"
         case .filteredIncomingCall: return "filteredIncomingCall"
+        case .answeredOnOtherDevice: return "answeredOnOtherDevice"
+        case .rejectedOnOtherDevice: return "rejectedOnOtherDevice"
+        case .rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse: return "rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse"
         }
     }
 
@@ -60,6 +66,7 @@ public enum CallReportKind: Int, CustomDebugStringConvertible, CaseIterable {
         switch self {
         case .missedIncomingCall,
                 .rejectedIncomingCallBecauseOfDeniedRecordPermission,
+                .rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse,
                 .filteredIncomingCall:
             return true
         case .rejectedIncomingCall,
@@ -72,6 +79,8 @@ public enum CallReportKind: Int, CustomDebugStringConvertible, CaseIterable {
                 .newParticipantInIncomingCall,
                 .newParticipantInOutgoingCall,
                 .anyIncomingCall,
+                .answeredOnOtherDevice,
+                .rejectedOnOtherDevice,
                 .anyOutgoingCall:
             return false
         }

@@ -24,6 +24,7 @@ import ObvEngine
 import ObvTypes
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
 
 
 final class BackupKeyVerifierViewHostingController: UIHostingController<BackupKeyVerifierView> {
@@ -359,7 +360,7 @@ fileprivate struct BackupKeyVerifierInnerView: View {
                     if let keyStatusReport = self.keyStatusReport {
                         KeyStatusReportView(keyStatusReport: keyStatusReport)
                             .transition(.scale)
-                            .animation(.spring())
+                            .animation(.spring(), value: 0.3)
                             
                     }
                     if isInBackupRecoveryMode {

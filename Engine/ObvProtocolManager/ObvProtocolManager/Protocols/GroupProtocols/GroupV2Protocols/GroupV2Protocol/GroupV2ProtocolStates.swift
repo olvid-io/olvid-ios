@@ -104,18 +104,20 @@ extension GroupV2Protocol {
         let invitationCollectedData: GroupV2.InvitationCollectedData
         let expectedInternalServerQueryIdentifier: Int
         let lastKnownOwnInvitationNonceAndOtherMembers: (nonce: Data, otherGroupMembers: Set<ObvCryptoIdentity>)?
+        let ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: [Data]
 
-        init(groupIdentifier: GroupV2.Identifier, dialogUuid: UUID, invitationCollectedData: GroupV2.InvitationCollectedData, expectedInternalServerQueryIdentifier: Int, lastKnownOwnInvitationNonceAndOtherMembers: (nonce: Data, otherGroupMembers: Set<ObvCryptoIdentity>)?) {
+        init(groupIdentifier: GroupV2.Identifier, dialogUuid: UUID, invitationCollectedData: GroupV2.InvitationCollectedData, expectedInternalServerQueryIdentifier: Int, ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: [Data], lastKnownOwnInvitationNonceAndOtherMembers: (nonce: Data, otherGroupMembers: Set<ObvCryptoIdentity>)?) {
             self.groupIdentifier = groupIdentifier
             self.dialogUuid = dialogUuid
             self.invitationCollectedData = invitationCollectedData
+            self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = ownInvitationNonceOfInvitationsAcceptedOnOtherDevices
             self.lastKnownOwnInvitationNonceAndOtherMembers = lastKnownOwnInvitationNonceAndOtherMembers
             self.expectedInternalServerQueryIdentifier = expectedInternalServerQueryIdentifier
         }
 
         func obvEncode() throws -> ObvEncoded {
             let encodedCollectedData = try invitationCollectedData.obvEncode()
-            var encodedValues = [groupIdentifier.obvEncode(), dialogUuid.obvEncode(), encodedCollectedData, expectedInternalServerQueryIdentifier.obvEncode()]
+            var encodedValues = [groupIdentifier.obvEncode(), dialogUuid.obvEncode(), encodedCollectedData, expectedInternalServerQueryIdentifier.obvEncode(), ownInvitationNonceOfInvitationsAcceptedOnOtherDevices.map{ $0.obvEncode() }.obvEncode()]
             if let lastKnownOwnInvitationNonceAndOtherMembers = lastKnownOwnInvitationNonceAndOtherMembers {
                 encodedValues.append(lastKnownOwnInvitationNonceAndOtherMembers.nonce.obvEncode())
                 encodedValues.append(Array(lastKnownOwnInvitationNonceAndOtherMembers.otherGroupMembers).map({ $0.obvEncode() }).obvEncode())
@@ -125,21 +127,59 @@ extension GroupV2Protocol {
 
         init(_ obvEncoded: ObvEncoded) throws {
             guard let encodedValues = [ObvEncoded](obvEncoded) else { assertionFailure(); throw Self.makeError(message: "Could not decode DownloadingGroupDataState") }            
-            guard [4, 6].contains(encodedValues.count) else { assertionFailure(); throw Self.makeError(message: "Unexpected number of elements in encoded DownloadingGroupDataState") }
+            guard [4, 5, 6, 7].contains(encodedValues.count) else { assertionFailure(); throw Self.makeError(message: "Unexpected number of elements in encoded DownloadingGroupDataState") }
             self.groupIdentifier = try encodedValues[0].obvDecode()
             self.dialogUuid = try encodedValues[1].obvDecode()
             self.invitationCollectedData = try encodedValues[2].obvDecode()
             self.expectedInternalServerQueryIdentifier = try encodedValues[3].obvDecode()
-            if encodedValues.count == 6 {
+            switch encodedValues.count {
+            case 4:
+                // Legacy case, when we had no ownInvitationNonceOfInvitationsAcceptedOnOtherDevices
+                self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = []
+                self.lastKnownOwnInvitationNonceAndOtherMembers = nil
+            case 5:
+                guard let arrayOfEncoded = [ObvEncoded](encodedValues[4]) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not decode expectedInternalServerQueryIdentifier")
+                }
+                self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = try arrayOfEncoded.map({ try $0.obvDecode() })
+                self.lastKnownOwnInvitationNonceAndOtherMembers = nil
+            case 6:
+                // Legacy case, when we had no ownInvitationNonceOfInvitationsAcceptedOnOtherDevices
                 let nonce: Data = try encodedValues[4].obvDecode()
                 guard let encodedGroupMemberIdentities = [ObvEncoded](encodedValues[5]) else { assertionFailure(); throw Self.makeError(message: "Could not decode group member identities in DownloadingGroupDataState") }
                 let groupMemberIdentities = Set(encodedGroupMemberIdentities.compactMap({ ObvCryptoIdentity($0) }))
+                self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = []
                 self.lastKnownOwnInvitationNonceAndOtherMembers = (nonce, groupMemberIdentities)
-            } else {
-                self.lastKnownOwnInvitationNonceAndOtherMembers = nil
+            case 7:
+                guard let arrayOfEncoded = [ObvEncoded](encodedValues[4]) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not decode expectedInternalServerQueryIdentifier")
+                }
+                self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = try arrayOfEncoded.map({ try $0.obvDecode() })
+                let nonce: Data = try encodedValues[5].obvDecode()
+                guard let encodedGroupMemberIdentities = [ObvEncoded](encodedValues[6]) else { assertionFailure(); throw Self.makeError(message: "Could not decode group member identities in DownloadingGroupDataState") }
+                let groupMemberIdentities = Set(encodedGroupMemberIdentities.compactMap({ ObvCryptoIdentity($0) }))
+                self.lastKnownOwnInvitationNonceAndOtherMembers = (nonce, groupMemberIdentities)
+            default:
+                assertionFailure()
+                throw Self.makeError(message: "Could not decode DownloadingGroupDataState")
             }
         }
-                        
+     
+        
+        func addingOwnInvitationNonceOfInvitationsAcceptedOnOtherDevice(nonce: Data) -> Self {
+            var nonces = self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices
+            nonces.append(nonce)
+            return .init(groupIdentifier: groupIdentifier,
+                         dialogUuid: dialogUuid,
+                         invitationCollectedData: invitationCollectedData,
+                         expectedInternalServerQueryIdentifier: expectedInternalServerQueryIdentifier,
+                         ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: nonces,
+                         lastKnownOwnInvitationNonceAndOtherMembers: lastKnownOwnInvitationNonceAndOtherMembers)
+        }
+        
+        
     }
 
     
@@ -152,18 +192,20 @@ extension GroupV2Protocol {
         let groupIdentifier: GroupV2.Identifier
         let dialogUuid: UUID
         let invitationCollectedData: GroupV2.InvitationCollectedData
+        let ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: [Data]
         let lastKnownOwnInvitationNonceAndOtherMembers: (nonce: Data, otherGroupMembers: Set<ObvCryptoIdentity>)?
 
-        init(groupIdentifier: GroupV2.Identifier, dialogUuid: UUID, invitationCollectedData: GroupV2.InvitationCollectedData, lastKnownOwnInvitationNonceAndOtherMembers: (nonce: Data, otherGroupMembers: Set<ObvCryptoIdentity>)?) {
+        init(groupIdentifier: GroupV2.Identifier, dialogUuid: UUID, invitationCollectedData: GroupV2.InvitationCollectedData, ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: [Data], lastKnownOwnInvitationNonceAndOtherMembers: (nonce: Data, otherGroupMembers: Set<ObvCryptoIdentity>)?) {
             self.groupIdentifier = groupIdentifier
             self.dialogUuid = dialogUuid
             self.invitationCollectedData = invitationCollectedData
+            self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = ownInvitationNonceOfInvitationsAcceptedOnOtherDevices
             self.lastKnownOwnInvitationNonceAndOtherMembers = lastKnownOwnInvitationNonceAndOtherMembers
         }
 
         func obvEncode() throws -> ObvEncoded {
             let encodedCollectedData = try invitationCollectedData.obvEncode()
-            var encodedValues = [groupIdentifier.obvEncode(), dialogUuid.obvEncode(), encodedCollectedData]
+            var encodedValues = [groupIdentifier.obvEncode(), dialogUuid.obvEncode(), encodedCollectedData, ownInvitationNonceOfInvitationsAcceptedOnOtherDevices.map({ $0.obvEncode() }).obvEncode()]
             if let lastKnownOwnInvitationNonceAndOtherMembers = lastKnownOwnInvitationNonceAndOtherMembers {
                 encodedValues.append(lastKnownOwnInvitationNonceAndOtherMembers.nonce.obvEncode())
                 encodedValues.append(Array(lastKnownOwnInvitationNonceAndOtherMembers.otherGroupMembers).map({ $0.obvEncode() }).obvEncode())
@@ -173,20 +215,56 @@ extension GroupV2Protocol {
 
         init(_ obvEncoded: ObvEncoded) throws {
             guard let encodedValues = [ObvEncoded](obvEncoded) else { assertionFailure(); throw Self.makeError(message: "Could not decode INeedMoreSeedsState") }
-            guard [3, 5].contains(encodedValues.count) else { assertionFailure(); throw Self.makeError(message: "Unexpected number of elements in encoded INeedMoreSeedsState") }
+            guard [3, 4, 5, 6].contains(encodedValues.count) else { assertionFailure(); throw Self.makeError(message: "Unexpected number of elements in encoded INeedMoreSeedsState") }
             self.groupIdentifier = try encodedValues[0].obvDecode()
             self.dialogUuid = try encodedValues[1].obvDecode()
             self.invitationCollectedData = try encodedValues[2].obvDecode()
-            if encodedValues.count == 5 {
-                let nonce: Data = try encodedValues[3].obvDecode()
-                guard let encodedOtherGroupMembers = [ObvEncoded](encodedValues[4]) else { assertionFailure(); throw Self.makeError(message: "Could not decode group member identities in INeedMoreSeedsState") }
-                let otherGroupMembers = Set(encodedOtherGroupMembers.compactMap({ ObvCryptoIdentity($0) }))
-                self.lastKnownOwnInvitationNonceAndOtherMembers = (nonce, otherGroupMembers)
-            } else {
+            switch encodedValues.count {
+            case 3:
+                // Legacy case, when we had no ownInvitationNonceOfInvitationsAcceptedOnOtherDevices
+                self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = []
                 self.lastKnownOwnInvitationNonceAndOtherMembers = nil
+            case 4:
+                guard let arrayOfEncoded = [ObvEncoded](encodedValues[3]) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not decode expectedInternalServerQueryIdentifier")
+                }
+                self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = try arrayOfEncoded.map({ try $0.obvDecode() })
+                self.lastKnownOwnInvitationNonceAndOtherMembers = nil
+            case 5:
+                // Legacy case, when we had no ownInvitationNonceOfInvitationsAcceptedOnOtherDevices
+                let nonce: Data = try encodedValues[3].obvDecode()
+                guard let encodedGroupMemberIdentities = [ObvEncoded](encodedValues[4]) else { assertionFailure(); throw Self.makeError(message: "Could not decode group member identities in DownloadingGroupDataState") }
+                let groupMemberIdentities = Set(encodedGroupMemberIdentities.compactMap({ ObvCryptoIdentity($0) }))
+                self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = []
+                self.lastKnownOwnInvitationNonceAndOtherMembers = (nonce, groupMemberIdentities)
+            case 6:
+                guard let arrayOfEncoded = [ObvEncoded](encodedValues[3]) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Could not decode expectedInternalServerQueryIdentifier")
+                }
+                self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices = try arrayOfEncoded.map({ try $0.obvDecode() })
+                let nonce: Data = try encodedValues[4].obvDecode()
+                guard let encodedGroupMemberIdentities = [ObvEncoded](encodedValues[5]) else { assertionFailure(); throw Self.makeError(message: "Could not decode group member identities in DownloadingGroupDataState") }
+                let groupMemberIdentities = Set(encodedGroupMemberIdentities.compactMap({ ObvCryptoIdentity($0) }))
+                self.lastKnownOwnInvitationNonceAndOtherMembers = (nonce, groupMemberIdentities)
+            default:
+                assertionFailure()
+                throw Self.makeError(message: "Could not decode DownloadingGroupDataState")
             }
         }
                         
+        
+        func addingOwnInvitationNonceOfInvitationsAcceptedOnOtherDevice(nonce: Data) -> Self {
+            var nonces = self.ownInvitationNonceOfInvitationsAcceptedOnOtherDevices
+            nonces.append(nonce)
+            return .init(groupIdentifier: groupIdentifier,
+                         dialogUuid: dialogUuid,
+                         invitationCollectedData: invitationCollectedData,
+                         ownInvitationNonceOfInvitationsAcceptedOnOtherDevices: nonces,
+                         lastKnownOwnInvitationNonceAndOtherMembers: lastKnownOwnInvitationNonceAndOtherMembers)
+        }
+        
     }
 
     

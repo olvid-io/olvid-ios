@@ -19,7 +19,7 @@
 
 import Foundation
 import CoreData.NSManagedObject
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
 import ObvTypes
 
 public enum MentionableIdentityTypes {

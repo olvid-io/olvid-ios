@@ -26,6 +26,7 @@ import OlvidUtils
 import ObvCrypto
 import ObvUICoreData
 import CoreData
+import ObvSettings
 
 
 
@@ -499,12 +500,13 @@ private extension CKDatabase {
         return try await withCheckedThrowingContinuation({ cont in
             let operation = CKModifyRecordsOperation(recordsToSave: recordsToSave,
                                                      recordIDsToDelete: recordIDsToDelete)
-            operation.modifyRecordsCompletionBlock = { (savedRecords, deletedRecordIDs, error) in
-                if let error = error {
+            operation.modifyRecordsResultBlock = { result in
+                switch result {
+                case .failure(let error):
                     cont.resume(throwing: CloudKitError.operationError(error))
-                    return
+                case .success:
+                    cont.resume()
                 }
-                cont.resume()
             }
             self.add(operation)
         })
@@ -687,7 +689,7 @@ extension AppBackupManager: ObvBackupable {
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
          
-            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine { result in
+            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine(queuePriority: .veryHigh) { result in
 
                 switch result {
                     

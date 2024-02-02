@@ -22,6 +22,7 @@ import OlvidUtils
 import os.log
 import ObvTypes
 import ObvUICoreData
+import CoreData
 
 
 final class UpdateAPIKeyStatusAndPermissionsOfOwnedIdentityOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -39,19 +40,17 @@ final class UpdateAPIKeyStatusAndPermissionsOfOwnedIdentityOperation: Contextual
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
+                // This happens if the owned identity just got deleted
+                return
+            }
+            persistedObvOwnedIdentity.set(apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate)
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
-            do {
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else { assertionFailure(); return }
-                persistedObvOwnedIdentity.set(apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-        }
     }
 }

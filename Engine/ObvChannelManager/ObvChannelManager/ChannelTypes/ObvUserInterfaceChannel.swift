@@ -44,7 +44,7 @@ final class ObvUserInterfaceChannel: ObvChannel {
         self.toOwnedIdentity = toOwnedIdentity
     }
     
-    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> MessageIdentifier {
+    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> ObvMessageIdentifier {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvUserInterfaceChannel.logCategory)
 
@@ -67,7 +67,7 @@ final class ObvUserInterfaceChannel: ObvChannel {
             try obvUserInterfaceChannelDelegate.newUserDialogToPresent(obvChannelDialogMessageToSend: message, within: obvContext)
             
             let randomUid = UID.gen(with: prng)
-            let messageId = MessageIdentifier(ownedCryptoIdentity: toOwnedIdentity, uid: randomUid)
+            let messageId = ObvMessageIdentifier(ownedCryptoIdentity: toOwnedIdentity, uid: randomUid)
 
             return messageId
 
@@ -121,7 +121,7 @@ extension ObvUserInterfaceChannel {
         
     }
     
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>] {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvUserInterfaceChannel.logCategory)
 

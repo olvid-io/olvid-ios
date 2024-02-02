@@ -19,6 +19,7 @@
   
 import ObvUI
 import SwiftUI
+import ObvDesignSystem
 
 
 // Allows to fix an iOS 14/13 bug with @available(iOS 15.0, *) @FocusState
@@ -116,41 +117,26 @@ struct PasscodeField: View {
     @ViewBuilder
     private var field: some View {
         if showPasscode {
-            if #available(iOS 15.0, *) {
-                textField
-                    .obvFocused(state: $textFocus)
-            } else {
-                textField
-            }
+            textField
+                .obvFocused(state: $textFocus)
         } else {
-            if #available(iOS 15.0, *) {
-                secureField
-                    .obvFocused(state: $secureFocus)
-            } else {
-                secureField
-            }
+            secureField
+                .obvFocused(state: $secureFocus)
         }
     }
 
     var body: some View {
         HStack {
-            if #available(iOS 15.0, *) {
-                field
-                    .keyboardType(passcodeKind.passcodeIsPassword ? .alphabet : .numberPad)
-            } else {
-                field
-                    .keyboardType(.numberPad)
-            }
+            field
+                .keyboardType(passcodeKind.passcodeIsPassword ? .alphabet : .numberPad)
             if isLockedOut {
                 Image(systemIcon: .lock(.none, .none))
                     .font(.system(size: 20))
                     .foregroundColor(.primary)
             } else {
                 Button(action: {
-                    if #available(iOS 15.0, *) {
-                        withAnimation {
-                            showPasscode.toggle()
-                        }
+                    withAnimation {
+                        showPasscode.toggle()
                     }
                 }, label: {
                     Image(systemIcon: .eyes)

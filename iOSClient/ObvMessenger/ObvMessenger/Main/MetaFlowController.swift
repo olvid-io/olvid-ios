@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,7 @@
 import UIKit
 import os.log
 import CoreData
+import StoreKit
 import ObvEngine
 import ObvCrypto
 import ObvTypes
@@ -27,12 +28,19 @@ import SwiftUI
 import AVFAudio
 import ObvUI
 import ObvUICoreData
+import UniformTypeIdentifiers
+import ObvSettings
+import ObvDesignSystem
+import JWS
+import AppAuth
+import Contacts
 
 
 @MainActor
-final class MetaFlowController: UIViewController, OlvidURLHandler {
+final class MetaFlowController: UIViewController, OlvidURLHandler, MainFlowViewControllerDelegate {
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MetaFlowController.self))
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MetaFlowController.self))
 
     var observationTokens = [NSObjectProtocol]()
     
@@ -46,10 +54,18 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     // Coordinators and Services
     
     private var mainFlowViewController: MainFlowViewController?
-    private var onboardingFlowViewController: OnboardingFlowViewController?
+    private var onboardingFlowViewController: NewOnboardingFlowViewController?
 
     private weak var createPasscodeDelegate: CreatePasscodeDelegate?
+    private weak var localAuthenticationDelegate: LocalAuthenticationDelegate?
     private weak var appBackupDelegate: AppBackupDelegate?
+    private weak var storeKitDelegate: StoreKitDelegate?
+    private weak var singleOwnedIdentityStoreKitDelegate: StoreKitDelegate?
+
+    /// To ensure a smooth transistion during a cold boot, we add the launcscreen's view as the first child view.
+    /// Once the other child views are show, we hide this view to prevent glitches (e.g., when switch back and forth between the call and the main view).
+    /// So we keep a reference to it to make this hiding easy.
+    private var launchView: UIView?
 
     private let callBannerView = CallBannerView()
     private let viewOnTopOfCallBannerView = UIView()
@@ -60,6 +76,7 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     private var currentOwnedCryptoId: ObvCryptoId? = nil
     
     private var viewDidLoadWasCalled = false
+    private var shouldShowCallBannerOnViewDidLoad = false
 
     private var viewDidAppearWasCalledAtLeastOnce = false
     private var completionHandlersToCallOnViewDidAppear = [() -> Void]()
@@ -69,14 +86,24 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     
     private let obvEngine: ObvEngine
     
-    init(obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, appBackupDelegate: AppBackupDelegate) {
+    init(obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, localAuthenticationDelegate: LocalAuthenticationDelegate, appBackupDelegate: AppBackupDelegate, storeKitDelegate: StoreKitDelegate, shouldShowCallBanner: Bool) {
         
         self.obvEngine = obvEngine
         self.createPasscodeDelegate = createPasscodeDelegate
+        self.localAuthenticationDelegate = localAuthenticationDelegate
         self.appBackupDelegate = appBackupDelegate
+        self.storeKitDelegate = storeKitDelegate
 
         super.init(nibName: nil, bundle: nil)
         
+        // If the RootViewController indicates that there is a call in progress, show the call banner.
+        // This happens when the app was force quitted before receiving a CallKit incoming call. In that case,
+        // if the user launches the app from the CallKit UI, this MetFlowController is not instantiated during launch
+        // as the in-hous call view is shown instead. As a consequence, this MetaFlowController did not receive the
+        // notification about the call. So we need to have the information about this call at init time.
+        
+        shouldShowCallBannerOnViewDidLoad = shouldShowCallBanner
+                
         observeDidBecomeActiveNotifications()
         
         // Internal notifications
@@ -110,6 +137,9 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
             ObvEngineNotificationNew.observeWellKnownUpdatedSuccess(within: NotificationCenter.default) { [weak self] _, appInfo in
                 self?.processWellKnownAppInfo(appInfo)
             },
+            ObvEngineNotificationNew.observeAnOwnedIdentityTransferProtocolFailed(within: NotificationCenter.default) { [weak self] ownedCryptoId, protocolInstanceUID, error in
+                Task { [weak self] in await self?.processAnOwnedIdentityTransferProtocolFailed(ownedCryptoId: ownedCryptoId, protocolInstanceUID: protocolInstanceUID, error: error) }
+            },
         ])
         
         // App notifications
@@ -118,22 +148,17 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
             ObvMessengerInternalNotification.observeUserWantsToRestartChannelEstablishmentProtocol { [weak self] (contactCryptoId, ownedCryptoId) in
                 self?.processUserWantsToRestartChannelEstablishmentProtocol(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
             },
-            ObvMessengerInternalNotification.observeUserWantsToReCreateChannelEstablishmentProtocol() { [weak self] (contactCryptoId, ownedCryptoId) in
-                self?.processUserWantsToReCreateChannelEstablishmentProtocol(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-            },
             ObvMessengerInternalNotification.observeUserWantsToCreateNewGroupV1(queue: OperationQueue.main) { [weak self] (groupName, groupDescription, groupMembersCryptoIds, ownedCryptoId, photoURL) in
                 self?.processUserWantsToCreateNewGroupV1(groupName: groupName, groupDescription: groupDescription, groupMembersCryptoIds: groupMembersCryptoIds, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
             },
             ObvMessengerInternalNotification.observeUserWantsToCreateNewGroupV2(queue: OperationQueue.main) { [weak self] (groupCoreDetails, ownPermissions, otherGroupMembers, ownedCryptoId, photoURL) in
                 self?.processUserWantsToCreateNewGroupV2(groupCoreDetails: groupCoreDetails, ownPermissions: ownPermissions, otherGroupMembers: otherGroupMembers, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
             },
-            ObvMessengerCoreDataNotification.observeDisplayedContactGroupWasJustCreated { permanentID in
-                OperationQueue.main.addOperation { [weak self] in
-                    self?.processDisplayedContactGroupWasJustCreated(permanentID: permanentID)
-                }
+            ObvMessengerCoreDataNotification.observeDisplayedContactGroupWasJustCreated { [weak self] permanentID in
+                Task { await self?.processDisplayedContactGroupWasJustCreated(permanentID: permanentID) }
             },
-            ObvMessengerInternalNotification.observeUserWantsToCreateNewOwnedIdentity { [weak self] in
-                Task { await self?.processUserWantsToCreateNewOwnedIdentityNotification() }
+            ObvMessengerInternalNotification.observeUserWantsToAddOwnedProfile { [weak self] in
+                Task { await self?.processUserWantsToAddOwnedProfileNotification() }
             },
             ObvMessengerInternalNotification.observeUserWantsToSwitchToOtherOwnedIdentity { [weak self] ownedCryptoId in
                 Task { await self?.processUserWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ownedCryptoId) }
@@ -165,17 +190,23 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         // VoIP notifications
         
         observationTokens.append(contentsOf: [
-            VoIPNotification.observeShowCallViewControllerForAnsweringNonCallKitIncomingCall(queue: .main) { [weak self] _ in
-                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true)
+//            VoIPNotification.observeShowCallViewControllerForAnsweringNonCallKitIncomingCall(queue: .main) { [weak self] _ in
+//                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true)
+//            },
+            VoIPNotification.observeNewCallToShow { [weak self] _ in
+                Task { [weak self] in await self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true, animate: true) }
             },
-            VoIPNotification.observeNewOutgoingCall(queue: .main) { [weak self] _ in
-                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true)
-            },
-            VoIPNotification.observeAnIncomingCallShouldBeShownToUser(queue: .main) { [weak self] _ in
-                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true)
-            },
-            VoIPNotification.observeNoMoreCallInProgress(queue: .main) { [weak self] in
-                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: false)
+//            VoIPNotification.observeNewOutgoingCall { [weak self] _ in
+//                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true)
+//            },
+//            VoIPNotification.observeAnIncomingCallShouldBeShownToUser(queue: .main) { [weak self] _ in
+//                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true)
+//            },
+            VoIPNotification.observeNoMoreCallInProgress { [weak self] in
+                Task(priority: .userInitiated) { [weak self] in
+                    os_log("☎️🔚 Observed observeNoMoreCallInProgress notification", log: Self.log, type: .info)
+                    await self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: false, animate: true)
+                }
             }
         ])
     }
@@ -208,6 +239,18 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         os_log("Latest recommended app build version from server: %{public}@", log: log, type: .info, String(describing: ObvMessengerSettings.AppVersionAvailable.latest))
         os_log("Installed app build version: %{public}@", log: log, type: .info, ObvMessengerConstants.bundleVersion)
     }
+    
+    
+    private func processAnOwnedIdentityTransferProtocolFailed(ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, error: Error) async {
+        if let onboardingFlowViewController {
+            await onboardingFlowViewController.anOwnedIdentityTransferProtocolFailed(ownedCryptoId: ownedCryptoId, protocolInstanceUID: protocolInstanceUID, error: error)
+        } else if let onboardingFlowViewController = presentedViewController as? NewOnboardingFlowViewController {
+            await onboardingFlowViewController.anOwnedIdentityTransferProtocolFailed(ownedCryptoId: ownedCryptoId, protocolInstanceUID: protocolInstanceUID, error: error)
+        } else {
+            debugPrint("Could not find onboarding")
+        }
+    }
+
 
     private func observePastedStringIsNotValidOlvidURLNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observePastedStringIsNotValidOlvidURL(queue: OperationQueue.main) { [weak self] in
@@ -312,7 +355,6 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
                 let toExecuteAfterViewDidAppear = { [weak self] in
                     guard let _self = self else { return }
                     VoIPNotification.hideCallView.postOnDispatchQueue()
-                    assert(_self.mainFlowViewController != nil)
                     Task {
                         await _self.mainFlowViewController?.performCurrentDeepLinkInitialNavigation(deepLink: deepLink)
                     }
@@ -331,12 +373,22 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
 
 // MARK: - Implementing MetaFlowDelegate
 
-extension MetaFlowController: OnboardingFlowViewControllerDelegate {
+extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
             
     override func viewDidLoad() {
         super.viewDidLoad()
         viewDidLoadWasCalled = true
         
+        // Since  ``MetaFlowController.setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding:completion:)`` is async,
+        // we need to add an appropriate background view identical to the one shown in the ``InitializerViewController`` to prevent a quick transition
+        // through a black screen.
+        let launchScreenStoryBoard = UIStoryboard(name: "LaunchScreen", bundle: nil)
+        guard let launchViewController = launchScreenStoryBoard.instantiateInitialViewController() else { assertionFailure(); return }
+        self.launchView = launchViewController.view
+        self.view.addSubview(launchViewController.view)
+        launchViewController.view.translatesAutoresizingMaskIntoConstraints = false
+        self.view.pinAllSidesToSides(of: launchViewController.view)
+
         self.view.addSubview(callBannerView)
         callBannerView.translatesAutoresizingMaskIntoConstraints = false
         callBannerView.isHidden = true
@@ -353,6 +405,11 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                 os_log("Could not determine which child view controller to show", log: log, type: .fault)
                 assertionFailure()
                 return
+            }
+            
+            // See the comment in the initializer
+            if shouldShowCallBannerOnViewDidLoad {
+                await setupAndShowAppropriateCallBanner(shouldShowCallBanner: true, animate: false)
             }
         }
         
@@ -409,31 +466,9 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
         mainFlowViewController?.sceneWillResignActive(scene)
     }
     
-    
-    func onboardingIsFinished(ownedCryptoIdGeneratedDuringOnboarding: ObvCryptoId?, olvidURLScannedDuringOnboarding: OlvidURL?) async {
-        let log = self.log
-        do {
-            try await setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: ownedCryptoIdGeneratedDuringOnboarding) { result in
-                assert(Thread.isMainThread)
-                switch result {
-                case .failure(let error):
-                    assertionFailure(error.localizedDescription)
-                case .success:
-                    os_log("Did setup and show the appropriate child view controller", log: log, type: .info)
-                }
-                // In all cases, we handle the OlvidURL scanned during the onboarding
-                if let olvidURL = olvidURLScannedDuringOnboarding {
-                    Task { await NewAppStateManager.shared.handleOlvidURL(olvidURL) }
-                }
-            }
-        } catch {
-            assertionFailure()
-        }
-    }
-
 
     @MainActor
-    private func setupAndShowAppropriateCallBanner(shouldShowCallBanner: Bool) {
+    private func setupAndShowAppropriateCallBanner(shouldShowCallBanner: Bool, animate: Bool) async {
         assert(Thread.isMainThread)
         guard viewDidLoadWasCalled else { return }
         
@@ -454,8 +489,10 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
         }
         
         view.setNeedsUpdateConstraints()
-        UIView.animate(withDuration: 0.3) { [weak self] in
-            self?.view.layoutIfNeeded()
+        if animate {
+            UIView.animate(withDuration: 0.3) { [weak self] in
+                self?.view.layoutIfNeeded()
+            }
         }
 
     }
@@ -578,13 +615,17 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
         if let ownedCryptoId = appropriateOwnedCryptoIdToShow {
                         
             if mainFlowViewController == nil {
-                guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+                guard let createPasscodeDelegate, let appBackupDelegate, let localAuthenticationDelegate, let storeKitDelegate else {
                     assertionFailure(); return
                 }
-                guard let appBackupDelegate = self.appBackupDelegate else {
-                    assertionFailure(); return
-                }
-                mainFlowViewController = MainFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, createPasscodeDelegate: createPasscodeDelegate, appBackupDelegate: appBackupDelegate)
+                mainFlowViewController = MainFlowViewController(
+                    ownedCryptoId: ownedCryptoId,
+                    obvEngine: obvEngine,
+                    createPasscodeDelegate: createPasscodeDelegate,
+                    localAuthenticationDelegate: localAuthenticationDelegate,
+                    appBackupDelegate: appBackupDelegate,
+                    mainFlowViewControllerDelegate: self,
+                    storeKitDelegate: storeKitDelegate)
             }
 
             guard let mainFlowViewController else {
@@ -644,6 +685,8 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                 setupMainFlowViewControllerConstraintsWithoutCallBannerViewIfNecessary()
                 NSLayoutConstraint.activate(mainFlowViewControllerConstraintsWithoutCallBannerView)
                 callBannerView.isHidden = true
+                launchView?.removeFromSuperview()
+                launchView = nil
                 
                 internalCompletion(.success(()))
 
@@ -663,11 +706,16 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                     assertionFailure()
                 }
             } else {
-                onboardingFlowViewController = OnboardingFlowViewController(obvEngine: obvEngine, appBackupDelegate: appBackupDelegate)
+                //onboardingFlowViewController = OnboardingFlowViewController(obvEngine: obvEngine, appBackupDelegate: appBackupDelegate)
+                let mdmConfig = getMDMConfigurationForOnboarding()
+                onboardingFlowViewController = NewOnboardingFlowViewController(
+                    logSubsystem: ObvMessengerConstants.logSubsystem,
+                    directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
+                    mode: .initialOnboarding(mdmConfig: mdmConfig))
                 onboardingFlowViewController?.delegate = self
             }
             
-            guard let onboardingFlowViewController = onboardingFlowViewController else {
+            guard let onboardingFlowViewController else {
                 assertionFailure()
                 internalCompletion(.failure(makeError(message: "No onboarding flow view controller")))
                 return
@@ -707,6 +755,28 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
                 
         }
 
+    }
+    
+    
+    /// Helper method called to configure the very first onboarding
+    private func getMDMConfigurationForOnboarding() -> Onboarding.MDMConfiguration? {
+        
+        if ObvMessengerSettings.MDM.isConfiguredFromMDM,
+           let mdmConfigurationURI = ObvMessengerSettings.MDM.Configuration.uri,
+           let olvidURL = OlvidURL(urlRepresentation: mdmConfigurationURI) {
+            
+            switch olvidURL.category {
+            case .configuration(_, _, let keycloakConfig):
+                guard let keycloakConfig else { return nil }
+                return .init(keycloakConfiguration: .init(keycloakServerURL: keycloakConfig.serverURL, clientId: keycloakConfig.clientId, clientSecret: keycloakConfig.clientSecret))
+            default:
+                assertionFailure()
+                return nil
+            }
+        }
+        
+        return nil
+        
     }
     
     
@@ -778,41 +848,385 @@ extension MetaFlowController: OnboardingFlowViewControllerDelegate {
     
 }
 
+
+// MARK: - NewOnboardingFlowViewControllerDelegate
+
+extension MetaFlowController {
+
+    func onboardingRequiresKeycloakToSyncAllManagedIdentities() async {
+        do {
+            try await KeycloakManagerSingleton.shared.syncAllManagedIdentities()
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
+    
+    
+    @MainActor
+    func userWantsToDismissOnboardingAfterSuccessfulOwnedIdentityTransferOnThisTargetDevice(onboardingFlow: NewOnboardingFlowViewController, transferredOwnedCryptoId: ObvCryptoId, userWantsToAddAnotherProfile: Bool) async {
+        if mainFlowViewController != nil {
+            await switchToOwnedIdentity(ownedCryptoId: transferredOwnedCryptoId)
+            onboardingFlow.dismiss(animated: true)
+        } else {
+            do {
+                try await setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: transferredOwnedCryptoId) { result in
+                    switch result {
+                    case .success:
+                        onboardingFlow.dismiss(animated: true) {
+                            if userWantsToAddAnotherProfile {
+                                ObvMessengerInternalNotification.userWantsToAddOwnedProfile
+                                    .postOnDispatchQueue()
+                            }
+                        }
+                    case .failure:
+                        assertionFailure()
+                    }
+                }
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        }
+    }
+
+    
+    func onboardingRequiresToPerformOwnedDeviceDiscoveryNow(for ownedCryptoId: ObvCryptoId) async throws -> (ownedDeviceDiscoveryResult: ObvOwnedDeviceDiscoveryResult, currentDeviceIdentifier: Data) {
+        let ownedDeviceDiscoveryResult = try await obvEngine.performOwnedDeviceDiscoveryNow(ownedCryptoId: ownedCryptoId)
+        let currentDeviceIdentifier = try await obvEngine.getCurrentDeviceIdentifier(ownedCryptoId: ownedCryptoId)
+        return (ownedDeviceDiscoveryResult, currentDeviceIdentifier)
+    }
+    
+    
+    
+    
+    func onboardingIsShowingSasAndExpectingEndOfProtocol(onboardingFlow: NewOnboardingFlowViewController, protocolInstanceUID: UID, onSyncSnapshotReception: @escaping () -> Void, onSuccessfulTransfer: @escaping (ObvCryptoId, Error?) -> Void) async {
+        await obvEngine.appIsShowingSasAndExpectingEndOfProtocol(
+            protocolInstanceUID: protocolInstanceUID,
+            onSyncSnapshotReception: onSyncSnapshotReception,
+            onSuccessfulTransfer: onSuccessfulTransfer)
+    }
+    
+    
+    func onboardingRequiresToInitiateOwnedIdentityTransferProtocolOnTargetDevice(onboardingFlow: NewOnboardingFlowViewController, transferSessionNumber: ObvOwnedIdentityTransferSessionNumber, currentDeviceName: String, onIncorrectTransferSessionNumber: @escaping () -> Void, onAvailableSas: @escaping (UID, ObvOwnedIdentityTransferSas) -> Void) async throws {
+        try await obvEngine.initiateOwnedIdentityTransferProtocolOnTargetDevice(
+            currentDeviceName: currentDeviceName,
+            transferSessionNumber: transferSessionNumber,
+            onIncorrectTransferSessionNumber: onIncorrectTransferSessionNumber,
+            onAvailableSas: onAvailableSas)
+    }
+    
+    
+    func onboardingRequiresToInitiateOwnedIdentityTransferProtocolOnSourceDevice(onboardingFlow: NewOnboardingFlowViewController, ownedCryptoId: ObvCryptoId, onAvailableSessionNumber: @escaping (ObvOwnedIdentityTransferSessionNumber) -> Void, onAvailableSASExpectedOnInput: @escaping (ObvOwnedIdentityTransferSas, String, UID) -> Void) async throws {
+        try await obvEngine.initiateOwnedIdentityTransferProtocolOnSourceDevice(
+            ownedCryptoId: ownedCryptoId,
+            onAvailableSessionNumber: onAvailableSessionNumber,
+            onAvailableSASExpectedOnInput: onAvailableSASExpectedOnInput)
+    }
+    
+    
+    func userWishesToFinalizeOwnedIdentityTransferFromSourceDevice(onboardingFlow: NewOnboardingFlowViewController, enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID) async throws {
+        try await obvEngine.userEnteredValidSASOnSourceDeviceForOwnedIdentityTransferProtocol(
+            enteredSAS: enteredSAS,
+            deviceToKeepActive: deviceToKeepActive,
+            ownedCryptoId: ownedCryptoId,
+            protocolInstanceUID: protocolInstanceUID)
+        onboardingFlow.dismiss(animated: true)
+    }
+    
+    
+    func userWantsToCloseOnboardingAndCancelAnyOwnedTransferProtocol(onboardingFlow: NewOnboardingFlowViewController) async {
+        do {
+            try await obvEngine.userWantsToCancelAllOwnedIdentityTransferProtocols()
+        } catch {
+            assertionFailure()
+        }
+        
+        onboardingFlow.dismiss(animated: true)
+
+    }
+
+
+    func onboardingRequiresToRegisterAndUploadOwnedIdentityToKeycloakServer(ownedCryptoId: ObvCryptoId) async throws {
+        await KeycloakManagerSingleton.shared.registerKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoId, firstKeycloakBinding: true)
+        try await KeycloakManagerSingleton.shared.uploadOwnIdentity(ownedCryptoId: ownedCryptoId)
+    }
+
+    
+    func onboardingRequiresKeycloakAuthentication(onboardingFlow: NewOnboardingFlowViewController, keycloakConfiguration: Onboarding.KeycloakConfiguration, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration)) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState) {
+        let authState = try await KeycloakManagerSingleton.shared.authenticate(configuration: keycloakServerKeyAndConfig.serviceConfig,
+                                                                               clientId: keycloakConfiguration.clientId,
+                                                                               clientSecret: keycloakConfiguration.clientSecret,
+                                                                               ownedCryptoId: nil)
+        let keycloakConfig = KeycloakConfiguration(serverURL: keycloakConfiguration.keycloakServerURL, clientId: keycloakConfiguration.clientId, clientSecret: keycloakConfiguration.clientSecret)
+        return try await getOwnedDetailsAfterSucessfullAuthentication(keycloakConfiguration: keycloakConfig, keycloakServerKeyAndConfig: keycloakServerKeyAndConfig, authState: authState)
+    }
+    
+    
+    @MainActor
+    private func getOwnedDetailsAfterSucessfullAuthentication(keycloakConfiguration: KeycloakConfiguration, keycloakServerKeyAndConfig: (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration), authState: OIDAuthState) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState) {
+        
+        let (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff) = try await KeycloakManagerSingleton.shared.getOwnDetails(
+            keycloakServer: keycloakConfiguration.serverURL,
+            authState: authState,
+            clientSecret: keycloakConfiguration.clientSecret,
+            jwks: keycloakServerKeyAndConfig.jwks,
+            latestLocalRevocationListTimestamp: nil)
+        
+        if let minimumBuildVersion = keycloakServerRevocationsAndStuff.minimumIOSBuildVersion {
+            guard ObvMessengerConstants.bundleVersionAsInt >= minimumBuildVersion else {
+                throw ObvError.installedOlvidAppIsOutdated
+            }
+        }
+
+        let rawAuthState = try authState.serialize()
+        
+        let keycloakState = ObvKeycloakState(
+            keycloakServer: keycloakConfiguration.serverURL,
+            clientId: keycloakConfiguration.clientId,
+            clientSecret: keycloakConfiguration.clientSecret,
+            jwks: keycloakServerKeyAndConfig.jwks,
+            rawAuthState: rawAuthState,
+            signatureVerificationKey: keycloakUserDetailsAndStuff.serverSignatureVerificationKey,
+            latestLocalRevocationListTimestamp: nil,
+            latestGroupUpdateTimestamp: nil)
+        
+        return (keycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff, keycloakState)
+        
+    }
+
+    
+    func onboardingRequiresToDiscoverKeycloakServer(onboardingFlow: NewOnboardingFlowViewController, keycloakServerURL: URL) async throws -> (jwks: ObvJWKSet, serviceConfig: OIDServiceConfiguration) {
+        return try await KeycloakManagerSingleton.shared.discoverKeycloakServer(for: keycloakServerURL)
+    }
+    
+
+    func userWantsToEnableAutomaticBackup(onboardingFlow: NewOnboardingFlowViewController) async throws {
+
+        guard !ObvMessengerSettings.Backup.isAutomaticBackupEnabled else { return }
+
+        guard let appBackupDelegate else {
+            throw ObvError.theAppBackupDelegateIsNotSet
+        }
+        
+        // The user wants to activate automatic backup.
+        // We must check whether it's possible.
+        let defaultTitleAndMessageOnError = (title: "AUTOMATIC_BACKUP_COULD_NOT_BE_ENABLED_TITLE", message: "PLEASE_TRY_AGAIN_LATER")
+        do {
+            let accountStatus = try await appBackupDelegate.getAccountStatus()
+            if case .available = accountStatus {
+                obvEngine.userJustActivatedAutomaticBackup()
+                ObvMessengerSettings.Backup.isAutomaticBackupEnabled = true
+                return
+            } else {
+                let titleAndMessage = AppBackupManager.CKAccountStatusMessage(accountStatus) ?? AppBackupManager.CKAccountStatusMessage(.couldNotDetermine) ?? defaultTitleAndMessageOnError
+                throw ObvError.ckAccountStatusError(title: titleAndMessage.title, message: titleAndMessage.message)
+            }
+        } catch {
+            let titleAndMessage = AppBackupManager.CKAccountStatusMessage(.noAccount) ?? defaultTitleAndMessageOnError
+            throw ObvError.ckAccountStatusError(title: titleAndMessage.title, message: titleAndMessage.message)
+        }
+        
+    }
+    
+    
+    @MainActor
+    func onboardingRequiresToRestoreBackup(onboardingFlow: NewOnboardingFlowViewController, backupRequestIdentifier: UUID) async throws -> ObvCryptoId {
+        let ownedDeviceName = UIDevice.current.preciseModel
+        let cryptoIdsOfRestoredOwnedIdentities = try await obvEngine.restoreFullBackup(backupRequestIdentifier: backupRequestIdentifier, nameToGiveToCurrentDevice: ownedDeviceName)
+        guard let randomCryptoId = cryptoIdsOfRestoredOwnedIdentities.first else {
+            assertionFailure()
+            throw ObvError.couldNotFindOwnedIdentity
+        }
+        // We obtained a list of restored owned identities. We only need to return one. We search for a non-hidden one
+        do {
+            let nonHiddenOwnedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext)
+            let cryptoIdsOfNonHiddenOwnedIdentities = Set(nonHiddenOwnedIdentities.map { $0.cryptoId })
+            return cryptoIdsOfNonHiddenOwnedIdentities.intersection(cryptoIdsOfRestoredOwnedIdentities).first ?? randomCryptoId
+        } catch {
+            // If something goes wrong, we return a "random" restored owned identity
+            assertionFailure()
+            return randomCryptoId
+        }
+    }
+    
+    
+    func onboardingRequiresToRecoverBackupFromEncryptedBackup(onboardingFlow: NewOnboardingFlowViewController, encryptedBackup: Data, backupKey: String) async throws -> (backupRequestIdentifier: UUID, backupDate: Date) {
+        return try await obvEngine.recoverBackupData(encryptedBackup, withBackupKey: backupKey)
+    }
+    
+    
+    func onboardingRequiresAcceptableCharactersForBackupKeyString() async -> CharacterSet {
+        return obvEngine.getAcceptableCharactersForBackupKeyString()
+    }
+    
+    
+    func onboardingRequiresToGenerateOwnedIdentity(onboardingFlow: NewOnboardingFlowViewController, identityDetails: ObvIdentityDetails, nameForCurrentDevice: String, keycloakState: ObvKeycloakState?, customServerAndAPIKey: ServerAndAPIKey?) async throws -> ObvCryptoId {
+        let usedCustomServerAndAPIKey: ServerAndAPIKey?
+        if keycloakState != nil {
+            usedCustomServerAndAPIKey = nil
+        } else {
+            usedCustomServerAndAPIKey = customServerAndAPIKey // nil, most of the time
+        }
+        let generatedOwnedCryptoId = try await obvEngine.generateOwnedIdentity(
+            onServerURL: usedCustomServerAndAPIKey?.server ?? ObvMessengerConstants.serverURL,
+            with: identityDetails,
+            nameForCurrentDevice: nameForCurrentDevice,
+            keycloakState: keycloakState)
+        if let apiKey = usedCustomServerAndAPIKey?.apiKey {
+            _ = try await obvEngine.registerOwnedAPIKeyOnServerNow(ownedCryptoId: generatedOwnedCryptoId, apiKey: apiKey)
+        }
+        return generatedOwnedCryptoId
+    }
+
+    
+    func onboardingIsFinished(onboardingFlow: NewOnboardingFlowViewController, ownedCryptoIdGeneratedDuringOnboarding: ObvTypes.ObvCryptoId) async {
+        let log = self.log
+        do {
+            try await setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: ownedCryptoIdGeneratedDuringOnboarding) { result in
+                assert(Thread.isMainThread)
+                switch result {
+                case .failure(let error):
+                    assertionFailure(error.localizedDescription)
+                case .success:
+                    os_log("Did setup and show the appropriate child view controller", log: log, type: .info)
+                }
+            }
+        } catch {
+            assertionFailure()
+        }
+    }
+
+    
+    func onboardingNeedsToPreventPrivacyWindowSceneFromShowingOnNextWillResignActive(onboardingFlow: NewOnboardingFlowViewController) async {
+        preventPrivacyWindowSceneFromShowingOnNextWillResignActive()
+    }
+    
+    
+    func onboardingRequiresToSyncAppDatabasesWithEngine(onboardingFlow: NewOnboardingFlowViewController) async throws {
+        try await requestSyncAppDatabasesWithEngine()
+    }
+
+    
+    @MainActor
+    private func requestSyncAppDatabasesWithEngine() async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine(queuePriority: .veryHigh) { result in
+                switch result {
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                case .success:
+                    continuation.resume()
+                }
+            }.postOnDispatchQueue()
+        }
+    }
+
+}
+
+
+// MARK: - SubscriptionPlansViewActionsProtocol (required for NewOnboardingFlowViewControllerDelegate)
+
+extension MetaFlowController {
+
+    func fetchSubscriptionPlans(for ownedCryptoId: ObvCryptoId, alsoFetchFreePlan: Bool) async throws -> (freePlanIsAvailable: Bool, products: [Product]) {
+        
+        // Step 1: Ask the engine (i.e., Olvid's server) whether a free trial is still available for this identity
+        let freePlanIsAvailable: Bool
+        if alsoFetchFreePlan {
+            freePlanIsAvailable = try await obvEngine.queryServerForFreeTrial(for: ownedCryptoId)
+        } else {
+            freePlanIsAvailable = false
+        }
+
+        // Step 2: As StoreKit about available products
+        assert(storeKitDelegate != nil)
+        let products = try await storeKitDelegate?.userRequestedListOfSKProducts() ?? []
+
+        return (freePlanIsAvailable, products)
+    }
+    
+    
+    func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws -> APIKeyElements {
+        let newAPIKeyElements = try await obvEngine.startFreeTrial(for: ownedCryptoId)
+        return newAPIKeyElements
+    }
+    
+    
+    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
+        guard let storeKitDelegate else { assertionFailure(); throw ObvError.storeKitDelegateIsNil }
+        return try await storeKitDelegate.userWantsToBuy(product)
+    }
+    
+    
+    func userWantsToRestorePurchases() async throws {
+        guard let storeKitDelegate else { assertionFailure(); throw ObvError.storeKitDelegateIsNil }
+        return try await storeKitDelegate.userWantsToRestorePurchases()
+    }
+    
+}
+
+
+// MARK: - MainFlowViewControllerDelegate
+
+extension MetaFlowController {
+    
+    func userWantsToAddNewDevice(_ viewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async {
+        guard let ownedDetails = try? await getOwnedIdentityDetails(ownedCryptoId: ownedCryptoId) else { assertionFailure(); return }
+        let newOnboardingFlowViewController = NewOnboardingFlowViewController(
+            logSubsystem: ObvMessengerConstants.logSubsystem,
+            directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
+            mode: .addNewDevice(ownedCryptoId: ownedCryptoId, ownedDetails: ownedDetails))
+        newOnboardingFlowViewController.delegate = self
+        present(newOnboardingFlowViewController, animated: true)
+    }
+
+    
+    private func getOwnedIdentityDetails(ownedCryptoId: ObvCryptoId) async throws -> CNContact? {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CNContact?, Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context)
+                    let ownedDetails = ownedIdentity?.asCNContact
+                    continuation.resume(returning: ownedDetails)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
+}
+
+
 // MARK: - Feeding the contact database
 
 extension MetaFlowController {
     
     
     private func observeUserWantsToDeleteOwnedContactGroupNotifications() {
-        let NotificationType = MessengerInternalNotification.UserWantsToDeleteOwnedContactGroup.self
-        let token = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil) { [weak self] (notification) in
-            guard let (groupUid, ownedCryptoId) = NotificationType.parse(notification) else { return }
-            guard self?.currentOwnedCryptoId == ownedCryptoId else { return }
-            self?.deleteOwnedContactGroup(groupUid: groupUid, ownedCryptoId: ownedCryptoId, confirmed: false)
-        }
-        observationTokens.append(token)
+        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToDeleteOwnedContactGroup { [weak self] ownedCryptoId, groupUid in
+            Task { await self?.deleteOwnedContactGroup(groupUid: groupUid, ownedCryptoId: ownedCryptoId, confirmed: false) }
+        })
     }
 
     
-    private func deleteOwnedContactGroup(groupUid: UID, ownedCryptoId: ObvCryptoId, confirmed: Bool) {
+    @MainActor
+    private func deleteOwnedContactGroup(groupUid: UID, ownedCryptoId: ObvCryptoId, confirmed: Bool) async {
         
         if confirmed {
 
             do {
-                try obvEngine.deleteOwnedContactGroup(ownedCryptoId: ownedCryptoId, groupUid: groupUid)
+                try await obvEngine.disbandGroupV1(groupUid: groupUid, ownedCryptoId: ownedCryptoId)
             } catch {
-                // We could not delete the group owned. For now, we just display an alert indicating that a non-empty owned group cannot be deleted
-
                 let uiAlert = UIAlertController(title: Strings.AlertDeleteOwnedGroupFailed.title, message: Strings.AlertDeleteOwnedGroupFailed.message, preferredStyle: .alert)
                 let okAction = UIAlertAction(title: CommonString.Word.Ok, style: .default, handler: nil)
                 uiAlert.addAction(okAction)
                 
-                if let presentedViewController = presentedViewController {
+                if let presentedViewController {
                     presentedViewController.present(uiAlert, animated: true)
                 } else {
                     present(uiAlert, animated: true)
                 }
-                
             }
             
         } else {
@@ -821,7 +1235,7 @@ extension MetaFlowController {
                                           message: Strings.deleteGroupExplanation,
                                           preferredStyleForTraitCollection: self.traitCollection)
             alert.addAction(UIAlertAction(title: CommonString.AlertButton.performDeletionAction, style: .destructive, handler: { [weak self] (action) in
-                self?.deleteOwnedContactGroup(groupUid: groupUid, ownedCryptoId: ownedCryptoId, confirmed: true)
+                Task { await self?.deleteOwnedContactGroup(groupUid: groupUid, ownedCryptoId: ownedCryptoId, confirmed: true) }
             }))
             alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
             
@@ -1070,24 +1484,7 @@ extension MetaFlowController {
         observationTokens.append(token)
     }
     
-    
-    private func processUserWantsToReCreateChannelEstablishmentProtocol(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
-        let obvEngine = self.obvEngine
-        DispatchQueue(label: "Background queue for recreating secure channel with contact").async {
-            do {
-                try obvEngine.reCreateAllChannelEstablishmentProtocolsWithContactIdentity(with: contactCryptoId, ofOwnedIdentyWith: ownedCryptoId)
-            } catch {
-                DispatchQueue.main.async { [weak self] in
-                    let alert = UIAlertController(title: Strings.AlertChannelEstablishementRestartedFailed.title, message: "", preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
-                    self?.present(alert, animated: true)
-                }
-            }
-            // No feedback alert in case of success
-        }
-    }
 
-    
     private func processUserWantsToCreateNewGroupV1(groupName: String, groupDescription: String?, groupMembersCryptoIds: Set<ObvCryptoId>, ownedCryptoId: ObvCryptoId, photoURL: URL?) {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
         automaticallyNavigateToCreatedDisplayedContactGroup = true
@@ -1127,7 +1524,8 @@ extension MetaFlowController {
     }
 
     
-    private func processDisplayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>) {
+    @MainActor
+    private func processDisplayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>) async {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
         guard automaticallyNavigateToCreatedDisplayedContactGroup else { return }
         guard let currentOwnedCryptoId else { return }
@@ -1145,11 +1543,14 @@ extension MetaFlowController {
 
     
     @MainActor
-    private func processUserWantsToCreateNewOwnedIdentityNotification() async {
+    private func processUserWantsToAddOwnedProfileNotification() async {
         presentedViewController?.dismiss(animated: true)
-        let onboardingFlowViewController = OnboardingFlowViewController(obvEngine: obvEngine, appBackupDelegate: nil)
-        onboardingFlowViewController.delegate = self
-        present(onboardingFlowViewController, animated: true)
+        let newOnboardingFlowViewController = NewOnboardingFlowViewController(
+            logSubsystem: ObvMessengerConstants.logSubsystem,
+            directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
+            mode: .addProfile)
+        newOnboardingFlowViewController.delegate = self
+        present(newOnboardingFlowViewController, animated: true)
     }
     
 }
@@ -1233,11 +1634,26 @@ extension MetaFlowController {
 
 extension MetaFlowController {
 
-    nonisolated func handleOlvidURL(_ olvidURL: OlvidURL) {
-        DispatchQueue.main.async { [weak self] in
-            guard let _self = self else { return }
-            guard let olvidURLHandler = _self.children.compactMap({ $0 as? OlvidURLHandler }).first else { assertionFailure(); return }
-            olvidURLHandler.handleOlvidURL(olvidURL)
+    func handleOlvidURL(_ olvidURL: OlvidURL) async {
+        // If the OlvidURL is an openId redirect, we handle it immediately.
+        // Otherwise, we passe it down to the olvidURLHandler
+        if let opendIdRedirectURL = olvidURL.isOpenIdRedirectWithURL {
+            do {
+                _ = try await KeycloakManagerSingleton.shared.resumeExternalUserAgentFlow(with: opendIdRedirectURL)
+                os_log("Successfully resumed the external user agent flow", log: Self.log, type: .info)
+            } catch {
+                os_log("Failed to resume external user agent flow: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
+        } else {
+            if let olvidURLHandler = self.presentedViewController as? OlvidURLHandler {
+                // When the onboarding is presented (e.g., to create a second profile), this allows to pass any scanned URL to it (in particular, keycloak configurations)
+                await olvidURLHandler.handleOlvidURL(olvidURL)
+            } else {
+                guard let olvidURLHandler = self.children.compactMap({ $0 as? OlvidURLHandler }).first else { assertionFailure(); return }
+                await olvidURLHandler.handleOlvidURL(olvidURL)
+            }
         }
     }
 
@@ -1266,6 +1682,57 @@ extension MetaFlowController {
         guard let messageObjectID = join.message?.objectID else { return }
         guard let message = ObvStack.shared.viewContext.registeredObject(for: messageObjectID) as? PersistedMessage else { return }
         ObvStack.shared.viewContext.refresh(message, mergeChanges: true)
+    }
+    
+}
+
+
+// MARK: - Errors
+
+extension MetaFlowController {
+    
+    enum ObvError: LocalizedError {
+        case couldNotFindOwnedIdentity
+        case couldNotCompressImage
+        case theAppBackupDelegateIsNotSet
+        case ckAccountStatusError(title: String, message: String?)
+        case installedOlvidAppIsOutdated
+        case storeKitDelegateIsNil
+        
+        var errorDescription: String? {
+            switch self {
+            case .couldNotFindOwnedIdentity:
+                return "Could not find owned identity"
+            case .couldNotCompressImage:
+                return "Could not compress image"
+            case .theAppBackupDelegateIsNotSet:
+                return "The app backup delegate is not set"
+            case .ckAccountStatusError(title: let title, message: _):
+                return title
+            case .installedOlvidAppIsOutdated:
+                return "The installed Olvid App is outdated"
+            case .storeKitDelegateIsNil:
+                return "The store kit delegate is nil"
+            }
+        }
+        
+        var recoverySuggestion: String? {
+            switch self {
+            case .couldNotFindOwnedIdentity:
+                return nil
+            case .couldNotCompressImage:
+                return nil
+            case .theAppBackupDelegateIsNotSet:
+                return nil
+            case .ckAccountStatusError(_, let message):
+                return message
+            case .installedOlvidAppIsOutdated:
+                return nil
+            case .storeKitDelegateIsNil:
+                return nil
+            }
+        }
+        
     }
     
 }

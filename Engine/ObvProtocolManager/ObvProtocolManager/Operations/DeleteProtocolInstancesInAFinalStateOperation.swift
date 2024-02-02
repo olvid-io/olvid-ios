@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,25 +19,18 @@
 
 import Foundation
 import OlvidUtils
+import CoreData
 
 
 final class DeleteProtocolInstancesInAFinalStateOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext else {
-            return cancel(withReason: .contextIsNil)
+        do {
+            try ProtocolInstance.deleteProtocolInstancesInAFinalState(within: obvContext)
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
-            
-            do {
-                try ProtocolInstance.deleteProtocolInstancesInAFinalState(within: obvContext)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
-        }
-
     }
 }

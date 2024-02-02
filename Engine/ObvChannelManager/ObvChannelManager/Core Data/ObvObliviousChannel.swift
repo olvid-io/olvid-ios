@@ -51,7 +51,7 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject, ObvNetworkCh
     // MARK: General Attributes and Properties
     
     @NSManaged private(set) var currentDeviceUid: UID                   // Part of primary key
-    @NSManaged private(set) var remoteCryptoIdentity: ObvCryptoIdentity // Part of primary key
+    @NSManaged private(set) var remoteCryptoIdentity: ObvCryptoIdentity // Part of primary key (may be an owned identity)
     @NSManaged private(set) var remoteDeviceUid: UID                    // Part of primary key
     
     private(set) var isConfirmed: Bool {
@@ -368,30 +368,53 @@ final class ObvObliviousChannel: NSManagedObject, ObvManagedObject, ObvNetworkCh
 // MARK: - Convenience DB getters
 extension ObvObliviousChannel {
     
+    struct Predicate {
+        enum Key: String {
+            case currentDeviceUid = "currentDeviceUid"
+            case remoteCryptoIdentity = "remoteCryptoIdentity"
+            case remoteDeviceUid = "remoteDeviceUid"
+            case isConfirmed = "isConfirmed"
+        }
+        static func withCurrentDeviceUid(_ currentDeviceUid: UID) -> NSPredicate {
+            NSPredicate(format: "%K == %@", Key.currentDeviceUid.rawValue, currentDeviceUid)
+        }
+        static func withRemoteCryptoIdentity(_ remoteCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
+            NSPredicate(format: "%K == %@", Key.remoteCryptoIdentity.rawValue, remoteCryptoIdentity)
+        }
+        static func withRemoteDeviceUid(_ remoteDeviceUid: UID) -> NSPredicate {
+            NSPredicate(format: "%K == %@", Key.remoteDeviceUid.rawValue, remoteDeviceUid)
+        }
+        static func withRemoteDeviceUid(in remoteDeviceUids: [UID]) -> NSPredicate {
+            NSPredicate(format: "%K IN %@", Key.remoteDeviceUid.rawValue, remoteDeviceUids)
+        }
+        static func whereIsConfirmed(is isConfirmed: Bool) -> NSPredicate {
+            NSPredicate(Key.isConfirmed, is: isConfirmed)
+        }
+    }
+    
     @nonobjc class func fetchRequest() -> NSFetchRequest<ObvObliviousChannel> {
         return NSFetchRequest<ObvObliviousChannel>(entityName: ObvObliviousChannel.entityName)
     }
 
+    
     /// This method returns an ObvObliviousChannel if one is found.
     static func get(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, necessarilyConfirmed: Bool, within obvContext: ObvContext) throws -> ObvObliviousChannel? {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
+        var allPredicates: [NSPredicate] = [
+            Predicate.withCurrentDeviceUid(currentDeviceUid),
+            Predicate.withRemoteCryptoIdentity(remoteCryptoIdentity),
+            Predicate.withRemoteDeviceUid(remoteDeviceUid)
+        ]
         if necessarilyConfirmed {
-            request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@ AND %K == %@",
-                                            currentDeviceUidKey, currentDeviceUid,
-                                            remoteCryptoIdentityKey, remoteCryptoIdentity,
-                                            remoteDeviceUidKey, remoteDeviceUid,
-                                            isConfirmedKey, NSNumber(value: true))
-        } else {
-            request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                            currentDeviceUidKey, currentDeviceUid,
-                                            remoteCryptoIdentityKey, remoteCryptoIdentity,
-                                            remoteDeviceUidKey, remoteDeviceUid)
+            allPredicates.append(Predicate.whereIsConfirmed(is: true))
         }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: allPredicates)
         request.fetchLimit = 1
         let item = (try obvContext.fetch(request)).first
         item?.obvContext = obvContext
         return item
     }
+    
     
     static func get(objectID: NSManagedObjectID, within obvContext: ObvContext) throws -> ObvObliviousChannel? {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
@@ -402,21 +425,21 @@ extension ObvObliviousChannel {
         return item
     }
 
+    
     /// This method returns an array of ObvObliviousChannels.
     static func get(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUids: [UID], necessarilyConfirmed: Bool, within obvContext: ObvContext) throws -> [ObvObliviousChannel] {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
+        
+        var allPredicates: [NSPredicate] = [
+            Predicate.withCurrentDeviceUid(currentDeviceUid),
+            Predicate.withRemoteCryptoIdentity(remoteCryptoIdentity),
+            Predicate.withRemoteDeviceUid(in: remoteDeviceUids),
+        ]
         if necessarilyConfirmed {
-            request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K IN %@ AND %K == %@",
-                                            currentDeviceUidKey, currentDeviceUid,
-                                            remoteCryptoIdentityKey, remoteCryptoIdentity,
-                                            remoteDeviceUidKey, remoteDeviceUids,
-                                            isConfirmedKey, NSNumber(value: true))
-        } else {
-            request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K IN %@",
-                                            currentDeviceUidKey, currentDeviceUid,
-                                            remoteCryptoIdentityKey, remoteCryptoIdentity,
-                                            remoteDeviceUidKey, remoteDeviceUids)
+            allPredicates.append(Predicate.whereIsConfirmed(is: true))
         }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: allPredicates)
+        request.fetchLimit = remoteDeviceUids.count
         let items = try obvContext.fetch(request)
         return items.map { $0.obvContext = obvContext; return $0 }
     }
@@ -425,10 +448,12 @@ extension ObvObliviousChannel {
     /// This method returns an array of ObvObliviousChannels.
     static func getAllConfirmedChannels(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [ObvObliviousChannel] {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                        currentDeviceUidKey, currentDeviceUid,
-                                        remoteCryptoIdentityKey, remoteCryptoIdentity,
-                                        isConfirmedKey, NSNumber(value: true))
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withCurrentDeviceUid(currentDeviceUid),
+            Predicate.withRemoteCryptoIdentity(remoteCryptoIdentity),
+            Predicate.whereIsConfirmed(is: true),
+        ])
+        request.fetchBatchSize = 1_000
         let items = try obvContext.fetch(request)
         return items.map { $0.obvContext = obvContext; return $0 }
     }
@@ -443,9 +468,10 @@ extension ObvObliviousChannel {
     
     static func delete(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
-                                             currentDeviceUidKey, currentDeviceUid,
-                                             remoteCryptoIdentityKey, remoteCryptoIdentity)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withCurrentDeviceUid(currentDeviceUid),
+            Predicate.withRemoteCryptoIdentity(remoteCryptoIdentity),
+        ])
         let channels = try obvContext.fetch(request)
         for channel in channels {
             channel.obvContext = obvContext
@@ -456,10 +482,11 @@ extension ObvObliviousChannel {
     
     static func delete(currentDeviceUid: UID, remoteDeviceUid: UID, remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                        currentDeviceUidKey, currentDeviceUid,
-                                        remoteDeviceUidKey, remoteDeviceUid,
-                                        remoteCryptoIdentityKey, remoteIdentity)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withCurrentDeviceUid(currentDeviceUid),
+            Predicate.withRemoteDeviceUid(remoteDeviceUid),
+            Predicate.withRemoteCryptoIdentity(remoteIdentity),
+        ])
         let channels = try obvContext.fetch(request)
         for channel in channels {
             channel.obvContext = obvContext
@@ -468,19 +495,6 @@ extension ObvObliviousChannel {
     }
 
     
-    static func getContactCryptoIdentitiesOfEstablishedChannels(withTheCurrentDeviceUid currentDeviceUid: UID, ofTheOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) -> Set<ObvCryptoIdentity>? {
-        let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K != %@ AND %K == %@",
-                                        currentDeviceUidKey, currentDeviceUid,
-                                        remoteCryptoIdentityKey, ownedIdentity,
-                                        isConfirmedKey, NSNumber(value: true))
-        guard let items = try? obvContext.fetch(request) else { return nil }
-        _ = items.map { $0.obvContext = obvContext }
-        let identities = items.map { $0.remoteCryptoIdentity }
-        return Set(identities)
-    }
-
-
     static func getAllKnownRemoteDeviceUids(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         let items = try obvContext.fetch(request)
@@ -493,7 +507,7 @@ extension ObvObliviousChannel {
     static func deleteAllObliviousChannelsForCurrentDeviceUid(_ currentDeviceUid: UID, within obvContext: ObvContext) throws {
         let request: NSFetchRequest<ObvObliviousChannel> = ObvObliviousChannel.fetchRequest()
         request.fetchBatchSize = 500
-        request.predicate = NSPredicate(format: "%K == %@", currentDeviceUidKey, currentDeviceUid)
+        request.predicate = Predicate.withCurrentDeviceUid(currentDeviceUid)
         request.propertiesToFetch = []
         let channels = try obvContext.fetch(request)
         for channel in channels {
@@ -563,36 +577,41 @@ extension ObvObliviousChannel {
             
             
         case .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: let contactIdentities, fromOwnedIdentity: let ownedIdentity):
-            let channels: [[ObvObliviousChannel]] = try contactIdentities.compactMap { (contactIdentity) in
-                guard let remoteDeviceUids = try? identityDelegate.getDeviceUidsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext) else {
-                    os_log("Could not determine the device uids of one of the recipient (4)", log: log, type: .error)
-                    return nil
-                }
-                let channels = try ObvObliviousChannel.getAcceptableObliviousChannels(from: ownedIdentity,
-                                                                                      to: contactIdentity,
-                                                                                      remoteDeviceUids: Array(remoteDeviceUids),
-                                                                                      necessarilyConfirmed: true,
-                                                                                      within: obvContext)
-                return channels
-            }
-            acceptableChannels = channels.reduce([ObvObliviousChannel]()) { (array, channels) in
-                return array + channels
-            }
             
+            let acceptableChannelsWithContacts = try Self.getAcceptableChannelsWithContacts(
+                contactIdentities: contactIdentities,
+                identityDelegate: identityDelegate,
+                ownedIdentity: ownedIdentity,
+                log: log,
+                within: obvContext)
+                        
+            acceptableChannels = acceptableChannelsWithContacts
             
         case .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: let ownedIdentity):
-            guard try identityDelegate.isOwned(ownedIdentity, within: obvContext) else {
-                throw ObvObliviousChannel.makeError(message: "Identity is not owned")
-            }
-            let remoteDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
-            let channels = try ObvObliviousChannel.getAcceptableObliviousChannels(from: ownedIdentity,
-                                                                                  to: ownedIdentity,
-                                                                                  remoteDeviceUids: Array(remoteDeviceUids),
-                                                                                  necessarilyConfirmed: true,
-                                                                                  within: obvContext)
-            acceptableChannels = channels
-
             
+            let acceptableChannelsWithOtherOwnedDevices = try Self.getAcceptableChannelsWithOtherOwnedDevices(
+                ownedIdentity: ownedIdentity,
+                identityDelegate: identityDelegate,
+                within: obvContext)
+            
+            acceptableChannels = acceptableChannelsWithOtherOwnedDevices
+
+        case .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity(contactIdentities: let contactIdentities, fromOwnedIdentity: let ownedIdentity):
+            
+            let acceptableChannelsWithContacts = try Self.getAcceptableChannelsWithContacts(
+                contactIdentities: contactIdentities,
+                identityDelegate: identityDelegate,
+                ownedIdentity: ownedIdentity,
+                log: log,
+                within: obvContext)
+            
+            let acceptableChannelsWithOtherOwnedDevices = try Self.getAcceptableChannelsWithOtherOwnedDevices(
+                ownedIdentity: ownedIdentity,
+                identityDelegate: identityDelegate,
+                within: obvContext)
+            
+            acceptableChannels = acceptableChannelsWithContacts + acceptableChannelsWithOtherOwnedDevices
+
         case .AsymmetricChannel,
              .AsymmetricChannelBroadcast,
              .Local,
@@ -604,6 +623,48 @@ extension ObvObliviousChannel {
         }
         
         return acceptableChannels
+    }
+    
+    
+    /// Helper methods for ``static ObvObliviousChannel.acceptableChannelsForPosting(_:delegateManager:within:)``
+    private static func getAcceptableChannelsWithContacts(contactIdentities: Set<ObvCryptoIdentity>, identityDelegate: ObvIdentityDelegate, ownedIdentity: ObvCryptoIdentity, log: OSLog, within obvContext: ObvContext) throws -> [ObvObliviousChannel] {
+        
+        let channelsWithContacts: [[ObvObliviousChannel]] = try contactIdentities.compactMap { (contactIdentity) in
+            guard let remoteDeviceUids = try? identityDelegate.getDeviceUidsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext) else {
+                os_log("Could not determine the device uids of one of the recipient", log: log, type: .fault)
+                return nil
+            }
+            let channels = try ObvObliviousChannel.getAcceptableObliviousChannels(from: ownedIdentity,
+                                                                                  to: contactIdentity,
+                                                                                  remoteDeviceUids: Array(remoteDeviceUids),
+                                                                                  necessarilyConfirmed: true,
+                                                                                  within: obvContext)
+            return channels
+        }
+        let acceptableChannelsWithContacts = channelsWithContacts.reduce([ObvObliviousChannel]()) { (array, channels) in
+            return array + channels
+        }
+        
+        return acceptableChannelsWithContacts
+
+    }
+    
+    
+    /// Helper methods for ``static ObvObliviousChannel.acceptableChannelsForPosting(_:delegateManager:within:)``
+    private static func getAcceptableChannelsWithOtherOwnedDevices(ownedIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) throws -> [ObvObliviousChannel] {
+        
+        guard try identityDelegate.isOwned(ownedIdentity, within: obvContext) else {
+            throw ObvObliviousChannel.makeError(message: "Identity is not owned")
+        }
+        let remoteDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
+        let acceptableChannelsWithOtherOwnedDevices = try ObvObliviousChannel.getAcceptableObliviousChannels(from: ownedIdentity,
+                                                                                                             to: ownedIdentity,
+                                                                                                             remoteDeviceUids: Array(remoteDeviceUids),
+                                                                                                             necessarilyConfirmed: true,
+                                                                                                             within: obvContext)
+
+        return acceptableChannelsWithOtherOwnedDevices
+        
     }
 
     

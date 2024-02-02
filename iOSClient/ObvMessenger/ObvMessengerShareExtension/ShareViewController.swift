@@ -28,7 +28,7 @@ import OlvidUtils
 import os.log
 import SwiftUI
 import ObvUICoreData
-
+import ObvSettings
 
 
 @objc(ShareViewController)
@@ -44,7 +44,7 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
     private var localAuthenticationViewController: LocalAuthenticationViewController?
 
     private var obvEngine: ObvEngine!
-    private var model: ShareViewModel!
+    private var model: ShareViewModel?
 
     private var wipeOp: WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation?
 
@@ -105,12 +105,14 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
 
         // Make sure at least one owned identity has been generated within the main app
         
+        let model: ShareViewModel
         do {
             let allOwnedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: ObvStack.shared.viewContext)
             guard !allOwnedIdentities.isEmpty else {
                 throw Self.makeError(message: "Cannot find any owned identity")
             }
-            self.model = try ShareViewModel(allOwnedIdentities: allOwnedIdentities)
+            model = try ShareViewModel(allOwnedIdentities: allOwnedIdentities)
+            self.model = model
         } catch {
             let vc = ShareExtensionErrorViewController()
             vc.delegate = self
@@ -122,7 +124,7 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
         // Instantiate the two view controllers that we might need and add them as child view controllers
         // The appropriate vc view will be added as a subview later, in showAppropriateViewControllerView()
         let shareViewHostingController = ShareViewHostingController(obvEngine: self.obvEngine,
-                                                                    model: self.model,
+                                                                    model: model,
                                                                     internalQueue: internalQueue,
                                                                     userDefaults: userDefaults)
         shareViewHostingController.delegate = self
@@ -130,8 +132,9 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
         shareViewHostingController.didMove(toParent: self)
         self.shareViewHostingController = shareViewHostingController
 
-        let localAuthenticationViewController = LocalAuthenticationViewController(localAuthenticationDelegate: localAuthenticationDelegate,
-                                                                                  delegate: self)
+        let localAuthenticationViewController = LocalAuthenticationViewController(
+            localAuthenticationDelegate: localAuthenticationDelegate,
+            delegate: self)
         self.addChild(localAuthenticationViewController)
         localAuthenticationViewController.didMove(toParent: self)
         self.localAuthenticationViewController = localAuthenticationViewController
@@ -152,6 +155,7 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
         
         guard let localAuthenticationViewController = localAuthenticationViewController else { assertionFailure(); return }
         guard let shareViewHostingController = shareViewHostingController else { assertionFailure(); return }
+        guard let model else { assertionFailure(); return }
 
         let vcToShow = !model.isAuthenticated ? localAuthenticationViewController : shareViewHostingController
         let vcToHide = model.isAuthenticated ? localAuthenticationViewController : shareViewHostingController
@@ -186,9 +190,11 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
     
     
     private func authenticateIfRequired() async {
-        assert(model != nil, "Should not occur. May be nil under testing conditions via Xcode with no owned identity set up.")
+        guard let model else { assertionFailure("Should not occur. May be nil under testing conditions via Xcode with no owned identity set up."); return }
         if !model.isAuthenticated {
-            await localAuthenticationViewController?.performLocalAuthentication(uptimeAtTheTimeOfChangeoverToNotActiveState: nil)
+            await localAuthenticationViewController?.performLocalAuthentication(
+                customPasscodePresentingViewController: self,
+                uptimeAtTheTimeOfChangeoverToNotActiveState: nil)
         }
     }
 
@@ -282,7 +288,8 @@ extension ShareViewController: LocalAuthenticationViewControllerDelegate {
 
     func userLocalAuthenticationDidSucceed(authenticationWasPerformed: Bool) async {
         assert(Thread.isMainThread)
-        self.model.isAuthenticated = true
+        assert(model != nil)
+        self.model?.isAuthenticated = true
         showAppropriateViewControllerView()
     }
 
@@ -510,7 +517,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             dispatchGroupForEngine.enter()
-            let op = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: messageSentPermanentID, extendedPayloadProvider: nil, obvEngine: obvEngine) {
+            let op = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: messageSentPermanentID, alsoPostToOtherOwnedDevices: true, extendedPayloadProvider: nil, obvEngine: obvEngine) {
                 // Called by the engine when the message and its attachments were taken into account
                 progress.completedUnitCount += 1
                 dispatchGroupForEngine.leave()
@@ -579,11 +586,13 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         
         internalQueue.addOperation { [weak self] in
             dispatchGroupForEngine.wait()
-            progress.completedUnitCount += 1
+            progress.completedUnitCount += 1  
             // If we reach this point, we know for sure that *all* messages to send were sent by the engine
             debugPrint(progress.completedUnitCount, progress.totalUnitCount)
             // Give some time to the progress to reach 100 percent and complete the request
-            self?.delegate?.showSuccessAndCompleteRequestAfter(deadline: .now() + .milliseconds(300))
+            Task { [weak self] in
+                await self?.delegate?.showSuccessAndCompleteRequestAfter(deadline: .now() + .milliseconds(300))
+            }
         }
 
     }

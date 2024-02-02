@@ -29,6 +29,6 @@ protocol RemoteNotificationDelegate {
     
     func startBackgroundActivityForHandlingRemoteNotification(ownedCryptoIds: Set<ObvCryptoIdentity>, withCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier
 
-    func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+    func attachmentDownloadDecisionHasBeenTaken(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
 
 }

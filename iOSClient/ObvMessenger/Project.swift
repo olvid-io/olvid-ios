@@ -29,6 +29,7 @@ SUBQUERY (
         ],
         "CFBundleShortVersionString": "$(MARKETING_VERSION)",
         "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
+        "NSHumanReadableCopyright": .init(stringLiteral: Constants.nsHumanReadableCopyrightValue),
         "CFBundleDisplayName": "$(OBV_BUNDLE_DISPLAY_NAME_FOR_SHARE_EXTENSION)",
         "OBV_APP_GROUP_IDENTIFIER": "$(OBV_APP_GROUP_IDENTIFIER)"
     ])
@@ -36,7 +37,7 @@ SUBQUERY (
     let target = Target.appExtension(name: "ObvMessengerShareExtension",
                                      bundleIdentifier: "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_SHARE_EXTENSION)",
                                      infoPlist: infoPlist,
-                                     sources: [ //this is going to be a fuckfest… this WILL need to be organized and not have target files from other targets
+                                     sources: [ // This will need to be organized and not have target files from other targets
                                         "ObvMessengerShareExtension/*.swift",
                                         "ObvMessengerShareExtension/Operations/*.swift",
                                         "ObvMessenger/Constants/ObvMessengerConstants.swift",
@@ -44,7 +45,6 @@ SUBQUERY (
                                         "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/DeletePersistedGroupV2Operation.swift",
                                         "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/MarkPublishedDetailsOfGroupV2AsSeenOperation.swift",
                                         "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/RemoveUpdateInProgressForGroupV2Operation.swift",
-                                        "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/UpdateCustomNameAndGroupV2PhotoOperation.swift",
                                         "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/UpdateGroupV2Operation.swift",
                                         "ObvMessenger/Coordinators/PersistedDiscussionsUpdatesCoordinator/Operations/Deleting messages and discussions/WipeAllReadOnceAndLimitedVisibilityMessagesAfterLockOutOperation.swift",
                                         "ObvMessenger/Coordinators/PersistedDiscussionsUpdatesCoordinator/Operations/Sending messages/SendUnprocessedPersistedMessageSentOperation.swift",
@@ -113,8 +113,7 @@ SUBQUERY (
                                         "ObvMessenger/VoIP/Helpers/CallSounds.swift",
                                               ],
                                      resources: [
-                                        "ObvMessenger/*.lproj/*.strings",
-                                        "ObvMessenger/*.lproj/*.stringsdict",
+                                        "ObvMessenger/*.xcstrings",
                                         "ObvMessenger/Assets.xcassets",
                                         "ObvMessenger/LaunchScreen.storyboard",
                                      ],
@@ -143,6 +142,7 @@ func createNotificationServiceExtension() -> Target {
         ],
         "CFBundleShortVersionString": "$(MARKETING_VERSION)",
         "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
+        "NSHumanReadableCopyright": .init(stringLiteral: Constants.nsHumanReadableCopyrightValue),
         "CFBundleDisplayName": "$(OBV_BUNDLE_DISPLAY_NAME_FOR_NOTIFICATION_SERVICE_EXTENSION)",
         "OBV_APP_GROUP_IDENTIFIER": "$(OBV_APP_GROUP_IDENTIFIER)"
     ])
@@ -150,16 +150,14 @@ func createNotificationServiceExtension() -> Target {
     let target = Target.appExtension(name: "ObvMessengerNotificationServiceExtension",
                                      bundleIdentifier: "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_NOTIFICATION_SERVICE_EXTENSION)",
                                      infoPlist: infoPlist,
-                                     sources: [ //this is going to be a fuckfest… this WILL need to be organized and not have target files from other targets
+                                     sources: [
                                         "ObvMessenger/Constants/ObvMessengerConstants.swift",
                                         "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/CreateOrUpdatePersistedGroupV2Operation.swift",
                                         "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/DeletePersistedGroupV2Operation.swift",
                                         "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/MarkPublishedDetailsOfGroupV2AsSeenOperation.swift",
                                         "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/RemoveUpdateInProgressForGroupV2Operation.swift",
-                                        "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/UpdateCustomNameAndGroupV2PhotoOperation.swift",
                                         "ObvMessenger/Coordinators/ContactGroupCoordinator/Operations/UpdateGroupV2Operation.swift",
                                         "ObvMessenger/Coordinators/PersistedDiscussionsUpdatesCoordinator/Operations/CallLog/CleanCallLogContactsOperation.swift",
-                                        "ObvMessenger/Coordinators/PersistedDiscussionsUpdatesCoordinator/Operations/CallLog/ReportCallEventOperation.swift",
                                         "ObvMessenger/Coordinators/PersistedDiscussionsUpdatesCoordinator/Operations/CallLog/ReportEndCallOperation.swift",
                                         "ObvMessenger/Coordinators/PersistedDiscussionsUpdatesCoordinator/Operations/Receiving messages/ExtractReceivedExtendedPayloadOperation.swift",
                                         "ObvMessenger/CoreData/DataMigrationManagerForObvMessenger.swift",
@@ -204,12 +202,8 @@ func createNotificationServiceExtension() -> Target {
                                         "ObvMessenger/VoIP/Call/GenericCall.swift",
                                         "ObvMessenger/VoIP/CallParticipant/CallParticipant.swift",
                                         "ObvMessenger/VoIP/CallParticipant/CallParticipantUpdateKind.swift",
-                                        "ObvMessenger/VoIP/CallReport.swift",
                                         "ObvMessenger/VoIP/Helpers/CallSounds.swift",
-                                        "ObvMessenger/VoIP/JSON Messages/WebRTCDataChannelMessageJSON.swift",
-                                        "ObvMessenger/VoIP/JSON Messages/WebRTCInnerMessageJSON.swift",
                                         "ObvMessenger/VoIP/VoIPNotification/CallUpdateKind.swift",
-                                        "ObvMessenger/VoIP/VoIPNotification/VoIPNotification.swift",
                                         "ObvMessengerNotificationServiceExtension/NotificationService.swift",
                                               ],
                                      resources: [
@@ -250,8 +244,7 @@ func createNotificationServiceExtension() -> Target {
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Synth-Emotive/Synth-Emotive08.caf",
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/alarm-paranoid.caf",
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Synth-FM/Synth-FM12.caf",
-                                        "ObvMessenger/*.lproj/*.strings",
-                                        "ObvMessenger/*.lproj/*.stringsdict",
+                                        "ObvMessenger/*.xcstrings",
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Piano/Piano05.caf",
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Oboe/Oboe13.caf",
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Synth-Quantizer/Synth-Quantizer13.caf",
@@ -608,6 +601,7 @@ func createIntentsServiceExtension() -> Target {
             "NSExtensionPrincipalClass" : "$(PRODUCT_MODULE_NAME).IntentHandler"
         ],
         "CFBundleShortVersionString": "$(MARKETING_VERSION)",
+        "NSHumanReadableCopyright": .init(stringLiteral: Constants.nsHumanReadableCopyrightValue),
         "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
         "CFBundleDisplayName": "$(OBV_BUNDLE_DISPLAY_NAME_FOR_INTENTS_EXTENSION)",
     ])
@@ -620,7 +614,7 @@ func createIntentsServiceExtension() -> Target {
                                         "ObvMessengerIntentsExtension/IntentHandler.swift"
                                      ],
                                      resources: [],
-                                     entitlements: nil,
+                                     entitlements: "ObvMessengerIntentsExtension/ObvMessengerIntentsExtension.entitlements",
                                      dependencies: [
                                         .sdk(name: "Intents", type: .framework, status: .required)
                                      ],
@@ -630,16 +624,17 @@ func createIntentsServiceExtension() -> Target {
     return target
 }
 
+
 func createApp(shareExtension: Target,
                notificationExtension: Target,
-               intentsExtension: Target) -> Target {
+               intentsExtension: Target,
+               devMode: Bool) -> Target {
     let infoPlist: InfoPlist = .extendingDefault(with: [
         "BGTaskSchedulerPermittedIdentifiers": [
             "io.olvid.background.tasks"
         ],
         "CFBundleDocumentTypes": [
             [
-                "CFBundleTypeIconFiles" : [],
                 "CFBundleTypeName" : "com.adobe.pdf",
                 "CFBundleTypeRole" : "None",
                 "LSHandlerRank" : "Default",
@@ -655,20 +650,40 @@ func createApp(shareExtension: Target,
                 "CFBundleTypeName" : "public.comma-separated-values-text",
                 "LSHandlerRank" : "Default",
                 "LSItemContentTypes" : ["public.comma-separated-values-text"]
-            ]
+            ],
+            [
+                "CFBundleTypeName" : "Microsoft Word 97 document",
+                "LSHandlerRank" : "Default",
+                "LSItemContentTypes" : ["com.microsoft.word.doc"]
+            ],
+            [
+                "CFBundleTypeName" : "Microsoft Word document",
+                "LSHandlerRank" : "Default",
+                "LSItemContentTypes" : ["org.openxmlformats.wordprocessingml.document"]
+            ],
+            [
+                "CFBundleTypeName" : "Microsoft Powerpoint document",
+                "LSHandlerRank" : "Default",
+                "LSItemContentTypes" : ["org.openxmlformats.presentationml.presentation"]
+            ],
+            [
+                "CFBundleTypeName" : "Microsoft Excel document",
+                "LSHandlerRank" : "Default",
+                "LSItemContentTypes" : ["org.openxmlformats.spreadsheetml.sheet"]
+            ],
         ],
         "CFBundleURLTypes": [
             [
                 "CFBundleTypeRole" : "Editor",
                 "CFBundleURLSchemes" : [
-                    "olvid"
+                    devMode ? "olvid.dev" : "olvid"
                 ]
             ]
         ],
         "CFBundleDisplayName": "$(OBV_BUNDLE_DISPLAY_NAME)",
         "CFBundleShortVersionString": "$(MARKETING_VERSION)",
+        "NSHumanReadableCopyright": .init(stringLiteral: Constants.nsHumanReadableCopyrightValue),
         "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
-        "HARDCODED_API_KEY": "$(HARDCODED_API_KEY)",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.social-networking",
         "LSRequiresIPhoneOS": true,
@@ -730,7 +745,8 @@ func createApp(shareExtension: Target,
         "UTExportedTypeDeclarations" : [
             [
                 "UTTypeConformsTo" : [
-                    "public.item"
+                    "public.data",
+                    "public.content",
                 ],
                 "UTTypeDescription" : "Olvid Backup",
                 "UTTypeIconFiles" : [],
@@ -740,54 +756,109 @@ func createApp(shareExtension: Target,
                         "olvidbackup"
                     ]
                 ]
-            ]
-        ]
+            ],
+        ],
+        "UTImportedTypeDeclarations" : [
+            [
+                "UTTypeDescription" : "Web Internet Location",
+                "UTTypeIdentifier" : "com.apple.web-internet-location",
+                "UTTypeConformsTo" : [
+                    "public.data",
+                ],
+            ],
+            [
+                "UTTypeDescription" : "Microsoft Word 97 document",
+                "UTTypeIdentifier" : "com.microsoft.word.doc",
+                "UTTypeConformsTo" : [
+                    "public.data",
+                ],
+                "UTTypeTagSpecification" : [
+                    "public.filename-extension" : [
+                        "doc",
+                    ],
+                ],
+            ],
+            [
+                "UTTypeDescription" : "Microsoft Word document",
+                "UTTypeIdentifier" : "org.openxmlformats.wordprocessingml.document",
+                "UTTypeConformsTo" : [
+                    "public.data",
+                ],
+                "UTTypeTagSpecification" : [
+                    "public.filename-extension" : [
+                        "docx",
+                    ],
+                ],
+            ],
+            [
+                "UTTypeDescription" : "Microsoft Powerpoint document",
+                "UTTypeIdentifier" : "org.openxmlformats.presentationml.presentation",
+                "UTTypeConformsTo" : [
+                    "public.data",
+                ],
+                "UTTypeTagSpecification" : [
+                    "public.filename-extension" : [
+                        "pptx",
+                    ],
+                ],
+            ],
+            [
+                "UTTypeDescription" : "Microsoft Excel document",
+                "UTTypeIdentifier" : "org.openxmlformats.spreadsheetml.sheet",
+                "UTTypeConformsTo" : [
+                    "public.data",
+                ],
+                "UTTypeTagSpecification" : [
+                    "public.filename-extension" : [
+                        "xlsx",
+                    ],
+                ],
+            ],
+        ],
     ])
 
-    let dependencies: [TargetDependency] = {
-        let _base: [TargetDependency] = [
-            .target(shareExtension),
-            .target(notificationExtension),
-            .target(intentsExtension),
-            .Engine.obvFlowManager,
-            .Engine.obvTypes,
-            .Engine.obvServerInterface,
-            .Modules.obvUI,
-            .Engine.obvNetworkFetchManager,
-            .Engine.bigInt,
-            .Engine.jws,
-            .Engine.obvIdentityManager,
-            .init(.webRTC),
-            .Engine.obvOperation,
-            .Engine.obvNotificationCenter,
-            .Engine.obvNetworkSendManager,
-            .Engine.obvEncoder,
-            .init(.orderedCollections),
-            .Engine.obvDatabaseManager,
-            .Engine.obvChannelManager,
-            .Engine.obvBackupManager,
-            .Engine.obvCrypto,
-            .Engine.obvEngine,
-            .Engine.obvProtocolManager,
-            .Modules.obvUICoreData,
-            .Engine.obvMetaManager,
-            .Modules.olvidUtils,
-            .Modules.Platform.base,
-            .Modules.Discussions.Mentions.AutoGrowingTextView.textViewDelegateProxy,
-            .Modules.Platform.uiKitAdditions,
-            .init(.appAuth),
-            .Modules.Discussions.attachmentsDropView,
-            .Modules.Components.textInputShortcutsResultView,
-            .Modules.Discussions.Mentions.Builders.composeMessage,
-            .Modules.Discussions.Mentions.Builders.textBubble,
-            .Modules.Discussions.Mentions.Builders.buildersShared,
-            .Modules.Discussions.scrollToBottomButton,
-        ]
+    let dependencies: [TargetDependency] = [
+        .target(shareExtension),
+        .target(notificationExtension),
+        .target(intentsExtension),
+        .Engine.obvFlowManager,
+        .Engine.obvTypes,
+        .Engine.obvServerInterface,
+        .Modules.obvUI,
+        .Engine.obvNetworkFetchManager,
+        .Engine.bigInt,
+        .Engine.jws,
+        .Engine.obvIdentityManager,
+        .init(.webRTC),
+        .package(product: "AppAuth"),
+        .Engine.obvOperation,
+        .Engine.obvNotificationCenter,
+        .Engine.obvNetworkSendManager,
+        .Engine.obvEncoder,
+        //.init(.orderedCollections),
+        .Engine.obvDatabaseManager,
+        .Engine.obvChannelManager,
+        .Engine.obvBackupManager,
+        .Engine.obvSyncSnapshotManager,
+        .Engine.obvCrypto,
+        .Engine.obvEngine,
+        .Engine.obvProtocolManager,
+        .Modules.obvUICoreData,
+        //.Engine.obvMetaManager,
+        .Modules.olvidUtils,
+        .Modules.obvDesignSystem,
+        .Modules.obvSettings,
+        .Modules.Platform.base,
+        .Modules.Discussions.Mentions.AutoGrowingTextView.textViewDelegateProxy,
+        .Modules.Platform.uiKitAdditions,
+        .Modules.Components.textInputShortcutsResultView,
+        .Modules.Discussions.Mentions.Builders.composeMessage,
+        .Modules.Discussions.Mentions.Builders.textBubble,
+        .Modules.Discussions.Mentions.Builders.buildersShared,
+        .Modules.Discussions.scrollToBottomButton,
+    ]
 
-        return _base
-    }()
-
-    let mainApp = Target.mainApp(name: "Olvid",
+    let mainApp = Target.mainApp(name: devMode ? "Olvid_dev" : "Olvid",
                                  infoPlist: infoPlist,
                                  sources: [
                                     "ObvMessenger/**/*.swift",
@@ -798,10 +869,8 @@ func createApp(shareExtension: Target,
                                     "ObvMessenger/**/*.mp3",
                                     "ObvMessenger/**/*.xib",
                                     "ObvMessenger/**/*.storyboard",
-                                    "ObvMessenger/**/*.lproj/*.strings",
-                                    "ObvMessenger/**/*.lproj/*.stringsdict",
+                                    "ObvMessenger/**/*.xcstrings",
                                     "ObvMessenger/**/*.lproj/AppIntentVocabulary.plist",
-                                    "ObvMessenger/**/*.lproj/*.strings",
                                     "ObvMessenger/Assets.xcassets",
                                     "ObvMessenger/Settings.bundle"
                                  ],
@@ -814,7 +883,6 @@ func createApp(shareExtension: Target,
                                  additionalFiles: [
                                     "ObvMessenger/**/*.md",
                                     "ObvMessenger/**/*.txt",
-                                    "TestConfiguration.storekit"
                                  ])
 
     return mainApp
@@ -829,12 +897,19 @@ let intentsExtension = createIntentsServiceExtension()
 
 let app = createApp(shareExtension: shareExtension,
                     notificationExtension: notificationExtension,
-                    intentsExtension: intentsExtension)
+                    intentsExtension: intentsExtension,
+                    devMode: false)
+
+let appDev = createApp(shareExtension: shareExtension,
+                       notificationExtension: notificationExtension,
+                       intentsExtension: intentsExtension,
+                       devMode: true)
 
 let project = Project.createProject(name: "ObvMessenger",
                                     packages: [],
                                     targets: [
                                         app,
+                                        appDev,
                                         shareExtension,
                                         notificationExtension,
                                         intentsExtension

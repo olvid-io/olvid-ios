@@ -22,8 +22,8 @@ import ObvCrypto
 import ObvTypes
 
 public struct ObvNetworkReceivedMessageDecrypted {
-    public let messageId: MessageIdentifier
-    public let attachmentIds: [AttachmentIdentifier]
+    public let messageId: ObvMessageIdentifier
+    public let attachmentIds: [ObvAttachmentIdentifier]
     public let fromIdentity: ObvCryptoIdentity
     public let messagePayload: Data
     public let messageUploadTimestampFromServer: Date
@@ -31,7 +31,7 @@ public struct ObvNetworkReceivedMessageDecrypted {
     public let localDownloadTimestamp: Date
     public let extendedMessagePayload: Data?
     
-    public init(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], fromIdentity: ObvCryptoIdentity, messagePayload: Data, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, extendedMessagePayload: Data?) {
+    public init(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], fromIdentity: ObvCryptoIdentity, messagePayload: Data, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, extendedMessagePayload: Data?) {
         self.messageId = messageId
         self.attachmentIds = attachmentIds
         self.fromIdentity = fromIdentity

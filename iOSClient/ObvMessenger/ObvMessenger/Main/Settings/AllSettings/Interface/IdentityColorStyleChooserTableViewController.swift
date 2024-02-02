@@ -20,6 +20,9 @@
 import ObvUI
 import UIKit
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
+
 
 class IdentityColorStyleChooserTableViewController: UITableViewController {
 

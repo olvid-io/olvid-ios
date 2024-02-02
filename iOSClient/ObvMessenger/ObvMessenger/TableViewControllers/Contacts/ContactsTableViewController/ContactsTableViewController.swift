@@ -23,6 +23,7 @@ import CoreData
 import ObvTypes
 import ObvUICoreData
 import ObvUI
+import ObvSettings
 
 
 class ContactsTableViewController: UITableViewController {

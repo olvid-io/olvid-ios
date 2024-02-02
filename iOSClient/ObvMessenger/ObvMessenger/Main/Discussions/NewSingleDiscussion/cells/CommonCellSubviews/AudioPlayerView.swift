@@ -27,23 +27,28 @@ fileprivate extension AudioPlayerView.Configuration {
 
     var canReadAudio: Bool {
         switch self {
-        case .complete: return true
-        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
+        case .complete:
+            return true
+        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
             return false
         }
     }
 
     var tapToReadViewIsHidden: Bool {
         switch self {
-        case .completeButReadRequiresUserInteraction: return false
-        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete: return true
+        case .completeButReadRequiresUserInteraction:
+            return false
+        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete, .downloadableSent, .downloadingSent:
+            return true
         }
     }
 
     var messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>? {
         switch self {
-        case .completeButReadRequiresUserInteraction(messageObjectID: let messageObjectID, fileSize: _, uti: _): return messageObjectID
-        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete: return nil
+        case .completeButReadRequiresUserInteraction(messageObjectID: let messageObjectID, fileSize: _, uti: _):
+            return messageObjectID
+        case .uploadableOrUploading, .downloadable, .downloading, .cancelledByServer, .complete, .downloadableSent, .downloadingSent:
+            return nil
         }
     }
 
@@ -52,7 +57,8 @@ fileprivate extension AudioPlayerView.Configuration {
         case .complete(hardlink: let hardlink, _, _, _, _, _):
             guard let url = hardlink?.hardlinkURL else { return nil }
             return ObvAudioPlayer.duration(of: url)
-        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer: return nil
+        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
+            return nil
         }
     }
 
@@ -60,7 +66,7 @@ fileprivate extension AudioPlayerView.Configuration {
         switch self {
         case .complete(_, _, _, _, _, wasOpened: let wasOpened):
             return wasOpened
-        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
+        case .uploadableOrUploading, .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
             return nil
         }
     }
@@ -166,8 +172,16 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
             fyleProgressView.setConfiguration(.downloadable(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
             setTitle(filename: filename)
             setSubtitle(fileSize: fileSize, uti: uti)
+        case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            fyleProgressView.setConfiguration(.downloadableSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
+            setTitle(filename: filename)
+            setSubtitle(fileSize: fileSize, uti: uti)
         case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
             fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            setTitle(filename: filename)
+            setSubtitle(fileSize: fileSize, uti: uti)
+        case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            fyleProgressView.setConfiguration(.downloadingSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
             setTitle(filename: filename)
             setSubtitle(fileSize: fileSize, uti: uti)
         case .completeButReadRequiresUserInteraction(messageObjectID: _, fileSize: let fileSize, uti: let uti):

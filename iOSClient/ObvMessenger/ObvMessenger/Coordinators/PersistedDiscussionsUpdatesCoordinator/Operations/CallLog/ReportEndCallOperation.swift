@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -45,7 +45,6 @@ final class ReportEndCallOperation: OperationWithSpecificReasonForCancel<CoreDat
                 if let _item = try PersistedCallLogItem.get(callUUID: callUUID, within: context) {
                     item = _item
                 } else {
-                    assertionFailure("Try to report an ending call that does not exist.")
                     return
                 }
             } catch(let error) {

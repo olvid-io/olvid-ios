@@ -17,15 +17,15 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-
 import CoreData
 import ObvUI
 import ObvTypes
 import os.log
 import SwiftUI
 import ObvUICoreData
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
+import ObvDesignSystem
+
 
 protocol DiscussionsHostingViewControllerDelegate: AnyObject {
     func setSelectedDiscussions(to: [PersistedDiscussion]) async throws
@@ -51,13 +51,9 @@ final class DiscussionViewModel: ObservableObject, Hashable {
         do {
             if let photoURL = try persistedDiscussion.displayPhotoURL {
                 let image = UIImage(contentsOfFile: photoURL.path)
-                if #available(iOS 15, *) {
-                    let scale = UIScreen.main.scale
-                    let size = CGSize(width: scale * Self.circleDiameter, height: scale * Self.circleDiameter)
-                    self.profilePicture = image?.preparingThumbnail(of: size)
-                } else {
-                    self.profilePicture = nil
-                }
+                let scale = UIScreen.main.scale
+                let size = CGSize(width: scale * Self.circleDiameter, height: scale * Self.circleDiameter)
+                self.profilePicture = image?.preparingThumbnail(of: size)
             } else {
                 self.profilePicture = nil
             }
@@ -129,10 +125,8 @@ struct DiscussionsView: View {
     private var subView: some View {
         if #available(iOSApplicationExtension 16.0, *) {
             return AnyView(NewDiscussionsListView(ownedCryptoId: ownedCryptoId, discussionsViewModel: model))
-        } else if #available(iOSApplicationExtension 15.0, *) {
-            return AnyView(DiscussionsListView(ownedCryptoId: ownedCryptoId, discussionsViewModel: model))
         } else {
-            return AnyView(DiscussionsScrollingView(discussionModels: model.discussions))
+            return AnyView(DiscussionsListView(ownedCryptoId: ownedCryptoId, discussionsViewModel: model))
         }
     }
 }
@@ -162,7 +156,7 @@ fileprivate struct DiscussionsInnerView: View {
                 DiscussionCellView(model: discussionModel)
             }
         }
-        .obvListStyle()
+        .listStyle(InsetGroupedListStyle())
     }
 }
 
@@ -202,35 +196,45 @@ fileprivate struct DiscussionCellView: View {
         }
     }
 
-    private var circledTextView: Text? {
+    private var circledText: String? {
         let title = model.persistedDiscussion.title.trimmingCharacters(in: .whitespacesAndNewlines)
         if let char = title.first {
-            return Text(String(char))
+            return String(char)
         } else {
             return nil
         }
     }
-
-    private var pictureViewInner: some View {
-        let showGreenShield = (try? model.persistedDiscussion.showGreenShield) ?? false
-        let showRedShield = (try? model.persistedDiscussion.showRedShield) ?? false
-        return ProfilePictureView(profilePicture: model.profilePicture,
-                                  circleBackgroundColor: identityColors?.background,
-                                  circleTextColor: identityColors?.text,
-                                  circledTextView: circledTextView,
-                                  systemImage: systemImage,
-                                  showGreenShield: showGreenShield,
-                                  showRedShield: showRedShield,
-                                  customCircleDiameter: DiscussionViewModel.circleDiameter)
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: circledText,
+              icon: systemImage,
+              profilePicture: model.profilePicture,
+              showGreenShield: (try? model.persistedDiscussion.showGreenShield) ?? false,
+              showRedShield: (try? model.persistedDiscussion.showRedShield) ?? false)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: identityColors?.background,
+              foreground: identityColors?.text)
+    }
+    
+    private var profilePictureViewModel: ProfilePictureView.Model {
+        .init(content: profilePictureViewModelContent,
+              colors: initialCircleViewModelColors,
+              circleDiameter: 60.0)
+    }
+    
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: model.persistedDiscussion.title,
+              titlePart2: nil,
+              subtitle: nil,
+              subsubtitle: nil)
     }
 
     var body: some View {
         HStack {
-            pictureViewInner
-            TextView(titlePart1: model.persistedDiscussion.title,
-                     titlePart2: nil,
-                     subtitle: nil,
-                     subsubtitle: nil)
+            ProfilePictureView(model: profilePictureViewModel)
+            TextView(model: textViewModel)
             Spacer()
             Image(systemIcon: model.selected ? .checkmarkCircleFill : .circle)
                 .font(Font.system(size: 24, weight: .regular, design: .default))

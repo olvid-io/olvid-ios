@@ -20,6 +20,8 @@
 import UIKit
 import ObvTypes
 import ObvUICoreData
+import ObvSettings
+
 
 class ContactsSortOrderChooserTableViewController: UITableViewController {
 

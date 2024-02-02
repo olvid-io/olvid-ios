@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,15 +28,18 @@ import OlvidUtils
 public struct ObvContactDevice: Hashable, CustomStringConvertible {
     
     public let identifier: Data
-    public let contactIdentity: ObvContactIdentity
-    
-    public var ownedIdentity: ObvOwnedIdentity {
-        contactIdentity.ownedIdentity
+    public let contactIdentifier: ObvContactIdentifier
+    public let secureChannelStatus: SecureChannelStatus
+
+    public enum SecureChannelStatus {
+        case creationInProgress
+        case created
     }
 
-    public init(identifier: Data, contactIdentity: ObvContactIdentity) {
-        self.identifier = identifier
-        self.contactIdentity = contactIdentity
+    init(remoteDeviceUid: UID, contactIdentifier: ObvContactIdentifier, secureChannelStatus: SecureChannelStatus) {
+        self.identifier = remoteDeviceUid.raw
+        self.contactIdentifier = contactIdentifier
+        self.secureChannelStatus = secureChannelStatus
     }
     
 }
@@ -45,21 +48,6 @@ public struct ObvContactDevice: Hashable, CustomStringConvertible {
 // MARK: Implementing CustomStringConvertible
 extension ObvContactDevice {
     public var description: String {
-        return "ObvContactDevice<\(contactIdentity.description), \(ownedIdentity.description)>"
-    }
-}
-
-
-internal extension ObvContactDevice {
-    
-    init?(contactDeviceUid: UID, contactCryptoIdentity: ObvCryptoIdentity, ownedCryptoIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) {
-        guard let contactIdentity = ObvContactIdentity(contactCryptoIdentity: contactCryptoIdentity, ownedCryptoIdentity: ownedCryptoIdentity, identityDelegate: identityDelegate, within: obvContext) else { return nil }
-        do {
-            guard try identityDelegate.isDevice(withUid: contactDeviceUid, aDeviceOfContactIdentity: contactCryptoIdentity, ofOwnedIdentity: ownedCryptoIdentity, within: obvContext) else { return nil }
-        } catch {
-            return nil
-        }
-        self.contactIdentity = contactIdentity
-        self.identifier = contactDeviceUid.raw
+        return "ObvContactDevice<\(contactIdentifier.description), \(identifier.description)>"
     }
 }

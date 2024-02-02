@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,12 +23,13 @@ import os.log
 import ObvEngine
 import ObvTypes
 import SwiftUI
-import ObvMetaManager
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
+import ObvSettings
 
 
-class SingleGroupViewController: UIViewController {
+class SingleGroupViewController: UIViewController, PersonalNoteEditorViewActionsDelegate {
 
     // Views
     
@@ -43,6 +44,11 @@ class SingleGroupViewController: UIViewController {
     private let cloneBackgroundView = UIView()
     private let cloneExplanationLabel = UILabel()
     private let cloneButton = ObvImageButton()
+    
+    @IBOutlet weak var personalNoteContainerView: UIView!
+    private let personalNoteBackgroundView = UIView()
+    private let personalNoteTitle = UILabel()
+    private let personalNoteBody = UILabel()
     
     @IBOutlet weak var membersStackView: UIStackView!
     @IBOutlet weak var membersLabel: UILabel!
@@ -112,6 +118,7 @@ class SingleGroupViewController: UIViewController {
     // Other constants
     
     private var notificationTokens = [NSObjectProtocol]()
+    private var keyValueObservations = [NSKeyValueObservation]()
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SingleGroupViewController.self))
     private let customSpacingBetweenSections: CGFloat = 24.0
@@ -177,6 +184,7 @@ class SingleGroupViewController: UIViewController {
     
     deinit {
         notificationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+        keyValueObservations.forEach { $0.invalidate() }
     }
 
 }
@@ -225,6 +233,26 @@ extension SingleGroupViewController {
         cloneButton.translatesAutoresizingMaskIntoConstraints = false
         cloneButton.setTitle(NSLocalizedString("CLONE_THIS_GROUP_V1_TO_GROUP_V2", comment: ""), for: .normal)
         cloneButton.setImage(.docOnDoc, for: .normal)
+
+        personalNoteContainerView.addSubview(personalNoteBackgroundView)
+        personalNoteBackgroundView.translatesAutoresizingMaskIntoConstraints = false
+        personalNoteBackgroundView.backgroundColor = AppTheme.shared.colorScheme.secondarySystemBackground
+        personalNoteBackgroundView.layer.cornerCurve = .continuous
+        personalNoteBackgroundView.layer.cornerRadius = 16.0
+
+        personalNoteBackgroundView.addSubview(personalNoteTitle)
+        personalNoteTitle.translatesAutoresizingMaskIntoConstraints = false
+        personalNoteTitle.textColor = AppTheme.shared.colorScheme.label
+        personalNoteTitle.font = UIFont.preferredFont(forTextStyle: .headline)
+        personalNoteTitle.text = NSLocalizedString("PERSONAL_NOTE", comment: "")
+        personalNoteTitle.numberOfLines = 1
+        
+        personalNoteBackgroundView.addSubview(personalNoteBody)
+        personalNoteBody.translatesAutoresizingMaskIntoConstraints = false
+        personalNoteBody.textColor = AppTheme.shared.colorScheme.secondaryLabel
+        personalNoteBody.font = UIFont.preferredFont(forTextStyle: .body)
+        personalNoteBody.text = "-"
+        personalNoteBody.numberOfLines = 0
 
         membersLabel.textColor = AppTheme.shared.colorScheme.label
         membersLabel.text = Strings.members
@@ -327,6 +355,15 @@ extension SingleGroupViewController {
         observeEngineNotifications()
         observeIdentityColorStyleDidChangeNotifications()
         
+        keyValueObservations.append(persistedContactGroup.observe(\.note, options: [.new]) { object, change in
+            guard let newPersonalNote = change.newValue else { assertionFailure(); return }
+            if let newPersonalNote, !newPersonalNote.isEmpty {
+                self.personalNoteBody.text = newPersonalNote
+            } else {
+                self.personalNoteBody.text = "-"
+            }
+        })
+        
         // We refresh the group each time we load this view controller
         if obvContactGroup.groupType == .joined {
             refreshGroup()
@@ -369,24 +406,87 @@ extension SingleGroupViewController {
                 cloneBackgroundView.heightAnchor.constraint(equalToConstant: 0),
             ])
         }
+        
+        NSLayoutConstraint.activate([
+            personalNoteBackgroundView.leadingAnchor.constraint(equalTo: personalNoteContainerView.leadingAnchor, constant: 16),
+            personalNoteBackgroundView.trailingAnchor.constraint(equalTo: personalNoteContainerView.trailingAnchor, constant: -16),
+            personalNoteBackgroundView.topAnchor.constraint(equalTo: personalNoteContainerView.topAnchor, constant: 0),
+            personalNoteBackgroundView.bottomAnchor.constraint(equalTo: personalNoteContainerView.bottomAnchor, constant: -16),
+            
+            personalNoteTitle.topAnchor.constraint(equalTo: personalNoteBackgroundView.topAnchor, constant: 16),
+            personalNoteTitle.trailingAnchor.constraint(equalTo: personalNoteBackgroundView.trailingAnchor, constant: -16),
+            personalNoteTitle.bottomAnchor.constraint(equalTo: personalNoteBody.topAnchor, constant: -4),
+            personalNoteTitle.leadingAnchor.constraint(equalTo: personalNoteBackgroundView.leadingAnchor, constant: 16),
+            
+            personalNoteBody.trailingAnchor.constraint(equalTo: personalNoteBackgroundView.trailingAnchor, constant: -16),
+            personalNoteBody.leadingAnchor.constraint(equalTo: personalNoteBackgroundView.leadingAnchor, constant: 16),
+            personalNoteBody.bottomAnchor.constraint(equalTo: personalNoteBackgroundView.bottomAnchor, constant: -16),
+        ])
+        
     }
 
+    
     private func configureNavigationBarTitle() {
-        var items: [UIBarButtonItem] = []
-
-        items += [UIBarButtonItem(barButtonSystemItem: UIBarButtonItem.SystemItem.compose, target: self, action: #selector(editGroupButtonTapped))]
-
-        if !persistedContactGroup.contactIdentities.isEmpty {
-            items += [BlockBarButtonItem(systemIcon: .phoneFill) {
-                let groupId = self.persistedContactGroup.typedObjectID
-                let contactIdentities = self.persistedContactGroup.contactIdentities
-                ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(contactIDs: contactIdentities.map({ $0.typedObjectID }), groupId: .groupV1(groupId)).postOnDispatchQueue()
-            }]
-        }
-
-        self.navigationItem.rightBarButtonItems = items
+        addRightBarButtonMenu()
     }
     
+    
+    @available(iOS 15.0, *)
+    private func addRightBarButtonMenu() {
+        
+        let actionEditNote = UIAction(
+            title: NSLocalizedString("EDIT_PERSONAL_NOTE", comment: ""),
+            image: UIImage(systemIcon: .pencil(.circle)),
+            handler: userWantsToShowPersonalNoteEditor)
+        
+        let actionEditGroup = UIAction(
+            title: NSLocalizedString("EDIT_GROUP", comment: ""),
+            image: UIImage(systemIcon: .pencil(.circle)),
+            handler: userWantsToEditGroupNickname)
+        
+        let actionCall: UIAction?
+        if !persistedContactGroup.contactIdentities.isEmpty {
+            actionCall = UIAction(
+                title: NSLocalizedString("CALL", comment: ""),
+                image: UIImage(systemIcon: .phoneFill),
+                handler: { [weak self] _ in
+                    guard let self else { return }
+                    guard let context = persistedContactGroup.managedObjectContext else { return }
+                    context.perform { [weak self] in
+                        guard let self else { return }
+                        guard let ownedCryptoId = persistedContactGroup.ownedIdentity?.cryptoId else { return }
+                        let contactCryptoIds = persistedContactGroup.contactIdentities.map { $0.cryptoId }
+                        guard let groupV1Identifier = try? persistedContactGroup.getGroupV1Identifier() else { assertionFailure(); return }
+                        ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: .groupV1(groupV1Identifier: groupV1Identifier))
+                            .postOnDispatchQueue()
+                    }
+                })
+        } else {
+            actionCall = nil
+        }
+            
+        let menu = UIMenu(children: [actionEditNote, actionEditGroup, actionCall].compactMap{ $0 })
+        
+        let barButtonItem = UIBarButtonItem(image: UIImage(systemIcon: .ellipsisCircle), menu: menu)
+        
+        navigationItem.rightBarButtonItems = [barButtonItem]
+    }
+    
+    
+    @available(iOS 15.0, *)
+    private func userWantsToShowPersonalNoteEditor(_ action: UIAction) {
+        let personalNote = persistedContactGroup.note
+        let viewControllerToPresent = PersonalNoteEditorHostingController(model: .init(initialText: personalNote), actions: self)
+        if let sheet = viewControllerToPresent.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+            sheet.prefersEdgeAttachedInCompactHeight = true
+            sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+            sheet.preferredCornerRadius = 16.0
+        }
+        present(viewControllerToPresent, animated: true, completion: nil)
+    }
+
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
@@ -423,8 +523,13 @@ extension SingleGroupViewController {
         } else {
             circledInitials.showImage(fromImage: AppTheme.shared.images.groupImage)
         }
-        circledInitials.identityColors = AppTheme.shared.groupColors(forGroupUid: persistedContactGroup.groupUid)
+        circledInitials.identityColors = AppTheme.shared.groupColors(forGroupUid: persistedContactGroup.groupUid, using: ObvMessengerSettings.Interface.identityColorStyle)
         titleLabel.text = self.persistedContactGroup.displayName
+        if let newPersonalNote = self.persistedContactGroup.note, !newPersonalNote.isEmpty {
+            self.personalNoteBody.text = newPersonalNote
+        } else {
+            self.personalNoteBody.text = "-"
+        }
     }
     
     private func configureAndAddMembersTVC() throws {
@@ -595,7 +700,17 @@ extension SingleGroupViewController {
 
 extension SingleGroupViewController {
     
+    private func userWantsToEditGroupNickname(_ action: UIAction) {
+        editGroupButtonTapped()
+    }
+    
     @objc func editGroupButtonTapped() {
+        
+        guard let ownedCryptoId = self.persistedContactGroup.ownedIdentity?.cryptoId,
+              let groupId = try? self.persistedContactGroup.getGroupId() else {
+            assertionFailure()
+            return
+        }
         
         switch obvContactGroup.groupType {
         case .joined:
@@ -608,13 +723,15 @@ extension SingleGroupViewController {
                 textField.text = _self.persistedContactGroup.displayName
             }
             guard let textField = alert.textFields?.first else { return }
-            let removeNickname = UIAlertAction(title: CommonString.removeNickname, style: .destructive) { [weak self] (_) in
-                self?.removeGroupNameCustom()
+            let removeNickname = UIAlertAction(title: CommonString.removeNickname, style: .destructive) { _ in
+                ObvMessengerInternalNotification.userWantsToSetCustomNameOfJoinedGroupV1(ownedCryptoId: ownedCryptoId, groupId: groupId, groupNameCustom: nil)
+                    .postOnDispatchQueue()
             }
             let cancelAction = UIAlertAction(title: CommonString.Word.Cancel, style: UIAlertAction.Style.cancel)
-            let okAction = UIAlertAction(title: CommonString.Word.Ok, style: UIAlertAction.Style.default) { [weak self] (action) in
+            let okAction = UIAlertAction(title: CommonString.Word.Ok, style: UIAlertAction.Style.default) { _ in
                 if let newGroupName = textField.text, !newGroupName.isEmpty {
-                    self?.setGroupNameCustom(to: newGroupName)
+                    ObvMessengerInternalNotification.userWantsToSetCustomNameOfJoinedGroupV1(ownedCryptoId: ownedCryptoId, groupId: groupId, groupNameCustom: newGroupName)
+                        .postOnDispatchQueue()
                 }
             }
             alert.addAction(removeNickname)
@@ -633,33 +750,6 @@ extension SingleGroupViewController {
 
     }
 
-    private func setGroupNameCustom(to groupNameCustom: String) {
-        guard obvContactGroup.groupType == .joined else { return }
-        ObvStack.shared.performBackgroundTask { [weak self] (context) in
-            guard let _self = self else { return }
-            do {
-                guard let writablePersistedContactGroupJoined = try PersistedContactGroupJoined.get(objectID: _self.persistedContactGroup.objectID, within: context) as? PersistedContactGroupJoined else { return }
-                try writablePersistedContactGroupJoined.setGroupNameCustom(to: groupNameCustom)
-                try context.save(logOnFailure: _self.log)
-            } catch {
-                os_log("Could not change group name", log: _self.log, type: .error)
-            }
-        }
-    }
-    
-    private func removeGroupNameCustom() {
-        guard obvContactGroup.groupType == .joined else { return }
-        ObvStack.shared.performBackgroundTask { [weak self] (context) in
-            guard let _self = self else { return }
-            do {
-                guard let writablePersistedContactGroupJoined = try PersistedContactGroupJoined.get(objectID: _self.persistedContactGroup.objectID, within: context) as? PersistedContactGroupJoined else { return }
-                try writablePersistedContactGroupJoined.removeGroupNameCustom()
-                try context.save(logOnFailure: _self.log)
-            } catch {
-                os_log("Could not change group name", log: _self.log, type: .error)
-            }
-        }
-    }
 }
 
 
@@ -740,10 +830,8 @@ extension SingleGroupViewController {
  
     @objc func deleteGroupButtonTapped() {
         guard obvContactGroup.groupType == .owned else { return }
-        let NotificationType = MessengerInternalNotification.UserWantsToDeleteOwnedContactGroup.self
-        let userInfo = [NotificationType.Key.ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
-                        NotificationType.Key.groupUid: obvContactGroup.groupUid] as [String: Any]
-        NotificationCenter.default.post(name: NotificationType.name, object: nil, userInfo: userInfo)
+        ObvMessengerInternalNotification.userWantsToDeleteOwnedContactGroup(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId, groupUid: obvContactGroup.groupUid)
+            .postOnDispatchQueue()
     }
     
     @objc func leaveGroupButtonTapped() {
@@ -782,13 +870,19 @@ extension SingleGroupViewController {
 extension SingleGroupViewController {
     
     @objc func acceptPublishedCardButtonTapped() {
+        guard let obvContactGroup else { return }
         guard obvContactGroup.groupType == .joined else { return }
-        do {
-           try obvEngine.trustPublishedDetailsOfJoinedContactGroup(ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
-                                                                   groupUid: obvContactGroup.groupUid,
-                                                                   groupOwner: obvContactGroup.groupOwner.cryptoId)
-        } catch {
-            os_log("Could not accept published details of contact group joined", log: log, type: .error)
+        let obvEngine = self.obvEngine
+        let log = self.log
+        Task.detached {
+            do {
+                try await obvEngine.trustPublishedDetailsOfJoinedContactGroup(
+                    ownedCryptoId: obvContactGroup.ownedIdentity.cryptoId,
+                    groupUid: obvContactGroup.groupUid,
+                    groupOwner: obvContactGroup.groupOwner.cryptoId)
+            } catch {
+                os_log("Could not accept published details of contact group joined: %{public}@", log: log, type: .error, error.localizedDescription)
+            }
         }
     }
     
@@ -993,4 +1087,22 @@ extension SingleGroupViewController {
         
     }
     
+    
+    // MARK: - PersonalNoteEditorViewActionsDelegate
+    
+    func userWantsToDismissPersonalNoteEditorView() async {
+        guard presentedViewController is PersonalNoteEditorHostingController else { return }
+        presentedViewController?.dismiss(animated: true)
+    }
+    
+    
+    @MainActor
+    func userWantsToUpdatePersonalNote(with newText: String?) async {
+        guard let ownedCryptoId = persistedContactGroup.ownedIdentity?.cryptoId else { return }
+        guard let groupId = try? persistedContactGroup.getGroupId() else { return }
+        ObvMessengerInternalNotification.userWantsToUpdatePersonalNoteOnGroupV1(ownedCryptoId: ownedCryptoId, groupId: groupId, newText: newText)
+            .postOnDispatchQueue()
+        presentedViewController?.dismiss(animated: true)
+    }
+
 }

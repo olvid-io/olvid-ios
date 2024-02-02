@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,29 +21,22 @@
 import Foundation
 import OlvidUtils
 import ObvUICoreData
+import CoreData
 
 
 final class SendUnsentDraftsOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-
-            do {
-                
-                let unsentDrafts = try PersistedDraft.getAllUnsent(within: obvContext.context)
-                unsentDrafts.forEach { $0.forceResend() }
-
-                
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
-            }
+        do {
             
+            let unsentDrafts = try PersistedDraft.getAllUnsent(within: obvContext.context)
+            unsentDrafts.forEach { $0.forceResend() }
+            
+            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

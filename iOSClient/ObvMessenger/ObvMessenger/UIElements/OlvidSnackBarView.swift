@@ -20,6 +20,7 @@
 import UIKit
 import ObvTypes
 import ObvUI
+import ObvDesignSystem
 
 
 final class OlvidSnackBarView: UIView {
@@ -41,19 +42,11 @@ final class OlvidSnackBarView: UIView {
         self.currentOwnedCryptoId = ownedCryptoId
         self.label.text = snackBarCategory.body
         self.button.addTarget(self, action: #selector(buttonTapped), for: .touchUpInside)
-        if #available(iOS 15, *) {
-            self.button.configuration = makeButtonConfiguration(title: snackBarCategory.buttonTitle)
-        } else {
-            self.button.setTitle(snackBarCategory.buttonTitle, for: .normal)
-        }
+        self.button.configuration = makeButtonConfiguration(title: snackBarCategory.buttonTitle)
         let config = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular)
         let image = UIImage(systemIcon: snackBarCategory.icon, withConfiguration: config)
-        if #available(iOS 15, *) {
-            self.button.maximumContentSizeCategory = .extraLarge
-            imageView.image = image?.withTintColor(labelColor, renderingMode: .alwaysOriginal)
-        } else {
-            imageView.image = image
-        }
+        self.button.maximumContentSizeCategory = .extraLarge
+        imageView.image = image?.withTintColor(labelColor, renderingMode: .alwaysOriginal)
     }
     
     private let labelColor = AppTheme.shared.colorScheme.secondaryLabel

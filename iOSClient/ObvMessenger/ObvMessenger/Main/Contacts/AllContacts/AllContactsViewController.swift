@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,8 @@ import ObvUI
 import ObvTypes
 import UIKit
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
 
 
 final class AllContactsViewController: ShowOwnedIdentityButtonUIViewController, OlvidMenuProvider, ViewControllerWithEllipsisCircleRightBarButtonItem {
@@ -89,18 +91,8 @@ extension AllContactsViewController {
         addAndConfigureContactsTableViewController()
         definesPresentationContext = true
 
-        if #available(iOS 14, *) {
-            navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem()
-        } else {
-            navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem(selector: #selector(ellipsisButtonTappedSelector))
-        }
+        navigationItem.rightBarButtonItem = getConfiguredEllipsisCircleRightBarButtonItem()
 
-    }
-
-    
-    @available(iOS, introduced: 13.0, deprecated: 14.0, message: "Used because iOS 13 does not support UIMenu on UIBarButtonItem")
-    @objc private func ellipsisButtonTappedSelector() {
-        ellipsisButtonTapped(sourceBarButtonItem: navigationItem.rightBarButtonItem)
     }
 
     
@@ -184,32 +176,14 @@ extension AllContactsViewController {
     }
     
     
-    @available(iOS, introduced: 13, deprecated: 14, message: "Use getFirstParentMenuAvailable() instead")
-    func provideAlertActions() -> [UIAlertAction] {
-
-        // Update the parents alerts
-        var alertActions = [UIAlertAction]()
-        if let parentAlertActions = parent?.getFirstAlertActionsAvailable() {
-            alertActions.append(contentsOf: parentAlertActions)
-        }
-
-        // We do not provide the option to change the sort order under iOS 13
-
-        return alertActions
-
-    }
-    
-
     private func observeContactsSortOrderDidChangeNotifications() {
-        if #available(iOS 14.0, *) {
-            let token = ObvMessengerSettingsNotifications.observeContactsSortOrderDidChange(queue: OperationQueue.main) { [weak self] in
-                guard let _self = self else { return }
-                _self.sortButtonItemTimer?.invalidate()
-                _self.sortButtonItem?.menu = _self.provideMenu()
-                _self.sortButtonItem?.isEnabled = true
-            }
-            notificationTokens.append(token)
+        let token = ObvMessengerSettingsNotifications.observeContactsSortOrderDidChange(queue: OperationQueue.main) { [weak self] in
+            guard let _self = self else { return }
+            _self.sortButtonItemTimer?.invalidate()
+            _self.sortButtonItem?.menu = _self.provideMenu()
+            _self.sortButtonItem?.isEnabled = true
         }
+        notificationTokens.append(token)
     }
 
     

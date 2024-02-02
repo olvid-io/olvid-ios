@@ -20,6 +20,7 @@
 import Foundation
 import ObvTypes
 import os.log
+import ObvSettings
 
 
 // MARK: - Thread safe struct

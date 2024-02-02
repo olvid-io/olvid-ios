@@ -27,7 +27,7 @@ extension String: ObvCodable {
 
     public init?(_ obvEncoded: ObvEncoded) {
         guard let dataRepresentation = Data(obvEncoded) else { return nil }
-        guard let s = String.init(data: dataRepresentation, encoding: .utf8) else { return nil }
+        guard let s = String.init(data: dataRepresentation, encoding: .utf8) else { assertionFailure(); return nil }
         self = s
     }
     

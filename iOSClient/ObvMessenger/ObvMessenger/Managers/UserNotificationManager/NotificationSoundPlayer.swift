@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import ObvUICoreData
+import ObvSettings
 
 
 @MainActor

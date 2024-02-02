@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,25 +36,21 @@ final class MarkAsOpenedOperation: ContextualOperationWithSpecificReasonForCance
         super.init()
     }
 
-    override func main() {
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            do {
-                guard let fyle = try ReceivedFyleMessageJoinWithStatus.get(objectID: receivedFyleMessageJoinWithStatusID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindReceivedFyleMessageJoinWithStatus)
-                }
-                guard !fyle.receivedMessage.readingRequiresUserAction else {
-                    assertionFailure()
-                    return cancel(withReason: .tryToMarkAsOpenedAMessageWithReadingRequiresUserAction)
-                }
-                fyle.markAsOpened()
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            guard let fyle = try ReceivedFyleMessageJoinWithStatus.get(objectID: receivedFyleMessageJoinWithStatusID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindReceivedFyleMessageJoinWithStatus)
             }
+            guard !fyle.receivedMessage.readingRequiresUserAction else {
+                assertionFailure()
+                return cancel(withReason: .tryToMarkAsOpenedAMessageWithReadingRequiresUserAction)
+            }
+            fyle.markAsOpened()
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
+        
     }
 
 }

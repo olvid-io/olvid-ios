@@ -36,7 +36,7 @@ final class CleanExistingInboxAttachmentSessions: Operation {
     }
 
     private let uuid = UUID()
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let logSubsystem: String
     private let log: OSLog
     private let logCategory = String(describing: CleanExistingInboxAttachmentSessions.self)
@@ -46,7 +46,7 @@ final class CleanExistingInboxAttachmentSessions: Operation {
     
     private(set) var reasonForCancel: ReasonForCancel?
 
-    init(attachmentId: AttachmentIdentifier, logSubsystem: String, contextCreator: ObvCreateContextDelegate, delegate: FinalizeCleanExistingInboxAttachmentSessionsDelegate, flowId: FlowIdentifier) {
+    init(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, contextCreator: ObvCreateContextDelegate, delegate: FinalizeCleanExistingInboxAttachmentSessionsDelegate, flowId: FlowIdentifier) {
         self.attachmentId = attachmentId
         self.logSubsystem = logSubsystem
         self.log = OSLog(subsystem: logSubsystem, category: logCategory)
@@ -126,6 +126,6 @@ final class CleanExistingInboxAttachmentSessions: Operation {
 
 protocol FinalizeCleanExistingInboxAttachmentSessionsDelegate: AnyObject {
     
-    func cleanExistingInboxAttachmentSessionsIsFinished(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, error: CleanExistingInboxAttachmentSessions.ReasonForCancel?)
+    func cleanExistingInboxAttachmentSessionsIsFinished(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: CleanExistingInboxAttachmentSessions.ReasonForCancel?)
     
 }

@@ -25,12 +25,12 @@ import OlvidUtils
 protocol DownloadAttachmentChunksDelegate {
     
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) -> Bool
-    func processAllAttachmentsOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier)
+    func processAllAttachmentsOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     func resumeMissingAttachmentDownloads(flowId: FlowIdentifier)
-    func resumeAttachmentDownloadIfResumeIsRequested(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async -> [AttachmentIdentifier: Float]
+    func resumeAttachmentDownloadIfResumeIsRequested(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+    func resumeDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, forceResume: Bool, flowId: FlowIdentifier)
+    func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async -> [ObvAttachmentIdentifier: Float]
     func processCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier)
     func cleanExistingOutboxAttachmentSessions(flowId: FlowIdentifier)
 

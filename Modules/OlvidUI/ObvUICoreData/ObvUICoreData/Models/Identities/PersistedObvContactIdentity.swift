@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,9 @@ import ObvTypes
 import os.log
 import OlvidUtils
 import Platform_Base
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
+import ObvSettings
+
 
 @objc(PersistedObvContactIdentity)
 public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, ObvIdentifiableManagedObject {
@@ -35,17 +37,18 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
 
     // MARK: - Attributes
 
+    @NSManaged public private(set) var atLeastOneDeviceAllowsThisContactToReceiveMessages: Bool
     @NSManaged private var capabilityGroupsV2: Bool
     @NSManaged private var capabilityOneToOneContacts: Bool
     @NSManaged private var capabilityWebrtcContinuousICE: Bool
     @NSManaged public private(set) var customDisplayName: String?
-    @NSManaged public var customPhotoFilename: String?
+    @NSManaged public private(set) var customPhotoFilename: String?
     @NSManaged public private(set) var fullDisplayName: String
     @NSManaged private(set) var identity: Data
     @NSManaged public private(set) var isActive: Bool
     @NSManaged public private(set) var isCertifiedByOwnKeycloak: Bool
     @NSManaged public private(set) var isOneToOne: Bool
-    @NSManaged private(set) var note: String?
+    @NSManaged public private(set) var note: String?
     @NSManaged private var permanentUUID: UUID
     @NSManaged public private(set) var photoURL: URL?
     @NSManaged private var rawOwnedIdentityIdentity: Data // Required for core data constraints
@@ -155,7 +158,6 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
     public var oneToOneDiscussion: PersistedOneToOneDiscussion? {
         if isOneToOne {
             // In case the contact is OneToOne, we expect the discussion to be non-nil and active.
-            assert(rawOneToOneDiscussion != nil && rawOneToOneDiscussion?.status == .active)
             return rawOneToOneDiscussion
         } else {
             // In case the contact is not OneToOne, the discussion is likely to be nil.
@@ -168,6 +170,13 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
         }
     }
     
+
+    public var obvContactIdentifier: ObvContactIdentifier {
+        get throws {
+            let ownedCryptoId = try ObvCryptoId(identity: rawOwnedIdentityIdentity)
+            return ObvContactIdentifier(contactCryptoId: cryptoId, ownedCryptoId: ownedCryptoId)
+        }
+    }
     
     public var customPhotoURL: URL? {
         guard let customPhotoFilename = customPhotoFilename else { return nil }
@@ -196,11 +205,11 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
         return identityCoreDetails?.firstName
     }
     
-    var firstName: String? {
+    public var firstName: String? {
         return identityCoreDetails?.firstName
     }
     
-    var lastName: String? {
+    public var lastName: String? {
         return identityCoreDetails?.lastName
     }
 
@@ -226,7 +235,7 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
 
     public var circledInitialsConfiguration: CircledInitialsConfiguration {
         .contact(initial: customOrFullDisplayName,
-                 photoURL: customPhotoURL ?? photoURL,
+                 photo: .url(url: customPhotoURL ?? photoURL),
                  showGreenShield: isCertifiedByOwnKeycloak,
                  showRedShield: !isActive,
                  cryptoId: cryptoId,
@@ -236,6 +245,46 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
 
     public func setCustomPhotoURL(with url: URL?) {
         guard url != self.customPhotoURL else { return }
+        removeCurrentCustomPhoto()
+        if let url = url {
+            assert(url.deletingLastPathComponent() == ObvUICoreDataConstants.ContainerURL.forCustomContactProfilePictures.url)
+            self.customPhotoFilename = url.lastPathComponent
+        } else {
+            self.customPhotoFilename = nil
+        }
+    }
+    
+    
+    public func setCustomPhoto(with newCustomPhoto: UIImage?) throws {
+        removeCurrentCustomPhoto()
+        if let newCustomPhoto {
+            guard let url = saveCustomPhoto(newCustomPhoto) else {
+                throw Self.makeError(message: "Could not save photo")
+            }
+            setCustomPhotoURL(with: url)
+        }
+    }
+    
+    
+    private func saveCustomPhoto(_ image: UIImage) -> URL? {
+        guard let jpegData = image.jpegData(compressionQuality: 0.75) else {
+            assertionFailure()
+            return nil
+        }
+        let filename = [UUID().uuidString, "jpeg"].joined(separator: ".")
+        let filepath = ObvUICoreDataConstants.ContainerURL.forCustomContactProfilePictures.url.appendingPathComponent(filename)
+        do {
+            try jpegData.write(to: filepath)
+        } catch {
+            assertionFailure()
+            return nil
+        }
+        return filepath
+    }
+
+    
+    
+    private func removeCurrentCustomPhoto() {
         if let currentCustomPhotoURL = self.customPhotoURL {
             do {
                 try FileManager.default.removeItem(at: currentCustomPhotoURL)
@@ -245,12 +294,6 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
                 assertionFailure()
                 return
             }
-        }
-        if let url = url {
-            assert(url.deletingLastPathComponent() == ObvUICoreDataConstants.ContainerURL.forCustomContactProfilePictures.url)
-            self.customPhotoFilename = url.lastPathComponent
-        } else {
-            self.customPhotoFilename = nil
         }
     }
 
@@ -271,7 +314,7 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
 
 extension PersistedObvContactIdentity {
     
-    public convenience init(contactIdentity: ObvContactIdentity, within context: NSManagedObjectContext) throws {
+    private convenience init(contactIdentity: ObvContactIdentity, within context: NSManagedObjectContext) throws {
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedObvContactIdentity.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: contactIdentity.ownedIdentity, within: context) else {
@@ -285,6 +328,7 @@ extension PersistedObvContactIdentity {
         self.serializedIdentityCoreDetails = try contactIdentity.trustedIdentityDetails.coreDetails.jsonEncode()
         self.identity = contactIdentity.cryptoId.getIdentity()
         self.isActive = true
+        self.atLeastOneDeviceAllowsThisContactToReceiveMessages = false
         self.isOneToOne = contactIdentity.isOneToOne
         self.isCertifiedByOwnKeycloak = contactIdentity.isCertifiedByOwnKeycloak
         self.note = nil
@@ -301,7 +345,7 @@ extension PersistedObvContactIdentity {
                 try discussion.setStatus(to: .active)
                 self.rawOneToOneDiscussion = discussion
             } else {
-                self.rawOneToOneDiscussion = try PersistedOneToOneDiscussion(contactIdentity: self, status: .active)
+                self.rawOneToOneDiscussion = try PersistedOneToOneDiscussion.createPersistedOneToOneDiscussion(for: self, status: .active)
             }
         } else {
             if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedIdentity.cryptoId, within: context) {
@@ -322,6 +366,12 @@ extension PersistedObvContactIdentity {
             try member.updateWith(persistedContact: self)
         }
 
+    }
+    
+    
+    public static func createPersistedObvContactIdentity(contactIdentity: ObvContactIdentity, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity {
+        let contact = try PersistedObvContactIdentity(contactIdentity: contactIdentity, within: context)
+        return contact
     }
     
     
@@ -374,6 +424,19 @@ extension PersistedObvContactIdentity {
             self.serializedIdentityCoreDetails = newSerializedIdentityCoreDetails
         }
         self.updatePhotoURL(with: contactIdentity.trustedIdentityDetails.photoURL)
+        // Status
+        if let publishedIdentityDetails = contactIdentity.publishedIdentityDetails,
+           publishedIdentityDetails != contactIdentity.trustedIdentityDetails {
+            switch status {
+            case .noNewPublishedDetails:
+                setContactStatus(to: .unseenPublishedDetails)
+            case .unseenPublishedDetails, .seenPublishedDetails:
+                break // Don't change the status
+            }
+        } else {
+            setContactStatus(to: .noNewPublishedDetails)
+        }
+        // The rest
         let newFullDisplayName = newCoreDetails.getDisplayNameWithStyle(.full)
         if self.fullDisplayName != newFullDisplayName {
             self.fullDisplayName = newFullDisplayName
@@ -397,7 +460,7 @@ extension PersistedObvContactIdentity {
                     self.rawOneToOneDiscussion = discussion
                 }
             } else {
-                self.rawOneToOneDiscussion = try PersistedOneToOneDiscussion(contactIdentity: self, status: .active)
+                self.rawOneToOneDiscussion = try PersistedOneToOneDiscussion.createPersistedOneToOneDiscussion(for: self, status: .active)
             }
         } else {
             try self.rawOneToOneDiscussion?.setStatus(to: .locked)
@@ -408,7 +471,9 @@ extension PersistedObvContactIdentity {
 
     
     public func markAsCertifiedByOwnKeycloak() {
-        isCertifiedByOwnKeycloak = true
+        if !isCertifiedByOwnKeycloak {
+            isCertifiedByOwnKeycloak = true
+        }
     }
 
     public func updatePhotoURL(with url: URL?) {
@@ -417,22 +482,43 @@ extension PersistedObvContactIdentity {
         }
     }
     
-    public func setCustomDisplayName(to displayName: String?) throws {
+    
+    /// Set the custom display name (or nickname) of this contact
+    /// - Parameter displayName: The new display name
+    /// - Returns: `true` if the display name had to be updated (i.e., the previous one was disctinct from the new one) and `false` otherwise.
+    public func setCustomDisplayName(to displayName: String?) throws -> Bool {
+        let customDisplayNameWasUpdated: Bool
         if let newCustomDisplayName = displayName, !newCustomDisplayName.isEmpty {
             if self.customDisplayName != newCustomDisplayName {
                 self.customDisplayName = newCustomDisplayName
+                customDisplayNameWasUpdated = true
+            } else {
+                customDisplayNameWasUpdated = false
             }
         } else {
             if self.customDisplayName != nil {
                 self.customDisplayName = nil
+                customDisplayNameWasUpdated = true
+            } else {
+                customDisplayNameWasUpdated = false
             }
         }
-        try self.oneToOneDiscussion?.resetTitle(to: self.customDisplayName ?? self.fullDisplayName)
-        self.updateSortOrder(with: ObvMessengerSettings.Interface.contactsSortOrder)
+        if customDisplayNameWasUpdated {
+            try self.oneToOneDiscussion?.resetTitle(to: self.customDisplayName ?? self.fullDisplayName)
+            self.updateSortOrder(with: ObvMessengerSettings.Interface.contactsSortOrder)
+        }
+        return customDisplayNameWasUpdated
     }
 
-    func setNote(to newNote: String?) {
-        self.note = newNote
+    
+    /// Returns `true` iff the personal note had to be updated in database
+    func setNote(to newNote: String?) -> Bool {
+        if self.note != newNote {
+            self.note = newNote
+            return true
+        } else {
+            return false
+        }
     }
 }
 
@@ -441,15 +527,69 @@ extension PersistedObvContactIdentity {
 
 extension PersistedObvContactIdentity {
     
-    public func insert(_ device: ObvContactDevice) throws {
-        guard let context = self.managedObjectContext else {
-            throw Self.makeError(message: "Could not find context")
+    public func synchronizeDevices(with devicesFromEngine: Set<ObvContactDevice>) throws {
+
+        // Make sure all devices belong to this contact
+        
+        if !devicesFromEngine.isEmpty {
+            let obvContactIdentifier = try self.obvContactIdentifier
+            let contactIdentifiersReferencedByDevices = Set(devicesFromEngine.map({ $0.contactIdentifier }))
+            guard contactIdentifiersReferencedByDevices.count == 1 && contactIdentifiersReferencedByDevices.first == obvContactIdentifier else {
+                assertionFailure()
+                throw Self.makeError(message: "Unexpected contact identifier in the set of devices")
+            }
         }
-        guard device.contactIdentity.cryptoId == self.cryptoId, device.contactIdentity.ownedIdentity.cryptoId.getIdentity() == self.rawOwnedIdentityIdentity else {
+        
+        // Update existing devices
+        
+        let localContactDevicesIdentifiers = Set(devices.map { $0.identifier })
+        let engineContactDeviceIdentifiers = devicesFromEngine.map { $0.identifier }
+        
+        let identifiersOfDeviceToUpdate = localContactDevicesIdentifiers.intersection(engineContactDeviceIdentifiers)
+        for indentifierOfDeviceToUpdated in identifiersOfDeviceToUpdate {
+            guard let device = self.devices.first(where: { $0.identifier == indentifierOfDeviceToUpdated }) else { assertionFailure(); continue }
+            guard let deviceFromEngine = devicesFromEngine.first(where: { $0.identifier == indentifierOfDeviceToUpdated }) else { assertionFailure(); continue }
+            try device.updateWith(obvContactDevice: deviceFromEngine)
+        }
+
+        // Add missing devices
+        
+        let missingDevices = devicesFromEngine.filter { !localContactDevicesIdentifiers.contains($0.identifier) }
+        for missingDevice in missingDevices {
+            try self.insertDevice(missingDevice)
+        }
+        
+        // Delete obsolete devices
+        
+        let devicesToDelete = self.devices.filter { device in
+            return !engineContactDeviceIdentifiers.contains(where: { $0 == device.identifier })
+        }
+        try devicesToDelete.forEach { deviceToDelete in
+            try deviceToDelete.deleteThisDevice()
+        }
+        
+        // Update the atLeastOneDeviceAllowsThisContactToReceiveMessages Boolean
+
+        resetValueOfAtLeastOneDeviceAllowsThisContactToReceiveMessages()
+        
+    }
+    
+    
+    private func resetValueOfAtLeastOneDeviceAllowsThisContactToReceiveMessages() {
+        let newValue = !devices.filter({ !$0.isDeleted }).filter({ $0.secureChannelStatus == .created }).isEmpty
+        if self.atLeastOneDeviceAllowsThisContactToReceiveMessages != newValue {
+            self.atLeastOneDeviceAllowsThisContactToReceiveMessages = newValue
+        }
+    }
+    
+    
+    private func insertDevice(_ device: ObvContactDevice) throws {
+        guard device.contactIdentifier.contactCryptoId == self.cryptoId,
+              device.contactIdentifier.ownedCryptoId.getIdentity() == self.rawOwnedIdentityIdentity else {
             throw Self.makeError(message: "Unexpected contact identity") }
         let knownDeviceIdentifiers: Set<Data> = Set(self.devices.compactMap { $0.identifier })
         if !knownDeviceIdentifiers.contains(device.identifier) {
-            _ = try PersistedObvContactDevice(obvContactDevice: device, within: context)
+            _ = try PersistedObvContactDevice(obvContactDevice: device, persistedContact: self)
         }
     }
     
@@ -503,6 +643,607 @@ extension PersistedObvContactIdentity {
 }
 
 
+// MARK: - Receiving messages and attachments from a contact
+
+extension PersistedObvContactIdentity {
+    
+    /// When  receiving an `ObvMessage`, we fetch the persisted contact indicated in the message and then call this method to create the `PersistedMessageReceived`.
+    /// Returns all the `ObvAttachment` that are fully received, i.e., such that the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
+    func createOrOverridePersistedMessageReceived(obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, attachmentFullyReceivedOrCancelledByServer: [ObvAttachment]) {
+
+        guard try obvMessage.fromContactIdentity == self.obvContactIdentifier else {
+            throw ObvUICoreDataError.unexpectedFromContactIdentity
+        }
+        
+        // Determine the discussion or the group where the new PersistedMessageReceived should be inserted
+        
+        let attachmentsFullyReceivedOrCancelledByServer: [ObvAttachment]
+        let discussionPermanentId: DiscussionPermanentID
+        
+        if let oneToOneIdentifier = messageJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            (discussionPermanentId, attachmentsFullyReceivedOrCancelledByServer) = try oneToneDiscussion.createOrOverridePersistedMessageReceived(
+                from: self,
+                obvMessage: obvMessage,
+                messageJSON: messageJSON,
+                returnReceiptJSON: returnReceiptJSON,
+                overridePreviousPersistedMessage: overridePreviousPersistedMessage)
+
+        } else if let groupIdentifier = messageJSON.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+
+            case .v1(group: let group):
+                
+                (discussionPermanentId, attachmentsFullyReceivedOrCancelledByServer) = try group.createOrOverridePersistedMessageReceived(
+                    from: self,
+                    obvMessage: obvMessage,
+                    messageJSON: messageJSON,
+                    returnReceiptJSON: returnReceiptJSON,
+                    overridePreviousPersistedMessage: overridePreviousPersistedMessage)
+                
+            case .v2(group: let group):
+
+                (discussionPermanentId, attachmentsFullyReceivedOrCancelledByServer) = try group.createOrOverridePersistedMessageReceived(
+                    from: self,
+                    obvMessage: obvMessage,
+                    messageJSON: messageJSON,
+                    returnReceiptJSON: returnReceiptJSON,
+                    overridePreviousPersistedMessage: overridePreviousPersistedMessage)
+
+            }
+
+        } else {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
+            (discussionPermanentId, attachmentsFullyReceivedOrCancelledByServer) = try oneToneDiscussion.createOrOverridePersistedMessageReceived(
+                from: self,
+                obvMessage: obvMessage,
+                messageJSON: messageJSON,
+                returnReceiptJSON: returnReceiptJSON,
+                overridePreviousPersistedMessage: overridePreviousPersistedMessage)
+
+        }
+        
+        return (discussionPermanentId, attachmentsFullyReceivedOrCancelledByServer)
+        
+    }
+    
+
+    /// Returns `true` if the attachment is fully received, i.e., if the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
+    /// Also returns `true` if the attachment was cancelled by the server.
+    public func process(obvAttachment: ObvAttachment) throws -> Bool {
+        
+        guard try obvAttachment.fromContactIdentity == self.obvContactIdentifier else {
+            throw ObvUICoreDataError.unexpectedFromContactIdentity
+        }
+        
+        guard let receivedMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvAttachment.messageIdentifier, from: self) else {
+            throw ObvUICoreDataError.couldNotFindPersistedMessageReceived
+        }
+        
+        let attachmentFullyReceivedOrCancelledByServer = try receivedMessage.processObvAttachment(obvAttachment)
+
+        return attachmentFullyReceivedOrCancelledByServer
+        
+    }
+
+    
+    /// Returns the OneToOne discussion corresponding to the identifier. This method makes sure the discussion is the one we have with this contact.
+    private func fetchOneToOneDiscussion(with oneToOneIdentifier: OneToOneIdentifierJSON) throws -> PersistedOneToOneDiscussion {
+                
+        guard self.isOneToOne else {
+            throw ObvUICoreDataError.contactIsNotOneToOne
+        }
+
+        guard let ownedIdentity else {
+            throw ObvUICoreDataError.couldNotFindOwnedIdentity
+        }
+        
+        let ownedCryptoId = ownedIdentity.cryptoId
+        
+        guard let contactCryptoIdSpecifiedInOneToOneIdentifier = oneToOneIdentifier.getContactIdentity(ownedIdentity: ownedCryptoId) else {
+            throw ObvUICoreDataError.inconsistentOneToOneDiscussionIdentifier
+        }
+        
+        guard contactCryptoIdSpecifiedInOneToOneIdentifier == self.cryptoId else {
+            throw ObvUICoreDataError.inconsistentOneToOneDiscussionIdentifier
+        }
+        
+        guard let oneToOneDiscussion = self.oneToOneDiscussion else {
+            throw ObvUICoreDataError.couldNotFindDiscussion
+        }
+        
+        return oneToOneDiscussion
+
+    }
+    
+    
+    // Legacy case. Old versions of Olvid don't send the oneToOneIdentifier for OneToOne discussions.
+    private func fetchOneToOneDiscussionLegacy() throws -> PersistedOneToOneDiscussion {
+
+        guard self.isOneToOne else {
+            assertionFailure()
+            throw ObvUICoreDataError.cannotInsertMessageInOneToOneDiscussionFromNonOneToOneContact
+        }
+
+
+        guard let oneToOneDiscussion = self.oneToOneDiscussion else {
+            throw ObvUICoreDataError.couldNotFindDiscussion
+        }
+
+        return oneToOneDiscussion
+
+    }
+    
+    
+    private enum Group {
+        case v1(group: PersistedContactGroup)
+        case v2(group: PersistedGroupV2)
+    }
+    
+    
+    /// Helper method that fetches the group correspongin the ``GroupIdentifier``and that makes sure this contact is part of the group.
+    private func fetchGroup(with groupIdentifier: GroupIdentifier) throws -> Group {
+        
+        guard let ownedIdentity else {
+            throw ObvUICoreDataError.couldNotFindOwnedIdentity
+        }
+
+        switch groupIdentifier {
+            
+        case .groupV1(groupV1Identifier: let groupV1Identifier):
+                        
+            guard let group = try PersistedContactGroup.getContactGroup(groupIdentifier: groupV1Identifier, ownedIdentity: ownedIdentity) else {
+                throw ObvUICoreDataError.couldNotFindGroupV1InDatabase(groupIdentifier: groupV1Identifier)
+            }
+            
+            guard group.contactIdentities.contains(self) || group.ownerIdentity == self.identity else {
+                assertionFailure()
+                throw ObvUICoreDataError.contactNeitherGroupOwnerNorPartOfGroupMembers
+            }
+            
+            return .v1(group: group)
+            
+        case .groupV2(groupV2Identifier: let groupV2Identifier):
+            
+            guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: groupV2Identifier) else {
+                throw ObvUICoreDataError.couldNotFindGroupV2InDatabase(groupIdentifier: groupV2Identifier)
+            }
+            
+            guard group.otherMembers.contains(where: { $0.cryptoId == self.cryptoId }) else {
+                assertionFailure()
+                throw ObvUICoreDataError.contactIsNotPartOfTheGroup
+            }
+            
+            return .v2(group: group)
+            
+        }
+
+    }
+    
+    
+    /// Helper method that fetches the group discussion correspongin the ``GroupIdentifier``and that makes sure this contact is part of the group.
+    private func fetchGroupDiscussion(with groupIdentifier: GroupIdentifier) throws -> PersistedDiscussion {
+        
+        let group = try fetchGroup(with: groupIdentifier)
+        
+        switch group {
+        case .v1(group: let group):
+            
+            return group.discussion
+            
+        case .v2(group: let group):
+            
+            guard let discussion = group.discussion else {
+                throw ObvUICoreDataError.couldNotFindDiscussion
+            }
+            
+            return discussion
+            
+        }
+        
+    }
+
+    
+    /// Called when an extended payload is received. If at least one extended payload was saved for one of the attachments, this method returns the objectID of the message. Otherwise, it returns `nil`.
+    public func saveExtendedPayload(foundIn attachementImages: [NotificationAttachmentImage], for obvMessage: ObvMessage) throws -> TypeSafeManagedObjectID<PersistedMessageReceived>? {
+        
+        guard try obvMessage.fromContactIdentity == self.obvContactIdentifier else {
+            throw ObvUICoreDataError.unexpectedFromContactIdentity
+        }
+        
+        guard let receivedMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: self) else {
+            throw ObvUICoreDataError.couldNotFindPersistedMessageReceived
+        }
+        
+        let atLeastOneExtendedPayloadCouldBeSaved = try receivedMessage.saveExtendedPayload(foundIn: attachementImages)
+        
+        return atLeastOneExtendedPayloadCouldBeSaved ? receivedMessage.typedObjectID : nil
+        
+    }
+    
+}
+
+
+// MARK: - Receiving discussion shared configurations
+
+extension PersistedObvContactIdentity {
+    
+    /// Called when receiving a ``DiscussionSharedConfigurationJSON`` from this ``PersistedObvContactIdentity``.
+    ///
+    /// This methods fetches the appropriate OneToOne discussion, or the group, where the shared configuration should be merged, and then calls the merge methods on them.
+    func mergeReceivedDiscussionSharedConfigurationSentByThisContact(discussionSharedConfiguration: DiscussionSharedConfigurationJSON, messageUploadTimestampFromServer: Date) throws -> (discussionId: DiscussionIdentifier, weShouldSendBackOurSharedSettings: Bool) {
+        
+        let returnedValues: (discussion: PersistedDiscussion, weShouldSendBackOurSharedSettings: Bool)
+        let sharedSettingHadToBeUpdated: Bool
+        
+        if let oneToOneIdentifier = discussionSharedConfiguration.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            
+            let (_sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettings) = try oneToneDiscussion.mergeDiscussionSharedConfiguration(
+                discussionSharedConfiguration: discussionSharedConfiguration.sharedConfig,
+                receivedFrom: self)
+            
+            sharedSettingHadToBeUpdated = _sharedSettingHadToBeUpdated
+            returnedValues = (oneToneDiscussion, weShouldSendBackOurSharedSettings)
+            
+        } else if let groupIdentifier = discussionSharedConfiguration.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+                
+            case .v1(group: let group):
+                
+                let (_sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettings) = try group.mergeReceivedDiscussionSharedConfiguration(
+                    discussionSharedConfiguration: discussionSharedConfiguration.sharedConfig,
+                    receivedFrom: self.cryptoId)
+                
+                sharedSettingHadToBeUpdated = _sharedSettingHadToBeUpdated
+                returnedValues = (group.discussion, weShouldSendBackOurSharedSettings)
+                
+            case .v2(group: let group):
+                
+                guard let groupDiscussion = group.discussion else {
+                    throw ObvUICoreDataError.couldNotFindDiscussion
+                }
+                
+                let (_sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettings) = try group.mergeReceivedDiscussionSharedConfiguration(
+                    discussionSharedConfiguration: discussionSharedConfiguration.sharedConfig,
+                    receivedFrom: self)
+                
+                sharedSettingHadToBeUpdated = _sharedSettingHadToBeUpdated
+                returnedValues = (groupDiscussion, weShouldSendBackOurSharedSettings)
+                
+            }
+            
+        } else {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
+            let (_sharedSettingHadToBeUpdated, weShouldSendBackOurSharedSettings) = try oneToneDiscussion.mergeDiscussionSharedConfiguration(
+                discussionSharedConfiguration: discussionSharedConfiguration.sharedConfig,
+                receivedFrom: self)
+            
+            sharedSettingHadToBeUpdated = _sharedSettingHadToBeUpdated
+            returnedValues = (oneToneDiscussion, weShouldSendBackOurSharedSettings)
+            
+        }
+        
+        // In all cases, if the shared settings had to be updated, we insert an appropriate message in the discussion
+        
+        if sharedSettingHadToBeUpdated {
+            try returnedValues.discussion.insertSystemMessageIndicatingThatDiscussionSharedConfigurationWasUpdatedByContact(
+                persistedContact: self,
+                messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        }
+        
+        // Return values
+        
+        return try (returnedValues.discussion.identifier, returnedValues.weShouldSendBackOurSharedSettings)
+        
+    }
+        
+}
+
+
+// MARK: - Processing messages wipe requests
+
+extension PersistedObvContactIdentity {
+    
+    public func processWipeMessageRequestFromThisContact(deleteMessagesJSON: DeleteMessagesJSON, messageUploadTimestampFromServer: Date) throws -> [InfoAboutWipedOrDeletedPersistedMessage] {
+                
+        let messagesToDelete = deleteMessagesJSON.messagesToDelete
+
+        let infos: [InfoAboutWipedOrDeletedPersistedMessage]
+        
+        if let oneToOneIdentifier = deleteMessagesJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            infos = try oneToneDiscussion.processWipeMessageRequest(of: messagesToDelete, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+        } else if let groupIdentifier = deleteMessagesJSON.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+                
+            case .v1(group: let group):
+                
+                infos = try group.processWipeMessageRequest(of: messagesToDelete, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .v2(group: let group):
+                
+                infos = try group.processWipeMessageRequest(of: messagesToDelete, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            }
+
+        } else {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
+            infos = try oneToneDiscussion.processWipeMessageRequest(of: messagesToDelete, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+        }
+        
+        return infos
+        
+    }
+
+}
+
+
+// MARK: - Processing discussion (all messages) wipe requests
+
+extension PersistedObvContactIdentity {
+    
+    public func processThisContactRemoteRequestToWipeAllMessagesWithinDiscussion(deleteDiscussionJSON: DeleteDiscussionJSON, messageUploadTimestampFromServer: Date) throws {
+
+        if let oneToOneIdentifier = deleteDiscussionJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            try oneToneDiscussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+        } else if let groupIdentifier = deleteDiscussionJSON.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+                
+            case .v1(group: let group):
+                
+                try group.processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                
+            case .v2(group: let group):
+                
+                try group.processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            }
+
+        } else {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
+            try oneToneDiscussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+        }
+
+    }
+
+
+    /// When receiving a `DeleteDiscussionJSON` request, we need to request the engine to cancel any processing sent message. This method allows to determine which sent messages are still processing.
+    public func getObjectIDsOfPersistedMessageSentStillProcessing(deleteDiscussionJSON: DeleteDiscussionJSON) throws -> [TypeSafeManagedObjectID<PersistedMessageSent>] {
+        
+        guard let context = self.managedObjectContext else {
+            throw ObvUICoreDataError.noContext
+        }
+        
+        let persistedDiscussionObjectID: NSManagedObjectID
+        
+        if let oneToOneIdentifier = deleteDiscussionJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            persistedDiscussionObjectID = oneToneDiscussion.objectID
+            
+        } else if let groupIdentifier = deleteDiscussionJSON.groupIdentifier {
+            
+            let groupDiscussion = try fetchGroupDiscussion(with: groupIdentifier)
+            persistedDiscussionObjectID = groupDiscussion.objectID
+
+        } else if let oneToOneDiscussion {
+            
+            persistedDiscussionObjectID = oneToOneDiscussion.objectID
+            
+        } else {
+            
+            throw ObvUICoreDataError.couldNotFindDiscussion
+            
+        }
+        
+        let allProcessingMessageSent = try PersistedMessageSent.getAllProcessingWithinDiscussion(persistedDiscussionObjectID: persistedDiscussionObjectID, within: context)
+        return allProcessingMessageSent.map { $0.typedObjectID }
+
+    }
+        
+}
+
+
+// MARK: - Processing edit requests
+
+extension PersistedObvContactIdentity {
+
+    public func processUpdateMessageRequestFromThisContact(updateMessageJSON: UpdateMessageJSON, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+
+        if let oneToOneIdentifier = updateMessageJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            let updatedMessage = try oneToneDiscussion.processUpdateMessageRequest(updateMessageJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            return updatedMessage
+            
+        } else if let groupIdentifier = updateMessageJSON.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+                
+            case .v1(group: let group):
+                
+                let updatedMessage = try group.processUpdateMessageRequest(updateMessageJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                return updatedMessage
+
+            case .v2(group: let group):
+                
+                let updatedMessage = try group.processUpdateMessageRequest(updateMessageJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                return updatedMessage
+
+            }
+            
+        } else {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
+            let updatedMessage = try oneToneDiscussion.processUpdateMessageRequest(updateMessageJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            return updatedMessage
+
+        }
+        
+    }
+
+}
+
+
+// MARK: - Process reaction requests
+
+extension PersistedObvContactIdentity {
+    
+    public func processSetOrUpdateReactionOnMessageRequestFromThisContact(reactionJSON: ReactionJSON, messageUploadTimestampFromServer: Date) throws -> PersistedMessage? {
+        
+        if let oneToOneIdentifier = reactionJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            let updatedMessage = try oneToneDiscussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            return updatedMessage
+            
+        } else if let groupIdentifier = reactionJSON.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+                
+            case .v1(group: let group):
+                
+                let updatedMessage = try group.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                return updatedMessage
+
+            case .v2(group: let group):
+                
+                let updatedMessage = try group.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                return updatedMessage
+
+            }
+            
+        } else {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
+            let updatedMessage = try oneToneDiscussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            return updatedMessage
+
+        }
+
+    }
+
+}
+
+
+// MARK: - Process screen capture detections
+
+extension PersistedObvContactIdentity {
+    
+    public func processDetectionThatSensitiveMessagesWereCapturedByThisContact(screenCaptureDetectionJSON: ScreenCaptureDetectionJSON, messageUploadTimestampFromServer: Date) throws {
+        
+        if let oneToOneIdentifier = screenCaptureDetectionJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            try oneToneDiscussion.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            
+        } else if let groupIdentifier = screenCaptureDetectionJSON.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+                
+            case .v1(group: let group):
+                
+                try group.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            case .v2(group: let group):
+                
+                try group.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+            }
+            
+        } else {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
+            try oneToneDiscussion.processDetectionThatSensitiveMessagesWereCaptured(screenCaptureDetectionJSON, from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+
+        }
+
+    }
+
+    
+    // MARK: - Process requests for discussions shared settings
+
+    /// Returns our groupV2 discussion's shared settings in case we detect that it is pertinent to send them back to this contact
+    public func processQuerySharedSettingsRequestFromThisContact(querySharedSettingsJSON: QuerySharedSettingsJSON) throws -> (weShouldSendBackOurSharedSettings: Bool, discussionId: DiscussionIdentifier) {
+        
+        if let oneToOneIdentifier = querySharedSettingsJSON.oneToOneIdentifier {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
+            let discussionId = try oneToneDiscussion.identifier
+
+            let weShouldSendBackOurSharedSettings = try oneToneDiscussion.processQuerySharedSettingsRequest(querySharedSettingsJSON: querySharedSettingsJSON)
+            
+            return (weShouldSendBackOurSharedSettings, discussionId)
+
+        } else if let groupIdentifier = querySharedSettingsJSON.groupIdentifier {
+            
+            let group = try fetchGroup(with: groupIdentifier)
+            
+            switch group {
+                
+            case .v1(group: let group):
+
+                let (weShouldSendBackOurSharedSettings, discussionId) = try group.processQuerySharedSettingsRequest(from: self, querySharedSettingsJSON: querySharedSettingsJSON)
+                
+                return (weShouldSendBackOurSharedSettings, discussionId)
+
+            case .v2(group: let group):
+                
+                let (weShouldSendBackOurSharedSettings, discussionId) = try group.processQuerySharedSettingsRequest(from: self, querySharedSettingsJSON: querySharedSettingsJSON)
+                
+                return (weShouldSendBackOurSharedSettings, discussionId)
+
+            }
+            
+        } else {
+            
+            let oneToneDiscussion = try fetchOneToOneDiscussionLegacy()
+            let discussionId = try oneToneDiscussion.identifier
+
+            let weShouldSendBackOurSharedSettings = try oneToneDiscussion.processQuerySharedSettingsRequest(querySharedSettingsJSON: querySharedSettingsJSON)
+            
+            return (weShouldSendBackOurSharedSettings, discussionId)
+
+        }
+
+    }
+
+    
+}
+
+
 // MARK: - Other functions
 
 extension PersistedObvContactIdentity {
@@ -513,6 +1254,21 @@ extension PersistedObvContactIdentity {
         }
     }
 
+    
+    public func getReceivedMessageIdentifiers(messageIdentifierFromEngine: Data) throws -> (discussionId: DiscussionIdentifier, receivedMessageId: ReceivedMessageIdentifier)? {
+        
+        guard let message = try PersistedMessageReceived.get(messageIdentifierFromEngine: messageIdentifierFromEngine, from: self) else {
+            return nil
+        }
+        
+        guard let discussion = message.discussion else {
+            return nil
+        }
+
+        return (try discussion.identifier, message.receivedMessageIdentifier)
+        
+    }
+    
 }
 
 
@@ -566,10 +1322,10 @@ extension PersistedObvContactIdentity {
         static func ofOwnedIdentityWithCryptoId(_ ownedIdentityCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownedIdentityCryptoId.getIdentity())
         }
-        static func correspondingToObvContactIdentity(_ obvContactIdentity: ObvContactIdentity) -> NSPredicate {
+        static func correspondingToObvContactIdentity(_ obvContactIdentity: ObvContactIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
-                withCryptoId(obvContactIdentity.cryptoId),
-                ofOwnedIdentityWithCryptoId(obvContactIdentity.ownedIdentity.cryptoId),
+                withCryptoId(obvContactIdentity.contactCryptoId),
+                ofOwnedIdentityWithCryptoId(obvContactIdentity.ownedCryptoId),
             ])
         }
         static func excludedContactCryptoIds(excludedIdentities: Set<ObvCryptoId>) -> NSPredicate {
@@ -650,7 +1406,7 @@ extension PersistedObvContactIdentity {
     }
 
     
-    public static func get(persisted obvContactIdentity: ObvContactIdentity, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
+    public static func get(persisted obvContactIdentity: ObvContactIdentifier, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) throws -> PersistedObvContactIdentity? {
         let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
         request.predicate = Predicate.correspondingToObvContactIdentity(obvContactIdentity)
         request.fetchLimit = 1
@@ -859,9 +1615,15 @@ extension PersistedObvContactIdentity {
         
         if isInserted {
             
-            ObvMessengerCoreDataNotification.persistedContactWasInserted(contactPermanentID: objectPermanentID)
-                .postOnDispatchQueue()
-
+            if let ownedCryptoId = self.ownedIdentity?.cryptoId {
+                let contactCryptoId = self.cryptoId
+                ObvMessengerCoreDataNotification.persistedContactWasInserted(contactPermanentID: objectPermanentID, ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
+                    .postOnDispatchQueue()
+            } else {
+                assertionFailure()
+            }
+            
+            
         } else if isDeleted {
             
             let notification = ObvMessengerCoreDataNotification.persistedContactWasDeleted(objectID: objectID, identity: identity)
@@ -949,4 +1711,85 @@ extension PersistedObvContactIdentity: MentionableIdentity {
     public var innerIdentity: MentionableIdentityTypes.InnerIdentity {
         return .contact(typedObjectID)
     }
+}
+
+
+// MARK: - For snapshot purposes
+
+extension PersistedObvContactIdentity {
+    
+    var syncSnapshotNode: PersistedObvContactIdentitySyncSnapshotNode {
+        .init(customDisplayName: customDisplayName,
+              note: note,
+              rawOneToOneDiscussion: rawOneToOneDiscussion)
+    }
+    
+}
+
+
+struct PersistedObvContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
+    
+    private let domain: Set<CodingKeys>
+    private let customDisplayName: String?
+    // No custom hue (this only exists under Android)
+    private let note: String?
+    private let discussionConfiguration: PersistedDiscussionConfigurationSyncSnapshotNode?
+    
+    let id = Self.generateIdentifier()
+
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        case customDisplayName = "custom_name"
+        case note = "personal_note"
+        case discussionConfiguration = "discussion_customization"
+        case domain = "domain"
+    }
+
+    private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
+
+    
+    init(customDisplayName: String?, note: String?, rawOneToOneDiscussion: PersistedOneToOneDiscussion?) {
+        self.customDisplayName = customDisplayName
+        self.note = note
+        self.discussionConfiguration = rawOneToOneDiscussion?.syncSnapshotNode
+        self.domain = Self.defaultDomain
+    }
+    
+    // Synthesized implementation of encode(to encoder: Encoder)
+    
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let rawKeys = try values.decode(Set<String>.self, forKey: .domain)
+        self.domain = Set(rawKeys.compactMap({ CodingKeys(rawValue: $0) }))
+        self.customDisplayName = try values.decodeIfPresent(String.self, forKey: .customDisplayName)
+        self.note = try values.decodeIfPresent(String.self, forKey: .note)
+        self.discussionConfiguration = try values.decodeIfPresent(PersistedDiscussionConfigurationSyncSnapshotNode.self, forKey: .discussionConfiguration)
+    }
+    
+    
+    func useToUpdate(_ contact: PersistedObvContactIdentity) {
+        
+        if domain.contains(.customDisplayName) {
+            _ = try? contact.setCustomDisplayName(to: customDisplayName)
+        }
+        
+        if domain.contains(.note) {
+            _ = contact.setNote(to: self.note)
+        }
+        
+        if domain.contains(.discussionConfiguration) && contact.isOneToOne {
+            assert(contact.oneToOneDiscussion != nil)
+            if let oneToOneDiscussion = contact.oneToOneDiscussion {
+                discussionConfiguration?.useToUpdate(oneToOneDiscussion)
+            }
+        }
+
+        
+    }
+
+    
+    enum ObvError: Error {
+        case couldNotFindContact
+    }
+    
 }

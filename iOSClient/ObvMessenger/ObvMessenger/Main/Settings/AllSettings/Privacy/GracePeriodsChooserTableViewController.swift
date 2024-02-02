@@ -21,6 +21,8 @@
 import Foundation
 import UIKit
 import ObvUICoreData
+import ObvSettings
+
 
 class GracePeriodsChooserTableViewController: UITableViewController {
 

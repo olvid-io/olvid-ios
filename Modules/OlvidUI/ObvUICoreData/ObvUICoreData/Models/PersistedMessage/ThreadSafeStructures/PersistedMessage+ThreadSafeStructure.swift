@@ -41,6 +41,9 @@ extension PersistedMessage {
     }
     
     public func toAbstractStructure() throws -> AbstractStructure {
+        guard let discussion else {
+            throw ObvError.discussionIsNil
+        }
         let discussionKind = try discussion.toStructKind()
         let isPersistedMessageSent = self is PersistedMessageSent
         return AbstractStructure(objectPermanentID: self.messagePermanentID,

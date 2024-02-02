@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,9 +27,9 @@ public struct DownloadIdentityPhotoChildProtocol: ConcreteCryptoProtocol {
     
     static let logCategory = "DownloadIdentityPhotoChildProtocol"
     
-    static let id = CryptoProtocolId.DownloadIdentityPhoto
+    static let id = CryptoProtocolId.downloadIdentityPhoto
     
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.PhotoDownloaded, StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.photoDownloaded, StateId.cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState
@@ -59,6 +59,5 @@ public struct DownloadIdentityPhotoChildProtocol: ConcreteCryptoProtocol {
     static var allStepIds: [ConcreteProtocolStepId] {
         return StepId.allCases
     }
-    
     
 }

@@ -36,8 +36,8 @@ fileprivate struct OptionalWrapper<T> {
 public enum ObvChannelNotification {
 	case newConfirmedObliviousChannel(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)
 	case deletedConfirmedObliviousChannel(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)
-	case networkReceivedMessageWasProcessed(messageId: MessageIdentifier, flowId: FlowIdentifier)
-	case protocolMessageDecrypted(protocolMessageId: MessageIdentifier, flowId: FlowIdentifier)
+	case networkReceivedMessageWasProcessed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+	case protocolMessageDecrypted(protocolMessageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 
 	private enum Name {
 		case newConfirmedObliviousChannel
@@ -121,19 +121,19 @@ public enum ObvChannelNotification {
 		}
 	}
 
-	public static func observeNetworkReceivedMessageWasProcessed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeNetworkReceivedMessageWasProcessed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.networkReceivedMessageWasProcessed.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
+			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(messageId, flowId)
 		}
 	}
 
-	public static func observeProtocolMessageDecrypted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeProtocolMessageDecrypted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.protocolMessageDecrypted.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! MessageIdentifier
+			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(protocolMessageId, flowId)
 		}

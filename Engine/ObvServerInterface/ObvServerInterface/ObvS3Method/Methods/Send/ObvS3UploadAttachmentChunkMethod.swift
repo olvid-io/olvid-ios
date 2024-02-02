@@ -35,7 +35,7 @@ public final class ObvS3UploadAttachmentChunkMethod: ObvS3UploadMethod {
     public let countOfBytesClientExpectsToReceive = 100
     private let typicalHeaderCountOfBytes = 500
     public let isActiveOwnedIdentityRequired = true
-    public let attachmentId: AttachmentIdentifier
+    public let attachmentId: ObvAttachmentIdentifier
     public let flowId: FlowIdentifier
     public var ownedIdentity: ObvCryptoIdentity {
         return attachmentId.messageId.ownedCryptoIdentity
@@ -43,7 +43,7 @@ public final class ObvS3UploadAttachmentChunkMethod: ObvS3UploadMethod {
 
     weak public var identityDelegate: ObvIdentityDelegate?
 
-    public init(attachmentId: AttachmentIdentifier, fileURL: URL, fileSize: Int, chunkNumber: Int, signedURL: URL, flowId: FlowIdentifier) {
+    public init(attachmentId: ObvAttachmentIdentifier, fileURL: URL, fileSize: Int, chunkNumber: Int, signedURL: URL, flowId: FlowIdentifier) {
         self.flowId = flowId
         self.attachmentId = attachmentId
         self.signedURL = signedURL

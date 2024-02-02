@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvEngine
 import ObvTypes
 import MobileCoreServices
 import OlvidUtils
+import ObvSettings
 
 
 @objc(PersistedMessageReceived)
@@ -52,7 +53,6 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
     @NSManaged public private(set) var contactIdentity: PersistedObvContactIdentity?
     @NSManaged public private(set) var expirationForReceivedLimitedExistence: PersistedExpirationForReceivedMessageWithLimitedExistence?
     @NSManaged public private(set) var expirationForReceivedLimitedVisibility: PersistedExpirationForReceivedMessageWithLimitedVisibility?
-    @NSManaged private var messageRepliedToIdentifier: PendingRepliedTo?
     @NSManaged private var unsortedFyleMessageJoinWithStatus: Set<ReceivedFyleMessageJoinWithStatus>
 
 
@@ -66,6 +66,15 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
     }
 
     public override var kind: PersistedMessageKind { .received }
+
+    /// 2023-07-17: This is the most appropriate identifier to use in, e.g., notifications
+    public override var identifier: MessageIdentifier {
+        return .received(id: self.receivedMessageIdentifier)
+    }
+    
+    public var receivedMessageIdentifier: ReceivedMessageIdentifier {
+        return .objectID(objectID: self.objectID)
+    }
 
     public override var textBody: String? {
         if readingRequiresUserAction {
@@ -92,21 +101,7 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
         set {
             guard self.status != newValue else { return }
             self.rawStatus = newValue.rawValue
-            discussion.resetNewReceivedMessageDoesMentionOwnedIdentityValue()
-            switch self.status {
-            case .new:
-                break
-            case .unread:
-                break
-            case .read:
-                // When a received message is marked as "read", we check whether it has a limited visibility.
-                // If this is the case, we immediately create an appropriate expiration for this message.
-                if let visibilityDuration = self.visibilityDuration {
-                    assert(self.expirationForReceivedLimitedVisibility == nil)
-                    self.expirationForReceivedLimitedVisibility = PersistedExpirationForReceivedMessageWithLimitedVisibility(messageReceivedWithLimitedVisibility: self,
-                                                                                                                             visibilityDuration: visibilityDuration)
-                }
-            }
+            discussion?.resetNewReceivedMessageDoesMentionOwnedIdentityValue()
         }
     }
 
@@ -141,48 +136,31 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
         self.readOnce || self.visibilityDuration != nil
     }
 
-    /// Called when a received message was globally wiped by a contact
-    public func wipeByContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId, messageUploadTimestampFromServer: Date) throws -> InfoAboutWipedOrDeletedPersistedMessage {
-        let info = InfoAboutWipedOrDeletedPersistedMessage(kind: .wiped,
-                                                           discussionPermanentID: discussion.discussionPermanentID,
-                                                           messagePermanentID: self.messagePermanentID)
-        let requester = RequesterOfMessageDeletion.contact(ownedCryptoId: ownedCryptoId,
-                                                           contactCryptoId: contactCryptoId,
-                                                           messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-        try throwIfRequesterIsNotAllowedToDeleteMessage(requester: requester)
+
+    // MARK: - Processing wipe requests
+    
+    /// Called when receiving a wipe request from a contact or another owned device. Shall only be called from ``PersistedDiscussion.processWipeMessageRequestForPersistedMessageReceived(among:from:messageUploadTimestampFromServer:)``.
+    override func wipeThisMessage(requesterCryptoId: ObvCryptoId) throws {
         for join in fyleMessageJoinWithStatuses {
             try join.wipe()
         }
-        self.deleteBodyAndMentions()
-        try? self.reactions.forEach { try $0.delete() }
-        try addMetadata(kind: .remoteWiped(remoteCryptoId: contactCryptoId), date: Date())
-        return info
+        try super.wipeThisMessage(requesterCryptoId: requesterCryptoId)
     }
 
-    
-    public func replaceContentWith(newBody: String?, newMentions: Set<MessageJSON.UserMention>, requester: ObvCryptoId, messageUploadTimestampFromServer: Date) throws {
+    // MARK: - Updating a message
+
+    func processUpdateReceivedMessageRequest(newTextBody: String?, newUserMentions: [MessageJSON.UserMention], messageUploadTimestampFromServer: Date, requester: ObvCryptoId) throws {
         guard self.contactIdentity?.cryptoId == requester else { throw Self.makeError(message: "The requester is not the contact who created the original message") }
-        guard self.textBody != newBody else { return }
-        try super.replaceContentWith(newBody: newBody, newMentions: newMentions)
+        try super.processUpdateMessageRequest(newTextBody: newTextBody, newUserMentions: newUserMentions)
         try deleteMetadataOfKind(.edited)
         try addMetadata(kind: .edited, date: messageUploadTimestampFromServer)
     }
     
     
-    /// `true` when this instance can be edited after being received
-    override var textBodyCanBeEdited: Bool {
-        switch discussion.status {
-        case .active:
-            guard !self.isLocallyWiped else { return false }
-            guard !self.isRemoteWiped else { return false }
-            return true
-        case .preDiscussion, .locked:
-            return false
-        }
-    }
+    // MARK: - Other methods
 
-    
     public func updateMissedMessageCount(with missedMessageCount: Int) {
+        guard self.missedMessageCount != missedMessageCount else { return }
         self.missedMessageCount = missedMessageCount
     }
 
@@ -205,7 +183,7 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
 
 extension PersistedMessageReceived {
     
-    public convenience init(messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, messageJSON: MessageJSON, contactIdentity: PersistedObvContactIdentity, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, missedMessageCount: Int, discussion: PersistedDiscussion, obvMessageContainsAttachments: Bool) throws {
+    private convenience init(messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, messageJSON: MessageJSON, contactIdentity: PersistedObvContactIdentity, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, missedMessageCount: Int, discussion: PersistedDiscussion, obvMessageContainsAttachments: Bool) throws {
         
         // Disallow the creation of an "empty" message
         let messageBodyIsEmpty = (messageJSON.body == nil || messageJSON.body?.isEmpty == true)
@@ -213,8 +191,6 @@ extension PersistedMessageReceived {
             assertionFailure()
             throw Self.makeError(message: "Trying to create an empty PersistedMessageReceived")
         }
-        
-        guard let context = discussion.managedObjectContext else { throw PersistedMessageReceived.makeError(message: "Could not find context") }
         
         // Received messages can only be created when the discussion status is 'active'
         
@@ -269,29 +245,18 @@ extension PersistedMessageReceived {
             timestamp: messageUploadTimestampFromServer,
             within: discussion)
 
-        let isReplyToAnotherMessage: Bool
-        let replyTo: PersistedMessage?
-        let messageRepliedToIdentifier: PendingRepliedTo?
+        let replyTo: ReplyToType?
         if let replyToJSON = messageJSON.replyTo {
-            isReplyToAnotherMessage = true
-            replyTo = try PersistedMessage.findMessageFrom(reference: replyToJSON, within: discussion)
-            if replyTo == nil {
-                messageRepliedToIdentifier = PendingRepliedTo(replyToJSON: replyToJSON, within: context)
-            } else {
-                messageRepliedToIdentifier = nil
-            }
+            replyTo = .json(replyToJSON: replyToJSON)
         } else {
-            isReplyToAnotherMessage = false
             replyTo = nil
-            messageRepliedToIdentifier = nil
         }
-
+        
         try self.init(timestamp: adjustedTimestamp,
                       body: messageJSON.body,
                       rawStatus: MessageStatus.new.rawValue,
                       senderSequenceNumber: messageJSON.senderSequenceNumber,
                       sortIndex: sortIndex,
-                      isReplyToAnotherMessage: isReplyToAnotherMessage,
                       replyTo: replyTo,
                       discussion: discussion,
                       readOnce: messageJSON.expiration?.readOnce ?? false,
@@ -300,7 +265,6 @@ extension PersistedMessageReceived {
                       mentions: messageJSON.userMentions,
                       forEntityName: PersistedMessageReceived.entityName)
 
-        self.messageRepliedToIdentifier = messageRepliedToIdentifier
         self.contactIdentity = contactIdentity
         self.senderIdentifier = contactIdentity.cryptoId.getIdentity()
         self.senderThreadIdentifier = messageJSON.senderThreadIdentifier
@@ -313,13 +277,14 @@ extension PersistedMessageReceived {
         // If this is the case, we immediately create an appropriate expiration for this message.
         if let existenceDuration = messageJSON.expiration?.existenceDuration {
             assert(self.expirationForReceivedLimitedExistence == nil)
-            self.expirationForReceivedLimitedExistence = PersistedExpirationForReceivedMessageWithLimitedExistence(messageReceivedWithLimitedExistence: self,
-                                                                                                                   existenceDuration: existenceDuration,
-                                                                                                                   messageUploadTimestampFromServer: messageUploadTimestampFromServer,
-                                                                                                                   downloadTimestampFromServer: downloadTimestampFromServer,
-                                                                                                                   localDownloadTimestamp: localDownloadTimestamp)
+            self.expirationForReceivedLimitedExistence = PersistedExpirationForReceivedMessageWithLimitedExistence(
+                messageReceivedWithLimitedExistence: self,
+                existenceDuration: existenceDuration,
+                messageUploadTimestampFromServer: messageUploadTimestampFromServer,
+                downloadTimestampFromServer: downloadTimestampFromServer,
+                localDownloadTimestamp: localDownloadTimestamp)
         }
-        
+     
         // Now that this message is created, we can look for all the messages that have a `messageRepliedToIdentifier` referencing this message.
         // For these messages, we delete this reference and, instead, reference this message using the `messageRepliedTo` relationship.
         
@@ -328,40 +293,177 @@ extension PersistedMessageReceived {
     }
     
     
-    /// When creating a new `PersistedMessageReceived`, we need to search for previous `PersistedMessageReceived` that are a reply to this message.
-    /// These messages have a non-nil `messageRepliedToIdentifier` relationship that references this message. This method searches for these
-    /// messages, delete the `messageRepliedToIdentifier` and replaces it by a non-nil `messageRepliedTo` relationship.
-    private func updateMessagesReplyingToThisMessage() throws {
-
-        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
-
-        let pendingRepliedTos = try PendingRepliedTo.getAll(senderIdentifier: self.senderIdentifier,
-                                                            senderSequenceNumber: self.senderSequenceNumber,
-                                                            senderThreadIdentifier: self.senderThreadIdentifier,
-                                                            discussion: self.discussion,
-                                                            within: context)
-        pendingRepliedTos.forEach { pendingRepliedTo in
-            guard let reply = pendingRepliedTo.message else {
-                assertionFailure()
-                try? pendingRepliedTo.delete()
-                return
-            }
-            assert(reply.isReplyToAnotherMessage)
-            reply.setRawMessageRepliedTo(with: self)
-            reply.messageRepliedToIdentifier = nil
-            try? pendingRepliedTo.delete()
+    /// This method shall be called exclusively from ``PersistedObvContactIdentity.createOrOverridePersistedMessageReceived(obvMessage:messageJSON:returnReceiptJSON:overridePreviousPersistedMessage:)`` or from ``static PersistedMessageReceived.createOrUpdatePersistedMessageReceived(obvMessage:messageJSON:returnReceiptJSON:from:in:)``.
+    /// Returns all the `ObvAttachment` that are fully received, i.e., such that the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
+    static func createPersistedMessageReceived(obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, from persistedContact: PersistedObvContactIdentity, in discussion: PersistedDiscussion) throws -> (createdMessage: PersistedMessageReceived, attachmentsFullyReceivedOrCancelledByServer: [ObvAttachment]) {
+        
+        guard try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContact) == nil else {
+            throw ObvError.persistedMessageReceivedAlreadyExist
         }
+        
+        guard persistedContact.managedObjectContext == discussion.managedObjectContext else {
+            throw ObvError.distinctContexts
+        }
+        
+        let missedMessageCount = updateNextMessageMissedMessageCountAndGetCurrentMissedMessageCount(
+            discussion: discussion,
+            contactIdentity: persistedContact,
+            senderThreadIdentifier: messageJSON.senderThreadIdentifier,
+            senderSequenceNumber: messageJSON.senderSequenceNumber)
+        
+        let discussionKind = try discussion.kind
+        
+        let messageUploadTimestampFromServer = PersistedMessage.determineMessageUploadTimestampFromServer(
+            messageUploadTimestampFromServerInObvMessage: obvMessage.messageUploadTimestampFromServer,
+            messageJSON: messageJSON,
+            discussionKind: discussionKind)
 
+        let message = try Self.init(
+            messageUploadTimestampFromServer: messageUploadTimestampFromServer,
+            downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
+            localDownloadTimestamp: obvMessage.localDownloadTimestamp,
+            messageJSON: messageJSON,
+            contactIdentity: persistedContact,
+            messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
+            returnReceiptJSON: returnReceiptJSON,
+            missedMessageCount: missedMessageCount,
+            discussion: discussion,
+            obvMessageContainsAttachments: !obvMessage.attachments.isEmpty)
+        
+        // Process the attachments within the message
+
+        let attachmentsFullyReceivedOrCancelledByServer = message.processObvAttachments(of: obvMessage)
+        
+        return (message, attachmentsFullyReceivedOrCancelledByServer)
+        
+    }
+    
+    
+    /// Returns all the `ObvAttachment` that are fully received, i.e., such that the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
+    private func processObvAttachments(of obvMessage: ObvMessage) -> [ObvAttachment] {
+        var attachmentsFullyReceivedOrCancelledByServer = [ObvAttachment]()
+        for obvAttachment in obvMessage.attachments {
+            do {
+                let attachmentFullyReceivedOrCancelledByServer = try processObvAttachment(obvAttachment)
+                if attachmentFullyReceivedOrCancelledByServer {
+                    attachmentsFullyReceivedOrCancelledByServer.append(obvAttachment)
+                }
+            } catch {
+                os_log("Could not process one of the message's attachments: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                // We continue anyway
+            }
+        }
+        return attachmentsFullyReceivedOrCancelledByServer
+    }
+    
+    
+    /// Returns `true` if the attachment is fully received, i.e., if the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
+    /// Also returns `true` if the attachment was cancelled by the server.
+    func processObvAttachment(_ obvAttachment: ObvAttachment) throws -> Bool {
+        
+        guard let context = self.managedObjectContext else {
+            throw ObvError.noContext
+        }
+        
+        let attachmentFullyReceivedOrCancelledByServer = try ReceivedFyleMessageJoinWithStatus.createOrUpdateReceivedFyleMessageJoinWithStatus(with: obvAttachment, within: context)
+
+        return attachmentFullyReceivedOrCancelledByServer
+        
+    }
+    
+    
+    /// This method shall be called exclusively from ``PersistedObvContactIdentity.createOrOverridePersistedMessageReceived(obvMessage:messageJSON:returnReceiptJSON:overridePreviousPersistedMessage:)``.
+    /// Returns all the `ObvAttachment` that are fully received, i.e., such that the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
+    static func createOrUpdatePersistedMessageReceived(obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, from persistedContact: PersistedObvContactIdentity, in discussion: PersistedDiscussion) throws -> (createdOrUpdatedMessage: PersistedMessageReceived, attachmentsFullyReceived: [ObvAttachment]) {
+        
+        let attachmentsFullyReceivedOrCancelledByServer: [ObvAttachment]
+        let createdOrUpdatedMessage: PersistedMessageReceived
+        
+        if let previousMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContact) {
+            
+            os_log("Updating a previous received message...", log: log, type: .info)
+            
+            attachmentsFullyReceivedOrCancelledByServer = try previousMessage.updatePersistedMessageReceived(
+                withMessageJSON: messageJSON,
+                obvMessage: obvMessage,
+                returnReceiptJSON: returnReceiptJSON,
+                discussion: discussion)
+            
+            createdOrUpdatedMessage = previousMessage
+            
+        } else {
+
+            os_log("Creating a persisted message...", log: log, type: .debug)
+
+            (createdOrUpdatedMessage, attachmentsFullyReceivedOrCancelledByServer) = try PersistedMessageReceived.createPersistedMessageReceived(
+                obvMessage: obvMessage,
+                messageJSON: messageJSON,
+                returnReceiptJSON: returnReceiptJSON,
+                from: persistedContact,
+                in: discussion)
+            
+        }
+        
+        return (createdOrUpdatedMessage, attachmentsFullyReceivedOrCancelledByServer)
+        
     }
 
     
-    public func update(withMessageJSON json: MessageJSON, messageIdentifierFromEngine: Data, returnReceiptJSON: ReturnReceiptJSON?, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, discussion: PersistedDiscussion) throws {
+    /// Helper method for ``static PersistedMessageReceived.create(messageIdentifierFromEngine:persistedContact:)``.
+    private static func updateNextMessageMissedMessageCountAndGetCurrentMissedMessageCount(discussion: PersistedDiscussion, contactIdentity: PersistedObvContactIdentity, senderThreadIdentifier: UUID, senderSequenceNumber: Int) -> Int {
+
+        let latestDiscussionSenderSequenceNumber: PersistedLatestDiscussionSenderSequenceNumber?
+        do {
+            latestDiscussionSenderSequenceNumber = try PersistedLatestDiscussionSenderSequenceNumber.get(discussion: discussion, contactIdentity: contactIdentity, senderThreadIdentifier: senderThreadIdentifier)
+        } catch {
+            os_log("Could not get PersistedLatestDiscussionSenderSequenceNumber: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return 0
+        }
+
+        if let latestDiscussionSenderSequenceNumber = latestDiscussionSenderSequenceNumber {
+            if senderSequenceNumber < latestDiscussionSenderSequenceNumber.latestSequenceNumber {
+                guard let nextMessage = PersistedMessageReceived.getNextMessageBySenderSequenceNumber(senderSequenceNumber, senderThreadIdentifier: senderThreadIdentifier, contactIdentity: contactIdentity, within: discussion) else {
+                    return 0
+                }
+                if nextMessage.missedMessageCount < nextMessage.senderSequenceNumber - senderSequenceNumber {
+                    // The message is older than the number of messages missed in the following message --> nothing to do
+                    return 0
+                }
+                let remainingMissedCount = nextMessage.missedMessageCount - (nextMessage.senderSequenceNumber - senderSequenceNumber)
+
+                nextMessage.updateMissedMessageCount(with: nextMessage.senderSequenceNumber - senderSequenceNumber - 1)
+
+                return remainingMissedCount
+            } else if senderSequenceNumber > latestDiscussionSenderSequenceNumber.latestSequenceNumber {
+                let missingCount = senderSequenceNumber - latestDiscussionSenderSequenceNumber.latestSequenceNumber - 1
+                latestDiscussionSenderSequenceNumber.updateLatestSequenceNumber(with: senderSequenceNumber)
+                return missingCount
+            } else {
+                // Unexpected: senderSequenceNumber == latestSequenceNumber (this should normally not happen...)
+                return 0
+            }
+        } else {
+            _ = PersistedLatestDiscussionSenderSequenceNumber(discussion: discussion,
+                                                              contactIdentity: contactIdentity,
+                                                              senderThreadIdentifier: senderThreadIdentifier,
+                                                              latestSequenceNumber: senderSequenceNumber)
+            return 0
+        }
+    }
+
+    
+    
+    /// Returns all the `ObvAttachment` that are fully received, i.e., such that the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
+    private func updatePersistedMessageReceived(withMessageJSON json: MessageJSON, obvMessage: ObvMessage, returnReceiptJSON: ReturnReceiptJSON?, discussion: PersistedDiscussion) throws -> [ObvAttachment] {
+        
         guard self.messageIdentifierFromEngine == messageIdentifierFromEngine else {
             throw Self.makeError(message: "Invalid message identifier from engine")
         }
         
         guard !isWiped else {
-            return
+            os_log("Trying to update a wiped received message. We don't do that an return immediately.", log: Self.log, type: .info)
+            return obvMessage.attachments
         }
         
         let replyTo: PersistedMessage?
@@ -380,7 +482,7 @@ extension PersistedMessageReceived {
         do {
             self.serializedReturnReceipt = try returnReceiptJSON?.jsonEncode()
         } catch let error {
-            os_log("Could not encode a return receipt while create a persisted message received: %{public}@", log: PersistedMessageReceived.log, type: .fault, error.localizedDescription)
+            os_log("Could not encode a return receipt while create a persisted message received: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             assertionFailure()
         }
 
@@ -392,14 +494,28 @@ extension PersistedMessageReceived {
                 self.visibilityDuration = expirationJson.visibilityDuration
             }
             if self.expirationForReceivedLimitedExistence == nil && expirationJson.existenceDuration != nil {
-                self.expirationForReceivedLimitedExistence = PersistedExpirationForReceivedMessageWithLimitedExistence(messageReceivedWithLimitedExistence: self,
-                                                                                                                       existenceDuration: expirationJson.existenceDuration!,
-                                                                                                                       messageUploadTimestampFromServer: messageUploadTimestampFromServer,
-                                                                                                                       downloadTimestampFromServer: downloadTimestampFromServer,
-                                                                                                                       localDownloadTimestamp: localDownloadTimestamp)
+                let discussionKind = try discussion.kind
+                let messageUploadTimestampFromServer = Self.determineMessageUploadTimestampFromServer(
+                    messageUploadTimestampFromServerInObvMessage: obvMessage.messageUploadTimestampFromServer,
+                    messageJSON: json,
+                    discussionKind: discussionKind)
+                self.expirationForReceivedLimitedExistence = PersistedExpirationForReceivedMessageWithLimitedExistence(
+                    messageReceivedWithLimitedExistence: self,
+                    existenceDuration: expirationJson.existenceDuration!,
+                    messageUploadTimestampFromServer: messageUploadTimestampFromServer,
+                    downloadTimestampFromServer: obvMessage.downloadTimestampFromServer,
+                    localDownloadTimestamp: obvMessage.localDownloadTimestamp)
             }
         }
+        
+        // Process the attachments within the message
+
+        let attachmentsFullyReceivedOrCancelledByServer = processObvAttachments(of: obvMessage)
+        
+        return attachmentsFullyReceivedOrCancelledByServer
+
     }
+    
 
     static private func determineAppropriateSortIndex(forSenderSequenceNumber senderSequenceNumber: Int, senderThreadIdentifier: UUID, contactIdentity: PersistedObvContactIdentity, timestamp: Date, within discussion: PersistedDiscussion) throws -> (sortIndex: Double, adjustedTimestamp: Date) {
         
@@ -435,26 +551,34 @@ extension PersistedMessageReceived {
     }
 
     
-    public func allowReading(now: Date) throws {
+    func userWantsToReadThisReceivedMessageWithLimitedVisibility(dateWhenMessageWasRead: Date, requestedOnAnotherOwnedDevice: Bool) throws -> InfoAboutWipedOrDeletedPersistedMessage? {
         assert(isEphemeralMessageWithUserAction)
         guard isEphemeralMessageWithUserAction else {
             assertionFailure("There is no reason why this is called on a message that is not marked as readOnce or with a certain visibility")
-            return
+            return nil
         }
-        try self.markAsRead(now: now)
+        if requestedOnAnotherOwnedDevice && self.readOnce {
+            let infos = try self.deleteExpiredMessage()
+            return infos
+        } else {
+            try self.markAsRead(dateWhenMessageWasRead: dateWhenMessageWasRead)
+            return nil
+        }
     }
+    
 
     /// This allows to prevent auto-read for messages received with a more restrictive ephemerality than that of the discussion.
     public var ephemeralityIsAtLeastAsPermissiveThanDiscussionSharedConfiguration: Bool {
         if self.readOnce {
-            guard discussion.sharedConfiguration.readOnce else { return false }
+            guard let discussionSharedConfigurationReadOnce = self.discussion?.sharedConfiguration.readOnce else { assertionFailure(); return false }
+            guard discussionSharedConfigurationReadOnce else { return false }
         }
         if let messageVisibilityDuration = self.visibilityDuration {
-            guard let discussionVisibilityDuration = self.discussion.sharedConfiguration.visibilityDuration else { return false }
+            guard let discussionVisibilityDuration = self.discussion?.sharedConfiguration.visibilityDuration else { return false }
             guard messageVisibilityDuration >= discussionVisibilityDuration else { return false }
         }
         if let messageExistenceDuration = self.initialExistenceDuration {
-            guard let discussionExistenceDuration = self.discussion.sharedConfiguration.existenceDuration else { return false }
+            guard let discussionExistenceDuration = self.discussion?.sharedConfiguration.existenceDuration else { return false }
             guard messageExistenceDuration >= discussionExistenceDuration else { return false }
         }
         return true
@@ -485,6 +609,7 @@ extension PersistedMessageReceived {
     }
 
     var replyToActionCanBeMadeAvailableForReceivedMessage: Bool {
+        guard let discussion else { return false }
         guard discussion.status == .active else { return false }
         if readOnce {
             return status == .read
@@ -506,7 +631,7 @@ extension PersistedMessageReceived {
     var repliesTo: RepliedMessage {
         if let messageRepliedTo = self.rawMessageRepliedTo {
             return .available(message: messageRepliedTo)
-        } else if self.messageRepliedToIdentifier != nil {
+        } else if self.messageRepliedToIdentifierIsNonNil {
             return .notAvailableYet
         } else if self.isReplyToAnotherMessage {
             return .deleted
@@ -522,25 +647,43 @@ extension PersistedMessageReceived {
 
 extension PersistedMessageReceived {
 
-    public func markAsNotNew(now: Date) throws {
+    func markAsNotNew(dateWhenMessageTurnedNotNew: Date) throws -> Date? {
         switch self.status {
         case .new:
             if isEphemeralMessageWithUserAction {
                 self.status = .unread
             } else {
-                try markAsRead(now: now)
+                try markAsRead(dateWhenMessageWasRead: dateWhenMessageTurnedNotNew)
             }
+            return self.timestamp
         case .unread, .read:
-            break
+            return nil
         }
     }
     
-    private func markAsRead(now: Date) throws {
+    
+    private func markAsRead(dateWhenMessageWasRead: Date) throws {
         os_log("Call to markAsRead in PersistedMessageReceived for message %{public}@", log: PersistedMessageReceived.log, type: .debug, self.objectID.debugDescription)
+        
         if self.status != .read {
+
             self.status = .read
-            try self.addMetadata(kind: .read, date: now)
+            
+            // When a received message is marked as "read", we check whether it has a limited visibility.
+            // If this is the case, we immediately create an appropriate expiration for this message.
+            
+            if let visibilityDuration = self.visibilityDuration {
+                assert(self.expirationForReceivedLimitedVisibility == nil)
+                let visibilityDurationCorrection = max(0, Date().timeIntervalSince(dateWhenMessageWasRead))
+                self.expirationForReceivedLimitedVisibility = PersistedExpirationForReceivedMessageWithLimitedVisibility(
+                    messageReceivedWithLimitedVisibility: self,
+                    visibilityDuration: max(0, visibilityDuration - visibilityDurationCorrection))
+            }
+
+            try self.addMetadata(kind: .read, date: dateWhenMessageWasRead)
+            
         }
+        
     }
         
     
@@ -555,7 +698,7 @@ extension PersistedMessageReceived {
     }
 
     
-    func toReceivedMessageReferenceJSON() -> MessageReferenceJSON? {
+    func toReceivedMessageReferenceJSON() -> MessageReferenceJSON {
         return MessageReferenceJSON(senderSequenceNumber: self.senderSequenceNumber,
                                     senderThreadIdentifier: self.senderThreadIdentifier,
                                     senderIdentifier: self.senderIdentifier)
@@ -649,6 +792,9 @@ extension PersistedMessageReceived {
         static func createdBefore(date: Date) -> NSPredicate {
             NSPredicate(PersistedMessage.Predicate.Key.timestamp, earlierThan: date)
         }
+        static func createdBeforeOrAt(date: Date) -> NSPredicate {
+            NSPredicate(PersistedMessage.Predicate.Key.timestamp, earlierOrAt: date)
+        }
         static func withLargerSortIndex(than message: PersistedMessage) -> NSPredicate {
             NSPredicate(PersistedMessage.Predicate.Key.sortIndex, LargerThanDouble: message.sortIndex)
         }
@@ -661,6 +807,13 @@ extension PersistedMessageReceived {
         static var isDiscussionUnmuted: NSPredicate {
             PersistedMessage.Predicate.isDiscussionUnmuted
         }
+        static func withMessageWriterIdentifier(_ identifier:  MessageWriterIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withContactIdentityIdentity(identifier.senderIdentifier),
+                PersistedMessage.Predicate.withSenderSequenceNumberEqualTo(identifier.senderSequenceNumber),
+                withSenderThreadIdentifier(identifier.senderThreadIdentifier),
+            ])
+        }
     }
     
 
@@ -668,6 +821,26 @@ extension PersistedMessageReceived {
         return NSFetchRequest<PersistedMessageReceived>(entityName: PersistedMessageReceived.entityName)
     }
 
+    
+    static func getPersistedMessageReceived(discussion: PersistedDiscussion, messageId: ReceivedMessageIdentifier) throws -> PersistedMessageReceived? {
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+        switch messageId {
+        case .objectID(let objectID):
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withObjectID(objectID),
+                Predicate.withinDiscussion(discussion),
+            ])
+        case .authorIdentifier(let writerIdentifier):
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withinDiscussion(discussion),
+                Predicate.withMessageWriterIdentifier(writerIdentifier),
+            ])
+        }
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+    
     
     public static func get(with objectID: TypeSafeManagedObjectID<PersistedMessageReceived>, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
@@ -677,7 +850,7 @@ extension PersistedMessageReceived {
     }
 
     
-    public static func getNextMessageBySenderSequenceNumber(_ sequenceNumber: Int, senderThreadIdentifier: UUID, contactIdentity: PersistedObvContactIdentity, within discussion: PersistedDiscussion) -> PersistedMessageReceived? {
+    private static func getNextMessageBySenderSequenceNumber(_ sequenceNumber: Int, senderThreadIdentifier: UUID, contactIdentity: PersistedObvContactIdentity, within discussion: PersistedDiscussion) -> PersistedMessageReceived? {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -692,7 +865,7 @@ extension PersistedMessageReceived {
     }
 
     
-    static func getPreviousMessageBySenderSequenceNumber(_ sequenceNumber: Int, senderThreadIdentifier: UUID, contactIdentity: PersistedObvContactIdentity, within discussion: PersistedDiscussion) -> PersistedMessageReceived? {
+    private static func getPreviousMessageBySenderSequenceNumber(_ sequenceNumber: Int, senderThreadIdentifier: UUID, contactIdentity: PersistedObvContactIdentity, within discussion: PersistedDiscussion) -> PersistedMessageReceived? {
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -710,9 +883,9 @@ extension PersistedMessageReceived {
     /// Each message of the discussion that is in the status `new` changes status as follows:
     /// - If the message is such that `hasWipeAfterRead` is `true`, the new status is `unread`
     /// - Otherwise, the new status is `read`.
-    public static func markAllAsNotNew(within discussion: PersistedDiscussion) throws {
+    static func markAllAsNotNew(within discussion: PersistedDiscussion, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
         os_log("Call to markAllAsNotNew in PersistedMessageReceived for discussion %{public}@", log: log, type: .debug, discussion.objectID.debugDescription)
-        guard let context = discussion.managedObjectContext else { return }
+        guard let context = discussion.managedObjectContext else { assertionFailure(); return nil }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.includesSubentities = true
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -720,11 +893,30 @@ extension PersistedMessageReceived {
             Predicate.isNew,
         ])
         let messages = try context.fetch(request)
-        guard !messages.isEmpty else { return }
-        let now = Date()
+        guard !messages.isEmpty else { return nil }
         try messages.forEach {
-            try $0.markAsNotNew(now: now)
+            _ = try $0.markAsNotNew(dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
         }
+        return messages.map({ $0.timestamp }).max()
+    }
+
+    
+    static func markAllAsNotNew(within discussion: PersistedDiscussion, untilDate: Date, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
+        os_log("Call to markAllAsNotNew in PersistedMessageReceived for discussion %{public}@", log: log, type: .debug, discussion.objectID.debugDescription)
+        guard let context = discussion.managedObjectContext else { assertionFailure(); return nil }
+        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+        request.includesSubentities = true
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.createdBeforeOrAt(date: untilDate),
+            Predicate.withinDiscussion(discussion),
+            Predicate.isNew,
+        ])
+        let messages = try context.fetch(request)
+        guard !messages.isEmpty else { return nil }
+        try messages.forEach {
+            _ = try $0.markAsNotNew(dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+        }
+        return messages.map({ $0.timestamp }).max()
     }
 
 
@@ -783,9 +975,23 @@ extension PersistedMessageReceived {
 
 
     /// This method returns "all" the received messages with the given identifier from engine. In practice, we do not expect more than on message within the array.
+    /// For now, this is used in the notification service, when we fail to decrypt a notification. In that case, we assume the message was received by the app first (which is the reason it could not be decrypted in the notification extension) and we create the notification
+    /// by fetching the message from database.
     public static func getAll(messageIdentifierFromEngine: Data, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = Predicate.withMessageIdentifierFromEngine(messageIdentifierFromEngine)
+        request.fetchBatchSize = 10
+        return try context.fetch(request)
+    }
+
+    
+    /// This method returns "all" the received messages with the given identifier from engine. In practice, we do not expect more than on message within the array.
+    public static func getAll(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
+        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.forOwnedCryptoId(ownedCryptoId),
+            Predicate.withMessageIdentifierFromEngine(messageIdentifierFromEngine),
+        ])
         request.fetchBatchSize = 10
         return try context.fetch(request)
     }
@@ -802,7 +1008,7 @@ extension PersistedMessageReceived {
     }
 
     
-    public static func get(messageIdentifierFromEngine: Data, from contact: ObvContactIdentity, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
+    public static func get(messageIdentifierFromEngine: Data, from contact: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
         guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: context) else { return nil }
         return try get(messageIdentifierFromEngine: messageIdentifierFromEngine, from: persistedContact)
     }
@@ -941,10 +1147,11 @@ extension PersistedMessageReceived {
     }
     
 
-    public static func getAllReceivedMessagesThatRequireUserActionForReading(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, within context: NSManagedObjectContext) throws -> [PersistedMessageReceived] {
+    static func getAllReceivedMessagesThatRequireUserActionForReading(discussion: PersistedDiscussion) throws -> [PersistedMessageReceived] {
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvError.noContext }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withinDiscussion(discussionPermanentID),
+            Predicate.withinDiscussion(discussion),
             NSCompoundPredicate(orPredicateWithSubpredicates: [
                 Predicate.isNew,
                 Predicate.isUnread,
@@ -957,13 +1164,7 @@ extension PersistedMessageReceived {
         request.fetchBatchSize = 1_000
         return try context.fetch(request)
     }
-    
 
-    public static func batchDeletePendingRepliedToEntriesOlderThan(_ date: Date, within context: NSManagedObjectContext) throws {
-        try PendingRepliedTo.batchDeleteEntriesOlderThan(date, within: context)
-    }
-
-    
 }
 
 
@@ -975,7 +1176,7 @@ extension PersistedMessageReceived {
     }
 
     public var fyleMessageJoinWithStatusesOfAudioType: [ReceivedFyleMessageJoinWithStatus] {
-        fyleMessageJoinWithStatuses.filter({ ObvUTIUtils.uti($0.uti, conformsTo: kUTTypeAudio) })
+        fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .audio) })
     }
 
     public var fyleMessageJoinWithStatusesOfOtherTypes: [ReceivedFyleMessageJoinWithStatus] {
@@ -1004,12 +1205,12 @@ extension PersistedMessageReceived {
         
         // Note that the following line may return nil if we are currently deleting a message that is part of a locked discussion.
         // In that case, we do not notify that the message is being deleted, but this is not an issue at this time
-        if let ownedCryptoId = contactIdentity?.ownedIdentity?.cryptoId {
+        if let discussionObjectID = discussion?.typedObjectID, let ownedCryptoId = contactIdentity?.ownedIdentity?.cryptoId {
             userInfoForDeletion = ["objectID": objectID,
                                    "messageIdentifierFromEngine": messageIdentifierFromEngine,
                                    "ownedCryptoId": ownedCryptoId,
                                    "sortIndex": sortIndex,
-                                   "discussionObjectID": discussion.typedObjectID]
+                                   "discussionObjectID": discussionObjectID]
         }
         
         
@@ -1065,96 +1266,35 @@ extension PersistedMessageReceived {
     }
 }
 
+
+extension PersistedMessageReceived {
+    
+    public enum ObvError: LocalizedError {
+        
+        case noContext
+        case persistedMessageReceivedAlreadyExist
+        case distinctContexts
+        case discussionIsNil
+        
+        public var errorDescription: String? {
+            switch self {
+            case .persistedMessageReceivedAlreadyExist:
+                return "PersistedMessageReceived already exists"
+            case .noContext:
+                return "No context"
+            case .distinctContexts:
+                return "Distinct contexts"
+            case .discussionIsNil:
+                return "Discussion is nil"
+            }
+        }
+        
+    }
+    
+}
+
 public extension TypeSafeManagedObjectID where T == PersistedMessageReceived {
     var downcast: TypeSafeManagedObjectID<PersistedMessage> {
         TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
     }
-}
-
-
-// MARK: - PendingRepliedTo
-
-/// When receiving a message that replies to another message, it might happen that this replied-to message is not available
-/// because it did not arrive yet. This entity makes it possible to save the elements (`senderIdentifier`, etc.) referencing
-/// this replied-to message for later. Each time a new message arrive, we check the `PendingRepliedTo` entities and look
-/// for all those that reference this arriving message. This allows to associate message with its replied-to message a posteriori.
-@objc(PendingRepliedTo)
-fileprivate final class PendingRepliedTo: NSManagedObject, ObvErrorMaker {
-
-    private static let entityName = "PendingRepliedTo"
-    static let errorDomain = "PendingRepliedTo"
-
-    @NSManaged private var creationDate: Date
-    @NSManaged private var senderIdentifier: Data
-    @NSManaged private var senderSequenceNumber: Int
-    @NSManaged private var senderThreadIdentifier: UUID
-        
-    @NSManaged private(set) var message: PersistedMessageReceived?
-
-    convenience init?(replyToJSON: MessageReferenceJSON, within context: NSManagedObjectContext) {
-        
-        let entityDescription = NSEntityDescription.entity(forEntityName: PendingRepliedTo.entityName, in: context)!
-        self.init(entity: entityDescription, insertInto: context)
-
-        self.creationDate = Date()
-        self.senderSequenceNumber = replyToJSON.senderSequenceNumber
-        self.senderThreadIdentifier = replyToJSON.senderThreadIdentifier
-        self.senderIdentifier = replyToJSON.senderIdentifier
-
-    }
-
-    
-    fileprivate func delete() throws {
-        guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
-        context.delete(self)
-    }
-    
-    
-    private struct Predicate {
-        enum Key: String {
-            case creationDate = "creationDate"
-            case senderIdentifier = "senderIdentifier"
-            case senderSequenceNumber = "senderSequenceNumber"
-            case senderThreadIdentifier = "senderThreadIdentifier"
-            case message = "message"
-        }
-        static func with(senderIdentifier: Data, senderSequenceNumber: Int, senderThreadIdentifier: UUID, discussion: PersistedDiscussion) -> NSPredicate {
-            let discussionKey = [Key.message.rawValue, PersistedMessage.Predicate.Key.discussion.rawValue].joined(separator: ".")
-            return NSCompoundPredicate(andPredicateWithSubpredicates: [
-                NSPredicate(Key.senderIdentifier, EqualToData: senderIdentifier),
-                NSPredicate(Key.senderSequenceNumber, EqualToInt: senderSequenceNumber),
-                NSPredicate(Key.senderThreadIdentifier, EqualToUuid: senderThreadIdentifier),
-                NSPredicate(format: "%K == %@", discussionKey, discussion.objectID),
-            ])
-        }
-        static func createBefore(_ date: Date) -> NSPredicate {
-            NSPredicate(Key.creationDate, earlierThan: date)
-        }
-    }
-
-    
-    @nonobjc static func fetchRequest() -> NSFetchRequest<PendingRepliedTo> {
-        return NSFetchRequest<PendingRepliedTo>(entityName: PendingRepliedTo.entityName)
-    }
-
-    
-    fileprivate static func getAll(senderIdentifier: Data, senderSequenceNumber: Int, senderThreadIdentifier: UUID, discussion: PersistedDiscussion, within context: NSManagedObjectContext) throws -> [PendingRepliedTo] {
-        let request = PendingRepliedTo.fetchRequest()
-        request.predicate = Predicate.with(senderIdentifier: senderIdentifier,
-                                           senderSequenceNumber: senderSequenceNumber,
-                                           senderThreadIdentifier: senderThreadIdentifier,
-                                           discussion: discussion)
-        request.fetchBatchSize = 1_000
-        return try context.fetch(request)
-    }
-    
-    
-    static func batchDeleteEntriesOlderThan(_ date: Date, within context: NSManagedObjectContext) throws {
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: PendingRepliedTo.entityName)
-        fetchRequest.predicate = Predicate.createBefore(date)
-        let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        batchDeleteRequest.resultType = .resultTypeStatusOnly
-        _ = try context.execute(batchDeleteRequest)
-    }
-    
 }

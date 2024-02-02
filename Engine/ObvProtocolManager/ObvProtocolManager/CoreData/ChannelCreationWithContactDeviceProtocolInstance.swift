@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -71,7 +71,7 @@ final class ChannelCreationWithContactDeviceProtocolInstance: NSManagedObject, O
     convenience init?(protocolInstanceUid: UID, ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: ChannelCreationWithContactDeviceProtocolInstance.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
-        guard let protocolInstance = ProtocolInstance.get(cryptoProtocolId: CryptoProtocolId.ChannelCreationWithContactDevice,
+        guard let protocolInstance = ProtocolInstance.get(cryptoProtocolId: CryptoProtocolId.channelCreationWithContactDevice,
                                                           uid: protocolInstanceUid,
                                                           ownedIdentity: ownedIdentity,
                                                           delegateManager: delegateManager,
@@ -89,16 +89,6 @@ extension ChannelCreationWithContactDeviceProtocolInstance {
     
     @nonobjc class func fetchRequest() -> NSFetchRequest<ChannelCreationWithContactDeviceProtocolInstance> {
         return NSFetchRequest<ChannelCreationWithContactDeviceProtocolInstance>(entityName: ChannelCreationWithContactDeviceProtocolInstance.entityName)
-    }
-    
-    static func getUidofChannelCreationProtocolInstanceBetween(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, andOwnedIdentity ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) -> UID? {
-        let request: NSFetchRequest<ChannelCreationWithContactDeviceProtocolInstance> = ChannelCreationWithContactDeviceProtocolInstance.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %@",
-                                        contactIdentityKey, contactIdentity,
-                                        contactDeviceUidKey, contactDeviceUid,
-                                        protocolInstanceOwnedCryptoIdentityKey, ownedCryptoIdentity)
-        let item = (try? obvContext.fetch(request))?.first
-        return item?.protocolInstance.uid
     }
     
     static func delete(contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, andOwnedIdentity ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UID? {

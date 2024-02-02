@@ -27,6 +27,7 @@ extension ObvChannelSendChannelType {
         switch self {
         case .AllConfirmedObliviousChannelsWithContactIdentities,
              .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity,
+             .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity,
              .ObliviousChannel:
             return ObvObliviousChannel.self
         case .AsymmetricChannel,

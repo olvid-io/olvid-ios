@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import OlvidUtils
 import ObvEngine
 import ObvTypes
 import ObvUICoreData
+import CoreData
 
 
 /// When the `ScreenCaptureDetector` detects that messages with limited visibility were screenshoted or captured (e.g. with a video capture of the screen), this operation gets called.
@@ -38,87 +39,47 @@ final class ProcessDetectionThatSensitiveMessagesWereCapturedByOwnedIdentityOper
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
+        do {
             
-            do {
-                
-                // Find the discussion and owned identity
-                
-                guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else {
-                    // The discussion could not be found, nothing left to do
-                    assertionFailure()
-                    return
-                }
-                                
-                guard let ownCryptoId = discussion.ownedIdentity?.cryptoId else {
-                    assertionFailure()
-                    return
-                }
-                
-                // Make sure the discussion is active
-                
-                switch discussion.status {
-                case .active:
-                    break
-                case .locked, .preDiscussion:
-                    return
-                }
-                
-                // Determine if the ScreenCaptureDetectionJSON concerns a one2one or a group discussion. Determine the recipients of this JSON message.
-                
-                let recipients: Set<ObvCryptoId>
-                let screenCaptureDetectionJSON: ScreenCaptureDetectionJSON
-                
-                switch try discussion.kind {
-                case .oneToOne(withContactIdentity: let contact):
-                    guard let contact else { assertionFailure(); return }
-                    screenCaptureDetectionJSON = ScreenCaptureDetectionJSON()
-                    recipients = Set([contact.cryptoId])
-                case .groupV1(withContactGroup: let group):
-                    guard let group else { assertionFailure(); return }
-                    let groupV1Identifier = try group.getGroupId()
-                    screenCaptureDetectionJSON = ScreenCaptureDetectionJSON(groupV1Identifier: groupV1Identifier)
-                    recipients = Set(group.contactIdentities.compactMap({ $0.cryptoId }))
-                case .groupV2(withGroup: let group):
-                    guard let group else { assertionFailure(); return }
-                    let groupV2Identifier = group.groupIdentifier
-                    screenCaptureDetectionJSON = ScreenCaptureDetectionJSON(groupV2Identifier: groupV2Identifier)
-                    recipients = Set(group.contactsAmongOtherPendingAndNonPendingMembers.map({ $0.cryptoId }))
-                }
-                
-                // Compute the payload to send
-                
-                let payload: Data
-                do {
-                    let itemJSON = PersistedItemJSON(screenCaptureDetectionJSON: screenCaptureDetectionJSON)
-                    payload = try itemJSON.jsonEncode()
-                }
-                
-                // Send the JSON message
-                
-                _ = try obvEngine.post(messagePayload: payload,
-                                       extendedPayload: nil,
-                                       withUserContent: false,
-                                       isVoipMessageForStartingCall: false,
-                                       attachmentsToSend: [],
-                                       toContactIdentitiesWithCryptoId: recipients,
-                                       ofOwnedIdentityWithCryptoId: ownCryptoId)
-                
-                // Insert an appropriate system message within the discussion
-                
-                _ = try PersistedMessageSystem.insertOwnedIdentityDidCaptureSensitiveMessages(within: discussion)
-                
-            } catch {
-                assertionFailure(error.localizedDescription)
-                return cancel(withReason: .coreDataError(error: error))
+            // Find the discussion and owned identity
+            
+            guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else {
+                // The discussion could not be found, nothing left to do
+                assertionFailure()
+                return
             }
             
+            guard let ownedIdentity = discussion.ownedIdentity else {
+                assertionFailure()
+                return
+            }
+            
+            // Process the event locally, which returns the JSON to send to contacts and other owned devices
+            
+            let (screenCaptureDetectionJSON, recipients) = try ownedIdentity.processLocalDetectionThatSensitiveMessagesWereCapturedByThisOwnedIdentity(discussionPermanentID: discussionPermanentID)
+            
+            // Ask the engine to send the JSON to notify contacts and other owned devices
+            
+            let payload: Data
+            do {
+                let itemJSON = PersistedItemJSON(screenCaptureDetectionJSON: screenCaptureDetectionJSON)
+                payload = try itemJSON.jsonEncode()
+            }
+            
+            _ = try obvEngine.post(messagePayload: payload,
+                                   extendedPayload: nil,
+                                   withUserContent: false,
+                                   isVoipMessageForStartingCall: false,
+                                   attachmentsToSend: [],
+                                   toContactIdentitiesWithCryptoId: recipients,
+                                   ofOwnedIdentityWithCryptoId: ownedIdentity.cryptoId,
+                                   alsoPostToOtherOwnedDevices: true)
+            
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

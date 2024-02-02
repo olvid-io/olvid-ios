@@ -28,7 +28,7 @@ public struct IdentityDetailsPublicationProtocol: ConcreteCryptoProtocol {
     
     static let logCategory = "IdentityDetailsPublicationProtocol"
     
-    static let id = CryptoProtocolId.IdentityDetailsPublication
+    static let id = CryptoProtocolId.identityDetailsPublication
     
     static let finalStateIds: [ConcreteProtocolStateId] = [StateId.DetailsSent,
                                                            StateId.DetailsReceived,

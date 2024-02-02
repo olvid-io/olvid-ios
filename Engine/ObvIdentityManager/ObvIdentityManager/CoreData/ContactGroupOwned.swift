@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -60,15 +60,15 @@ final class ContactGroupOwned: ContactGroup {
     convenience init(groupInformationWithPhoto: GroupInformationWithPhoto, ownedIdentity: ObvCryptoIdentity, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         
         guard groupInformationWithPhoto.groupOwnerIdentity == ownedIdentity else {
-            throw ObvIdentityManagerError.inappropriateGroupInformation.error(withDomain: ContactGroupOwned.errorDomain)
+            throw ObvIdentityManagerError.inappropriateGroupInformation
         }
         
         guard let ownedIdentityObject = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
-            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned.error(withDomain: ContactGroupOwned.errorDomain)
+            throw ObvIdentityManagerError.cryptoIdentityIsNotOwned
         }
         
         guard try ContactGroupOwned.get(groupUid: groupInformationWithPhoto.groupUid, ownedIdentity: ownedIdentityObject, delegateManager: delegateManager) == nil else {
-            throw ObvIdentityManagerError.tryingToCreateContactGroupThatAlreadyExists.error(withDomain: ContactGroupOwned.errorDomain)
+            throw ObvIdentityManagerError.tryingToCreateContactGroupThatAlreadyExists
         }
         
         try self.init(groupInformationWithPhoto: groupInformationWithPhoto,
@@ -92,12 +92,27 @@ final class ContactGroupOwned: ContactGroup {
                   within: obvContext)
     }
     
-    fileprivate func restoreRelationshipsOfContactGroupOwned(latestDetails: ContactGroupDetailsLatest, groupMembers: Set<ContactIdentity>, pendingGroupMembers: Set<PendingGroupMember>, publishedDetails: ContactGroupDetailsPublished) {
+    
+    func restoreRelationshipsOfContactGroupOwned(latestDetails: ContactGroupDetailsLatest, groupMembers: Set<ContactIdentity>, pendingGroupMembers: Set<PendingGroupMember>, publishedDetails: ContactGroupDetailsPublished) {
         self.latestDetails = latestDetails
         self.restoreRelationshipsOfContactGroup(groupMembers: groupMembers,
                                                 pendingGroupMembers: pendingGroupMembers,
                                                 publishedDetails: publishedDetails)
     }
+    
+    
+    /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
+    convenience init(snapshotNode: ContactGroupSyncSnapshotNode, groupUid: UID, within obvContext: ObvContext) throws {
+        guard let groupMembersVersion = snapshotNode.groupMembersVersion else {
+            assertionFailure()
+            throw ContactGroupSyncSnapshotNode.ObvError.tryingToRestoreIncompleteNode
+        }
+        self.init(groupMembersVersion: groupMembersVersion,
+                  groupUid: groupUid,
+                  forEntityName: ContactGroupOwned.entityName,
+                  within: obvContext)
+    }
+
 
 
     func updatePhoto(withData photoData: Data, ofDetailsWithVersion version: Int, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
@@ -118,6 +133,75 @@ final class ContactGroupOwned: ContactGroup {
         obvContext.delete(self)
     }
 
+}
+
+
+// MARK: - Updating the pending and group members
+
+extension ContactGroupOwned {
+    
+    func updatePendingMembersAndGroupMembers(groupMembersWithCoreDetails: Set<CryptoIdentityWithCoreDetails>, pendingMembersWithCoreDetails: Set<CryptoIdentityWithCoreDetails>, groupMembersVersion: Int, delegateManager: ObvIdentityDelegateManager, flowId: FlowIdentifier) throws {
+        
+        guard groupMembersVersion > self.groupMembersVersion else { return }
+        
+        guard let obvContext = self.obvContext else {
+            throw ObvIdentityManagerError.contextIsNil
+        }
+        
+        // Check that no identity appears both within the (new) pending members and the (new) group members
+        
+        do {
+            let groupMemberIdentitiesNew = Set(groupMembersWithCoreDetails.map { $0.cryptoIdentity })
+            let pendingGroupMemberIdentitiesNew = Set(pendingMembersWithCoreDetails.map { $0.cryptoIdentity })
+            guard groupMemberIdentitiesNew.intersection(pendingGroupMemberIdentitiesNew).isEmpty else {
+                throw ObvIdentityManagerError.anIdentityAppearsBothWithinPendingMembersAndGroupMembers
+            }
+        }
+        
+        // Create a new version of the group members
+        
+        let newVersionOfGroupMembers: Set<ContactIdentity> = Set( try groupMembersWithCoreDetails.compactMap { (groupMemberWithCoreDetails) in
+            guard groupMemberWithCoreDetails.cryptoIdentity != ownedIdentity.cryptoIdentity else { return nil }
+            if let contact = try ContactIdentity.get(contactIdentity: groupMemberWithCoreDetails.cryptoIdentity, ownedIdentity: ownedIdentity.cryptoIdentity, delegateManager: delegateManager, within: obvContext) {
+                // The identity is already a contact, we simply insert it in the list of group members
+                return contact
+            } else {
+                let trustOrigin = TrustOrigin.group(timestamp: Date(), groupOwner: ownedIdentity.cryptoIdentity)
+                guard let contact = ContactIdentity(cryptoIdentity: groupMemberWithCoreDetails.cryptoIdentity,
+                                                    identityCoreDetails: groupMemberWithCoreDetails.coreDetails,
+                                                    trustOrigin: trustOrigin,
+                                                    ownedIdentity: ownedIdentity,
+                                                    isOneToOne: false,
+                                                    delegateManager: delegateManager)
+                else {
+                    throw ObvIdentityManagerError.contactCreationFailed
+                }
+                return contact
+            }
+        })
+        
+        // Create a new version of the pending group members
+        
+        let newVersionOfPendingMembers: Set<PendingGroupMember> = Set( try pendingMembersWithCoreDetails.map { (pendingMemberWithCoreDetails) in
+            
+            if let pendingMember = try PendingGroupMember.get(cryptoIdentity: pendingMemberWithCoreDetails.cryptoIdentity, contactGroup: self, delegateManager: delegateManager) {
+                // The identity is already a pending member, we simply insert in the new list of pending members
+                return pendingMember
+            } else {
+                // The identity is not yet a PendingMember, we create it and insert it
+                let pendingMember = try PendingGroupMember(contactGroup: self, cryptoIdentityWithCoreDetails: pendingMemberWithCoreDetails, delegateManager: delegateManager)
+                return pendingMember
+            }
+        })
+        
+        // Replace the old versions of the group members and of the pending members by the new ones and update the version number
+        
+        try super.updatePendingMembersAndGroupMembers(newVersionOfGroupMembers: newVersionOfGroupMembers,
+                                                      newVersionOfPendingMembers: newVersionOfPendingMembers,
+                                                      groupMembersVersion: groupMembersVersion)
+        
+    }
+    
 }
 
 
@@ -145,10 +229,10 @@ extension ContactGroupOwned {
     
     func updateDetailsLatest(with groupDetailsElementsWithPhoto: GroupDetailsElementsWithPhoto, delegateManager: ObvIdentityDelegateManager) throws {
         guard let obvContext = self.obvContext else {
-            throw ObvIdentityManagerError.contextIsNil.error(withDomain: ContactGroupOwned.errorDomain)
+            throw ObvIdentityManagerError.contextIsNil
         }
-        guard groupDetailsElementsWithPhoto.version == 1 + publishedDetails.version else {
-            throw ObvIdentityManagerError.invalidGroupDetailsVersion.error(withDomain: ContactGroupOwned.errorDomain)
+        guard groupDetailsElementsWithPhoto.version >= 1 + publishedDetails.version else {
+            throw ObvIdentityManagerError.invalidGroupDetailsVersion
         }
         try self.latestDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
         self.latestDetails = try ContactGroupDetailsLatest(contactGroupOwned: self,
@@ -160,7 +244,7 @@ extension ContactGroupOwned {
     
     func discardDetailsLatest(delegateManager: ObvIdentityDelegateManager) throws {
         guard let obvContext = self.obvContext else {
-            throw ObvIdentityManagerError.contextIsNil.error(withDomain: ContactGroupOwned.errorDomain)
+            throw ObvIdentityManagerError.contextIsNil
         }
         try self.latestDetails.delete(identityPhotosDirectory: delegateManager.identityPhotosDirectory, within: obvContext)
         let groupDetailsElementsWithPhoto = try publishedDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
@@ -190,7 +274,7 @@ extension ContactGroupOwned {
     
     func getOwnedGroupStructure(identityPhotosDirectory: URL) throws -> GroupStructure {
         
-        let groupMembers = Set(self.groupMembers.map { $0.cryptoIdentity })
+        let groupMembers = Set(self.groupMembers.compactMap { $0.cryptoIdentity })
         let pendingGroupMembers = self.getPendingGroupMembersWithCoreDetails()
         let groupMembersVersion = self.groupMembersVersion
         let publishedGroupDetailsWithPhoto = try self.publishedDetails.getGroupDetailsElementsWithPhoto(identityPhotosDirectory: identityPhotosDirectory)
@@ -222,7 +306,7 @@ extension ContactGroupOwned {
     func markPendingMemberAsDeclined(pendingGroupMember: ObvCryptoIdentity) throws {
         
         guard let pendingGroupMemberObject = self.pendingGroupMembers.filter({ $0.cryptoIdentity == pendingGroupMember }).first else {
-            throw ObvIdentityManagerError.pendingGroupMemberDoesNotExist.error(withDomain: ContactGroupOwned.errorDomain)
+            throw ObvIdentityManagerError.pendingGroupMemberDoesNotExist
         }
         
         pendingGroupMemberObject.markAsDeclined(delegateManager: delegateManager)
@@ -233,7 +317,7 @@ extension ContactGroupOwned {
     func unmarkDeclinedPendingMemberAsDeclined(pendingGroupMember: ObvCryptoIdentity) throws {
         
         guard let pendingGroupMemberObject = self.pendingGroupMembers.filter({ $0.cryptoIdentity == pendingGroupMember }).first else {
-            throw ObvIdentityManagerError.pendingGroupMemberDoesNotExist.error(withDomain: ContactGroupOwned.errorDomain)
+            throw ObvIdentityManagerError.pendingGroupMemberDoesNotExist
         }
         
         pendingGroupMemberObject.unmarkAsDeclined(delegateManager: delegateManager)
@@ -243,15 +327,13 @@ extension ContactGroupOwned {
     
     func add(newPendingMembers: Set<ObvCryptoIdentity>, delegateManager: ObvIdentityDelegateManager) throws {
         
-        let errorDomain = ContactGroupOwned.errorDomain
-        
         guard let obvContext = self.obvContext else {
-            throw ObvIdentityManagerError.contextIsNil.error(withDomain: errorDomain)
+            throw ObvIdentityManagerError.contextIsNil
         }
         
         // Filter out the "new" pending members that are already pending members. Also filter out the members.
         let cryptoIdentitiesOfCurrentPendingMembers = Set(self.pendingGroupMembers.map { $0.cryptoIdentity })
-        let cryptoIdentitiesOfCurrentMembers = Set(self.groupMembers.map { $0.cryptoIdentity })
+        let cryptoIdentitiesOfCurrentMembers = Set(self.groupMembers.compactMap { $0.cryptoIdentity })
         let reallyNewPendingMembers = newPendingMembers.subtracting(cryptoIdentitiesOfCurrentPendingMembers).subtracting(cryptoIdentitiesOfCurrentMembers)
         guard !reallyNewPendingMembers.isEmpty else { return }
         
@@ -262,18 +344,19 @@ extension ContactGroupOwned {
                                                         delegateManager: delegateManager,
                                                         within: obvContext)
             else {
-                    throw ObvIdentityManagerError.cryptoIdentityIsNotContact.error(withDomain: errorDomain)
+                    throw ObvIdentityManagerError.cryptoIdentityIsNotContact
             }
             return contact
             })
         
-        let reallyNewPendingMemberObjects: Set<PendingGroupMember> = Set( try newPendingMemberIdentities.map { (contact) in
+        let reallyNewPendingMemberObjects: Set<PendingGroupMember> = Set( try newPendingMemberIdentities.compactMap { (contact) in
             let publishedCoreDetails = contact.publishedIdentityDetails?.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)?.coreDetails
             guard let trustedCoreDetails = contact.trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)?.coreDetails else {
                 throw Self.makeError(message: "Could not get the trusted details of a contact")
             }
             let coreDetails = publishedCoreDetails ?? trustedCoreDetails
-            let cryptoIdentityWithCoreDetails = CryptoIdentityWithCoreDetails(cryptoIdentity: contact.cryptoIdentity,
+            guard let contactCryptoIdentity = contact.cryptoIdentity else { assertionFailure(); return nil }
+            let cryptoIdentityWithCoreDetails = CryptoIdentityWithCoreDetails(cryptoIdentity: contactCryptoIdentity,
                                                                               coreDetails: coreDetails)
             return try PendingGroupMember(contactGroup: self,
                                           cryptoIdentityWithCoreDetails: cryptoIdentityWithCoreDetails,
@@ -296,7 +379,10 @@ extension ContactGroupOwned {
     
     func remove(pendingOrGroupMembers: Set<ObvCryptoIdentity>) throws {
         
-        let groupMembersToRemove = Set(self.groupMembers.filter { pendingOrGroupMembers.contains($0.cryptoIdentity) })
+        let groupMembersToRemove = Set(self.groupMembers.filter {
+            guard let cryptoIdentity = $0.cryptoIdentity else { assertionFailure(); return false }
+            return pendingOrGroupMembers.contains(cryptoIdentity)
+        })
         let pendingMembersToRemove = Set(self.pendingGroupMembers.filter { pendingOrGroupMembers.contains($0.cryptoIdentity) })
         
         let newVersionOfGroupMembers = self.groupMembers.subtracting(groupMembersToRemove)
@@ -334,7 +420,7 @@ extension ContactGroupOwned {
     
     static func get(groupUid: UID, ownedIdentity: OwnedIdentity, delegateManager: ObvIdentityDelegateManager) throws -> ContactGroupOwned? {
         guard let obvContext = ownedIdentity.obvContext else {
-            throw ObvIdentityManagerError.contextIsNil.error(withDomain: ContactGroupOwned.errorDomain)
+            throw ObvIdentityManagerError.contextIsNil
         }
         let request: NSFetchRequest<ContactGroupOwned> = ContactGroupOwned.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@",
@@ -463,7 +549,7 @@ struct ContactGroupOwnedBackupItem: Codable, Hashable {
     fileprivate init(groupMembersVersion: Int, groupUid: UID, groupMembers: Set<ContactIdentity>, pendingGroupMembers: Set<PendingGroupMember>, publishedDetails: ContactGroupDetailsPublished, latestDetails: ContactGroupDetailsLatest) {
         self.groupMembersVersion = groupMembersVersion
         self.groupUid = groupUid
-        self.groupMembers = Set(groupMembers.map({ GroupMemberBackupItem(memberIdentity: $0.cryptoIdentity.getIdentity()) }))
+        self.groupMembers = Set(groupMembers.map({ GroupMemberBackupItem(memberIdentity: $0.identity) }))
         self.pendingGroupMembers = Set(pendingGroupMembers.map { $0.backupItem })
         self.publishedDetails = publishedDetails.backupItem
         // If the latest details are identical to the published details, we do not include them in the json file
@@ -540,7 +626,7 @@ struct ContactGroupOwnedBackupItem: Codable, Hashable {
         do {
             let allContacts = obvContext.registeredObjects.filter({ $0 is ContactIdentity }) as! Set<ContactIdentity>
             for groupMember in self.groupMembers {
-                guard let groupMemberAsContact = allContacts.first(where: { $0.cryptoIdentity.getIdentity() == groupMember.memberIdentity }) else {
+                guard let groupMemberAsContact = allContacts.first(where: { $0.identity == groupMember.memberIdentity }) else {
                     throw ContactGroupOwnedBackupItem.makeError(message: "Could not find the contact identity instance corresponding to the group member")
                 }
                 groupMembers.insert(groupMemberAsContact)

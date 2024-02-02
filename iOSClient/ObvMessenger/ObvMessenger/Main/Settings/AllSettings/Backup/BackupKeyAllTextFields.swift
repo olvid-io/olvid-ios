@@ -34,7 +34,7 @@ struct BackupKeyAllTextFields: View {
                     BackupKeyPartTextField(index: index,
                                            textFieldWasCreatedAction: { textField in internalTextFieldWasCreatedAction(index, textField) })
                     if index < 3 {
-                        Text("-")
+                        Text(verbatim: "-")
                     }
                 }
                 Spacer(minLength: 0)
@@ -45,7 +45,7 @@ struct BackupKeyAllTextFields: View {
                     BackupKeyPartTextField(index: index,
                                            textFieldWasCreatedAction: { textField in internalTextFieldWasCreatedAction(index, textField) })
                     if index < 7 {
-                        Text("-")
+                        Text(verbatim: "-")
                     }
                 }
                 Spacer(minLength: 0)

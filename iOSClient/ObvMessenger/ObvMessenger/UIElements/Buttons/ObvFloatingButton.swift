@@ -19,6 +19,8 @@
 
 import ObvUI
 import UIKit
+import ObvDesignSystem
+
 
 final class ObvFloatingButton: UIButton {
     
@@ -38,7 +40,7 @@ final class ObvFloatingButton: UIButton {
         self.backgroundColor = .clear
         resetShadowPath()
         self.tintColor = .white
-        self.adjustsImageWhenHighlighted = false
+        // self.adjustsImageWhenHighlighted = false
     }
     
     override func draw(_ rect: CGRect) {

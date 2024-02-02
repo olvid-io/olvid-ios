@@ -24,6 +24,7 @@ import MobileCoreServices
 import AVKit
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
 
 
 class FyleCollectionViewCell: UICollectionViewCell {

@@ -25,6 +25,8 @@ import ObvEngine
 import ObvTypes
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
+import ObvSettings
 
 
 /// This view controller is replaced by NewDiscussionsViewController under iOS 16
@@ -170,7 +172,6 @@ extension DiscussionsTableViewController {
         
         observeIdentityColorStyleDidChangeNotifications()
         observeDiscussionLocalConfigurationHasBeenUpdatedNotifications()
-        observeCallLogItemWasUpdatedNotifications()
     }
 
     
@@ -193,12 +194,6 @@ extension DiscussionsTableViewController {
         self.notificationTokens.append(token)
     }
 
-    private func observeCallLogItemWasUpdatedNotifications() {
-        let token = VoIPNotification.observeCallHasBeenUpdated(queue: OperationQueue.main) { [weak self] _, _ in
-            self?.tableView.reloadData()
-        }
-        self.notificationTokens.append(token)
-    }
 
     private func registerTableViewCell() {
         self.tableView?.register(UINib(nibName: ObvSubtitleTableViewCell.nibName, bundle: nil), forCellReuseIdentifier: ObvSubtitleTableViewCell.identifier)

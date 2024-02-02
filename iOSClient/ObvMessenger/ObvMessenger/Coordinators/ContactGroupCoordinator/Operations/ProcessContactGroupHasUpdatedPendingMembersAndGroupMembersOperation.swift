@@ -36,55 +36,44 @@ final class ProcessContactGroupHasUpdatedPendingMembersAndGroupMembersOperation:
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        obvContext.performAndWait {
+        do {
             
-            do {
-
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
-                    return
-                }
-                
-                let persistedObvContactIdentities: Set<PersistedObvContactIdentity> = Set(obvContactGroup.groupMembers.compactMap {
-                    guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: $0, whereOneToOneStatusIs: .any, within: obvContext.context) else {
-                        os_log("One of the group members is not among our persisted contacts. The group members will be updated when this contact will be added to the persisted contact.", log: Self.log, type: .info)
-                        return nil
-                    }
-                    return persistedContact
-                })
-                
-                let groupUid = obvContactGroup.groupUid
-                let groupOwner = obvContactGroup.groupOwner.cryptoId
-                let groupId = (groupUid, groupOwner)
-                guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) else {
-                    return cancel(withReason: .couldNotFindContactGroup)
-                }
-
-                contactGroup.set(persistedObvContactIdentities)
-                try contactGroup.setPendingMembers(to: obvContactGroup.pendingGroupMembers)
-                
-                if let groupOwned = contactGroup as? PersistedContactGroupOwned {
-                    if obvContactGroup.groupType == .owned {
-                        let declinedMemberIdentites = Set(obvContactGroup.declinedPendingGroupMembers.map { $0.cryptoId })
-                        for pendingMember in groupOwned.pendingMembers {
-                            pendingMember.declined = declinedMemberIdentites.contains(pendingMember.cryptoId)
-                        }
-                    }
-                }
-
-
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
+                return
             }
             
+            let persistedObvContactIdentities: Set<PersistedObvContactIdentity> = Set(obvContactGroup.groupMembers.compactMap {
+                guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: $0.contactIdentifier, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                    os_log("One of the group members is not among our persisted contacts. The group members will be updated when this contact will be added to the persisted contact.", log: Self.log, type: .info)
+                    return nil
+                }
+                return persistedContact
+            })
+            
+            guard let contactGroup = try PersistedContactGroup.getContactGroup(groupIdentifier: obvContactGroup.groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) else {
+                return cancel(withReason: .couldNotFindContactGroup)
+            }
+            
+            contactGroup.set(persistedObvContactIdentities)
+            try contactGroup.setPendingMembers(to: obvContactGroup.pendingGroupMembers)
+            
+            if let groupOwned = contactGroup as? PersistedContactGroupOwned {
+                if obvContactGroup.groupType == .owned {
+                    let declinedMemberIdentites = Set(obvContactGroup.declinedPendingGroupMembers.map { $0.cryptoId })
+                    for pendingMember in groupOwned.pendingMembers {
+                        pendingMember.declined = declinedMemberIdentites.contains(pendingMember.cryptoId)
+                    }
+                }
+            }
+            
+            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }
 

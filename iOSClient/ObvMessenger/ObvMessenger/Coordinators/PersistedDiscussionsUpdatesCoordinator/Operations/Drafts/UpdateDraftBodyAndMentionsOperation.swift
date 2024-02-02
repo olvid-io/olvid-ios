@@ -39,24 +39,20 @@ final class UpdateDraftBodyAndMentionsOperation: ContextualOperationWithSpecific
         super.init()
     }
 
-    override func main() {
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            do {
-                
-                guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindDraft)
-                }
-                
-                draft.replaceContentWith(newBody: draftBody, newMentions: mentions)
-
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            
+            guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindDraft)
             }
+            
+            draft.replaceContentWith(newBody: draftBody, newMentions: mentions)
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
+        
     }
 
 }

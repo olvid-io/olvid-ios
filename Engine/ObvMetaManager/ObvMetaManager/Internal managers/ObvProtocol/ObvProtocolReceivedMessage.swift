@@ -27,10 +27,10 @@ public struct ObvProtocolReceivedMessage {
     
     public let receptionChannelInfo: ObvProtocolReceptionChannelInfo
     public let encodedElements: ObvEncoded // An encoded list containing three encoded items : the protocol instance UID, the protocol message raw id, and the encodedProtocolInstanceInputs
-    public let messageId: MessageIdentifier
+    public let messageId: ObvMessageIdentifier
     public let timestamp: Date // Either the messageUploadTimestampFromServer for messages received from the network, or a local timestamp otherwise
 
-    public init(messageId: MessageIdentifier, timestamp: Date, receptionChannelInfo: ObvProtocolReceptionChannelInfo, encodedElements: ObvEncoded) {
+    public init(messageId: ObvMessageIdentifier, timestamp: Date, receptionChannelInfo: ObvProtocolReceptionChannelInfo, encodedElements: ObvEncoded) {
         self.receptionChannelInfo = receptionChannelInfo
         self.encodedElements = encodedElements
         self.messageId = messageId

@@ -22,6 +22,9 @@ import UniformTypeIdentifiers
 import Combine
 import ObvUICoreData
 import ObvUI
+import OlvidUtils
+import ObvSettings
+
 
 @available(iOS 15.0, *)
 final class EmojiPickerHostingViewController: UIHostingController<EmojiPickerView>, EmojiPickerViewModelDelegate {
@@ -34,6 +37,18 @@ final class EmojiPickerHostingViewController: UIHostingController<EmojiPickerVie
         super.init(rootView: view)
         self.model.delegate = self
     }
+
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        // In case there is a navigation controller (which is the case under macOS), add a close button
+        let closeAction = UIAction { [weak self] _ in self?.dismiss() }
+        let closeButton = UIBarButtonItem(systemItem: .cancel, primaryAction: closeAction)
+        navigationItem.rightBarButtonItem = closeButton
+        
+    }
+    
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()

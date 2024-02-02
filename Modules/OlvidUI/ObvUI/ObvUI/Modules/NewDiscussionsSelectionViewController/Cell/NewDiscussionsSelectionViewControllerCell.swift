@@ -20,6 +20,8 @@
 import Foundation
 import SwiftUI
 import UIKit
+import ObvDesignSystem
+
 
 @available(iOS 16.0, *)
 private let kCircledInitialsViewSize = CircledInitialsView.Size.small

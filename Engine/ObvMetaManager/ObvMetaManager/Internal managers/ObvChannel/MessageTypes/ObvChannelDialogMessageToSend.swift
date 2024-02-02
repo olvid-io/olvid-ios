@@ -41,28 +41,32 @@ public struct ObvChannelDialogMessageToSend: ObvChannelMessageToSend {
 }
 
 public enum ObvChannelDialogToSendType {
+
     case inviteSent(contact: CryptoIdentityWithFullDisplayName) // Used within the protocol allowing establish trust
     case acceptInvite(contact: CryptoIdentityWithCoreDetails) // Used within the protocol allowing establish trust
     case invitationAccepted(contact: CryptoIdentityWithCoreDetails) // Used within the protocol allowing establish trust
     case sasExchange(contact: CryptoIdentityWithCoreDetails, sasToDisplay: Data, numberOfBadEnteredSas: Int)
     case sasConfirmed(contact: CryptoIdentityWithCoreDetails, sasToDisplay: Data, sasEntered: Data)
     case mutualTrustConfirmed(contact: CryptoIdentityWithCoreDetails)
-    case autoconfirmedContactIntroduction(contact: CryptoIdentityWithCoreDetails, mediatorIdentity: ObvCryptoIdentity)
     case acceptMediatorInvite(contact: CryptoIdentityWithCoreDetails, mediatorIdentity: ObvCryptoIdentity)
-    case increaseMediatorTrustLevelRequired(contact: CryptoIdentityWithCoreDetails, mediatorIdentity: ObvCryptoIdentity)
     case mediatorInviteAccepted(contact: CryptoIdentityWithCoreDetails, mediatorIdentity: ObvCryptoIdentity)
     case oneToOneInvitationSent(contact: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity)
     case oneToOneInvitationReceived(contact: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity)
 
     // Dialogs related to contact groups
+
     case acceptGroupInvite(groupInformation: GroupInformation, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, receivedMessageTimestamp: Date)
-    case increaseGroupOwnerTrustLevel(groupInformation: GroupInformation, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, receivedMessageTimestamp: Date)
     
     // Dialogs related to contact groups V2
+
     case acceptGroupV2Invite(inviter: ObvCryptoId, group: ObvGroupV2)
     case freezeGroupV2Invite(inviter: ObvCryptoId, group: ObvGroupV2)
 
+    // Dialogs related to the synchronization between owned devices
+    
+    case syncRequestReceivedFromOtherOwnedDevice(otherOwnedDeviceUID: UID, syncAtom: ObvSyncAtom)
     
     // A special dialog allowing a protocol instance to notify the "user interface" that is should remove any previous dialog
+
     case delete
 }

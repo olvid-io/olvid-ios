@@ -1,0 +1,1459 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@_ACCEPTED_TO_JOIN_THIS_GROUP" : {
+      "comment" : "System message displayed within a group discussion",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ has joined this group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a rejoint ce groupe"
+          }
+        }
+      }
+    },
+    "%@_ACCEPTED_TO_JOIN_THIS_GROUP_AT_%@" : {
+      "comment" : "System message displayed within a group discussion",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ has joined this group - %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a rejoint ce groupe - %@"
+          }
+        }
+      }
+    },
+    "%@_LEFT_THIS_GROUP" : {
+      "comment" : "System message displayed within a group discussion",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left this group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a quitté ce groupe"
+          }
+        }
+      }
+    },
+    "%@_LEFT_THIS_GROUP_AT_%@" : {
+      "comment" : "System message displayed within a group discussion",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left this group - %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a quitté ce groupe - %@"
+          }
+        }
+      }
+    },
+    "A (now deleted) contact" : {
+      "comment" : "Can serve as a name in the sentence \\\"%@ accepted to join this group\\\"",
+      "extractionState" : "migrated",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted contact"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contact supprimé"
+          }
+        }
+      }
+    },
+    "ACCEPTED_INCOMING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incoming call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel entrant"
+          }
+        }
+      }
+    },
+    "ACCEPTED_OUTGOING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outgoing call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel sortant"
+          }
+        }
+      }
+    },
+    "AND_%@_OTHERS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "and %@ others"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "et %@ autres"
+          }
+        }
+      }
+    },
+    "AND_ONE_OTHER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "and one other"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "et un autre"
+          }
+        }
+      }
+    },
+    "ANSWERED_ON_OTHER_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Call accepted on another device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel accepté depuis un autre appareil"
+          }
+        }
+      }
+    },
+    "ANY_INCOMING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incoming call..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel entrant..."
+          }
+        }
+      }
+    },
+    "ANY_OUTGOING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outgoing call..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel sortant..."
+          }
+        }
+      }
+    },
+    "BUSY_OUTGOING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Busy outgoing call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel sortant occupé"
+          }
+        }
+      }
+    },
+    "Choose" : {
+      "comment" : "Choose word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "comment" : "Close word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer"
+          }
+        }
+      }
+    },
+    "CONTACT_%@_IS_ONE_TO_ONE_AGAIN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is part of your contacts again, you can continue your discussion where you left off 🤗."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ fait à nouveau partie de vos contacts, vous pouvez reprendre la discussion là où vous l'aviez laissée 🤗."
+          }
+        }
+      }
+    },
+    "CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ took a screenshot of a sensitive message."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a fait une capture d'un message sensible."
+          }
+        }
+      }
+    },
+    "CONTACT_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE_WHEN_CONTACT_IS_UNKNOWN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A participant took a screenshot of a sensitive message."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un particpant a fait une capture d'un message sensible."
+          }
+        }
+      }
+    },
+    "CONTACT_REVOKED_BY_COMPANY_IDENTITY_PROVIDER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contact revoked by your company's identity provider"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contact revoqué par le fournisseur d'identités de votre société"
+          }
+        }
+      }
+    },
+    "count attachments" : {
+      "comment" : "Number of attachments in message",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "One attachment"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%u attachments"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No attachment"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Une pièce jointe"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%u pièces jointes"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Aucune pièce jointe"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "count new messages" : {
+      "comment" : "Number of new messages",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 new message"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%u new messages"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No new message"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 nouveau message"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%u nouveaux messages"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Aucun nouveau message"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Default" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Par défaut"
+          }
+        }
+      }
+    },
+    "DISCUSSION_SHARED_SETTINGS_WERE_UPDATED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussion shared settings were updated"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les paramètres partagés de la discussion ont été mis à jour"
+          }
+        }
+      }
+    },
+    "Edited" : {
+      "comment" : "Edited word, capitalized",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifié"
+          }
+        }
+      }
+    },
+    "EIGHT_HOURS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "8 hours"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "8 heures"
+          }
+        }
+      }
+    },
+    "EPHEMERAL_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ephemeral message"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message éphémère"
+          }
+        }
+      }
+    },
+    "FIFTEEN_DAYS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "15 days"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "15 jours"
+          }
+        }
+      }
+    },
+    "FIVE_YEAR" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 years"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 ans"
+          }
+        }
+      }
+    },
+    "Forward" : {
+      "comment" : "Forward word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forward"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transférer"
+          }
+        }
+      }
+    },
+    "FROM_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "from %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "de %@"
+          }
+        }
+      }
+    },
+    "GROUP_TITLE_WHEN_NO_SPECIFIC_TITLE_IS_GIVEN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group with no name 😅"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Groupe sans nom 😅"
+          }
+        }
+      }
+    },
+    "INDEFINITELY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "indefinitely"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indéfiniment"
+          }
+        }
+      }
+    },
+    "LAST_MESSAGE_WAS_REMOTELY_WIPED" : {
+      "comment" : "Subtitle displayed within a discussion cell when the message to preview was remotely wiped",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last message was remotely wiped"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernier message éliminé à distance"
+          }
+        }
+      }
+    },
+    "Latest Discussions" : {
+      "comment" : "Small string used in tab controller to sort by latest discussions",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Récentes"
+          }
+        }
+      }
+    },
+    "Mark all as read" : {
+      "comment" : "Action title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark all as read"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout marquer comme lu"
+          }
+        }
+      }
+    },
+    "MEMBERS_OF_GROUP_V2_WERE_UPDATED_SYSTEM_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group members have been updated. Tap to learn more."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les membres du groupe ont été mis à jour. Touchez pour en savoir plus."
+          }
+        }
+      }
+    },
+    "MESSAGE_WAS_WIPED" : {
+      "comment" : "Subtitle displayed within a discussion cell when the message to preview is a wiped ephemeral message",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last message was wiped 🧹"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernier message expiré 🧹"
+          }
+        }
+      }
+    },
+    "Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography." : {
+      "comment" : "System message displayed at the top of each conversation.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔒 Messages posted in this discussion are protected using end-to-end encryption. Their confidentiality, their authenticity, and the identity of their sender are guaranteed through cryptography."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔒 Les messages postés dans cette discussion sont protégés par du chiffrement de bout-en-bout. Leur confidentialité, leur authenticité et l'identité de leur expéditeur sont garanties grâce à la cryptographie."
+          }
+        }
+      }
+    },
+    "MISSED_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missed Call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel manqué"
+          }
+        }
+      }
+    },
+    "MISSED_CALL_FILTERED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missed call while you were in \"Focus\" mode."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel manqué alors que vous étiez en mode « Concentration »."
+          }
+        }
+      }
+    },
+    "NINETY_DAYS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "90 days"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "90 jours"
+          }
+        }
+      }
+    },
+    "No message yet." : {
+      "comment" : "Subtitle displayed within a discussion cell when there is no message preview to display",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No message yet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun message pour le moment."
+          }
+        }
+      }
+    },
+    "NOT_PART_OF_THE_GROUP_ANYMORE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are not part of this group anymore, either because you left it, because an administrator removed you, or because the group was deleted 🥲."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous ne faites plus partie de ce groupe, parce que vous l'avez quitté, parce qu'un administrateur vous a retiré du groupe, ou tout simplement parce que le groupe a été supprimé 🥲."
+          }
+        }
+      }
+    },
+    "ONE_DAY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 day"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 jour"
+          }
+        }
+      }
+    },
+    "ONE_HOUR" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 hour"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 heure"
+          }
+        }
+      }
+    },
+    "ONE_HUNDRED_AND_HEIGHTY_DAYS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "180 days"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "180 jours"
+          }
+        }
+      }
+    },
+    "ONE_YEAR" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 year"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 an"
+          }
+        }
+      }
+    },
+    "Read" : {
+      "comment" : "Read word, capitalized",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lu"
+          }
+        }
+      }
+    },
+    "REJECTED_INCOMING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rejected incoming call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel entrant rejeté"
+          }
+        }
+      }
+    },
+    "REJECTED_INCOMING_CALL_AS_RECEIVE_CALL_SETTINGS_IS_FALSE" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "An incoming secure call was automatically rejected as you chose not to receive calls on this device. Click this message to show the setting."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "An incoming secure call was automatically rejected as you chose not to receive calls on this device. Tap this message to show the setting."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un appel entrant a été automatiquement refusé puisque vous avez choisi de ne pas recevoir d'appel sur cet appareil. Cliquez ce message pour afficher le paramètre."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un appel entrant a été automatiquement refusé puisque vous avez choisi de ne pas recevoir d'appel sur cet appareil. Touchez cette notification pour afficher le paramètre."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_DENIED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The incoming call was rejected because Olvid is not allowed to access the Microphone. To never miss a call again, please go to Settings and grant Olvid access to the microphone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'appel entrant n'a pas abouti car Olvid n'a pas l'autorisation d'accéder au micro. Pour ne plus rater d'appel, allez dans les Réglages et autorisez l'accès au micro pour Olvid."
+          }
+        }
+      }
+    },
+    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_GRANTED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The incoming call was rejected because Olvid was not allowed to access the Microphone. Fortunately, since then, this autorisation was granted. You won't miss a call again 🥳!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'appel entrant n'a pas abouti car Olvid n'avait pas l'autorisation d'accéder au micro. Fort heureusement, l'autorisation a été accordée. Vous ne raterez plus aucun appel 🥳 !"
+          }
+        }
+      }
+    },
+    "REJECTED_INCOMING_CALL_BECAUSE_RECORD_PERMISSION_IS_UNDETERMINED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The incoming call was rejected because Olvid is not allowed to access the microphone. Please tap on this message to allow Olvid to access the Microphone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'appel entrant n'a pas abouti car Olvid n'a pas l'autorisation d'accéder au micro. Cliquez sur ce message pour autoriser l'accès au micro."
+          }
+        }
+      }
+    },
+    "REJECTED_ON_OTHER_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Call rejected on another device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel rejeté depuis un autre appareil"
+          }
+        }
+      }
+    },
+    "REJECTED_OUTGOING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your contact is not available"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre correspondant est indisponible"
+          }
+        }
+      }
+    },
+    "REJOINED_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are again part of this group ✌️."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous faites à nouveau partie du groupe ✌️"
+          }
+        }
+      }
+    },
+    "Remotely wiped" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remotely wiped"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Éliminé à distance"
+          }
+        }
+      }
+    },
+    "SEVEN_DAYS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 days"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 jours"
+          }
+        }
+      }
+    },
+    "SIX_HOUR" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 hours"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 heures"
+          }
+        }
+      }
+    },
+    "THIRTY_DAYS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 days"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 jours"
+          }
+        }
+      }
+    },
+    "This contact was deleted from your contacts, either because you did or because this contact deleted you." : {
+      "comment" : "System message displayed within a group discussion",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This contact was deleted from your Olvid contacts, either because you did or because this contact deleted you from their own contacts."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce contact a été supprimé de vos contacts Olvid, soit par vous-même, soit parce que ce contact vous a supprimé de ses propres contacts."
+          }
+        }
+      }
+    },
+    "This discussion was remotely wiped by %@" : {
+      "comment" : "System message displayed within a group discussion",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This discussion was remotely wiped by %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette discussion a été effacée à distance par %@"
+          }
+        }
+      }
+    },
+    "This discussion was remotely wiped by %@ on %@" : {
+      "comment" : "System message displayed within a group discussion",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This discussion was remotely wiped by %@ on %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette discussion a été effacée à distance par %@ le %@"
+          }
+        }
+      }
+    },
+    "THREE_YEAR" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3 years"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3 ans"
+          }
+        }
+      }
+    },
+    "TWELVE_HOURS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 hours"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "12 heures"
+          }
+        }
+      }
+    },
+    "TWO_DAYS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 days"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2 jours"
+          }
+        }
+      }
+    },
+    "UNANSWERED_OUTGOING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unanswered outgoing call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel sortant sans réponse"
+          }
+        }
+      }
+    },
+    "UNCOMPLETED_OUTGOING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uncompleted outgoing call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel sortant non abouti"
+          }
+        }
+      }
+    },
+    "UNKNOWN_USER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown user"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilisateur inconnu"
+          }
+        }
+      }
+    },
+    "Unlimited" : {
+      "comment" : "Unlimited word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Illimité"
+          }
+        }
+      }
+    },
+    "UNREAD_EPHEMERAL_MESSAGE" : {
+      "comment" : "Subtitle displayed within a discussion cell when the message to preview is an unread ephemeral message",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unread ephemeral message"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message éphémère non lu"
+          }
+        }
+      }
+    },
+    "Wiped" : {
+      "comment" : "Wiped word, capitalized",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiré"
+          }
+        }
+      }
+    },
+    "WITH_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "with %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "avec %@"
+          }
+        }
+      }
+    },
+    "WITH_N_PARTICIPANTS" : {
+      "extractionState" : "migrated",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "with one participant"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "with %u participants"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "without any participant"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "avec un participant"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "avec %u participants"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "sans aucun participant"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "You" : {
+      "comment" : "You word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous"
+          }
+        }
+      }
+    },
+    "YOU_ARE_NO_LONGER_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are no longer a group administrator."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous n'êtes plus administrateur de ce groupe."
+          }
+        }
+      }
+    },
+    "YOU_ARE_NOW_PART_OF_THE_ADMINISTRATORS_OF_THIS_GROUP_V2" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are now a group administrator 😎."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous êtes maintenant un administrateur de ce groupe 😎."
+          }
+        }
+      }
+    },
+    "YOU_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You took a screenshot of a sensitive message, other participants have been notified."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez fait une capture d'un message sensible, les participants de cette discussion ont été notifiés."
+          }
+        }
+      }
+    },
+    "YOU_INTRODUCED_%@_TO_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You introduced %@ to %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez présenté %@ à %@."
+          }
+        }
+      }
+    },
+    "YOU_INTRODUCED_%@_TO_ANOTHER_CONTACT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You introduced %@ to another contact."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez présenté %@ à un autre contact."
+          }
+        }
+      }
+    },
+    "YOU_INTRODUCED_THIS_CONTACT_TO_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You introduced this contact to %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez présenté ce contact à %@."
+          }
+        }
+      }
+    },
+    "YOU_INTRODUCED_THIS_CONTACT_TO_ANOTHER_ONE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You introduced this contact to another one."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez présenté ce contact à un autre."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

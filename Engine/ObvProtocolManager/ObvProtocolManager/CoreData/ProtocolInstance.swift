@@ -24,6 +24,7 @@ import OlvidUtils
 import ObvEncoder
 import ObvTypes
 import ObvCrypto
+import ObvMetaManager
 
 @objc(ProtocolInstance)
 final class ProtocolInstance: NSManagedObject, ObvManagedObject, ObvErrorMaker {
@@ -79,11 +80,12 @@ final class ProtocolInstance: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         }
         let entityDescription = NSEntityDescription.entity(forEntityName: ProtocolInstance.entityName, in: obvContext)!
         
-        // We check that the identity passed is indeed "owned"
+        // We check that the identity passed is indeed "owned" or, in the case of the owned identity transfer protocol, if the identity is ephemeral
         do {
             let identityIsOwned = try identityDelegate.isOwned(ownedCryptoIdentity, within: obvContext)
-            guard identityIsOwned else { return nil }
+            guard identityIsOwned || (cryptoProtocolId == .ownedIdentityTransfer && ownedCryptoIdentity.serverURL == ObvConstants.ephemeralIdentityServerURL) else { return nil }
         } catch {
+            assertionFailure()
             return nil
         }
         
@@ -167,8 +169,24 @@ extension ProtocolInstance {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         let items = try? obvContext.fetch(request)
         return items?.map { $0.delegateManager = delegateManager; return $0 }
-
     }
+    
+    
+    static func getAll(cryptoProtocolId: CryptoProtocolId, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> [ProtocolInstance] {
+        let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
+        request.predicate = Predicate.withCryptoProtocolId(cryptoProtocolId)
+        let items = try obvContext.fetch(request)
+        return items.map { $0.delegateManager = delegateManager; return $0 }
+    }
+    
+    
+    static func getAllPrimaryKeysOfOwnedIdentityTransferProtocolInstances(within obvContext: ObvContext) throws -> [(ownedCryptoIdentity: ObvCryptoIdentity, protocolInstanceUID: UID)] {
+        let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
+        request.predicate = Predicate.withCryptoProtocolId(.ownedIdentityTransfer)
+        let items = try obvContext.fetch(request)
+        return items.map({ ($0.ownedCryptoIdentity, $0.uid) })
+    }
+    
     
     static func delete(uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         // We do not execute a batch delete since this method does not call the willSave/didSave methods, which are required.
@@ -230,6 +248,19 @@ extension ProtocolInstance {
             guard !items.isEmpty else { continue }
             items.forEach({ obvContext.delete($0) })
         }
+        
+    }
+    
+    
+    static func deleteOwnedIdentityTransferProtocolInstances(within obvContext: ObvContext) throws {
+        
+        let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
+        request.predicate = Predicate.withCryptoProtocolId(.ownedIdentityTransfer)
+        request.propertiesToFetch = []
+        request.fetchBatchSize = 100
+        let items = try obvContext.fetch(request)
+        guard !items.isEmpty else { return }
+        items.forEach({ obvContext.delete($0) })
         
     }
     

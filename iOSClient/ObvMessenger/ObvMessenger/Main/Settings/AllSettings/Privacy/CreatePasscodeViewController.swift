@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -17,11 +17,12 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
   
-
 import Foundation
 import SwiftUI
 import Combine
 import ObvUI
+import ObvDesignSystem
+
 
 enum CreatePasscodeViewResult {
     case passcode(passcode: String, passcodeIsPassword: Bool)
@@ -171,22 +172,20 @@ fileprivate struct InnerCreatePasscodeView: View {
                           secureFocus: $model.secureFocus,
                           textFocus: $model.textFocus,
                           remainingLockoutTime: .constant(nil))
-            if #available(iOS 15.0, *) {
-                Picker("Passcode", selection: $model.passcodeKind.animation()) {
-                    ForEach(PasscodeKind.allCases) { kind in
-                        Text(kind.localizedDescription)
-                    }
+            Picker("Passcode", selection: $model.passcodeKind.animation()) {
+                ForEach(PasscodeKind.allCases) { kind in
+                    Text(kind.localizedDescription)
                 }
-                .pickerStyle(.segmented)
-                .onChange(of: model.passcodeKind) { _ in
-                    let secureFocus = model.secureFocus
-                    let textFocus  = model.textFocus
-                    model.secureFocus = false
-                    model.textFocus = false
-                    model.passcode = ""
-                    model.secureFocus = secureFocus
-                    model.textFocus = textFocus
-                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: model.passcodeKind) { _ in
+                let secureFocus = model.secureFocus
+                let textFocus  = model.textFocus
+                model.secureFocus = false
+                model.textFocus = false
+                model.passcode = ""
+                model.secureFocus = secureFocus
+                model.textFocus = textFocus
             }
             NavigationLink(destination: VerifyCreatedPasscodeView(model: model),
                            isActive: $showVerificationView) {

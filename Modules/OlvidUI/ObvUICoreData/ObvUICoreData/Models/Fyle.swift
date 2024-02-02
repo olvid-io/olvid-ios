@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,13 +20,17 @@
 import Foundation
 import CoreData
 import os.log
-import ObvEngine
+import ObvTypes
 import OlvidUtils
+import ObvCrypto
+import ObvSettings
+
 
 @objc(Fyle)
 public final class Fyle: NSManagedObject {
     
     private static let entityName = "Fyle"
+    private static let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "Fyle")
 
     // MARK: - Properties
 
@@ -41,7 +45,7 @@ public final class Fyle: NSManagedObject {
     
     // MARK: - Initializer
 
-    public convenience init?(sha256: Data, within context: NSManagedObjectContext) {
+    private convenience init(sha256: Data, within context: NSManagedObjectContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: Fyle.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         self.sha256 = sha256
@@ -54,13 +58,63 @@ public final class Fyle: NSManagedObject {
         if let previousFyle = try Fyle.get(sha256: sha256, within: context) {
             return previousFyle
         } else {
-            guard let newFyle = Fyle(sha256: sha256, within: context) else {
-                throw ObvError.couldNotCreateNewFyleInstance
-            }
+            let newFyle = Fyle(sha256: sha256, within: context)
             return newFyle
         }
     }
     
+    
+    func updateFyle(with obvAttachment: ObvAttachment) throws {
+        try updateFyle(obvAttachmentStatus: obvAttachment.status,
+                       obvAttachmentURL: obvAttachment.url)
+    }
+
+    
+    func updateFyle(with obvOwnedAttachment: ObvOwnedAttachment) throws {
+        try updateFyle(obvAttachmentStatus: obvOwnedAttachment.status,
+                       obvAttachmentURL: obvOwnedAttachment.url)
+    }
+
+    
+    private func updateFyle(obvAttachmentStatus: ObvAttachment.Status, obvAttachmentURL: URL) throws {
+        
+        // Make sure the file was downloaded and that we do not already have a local (app) version of this file
+        
+        guard obvAttachmentStatus == .downloaded && self.getFileSize() == nil else {
+            os_log("Although the engine indicates that the attachment is downloaded, we could not find the file on disk", log: Self.log, type: .error)
+            return
+        }
+        
+        // Make sure the file is indeed available at the obvAttachmentURL.
+        // If this is not the case, we throw. The exception will eventually be processed by the operation (at the app level) and a new download will be requested to the engine.
+        guard FileManager.default.fileExists(atPath: obvAttachmentURL.path) else {
+            throw ObvError.couldNotFindSourceFile
+        }
+
+        // Compute the sha256 of the (complete) file indicated within the obvAttachment and compare it to what was expected
+
+        let realHash: Data
+        do {
+            let sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
+            realHash = try sha256.hash(fileAtUrl: obvAttachmentURL)
+        } catch {
+            throw ObvError.couldNotComputeSHA256
+        }
+        
+        guard realHash == self.sha256 else {
+            os_log("OMG, the sha256 of the received file does not match the one we expected. Expecting %{public}@ but the hash of the received file is %{public}@", log: Self.log, type: .error, self.sha256.hexString(), realHash.hexString())
+            assertionFailure()
+            throw ObvError.sha256OfReceivedFileReferenceByObvAttachmentDoesNotMatchWhatWeExpect
+        }
+
+        // If we reach this point, the sha256 is correct. We move the received file to a permanent location
+
+        try self.moveFileToPermanentURL(from: obvAttachmentURL, logTo: Self.log)
+
+        os_log("We moved a downloaded file to a permanent location", log: Self.log, type: .debug)
+
+    }
+
 }
 
 
@@ -83,6 +137,7 @@ extension Fyle {
     public static func getFileURL(lastPathComponent: String) -> URL {
         ObvUICoreDataConstants.ContainerURL.forFyles.appendingPathComponent(lastPathComponent)
     }
+
 
     public func getFileSize() -> Int64? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
@@ -168,9 +223,11 @@ extension Fyle {
         return NSFetchRequest<Fyle>(entityName: Fyle.entityName)
     }
     
+
     static func get(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> Fyle? {
         return try context.existingObject(with: objectID) as? Fyle
     }
+
     
     /// Returns a `Fyle` if one can be found for the given sha256.
     public static func get(sha256: Data, within context: NSManagedObjectContext) throws -> Fyle? {
@@ -229,6 +286,8 @@ extension Fyle {
     public enum ObvError: Error {
         case couldNotCreateNewFyleInstance
         case couldNotFindSourceFile
+        case couldNotComputeSHA256
+        case sha256OfReceivedFileReferenceByObvAttachmentDoesNotMatchWhatWeExpect
         
         var localizedDescription: String {
             switch self {
@@ -236,6 +295,10 @@ extension Fyle {
                 return "Could not create new Fyle instance"
             case .couldNotFindSourceFile:
                 return "Could not find the source file"
+            case .couldNotComputeSHA256:
+                return "Could not compute the SHA256"
+            case .sha256OfReceivedFileReferenceByObvAttachmentDoesNotMatchWhatWeExpect:
+                return "The SHA256 of the received file referenced by the ObvAttachment does not match what we expect"
             }
         }
         

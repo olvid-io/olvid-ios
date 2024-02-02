@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,8 +23,10 @@ import os.log
 import CoreData
 import OlvidUtils
 import ObvUICoreData
+import ObvTypes
 
-final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificReasonForCancel<MarkAsReadReceivedMessageOperationReasonForCancel> {
+
+final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificReasonForCancel<MarkAsReadReceivedMessageOperation.ReasonForCancel>, OperationProvidingDiscussionReadJSON {
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MarkAsReadReceivedMessageOperation.self))
 
@@ -39,65 +41,81 @@ final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificR
         super.init()
     }
 
-    override func main() {
+    private(set) var ownedCryptoId: ObvCryptoId?
+    private(set) var discussionReadJSONToSend: DiscussionReadJSON?
 
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            do {
-                guard let contactIdentity = try PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: obvContext.context) else {
-                    assertionFailure()
-                    return cancel(withReason: .couldNotFindContactIdentityInDatabase)
-                }
-
-                // Find message to mark as read
-                guard let message = try PersistedMessageReceived.get(messageIdentifierFromEngine: messageIdentifierFromEngine, from: contactIdentity) else {
-                    assertionFailure()
-                    return cancel(withReason: .couldNotFindReceivedMessageInDatabase)
-                }
-
-                try message.markAsNotNew(now: Date())
-                
-                persistedMessageReceivedObjectID = message.typedObjectID
-
-            } catch(let error) {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            
+            guard let contactIdentity = try PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: obvContext.context) else {
                 assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+                return cancel(withReason: .couldNotFindContactIdentityInDatabase)
+            }
+
+            guard let (discussionId, receivedMessageId): (DiscussionIdentifier, ReceivedMessageIdentifier) = try contactIdentity.getReceivedMessageIdentifiers(messageIdentifierFromEngine: messageIdentifierFromEngine) else {
+                assertionFailure()
+                return cancel(withReason: .couldNotFindReceivedMessageInDatabase)
+            }
+
+            guard let ownedIdentity = contactIdentity.ownedIdentity else {
+                assertionFailure()
+                return cancel(withReason: .couldNotFindOwnedIdentity)
+            }
+            
+            self.ownedCryptoId = ownedIdentity.cryptoId
+            
+            let dateWhenMessageTurnedNotNew = Date()
+            let lastReadMessageServerTimestamp = try ownedIdentity.markReceivedMessageAsNotNew(discussionId: discussionId, receivedMessageId: receivedMessageId, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+            
+            do {
+                if let lastReadMessageServerTimestamp {
+                    discussionReadJSONToSend = try ownedIdentity.getDiscussionReadJSON(discussionId: discussionId, lastReadMessageServerTimestamp: lastReadMessageServerTimestamp)
+                }
+            } catch {
+                assertionFailure(error.localizedDescription) // Continue anyway
+            }
+
+            
+            do {
+                persistedMessageReceivedObjectID = try ownedIdentity.getReceivedMessageTypedObjectID(discussionId: discussionId, receivedMessageId: receivedMessageId)
+            } catch {
+                assertionFailure(error.localizedDescription) // Continue anyway
+            }
+            
+        } catch(let error) {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
+        }
+        
+    }
+    
+    
+    enum ReasonForCancel: LocalizedErrorWithLogType {
+
+        case coreDataError(error: Error)
+        case couldNotFindContactIdentityInDatabase
+        case couldNotFindReceivedMessageInDatabase
+        case couldNotFindOwnedIdentity
+
+        var logType: OSLogType {
+            switch self {
+            case .couldNotFindOwnedIdentity, .coreDataError:
+                return .fault
+            case .couldNotFindReceivedMessageInDatabase, .couldNotFindContactIdentityInDatabase:
+                return .error
             }
         }
 
-    }
-}
-
-enum MarkAsReadReceivedMessageOperationReasonForCancel: LocalizedErrorWithLogType {
-
-    case contextIsNil
-    case coreDataError(error: Error)
-    case couldNotFindContactIdentityInDatabase
-    case couldNotFindReceivedMessageInDatabase
-
-    var logType: OSLogType {
-        switch self {
-        case .contextIsNil:
-            return .fault
-        case .coreDataError:
-            return .fault
-        case .couldNotFindReceivedMessageInDatabase:
-            return .error
-        case .couldNotFindContactIdentityInDatabase:
-            return .error
+        var errorDescription: String? {
+            switch self {
+            case .couldNotFindContactIdentityInDatabase: return "Could not obtain persisted contact identity in database"
+            case .coreDataError(error: let error): return "Core Data error: \(error.localizedDescription)"
+            case .couldNotFindReceivedMessageInDatabase: return "Could not find received message in database"
+            case .couldNotFindOwnedIdentity: return "Could not find owned identity"
+            }
         }
-    }
 
-    var errorDescription: String? {
-        switch self {
-        case .contextIsNil: return "Context is nil"
-        case .couldNotFindContactIdentityInDatabase: return "Could not obtain persisted contact identity in database"
-        case .coreDataError(error: let error): return "Core Data error: \(error.localizedDescription)"
-        case .couldNotFindReceivedMessageInDatabase: return "Could not find received message in database"
-        }
     }
 
 }

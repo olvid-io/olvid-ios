@@ -29,6 +29,7 @@ import SwiftUI
 import CoreData
 import ObvUICoreData
 import UI_SystemIcon
+import ObvSettings
 
 
 final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDelegate, ObvErrorMaker {
@@ -215,25 +216,7 @@ final class ShareViewModel: ObservableObject, DiscussionsHostingViewControllerDe
             let thumbnail = try await generator.generateBestRepresentation(for: request)
             return .image(thumbnail.uiImage)
         } catch {
-            let uti = hardlink.uti
-            if #available(iOS 14.0, *) {
-                let icon = ObvUTIUtils.getIcon(forUTI: uti)
-                return .symbol(icon)
-            } else {
-                // See CoreServices > UTCoreTypes
-                if ObvUTIUtils.uti(uti, conformsTo: "org.openxmlformats.wordprocessingml.document" as CFString) {
-                    // Word (docx) document
-                    return .symbol(.docFill)
-                } else if ObvUTIUtils.uti(uti, conformsTo: kUTTypeArchive) {
-                    // Zip archive
-                    return .symbol(.rectangleCompressVertical)
-                } else if ObvUTIUtils.uti(uti, conformsTo: kUTTypeWebArchive) {
-                    // Web archive
-                    return .symbol(.archiveboxFill)
-                } else {
-                    return .symbol(.paperclip)
-                }
-            }
+            return .symbol(hardlink.contentType.systemIcon)
         }
     }
 }

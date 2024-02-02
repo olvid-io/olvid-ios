@@ -22,18 +22,13 @@ import SwiftUI
 
 
 protocol OlvidMenuProvider: UIViewController {
-    
-    
+        
     func provideMenu() -> UIMenu
-    
-    @available(iOS, introduced: 13, deprecated: 14, message: "Use provideMenu() instead")
-    func provideAlertActions() -> [UIAlertAction]
 
 }
 
 
 extension UIViewController {
-    
     
     func getFirstMenuAvailable() -> UIMenu? {
         assert(Thread.isMainThread)
@@ -46,19 +41,5 @@ extension UIViewController {
         }
         return nil
     }
-
     
-    @available(iOS, introduced: 13, deprecated: 14, message: "Use getFirstParentMenuAvailable() instead")
-    func getFirstAlertActionsAvailable() -> [UIAlertAction] {
-        assert(Thread.isMainThread)
-        var currentViewController: UIViewController? = self
-        while let candidate = currentViewController {
-            if let parentMenuProvider = candidate as? OlvidMenuProvider {
-                return parentMenuProvider.provideAlertActions()
-            }
-            currentViewController = currentViewController?.parent
-        }
-        return []
-    }
-
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,77 +24,60 @@ import ObvTypes
 import OlvidUtils
 import ObvUICoreData
 
-final class ReplaceDiscussionSharedExpirationConfigurationOperation: OperationWithSpecificReasonForCancel<UpdateDiscussionSharedExpirationConfigurationOperationReasonForCancel> {
+final class ReplaceDiscussionSharedExpirationConfigurationOperation: ContextualOperationWithSpecificReasonForCancel<ReplaceDiscussionSharedExpirationConfigurationOperation.ReasonForCancel> {
     
-    let persistedDiscussionObjectID: NSManagedObjectID
-    let expirationJSON: ExpirationJSON
-    let ownedCryptoIdAsInitiator: ObvCryptoId
+    private let ownedCryptoIdAsInitiator: ObvCryptoId
+    private let discussionId: DiscussionIdentifier
+    private let expirationJSON: ExpirationJSON
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ReplaceDiscussionSharedExpirationConfigurationOperation.self))
 
-    init(persistedDiscussionObjectID: NSManagedObjectID, expirationJSON: ExpirationJSON, ownedCryptoIdAsInitiator: ObvCryptoId) {
-        self.persistedDiscussionObjectID = persistedDiscussionObjectID
-        self.expirationJSON = expirationJSON
+    init(ownedCryptoIdAsInitiator: ObvCryptoId, discussionId: DiscussionIdentifier, expirationJSON: ExpirationJSON) {
         self.ownedCryptoIdAsInitiator = ownedCryptoIdAsInitiator
+        self.discussionId = discussionId
+        self.expirationJSON = expirationJSON
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-
-            let discussion: PersistedDiscussion
-            do {
-                guard let _discussion = try PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: context) else {
-                    return cancel(withReason: .discussionCannotBeFound)
-                }
-                discussion = _discussion
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            
+            guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoIdAsInitiator, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
             }
             
-            do {
-                try discussion.sharedConfiguration.replacePersistedDiscussionSharedConfiguration(with: expirationJSON, initiator: .ownedIdentity(ownedCryptoId: ownedCryptoIdAsInitiator))
-            } catch {
-                return cancel(withReason: .failedToReplaceSharedConfiguration(error: error))
-            }
+            try persistedOwnedIdentity.replaceDiscussionSharedConfigurationSentByThisOwnedIdentity(
+                with: expirationJSON,
+                inDiscussionWithId: discussionId)
             
-            do {
-                guard context.hasChanges else { return }
-                try context.save(logOnFailure: log)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
+        }
+            
+    }
+    
+    
+    enum ReasonForCancel: LocalizedErrorWithLogType {
+        
+        case coreDataError(error: Error)
+        case couldNotFindPersistedOwnedIdentity
+        
+        var logType: OSLogType {
+            switch self {
+            case .coreDataError, .couldNotFindPersistedOwnedIdentity:
+                return .fault
             }
-
         }
         
-    }
-}
+        var errorDescription: String? {
+            switch self {
+            case .coreDataError(error: let error):
+                return "Core Data error: \(error.localizedDescription)"
+            case .couldNotFindPersistedOwnedIdentity:
+                return "Could not find owned identity"
+            }
+        }
 
-enum UpdateDiscussionSharedExpirationConfigurationOperationReasonForCancel: LocalizedErrorWithLogType {
-    
-    case coreDataError(error: Error)
-    case discussionCannotBeFound
-    case failedToReplaceSharedConfiguration(error: Error)
-    
-    var logType: OSLogType {
-        switch self {
-        case .coreDataError, .failedToReplaceSharedConfiguration:
-            return .fault
-        case .discussionCannotBeFound:
-            return .error
-        }
-    }
-    
-    var errorDescription: String? {
-        switch self {
-        case .coreDataError(error: let error):
-            return "Core Data error: \(error.localizedDescription)"
-        case .discussionCannotBeFound:
-            return "Could not find discussion in database"
-        case .failedToReplaceSharedConfiguration(error: let error):
-            return "Failed to replace shared config: \(error.localizedDescription)"
-        }
     }
 
 }

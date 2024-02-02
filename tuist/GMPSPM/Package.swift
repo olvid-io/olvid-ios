@@ -5,7 +5,8 @@ import PackageDescription
 let package = Package(
     name: "GMP",
     platforms: [
-        .iOS(.v13)
+        .iOS(.v15),
+        .macOS(.v12), // No clear, we compile gmp with macabi 15.5
     ],
     products: [
         .library(

@@ -17,7 +17,6 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 import CloudKit
 import Combine
 import ObvUI
@@ -25,6 +24,7 @@ import SwiftUI
 import ObvUICoreData
 import UI_SystemIcon
 import UI_SystemIcon_SwiftUI
+import ObvDesignSystem
 
 
 protocol ICloudBackupListViewControllerDelegate: AnyObject {
@@ -308,14 +308,14 @@ struct ICloudBackupListView: View {
 
     private func numberOfRecordTitle(count: Int, canHaveMoreRecords: Bool) -> String {
         if canHaveMoreRecords {
-            return String.localizedStringWithFormat(NSLocalizedString("recent backups count", comment: "Header for n recent backups"), count)
+            return String(format: NSLocalizedString("recent backups count", comment: "Header for n recent backups"), count)
         } else {
-            return String.localizedStringWithFormat(NSLocalizedString("backups count", comment: "Header for n backups"), count)
+            return String(format: NSLocalizedString("BACKUP_%llu_COUNT", comment: "Header for n backups"), count)
         }
     }
 
     private func cleanInProgressTitle(count: Int64) -> String {
-        String.localizedStringWithFormat(NSLocalizedString("clean in progress count", comment: "Header for n backups"), count)
+        return String(format: NSLocalizedString("%lld_DELETED_BACKUPS", comment: ""), count)
     }
 
 
@@ -388,35 +388,22 @@ struct ICloudBackupListView: View {
                                     model.loadMoreRecords(appendResult: true)
                                 }
                             }
-                        if #available(iOS 15.0, *) {
-                            cell
-                                .swipeActions {
-                                    Button(role: .destructive) {
-                                        deleteAction(record: record)
-                                    } label: {
-                                        Label(CommonString.Word.Delete, systemImage: SystemIcon.trash.systemName)
-                                    }
-                                }
-                        } else {
-                            HStack {
-                                cell
-                                Spacer()
-                                Button {
+                        cell
+                            .swipeActions {
+                                Button(role: .destructive) {
                                     deleteAction(record: record)
                                 } label: {
-                                    Image(systemIcon: .trash)
+                                    Label(CommonString.Word.Delete, systemImage: SystemIcon.trash.systemName)
                                 }
-                                .foregroundColor(.red)
                             }
-                        }
                     }
                     if model.isLoadingMoreRecords {
-                        ObvActivityIndicator(isAnimating: .constant(true), style: .medium, color: nil)
+                        ProgressView()
                             .frame(idealWidth: .infinity, maxWidth: .infinity, alignment: .center)
                     }
                 }
             }
-            .obvListStyle()
+            .listStyle(InsetGroupedListStyle())
             .disabled(model.isFetching || actionSheet != nil)
         }
     }
@@ -439,7 +426,7 @@ struct ICloudBackupListView: View {
                     Spacer()
                 }
             } else {
-                let progressView = ObvProgressView()
+                let progressView = ProgressView()
                     .foregroundColor(.secondary)
                     .padding()
                 ZStack {
@@ -454,9 +441,7 @@ struct ICloudBackupListView: View {
                                         Text(model.fractionCompletedString ?? "")
                                     }
                                     VStack(alignment: .leading) {
-                                        if #available(iOS 15, *) {
-                                            ProgressView(value: model.fractionCompleted)
-                                        }
+                                        ProgressView(value: model.fractionCompleted)
                                         Text(model.estimatedTimeRemainingString ?? "")
                                     }
                                 case .terminate:
@@ -476,12 +461,8 @@ struct ICloudBackupListView: View {
                             Spacer()
                             HStack {
                                 Spacer()
-                                if #available(iOS 15.0, *) {
-                                    progressView
-                                        .background(.ultraThinMaterial)
-                                } else {
-                                    progressView
-                                }
+                                progressView
+                                    .background(.ultraThinMaterial)
                                 Spacer()
                             }
                             Spacer()

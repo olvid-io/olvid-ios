@@ -20,6 +20,8 @@
 import ObvUI
 import ObvUICoreData
 import UIKit
+import ObvSettings
+import ObvDesignSystem
 
 
 enum ComposeMessageViewSettingsViewControllerInput {
@@ -27,7 +29,6 @@ enum ComposeMessageViewSettingsViewControllerInput {
     case global
 }
 
-@available(iOS 15, *)
 final class ComposeMessageViewSettingsViewController: UITableViewController {
 
     var notificationTokens = [NSObjectProtocol]()

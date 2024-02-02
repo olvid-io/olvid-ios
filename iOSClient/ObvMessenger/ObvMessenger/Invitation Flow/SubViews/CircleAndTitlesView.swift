@@ -20,7 +20,7 @@
 import ObvUI
 import SwiftUI
 import ObvUICoreData
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
 import UI_SystemIcon
 
 enum CircleAndTitlesDisplayMode {
@@ -38,123 +38,121 @@ enum CircleAndTitlesEditionMode {
 // Note from TB on 2022-08-04: we probably should be using CircledInitialsConfiguration here
 struct CircleAndTitlesView: View {
 
-    private let titlePart1: String?
-    private let titlePart2: String?
-    private let subtitle: String?
-    private let subsubtitle: String?
-    private let circleBackgroundColor: UIColor?
-    private let circleTextColor: UIColor?
-    private let circledTextView: Text?
-    private let systemImage: CircledInitialsIcon
-    private let profilePicture: UIImage?
-    private let alignment: VerticalAlignment
-    private let showGreenShield: Bool
-    private let showRedShield: Bool
-    private let displayMode: CircleAndTitlesDisplayMode
-    private let editionMode: CircleAndTitlesEditionMode
+    struct Model {
+        
+        struct Content {
+            let textViewModel: TextView.Model
+            let profilePictureViewModelContent: ProfilePictureView.Model.Content
+            
+            var displayNameForHeader: String {
+                [textViewModel.titlePart1 ?? "", textViewModel.titlePart2 ?? ""]
+                    .joined(separator: " ")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+
+        }
+        
+        let content: Content
+        let colors: InitialCircleView.Model.Colors
+        let alignment: VerticalAlignment
+        let displayMode: CircleAndTitlesDisplayMode
+        let editionMode: CircleAndTitlesEditionMode
+
+        init(content: Content, colors: InitialCircleView.Model.Colors, alignment: VerticalAlignment = .center, displayMode: CircleAndTitlesDisplayMode, editionMode: CircleAndTitlesEditionMode) {
+            self.content = content
+            self.colors = colors
+            self.alignment = alignment
+            self.displayMode = displayMode
+            self.editionMode = editionMode
+        }
+        
+        var circleDiameter: CGFloat {
+            switch displayMode {
+            case .small:
+                return 40.0
+            case .normal:
+                return 60.0
+            case .header:
+                return 120.0
+            }
+        }
+        
+        static let circledCameraButtonViewSize: CGFloat = 20.0
+
+        var profilePictureViewModel: ProfilePictureView.Model {
+            .init(content: content.profilePictureViewModelContent,
+                  colors: colors,
+                  circleDiameter: circleDiameter)
+        }
+        
+    }
+    
+    let model: Model
 
     @State private var profilePictureFullScreenIsPresented = false
 
-    init(titlePart1: String?, titlePart2: String?, subtitle: String?, subsubtitle: String?, circleBackgroundColor: UIColor?, circleTextColor: UIColor?, circledTextView: Text?, systemImage: CircledInitialsIcon, profilePicture: UIImage?, alignment: VerticalAlignment = .center, showGreenShield: Bool, showRedShield: Bool, editionMode: CircleAndTitlesEditionMode, displayMode: CircleAndTitlesDisplayMode) {
-        self.titlePart1 = titlePart1
-        self.titlePart2 = titlePart2
-        self.subtitle = subtitle
-        self.subsubtitle = subsubtitle
-        self.circleBackgroundColor = circleBackgroundColor
-        self.circleTextColor = circleTextColor
-        self.circledTextView = circledTextView
-        self.systemImage = systemImage
-        self.profilePicture = profilePicture
-        self.alignment = alignment
-        self.editionMode = editionMode
-        self.displayMode = displayMode
-        self.showGreenShield = showGreenShield
-        self.showRedShield = showRedShield
+    init(model: Model) {
+        self.model = model
     }
-
-    private var circleDiameter: CGFloat {
-        switch displayMode {
-        case .small:
-            return 40.0
-        case .normal:
-            return ProfilePictureView.circleDiameter
-        case .header:
-            return 120
-        }
-    }
-
-    private var pictureViewInner: some View {
-        ProfilePictureView(profilePicture: profilePicture, circleBackgroundColor: circleBackgroundColor, circleTextColor: circleTextColor, circledTextView: circledTextView, systemImage: systemImage, showGreenShield: showGreenShield, showRedShield: showRedShield, customCircleDiameter: circleDiameter)
-    }
-
+    
     private func profilePictureBinding(update: @escaping (UIImage?) -> Void) -> Binding<UIImage?> {
         .init {
-            profilePicture
+            model.content.profilePictureViewModelContent.profilePicture
         } set: { image in
             update(image)
         }
     }
 
+    
     private var pictureView: some View {
         ZStack {
-            if #available(iOS 14.0, *) {
-                if case .header = displayMode {
-                    pictureViewInner
-                        .onTapGesture {
-                            guard profilePicture != nil else {
-                                profilePictureFullScreenIsPresented = false
-                                return
-                            }
-                            profilePictureFullScreenIsPresented.toggle()
+            if case .header = model.displayMode {
+                ProfilePictureView(model: model.profilePictureViewModel)
+                    .onTapGesture {
+                        guard model.content.profilePictureViewModelContent.profilePicture != nil else {
+                            profilePictureFullScreenIsPresented = false
+                            return
                         }
-                        .fullScreenCover(isPresented: $profilePictureFullScreenIsPresented) {
-                            FullScreenProfilePictureView(photo: profilePicture)
-                                .background(BackgroundBlurView()
-                                    .edgesIgnoringSafeArea(.all))
-                        }
-                } else {
-                    pictureViewInner
-                }
+                        profilePictureFullScreenIsPresented.toggle()
+                    }
+                    .fullScreenCover(isPresented: $profilePictureFullScreenIsPresented) {
+                        FullScreenProfilePictureView(photo: model.content.profilePictureViewModelContent.profilePicture)
+                            .background(BackgroundBlurView()
+                                .edgesIgnoringSafeArea(.all))
+                    }
             } else {
-                pictureViewInner
+                ProfilePictureView(model: model.profilePictureViewModel)
             }
-            switch editionMode {
+            switch model.editionMode {
             case .none:
                 EmptyView()
             case .picture(let update):
                 CircledCameraButtonView(profilePicture: profilePictureBinding(update: update))
-                    .offset(CGSize(width: ProfilePictureView.circleDiameter/3, height: ProfilePictureView.circleDiameter/3))
+                    .offset(CGSize(width: Model.circledCameraButtonViewSize, height: Model.circledCameraButtonViewSize))
             case .custom(let icon, let action):
                 Button(action: action) {
                     CircledSymbolView(systemIcon: icon)
                 }
-                .offset(CGSize(width: circleDiameter/3, height: circleDiameter/3))
+                .offset(CGSize(width: model.circleDiameter/3, height: model.circleDiameter/3))
             }
         }
     }
 
-    private var displayNameForHeader: String {
-        let _titlePart1 = titlePart1 ?? ""
-        let _titlePart2 = titlePart2 ?? ""
-        return [_titlePart1, _titlePart2].joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
+    
     var body: some View {
-        switch displayMode {
+        switch model.displayMode {
         case .normal, .small:
-            HStack(alignment: self.alignment, spacing: 16) {
+            HStack(alignment: model.alignment, spacing: 16) {
                 pictureView
-                TextView(titlePart1: titlePart1,
-                         titlePart2: titlePart2,
-                         subtitle: subtitle,
-                         subsubtitle: subsubtitle)
+                TextView(model: model.content.textViewModel)
             }
         case .header:
             VStack(spacing: 8) {
                 pictureView
-                Text(displayNameForHeader)
+                Text(model.content.displayNameForHeader)
                     .font(.system(.largeTitle, design: .rounded))
                     .fontWeight(.semibold)
+                    .multilineTextAlignment(.center)
             }
         }
     }
@@ -194,4 +192,26 @@ struct BackgroundBlurView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {}
+}
+
+
+// MARK: NSManagedObjects extension
+
+extension PersistedObvOwnedIdentity {
+    
+    var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: self.textViewModel,
+              profilePictureViewModelContent: self.profilePictureViewModelContent)
+    }
+
+}
+
+
+extension PersistedGroupV2Member {
+    
+    var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: self.textViewModel,
+              profilePictureViewModelContent: self.profilePictureViewModelContent)
+    }
+    
 }

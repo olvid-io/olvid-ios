@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,15 +20,22 @@
 
 import Foundation
 import ObvEngine
+import ObvTypes
+import ObvUICoreData
+import Combine
+import ObvSettings
 
-final class AppCoordinatorsHolder {
+final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
     
+    private let obvEngine: ObvEngine
     private let persistedDiscussionsUpdatesCoordinator: PersistedDiscussionsUpdatesCoordinator
     private let bootstrapCoordinator: BootstrapCoordinator
     private let obvOwnedIdentityCoordinator: ObvOwnedIdentityCoordinator
     private let contactIdentityCoordinator: ContactIdentityCoordinator
     private let contactGroupCoordinator: ContactGroupCoordinator
+    private let appSyncSnapshotableCoordinator: AppSyncSnapshotableCoordinator
 
+    private var cancellables = Set<AnyCancellable>()
     
     init(obvEngine: ObvEngine) {
 
@@ -42,25 +49,152 @@ final class AppCoordinatorsHolder {
             return queue
         }()
         
-        self.persistedDiscussionsUpdatesCoordinator = PersistedDiscussionsUpdatesCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
-        self.bootstrapCoordinator = BootstrapCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
-        self.obvOwnedIdentityCoordinator = ObvOwnedIdentityCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
-        self.contactIdentityCoordinator = ContactIdentityCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
-        self.contactGroupCoordinator = ContactGroupCoordinator(obvEngine: obvEngine, coordinatorsQueue: queueSharedAmongCoordinators, queueForComposedOperations: queueForComposedOperations)
+        self.obvEngine = obvEngine
         
+        let messagesKeptForLaterManager = MessagesKeptForLaterManager()
+        
+        self.persistedDiscussionsUpdatesCoordinator = PersistedDiscussionsUpdatesCoordinator(
+            obvEngine: obvEngine,
+            coordinatorsQueue: queueSharedAmongCoordinators,
+            queueForComposedOperations: queueForComposedOperations,
+            messagesKeptForLaterManager: messagesKeptForLaterManager)
+        self.bootstrapCoordinator = BootstrapCoordinator(
+            obvEngine: obvEngine,
+            coordinatorsQueue: queueSharedAmongCoordinators,
+            queueForComposedOperations: queueForComposedOperations)
+        self.obvOwnedIdentityCoordinator = ObvOwnedIdentityCoordinator(
+            obvEngine: obvEngine,
+            coordinatorsQueue: queueSharedAmongCoordinators,
+            queueForComposedOperations: queueForComposedOperations)
+        self.contactIdentityCoordinator = ContactIdentityCoordinator(
+            obvEngine: obvEngine,
+            coordinatorsQueue: queueSharedAmongCoordinators,
+            queueForComposedOperations: queueForComposedOperations)
+        self.contactGroupCoordinator = ContactGroupCoordinator(
+            obvEngine: obvEngine,
+            coordinatorsQueue: queueSharedAmongCoordinators,
+            queueForComposedOperations: queueForComposedOperations)
+        self.appSyncSnapshotableCoordinator = AppSyncSnapshotableCoordinator(
+            obvEngine: obvEngine,
+            coordinatorsQueue: queueSharedAmongCoordinators,
+            queueForComposedOperations: queueForComposedOperations)
+        
+        self.persistedDiscussionsUpdatesCoordinator.syncAtomRequestDelegate = self
+        self.obvOwnedIdentityCoordinator.syncAtomRequestDelegate = self
+        self.contactIdentityCoordinator.syncAtomRequestDelegate = self
+        self.contactGroupCoordinator.syncAtomRequestDelegate = self
+        self.bootstrapCoordinator.syncAtomRequestDelegate = self
+        // No syncAtomRequestDelegate for the AppSyncSnapshotableCoordinator
+        
+    }
+    
+    
+    deinit {
+        cancellables.forEach { $0.cancel() }
+        cancellables.removeAll()
     }
     
 
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
+        if forTheFirstTime {
+            observeSettingsChangeToSyncThemWithOtherOwnedDevices()
+        }
         await self.persistedDiscussionsUpdatesCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.bootstrapCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.obvOwnedIdentityCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.contactIdentityCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await self.contactGroupCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
+        await self.appSyncSnapshotableCoordinator.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
     }
 
 }
 
+
+// MARK: - ObvSyncAtomRequestDelegate
+
+extension AppCoordinatorsHolder {
+    
+    func requestPropagationToOtherOwnedDevices(of syncAtom: ObvSyncAtom, for ownedCryptoId: ObvCryptoId) async {
+        
+        do {
+            try await obvEngine.requestPropagationToOtherOwnedDevices(of: syncAtom, for: ownedCryptoId)
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+        
+    }
+    
+    
+    func deleteDialog(with uuid: UUID) throws {
+        try obvEngine.deleteDialog(with: uuid)
+    }
+    
+}
+
+
+// MARK: - Sync ObvMessengerSettings with other owned devices
+
+extension AppCoordinatorsHolder {
+    
+    private func observeSettingsChangeToSyncThemWithOtherOwnedDevices() {
+        
+        ObvMessengerSettingsObservableObject.shared.$autoAcceptGroupInviteFrom
+            .compactMap { (autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice, ownedCryptoId) in
+                // Filter out changes made from another device since we don't need to sync with them
+                guard !changeMadeFromAnotherOwnedDevice else { return nil }
+                guard let ownedCryptoId else { return nil }
+                return (autoAcceptGroupInviteFrom, ownedCryptoId)
+            }
+            .compactMap { (autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom, ownedCryptoId: ObvCryptoId) in
+                // Create the ObvSyncAtom
+                let category = Self.getObvSyncAtomAutoJoinGroupsCategory(from: autoAcceptGroupInviteFrom)
+                let syncAtom = ObvSyncAtom.settingAutoJoinGroups(category: category)
+                return (syncAtom, ownedCryptoId)
+            }
+            .sink { [weak self] (syncAtom: ObvSyncAtom, ownedCryptoId: ObvCryptoId) in
+                // Request the sync of the ObvSyncAtom to the engine
+                Task { [weak self] in
+                    await self?.requestPropagationToOtherOwnedDevices(of: syncAtom, for: ownedCryptoId)
+                }
+            }
+            .store(in: &cancellables)
+        
+        ObvMessengerSettingsObservableObject.shared.$doSendReadReceipt
+            .compactMap { (doSendReadReceipt: Bool, changeMadeFromAnotherOwnedDevice: Bool, ownedCryptoId: ObvCryptoId?) in
+                // Filter out changes made from another device since we don't need to sync with them
+                guard !changeMadeFromAnotherOwnedDevice else { return nil }
+                guard let ownedCryptoId else { return nil }
+                return (doSendReadReceipt, ownedCryptoId)
+            }
+            .compactMap { (doSendReadReceipt: Bool, ownedCryptoId: ObvCryptoId) in
+                // Create the ObvSyncAtom
+                let syncAtom = ObvSyncAtom.settingDefaultSendReadReceipts(sendReadReceipt: doSendReadReceipt)
+                return (syncAtom, ownedCryptoId)
+            }
+            .sink { [weak self] (syncAtom: ObvSyncAtom, ownedCryptoId: ObvCryptoId) in
+                // Request the sync of the ObvSyncAtom to the engine
+                Task { [weak self] in
+                    await self?.requestPropagationToOtherOwnedDevices(of: syncAtom, for: ownedCryptoId)
+                }
+            }
+            .store(in: &cancellables)
+
+    }
+
+    
+    private static func getObvSyncAtomAutoJoinGroupsCategory(from category: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom) -> ObvSyncAtom.AutoJoinGroupsCategory {
+        switch category {
+        case .everyone:
+            return .everyone
+        case .noOne:
+            return .nobody
+        case .oneToOneContactsOnly:
+            return .contacts
+        }
+    }
+    
+    
+}
 
 
 final class LoggedOperationQueue: OperationQueue {

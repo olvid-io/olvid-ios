@@ -19,6 +19,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import OlvidUtils
 
 @available(iOS 15, *)
 protocol ReorderableItem: Identifiable, Equatable {

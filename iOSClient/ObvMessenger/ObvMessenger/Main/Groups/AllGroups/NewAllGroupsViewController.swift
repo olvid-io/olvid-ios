@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -17,15 +17,14 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
   
-
-
 import CoreData
 import ObvUI
 import ObvUICoreData
 import ObvTypes
 import UIKit
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
 import UI_SystemIcon
+import ObvDesignSystem
 
 
 /// We implement the list of groups using a plain collection view. Since we require this view controller to be used under iOS 13, we cannot use modern  techniques (such as list in collection views or UIContentConfiguration).
@@ -91,13 +90,8 @@ final class NewAllGroupsViewController: ShowOwnedIdentityButtonUIViewController,
         
         var rightBarButtonItems = [UIBarButtonItem]()
         
-        if #available(iOS 14, *) {
-            let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem()
-            rightBarButtonItems.append(ellipsisButton)
-        } else {
-            let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem(selector: #selector(ellipsisButtonTappedSelector))
-            rightBarButtonItems.append(ellipsisButton)
-        }
+        let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem()
+        rightBarButtonItems.append(ellipsisButton)
         
         navigationItem.rightBarButtonItems = rightBarButtonItems
 
@@ -136,12 +130,6 @@ final class NewAllGroupsViewController: ShowOwnedIdentityButtonUIViewController,
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
         definesPresentationContext = true
-    }
-
-    
-    @available(iOS, introduced: 13.0, deprecated: 14.0, message: "Used because iOS 13 does not support UIMenu on UIBarButtonItem")
-    @objc private func ellipsisButtonTappedSelector() {
-        ellipsisButtonTapped(sourceBarButtonItem: navigationItem.rightBarButtonItem)
     }
 
     
@@ -248,7 +236,7 @@ final class NewAllGroupsViewController: ShowOwnedIdentityButtonUIViewController,
             if let displayedContactGroup = try? DisplayedContactGroup.get(objectID: objectID, within: ObvStack.shared.viewContext) {
                 self?.configure(groupCell: groupCell, with: displayedContactGroup)
             } else {
-                assertionFailure()
+                self?.configureWhenNoDisplayedContactGroupCanBeFound(groupCell: groupCell)
             }
             return groupCell
         }
@@ -270,6 +258,18 @@ final class NewAllGroupsViewController: ShowOwnedIdentityButtonUIViewController,
 
         try? frc.performFetch()
 
+    }
+    
+    
+    /// This is generally called when a cell must be refreshed while a DisplayedContactGroup is deleted
+    private func configureWhenNoDisplayedContactGroupCanBeFound(groupCell: ObvSubtitleCollectionViewCell) {
+        let configuration = ObvSubtitleCollectionViewCell.Configuration(
+            title: nil,
+            subtitle: nil,
+            circledInitialsConfiguration: .icon(.person3Fill),
+            badge: .none
+        )
+        groupCell.configure(with: configuration)
     }
 
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,8 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 import OlvidUtils
+import ObvSettings
+
 
 @objc(PersistedCallLogItem)
 public final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
@@ -70,7 +72,7 @@ public final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
 
     // MARK: - Inits
 
-    public convenience init(callUUID: UUID, ownedCryptoId: ObvCryptoId, isIncoming: Bool, unknownContactsCount: Int, groupIdentifier: GroupIdentifierBasedOnObjectID?, within context: NSManagedObjectContext) throws {
+    public convenience init(callUUID: UUID, ownedCryptoId: ObvCryptoId, isIncoming: Bool, unknownContactsCount: Int, groupIdentifier: GroupIdentifier?, within context: NSManagedObjectContext) throws {
 
         // Make sure no other PersistedCallLogItem exist with the same UUID
         
@@ -84,18 +86,19 @@ public final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
         self.callUUID = callUUID
         self.endDate = nil
         switch groupIdentifier {
-        case .groupV1(let objectID):
-            if let group = try? PersistedContactGroup.get(objectID: objectID.objectID, within: context) {
+        case .groupV1(let groupV1Identifier):
+            if let group = try? PersistedContactGroup.getContactGroup(groupIdentifier: groupV1Identifier, ownedCryptoId: ownedCryptoId, within: context) {
                 self.groupOwnerIdentity = group.ownerIdentity
                 self.groupUidRaw = group.groupUid.raw
             }
-        case .groupV2(let objectID):
-            if let group = try? PersistedGroupV2.get(objectID: objectID, within: context) {
+        case .groupV2(let groupV2Identifier):
+            if let group = try? PersistedGroupV2.get(ownIdentity: ownedCryptoId, appGroupIdentifier: groupV2Identifier, within: context) {
                 self.groupV2Identifier = group.groupIdentifier
             }
-        case .none:
+        case nil:
             break
         }
+        
         self.initialParticipantCount = nil // Set later
         self.rawOwnedCryptoId = ownedCryptoId.getIdentity()
         self.isIncoming = isIncoming
@@ -106,8 +109,8 @@ public final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
 
     // MARK: - Variables
 
-    var ownedCryptoId: ObvCryptoId {
-        return try! ObvCryptoId(identity: rawOwnedCryptoId)
+    public var ownedCryptoId: ObvCryptoId? {
+        return try? ObvCryptoId(identity: rawOwnedCryptoId)
     }
 
     /// We need to store callReportKind to be able to build predicate isMissedCall
@@ -149,9 +152,13 @@ public final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
 
     public func getGroupIdentifier() throws -> GroupIdentifierBasedOnObjectID? {
         guard let context = self.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }
+        guard let ownedCryptoId else {
+            throw ObvError.couldNotDetermineOwnedCryptoId
+        }
         if let groupUid = groupUid, let groupOwnerIdentity = groupOwnerIdentity {
             let groupOwner = try ObvCryptoId(identity: groupOwnerIdentity)
-            guard let persistedContactGroup = try? PersistedContactGroup.getContactGroup(groupId: (groupUid, groupOwner), ownedCryptoId: ownedCryptoId, within: context) else { return nil }
+            let groupIdentifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
+            guard let persistedContactGroup = try? PersistedContactGroup.getContactGroup(groupIdentifier: groupIdentifier, ownedCryptoId: ownedCryptoId, within: context) else { return nil }
             return .groupV1(persistedContactGroup.typedObjectID)
         } else if let groupV2Identifier = groupV2Identifier {
             guard let group = try? PersistedGroupV2.get(ownIdentity: ownedCryptoId, appGroupIdentifier: groupV2Identifier, within: context) else {
@@ -163,9 +170,10 @@ public final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
         }
     }
     
-    var groupIdentifier: GroupIdentifier? {
+    public var groupIdentifier: GroupIdentifier? {
         if let groupUid = groupUid, let groupOwnerIdentity = groupOwnerIdentity, let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            return .groupV1(groupV1Identifier: (groupUid, groupOwner))
+            let groupIdentifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
+            return .groupV1(groupV1Identifier: groupIdentifier)
         } else if let groupV2Identifier = groupV2Identifier {
             return .groupV2(groupV2Identifier: groupV2Identifier)
         } else {
@@ -184,6 +192,12 @@ public final class PersistedCallLogItem: NSManagedObject, ObvErrorMaker {
                     return .rejectedIncomingCall
                 } else if contact.callReportKind == .rejectedIncomingCallBecauseOfDeniedRecordPermission {
                     return .rejectedIncomingCallBecauseOfDeniedRecordPermission
+                } else if contact.callReportKind == .answeredOnOtherDevice {
+                    return .answeredOnOtherDevice
+                } else  if contact.callReportKind == .rejectedOnOtherDevice {
+                    return .rejectedOnOtherDevice
+                } else if contact.callReportKind == .rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse {
+                    return .rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse
                 }
             }
             if logContacts.contains(where: { $0.callReportKind == .acceptedIncomingCall }) {
@@ -245,4 +259,15 @@ extension PersistedCallLogItem {
         return try context.existingObject(with: objectID.objectID) as? PersistedCallLogItem
     }
 
+}
+
+
+// MARK: - Errors
+
+extension PersistedCallLogItem {
+    
+    enum ObvError: Error {
+        case couldNotDetermineOwnedCryptoId
+    }
+    
 }

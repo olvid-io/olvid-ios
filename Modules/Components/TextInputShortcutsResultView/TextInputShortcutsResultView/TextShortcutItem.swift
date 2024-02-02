@@ -18,7 +18,7 @@
  */
 
 import Foundation
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
 
 @available(iOSApplicationExtension 14.0, *)
 public extension TextInputShortcutsResultView {

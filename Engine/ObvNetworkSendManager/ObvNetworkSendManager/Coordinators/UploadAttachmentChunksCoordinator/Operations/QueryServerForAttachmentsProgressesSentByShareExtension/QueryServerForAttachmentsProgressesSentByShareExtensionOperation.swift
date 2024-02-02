@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -120,7 +120,7 @@ final class QueryServerForAttachmentsProgressesSentByShareExtensionOperation: Op
         let sessionConfiguration = URLSessionConfiguration.ephemeral
         sessionConfiguration.useOlvidSettings(sharedContainerIdentifier: nil)
         let session = URLSession(configuration: sessionConfiguration, delegate: sessionDelegate, delegateQueue: nil)
-
+ 
         let methods: [GetAttachmentUploadProgressMethod] = attachmentsSentByShareExtension.map {
             let method = GetAttachmentUploadProgressMethod(attachmentId: $0.attachmentId, serverURL: $0.serverURL, flowId: flowId)
             method.identityDelegate = identityDelegate
@@ -129,7 +129,6 @@ final class QueryServerForAttachmentsProgressesSentByShareExtensionOperation: Op
         for method in methods {
             do {
                 let task = try method.dataTask(within: session)
-                task.setAssociatedAttachmentId(method.attachmentId)
                 sessionDelegate.insert(task, forAttachmentId: method.attachmentId, flowId: flowId)
                 task.resume()
             } catch let error {
@@ -146,7 +145,7 @@ final class QueryServerForAttachmentsProgressesSentByShareExtensionOperation: Op
 
 
 fileprivate struct AttachmentIdAndServerURL: Hashable {
-    let attachmentId: AttachmentIdentifier
+    let attachmentId: ObvAttachmentIdentifier
     let serverURL: URL
 }
 
@@ -156,7 +155,7 @@ final class GetAttachmentUploadProgressMethodSessionDelegate: NSObject, URLSessi
     
     private weak var delegateManager: ObvNetworkSendDelegateManager?
     private weak var tracker: AttachmentChunkUploadProgressTracker?
-    private var _currentTasks = [UIBackgroundTaskIdentifier: (attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
+    private var _currentTasks = [UIBackgroundTaskIdentifier: (attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
     private let currentTasksQueue = DispatchQueue(label: "GetAttachmentUploadProgressMethodSessionDelegate")
     private let log: OSLog
     
@@ -165,7 +164,7 @@ final class GetAttachmentUploadProgressMethodSessionDelegate: NSObject, URLSessi
         super.init()
     }
 
-    private func currentTaskExistsForAttachment(withId id: AttachmentIdentifier) -> Bool {
+    private func currentTaskExistsForAttachment(withId id: ObvAttachmentIdentifier) -> Bool {
         var exist = true
         currentTasksQueue.sync {
             exist = _currentTasks.values.contains(where: { $0.attachmentId == id })
@@ -173,23 +172,23 @@ final class GetAttachmentUploadProgressMethodSessionDelegate: NSObject, URLSessi
         return exist
     }
     
-    private func removeInfoFor(_ task: URLSessionTask) -> (attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (AttachmentIdentifier, FlowIdentifier, Data)? = nil
+    private func removeInfoFor(_ task: URLSessionTask) -> (attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvAttachmentIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentTasks.removeValue(forKey: UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier))
         }
         return info
     }
     
-    private func getInfoFor(_ task: URLSessionTask) -> (attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (AttachmentIdentifier, FlowIdentifier, Data)? = nil
+    private func getInfoFor(_ task: URLSessionTask) -> (attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvAttachmentIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)]
         }
         return info
     }
     
-    fileprivate func insert(_ task: URLSessionTask, forAttachmentId attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    fileprivate func insert(_ task: URLSessionTask, forAttachmentId attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         currentTasksQueue.sync {
             _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)] = (attachmentId, flowId, Data())
         }
@@ -242,20 +241,5 @@ final class GetAttachmentUploadProgressMethodSessionDelegate: NSObject, URLSessi
             }
             tracker?.attachmentChunksAreAcknowledged(attachmentId: attachmentId, chunkNumbers: acknowledgedChunksNumbers, flowId: flowId)
         }
-    }
-}
-
-
-// MARK: - Extending URLSessionTask for storing chunk numbers within the description
-
-fileprivate extension URLSessionTask {
-    
-    func getAssociatedAttachmentId() -> AttachmentIdentifier? {
-        guard let taskDescription = self.taskDescription else { return nil }
-        return AttachmentIdentifier(taskDescription)
-    }
-    
-    func setAssociatedAttachmentId(_ attachmentId: AttachmentIdentifier) {
-        self.taskDescription = "\(attachmentId.description)"
     }
 }

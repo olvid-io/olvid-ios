@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,29 +24,34 @@ import AVFoundation
 import ObvTypes
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
+
+
+protocol AddContactHostingViewControllerDelegate: AnyObject {
+    
+    func userWantsToAddNewContactViaKeycloak(ownedCryptoId: ObvCryptoId, keycloakUserDetails: ObvKeycloakUserDetails, userCryptoId: ObvCryptoId) async throws
+    
+}
 
 
 final class AddContactHostingViewController: UIHostingController<AddContactMainView>, AddContactHostingViewStoreDelegate, KeycloakSearchViewControllerDelegate {
     
     private let store: AddContactHostingViewStore
-    private let newAvailableApiKeyElements: APIKeyElements
     private var observationTokens = [NSObjectProtocol]()
+    private weak var delegate: AddContactHostingViewControllerDelegate?
     
     /// The `alreadyScannedOrTappedURL` variable is set when scanning or tapping an URL from outside the app
-    init?(obvOwnedIdentity: ObvOwnedIdentity, alreadyScannedOrTappedURL: OlvidURL?, dismissAction: @escaping () -> Void, checkSignatureMutualScanUrl: @escaping (ObvMutualScanUrl) -> Bool) {
+    init?(obvOwnedIdentity: ObvOwnedIdentity, alreadyScannedOrTappedURL: OlvidURL?, dismissAction: @escaping () -> Void, checkSignatureMutualScanUrl: @escaping (ObvMutualScanUrl) -> Bool, obvEngine: ObvEngine, delegate: AddContactHostingViewControllerDelegate) {
         assert(Thread.isMainThread)
-        guard let store = AddContactHostingViewStore(obvOwnedIdentity: obvOwnedIdentity) else { assertionFailure(); return nil }
+        guard let store = AddContactHostingViewStore(obvOwnedIdentity: obvOwnedIdentity, obvEngine: obvEngine, dismissAction: dismissAction) else { assertionFailure(); return nil }
         self.store = store
-        let newAvailableApiKeyElements = APIKeyElements()
-        self.newAvailableApiKeyElements = newAvailableApiKeyElements
+        self.delegate = delegate
         let rootView = AddContactMainView(store: store,
                                           alreadyScannedOrTappedURL: alreadyScannedOrTappedURL,
                                           dismissAction: dismissAction,
-                                          checkSignatureMutualScanUrl: checkSignatureMutualScanUrl,
-                                          newAvailableApiKeyElements: newAvailableApiKeyElements)
+                                          checkSignatureMutualScanUrl: checkSignatureMutualScanUrl)
         super.init(rootView: rootView)
         store.delegate = self
-        observeNotifications()
     }
     
     deinit {
@@ -61,20 +66,17 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
         ObvMessengerInternalNotification.installedOlvidAppIsOutdated(presentingViewController: self)
             .postOnDispatchQueue()
     }
-            
-    private func observeNotifications() {
-        observationTokens.append(ObvEngineNotificationNew.observeNewAPIKeyElementsForAPIKey(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (_, apiKey, apiKeyStatus, _, apiKeyExpirationDate) in
-            self?.newAvailableApiKeyElements.set(apiKeyStatus: apiKeyStatus, apiKeyExpirationDate: apiKeyExpirationDate.value, forApiKey: apiKey)
-        })
-        observationTokens.append(ObvEngineNotificationNew.observeNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(within: NotificationCenter.default, queue: OperationQueue.main, block: { [weak self] (ownedIdentity, apiKeyStatus, apiPermissions, apiKeyExpirationDate) in
-            // We assume that this notification is received as a consequence of the activation by the user of a new API Key.
-            // Thus, we mark the `newAvailableApiKeyElements` as active (allowing the LicenseActivationView to perform a visual confirmation and to dismiss the whole flow)
-            self?.newAvailableApiKeyElements.setActive()
-        }))
-    }
-    
+
     
     // AddContactHostingViewStoreDelegate
+    
+    
+    func userWantsToAddNewContactViaKeycloak(ownedCryptoId: ObvCryptoId, keycloakUserDetails: ObvKeycloakUserDetails, userCryptoId: ObvCryptoId) async throws {
+        assert(delegate != nil)
+        try await delegate?.userWantsToAddNewContactViaKeycloak(ownedCryptoId: ownedCryptoId, keycloakUserDetails: keycloakUserDetails, userCryptoId: userCryptoId)
+        userSuccessfullyAddKeycloakContact(ownedCryptoId: ownedCryptoId, newContactCryptoId: userCryptoId)
+    }
+
     
     func userWantsToSearchWithinKeycloak() {
         assert(Thread.isMainThread)
@@ -84,18 +86,19 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
     }
     
     @MainActor
-    func userSuccessfullyAddKeycloakContact(ownedCryptoId: ObvCryptoId, newContactCryptoId: ObvCryptoId) {
+    private func userSuccessfullyAddKeycloakContact(ownedCryptoId: ObvCryptoId, newContactCryptoId: ObvCryptoId) {
         assert(Thread.isMainThread)
         showHUD(type: .spinner)
         // We want to dismiss this vc and to navigate to the details of the contact. Either this contact is not created yet in DB, or it is already.
         // We need to consider both cases here.
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactWasInserted { contactPermanentID in
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactWasInserted { contactPermanentID, _, _ in
             OperationQueue.main.addOperation { [weak self] in
                 guard let contact = try? PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
                 guard contact.cryptoId == newContactCryptoId && contact.ownedIdentity?.cryptoId == ownedCryptoId else { return }
                 let deepLink = ObvDeepLink.contactIdentityDetails(ownedCryptoId: ownedCryptoId, objectPermanentID: contactPermanentID)
-                self?.showHUD(type: .checkmark) {
-                    self?.dismiss(animated: true) {
+                Task { [weak self] in
+                    await self?.showHUDAndAwaitAnimationEnd(type: .checkmark)
+                    await self?.dismiss(animated: true) {
                         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
                             .postOnDispatchQueue()
                     }
@@ -129,14 +132,25 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
 }
 
 
+final class ConcreteLicenseActivationViewModel: LicenseActivationViewModelProtocol {
+    let ownedIdentity: PersistedObvOwnedIdentity
+    let serverAndAPIKey: ServerAndAPIKey
+    init(ownedIdentity: PersistedObvOwnedIdentity, serverAndAPIKey: ServerAndAPIKey) {
+        self.ownedIdentity = ownedIdentity
+        self.serverAndAPIKey = serverAndAPIKey
+    }
+
+}
+
+
 protocol AddContactHostingViewStoreDelegate: UIViewController {
+    func userWantsToAddNewContactViaKeycloak(ownedCryptoId: ObvCryptoId, keycloakUserDetails: ObvKeycloakUserDetails, userCryptoId: ObvCryptoId) async throws
     func userWantsToSearchWithinKeycloak()
-    @MainActor func userSuccessfullyAddKeycloakContact(ownedCryptoId: ObvCryptoId, newContactCryptoId: ObvCryptoId)
     func installedOlvidAppIsOutdated()
 }
 
-final class AddContactHostingViewStore: ObservableObject {
-    
+final class AddContactHostingViewStore: ObservableObject, LicenseActivationViewActionsDelegate {
+        
     @Published var singleOwnedIdentity: SingleIdentity
     @Published var userDetailsOfKeycloakContact: ObvKeycloakUserDetails? = nil
     @Published var isConfirmAddingKeycloakViewPushed: Bool = false
@@ -146,10 +160,12 @@ final class AddContactHostingViewStore: ObservableObject {
     let obvOwnedIdentity: ObvOwnedIdentity
     let viewForSharingIdentity: AnyView
     private(set) var contactIdentity: PersistedObvContactIdentity? // Set when trying to add a contact that is already present in the local contacts directory
+    private let obvEngine: ObvEngine
+    private let dismissAction: () -> Void
 
     weak var delegate: AddContactHostingViewStoreDelegate?
     
-    init?(obvOwnedIdentity: ObvOwnedIdentity) {
+    init?(obvOwnedIdentity: ObvOwnedIdentity, obvEngine: ObvEngine, dismissAction: @escaping () -> Void) {
         guard let persistedOwnedIdentity = try? PersistedObvOwnedIdentity.get(persisted: obvOwnedIdentity, within: ObvStack.shared.viewContext) else { assertionFailure(); return nil }
         self.singleOwnedIdentity = SingleIdentity(ownedIdentity: persistedOwnedIdentity)
         self.ownedCryptoId = obvOwnedIdentity.cryptoId
@@ -157,6 +173,8 @@ final class AddContactHostingViewStore: ObservableObject {
         self.urlIdentityRepresentation = genericIdentity.getObvURLIdentity().urlRepresentation
         self.viewForSharingIdentity = AnyView(ActivityViewControllerForSharingIdentity(genericIdentity: genericIdentity))
         self.obvOwnedIdentity = obvOwnedIdentity
+        self.obvEngine = obvEngine
+        self.dismissAction = dismissAction
     }
     
     fileprivate func installedOlvidAppIsOutdated() {
@@ -168,15 +186,6 @@ final class AddContactHostingViewStore: ObservableObject {
             .postOnDispatchQueue()
     }
 
-    fileprivate func requestAPIKeyElements(_ apiKey: UUID) {
-        ObvMessengerInternalNotification.userRequestedAPIKeyStatus(ownedCryptoId: ownedCryptoId, apiKey: apiKey)
-            .postOnDispatchQueue()
-    }
-
-    fileprivate func userRequestedNewAPIKeyActivation(_ apiKey: UUID) {
-        ObvMessengerInternalNotification.userRequestedNewAPIKeyActivation(ownedCryptoId: ownedCryptoId, apiKey: apiKey)
-            .postOnDispatchQueue()
-    }
 
     fileprivate func userWantsToSearchWithinKeycloak() {
         delegate?.userWantsToSearchWithinKeycloak()
@@ -204,25 +213,7 @@ final class AddContactHostingViewStore: ObservableObject {
         }
         Task {
             do {
-                try await KeycloakManagerSingleton.shared.addContact(ownedCryptoId: ownedCryptoId, userId: userDetailsOfKeycloakContact.id, userIdentity: userIdentity)
-                await delegate?.userSuccessfullyAddKeycloakContact(ownedCryptoId: ownedCryptoId, newContactCryptoId: userCryptoId)
-            } catch let addContactError as KeycloakManager.AddContactError {
-                switch addContactError {
-                case .authenticationRequired,
-                        .ownedIdentityNotManaged,
-                        .badResponse,
-                        .userHasCancelled,
-                        .keycloakApiRequest,
-                        .invalidSignature,
-                        .unkownError:
-                    addingKeycloakContactFailedAlertIsPresented = true
-                case .willSyncKeycloakServerSignatureKey:
-                    break
-                case .ownedIdentityWasRevoked:
-                    ObvMessengerInternalNotification.userOwnedIdentityWasRevokedByKeycloak(ownedCryptoId: ownedCryptoId)
-                        .postOnDispatchQueue()
-                }
-                return
+                try await delegate?.userWantsToAddNewContactViaKeycloak(ownedCryptoId: ownedCryptoId, keycloakUserDetails: userDetailsOfKeycloakContact, userCryptoId: userCryptoId)
             } catch {
                 assertionFailure()
                 addingKeycloakContactFailedAlertIsPresented = true
@@ -230,43 +221,37 @@ final class AddContactHostingViewStore: ObservableObject {
             }
         }
     }
-}
-
-
-final class APIKeyElements: ObservableObject {
     
-    let id = UUID()
-    var apiKey: UUID?
-    @Published var apiKeyStatus: APIKeyStatus?
-    @Published var apiKeyExpirationDate: Date?
-    @Published var activated: Bool
-
-    init() {
-        self.apiKey = nil
-        self.apiKeyStatus = nil
-        self.apiKeyExpirationDate = nil
-        self.activated = false
+    // LicenseActivationViewActionsDelegate
+    
+    func userWantsToDismissLicenseActivationView() {
+        dismissAction()
     }
     
-    init(apiKey: UUID, apiKeyStatus: APIKeyStatus, apiKeyExpirationDate: Date?) {
-        self.apiKey = apiKey
-        self.apiKeyStatus = apiKeyStatus
-        self.apiKeyExpirationDate = apiKeyExpirationDate
-        self.activated = false
+    enum ObvError: Error {
+        case registerAPIKeyFailed
     }
-    
-    func set(apiKeyStatus: APIKeyStatus, apiKeyExpirationDate: Date?, forApiKey: UUID) {
-        assert(Thread.isMainThread)
-        guard self.apiKey == apiKey else { return }
-        withAnimation {
-            self.apiKeyStatus = apiKeyStatus
-            self.apiKeyExpirationDate = apiKeyExpirationDate
+
+    @MainActor
+    func userWantsToRegisterAPIKey(ownedCryptoId: ObvTypes.ObvCryptoId, apiKey: UUID) async throws {
+        let result = try await obvEngine.registerOwnedAPIKeyOnServerNow(ownedCryptoId: ownedCryptoId, apiKey: apiKey)
+        switch result {
+        case .success:
+            return
+        case .failed:
+            throw ObvError.registerAPIKeyFailed
+        case .invalidAPIKey:
+            throw ObvError.registerAPIKeyFailed
         }
     }
     
-    func setActive() {
-        self.activated = true
+    
+    @MainActor
+    func userWantsToQueryServerForAPIKeyElements(ownedCryptoId: ObvTypes.ObvCryptoId, apiKey: UUID) async throws -> ObvTypes.APIKeyElements {
+        let apiKeyElements = try await obvEngine.queryAPIKeyStatus(for: ownedCryptoId, apiKey: apiKey)
+        return apiKeyElements
     }
+
 }
 
 
@@ -299,27 +284,26 @@ struct AddContactMainView: View {
     let alreadyScannedOrTappedURL: OlvidURL?
     let dismissAction: () -> Void
     let checkSignatureMutualScanUrl: (ObvMutualScanUrl) -> Bool
-    @ObservedObject var newAvailableApiKeyElements: APIKeyElements
+    // @ObservedObject var newAvailableApiKeyElements: APIKeyElements
 
     var body: some View {
-        AddContactMainInnerView(contact: store.singleOwnedIdentity,
-                                ownedCryptoId: store.ownedCryptoId,
-                                urlIdentityRepresentation: store.urlIdentityRepresentation,
-                                alreadyScannedOrTappedURL: alreadyScannedOrTappedURL,
-                                viewForSharingIdentity: store.viewForSharingIdentity,
-                                confirmInviteAction: store.userConfirmedSendInvite,
-                                dismissAction: dismissAction,
-                                installedOlvidAppIsOutdated: store.installedOlvidAppIsOutdated,
-                                checkSignatureMutualScanUrl: checkSignatureMutualScanUrl,
-                                requestNewAvailableApiKeyElements: store.requestAPIKeyElements,
-                                userRequestedNewAPIKeyActivation: store.userRequestedNewAPIKeyActivation,
-                                newAvailableApiKeyElements: newAvailableApiKeyElements,
-                                userWantsToSearchWithinKeycloak: store.userWantsToSearchWithinKeycloak,
-                                userDetailsOfKeycloakContact: store.userDetailsOfKeycloakContact,
-                                contactIdentity: store.contactIdentity,
-                                isConfirmAddingKeycloakViewPushed: $store.isConfirmAddingKeycloakViewPushed,
-                                addingKeycloakContactFailedAlertIsPresented: $store.addingKeycloakContactFailedAlertIsPresented,
-                                confirmAddingKeycloakContactViewAction: store.confirmAddingKeycloakContactViewAction)
+        AddContactMainInnerView(
+            contact: store.singleOwnedIdentity,
+            ownedCryptoId: store.ownedCryptoId,
+            urlIdentityRepresentation: store.urlIdentityRepresentation,
+            alreadyScannedOrTappedURL: alreadyScannedOrTappedURL,
+            viewForSharingIdentity: store.viewForSharingIdentity,
+            confirmInviteAction: store.userConfirmedSendInvite,
+            dismissAction: dismissAction,
+            installedOlvidAppIsOutdated: store.installedOlvidAppIsOutdated,
+            checkSignatureMutualScanUrl: checkSignatureMutualScanUrl,
+            userWantsToSearchWithinKeycloak: store.userWantsToSearchWithinKeycloak,
+            userDetailsOfKeycloakContact: store.userDetailsOfKeycloakContact,
+            contactIdentity: store.contactIdentity,
+            isConfirmAddingKeycloakViewPushed: $store.isConfirmAddingKeycloakViewPushed,
+            addingKeycloakContactFailedAlertIsPresented: $store.addingKeycloakContactFailedAlertIsPresented,
+            confirmAddingKeycloakContactViewAction: store.confirmAddingKeycloakContactViewAction,
+            licenseActivationViewActions: store)
     }
     
 }
@@ -346,6 +330,8 @@ fileprivate struct AddContactMainInnerView: View {
     @Binding var isConfirmAddingKeycloakViewPushed: Bool
     @Binding var addingKeycloakContactFailedAlertIsPresented: Bool
 
+    let licenseActivationViewActions: LicenseActivationViewActionsDelegate
+
     @State private var isViewForScanningIdPresented = false
     @State private var isAlertPresented = false
     @State private var alertType = AlertType.videoDenied
@@ -357,14 +343,12 @@ fileprivate struct AddContactMainInnerView: View {
     @State private var isActionSheetAlternateImportShown = false
 
     // Only used/set when show the LicenseActivationView
-    let requestNewAvailableApiKeyElements: (UUID) -> Void
-    let userRequestedNewAPIKeyActivation: (UUID) -> Void
-    @ObservedObject var newAvailableApiKeyElements: APIKeyElements
+    // @ObservedObject var newAvailableApiKeyElements: APIKeyElements
     let userWantsToSearchWithinKeycloak: () -> Void
     let confirmAddingKeycloakContactViewAction: () -> Void
 
     /// Set when scanning a new configuration
-    @State private var serverAndAPIKey: ServerAndAPIKey?
+    @State private var licenseActivationViewModel: ConcreteLicenseActivationViewModel?
     @State private var betaConfiguration: BetaConfiguration?
     @State private var keycloakConfig: KeycloakConfiguration?
 
@@ -416,7 +400,7 @@ fileprivate struct AddContactMainInnerView: View {
         DispatchQueue.main.async { isAlertPresented = true }
     }
     
-    init(contact: SingleIdentity, ownedCryptoId: ObvCryptoId, urlIdentityRepresentation: URL, alreadyScannedOrTappedURL: OlvidURL?, viewForSharingIdentity: AnyView, confirmInviteAction: @escaping (ObvURLIdentity) -> Void, dismissAction: @escaping () -> Void, installedOlvidAppIsOutdated: @escaping () -> Void, checkSignatureMutualScanUrl: @escaping (ObvMutualScanUrl) -> Bool, requestNewAvailableApiKeyElements: @escaping (UUID) -> Void, userRequestedNewAPIKeyActivation: @escaping (UUID) -> Void, newAvailableApiKeyElements: APIKeyElements, userWantsToSearchWithinKeycloak: @escaping () -> Void, userDetailsOfKeycloakContact: ObvKeycloakUserDetails?, contactIdentity: PersistedObvContactIdentity?, isConfirmAddingKeycloakViewPushed: Binding<Bool>, addingKeycloakContactFailedAlertIsPresented: Binding<Bool>, confirmAddingKeycloakContactViewAction: @escaping () -> Void) {
+    init(contact: SingleIdentity, ownedCryptoId: ObvCryptoId, urlIdentityRepresentation: URL, alreadyScannedOrTappedURL: OlvidURL?, viewForSharingIdentity: AnyView, confirmInviteAction: @escaping (ObvURLIdentity) -> Void, dismissAction: @escaping () -> Void, installedOlvidAppIsOutdated: @escaping () -> Void, checkSignatureMutualScanUrl: @escaping (ObvMutualScanUrl) -> Bool, userWantsToSearchWithinKeycloak: @escaping () -> Void, userDetailsOfKeycloakContact: ObvKeycloakUserDetails?, contactIdentity: PersistedObvContactIdentity?, isConfirmAddingKeycloakViewPushed: Binding<Bool>, addingKeycloakContactFailedAlertIsPresented: Binding<Bool>, confirmAddingKeycloakContactViewAction: @escaping () -> Void, licenseActivationViewActions: LicenseActivationViewActionsDelegate) {
         self.ownedCryptoId = ownedCryptoId
         self.singleIdentity = contact
         self.urlIdentityRepresentation = urlIdentityRepresentation
@@ -426,15 +410,13 @@ fileprivate struct AddContactMainInnerView: View {
         self.installedOlvidAppIsOutdated = installedOlvidAppIsOutdated
         self.checkSignatureMutualScanUrl = checkSignatureMutualScanUrl
         self.alreadyScannedOrTappedURL = alreadyScannedOrTappedURL
-        self.requestNewAvailableApiKeyElements = requestNewAvailableApiKeyElements
-        self.userRequestedNewAPIKeyActivation = userRequestedNewAPIKeyActivation
-        self.newAvailableApiKeyElements = newAvailableApiKeyElements
         self.userWantsToSearchWithinKeycloak = userWantsToSearchWithinKeycloak
         self.userDetailsOfKeycloakContact = userDetailsOfKeycloakContact
         self.contactIdentity = contactIdentity
         self._isConfirmAddingKeycloakViewPushed = isConfirmAddingKeycloakViewPushed
         self._addingKeycloakContactFailedAlertIsPresented = addingKeycloakContactFailedAlertIsPresented
         self.confirmAddingKeycloakContactViewAction = confirmAddingKeycloakContactViewAction
+        self.licenseActivationViewActions = licenseActivationViewActions
     }
     
     private func copyOwnedIdentityToClipboard() {
@@ -485,8 +467,10 @@ fileprivate struct AddContactMainInnerView: View {
             
             // For now, we expect exactly one of the possible config types to be non-nil
             assert([serverAndAPIKey as Any?, betaConfiguration as Any?, keycloakConfig as Any?].filter({ $0 != nil }).count == 1)
-            if serverAndAPIKey != nil {
-                self.serverAndAPIKey = serverAndAPIKey
+            if let serverAndAPIKey, let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) {
+                self.licenseActivationViewModel = ConcreteLicenseActivationViewModel(
+                    ownedIdentity: ownedIdentity,
+                    serverAndAPIKey: serverAndAPIKey)
             } else if betaConfiguration != nil {
                 self.betaConfiguration = betaConfiguration
             } else {
@@ -543,13 +527,8 @@ fileprivate struct AddContactMainInnerView: View {
     
     
     private func qrCodeScannerWasDismissed() {
-        if self.scannedUrlIdentity != nil || self.scannedMutualScanUrl != nil || self.serverAndAPIKey != nil || self.betaConfiguration != nil || self.keycloakConfig != nil {
-            if #available(iOS 14, *) {
-                withAnimation {
-                    self.isConfirmInviteViewPushed = true
-                }
-            } else {
-                // The iOS 14 code bugs on iOS 13, which performs the animation by default (which is not the case of iOS 14)
+        if self.scannedUrlIdentity != nil || self.scannedMutualScanUrl != nil || self.licenseActivationViewModel != nil || self.betaConfiguration != nil || self.keycloakConfig != nil {
+            withAnimation {
                 self.isConfirmInviteViewPushed = true
             }
         } else if self.shouldPresentQRCodeScanFailedAlert {
@@ -564,9 +543,7 @@ fileprivate struct AddContactMainInnerView: View {
     }
 
     private func useSmallScreenMode(for geometry: GeometryProxy) -> Bool {
-        if #available(iOS 13.4, *) {
-            if sizeCategory.isAccessibilityCategory { return true }
-        }
+        if sizeCategory.isAccessibilityCategory { return true }
         // Small screen mode for iPhone 6, iPhone 6S, iPhone 7, iPhone 8, iPhone SE (2016)
         return max(geometry.size.height, geometry.size.width) < 510
     }
@@ -613,26 +590,25 @@ fileprivate struct AddContactMainInnerView: View {
                         }
                         .padding(.horizontal, typicalPadding(for: geometry))
                         .padding(.bottom, typicalPadding(for: geometry))
-                        AddContactMainInnerViewNavigationLinks(newAvailableApiKeyElements: newAvailableApiKeyElements,
-                                                               isConfirmInviteViewPushed: $isConfirmInviteViewPushed,
-                                                               isConfirmAddingKeycloakViewPushed: $isConfirmAddingKeycloakViewPushed,
-                                                               addingKeycloakContactFailedAlertIsPresented: $addingKeycloakContactFailedAlertIsPresented,
-                                                               scannedUrlIdentity: scannedUrlIdentity,
-                                                               scannedMutualScanUrl: scannedMutualScanUrl,
-                                                               ownedCryptoId: ownedCryptoId,
-                                                               scannedPersistedContact: scannedPersistedContact,
-                                                               serverAndAPIKey: serverAndAPIKey,
-                                                               betaConfiguration: betaConfiguration,
-                                                               keycloakConfig: keycloakConfig,
-                                                               userDetailsOfKeycloakContact: userDetailsOfKeycloakContact,
-                                                               contactIdentity: contactIdentity,
-                                                               requestNewAvailableApiKeyElements: requestNewAvailableApiKeyElements,
-                                                               userRequestedNewAPIKeyActivation: userRequestedNewAPIKeyActivation,
-                                                               dismissAction: dismissAction,
-                                                               installedOlvidAppIsOutdated: installedOlvidAppIsOutdated,
-                                                               ownedIdentityIsKeycloakManaged: singleIdentity.isKeycloakManaged,
-                                                               confirmInviteAction: confirmInviteAction,
-                                                               confirmAddingKeycloakContactViewAction: confirmAddingKeycloakContactViewAction)
+                        AddContactMainInnerViewNavigationLinks(
+                            isConfirmInviteViewPushed: $isConfirmInviteViewPushed,
+                            isConfirmAddingKeycloakViewPushed: $isConfirmAddingKeycloakViewPushed,
+                            addingKeycloakContactFailedAlertIsPresented: $addingKeycloakContactFailedAlertIsPresented,
+                            scannedUrlIdentity: scannedUrlIdentity,
+                            scannedMutualScanUrl: scannedMutualScanUrl,
+                            ownedCryptoId: ownedCryptoId,
+                            scannedPersistedContact: scannedPersistedContact,
+                            betaConfiguration: betaConfiguration,
+                            keycloakConfig: keycloakConfig,
+                            userDetailsOfKeycloakContact: userDetailsOfKeycloakContact,
+                            contactIdentity: contactIdentity,
+                            dismissAction: dismissAction,
+                            installedOlvidAppIsOutdated: installedOlvidAppIsOutdated,
+                            ownedIdentityIsKeycloakManaged: singleIdentity.isKeycloakManaged,
+                            confirmInviteAction: confirmInviteAction,
+                            confirmAddingKeycloakContactViewAction: confirmAddingKeycloakContactViewAction,
+                            licenseActivationViewModel: licenseActivationViewModel,
+                            licenseActivationViewActions: licenseActivationViewActions)
                         HStack {
                             OlvidButton(style: .blue,
                                         title: Text("SCAN"),
@@ -641,7 +617,7 @@ fileprivate struct AddContactMainInnerView: View {
                                             self.scannedUrlIdentity = nil
                                             self.scannedMutualScanUrl = nil
                                             self.scannedPersistedContact = nil
-                                            self.serverAndAPIKey = nil
+                                            self.licenseActivationViewModel = nil
                                             self.keycloakConfig = nil
                                             self.isConfirmInviteViewPushed = false
                                             self.isAlertPresented = false
@@ -761,9 +737,8 @@ fileprivate struct AddContactMainInnerView: View {
 }
 
 
-fileprivate struct AddContactMainInnerViewNavigationLinks: View {
+fileprivate struct AddContactMainInnerViewNavigationLinks<LicenseActivationViewModel: LicenseActivationViewModelProtocol>: View {
     
-    @ObservedObject var newAvailableApiKeyElements: APIKeyElements
     @Binding var isConfirmInviteViewPushed: Bool
     @Binding var isConfirmAddingKeycloakViewPushed: Bool
     @Binding var addingKeycloakContactFailedAlertIsPresented: Bool
@@ -771,18 +746,19 @@ fileprivate struct AddContactMainInnerViewNavigationLinks: View {
     let scannedMutualScanUrl: ObvMutualScanUrl?
     let ownedCryptoId: ObvCryptoId
     let scannedPersistedContact: PersistedObvContactIdentity?
-    let serverAndAPIKey: ServerAndAPIKey?
+    // let serverAndAPIKey: ServerAndAPIKey?
     let betaConfiguration: BetaConfiguration?
     let keycloakConfig: KeycloakConfiguration?
     let userDetailsOfKeycloakContact: ObvKeycloakUserDetails? /// Only set if the user to invite is a keycloak user
     let contactIdentity: PersistedObvContactIdentity? /// Set when trying to add a keycloak contact that is already present in the local contacts directory
-    let requestNewAvailableApiKeyElements: (UUID) -> Void
-    let userRequestedNewAPIKeyActivation: (UUID) -> Void
     let dismissAction: () -> Void
     let installedOlvidAppIsOutdated: () -> Void
     let ownedIdentityIsKeycloakManaged: Bool
     let confirmInviteAction: (ObvURLIdentity) -> Void
     let confirmAddingKeycloakContactViewAction: () -> Void
+    
+    let licenseActivationViewModel: LicenseActivationViewModel?
+    let licenseActivationViewActions: LicenseActivationViewActionsDelegate
     
     var body: some View {
         if let scannedUrlIdentity = self.scannedUrlIdentity {
@@ -813,18 +789,11 @@ fileprivate struct AddContactMainInnerViewNavigationLinks: View {
                 isActive: $isConfirmAddingKeycloakViewPushed,
                 label: { EmptyView() }
             )
-        } else if let serverAndAPIKey = self.serverAndAPIKey,
-                  let persistedOwnedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) {
+        } else if let licenseActivationViewModel {
             NavigationLink(
-                destination: LicenseActivationView(ownedCryptoId: ownedCryptoId,
-                                                   serverAndAPIKey: serverAndAPIKey,
-                                                   currentApiKeyStatus: persistedOwnedIdentity.apiKeyStatus,
-                                                   currentApiKeyExpirationDate: persistedOwnedIdentity.apiKeyExpirationDate,
-                                                   ownedIdentityIsKeycloakManaged: ownedIdentityIsKeycloakManaged,
-                                                   requestNewAvailableApiKeyElements: requestNewAvailableApiKeyElements,
-                                                   userRequestedNewAPIKeyActivation: userRequestedNewAPIKeyActivation,
-                                                   newAvailableApiKeyElements: newAvailableApiKeyElements,
-                                                   dismissAction: dismissAction),
+                destination: LicenseActivationView(
+                    model: licenseActivationViewModel,
+                    actions: licenseActivationViewActions),
                 isActive: $isConfirmInviteViewPushed,
                 label: { EmptyView() }
             )
@@ -998,7 +967,7 @@ struct QRCodeBlockView: View {
                             .shadow(color: shadowColor, radius: 10)
                     }
                 } else {
-                    ObvProgressView().onAppear {
+                    ProgressView().onAppear {
                         generateQrCodeUIImage()
                     }
                 }
@@ -1009,151 +978,151 @@ struct QRCodeBlockView: View {
     
 }
 
-struct AddContactMainInnerView_Previews: PreviewProvider {
-    
-    private static let identity1 = SingleIdentity(firstName: "Joyce",
-                                                  lastName: "Lathrop",
-                                                  position: "Happiness manager",
-                                                  company: "Olvid",
-                                                  isKeycloakManaged: false,
-                                                  showGreenShield: false,
-                                                  showRedShield: false,
-                                                  identityColors: nil,
-                                                  photoURL: nil)
-    
-    private static let identity2 = SingleIdentity(firstName: "Joyce",
-                                                  lastName: "Lathrop",
-                                                  position: "Happiness manager",
-                                                  company: "Olvid",
-                                                  isKeycloakManaged: false,
-                                                  showGreenShield: false,
-                                                  showRedShield: false,
-                                                  identityColors: nil,
-                                                  photoURL: nil)
-    
-    private static let identityAsURL = URL(string: "https://invitation.olvid.io/#AwAAAIAAAAAAXmh0dHBzOi8vc2VydmVyLmRldi5vbHZpZC5pbwAA1-NJhAuO742VYzS5WXQnM3ACnlxX_ZTYt9BUHrotU2UBA_FlTxBTrcgXN9keqcV4-LOViz3UtdEmTZppHANX3JYAAAAAGEFsaWNlIFdvcmsgKENFTyBAIE9sdmlkKQ==")!
-    
-    private static let identity = ObvURLIdentity(urlRepresentation: identityAsURL)!
-    
-    static var previews: some View {
-        Group {
-            AddContactMainInnerView(contact: identity2,
-                                    ownedCryptoId: identity.cryptoId,
-                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
-                                    alreadyScannedOrTappedURL: nil,
-                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
-                                    confirmInviteAction: { _ in },
-                                    dismissAction: {},
-                                    installedOlvidAppIsOutdated: {},
-                                    checkSignatureMutualScanUrl: { _ in false },
-                                    requestNewAvailableApiKeyElements: { _ in },
-                                    userRequestedNewAPIKeyActivation: { _ in },
-                                    newAvailableApiKeyElements: APIKeyElements(),
-                                    userWantsToSearchWithinKeycloak: {},
-                                    userDetailsOfKeycloakContact: nil,
-                                    contactIdentity: nil,
-                                    isConfirmAddingKeycloakViewPushed: .constant(false),
-                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
-                                    confirmAddingKeycloakContactViewAction: {})
-            AddContactMainInnerView(contact: identity1,
-                                    ownedCryptoId: identity.cryptoId,
-                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
-                                    alreadyScannedOrTappedURL: nil,
-                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
-                                    confirmInviteAction: { _ in },
-                                    dismissAction: {},
-                                    installedOlvidAppIsOutdated: {},
-                                    checkSignatureMutualScanUrl: { _ in false },
-                                    requestNewAvailableApiKeyElements: { _ in },
-                                    userRequestedNewAPIKeyActivation: { _ in },
-                                    newAvailableApiKeyElements: APIKeyElements(),
-                                    userWantsToSearchWithinKeycloak: {},
-                                    userDetailsOfKeycloakContact: nil,
-                                    contactIdentity: nil,
-                                    isConfirmAddingKeycloakViewPushed: .constant(false),
-                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
-                                    confirmAddingKeycloakContactViewAction: {})
-                .environment(\.colorScheme, .dark)
-            AddContactMainInnerView(contact: identity2,
-                                    ownedCryptoId: identity.cryptoId,
-                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
-                                    alreadyScannedOrTappedURL: nil,
-                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
-                                    confirmInviteAction: { _ in },
-                                    dismissAction: {},
-                                    installedOlvidAppIsOutdated: {},
-                                    checkSignatureMutualScanUrl: { _ in false },
-                                    requestNewAvailableApiKeyElements: { _ in },
-                                    userRequestedNewAPIKeyActivation: { _ in },
-                                    newAvailableApiKeyElements: APIKeyElements(),
-                                    userWantsToSearchWithinKeycloak: {},
-                                    userDetailsOfKeycloakContact: nil,
-                                    contactIdentity: nil,
-                                    isConfirmAddingKeycloakViewPushed: .constant(false),
-                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
-                                    confirmAddingKeycloakContactViewAction: {})
-                .environment(\.colorScheme, .dark)
-            AddContactMainInnerView(contact: identity2,
-                                    ownedCryptoId: identity.cryptoId,
-                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
-                                    alreadyScannedOrTappedURL: nil,
-                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
-                                    confirmInviteAction: { _ in },
-                                    dismissAction: {},
-                                    installedOlvidAppIsOutdated: {},
-                                    checkSignatureMutualScanUrl: { _ in false },
-                                    requestNewAvailableApiKeyElements: { _ in },
-                                    userRequestedNewAPIKeyActivation: { _ in },
-                                    newAvailableApiKeyElements: APIKeyElements(),
-                                    userWantsToSearchWithinKeycloak: {},
-                                    userDetailsOfKeycloakContact: nil,
-                                    contactIdentity: nil,
-                                    isConfirmAddingKeycloakViewPushed: .constant(false),
-                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
-                                    confirmAddingKeycloakContactViewAction: {})
-                .environment(\.colorScheme, .dark)
-                .environment(\.locale, .init(identifier: "fr"))
-            AddContactMainInnerView(contact: identity2,
-                                    ownedCryptoId: identity.cryptoId,
-                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
-                                    alreadyScannedOrTappedURL: nil,
-                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
-                                    confirmInviteAction: { _ in },
-                                    dismissAction: {},
-                                    installedOlvidAppIsOutdated: {},
-                                    checkSignatureMutualScanUrl: { _ in false },
-                                    requestNewAvailableApiKeyElements: { _ in },
-                                    userRequestedNewAPIKeyActivation: { _ in },
-                                    newAvailableApiKeyElements: APIKeyElements(),
-                                    userWantsToSearchWithinKeycloak: {},
-                                    userDetailsOfKeycloakContact: nil,
-                                    contactIdentity: nil,
-                                    isConfirmAddingKeycloakViewPushed: .constant(false),
-                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
-                                    confirmAddingKeycloakContactViewAction: {})
-                .environment(\.colorScheme, .dark)
-                .environment(\.locale, .init(identifier: "fr"))
-                .previewDevice(PreviewDevice(rawValue: "iPhone XS"))
-            AddContactMainInnerView(contact: identity2,
-                                    ownedCryptoId: identity.cryptoId,
-                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
-                                    alreadyScannedOrTappedURL: nil,
-                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
-                                    confirmInviteAction: { _ in },
-                                    dismissAction: {},
-                                    installedOlvidAppIsOutdated: {},
-                                    checkSignatureMutualScanUrl: { _ in false },
-                                    requestNewAvailableApiKeyElements: { _ in },
-                                    userRequestedNewAPIKeyActivation: { _ in },
-                                    newAvailableApiKeyElements: APIKeyElements(),
-                                    userWantsToSearchWithinKeycloak: {},
-                                    userDetailsOfKeycloakContact: nil,
-                                    contactIdentity: nil,
-                                    isConfirmAddingKeycloakViewPushed: .constant(false),
-                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
-                                    confirmAddingKeycloakContactViewAction: {})
-                .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
-                .previewLayout(.fixed(width: 320, height: 568))
-        }
-    }
-}
+//struct AddContactMainInnerView_Previews: PreviewProvider {
+//
+//    private static let identity1 = SingleIdentity(firstName: "Joyce",
+//                                                  lastName: "Lathrop",
+//                                                  position: "Happiness manager",
+//                                                  company: "Olvid",
+//                                                  isKeycloakManaged: false,
+//                                                  showGreenShield: false,
+//                                                  showRedShield: false,
+//                                                  identityColors: nil,
+//                                                  photoURL: nil)
+//
+//    private static let identity2 = SingleIdentity(firstName: "Joyce",
+//                                                  lastName: "Lathrop",
+//                                                  position: "Happiness manager",
+//                                                  company: "Olvid",
+//                                                  isKeycloakManaged: false,
+//                                                  showGreenShield: false,
+//                                                  showRedShield: false,
+//                                                  identityColors: nil,
+//                                                  photoURL: nil)
+//
+//    private static let identityAsURL = URL(string: "https://invitation.olvid.io/#AwAAAIAAAAAAXmh0dHBzOi8vc2VydmVyLmRldi5vbHZpZC5pbwAA1-NJhAuO742VYzS5WXQnM3ACnlxX_ZTYt9BUHrotU2UBA_FlTxBTrcgXN9keqcV4-LOViz3UtdEmTZppHANX3JYAAAAAGEFsaWNlIFdvcmsgKENFTyBAIE9sdmlkKQ==")!
+//
+//    private static let identity = ObvURLIdentity(urlRepresentation: identityAsURL)!
+//
+//    static var previews: some View {
+//        Group {
+//            AddContactMainInnerView(contact: identity2,
+//                                    ownedCryptoId: identity.cryptoId,
+//                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
+//                                    alreadyScannedOrTappedURL: nil,
+//                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
+//                                    confirmInviteAction: { _ in },
+//                                    dismissAction: {},
+//                                    installedOlvidAppIsOutdated: {},
+//                                    checkSignatureMutualScanUrl: { _ in false },
+//                                    requestNewAvailableApiKeyElements: { _ in },
+//                                    userRequestedNewAPIKeyActivation: { _ in },
+//                                    newAvailableApiKeyElements: APIKeyElements(),
+//                                    userWantsToSearchWithinKeycloak: {},
+//                                    userDetailsOfKeycloakContact: nil,
+//                                    contactIdentity: nil,
+//                                    isConfirmAddingKeycloakViewPushed: .constant(false),
+//                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
+//                                    confirmAddingKeycloakContactViewAction: {})
+//            AddContactMainInnerView(contact: identity1,
+//                                    ownedCryptoId: identity.cryptoId,
+//                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
+//                                    alreadyScannedOrTappedURL: nil,
+//                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
+//                                    confirmInviteAction: { _ in },
+//                                    dismissAction: {},
+//                                    installedOlvidAppIsOutdated: {},
+//                                    checkSignatureMutualScanUrl: { _ in false },
+//                                    requestNewAvailableApiKeyElements: { _ in },
+//                                    userRequestedNewAPIKeyActivation: { _ in },
+//                                    newAvailableApiKeyElements: APIKeyElements(),
+//                                    userWantsToSearchWithinKeycloak: {},
+//                                    userDetailsOfKeycloakContact: nil,
+//                                    contactIdentity: nil,
+//                                    isConfirmAddingKeycloakViewPushed: .constant(false),
+//                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
+//                                    confirmAddingKeycloakContactViewAction: {})
+//                .environment(\.colorScheme, .dark)
+//            AddContactMainInnerView(contact: identity2,
+//                                    ownedCryptoId: identity.cryptoId,
+//                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
+//                                    alreadyScannedOrTappedURL: nil,
+//                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
+//                                    confirmInviteAction: { _ in },
+//                                    dismissAction: {},
+//                                    installedOlvidAppIsOutdated: {},
+//                                    checkSignatureMutualScanUrl: { _ in false },
+//                                    requestNewAvailableApiKeyElements: { _ in },
+//                                    userRequestedNewAPIKeyActivation: { _ in },
+//                                    newAvailableApiKeyElements: APIKeyElements(),
+//                                    userWantsToSearchWithinKeycloak: {},
+//                                    userDetailsOfKeycloakContact: nil,
+//                                    contactIdentity: nil,
+//                                    isConfirmAddingKeycloakViewPushed: .constant(false),
+//                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
+//                                    confirmAddingKeycloakContactViewAction: {})
+//                .environment(\.colorScheme, .dark)
+//            AddContactMainInnerView(contact: identity2,
+//                                    ownedCryptoId: identity.cryptoId,
+//                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
+//                                    alreadyScannedOrTappedURL: nil,
+//                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
+//                                    confirmInviteAction: { _ in },
+//                                    dismissAction: {},
+//                                    installedOlvidAppIsOutdated: {},
+//                                    checkSignatureMutualScanUrl: { _ in false },
+//                                    requestNewAvailableApiKeyElements: { _ in },
+//                                    userRequestedNewAPIKeyActivation: { _ in },
+//                                    newAvailableApiKeyElements: APIKeyElements(),
+//                                    userWantsToSearchWithinKeycloak: {},
+//                                    userDetailsOfKeycloakContact: nil,
+//                                    contactIdentity: nil,
+//                                    isConfirmAddingKeycloakViewPushed: .constant(false),
+//                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
+//                                    confirmAddingKeycloakContactViewAction: {})
+//                .environment(\.colorScheme, .dark)
+//                .environment(\.locale, .init(identifier: "fr"))
+//            AddContactMainInnerView(contact: identity2,
+//                                    ownedCryptoId: identity.cryptoId,
+//                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
+//                                    alreadyScannedOrTappedURL: nil,
+//                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
+//                                    confirmInviteAction: { _ in },
+//                                    dismissAction: {},
+//                                    installedOlvidAppIsOutdated: {},
+//                                    checkSignatureMutualScanUrl: { _ in false },
+//                                    requestNewAvailableApiKeyElements: { _ in },
+//                                    userRequestedNewAPIKeyActivation: { _ in },
+//                                    newAvailableApiKeyElements: APIKeyElements(),
+//                                    userWantsToSearchWithinKeycloak: {},
+//                                    userDetailsOfKeycloakContact: nil,
+//                                    contactIdentity: nil,
+//                                    isConfirmAddingKeycloakViewPushed: .constant(false),
+//                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
+//                                    confirmAddingKeycloakContactViewAction: {})
+//                .environment(\.colorScheme, .dark)
+//                .environment(\.locale, .init(identifier: "fr"))
+//                .previewDevice(PreviewDevice(rawValue: "iPhone XS"))
+//            AddContactMainInnerView(contact: identity2,
+//                                    ownedCryptoId: identity.cryptoId,
+//                                    urlIdentityRepresentation: URL(string: "https://olvid.io")!,
+//                                    alreadyScannedOrTappedURL: nil,
+//                                    viewForSharingIdentity: AnyView(Text("Placeholder view for sharing my id")),
+//                                    confirmInviteAction: { _ in },
+//                                    dismissAction: {},
+//                                    installedOlvidAppIsOutdated: {},
+//                                    checkSignatureMutualScanUrl: { _ in false },
+//                                    requestNewAvailableApiKeyElements: { _ in },
+//                                    userRequestedNewAPIKeyActivation: { _ in },
+//                                    newAvailableApiKeyElements: APIKeyElements(),
+//                                    userWantsToSearchWithinKeycloak: {},
+//                                    userDetailsOfKeycloakContact: nil,
+//                                    contactIdentity: nil,
+//                                    isConfirmAddingKeycloakViewPushed: .constant(false),
+//                                    addingKeycloakContactFailedAlertIsPresented: .constant(false),
+//                                    confirmAddingKeycloakContactViewAction: {})
+//                .environment(\.sizeCategory, .accessibilityExtraExtraExtraLarge)
+//                .previewLayout(.fixed(width: 320, height: 568))
+//        }
+//    }
+//}

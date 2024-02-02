@@ -99,6 +99,52 @@ public struct ObvIdentityCoreDetails: Equatable {
         pnc.givenName = firstName
         return pnc
     }
+    
+    
+    public var initial: String {
+        if let letter = firstName?.trimmingWhitespacesAndNewlines().first, !letter.isWhitespace {
+            return String(letter)
+        } else if let letter = lastName?.trimmingWhitespacesAndNewlines().first, !letter.isWhitespace {
+            return String(letter)
+        } else {
+            assertionFailure()
+            return "?"
+        }
+    }
+    
+    
+    public enum DisplayNameStyle {
+
+        case firstNameThenLastName
+        case positionAtCompany
+        case full
+        case short
+    }
+    
+
+    public func getDisplayNameWithStyle(_ style: DisplayNameStyle) -> String {
+        switch style {
+        case .firstNameThenLastName:
+            let _firstName = firstName ?? ""
+            let _lastName = lastName ?? ""
+            return [_firstName, _lastName].joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            
+        case .positionAtCompany:
+            return positionAtCompany()
+            
+        case .full:
+            let firstNameThenLastName = getDisplayNameWithStyle(.firstNameThenLastName)
+            if let positionAtCompany = getDisplayNameWithStyle(.positionAtCompany).mapToNilIfZeroLength() {
+                return [firstNameThenLastName, "(\(positionAtCompany))"].joined(separator: " ")
+            } else {
+                return firstNameThenLastName
+            }
+            
+        case .short:
+            return firstName ?? lastName ?? ""
+        }
+    }
+
 }
 
 

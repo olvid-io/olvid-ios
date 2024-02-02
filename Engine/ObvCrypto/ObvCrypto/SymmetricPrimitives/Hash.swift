@@ -59,6 +59,10 @@ extension HashFunction where Self: HashFunctionBasedOnCommonCrypto {
     
     static func hash(fileAtUrl url: URL) throws -> Data {
 
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw Self.makeError(message: "Hash computation failed as there is no file at the specified URL")
+        }
+        
         let hashFunction = Self()
         
         guard let fileStream = InputStream(fileAtPath: url.path) else {

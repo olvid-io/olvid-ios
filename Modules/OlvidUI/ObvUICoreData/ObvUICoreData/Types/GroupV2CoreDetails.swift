@@ -23,7 +23,7 @@ import Foundation
 
 public struct GroupV2CoreDetails: Codable, Equatable {
     
-    let groupName: String?
+    public let groupName: String?
     let groupDescription: String?
     
     public init(groupName: String?, groupDescription: String?) {
@@ -41,7 +41,7 @@ public struct GroupV2CoreDetails: Codable, Equatable {
         return try encoder.encode(self)
     }
 
-    static func jsonDecode(serializedGroupCoreDetails: Data) throws -> Self {
+    public static func jsonDecode(serializedGroupCoreDetails: Data) throws -> Self {
         let decoder = JSONDecoder()
         return try decoder.decode(Self.self, from: serializedGroupCoreDetails)
     }

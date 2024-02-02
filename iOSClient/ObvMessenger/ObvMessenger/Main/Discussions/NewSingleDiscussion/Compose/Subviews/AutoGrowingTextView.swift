@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,9 +22,7 @@ import MobileCoreServices
 import OSLog
 import Platform_Base
 import Discussions_Mentions_AutoGrowingTextView_TextViewDelegateProxy
-#if DEBUG
 import UniformTypeIdentifiers
-#endif
 import Platform_UIKit_Additions
 import ObvUICoreData
 import Components_TextInputShortcutsResultView
@@ -86,9 +84,7 @@ final class AutoGrowingTextView: UITextViewFixed {
                                                      action: #selector(handleKeyCommand))..{
         $0.title = NSLocalizedString("Send", comment: "Send word, capitalized")
 
-        if #available(iOS 15.0, *) {
-            $0.wantsPriorityOverSystemBehavior = true
-        }
+        $0.wantsPriorityOverSystemBehavior = true
     }
 
     private var __userIsEnteringAShortcut = false
@@ -589,7 +585,26 @@ extension AutoGrowingTextView {
     override func paste(_ sender: Any?) {
         assert(autoGrowingTextViewDelegate != nil)
         guard !UIPasteboard.general.itemProviders.isEmpty else { return }
-        autoGrowingTextViewDelegate?.userPastedItemProviders(in: self, itemProviders: UIPasteboard.general.itemProviders)
+        // When performing a copy/paste of an URL (e.g., share a webpage from Safari, tap on Copy in the share sheet, then paste here),
+        // the NSItemProvider provided by the UIPasteboard cannot be loaded as text and is thus eventually sent to the LoadItemProviderOperation (that fails to load it as an URL).
+        // Consequently, was cannot just transfer the UIPasteboard.general.itemProviders.
+        // We thus decided to apply the following strategy:
+        // For each pasteboard item:
+        // - if the item has only one representation, and it is of type kUTTypeText or kUTTypeURL, we load it as text, create an NSItemProvider for that text and use it instead of the one provided by UIPasteboard.general.itemProviders
+        // - otherwise, we keep the NSItemProvider provided in UIPasteboard.general.itemProviders
+        var pastedItemProviders = [NSItemProvider]()
+        for (itemNumber, item) in UIPasteboard.general.items.enumerated() {
+            if let pastedString = (item[UTType.text.identifier] as? String) ?? (item[UTType.plainText.identifier] as? String) ?? (item[UTType.utf8PlainText.identifier] as? String) {
+                let itemProvider = NSItemProvider(item: pastedString as NSString, typeIdentifier: UTType.text.identifier)
+                pastedItemProviders.append(itemProvider)
+            } else if item.keys.count == 1, let pastedURL = item[UTType.url.identifier] as? URL, UIApplication.shared.canOpenURL(pastedURL) {
+                let itemProvider = NSItemProvider(item: pastedURL.absoluteString as NSString, typeIdentifier: UTType.text.identifier)
+                pastedItemProviders.append(itemProvider)
+            } else if UIPasteboard.general.itemProviders.count > itemNumber {
+                pastedItemProviders.append(UIPasteboard.general.itemProviders[itemNumber])
+            }
+        }
+        autoGrowingTextViewDelegate?.userPastedItemProviders(in: self, itemProviders: pastedItemProviders)
     }
 
     #if DEBUG //allow copying the attributed text for debugging purposes; will need to be refactored to work with `AttributedString` and get a JSON representation, much better for debugging compared to RTF

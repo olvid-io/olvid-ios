@@ -56,20 +56,6 @@ let discussionsScrollToBottomButton = Target.swiftLibrary(
     ],
     resources: [])
 
-let discussionsAttachmentsDropView = Target.swiftLibrary(
-    name: "Discussions_AttachmentsDropView",
-    isExtensionSafe: true,
-    sources: "AttachmentsDropView/*.swift",
-    dependencies: [
-        .Modules.Platform.sequenceKeyPathSorting,
-        .Modules.Platform.nsItemProviderUTTypeBackport,
-        .Modules.UI.systemIcon,
-        .Modules.UI.systemIconUIKit,
-    ],
-    resources: [
-        "AttachmentsDropView/*.lproj/Localizable.strings"
-    ])
-
 let project = Project.createProject(name: "Discussions",
                                     packages: [],
                                     targets: [discussionsMentionsAutoGrowingTextViewTextViewDelegateProxy,
@@ -77,7 +63,6 @@ let project = Project.createProject(name: "Discussions",
                                               discussionsMentionsBuilderInternals,
                                               discussionsMentionsComposeMessageBuilder,
                                               discussionsMentionsTextBubbleBuilder,
-                                              discussionsScrollToBottomButton,
-                                              discussionsAttachmentsDropView],
+                                              discussionsScrollToBottomButton],
                                     shouldEnableDefaultResourceSynthesizers: true)
 

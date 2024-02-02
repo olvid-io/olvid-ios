@@ -16,12 +16,12 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
-  
 
 import Foundation
 import ObvTypes
 import OlvidUtils
 import ObvUICoreData
+import ObvSettings
 
 
 /// This singleton allows to store and fetch a `LatestCurrentOWnedIdentityStored` to and from the user defaults shared between the app and the app extensions.

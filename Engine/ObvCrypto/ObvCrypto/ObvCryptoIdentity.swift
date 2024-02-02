@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -98,23 +98,10 @@ extension ObvCryptoIdentity {
     
 }
 
-/// Creating an UID describing an identity, computed from the public keys. This UID should not be used
-/// as a long term identifier. It is typically used as an UID in operations.
-extension ObvCryptoIdentity {
-    public var transientUid: UID {
-        var hash = ObvCryptoSuite.sharedInstance.hashFunction()
-        if hash.outputLength < UID.length {
-            hash = SHA256.self
-        }
-        var dataFromKeys = Data()
-        dataFromKeys.append(publicKeyForAuthentication.getCompactKey())
-        dataFromKeys.append(publicKeyForPublicKeyEncryption.getCompactKey())
-        let hashedKeys = hash.hash(dataFromKeys)
-        return UID(uid: hashedKeys[hashedKeys.startIndex..<hashedKeys.startIndex + UID.length])!
-    }
-}
 
-// Implementing Equatable (replacing the NSObject default implementation)
+// MARK: Implementing Equatable
+
+/// Replaces the NSObject default implementation
 extension ObvCryptoIdentity {
     static func == (lhs: ObvCryptoIdentity, rhs: ObvCryptoIdentity) -> Bool {
         guard lhs.publicKeyForAuthentication.isEqualTo(other: rhs.publicKeyForAuthentication) else { return false }
@@ -133,7 +120,9 @@ extension ObvCryptoIdentity {
     }
 }
 
-// Implementing NSCopying (this solves a bug we encoutered while using `ObvCryptoIdentity`s with Core Data)
+// MARK: Implementing NSCopying
+
+/// This solves a bug we encoutered while using `ObvCryptoIdentity`s with Core Data
 extension ObvCryptoIdentity {
     public func copy(with zone: NSZone? = nil) -> Any {
         return ObvCryptoIdentity(serverURL: serverURL,

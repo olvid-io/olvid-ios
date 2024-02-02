@@ -20,6 +20,8 @@
 import ObvUI
 import ObvUICoreData
 import SwiftUI
+import ObvSettings
+import ObvDesignSystem
 
 
 final class DiskUsageViewController: UIHostingController<DiskUsageView> {
@@ -216,7 +218,7 @@ private struct DiskInfoView: View {
     private var valueView: some View {
         switch info.computationStatus {
         case .computing:
-            ObvActivityIndicator(isAnimating: .constant(true), style: .medium, color: nil)
+            ProgressView()
         case .failed:
             Image(systemIcon: .exclamationmarkCircle)
         case .computed(size: let size, count: let count):

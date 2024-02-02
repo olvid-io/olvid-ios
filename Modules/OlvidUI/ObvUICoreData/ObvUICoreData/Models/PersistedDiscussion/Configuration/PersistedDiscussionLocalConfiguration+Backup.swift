@@ -24,7 +24,7 @@ extension PersistedDiscussionConfigurationBackupItem {
 
     func updateExistingInstance(_ configuration: PersistedDiscussionLocalConfiguration) {
 
-        configuration.doSendReadReceipt = self.sendReadReceipt
+        _ = configuration.setDoSendReadReceipt(to: self.sendReadReceipt)
         if let muteNotificationsEndDate = self.muteNotificationsEndDate {
             configuration.setMuteNotificationsEndDate(with: muteNotificationsEndDate)
         }

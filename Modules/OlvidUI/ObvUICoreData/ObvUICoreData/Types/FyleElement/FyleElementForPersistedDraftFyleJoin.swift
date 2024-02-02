@@ -18,12 +18,16 @@
  */
 
 import Foundation
+import UniformTypeIdentifiers
+import ObvSettings
+
 
 public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
 
     public let fyleURL: URL
     public let fileName: String
-    public let uti: String
+    public let contentType: UTType
+    //public let uti: String
     public let sha256: Data
     public let fullFileIsAvailable: Bool
 
@@ -36,7 +40,7 @@ public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
         guard let draft = persistedDraftFyleJoin.draft else { return nil }
         self.fyleURL = fyle.url
         self.fileName = persistedDraftFyleJoin.fileName
-        self.uti = persistedDraftFyleJoin.uti
+        self.contentType = persistedDraftFyleJoin.contentType
         self.sha256 = fyle.sha256
         self.discussionPermanentID = draft.discussion.discussionPermanentID
         self.draftPermanentID = draft.objectPermanentID
@@ -45,10 +49,10 @@ public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
     }
 
 
-    private init(fyleURL: URL, fileName: String, uti: String, sha256: Data, fullFileIsAvailable: Bool, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, draftFyleJoinPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>) {
+    private init(fyleURL: URL, fileName: String, contentType: UTType, sha256: Data, fullFileIsAvailable: Bool, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, draftFyleJoinPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>) {
         self.fyleURL = fyleURL
         self.fileName = fileName
-        self.uti = uti
+        self.contentType = contentType
         self.sha256 = sha256
         self.fullFileIsAvailable = fullFileIsAvailable
         self.discussionPermanentID = discussionPermanentID
@@ -58,14 +62,14 @@ public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
 
 
     public func replacingFullFileIsAvailable(with newFullFileIsAvailable: Bool) -> FyleElement {
-        FyleElementForPersistedDraftFyleJoin(fyleURL: fyleURL,
-                                             fileName: fileName,
-                                             uti: uti,
-                                             sha256: sha256,
-                                             fullFileIsAvailable: newFullFileIsAvailable,
-                                             discussionPermanentID: discussionPermanentID,
-                                             draftPermanentID: draftPermanentID,
-                                             draftFyleJoinPermanentID: draftFyleJoinPermanentID)
+        Self.init(fyleURL: fyleURL,
+                  fileName: fileName,
+                  contentType: contentType,
+                  sha256: sha256,
+                  fullFileIsAvailable: newFullFileIsAvailable,
+                  discussionPermanentID: discussionPermanentID,
+                  draftPermanentID: draftPermanentID,
+                  draftFyleJoinPermanentID: draftFyleJoinPermanentID)
     }
 
 

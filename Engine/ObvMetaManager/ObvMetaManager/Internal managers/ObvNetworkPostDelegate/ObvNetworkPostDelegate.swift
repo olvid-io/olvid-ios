@@ -27,16 +27,16 @@ import ObvCrypto
 public protocol ObvNetworkPostDelegate: ObvManager {
 
     func post(_: ObvNetworkMessageToSend, within: ObvContext) throws
-    func cancelPostOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) throws
+    func cancelPostOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws
     
     func storeCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier)
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) -> Bool
 
     func replayTransactionsHistory(transactions: [NSPersistentHistoryTransaction], within obvContext: ObvContext)
-    func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) async
+    func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: ObvMessageIdentifier, flowId: FlowIdentifier) async
     func deleteHistoryConcerningTheAcknowledgementOfOutboxMessages(withTimestampFromServerEarlierOrEqualTo referenceDate: Date, flowId: FlowIdentifier) async
 
-    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float]
+    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float]
 
     func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
 

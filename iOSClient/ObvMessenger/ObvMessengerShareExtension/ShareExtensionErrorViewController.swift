@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,7 @@
 import ObvUI
 import UIKit
 import ObvUICoreData
+import ObvDesignSystem
 
 
 protocol ShareExtensionErrorViewControllerDelegate: AnyObject {
@@ -57,7 +58,7 @@ final class ShareExtensionErrorViewController: UIViewController {
         okButton.setTitle(CommonString.Word.Ok, for: .normal)
         okButton.layer.cornerRadius = 16
         okButton.layer.masksToBounds = true
-        okButton.contentEdgeInsets = UIEdgeInsets(top: 16, left: 32, bottom: 16, right: 32)
+        // okButton.contentEdgeInsets = UIEdgeInsets(top: 16, left: 32, bottom: 16, right: 32)
         okButton.backgroundColor = AppTheme.shared.colorScheme.olvidLight
         okButton.addTarget(self, action: #selector(okOlvidButtonTapped), for: .touchUpInside)
 

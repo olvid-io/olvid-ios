@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,17 +24,22 @@ import OlvidUtils
 import os.log
 import ObvUI
 import ObvUICoreData
+import ObvEngine
+import ObvSettings
+import ObvDesignSystem
 
 
 @MainActor
 final class AdvancedSettingsViewController: UITableViewController {
 
     let ownedCryptoId: ObvCryptoId
+    let obvEngine: ObvEngine
     
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AdvancedSettingsViewController.self))
 
-    init(ownedCryptoId: ObvCryptoId) {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
         self.ownedCryptoId = ownedCryptoId
+        self.obvEngine = obvEngine
         super.init(style: Self.settingsTableStyle)
     }
     
@@ -65,6 +70,7 @@ final class AdvancedSettingsViewController: UITableViewController {
     
     private enum Section: CaseIterable {
         case clearCache
+        case downloadMissingProfilePictures
         case customKeyboards
         case websockedStatus
         case diskUsage
@@ -72,7 +78,7 @@ final class AdvancedSettingsViewController: UITableViewController {
         case exportsDatabasesAndCopyURLs
         
         static var shown: [Section] {
-            var result = [Section.clearCache, .customKeyboards, .websockedStatus, .diskUsage]
+            var result = [Section.clearCache, .downloadMissingProfilePictures, .customKeyboards, .websockedStatus, .diskUsage]
             if ObvMessengerConstants.showExperimentalFeature {
                 result += [Section.logs, .exportsDatabasesAndCopyURLs]
             }
@@ -82,6 +88,7 @@ final class AdvancedSettingsViewController: UITableViewController {
         var numberOfItems: Int {
             switch self {
             case .clearCache: return ClearCacheItem.shown.count
+            case .downloadMissingProfilePictures: return DownloadMissingProfilePicturesItem.shown.count
             case .customKeyboards: return CustomKeyboardsItem.shown.count
             case .websockedStatus: return WebsockedStatusItem.shown.count
             case .diskUsage: return DiskUsageItem.shown.count
@@ -113,7 +120,23 @@ final class AdvancedSettingsViewController: UITableViewController {
             }
         }
     }
-    
+
+    private enum DownloadMissingProfilePicturesItem: CaseIterable {
+        case downloadMissingProfilePictures
+        static var shown: [Self] {
+            return self.allCases
+        }
+        static func shownItemAt(item: Int) -> Self? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .downloadMissingProfilePictures: return "DownloadMissingProfilePicturesCell"
+            }
+        }
+    }
+
     private enum CustomKeyboardsItem: CaseIterable {
         case customKeyboards
         static var shown: [CustomKeyboardsItem] {
@@ -148,8 +171,9 @@ final class AdvancedSettingsViewController: UITableViewController {
     
     private enum DiskUsageItem: CaseIterable {
         case diskUsage
+        case internalStorageExplorer
         static var shown: [DiskUsageItem] {
-            return self.allCases
+            return ObvMessengerConstants.showExperimentalFeature ? self.allCases : [.diskUsage]
         }
         static func shownItemAt(item: Int) -> DiskUsageItem? {
             guard item < shown.count else { assertionFailure(); return nil }
@@ -157,6 +181,7 @@ final class AdvancedSettingsViewController: UITableViewController {
         }
         var cellIdentifier: String {
             switch self {
+            case .internalStorageExplorer: return "InternalStorageExplorer"
             case .diskUsage: return "DiskUsage"
             }
         }
@@ -246,6 +271,18 @@ extension AdvancedSettingsViewController {
                 return cell
             }
             
+        case .downloadMissingProfilePictures:
+            guard let item = DownloadMissingProfilePicturesItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .downloadMissingProfilePictures:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                var content = cell.defaultContentConfiguration()
+                content.text = Strings.downloadMissingProfilePictures
+                content.textProperties.color = AppTheme.shared.colorScheme.link
+                cell.contentConfiguration = content
+                return cell
+            }
+            
         case .customKeyboards:
             guard let item = CustomKeyboardsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
             switch item {
@@ -285,11 +322,7 @@ extension AdvancedSettingsViewController {
                     DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval)) {
                         guard let tableView = self?.tableView else { return }
                         guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
-                        if #available(iOS 15, *) {
-                            tableView.reconfigureRows(at: [indexPath])
-                        } else {
-                            tableView.reloadRows(at: [indexPath], with: .none)
-                        }
+                        tableView.reconfigureRows(at: [indexPath])
                     }
                 }
                 let ownedCryptoId = self.ownedCryptoId
@@ -300,11 +333,7 @@ extension AdvancedSettingsViewController {
                     DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval)) { [weak self] in
                         guard let tableView = self?.tableView else { return }
                         guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
-                        if #available(iOS 15, *) {
-                            tableView.reconfigureRows(at: [indexPath])
-                        } else {
-                            tableView.reloadRows(at: [indexPath], with: .none)
-                        }
+                        tableView.reconfigureRows(at: [indexPath])
                     }
                 }
                 return cell
@@ -316,6 +345,11 @@ extension AdvancedSettingsViewController {
             case .diskUsage:
                 let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
                 cell.textLabel?.text = Strings.diskUsageTitle
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            case .internalStorageExplorer:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                cell.textLabel?.text = Strings.internalStorageExplorer
                 cell.accessoryType = .disclosureIndicator
                 return cell
             }
@@ -395,6 +429,7 @@ extension AdvancedSettingsViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard let section = Section.shownSectionAt(section: indexPath.section) else { assertionFailure(); return }
         switch section {
+            
         case .clearCache:
             guard let item = ClearCacheItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
             switch item {
@@ -404,15 +439,45 @@ extension AdvancedSettingsViewController {
                 tableView.deselectRow(at: indexPath, animated: true)
             }
             return
+            
+        case .downloadMissingProfilePictures:
+            guard let item = DownloadMissingProfilePicturesItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .downloadMissingProfilePictures:
+                showHUD(type: .spinner)
+                Task {
+                    var finalHUDTypeToShow = ObvHUDType.checkmark
+                    do { try await obvEngine.downloadMissingProfilePicturesForContacts() } catch { finalHUDTypeToShow = .xmark }
+                    do { try await obvEngine.downloadMissingProfilePicturesForGroupsV1() } catch { finalHUDTypeToShow = .xmark }
+                    do { try await obvEngine.downloadMissingProfilePicturesForGroupsV2() } catch { finalHUDTypeToShow = .xmark }
+                    do { try await obvEngine.downloadMissingProfilePicturesForOwnedIdentities() } catch { finalHUDTypeToShow = .xmark }
+                    await showThenHideHUD(type: finalHUDTypeToShow, andDeselectRowAt: indexPath)
+                }
+            }
+            
         case .customKeyboards:
             return
         case .websockedStatus:
             return
+            
         case .diskUsage:
-            let vc = DiskUsageViewController()
-            present(vc, animated: true) {
-                tableView.deselectRow(at: indexPath, animated: true)
+            guard let item = DiskUsageItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .diskUsage:
+                let vc = DiskUsageViewController()
+                present(vc, animated: true) {
+                    tableView.deselectRow(at: indexPath, animated: true)
+                }
+            case .internalStorageExplorer:
+                let vc = InternalStorageExplorerViewController(root: ObvUICoreDataConstants.ContainerURL.securityApplicationGroupURL)
+                let nav = UINavigationController(rootViewController: vc)
+                present(nav, animated: true) {
+                    tableView.deselectRow(at: indexPath, animated: true)
+                }
+                break
             }
+            
+            
         case .logs:
             guard let item = LogsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
             switch (item) {
@@ -471,10 +536,20 @@ extension AdvancedSettingsViewController {
     }
     
     
+    @MainActor
+    private func showThenHideHUD(type: ObvHUDType, andDeselectRowAt indexPath: IndexPath) async {
+        showHUD(type: type)
+        try? await Task.sleep(seconds: 2)
+        hideHUD()
+        tableView.deselectRow(at: indexPath, animated: true)
+    }
+    
+    
     override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         guard let section = Section.shownSectionAt(section: section) else { assertionFailure(); return nil }
         switch section {
         case .clearCache: return Strings.cacheManagement
+        case .downloadMissingProfilePictures: return nil
         case .customKeyboards: return Strings.customKeyboardsManagement
         case .websockedStatus: return Strings.webSocketStatus
         case .logs: return Strings.inAppLogs
@@ -487,6 +562,7 @@ extension AdvancedSettingsViewController {
         guard let section = Section.shownSectionAt(section: section) else { assertionFailure(); return nil }
         switch section {
         case .clearCache: return nil
+        case .downloadMissingProfilePictures: return Strings.downloadMissingProfilePicturesExplanation
         case .customKeyboards: return Strings.customKeyboardsManagementExplanation
         case .websockedStatus: return nil
         case .diskUsage: return nil
@@ -503,6 +579,8 @@ extension AdvancedSettingsViewController {
     struct Strings {
         
         static let clearCache = NSLocalizedString("Clear cache", comment: "")
+        static let downloadMissingProfilePictures = NSLocalizedString("DOWNLOAD_MISSING_PROFILE_PICTURES_BUTTON_TITLE", comment: "")
+        static let downloadMissingProfilePicturesExplanation = NSLocalizedString("DOWNLOAD_MISSING_PROFILE_PICTURES_EXPLANATION", comment: "")
         static let copyDocumentsURL = NSLocalizedString("Copy Documents URL", comment: "Button title, only in dev mode")
         static let copyAppDatabaseURL = NSLocalizedString("Copy App Database URL", comment: "Button title, only in dev mode")
         static let cacheManagement = NSLocalizedString("Cache management", comment: "")
@@ -516,6 +594,7 @@ extension AdvancedSettingsViewController {
         static let allowAPIKeyActivationWithBadKeyStatusTitle = NSLocalizedString("Allow all api key activations", comment: "")
         static let webSocketStatus = NSLocalizedString("Websocket status", comment: "")
         static let diskUsageTitle = NSLocalizedString("DISK_USAGE", comment: "")
+        static let internalStorageExplorer = NSLocalizedString("INTERNAL_STORAGE_EXPLORER", comment: "")
         static let enableRunningLogs = NSLocalizedString("ENABLE_RUNNING_LOGS", comment: "")
         static let inAppLogs = NSLocalizedString("IN_APP_LOGS", comment: "")
         static let showCoordinatorsQueue = NSLocalizedString("SHOW_CURRENT_COORDINATORS_OPS", comment: "")

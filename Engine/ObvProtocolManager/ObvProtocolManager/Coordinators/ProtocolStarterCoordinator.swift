@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,111 +51,32 @@ final class ProtocolStarterCoordinator: ProtocolStarterDelegate {
         self.prng = prng
     }
     
+    
+    public func finalizeInitialization(flowId: FlowIdentifier, runningLog: RunningLogError) {
+        observeNotifications()
+    }
+    
     deinit {
         notificationCenterTokens.forEach { delegateManager?.notificationDelegate?.removeObserver($0) }
     }
-
     
-    // MARK: - Observer notifications
-    
-    func tryToObserveIdentityNotifications() {
-        if let delegateManager = delegateManager,
-            delegateManager.contextCreator != nil,
-            let notificationDelegate = delegateManager.notificationDelegate,
-            delegateManager.identityDelegate != nil,
-            delegateManager.channelDelegate != nil,
-            delegateManager.solveChallengeDelegate != nil {
-            
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-            
-            // Listening to `NewContactDevice` notifications
-            notificationCenterTokens.append(ObvIdentityNotificationNew.observeNewContactDevice(within: notificationDelegate) { [weak self] (ownedIdentity, contactIdentity, contactDeviceUid, flowId) in
-                os_log("We received a New Contact Device notification", log: log, type: .debug)
-                do {
-                    try self?.processNewContactDeviceNotification(ownedIdentity: ownedIdentity,
-                                                                  contactIdentity: contactIdentity,
-                                                                  contactDeviceUid: contactDeviceUid,
-                                                                  within: flowId)
-                } catch {
-                    os_log("Could not process a New Contact Device notification", log: log, type: .fault)
-                }
+    private func observeNotifications() {
+        guard let notificationDelegate = delegateManager?.notificationDelegate else { assertionFailure(); return }
+        notificationCenterTokens.append(contentsOf: [
+            notificationDelegate.addObserverOfOwnedIdentityTransferProtocolNotification(.ownedIdentityTransferProtocolFailed { [weak self] payload in
+                self?.postAbortMessageForOwnedIdentityTransferProtocol(ownedCryptoIdentity: payload.ownedCryptoIdentity, protocolInstanceUID: payload.protocolInstanceUID)
+                ObvProtocolNotification.anOwnedIdentityTransferProtocolFailed(ownedCryptoIdentity: payload.ownedCryptoIdentity, protocolInstanceUID: payload.protocolInstanceUID, error: payload.error)
+                    .postOnBackgroundQueue(within: notificationDelegate)
             })
-            
-            do {
-                let token = ObvIdentityNotificationNew.observeContactIdentityIsNowTrusted(within: notificationDelegate) { [weak self] (contactIdentity, ownedIdentity, flowId) in
-                    do {
-                        try self?.startDeviceDiscoveryProtocolOfContactIdentity(contactIdentity, forOwnedIdentity: ownedIdentity, within: flowId)
-                    } catch {
-                        os_log("Could not process a ContactIdentityIsNowTrusted notification", log: log, type: .fault)
-                    }
-                }
-                notificationCenterTokens.append(token)
-            }
-            
-        }
-    }
-    
-    // MARK: - Process notifications
-    
-    private func processNewContactDeviceNotification(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, within flowId: FlowIdentifier) throws {
-
-        try startChannelCreationWithContactDeviceProtocolBetweenTheCurrentDeviceOf(ownedIdentity,
-                                                                                   andTheDeviceUid: contactDeviceUid,
-                                                                                   ofTheContactIdentity: contactIdentity,
-                                                                                   within: flowId)
-        
+        ])
     }
     
 }
 
 
 // MARK: - Implementing ProtocolStarterDelegate
-extension ProtocolStarterCoordinator {
-    
-    func startDeviceDiscoveryProtocolOfContactIdentity(_ contactIdentity: ObvCryptoIdentity, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, within flowId: FlowIdentifier) throws {
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            assertionFailure()
-            os_log("The context creator is not set", log: log, type: .fault)
-            throw Self.makeError(message: "The context creator is not set")
-        }
-        
-        guard let channelDelegate = delegateManager.channelDelegate else {
-            assertionFailure()
-            os_log("The channel delegate is not set", log: log, type: .fault)
-            throw Self.makeError(message: "The channel delegate is not set")
-        }
-        
-        let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .DeviceDiscoveryForContactIdentity,
-                                              protocolInstanceUid: protocolInstanceUid)
-        guard let messageToSend = DeviceDiscoveryForContactIdentityProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity).generateObvChannelProtocolMessageToSend(with: prng) else {
-            assertionFailure()
-            os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw Self.makeError(message: "Could create generic protocol message to send")
-        }
 
-        let prng = self.prng
-        
-        var error: Error? = nil
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            // Create the initial message to send to this new protocol instance and "send" it
-            do {
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            } catch let _error {
-                error = _error
-            }
-        }
-        guard error == nil else {
-            throw error!
-        }
-        
-    }
-    
+extension ProtocolStarterCoordinator {
     
     func getInitialMessageForTrustEstablishmentProtocol(of contactIdentity: ObvCryptoIdentity, withFullDisplayName contactFullDisplayName: String, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, withOwnedIdentityCoreDetails ownIdentityCoreDetails: ObvIdentityCoreDetails, usingProtocolInstanceUid protocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend {
         
@@ -163,7 +84,7 @@ extension ProtocolStarterCoordinator {
         
         // Start the updated version of the TrustEstablishmentProtocol
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .TrustEstablishmentWithSAS,
+                                              cryptoProtocolId: .trustEstablishmentWithSAS,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = TrustEstablishmentWithSASProtocol.InitialMessage(coreProtocolMessage: coreMessage,
                                                                               contactIdentity: contactIdentity,
@@ -177,9 +98,9 @@ extension ProtocolStarterCoordinator {
         return initialMessageToSend
         
     }
-
-
-    func getInitialMessageForContactMutualIntroductionProtocol(of identity1: ObvCryptoIdentity, withIdentityCoreDetails details1: ObvIdentityCoreDetails, with identity2: ObvCryptoIdentity, withOtherIdentityCoreDetails details2: ObvIdentityCoreDetails, byOwnedIdentity ownedIdentity: ObvCryptoIdentity, usingProtocolInstanceUid protocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend {
+    
+    
+    func getInitialMessageForContactMutualIntroductionProtocol(of identity1: ObvCryptoIdentity, with identity2: ObvCryptoIdentity, byOwnedIdentity ownedIdentity: ObvCryptoIdentity, usingProtocolInstanceUid protocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
@@ -188,82 +109,13 @@ extension ProtocolStarterCoordinator {
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = ContactMutualIntroductionProtocol.InitialMessage(coreProtocolMessage: coreMessage,
                                                                               contactIdentityA: identity1,
-                                                                              contactIdentityCoreDetailsA: details1,
-                                                                              contactIdentityB: identity2,
-                                                                              contactIdentityCoreDetailsB: details2)
+                                                                              contactIdentityB: identity2)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             assertionFailure()
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
         }
         return initialMessageToSend
-
-    }
-
-    
-    func startChannelCreationWithContactDeviceProtocolBetweenTheCurrentDeviceOf(_ ownedIdentity: ObvCryptoIdentity, andTheDeviceUid contactDeviceUid: UID, ofTheContactIdentity contactIdentity: ObvCryptoIdentity, within flowId: FlowIdentifier) throws {
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
-        os_log("Call to startChannelCreationWithContactDeviceProtocolBetweenTheCurrentDeviceOf", log: log, type: .debug)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            assertionFailure()
-            os_log("The context creator is not set", log: log, type: .fault)
-            throw Self.makeError(message: "The context creator is not set")
-        }
-        
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            assertionFailure()
-            os_log("The identity delegate is not set", log: log, type: .fault)
-            throw Self.makeError(message: "The identity delegate is not set")
-        }
-
-        guard let channelDelegate = delegateManager.channelDelegate else {
-            assertionFailure()
-            os_log("The channel delegate is not set", log: log, type: .fault)
-            throw Self.makeError(message: "The channel delegate is not set")
-        }
-
-        var error: Error? = nil
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            // We only start a channel creation if the contact is trusted by the owned identity (i.e. is part of the ContactIdentity database for the owned identity), if the contactDeviceUid indeed correspond to a device of the contact, and if a confirmed channel does not already exist
-            
-            guard (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true else {
-                os_log("The contact is not trusted yet, we do not trigger an Oblivious Channel Creation", log: log, type: .error)
-                return
-            }
-            
-            guard (try? identityDelegate.isContactIdentityActive(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext)) == true else {
-                os_log("The contact is inactive, we do not trigger an Oblivious Channel Creation", log: log, type: .error)
-                return
-            }
-            
-            do {
-                let contactDeviceUids = try identityDelegate.getDeviceUidsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
-                guard contactDeviceUids.contains(contactDeviceUid) else {
-                    os_log("The device uid is not part the contact's device uids", log: log, type: .error)
-                    return
-                }
-                
-                guard try channelDelegate.aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andRemoteIdentity: contactIdentity, withRemoteDeviceUid: contactDeviceUid, within: obvContext) == false else {
-                    os_log("A confirmed Oblivious Channel already exist, we do not trigger an Oblivious Channel Creation", log: log, type: .debug)
-                    return
-                }
-                
-                // Start a Create the initial message to send to this new protocol instance and "send" it
-                
-                let initialMessageToSend = try getInitialMessageForChannelCreationWithContactDeviceProtocol(betweenTheCurrentDeviceOfOwnedIdentity: ownedIdentity, andTheDeviceUid: contactDeviceUid, ofTheContactIdentity: contactIdentity)
-                _ = try channelDelegate.post(initialMessageToSend, randomizedWith: prng, within: obvContext)
-                
-                try obvContext.save(logOnFailure: log)
-            } catch let _error {
-                error = _error
-            }
-        }
-        guard error == nil else {
-            throw error!
-        }
         
     }
     
@@ -272,9 +124,11 @@ extension ProtocolStarterCoordinator {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
+        os_log("🛟 [%{public}@] Call to getInitialMessageForChannelCreationWithContactDeviceProtocol with contact", log: log, type: .info, contactIdentity.debugDescription)
+
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .ChannelCreationWithContactDevice,
+                                              cryptoProtocolId: .channelCreationWithContactDevice,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = ChannelCreationWithContactDeviceProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -283,6 +137,25 @@ extension ProtocolStarterCoordinator {
             throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
         }
         return initialMessageToSend
+    }
+    
+    
+    func getInitialMessageForChannelCreationWithOwnedDeviceProtocol(ownedIdentity: ObvCryptoIdentity, remoteDeviceUid: UID) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .channelCreationWithOwnedDevice,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = ChannelCreationWithOwnedDeviceProtocol.InitialMessage(coreProtocolMessage: coreMessage, remoteDeviceUid: remoteDeviceUid)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+        }
+        return initialMessageToSend
+        
     }
     
     
@@ -302,7 +175,7 @@ extension ProtocolStarterCoordinator {
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupManagement,
+                                              cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage,
                                                                                        groupInformation: groupInformationWithPhoto.groupInformation)
@@ -315,15 +188,15 @@ extension ProtocolStarterCoordinator {
         
     }
     
-
+    
     
     func getInitiateGroupCreationMessageForGroupManagementProtocol(groupCoreDetails: ObvGroupCoreDetails, photoURL: URL?, pendingGroupMembers: Set<CryptoIdentityWithCoreDetails>, ownedIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
-
+        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         guard let contextCreator = delegateManager.contextCreator else { throw makeError(message: "The context creator is not set") }
         guard let identityDelegate = delegateManager.identityDelegate else { throw makeError(message: "The identity delegate is not set") }
-
+        
         let randomFlowId = FlowIdentifier()
         try contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: randomFlowId) { (obvContext) in
             for member in pendingGroupMembers {
@@ -337,14 +210,14 @@ extension ProtocolStarterCoordinator {
                 }
             }
         }
-
+        
         let groupDetailsElements = GroupDetailsElements(version: 0, coreDetails: groupCoreDetails, photoServerKeyAndLabel: nil)
         let groupUid = UID.gen(with: prng)
         let groupInformationWithPhoto = try GroupInformationWithPhoto(groupOwnerIdentity: ownedIdentity, groupUid: groupUid, groupDetailsElements: groupDetailsElements, photoURL: photoURL)
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupManagement,
+                                              cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.InitiateGroupCreationMessage(coreProtocolMessage: coreMessage,
                                                                                   groupInformationWithPhoto: groupInformationWithPhoto,
@@ -357,29 +230,65 @@ extension ProtocolStarterCoordinator {
     }
     
     
-    func getAddGroupMembersMessageForAddingMembersToContactGroupOwnedUsingGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, newGroupMembers: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
+    func getDisbandGroupMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         guard let identityDelegate = delegateManager.identityDelegate else {
             assertionFailure()
             os_log("The identity delegate is not set", log: log, type: .fault)
             throw Self.makeError(message: "The identity delegate is not set")
         }
-
+        
         guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext) else {
             throw Self.makeError(message: "Could not get group owned structure")
         }
-
+        
         guard groupStructure.groupType == .owned else {
             throw Self.makeError(message: "The group type is not owned")
         }
-
+        
         let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext)
-
+        
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupManagement,
+                                              cryptoProtocolId: .groupManagement,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = GroupManagementProtocol.DisbandGroupMessage(coreProtocolMessage: coreMessage,
+                                                                         groupInformation: groupInformationWithPhoto.groupInformation)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            assertionFailure()
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw Self.makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+        
+    }
+    
+    
+    func getAddGroupMembersMessageForAddingMembersToContactGroupOwnedUsingGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, newGroupMembers: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        
+        guard let identityDelegate = delegateManager.identityDelegate else {
+            assertionFailure()
+            os_log("The identity delegate is not set", log: log, type: .fault)
+            throw Self.makeError(message: "The identity delegate is not set")
+        }
+        
+        guard let groupStructure = try identityDelegate.getGroupOwnedStructure(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext) else {
+            throw Self.makeError(message: "Could not get group owned structure")
+        }
+        
+        guard groupStructure.groupType == .owned else {
+            throw Self.makeError(message: "The group type is not owned")
+        }
+        
+        let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext)
+        
+        let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.AddGroupMembersMessage(coreProtocolMessage: coreMessage,
                                                                             groupInformation: groupInformationWithPhoto.groupInformation,
@@ -397,7 +306,7 @@ extension ProtocolStarterCoordinator {
     func getRemoveGroupMembersMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, removedGroupMembers: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let initialMessage = try getRemoveGroupMembersMessageForStartingGroupManagementProtocol(
             groupUid: groupUid,
             ownedIdentity: ownedIdentity,
@@ -410,7 +319,7 @@ extension ProtocolStarterCoordinator {
             throw Self.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
     
     
@@ -438,18 +347,18 @@ extension ProtocolStarterCoordinator {
         if simulateReceivedMessage {
             coreMessage = CoreProtocolMessage.getLocalCoreProtocolMessageForSimulatingReceivedMessage(
                 ownedIdentity: ownedIdentity,
-                cryptoProtocolId: .GroupManagement,
+                cryptoProtocolId: .groupManagement,
                 protocolInstanceUid: protocolInstanceUid)
         } else {
             coreMessage = CoreProtocolMessage(
                 channelType: .Local(ownedIdentity: ownedIdentity),
-                cryptoProtocolId: .GroupManagement,
+                cryptoProtocolId: .groupManagement,
                 protocolInstanceUid: protocolInstanceUid)
         }
         let initialMessage = GroupManagementProtocol.RemoveGroupMembersMessage(coreProtocolMessage: coreMessage,
                                                                                groupInformation: groupInformationWithPhoto.groupInformation,
                                                                                removedGroupMembers: removedGroupMembers)
-
+        
         return initialMessage
         
     }
@@ -461,7 +370,7 @@ extension ProtocolStarterCoordinator {
         
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .IdentityDetailsPublication,
+                                              cryptoProtocolId: .identityDetailsPublication,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = IdentityDetailsPublicationProtocol.InitialMessage(coreProtocolMessage: coreMessage, version: publishedIdentityDetailsVersion)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -469,22 +378,22 @@ extension ProtocolStarterCoordinator {
             throw makeError(message: "Could create generic protocol message to send for starting an IdentityDetailsPublicationProtocol")
         }
         return initialMessageToSend
-
+        
     }
     
-
+    
     func getLeaveGroupJoinedMessageForGroupManagementProtocol(ownedIdentity: ObvCryptoIdentity, groupUid: UID, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let initialMessage = try getLeaveGroupJoinedMessageForStartingGroupManagementProtocol(ownedIdentity: ownedIdentity, groupUid: groupUid, groupOwner: groupOwner, simulateReceivedMessage: false, within: obvContext)
-
+        
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw Self.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
     
     
@@ -515,46 +424,29 @@ extension ProtocolStarterCoordinator {
         if simulateReceivedMessage {
             coreMessage = CoreProtocolMessage.getLocalCoreProtocolMessageForSimulatingReceivedMessage(
                 ownedIdentity: ownedIdentity,
-                cryptoProtocolId: .GroupManagement,
+                cryptoProtocolId: .groupManagement,
                 protocolInstanceUid: protocolInstanceUid)
         } else {
             coreMessage = CoreProtocolMessage(
                 channelType: .Local(ownedIdentity: ownedIdentity),
-                cryptoProtocolId: .GroupManagement,
+                cryptoProtocolId: .groupManagement,
                 protocolInstanceUid: protocolInstanceUid)
         }
         let initialMessage = GroupManagementProtocol.LeaveGroupJoinedMessage(coreProtocolMessage: coreMessage,
                                                                              groupInformation: groupInformationWithPhoto.groupInformation)
         
         return initialMessage
-
+        
     }
     
-    
-    func getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-        
-        let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .ContactManagement,
-                                              protocolInstanceUid: protocolInstanceUid)
-        let initialMessage = ContactManagementProtocol.InitiateContactDeletionMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentityToDelete)
-        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-            os_log("Could create generic protocol message to send", log: log, type: .fault)
-            throw Self.makeError(message: "Could create generic protocol message to send")
-        }
-        return initialMessageToSend
-
-    }
-
     func getInitiateAddKeycloakContactMessageForKeycloakContactAdditionProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToAdd: ObvCryptoIdentity, signedContactDetails: String) throws -> ObvChannelProtocolMessageToSend {
-
+        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .KeycloakContactAddition,
+                                              cryptoProtocolId: .keycloakContactAddition,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = KeycloakContactAdditionProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentityToAdd, signedContactDetails: signedContactDetails)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -562,9 +454,9 @@ extension ProtocolStarterCoordinator {
             throw Self.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
-
+    
     
     func getInitiateGroupMembersQueryMessageForGroupManagementProtocol(groupUid: UID, ownedIdentity: ObvCryptoIdentity, groupOwner: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvChannelProtocolMessageToSend {
         
@@ -580,7 +472,7 @@ extension ProtocolStarterCoordinator {
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupManagement,
+                                              cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.InitiateGroupMembersQueryMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -600,12 +492,12 @@ extension ProtocolStarterCoordinator {
             os_log("The identity delegate is not set", log: log, type: .fault)
             throw ProtocolStarterCoordinator.makeError(message: "The identity delegate is not set")
         }
-
+        
         let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext)
-
+        
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupManagement,
+                                              cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.TriggerReinviteMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation, memberIdentity: memberIdentity)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -613,34 +505,34 @@ extension ProtocolStarterCoordinator {
             throw ProtocolStarterCoordinator.makeError(message: "Could not generate ObvChannelProtocolMessageToSend instance for a TriggerReinviteAndUpdateMembersMessage")
         }
         return initialMessageToSend
-
+        
     }
     
-    func getInitialMessageForDeviceDiscoveryForContactIdentityProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+    func getInitialMessageForContactDeviceDiscoveryProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .DeviceDiscoveryForContactIdentity,
+                                              cryptoProtocolId: .contactDeviceDiscovery,
                                               protocolInstanceUid: protocolInstanceUid)
-        let initialMessage = DeviceDiscoveryForContactIdentityProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
+        let initialMessage = ContactDeviceDiscoveryProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw ProtocolStarterCoordinator.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
-
+    
     func getInitialMessageForDownloadIdentityPhotoChildProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactIdentityDetailsElements: IdentityDetailsElements) throws -> ObvChannelProtocolMessageToSend {
-
+        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                               cryptoProtocolId: .DownloadIdentityPhoto,
-                                               protocolInstanceUid: protocolInstanceUid)
+                                              cryptoProtocolId: .downloadIdentityPhoto,
+                                              protocolInstanceUid: protocolInstanceUid)
         let initialMessage = DownloadIdentityPhotoChildProtocol.InitialMessage(
             coreProtocolMessage: coreMessage,
             contactIdentity: contactIdentity,
@@ -651,14 +543,14 @@ extension ProtocolStarterCoordinator {
         }
         return initialMessageToSend
     }
-
+    
     func getInitialMessageForDownloadGroupPhotoChildProtocol(ownedIdentity: ObvCryptoIdentity, groupInformation: GroupInformation) throws -> ObvChannelProtocolMessageToSend {
-
+        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .DownloadGroupPhoto,
+                                              cryptoProtocolId: .downloadGroupPhoto,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = DownloadGroupPhotoChildProtocol.InitialMessage.init(coreProtocolMessage: coreMessage, groupInformation: groupInformation)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -670,10 +562,10 @@ extension ProtocolStarterCoordinator {
     
     func getInitialMessageForTrustEstablishmentWithMutualScanProtocol(ownedIdentity: ObvCryptoIdentity, remoteIdentity: ObvCryptoIdentity, signature: Data) throws -> ObvChannelProtocolMessageToSend {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .TrustEstablishmentWithMutualScan,
+                                              cryptoProtocolId: .trustEstablishmentWithMutualScan,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = TrustEstablishmentWithMutualScanProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: remoteIdentity, signature: signature)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -687,10 +579,10 @@ extension ProtocolStarterCoordinator {
     func getInitialMessageForAddingOwnCapabilities(ownedIdentity: ObvCryptoIdentity, newOwnCapabilities: Set<ObvCapability>) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .ContactCapabilitiesDiscovery,
+                                              cryptoProtocolId: .contactCapabilitiesDiscovery,
                                               protocolInstanceUid: protocolInstanceUid)
         let message = DeviceCapabilitiesDiscoveryProtocol.InitialForAddingOwnCapabilitiesMessage(
             coreProtocolMessage: coreMessage,
@@ -705,12 +597,12 @@ extension ProtocolStarterCoordinator {
     
     
     func getInitialMessageForOneToOneContactInvitationProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
-
+        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .OneToOneContactInvitation,
+                                              cryptoProtocolId: .oneToOneContactInvitation,
                                               protocolInstanceUid: protocolInstanceUid)
         let message = OneToOneContactInvitationProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
         guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -719,36 +611,17 @@ extension ProtocolStarterCoordinator {
             throw ProtocolStarterCoordinator.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-    
+        
     }
     
-    
-    func getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
-
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
-        let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .ContactManagement,
-                                              protocolInstanceUid: protocolInstanceUid)
-        let message = ContactManagementProtocol.InitiateContactDowngradeMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
-        guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
-            os_log("Could create generic protocol message to send", log: log, type: .fault)
-            assertionFailure()
-            throw ProtocolStarterCoordinator.makeError(message: "Could create generic protocol message to send")
-        }
-        return initialMessageToSend
-    
-    }
-
     
     func getInitialMessageForOneStatusSyncRequest(ownedIdentity: ObvCryptoIdentity, contactsToSync: Set<ObvCryptoIdentity>) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .OneToOneContactInvitation,
+                                              cryptoProtocolId: .oneToOneContactInvitation,
                                               protocolInstanceUid: protocolInstanceUid)
         let message = OneToOneContactInvitationProtocol.InitialOneToOneStatusSyncRequestMessage(coreProtocolMessage: coreMessage, contactsToSync: contactsToSync)
         guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -757,18 +630,18 @@ extension ProtocolStarterCoordinator {
             throw ProtocolStarterCoordinator.makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
     
     // MARK: - Groups V2
     
     func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
-
+        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupV2,
+                                              cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateGroupCreationMessage(coreProtocolMessage: coreMessage,
                                                                           ownRawPermissions: ownRawPermissions,
@@ -781,15 +654,15 @@ extension ProtocolStarterCoordinator {
         }
         return initialMessageToSend
     }
-
+    
     
     func getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
-
+        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupV2,
+                                              cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateGroupUpdateMessage(coreProtocolMessage: coreMessage,
                                                                         groupIdentifier: groupIdentifier,
@@ -800,10 +673,30 @@ extension ProtocolStarterCoordinator {
         }
         return initialMessageToSend
     }
-
+    
+    
+    func getInitialMessageForDownloadGroupV2PhotoProtocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .downloadGroupV2Photo,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = DownloadGroupV2PhotoProtocol.InitialMessage(
+            coreProtocolMessage: coreMessage,
+            groupIdentifier: groupIdentifier,
+            serverPhotoInfo: serverPhotoInfo)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+    }
+    
     
     func getInitiateGroupLeaveMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
-
+        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let initialMessage = try getInitiateGroupLeaveMessageForStartingGroupV2Protocol(
@@ -828,18 +721,18 @@ extension ProtocolStarterCoordinator {
         if simulateReceivedMessage {
             coreMessage = CoreProtocolMessage.getLocalCoreProtocolMessageForSimulatingReceivedMessage(
                 ownedIdentity: ownedIdentity,
-                cryptoProtocolId: .GroupV2,
+                cryptoProtocolId: .groupV2,
                 protocolInstanceUid: protocolInstanceUid)
         } else {
             coreMessage = CoreProtocolMessage(
                 channelType: .Local(ownedIdentity: ownedIdentity),
-                cryptoProtocolId: .GroupV2,
+                cryptoProtocolId: .groupV2,
                 protocolInstanceUid: protocolInstanceUid)
         }
         
         let initialMessage = GroupV2Protocol.InitiateGroupLeaveMessage(coreProtocolMessage: coreMessage,
                                                                        groupIdentifier: groupIdentifier)
-
+        
         return initialMessage
         
     }
@@ -851,7 +744,7 @@ extension ProtocolStarterCoordinator {
         
         let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupV2,
+                                              cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateGroupReDownloadMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -859,14 +752,14 @@ extension ProtocolStarterCoordinator {
             throw makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
-
+    
     
     func getInitiateInitiateGroupDisbandMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let initialMessage = try getInitiateInitiateGroupDisbandMessageForStartingGroupV2Protocol(
             ownedIdentity: ownedIdentity,
             groupIdentifier: groupIdentifier,
@@ -877,9 +770,9 @@ extension ProtocolStarterCoordinator {
             throw makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
-
+    
     
     func getInitiateInitiateGroupDisbandMessageForStartingGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, simulateReceivedMessage: Bool, flowId: FlowIdentifier) throws -> GroupV2Protocol.InitiateGroupDisbandMessage {
         
@@ -888,50 +781,50 @@ extension ProtocolStarterCoordinator {
         if simulateReceivedMessage {
             coreMessage = CoreProtocolMessage.getLocalCoreProtocolMessageForSimulatingReceivedMessage(
                 ownedIdentity: ownedIdentity,
-                cryptoProtocolId: .GroupV2,
+                cryptoProtocolId: .groupV2,
                 protocolInstanceUid: protocolInstanceUid)
         } else {
             coreMessage = CoreProtocolMessage(
                 channelType: .Local(ownedIdentity: ownedIdentity),
-                cryptoProtocolId: .GroupV2,
+                cryptoProtocolId: .groupV2,
                 protocolInstanceUid: protocolInstanceUid)
         }
         let initialMessage = GroupV2Protocol.InitiateGroupDisbandMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier)
-
+        
         return initialMessage
         
     }
-
     
-    func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+    
+    func getInitiateBatchKeysResendMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, remoteIdentity: ObvCryptoIdentity, remoteDeviceUID: UID, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         // Even if we are dealing with a step of the GroupV2 protocol, we do not need a specific protocol instance UID (since this would make no sense in that specific case)
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupV2,
+                                              cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
-        let initialMessage = GroupV2Protocol.InitiateBatchKeysResendMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity, contactDeviceUID: contactDeviceUID)
+        let initialMessage = GroupV2Protocol.InitiateBatchKeysResendMessage(coreProtocolMessage: coreMessage, remoteIdentity: remoteIdentity, remoteDeviceUID: remoteDeviceUID)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
     
-
+    
     // MARK: - Keycloak pushed groups
-
+    
     func getInitiateUpdateKeycloakGroupsMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, signedGroupBlobs: Set<String>, signedGroupDeletions: Set<String>, signedGroupKicks: Set<String>, keycloakCurrentTimestamp: Date, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         // Even if we are dealing with a step of the GroupV2 protocol, we do not need a specific protocol instance UID (since this would make no sense in that specific case)
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupV2,
+                                              cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateUpdateKeycloakGroupsMessage(coreProtocolMessage: coreMessage,
                                                                                  signedGroupBlobs: signedGroupBlobs,
@@ -944,17 +837,17 @@ extension ProtocolStarterCoordinator {
             throw makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
-
+    
     
     func getInitiateTargetedPingMessageForKeycloakGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, pendingMemberIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                              cryptoProtocolId: .GroupV2,
+                                              cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateTargetedPingMessage(
             coreProtocolMessage: coreMessage,
@@ -965,20 +858,99 @@ extension ProtocolStarterCoordinator {
             throw makeError(message: "Could create generic protocol message to send")
         }
         return initialMessageToSend
-
+        
     }
     
     // MARK: - OwnedIdentity Deletion Protocol
     
-    func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, notifyContacts: Bool, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+    func getInitiateOwnedIdentityDeletionMessage(ownedCryptoIdentityToDelete: ObvCryptoIdentity, globalOwnedIdentityDeletion: Bool) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-
+        
         let protocolInstanceUid = UID.gen(with: prng)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentityToDelete),
                                               cryptoProtocolId: .ownedIdentityDeletionProtocol,
                                               protocolInstanceUid: protocolInstanceUid)
-        let initialMessage = OwnedIdentityDeletionProtocol.InitiateOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage, ownedCryptoIdentityToDelete: ownedCryptoIdentityToDelete, notifyContacts: notifyContacts)
+        let initialMessage = OwnedIdentityDeletionProtocol.InitiateOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+        
+    }
+    
+    
+    // MARK: Contact Device Management protocol
+    
+    func getInitiateContactDeletionMessageForContactManagementProtocol(ownedIdentity: ObvCryptoIdentity, contactIdentityToDelete: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .contactManagement,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = ContactManagementProtocol.InitiateContactDeletionMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentityToDelete)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw Self.makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+        
+    }
+
+    
+    func getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                                              cryptoProtocolId: .contactManagement,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let message = ContactManagementProtocol.InitiateContactDowngradeMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
+        guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            assertionFailure()
+            throw ProtocolStarterCoordinator.makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+        
+    }
+    
+    
+
+    // MARK: - Owned device protocols
+    
+    func getInitiateOwnedDeviceDiscoveryMessage(ownedCryptoIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+                                              cryptoProtocolId: .ownedDeviceDiscovery,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = OwnedDeviceDiscoveryProtocol.InitiateOwnedDeviceDiscoveryMessage(coreProtocolMessage: coreMessage)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+    }
+    
+    
+    func getInitiateOwnedDeviceManagementMessage(ownedCryptoIdentity: ObvCryptoIdentity, request: ObvOwnedDeviceManagementRequest) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+                                              cryptoProtocolId: .ownedDeviceManagement,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = OwnedDeviceManagementProtocol.InitiateOwnedDeviceManagementMessage(
+            coreProtocolMessage: coreMessage,
+            request: request)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw makeError(message: "Could create generic protocol message to send")
@@ -987,5 +959,380 @@ extension ProtocolStarterCoordinator {
 
     }
     
+    
+    
+    // MARK: - Owned identity transfer protocol
+    
+    private func postAbortMessageForOwnedIdentityTransferProtocol(ownedCryptoIdentity: ObvCryptoIdentity, protocolInstanceUID: UID) {
+        Task {
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+            let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+                                                  cryptoProtocolId: .ownedIdentityTransfer,
+                                                  protocolInstanceUid: protocolInstanceUID)
+            let initialMessage = OwnedIdentityTransferProtocol.AbortProtocolMessage(coreProtocolMessage: coreMessage)
+            guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                assertionFailure()
+                os_log("Could create generic protocol message to send", log: log, type: .fault)
+                return
+            }
+            try? await postChannelMessage(initialMessageToSend, flowId: FlowIdentifier())
+        }
+    }
+
+    
+    func cancelAllOwnedIdentityTransferProtocols(flowId: FlowIdentifier) async throws {
+        guard let contextCreator = delegateManager.contextCreator else { throw ObvError.theContextCreatorIsNil }
+        let identitiesAndUIDs = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[(ownedCryptoIdentity: ObvCryptoIdentity, protocolInstanceUID: UID)], Error>) in
+            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let infos = try ProtocolInstance.getAllPrimaryKeysOfOwnedIdentityTransferProtocolInstances(within: obvContext)
+                    continuation.resume(returning: infos)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+        identitiesAndUIDs.forEach { (ownedCryptoIdentity, protocolInstanceUID) in
+            postAbortMessageForOwnedIdentityTransferProtocol(ownedCryptoIdentity: ownedCryptoIdentity, protocolInstanceUID: protocolInstanceUID)
+        }
+    }
+    
+    
+    func initiateOwnedIdentityTransferProtocolOnSourceDevice(ownedCryptoIdentity: ObvCryptoIdentity, onAvailableSessionNumber: @escaping (ObvOwnedIdentityTransferSessionNumber) -> Void, onAvailableSASExpectedOnInput: @escaping (ObvOwnedIdentityTransferSas, String, UID) -> Void, flowId: FlowIdentifier) async throws {
         
+        guard let notificationDelegate = delegateManager.notificationDelegate else { throw ObvError.theNotificationDelegateIsNil }
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        
+        // Create the InitiateTransferOnSourceDeviceMessage that will allow to start the ownedIdentityTransfer protocol
+        
+        let protocolInstanceUID = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+                                              cryptoProtocolId: .ownedIdentityTransfer,
+                                              protocolInstanceUid: protocolInstanceUID)
+        let message = OwnedIdentityTransferProtocol.InitiateTransferOnSourceDeviceMessage(coreProtocolMessage: coreMessage)
+        guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        
+        
+        var localTokens = [NSObjectProtocol]()
+        
+        // Before starting the protocol: observe the notification sent by this protocol when the session number is available.
+        // This typically takes longer than the "cancel block", since getting this session number requires a network call to the transfer server.
+        // Uppon receiving this notification, we pass the session number back to the app using the `onAvailableSessionNumber` callback.
+        
+        do {
+            var token: NSObjectProtocol?
+            token = notificationDelegate.addObserverOfOwnedIdentityTransferProtocolNotification(.sourceDisplaySessionNumber { payload in
+                // Make sure the received notification concerns the protocol we launched here.
+                guard payload.protocolInstanceUID == protocolInstanceUID else { return }
+                let sessionNumber = payload.sessionNumber
+                // Remove the observer, since we do not expect to be notified again
+                notificationDelegate.removeObserver(token!)
+                // Transfer the session number back to the app
+                onAvailableSessionNumber(sessionNumber)
+            })
+            localTokens.append(token!)
+        }
+        
+        // Before starting the protocol: observe the notification sent by this protocol when the SAS that we expect the user to enter on
+        // this source device is available.
+        
+        do {
+            var token: NSObjectProtocol?
+            token = notificationDelegate.addObserverOfOwnedIdentityTransferProtocolNotification(.waitingForSASOnSourceDevice { payload in
+                // Make sure the received notification concerns the protocol we launched here.
+                guard payload.protocolInstanceUID == protocolInstanceUID else { return }
+                // Remove the observer, since we do not expect to be notified again
+                notificationDelegate.removeObserver(token!)
+                // Transfer the sas to the app
+                onAvailableSASExpectedOnInput(payload.sasExpectedOnInput, payload.targetDeviceName, payload.protocolInstanceUID)
+            })
+            localTokens.append(token!)
+        }
+
+        
+        // Now that we observe the two important notifications allowing to call the two callbacks that we received in parameters,
+        // we can post the protocol message that will start the ownedIdentityTransfer protocol in this source device.
+        
+        do {
+            try await postChannelMessage(initialMessageToSend, flowId: flowId)
+            notificationCenterTokens.append(contentsOf: localTokens)
+        } catch {
+            localTokens.forEach { token in
+                notificationDelegate.removeObserver(token)
+            }
+            throw error
+        }
+        
+    }
+
+    
+    func initiateOwnedIdentityTransferProtocolOnTargetDevice(currentDeviceName: String, transferSessionNumber: ObvOwnedIdentityTransferSessionNumber, onIncorrectTransferSessionNumber: @escaping () -> Void, onAvailableSas: @escaping (UID, ObvOwnedIdentityTransferSas) -> Void, flowId: FlowIdentifier) async throws {
+        
+        guard let notificationDelegate = delegateManager.notificationDelegate else { throw ObvError.theNotificationDelegateIsNil }
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+
+        // We generate an ephemeral identity valid during the owned identity transfer protocol only
+        
+        let authEmplemByteId = ObvCryptoSuite.sharedInstance.getDefaultAuthenticationImplementationByteId()
+        let pkEncryptionImplemByteId = ObvCryptoSuite.sharedInstance.getDefaultPublicKeyEncryptionImplementationByteId()
+
+        let ephemeralOwnedIdentity = ObvOwnedCryptoIdentity.gen(withServerURL: ObvConstants.ephemeralIdentityServerURL,
+                                                                forAuthenticationImplementationId: authEmplemByteId,
+                                                                andPublicKeyEncryptionImplementationByteId: pkEncryptionImplemByteId,
+                                                                using: prng)
+        
+        // Create the InitiateTransferOnTargetDeviceMessage that will allow to start the ownedIdentityTransfer protocol
+        
+        let protocolInstanceUID = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ephemeralOwnedIdentity.getObvCryptoIdentity()),
+                                              cryptoProtocolId: .ownedIdentityTransfer,
+                                              protocolInstanceUid: protocolInstanceUID)
+        // Note we don't need the ephemeral identity's privateKeyForAuthentication
+        let message = OwnedIdentityTransferProtocol.InitiateTransferOnTargetDeviceMessage(
+            coreProtocolMessage: coreMessage,
+            currentDeviceName: currentDeviceName,
+            transferSessionNumber: transferSessionNumber,
+            encryptionPrivateKey: ephemeralOwnedIdentity.privateKeyForPublicKeyEncryption,
+            macKey: ephemeralOwnedIdentity.secretMACKey)
+        guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+
+        var localTokens = [NSObjectProtocol]()
+
+        // Before starting the protocol: observe the notification sent by this protocol when the transfer session number entered by the user is incorrect.
+        
+        do {
+            var token: NSObjectProtocol?
+            token = notificationDelegate.addObserverOfOwnedIdentityTransferProtocolNotification(.userEnteredIncorrectTransferSessionNumber(payload: { payload in
+                // Make sure the received notification concerns the protocol we launched here.
+                guard payload.protocolInstanceUID == protocolInstanceUID else { return }
+                // Remove all the observers added here, since we do not expect to be notified again
+                localTokens.forEach { notificationDelegate.removeObserver($0) }
+                // Transfer the information to the app
+                onIncorrectTransferSessionNumber()
+            }))
+            localTokens.append(token!)
+        }
+
+        // Before starting the protocol: observe the notification sent by this protocol when the SAS is available and can be shown on this target device
+        
+        do {
+            var token: NSObjectProtocol?
+            token = notificationDelegate.addObserverOfOwnedIdentityTransferProtocolNotification(.sasIsAvailable(payload: { payload in
+                // Make sure the received notification concerns the protocol we launched here.
+                guard payload.protocolInstanceUID == protocolInstanceUID else { return }
+                // Remove all the observers added here, since we do not expect to be notified again
+                localTokens.forEach { notificationDelegate.removeObserver($0) }
+                // Transfer the information to the app
+                onAvailableSas(protocolInstanceUID, payload.sas)
+            }))
+            localTokens.append(token!)
+        }
+        
+        // Post the protocol message
+        
+        do {
+            try await postChannelMessage(initialMessageToSend, flowId: flowId)
+            notificationCenterTokens.append(contentsOf: localTokens)
+        } catch {
+            localTokens.forEach { token in
+                notificationDelegate.removeObserver(token)
+            }
+            throw error
+        }
+
+    }
+    
+    
+    /// Called by the app during an owned identity transfer protocol on the target device, when the SAS is shown. The app calls this method to get notified of the various events occuring during the protocol finalisation,
+    /// like when the snapshot sent by the source device is received on this target device, or when the processing of this snapshot did end.
+    /// - Parameters:
+    ///   - protocolInstanceUID: The identifier of the currently running owned identity transfer protocol.
+    ///   - onSyncSnapshotReception: The block to call when the snapshot sent by the source device is received on this target device.
+    func appIsShowingSasAndExpectingEndOfProtocol(protocolInstanceUID: UID, onSyncSnapshotReception: @escaping () -> Void, onSuccessfulTransfer: @escaping (ObvCryptoId, Error?) -> Void) async {
+     
+        guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); return }
+
+        var localTokens = [NSObjectProtocol]()
+
+        do {
+            var token: NSObjectProtocol?
+            token = notificationDelegate.addObserverOfOwnedIdentityTransferProtocolNotification(.processingReceivedSnapshotOntargetDevice { payload in
+                // Make sure the received notification concerns the protocol we launched here.
+                guard payload.protocolInstanceUID == protocolInstanceUID else { return }
+                // Transfer the information to the app
+                onSyncSnapshotReception()
+            })
+            localTokens.append(token!)
+        }
+
+        do {
+            var token: NSObjectProtocol?
+            token = notificationDelegate.addObserverOfOwnedIdentityTransferProtocolNotification(.successfulTransferOnTargetDevice { payload in
+                // Make sure the received notification concerns the protocol we launched here.
+                guard payload.protocolInstanceUID == protocolInstanceUID else { return }
+                // Remove all the observers added here, since we do not expect to be notified again
+                localTokens.forEach { notificationDelegate.removeObserver($0) }
+                // Transfer the information to the app
+                onSuccessfulTransfer(payload.transferredOwnedCryptoId, payload.postTransferError)
+            })
+            localTokens.append(token!)
+        }
+
+        notificationCenterTokens.append(contentsOf: localTokens)
+
+    }
+    
+    
+    func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID) async throws {
+  
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoId.cryptoIdentity),
+                                              cryptoProtocolId: .ownedIdentityTransfer,
+                                              protocolInstanceUid: protocolInstanceUID)
+        let message = OwnedIdentityTransferProtocol.SourceSASInputMessage(coreProtocolMessage: coreMessage, enteredSAS: enteredSAS, deviceUIDToKeepActive: deviceToKeepActive)
+        guard let initialMessageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+
+        try await postChannelMessage(initialMessageToSend, flowId: FlowIdentifier())
+        
+    }
+    
+
+
+    // MARK: - Keycloak binding and unbinding
+    
+    func getOwnedIdentityKeycloakBindingMessage(ownedCryptoIdentity: ObvCryptoIdentity, keycloakState: ObvKeycloakState, keycloakUserId: String) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+                                              cryptoProtocolId: .keycloakBindingAndUnbinding,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = KeycloakBindingAndUnbindingProtocol.OwnedIdentityKeycloakBindingMessage(
+            coreProtocolMessage: coreMessage,
+            keycloakState: keycloakState,
+            keycloakUserId: keycloakUserId)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+        
+    }
+
+    
+    func getOwnedIdentityKeycloakUnbindingMessage(ownedCryptoIdentity: ObvCryptoIdentity) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+                                              cryptoProtocolId: .keycloakBindingAndUnbinding,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = KeycloakBindingAndUnbindingProtocol.OwnedIdentityKeycloakUnbindingMessage(coreProtocolMessage: coreMessage)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+        
+    }
+    
+    
+    // MARK: - SynchronizationProtocol
+    
+    func getInitiateSyncAtomMessageForSynchronizationProtocol(ownedCryptoIdentity: ObvCryptoIdentity, syncAtom: ObvSyncAtom) throws -> ObvChannelProtocolMessageToSend {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        let protocolInstanceUid = UID.gen(with: prng)
+        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+                                              cryptoProtocolId: .synchronization,
+                                              protocolInstanceUid: protocolInstanceUid)
+        let initialMessage = SynchronizationProtocol.InitiateSyncAtomMessage(coreProtocolMessage: coreMessage, syncAtom: syncAtom)
+        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+            os_log("Could create generic protocol message to send", log: log, type: .fault)
+            throw makeError(message: "Could create generic protocol message to send")
+        }
+        return initialMessageToSend
+
+    }
+    
+    
+//    func getTriggerSyncSnapshotMessageForSynchronizationProtocol(ownedCryptoIdentity: ObvCryptoIdentity, currentDeviceUid: UID, otherOwnedDeviceUid: UID, forceSendSnapshot: Bool) throws -> ObvChannelProtocolMessageToSend {
+//
+//        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+//        let protocolInstanceUid = try SynchronizationProtocol.computeOngoingProtocolInstanceUid(ownedCryptoId: ownedCryptoIdentity, currentDeviceUid: currentDeviceUid, otherOwnedDeviceUid: otherOwnedDeviceUid)
+//        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+//                                              cryptoProtocolId: .synchronization,
+//                                              protocolInstanceUid: protocolInstanceUid)
+//        let initialMessage = SynchronizationProtocol.TriggerSyncSnapshotMessage(coreProtocolMessage: coreMessage, forceSendSnapshot: forceSendSnapshot)
+//        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+//            os_log("Could create generic protocol message to send", log: log, type: .fault)
+//            throw makeError(message: "Could create generic protocol message to send")
+//        }
+//        return initialMessageToSend
+//
+//    }
+    
+    
+//    func getInitiateSyncSnapshotMessageForSynchronizationProtocol(ownedCryptoIdentity: ObvCryptoIdentity, currentDeviceUid: UID, otherOwnedDeviceUid: UID) throws -> ObvChannelProtocolMessageToSend {
+//        
+//        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+//        let protocolInstanceUid = try SynchronizationProtocol.computeOngoingProtocolInstanceUid(ownedCryptoId: ownedCryptoIdentity, currentDeviceUid: currentDeviceUid, otherOwnedDeviceUid: otherOwnedDeviceUid)
+//        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+//                                              cryptoProtocolId: .synchronization,
+//                                              protocolInstanceUid: protocolInstanceUid)
+//        let initialMessage = SynchronizationProtocol.InitiateSyncSnapshotMessage(coreProtocolMessage: coreMessage, otherOwnedDeviceUID: otherOwnedDeviceUid)
+//        guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+//            os_log("Could create generic protocol message to send", log: log, type: .fault)
+//            throw makeError(message: "Could create generic protocol message to send")
+//        }
+//        return initialMessageToSend
+//        
+//    }
+
+    // MARK: - Helpers
+    
+    private func postChannelMessage(_ message: ObvChannelProtocolMessageToSend, flowId: FlowIdentifier) async throws {
+        
+        guard let contextCreator = delegateManager.contextCreator else { throw ObvError.theContextCreatorIsNil }
+        guard let channelDelegate = delegateManager.channelDelegate else { throw ObvError.theChannelDelegateIsNil }
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
+        let prng = self.prng
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+        
+    }
+
+    
+    
+    // MARK: - Errors
+    
+    enum ObvError: Error {
+        case theNotificationDelegateIsNil
+        case theContextCreatorIsNil
+        case theChannelDelegateIsNil
+        case theDelegateManagerIsNil
+    }
+    
 }

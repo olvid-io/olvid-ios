@@ -194,7 +194,7 @@ extension ServerUserDataCoordinator: ServerUserDataDelegate {
                 return
             }
 
-            guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: ownedIdentity) else {
+            guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedIdentity) else {
                 syncQueueOutput = .serverSessionRequired(flowId: flowId)
                 return
             }
@@ -239,7 +239,14 @@ extension ServerUserDataCoordinator: ServerUserDataDelegate {
 
         case .serverSessionRequired:
             /// REMARK we will be called again by NetworkFetchFlowCoordinator#newToken
-            try? delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: ownedIdentity, flowId: flowId)
+            Task.detached { [weak self] in
+                do {
+                    _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedIdentity, currentInvalidToken: nil, flowId: flowId)
+                } catch {
+                    os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
+                    assertionFailure()
+                }
+            }
         case .newTaskToRun(task: let task):
             os_log("New task to run for the label %{public}@", log: log, type: .debug, label)
             task.resume()
@@ -366,7 +373,9 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
         guard error == nil else {
             os_log("The task failed for server user data: %{public}@", log: log, type: .error, error!.localizedDescription)
             _ = removeInfoFor(task)
-            delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+            Task {
+                await delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+            }
             return
         }
 
@@ -376,7 +385,9 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
                 guard let status = ObvServerRefreshUserDataMethod.parseObvServerResponse(responseData: responseData, using: log) else {
                     os_log("Could not parse the server response for the ObvServerRefreshUserDataMethod task of pending server query %{public}@", log: log, type: .fault, input.label)
                     _ = removeInfoFor(task)
-                    delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                    }
                     return
                 }
                 switch status {
@@ -388,7 +399,9 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoFor(task)
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                        }
                         return
                     }
 
@@ -418,8 +431,7 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
                                 dataKey = groupInformationWithPhoto.groupDetailsElementsWithPhoto.photoServerKeyAndLabel?.key
                             case .groupV2(groupIdentifier: let groupIdentifier):
                                 guard let photoURLAndServerPhotoInfo = try identityDelegate.getGroupV2PhotoURLAndServerPhotoInfofOwnedIdentityIsUploader(ownedIdentity: userData.ownedIdentity, groupIdentifier: groupIdentifier, within: obvContext) else {
-                                    assertionFailure()
-                                    throw Self.makeError(message: "Could not get photoURLAndServerPhotoInfo for group v2")
+                                    throw Self.makeError(message: "Could not get photoURLAndServerPhotoInfo for group v2 (the owned identity might not be the uploader)")
                                 }
                                 dataURL = photoURLAndServerPhotoInfo.photoURL
                                 dataKey = photoURLAndServerPhotoInfo.serverPhotoInfo.photoServerKeyAndLabel.key
@@ -437,7 +449,9 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
                                 } catch {
                                     os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                                     _ = removeInfoFor(task)
-                                    delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                                    Task {
+                                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                                    }
                                     return
                                 }
                             }
@@ -450,14 +464,18 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
                 case .generalError:
                     os_log("Server reported general error during the ObvServerRefreshUserDataMethod for label %{public}@ within flow %{public}@", log: log, type: .fault, input.label, flowId.debugDescription)
                     _ = removeInfoFor(task)
-                    delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                    }
                     return
                 }
             case .deleted:
                 guard let status = ObvServerDeleteUserDataMethod.parseObvServerResponse(responseData: responseData, using: log) else {
                     os_log("Could not parse the server response for the ObvServerDeleteUserDataMethod task of pending server query %{public}@", log: log, type: .fault, input.label)
                     _ = removeInfoFor(task)
-                    delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                    }
                     return
                 }
                 switch status {
@@ -469,7 +487,9 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
                     } catch {
                         os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
                         _ = removeInfoFor(task)
-                        delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                        Task {
+                            await delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                        }
                         return
                     }
 
@@ -484,7 +504,9 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
                 case .generalError:
                     os_log("Server reported general error during the ObvServerDeleteUserDataMethod for label %{public}@ within flow %{public}@", log: log, type: .fault, input.label, flowId.debugDescription)
                     _ = removeInfoFor(task)
-                    delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                    Task {
+                        await delegateManager.networkFetchFlowDelegate.failedToProcessServerUserData(input: input, flowId: flowId)
+                    }
                     return
                 }
             }
@@ -495,34 +517,27 @@ extension ServerUserDataCoordinator: URLSessionDataDelegate {
     }
 
     private func createSession(input: ServerUserDataInput, delegateManager: ObvNetworkFetchDelegateManager, task: URLSessionTask, log: OSLog, within obvContext: ObvContext, flowId: FlowIdentifier) {
-        guard let serverSession = try? ServerSession.get(within: obvContext, withIdentity: input.ownedIdentity) else {
+        guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: input.ownedIdentity), let token = serverSession.token else {
             _ = removeInfoFor(task)
-            do {
-                try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: input.ownedIdentity, flowId: flowId)
-            } catch {
-                os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
-                assertionFailure()
-            }
-            return
-        }
-
-        guard let token = serverSession.token else {
-            _ = removeInfoFor(task)
-            do {
-                try delegateManager.networkFetchFlowDelegate.serverSessionRequired(for: input.ownedIdentity, flowId: flowId)
-            } catch {
-                os_log("Call to serverSessionRequired did fail", log: log, type: .fault)
-                assertionFailure()
+            Task.detached { [weak self] in
+                do {
+                    _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: input.ownedIdentity, currentInvalidToken: nil, flowId: flowId)
+                } catch {
+                    os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
+                    assertionFailure()
+                }
             }
             return
         }
 
         _ = removeInfoFor(task)
-        do {
-            try delegateManager.networkFetchFlowDelegate.serverSession(of: input.ownedIdentity, hasInvalidToken: token, flowId: flowId)
-        } catch {
-            os_log("Call to serverSession(of: ObvCryptoIdentity, hasInvalidToken: Data, flowId: FlowIdentifier) did fail", log: log, type: .fault)
-            assertionFailure()
+        Task.detached { [weak self] in
+            do {
+                _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: input.ownedIdentity, currentInvalidToken: token, flowId: flowId)
+            } catch {
+                os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
+                assertionFailure()
+            }
         }
     }
 

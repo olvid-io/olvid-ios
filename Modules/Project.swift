@@ -18,11 +18,12 @@ let obvUICoreData = Target.swiftLibrary(name: "ObvUICoreData",
                                             .Engine.obvEngine,
                                             .target(olvidUtils),
                                             .sdk(name: "UniformTypeIdentifiers", type: .framework, status: .optional),
-                                            .Modules.UI.CircledInitialsView.configuration,
+                                            .Modules.UI.obvCircledInitials,
+                                            .Modules.obvSettings,
+                                            //.Modules.UI.CircledInitialsView.configuration,
                                         ],
                                         resources: [
-                                            "OlvidUI/ObvUICoreData/ObvUICoreData/*.lproj/*.strings",
-                                            "OlvidUI/ObvUICoreData/ObvUICoreData/*.lproj/*.stringsdict",
+                                            "OlvidUI/ObvUICoreData/ObvUICoreData/*.xcstrings",
                                         ])
 
 let obvUI = Target.swiftLibrary(name: "ObvUI",
@@ -35,27 +36,64 @@ let obvUI = Target.swiftLibrary(name: "ObvUI",
                                     .Modules.UI.systemIcon,
                                     .Modules.UI.systemIconSwiftUI,
                                     .Modules.UI.systemIconUIKit,
+                                    .Modules.UI.obvImageEditor,
+                                    .Modules.UI.obvPhotoButton,
                                     .sdk(name: "SwiftUI", type: .framework),
                                     .sdk(name: "UIKit", type: .framework),
                                     .sdk(name: "UniformTypeIdentifiers", type: .framework, status: .optional)
                                 ],
                                 resources: [
-                                    "OlvidUI/ObvUI/ObvUI/*.lproj/*.strings",
-                                    "OlvidUI/ObvUI/ObvUI/ObvUIAssets.xcassets"
+                                    "OlvidUI/ObvUI/ObvUI/*.xcstrings",
                                 ])
 
 
-let coreDataStack = Target.swiftLibrary(name: "CoreDataStack",
-                                        isExtensionSafe: true,
-                                        sources: "CoreDataStack/CoreDataStack/*.swift",
-                                        dependencies: [
-                                            .target(olvidUtils)
-                                        ],
-                                        resources: [])
+let coreDataStack = Target.swiftLibrary(
+    name: "CoreDataStack",
+    isExtensionSafe: true,
+    sources: "CoreDataStack/CoreDataStack/*.swift",
+    dependencies: [
+        .target(olvidUtils)
+    ],
+    resources: [])
 
-let project = Project.createProject(name: "Modules",
-                                    packages: [],
-                                    targets: [obvUICoreData,
-                                              obvUI,
-                                              olvidUtils,
-                                              coreDataStack])
+
+let obvDesignSystem = Target.swiftLibrary(
+    name: "ObvDesignSystem",
+    isExtensionSafe: true,
+    sources: "ObvDesignSystem/**/*.swift",
+    dependencies: [
+        .Engine.obvTypes,
+        .Engine.obvCrypto,
+        .Modules.UI.systemIcon,
+        .Modules.UI.systemIconUIKit,
+    ],
+    resources: [
+        "ObvDesignSystem/ObvDesignSystem/AppTheme/AppThemeAssets.xcassets",
+    ])
+
+
+let obvSettings = Target.swiftLibrary(
+    name: "ObvSettings",
+    isExtensionSafe: true,
+    sources: "ObvSettings/**/*.swift",
+    dependencies: [
+        .Engine.obvTypes,
+        .Modules.obvDesignSystem,
+    ],
+    resources: [
+        "ObvSettings/*.xcstrings",
+    ])
+
+
+let project = Project.createProject(
+    name: "Modules",
+    packages: [],
+    targets: [
+        obvUICoreData,
+        obvUI,
+        olvidUtils,
+        coreDataStack,
+        obvDesignSystem,
+        obvSettings,
+    ],
+    shouldEnableDefaultResourceSynthesizers: true)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,92 +22,149 @@ import CoreData
 import os.log
 import OlvidUtils
 import ObvUICoreData
+import ObvTypes
 
 
-final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperationWithSpecificReasonForCancel<MarkAllMessagesAsNotNewWithinDiscussionOperationReasonForCancel> {
+final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperationWithSpecificReasonForCancel<MarkAllMessagesAsNotNewWithinDiscussionOperation.ReasonForCancel>, OperationProvidingDiscussionReadJSON {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MarkAllMessagesAsNotNewWithinDiscussionOperation.self))
-
-    private let persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>?
-    private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>?
-
-    init(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
-        self.persistedDiscussionObjectID = persistedDiscussionObjectID
-        self.draftPermanentID = nil
+    enum Input {
+        case persistedDiscussionObjectID(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
+        case draftPermanentID(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>)
+        case discussionReadJSON(ownedCryptoId: ObvCryptoId, discussionRead: DiscussionReadJSON)
+    }
+    
+    private let input: Input
+    
+    init(input: Input) {
+        self.input = input
         super.init()
     }
 
-    init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
-        self.persistedDiscussionObjectID = nil
-        self.draftPermanentID = draftPermanentID
-        super.init()
+    private(set) var ownedCryptoId: ObvCryptoId?
+    private(set) var discussionReadJSONToSend: DiscussionReadJSON?
+
+    
+    enum Result {
+        case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
+        case processed
     }
 
-    override func main() {
+    private(set) var result: Result?
 
-        os_log("Executing a MarkAllMessagesAsNotNewWithinDiscussionOperation for discussion %{public}@", log: log, type: .debug, persistedDiscussionObjectID.debugDescription)
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        obvContext.performAndWait {
+        do {
             
+            let ownedCryptoId: ObvCryptoId
+            let discussionId: DiscussionIdentifier
+            let dateWhenMessageTurnedNotNew: Date
+            let untilDate: Date?
+            let requestReceivedFromAnotherOwnedDevice: Bool
+            switch input {
+            case .persistedDiscussionObjectID(persistedDiscussionObjectID: let persistedDiscussionObjectID):
+                (ownedCryptoId, discussionId) = try PersistedObvOwnedIdentity.getDiscussionIdentifiers(from: persistedDiscussionObjectID, within: obvContext.context)
+                dateWhenMessageTurnedNotNew = Date()
+                untilDate = nil
+                requestReceivedFromAnotherOwnedDevice = false
+            case .draftPermanentID(draftPermanentID: let draftPermanentID):
+                (ownedCryptoId, discussionId) = try PersistedObvOwnedIdentity.getDiscussionIdentifiers(from: draftPermanentID, within: obvContext.context)
+                dateWhenMessageTurnedNotNew = Date()
+                untilDate = nil
+                requestReceivedFromAnotherOwnedDevice = false
+            case .discussionReadJSON(ownedCryptoId: let _ownedCryptoId, discussionRead: let discussionRead):
+                ownedCryptoId = _ownedCryptoId
+                dateWhenMessageTurnedNotNew = discussionRead.lastReadMessageServerTimestamp
+                untilDate = discussionRead.lastReadMessageServerTimestamp
+                discussionId = try discussionRead.getDiscussionId(ownedCryptoId: ownedCryptoId)
+                requestReceivedFromAnotherOwnedDevice = true
+            }
+            
+            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindOwnedIdentity)
+            }
+            
+            self.ownedCryptoId = ownedIdentity.cryptoId
+            
+            let lastReadMessageServerTimestamp = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId, untilDate: untilDate, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+
             do {
-                
-                let discussion: PersistedDiscussion
-                if let persistedDiscussionObjectID = self.persistedDiscussionObjectID {
-                    guard let _discussion = try PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: obvContext.context) else {
-                        return cancel(withReason: .couldNotFindDiscussion)
-                    }
-                    discussion = _discussion
-                } else if let draftPermanentID = self.draftPermanentID {
-                    guard let draft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
-                        return cancel(withReason: .couldNotFindDiscussion)
-                    }
-                    discussion = draft.discussion
-                } else {
-                    return cancel(withReason: .couldNotFindDiscussion)
+                let isDiscussionActive = try ownedIdentity.isDiscussionActive(discussionId: discussionId)
+                let shouldSendDiscussionReadJSON = isDiscussionActive && !requestReceivedFromAnotherOwnedDevice
+                if let lastReadMessageServerTimestamp, shouldSendDiscussionReadJSON {
+                    discussionReadJSONToSend = try ownedIdentity.getDiscussionReadJSON(discussionId: discussionId, lastReadMessageServerTimestamp: lastReadMessageServerTimestamp)
                 }
-                
-                try PersistedMessageReceived.markAllAsNotNew(within: discussion)
-                try PersistedMessageSystem.markAllAsNotNew(within: discussion)
             } catch {
+                assertionFailure(error.localizedDescription) // Continue anyway
+            }
+            
+            result = .processed
+            
+        } catch {
+            if let error = error as? ObvUICoreDataError {
+                switch error {
+                case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
+                    result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+                    return
+                case .couldNotFindDiscussionWithId(discussionId: let discussionId):
+                    switch discussionId {
+                    case .groupV2(let id):
+                        switch id {
+                        case .groupV2Identifier(let groupIdentifier):
+                            result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+                            return
+                        case .objectID:
+                            assertionFailure()
+                            return cancel(withReason: .coreDataError(error: error))
+                        }
+                    case .oneToOne, .groupV1:
+                        assertionFailure()
+                        return cancel(withReason: .coreDataError(error: error))
+                    }
+                default:
+                    assertionFailure()
+                    return cancel(withReason: .coreDataError(error: error))
+                }
+            } else {
+                assertionFailure()
                 return cancel(withReason: .coreDataError(error: error))
             }
-
         }
         
     }
-}
-
-
-enum MarkAllMessagesAsNotNewWithinDiscussionOperationReasonForCancel: LocalizedErrorWithLogType {
     
-    case coreDataError(error: Error)
-    case couldNotFindDiscussion
-    case contextIsNil
+    
+    enum ReasonForCancel: LocalizedErrorWithLogType {
+        
+        case coreDataError(error: Error)
+        case couldNotFindDiscussion
+        case contextIsNil
+        case couldNotFindOwnedIdentity
 
-    var logType: OSLogType {
-        switch self {
-        case .coreDataError,
-             .contextIsNil:
-            return .fault
-        case .couldNotFindDiscussion:
-            return .error
+        var logType: OSLogType {
+            switch self {
+            case .coreDataError,
+                    .contextIsNil,
+                    .couldNotFindOwnedIdentity:
+                return .fault
+            case .couldNotFindDiscussion:
+                return .error
+            }
         }
-    }
-    
-    var errorDescription: String? {
-        switch self {
-        case .contextIsNil:
-            return "Context is nil"
-        case .coreDataError(error: let error):
-            return "Core Data error: \(error.localizedDescription)"
-        case .couldNotFindDiscussion:
-            return "Could not find discussion in database"
+        
+        var errorDescription: String? {
+            switch self {
+            case .contextIsNil:
+                return "Context is nil"
+            case .coreDataError(error: let error):
+                return "Core Data error: \(error.localizedDescription)"
+            case .couldNotFindDiscussion:
+                return "Could not find discussion in database"
+            case .couldNotFindOwnedIdentity:
+                return "Could not find owned identity"
+            }
         }
+
     }
 
-    
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,12 +19,27 @@
 
 import Foundation
 
-/// valid: cle unipersonnelle, valide, pas expireee. Elle peut ne pas avoir de date d'expiration.
-/// unknown: the server does not know the key. Access to free features only. C'est aussi ce qui est envoyé pour une clée normalement "free" ou "freeTrial" mais expirée.
-/// licensesExhausted: attribuée a qqun d'autre.
-/// expired: the key is valid, known in DB, unipersonnelle, mais expirée
-/// free: (nombre de licence à -1 sur serveur),  quand c'est free et encore actif. C'est une cle pour beta.
-/// freeTrial: quand c'est freeTrial et encore actif. Technique clé de MAC.
+
+public struct APIKeyElements {
+    
+    public let status: APIKeyStatus
+    public let permissions: APIPermissions
+    public let expirationDate: Date?
+    
+    public init(status: APIKeyStatus, permissions: APIPermissions, expirationDate: Date?) {
+        self.status = status
+        self.permissions = permissions
+        self.expirationDate = expirationDate
+    }
+    
+}
+
+/// `valid`: personal, valid, not expired key. This kind of key cannot have an expiration date.
+/// `unknown`: the server does not know the key. Access to free features only. C'est aussi ce qui est envoyé pour une clée normalement "free" ou "freeTrial" mais expirée.
+/// `licensesExhausted`: attribuée a qqun d'autre.
+/// `expired`: the key is valid, known in DB, unipersonnelle, mais expirée
+/// `free`: (nombre de licence à -1 sur serveur),  quand c'est free et encore actif. C'est une cle pour beta.
+/// `freeTrial`: quand c'est freeTrial et encore actif. Technique clé de MAC.
 public enum APIKeyStatus: Int, CustomStringConvertible {
     
     case valid = 0
@@ -64,16 +79,30 @@ public enum APIKeyStatus: Int, CustomStringConvertible {
 }
 
 
-public struct APIPermissions: OptionSet {
+public struct APIPermissions: OptionSet, CustomStringConvertible {
     
     public let rawValue: Int
     
     public static let canCall = APIPermissions(rawValue: 1 << 0)
-    public static let androidWebClient = APIPermissions(rawValue: 1 << 1)
+    // public static let androidWebClient = APIPermissions(rawValue: 1 << 1)
     public static let multidevice = APIPermissions(rawValue: 1 << 2)
 
     public init(rawValue: Int) {
         assert(rawValue < 8)
         self.rawValue = rawValue
+    }
+    
+    public var description: String {
+        var permissionsAsTring = [String]()
+        if self.contains(.canCall) {
+            permissionsAsTring.append("SecureCalls")
+        }
+//        if self.contains(.androidWebClient) {
+//            permissionsAsTring.append("AndroidWebClient")
+//        }
+        if self.contains(.multidevice) {
+            permissionsAsTring.append("MultiDevice")
+        }
+        return "APIPermissions<\(permissionsAsTring.joined(separator: ","))>"
     }
 }

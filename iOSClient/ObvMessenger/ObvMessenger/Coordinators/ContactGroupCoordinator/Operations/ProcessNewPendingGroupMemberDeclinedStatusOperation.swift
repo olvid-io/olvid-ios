@@ -34,43 +34,35 @@ final class ProcessNewPendingGroupMemberDeclinedStatusOperation: ContextualOpera
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         guard obvContactGroup.groupType == .owned else { assertionFailure(); return }
-
-        obvContext.performAndWait {
+        
+        do {
             
-            do {
-                
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
-                    assertionFailure()
-                    return
-                }
-                
-                let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-                
-                guard let groupOwned = try PersistedContactGroupOwned.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
-                    assertionFailure()
-                    return
-                }
-
-                let declinedMemberIdentites = Set(obvContactGroup.declinedPendingGroupMembers.map { $0.cryptoId })
-                for pendingMember in groupOwned.pendingMembers {
-                    let newDeclined = declinedMemberIdentites.contains(pendingMember.cryptoId)
-                    if pendingMember.declined != newDeclined {
-                        pendingMember.declined = newDeclined
-                    }
-                }
-
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
+                assertionFailure()
+                return
             }
             
+            let groupIdentifier = obvContactGroup.groupIdentifier
+            
+            guard let groupOwned = try PersistedContactGroupOwned.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
+                assertionFailure()
+                return
+            }
+            
+            let declinedMemberIdentites = Set(obvContactGroup.declinedPendingGroupMembers.map { $0.cryptoId })
+            for pendingMember in groupOwned.pendingMembers {
+                let newDeclined = declinedMemberIdentites.contains(pendingMember.cryptoId)
+                if pendingMember.declined != newDeclined {
+                    pendingMember.declined = newDeclined
+                }
+            }
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }

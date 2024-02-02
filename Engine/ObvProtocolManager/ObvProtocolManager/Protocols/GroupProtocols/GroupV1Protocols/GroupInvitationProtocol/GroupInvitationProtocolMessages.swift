@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,22 +29,22 @@ extension GroupInvitationProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
         
-        case Initial = 0
-        case GroupInvitation = 1
-        case DialogAcceptGroupInvitation = 2
-        case InvitationResponse = 3
-        case PropagateInvitationResponse = 4
+        case initial = 0
+        case groupInvitation = 1
+        case dialogAcceptGroupInvitation = 2
+        case invitationResponse = 3
+        case propagateInvitationResponse = 4
         // We remove the TrustLevelIncreased case on 2022-01-27 when implementing the two-level address bool
-        case DialogInformative = 6
+        case dialogInformative = 6
 
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .Initial                     : return InitialMessage.self
-            case .GroupInvitation             : return GroupInvitationMessage.self
-            case .DialogAcceptGroupInvitation : return DialogAcceptGroupInvitationMessage.self
-            case .InvitationResponse          : return InvitationResponseMessage.self
-            case .PropagateInvitationResponse : return PropagateInvitationResponseMessage.self
-            case .DialogInformative           : return DialogInformativeMessage.self
+            case .initial                     : return InitialMessage.self
+            case .groupInvitation             : return GroupInvitationMessage.self
+            case .dialogAcceptGroupInvitation : return DialogAcceptGroupInvitationMessage.self
+            case .invitationResponse          : return InvitationResponseMessage.self
+            case .propagateInvitationResponse : return PropagateInvitationResponseMessage.self
+            case .dialogInformative           : return DialogInformativeMessage.self
             }
         }
     }
@@ -54,7 +54,7 @@ extension GroupInvitationProtocol {
     
     struct InitialMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.Initial
+        let id: ConcreteProtocolMessageId = MessageId.initial
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactIdentity: ObvCryptoIdentity
@@ -94,7 +94,7 @@ extension GroupInvitationProtocol {
     
     struct GroupInvitationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.GroupInvitation
+        let id: ConcreteProtocolMessageId = MessageId.groupInvitation
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupInformation: GroupInformation
@@ -130,7 +130,7 @@ extension GroupInvitationProtocol {
     
     struct DialogAcceptGroupInvitationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.DialogAcceptGroupInvitation
+        let id: ConcreteProtocolMessageId = MessageId.dialogAcceptGroupInvitation
         let coreProtocolMessage: CoreProtocolMessage
         
         let dialogUuid: UUID // Only used when this protocol receives this message
@@ -163,7 +163,7 @@ extension GroupInvitationProtocol {
     
     struct InvitationResponseMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.InvitationResponse
+        let id: ConcreteProtocolMessageId = MessageId.invitationResponse
         let coreProtocolMessage: CoreProtocolMessage
         
         let groupUid: UID
@@ -196,7 +196,7 @@ extension GroupInvitationProtocol {
     
     struct PropagateInvitationResponseMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.PropagateInvitationResponse
+        let id: ConcreteProtocolMessageId = MessageId.propagateInvitationResponse
         let coreProtocolMessage: CoreProtocolMessage
         
         let invitationAccepted: Bool
@@ -225,7 +225,7 @@ extension GroupInvitationProtocol {
     
     struct DialogInformativeMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.DialogInformative
+        let id: ConcreteProtocolMessageId = MessageId.dialogInformative
         let coreProtocolMessage: CoreProtocolMessage
         
         var encodedInputs: [ObvEncoded] { return [] }

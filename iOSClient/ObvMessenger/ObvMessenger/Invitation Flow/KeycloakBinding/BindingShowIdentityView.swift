@@ -22,6 +22,7 @@ import ObvTypes
 import ObvEngine
 import ObvUI
 import ObvUICoreData
+import ObvDesignSystem
 
 
 struct BindingShowIdentityView: View {
@@ -89,9 +90,9 @@ struct BindingShowIdentityInnerView: View {
     @State private var hudCategory: HUDView.Category?
     @State private var switchingToManagedIdFailed = false
 
-    private var circledTextView: Text? {
+    private var circledText: String? {
         if let descriptiveCharacter = self.descriptiveCharacter {
-            return Text(descriptiveCharacter)
+            return descriptiveCharacter
         } else {
             return nil
         }
@@ -108,21 +109,54 @@ struct BindingShowIdentityInnerView: View {
             hudCategory = .progress
         }
         userWantsToBindOwnedIdentityToKeycloak { success in
-            assert(Thread.isMainThread)
-            if success {
-                withAnimation {
-                    hudCategory = .checkmark
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
-                    dismissAction()
-                }
-            } else {
-                withAnimation {
-                    hudCategory = nil
-                    switchingToManagedIdFailed = true
+            DispatchQueue.main.async {
+                if success {
+                    withAnimation {
+                        hudCategory = .checkmark
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) {
+                        dismissAction()
+                    }
+                } else {
+                    withAnimation {
+                        hudCategory = nil
+                        switchingToManagedIdFailed = true
+                    }
                 }
             }
         }
+    }
+    
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: firstName,
+              titlePart2: lastName,
+              subtitle: position,
+              subsubtitle: company)
+    }
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: descriptiveCharacter,
+              icon: .person,
+              profilePicture: profilePicture,
+              showGreenShield: true,
+              showRedShield: false)
+    }
+    
+    private var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: textViewModel,
+              profilePictureViewModelContent: profilePictureViewModelContent)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: circleBackgroundColor,
+              foreground: circleTextColor)
+    }
+    
+    private var circleAndTitlesViewModel: CircleAndTitlesView.Model {
+        .init(content: circleAndTitlesViewModelContent,
+              colors: initialCircleViewModelColors,
+              displayMode: .normal,
+              editionMode: .none)
     }
     
     
@@ -135,20 +169,7 @@ struct BindingShowIdentityInnerView: View {
                     ObvCardView {
                         VStack(spacing: 16) {
                             HStack {
-                                CircleAndTitlesView(
-                                    titlePart1: firstName,
-                                    titlePart2: lastName,
-                                    subtitle: position,
-                                    subsubtitle: company,
-                                    circleBackgroundColor: circleBackgroundColor,
-                                    circleTextColor: circleTextColor,
-                                    circledTextView: circledTextView,
-                                    systemImage: .person,
-                                    profilePicture: profilePicture,
-                                    showGreenShield: true,
-                                    showRedShield: false,
-                                    editionMode: .none,
-                                    displayMode: .normal)
+                                CircleAndTitlesView(model: circleAndTitlesViewModel)
                                 Spacer()
                             }
                             OlvidButton(

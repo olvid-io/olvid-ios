@@ -143,7 +143,7 @@ extension ObvUserActivitySingleton {
             let displayedContactGroupPermanentID = vc.displayedContactGroupPermanentID
             newUserActivity = .displaySingleGroup(ownedCryptoId: ownedCryptoId, displayedContactGroupPermanentID: displayedContactGroupPermanentID)
 
-        case let vc as InvitationsCollectionViewController:
+        case let vc as AllInvitationsViewController:
             let ownedCryptoId = vc.currentOwnedCryptoId
             newUserActivity = .displayInvitations(ownedCryptoId: ownedCryptoId)
             

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,35 +31,40 @@ extension ContactManagementProtocol {
     
     enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
-        case DeleteContact = 0
-        case ProcessContactDeletionNotification = 1
-        case ProcessPropagatedContactDeletion = 2
+        case deleteContact = 0
+        case processContactDeletionNotification = 1
+        case processPropagatedContactDeletion = 2
 
-        case DowngradeContact = 3
-        case ProcessDowngrade = 4
-        case ProcessPropagatedDowngrade = 5
+        case downgradeContact = 3
+        case processDowngrade = 4
+        case processPropagatedDowngrade = 5
+        
+        case processPerformContactDeviceDiscoveryMessage = 6
         
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             
             switch self {
                 
-            case .DeleteContact:
+            case .deleteContact:
                 let step = DeleteContactStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessContactDeletionNotification:
+            case .processContactDeletionNotification:
                 let step = ProcessContactDeletionNotificationStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessPropagatedContactDeletion:
+            case .processPropagatedContactDeletion:
                 let step = ProcessPropagatedContactDeletionStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .DowngradeContact:
+            case .downgradeContact:
                 let step = DowngradeContactStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessDowngrade:
+            case .processDowngrade:
                 let step = ProcessDowngradeStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessPropagatedDowngrade:
+            case .processPropagatedDowngrade:
                 let step = ProcessPropagatedDowngradeStep(from: concreteProtocol, and: receivedMessage)
+                return step
+            case .processPerformContactDeviceDiscoveryMessage:
+                let step = ProcessPerformContactDeviceDiscoveryMessageStep(from: concreteProtocol, and: receivedMessage)
                 return step
             }
         }
@@ -103,7 +108,7 @@ extension ContactManagementProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     return CancelledState()
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Notify contact (we need the oblivious channel --> before deleting the contact). Do so only if we still have a confirmed oblivious channel with this contact.
@@ -125,7 +130,7 @@ extension ContactManagementProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     return CancelledState()
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Delete all channels
@@ -165,7 +170,7 @@ extension ContactManagementProtocol {
                 }
                 
                 let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                                      cryptoProtocolId: .GroupManagement,
+                                                      cryptoProtocolId: .groupManagement,
                                                       protocolInstanceUid: groupInformationWithPhoto.associatedProtocolUid)
                 let concreteProtocolMessage = GroupManagementProtocol.RemoveGroupMembersMessage(coreProtocolMessage: coreMessage,
                                                                                                 groupInformation: groupInformationWithPhoto.groupInformation,
@@ -173,7 +178,7 @@ extension ContactManagementProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     return CancelledState()
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 
             }
             
@@ -294,7 +299,7 @@ extension ContactManagementProtocol {
                     }
                     
                     let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
-                                                          cryptoProtocolId: .GroupManagement,
+                                                          cryptoProtocolId: .groupManagement,
                                                           protocolInstanceUid: groupInformationWithPhoto.associatedProtocolUid)
                     let concreteProtocolMessage = GroupManagementProtocol.RemoveGroupMembersMessage(coreProtocolMessage: coreMessage,
                                                                                                     groupInformation: groupInformationWithPhoto.groupInformation,
@@ -302,7 +307,7 @@ extension ContactManagementProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         return CancelledState()
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     
                 }
                 
@@ -406,7 +411,7 @@ extension ContactManagementProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ProtocolMessageToSend for OneToOneInvitationMessage")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Propagate the downgrade decision to our other owned devices
@@ -420,7 +425,7 @@ extension ContactManagementProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate OneToOne invitation to other devices.", log: log, type: .fault)
                     assertionFailure()
@@ -525,6 +530,50 @@ extension ContactManagementProtocol {
                                                             newIsOneToOneStatus: false,
                                                             within: obvContext)
 
+            return FinalState()
+            
+        }
+        
+    }
+    
+    
+    // MARK: - ProcessPerformContactDeviceDiscoveryMessageStep
+
+    final class ProcessPerformContactDeviceDiscoveryMessageStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: PerformContactDeviceDiscoveryMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: PerformContactDeviceDiscoveryMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: IdentityDetailsPublicationProtocol.logCategory)
+            
+            // Determine the origin of the message
+            
+            guard let contactIdentity = receivedMessage.receptionChannelInfo?.getRemoteIdentity() else {
+                os_log("Could not determine the remote identity (ProcessNewMembersStep)", log: log, type: .error)
+                assertionFailure()
+                return CancelledState()
+            }
+
+            // The contact who sent us this message certainly has updated her owned devices. We perform a contact device discovery to find out about the latest list of devices
+
+            do {
+                let messageToSend = try protocolStarterDelegate.getInitialMessageForContactDeviceDiscoveryProtocol(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: concreteCryptoProtocol.prng, within: obvContext)
+            }
+            
             return FinalState()
             
         }

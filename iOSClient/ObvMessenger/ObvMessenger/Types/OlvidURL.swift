@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvEngine
+import ObvTypes
 
 struct OlvidURL {
     
@@ -33,40 +34,44 @@ struct OlvidURL {
     }
         
     init?(urlRepresentation: URL) {
-        guard urlRepresentation.scheme == "https" else { assertionFailure(); return nil }
-        guard let urlComponents = URLComponents(url: urlRepresentation, resolvingAgainstBaseURL: true) else { assertionFailure(); return nil }
+        
+        // If the scheme of the URL is "olvid", try to replace it by "https"
+        let updatedURL = Self.replaceOlvidSchemeByHTTPS(urlRepresentation: urlRepresentation)
+        
+        guard updatedURL.scheme == "https" else { assertionFailure(); return nil }
+        guard let urlComponents = URLComponents(url: updatedURL, resolvingAgainstBaseURL: true) else { assertionFailure(); return nil }
         switch urlComponents.host {
         case ObvMessengerConstants.Host.forConfigurations:
-            if let serverAndAPIKey = ServerAndAPIKey(urlRepresentation: urlRepresentation) {
+            if let serverAndAPIKey = ServerAndAPIKey(urlRepresentation: updatedURL) {
                 // For now, if the URL representation decodes to a ServerAndAPIKey, we do not expect to find a BetaConfiguration nor a KeycloakConfiguration
-                assert(BetaConfiguration(urlRepresentation: urlRepresentation) == nil && KeycloakConfiguration(urlRepresentation: urlRepresentation) == nil)
+                assert(BetaConfiguration(urlRepresentation: updatedURL) == nil && KeycloakConfiguration(urlRepresentation: updatedURL) == nil)
                 self.category = .configuration(serverAndAPIKey: serverAndAPIKey, betaConfiguration: nil, keycloakConfig: nil)
-                self.url = urlRepresentation
+                self.url = updatedURL
                 return
-            } else if let betaConfiguration = BetaConfiguration(urlRepresentation: urlRepresentation) {
+            } else if let betaConfiguration = BetaConfiguration(urlRepresentation: updatedURL) {
                 // For now, if the URL representation decodes to a BetaConfiguration, we do not expect to find a ServerAndAPIKey nor a KeycloakConfiguration
-                assert(ServerAndAPIKey(urlRepresentation: urlRepresentation) == nil && KeycloakConfiguration(urlRepresentation: urlRepresentation) == nil)
+                assert(ServerAndAPIKey(urlRepresentation: updatedURL) == nil && KeycloakConfiguration(urlRepresentation: updatedURL) == nil)
                 self.category = .configuration(serverAndAPIKey: nil, betaConfiguration: betaConfiguration, keycloakConfig: nil)
-                self.url = urlRepresentation
+                self.url = updatedURL
                 return
-            } else if let keycloakConfig = KeycloakConfiguration(urlRepresentation: urlRepresentation) {
+            } else if let keycloakConfig = KeycloakConfiguration(urlRepresentation: updatedURL) {
                 // For now, if the URL representation decodes to a KeycloakConfiguration, we do not expect to find a ServerAndAPIKey nor a BetaConfiguration
-                assert(ServerAndAPIKey(urlRepresentation: urlRepresentation) == nil && BetaConfiguration(urlRepresentation: urlRepresentation) == nil)
+                assert(ServerAndAPIKey(urlRepresentation: updatedURL) == nil && BetaConfiguration(urlRepresentation: updatedURL) == nil)
                 self.category = .configuration(serverAndAPIKey: nil, betaConfiguration: nil, keycloakConfig: keycloakConfig)
-                self.url = urlRepresentation
+                self.url = updatedURL
                 return
             } else {
                 assertionFailure()
                 return nil
             }
         case ObvMessengerConstants.Host.forInvitations:
-            if let mutualScanURL = ObvMutualScanUrl(urlRepresentation: urlRepresentation) {
+            if let mutualScanURL = ObvMutualScanUrl(urlRepresentation: updatedURL) {
                 self.category = .mutualScan(mutualScanURL: mutualScanURL)
-                self.url = urlRepresentation
+                self.url = updatedURL
                 return
-            } else if let urlIdentity = ObvURLIdentity(urlRepresentation: urlRepresentation) {
+            } else if let urlIdentity = ObvURLIdentity(urlRepresentation: updatedURL) {
                 self.category = .invitation(urlIdentity: urlIdentity)
-                self.url = urlRepresentation
+                self.url = updatedURL
                 return
             } else {
                 assertionFailure()
@@ -74,7 +79,7 @@ struct OlvidURL {
             }
         case ObvMessengerConstants.Host.forOpenIdRedirect:
             self.category = .openIdRedirect
-            self.url = urlRepresentation
+            self.url = updatedURL
             return
         default:
             assertionFailure()
@@ -82,6 +87,26 @@ struct OlvidURL {
         }
     }
 
+    
+    private static func replaceOlvidSchemeByHTTPS(urlRepresentation: URL) -> URL {
+        guard var components = URLComponents(url: urlRepresentation, resolvingAgainstBaseURL: false),
+              components.scheme == "olvid" else {
+            return urlRepresentation
+        }
+        components.scheme = "https"
+        return components.url ?? urlRepresentation
+    }
+    
+    
+    var isOpenIdRedirectWithURL: URL? {
+        switch self.category {
+        case .invitation, .mutualScan, .configuration:
+            return nil
+        case .openIdRedirect:
+            return url
+        }
+    }
+    
 }
 
 

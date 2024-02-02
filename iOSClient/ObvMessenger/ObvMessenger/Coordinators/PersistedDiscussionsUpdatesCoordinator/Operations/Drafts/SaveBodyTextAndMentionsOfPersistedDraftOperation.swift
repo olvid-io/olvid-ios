@@ -42,24 +42,19 @@ final class SaveBodyTextAndMentionsOfPersistedDraftOperation: ContextualOperatio
         super.init()
     }
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            do {
-                guard let draft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindDraftInDatabase)
-                }
-                                
-                draft.replaceContentWith(newBody: bodyText, newMentions: mentions)
-                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            guard let draft = try PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindDraftInDatabase)
             }
+            
+            draft.replaceContentWith(newBody: bodyText, newMentions: mentions)
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
+        
     }
 }
 

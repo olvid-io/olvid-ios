@@ -83,7 +83,7 @@ final class UploadAttachmentChunksCoordinator: NSObject {
     
     // Maps an attachment identifier to its (exact) completed unit count
     typealias ChunkProgress = (totalBytesSent: Int64, totalBytesExpectedToSend: Int64)
-    private var _chunksProgressesForAttachment = [AttachmentIdentifier: (chunkProgresses: [ChunkProgress], dateOfLastUpdate: Date)]()
+    private var _chunksProgressesForAttachment = [ObvAttachmentIdentifier: (chunkProgresses: [ChunkProgress], dateOfLastUpdate: Date)]()
     private let queueForAttachmentsProgresses = DispatchQueue(label: "Internal queue for attachments progresses", attributes: .concurrent)
 
     
@@ -121,13 +121,13 @@ final class UploadAttachmentChunksCoordinator: NSObject {
     }
 
     // Calls must be in sync with localQueue
-    private var _stillUploadingCancelledAttachments = [MessageIdentifier: [AttachmentIdentifier]]()
+    private var _stillUploadingCancelledAttachments = [ObvMessageIdentifier: [ObvAttachmentIdentifier]]()
     private func addStillUploadingCancelledAttachmentsOfMessage(_ message: OutboxMessage) {
         guard let messageId = message.messageId else { assertionFailure(); return }
         _stillUploadingCancelledAttachments[messageId] = message.attachments.filter({ !$0.acknowledged }).map({ $0.attachmentId })
     }
     /// This method removes the attachmentIds from the list of still uploading attachments of the message.
-    private func removeStillUploadingCancelledAttachments(attachmentId: AttachmentIdentifier) {
+    private func removeStillUploadingCancelledAttachments(attachmentId: ObvAttachmentIdentifier) {
         guard var remaining = _stillUploadingCancelledAttachments[attachmentId.messageId] else { return }
         remaining.removeAll(where: { $0 == attachmentId })
         if remaining.isEmpty {
@@ -136,24 +136,24 @@ final class UploadAttachmentChunksCoordinator: NSObject {
             _stillUploadingCancelledAttachments[attachmentId.messageId] = remaining
         }
     }
-    private func noMoreStillUploadingAttachments(messageId: MessageIdentifier) -> Bool {
+    private func noMoreStillUploadingAttachments(messageId: ObvMessageIdentifier) -> Bool {
         !_stillUploadingCancelledAttachments.keys.contains(messageId)
     }
     
     // This array tracks the attachment identifiers that are currently refreshing their signed URLs, so as to prevent an infinite loop of refresh
-    private var _attachmentIdsRefreshingSignedURLs = Set<AttachmentIdentifier>()
+    private var _attachmentIdsRefreshingSignedURLs = Set<ObvAttachmentIdentifier>()
     private let queueForAttachmentIdsRefreshingSignedURLs = DispatchQueue(label: "Queue for sync access to _attachmentIdsRefreshingSignedURLs")
-    private func attachmentStartsToRefreshSignedURLs(attachmentId: AttachmentIdentifier) {
+    private func attachmentStartsToRefreshSignedURLs(attachmentId: ObvAttachmentIdentifier) {
         queueForAttachmentIdsRefreshingSignedURLs.sync {
             _ = _attachmentIdsRefreshingSignedURLs.insert(attachmentId)
         }
     }
-    private func attachmentStoppedToRefreshSignedURLs(attachmentId: AttachmentIdentifier) {
+    private func attachmentStoppedToRefreshSignedURLs(attachmentId: ObvAttachmentIdentifier) {
         queueForAttachmentIdsRefreshingSignedURLs.sync {
             _ = _attachmentIdsRefreshingSignedURLs.remove(attachmentId)
         }
     }
-    private func attachmentIsAlreadyRefreshingSignedURLs(attachmentId: AttachmentIdentifier) -> Bool {
+    private func attachmentIsAlreadyRefreshingSignedURLs(attachmentId: ObvAttachmentIdentifier) -> Bool {
         var val = false
         queueForAttachmentIdsRefreshingSignedURLs.sync {
             val = _attachmentIdsRefreshingSignedURLs.contains(attachmentId)
@@ -174,7 +174,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
     }
     
     
-    func processAllAttachmentsOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func processAllAttachmentsOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -191,7 +191,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
             return
         }
 
-        var attachmentsRequiringSignedURLs = [AttachmentIdentifier]()
+        var attachmentsRequiringSignedURLs = [ObvAttachmentIdentifier]()
         
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
 
@@ -218,7 +218,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
     /// We queue an operation that will delete all the signed URLs
     /// of the attachment, then an operation that resume a download task that gets signed URLs from the server.
     /// We do so after adding a barrier to the queue, so as to make sure not to interfere with other tasks.
-    func downloadSignedURLsForAttachments(attachmentIds: [AttachmentIdentifier], flowId: FlowIdentifier) {
+    func downloadSignedURLsForAttachments(attachmentIds: [ObvAttachmentIdentifier], flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -427,7 +427,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
         
         localQueue.async {
             
-            var attachmentIds = [AttachmentIdentifier]()
+            var attachmentIds = [ObvAttachmentIdentifier]()
             contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
                 let outboxAttachmentSessions: [OutboxAttachmentSession]
                 do {
@@ -456,12 +456,12 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
     }
     
     
-    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async -> [AttachmentIdentifier: Float] {
+    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async -> [ObvAttachmentIdentifier: Float] {
         
-        return await withCheckedContinuation { (continuation: CheckedContinuation<[AttachmentIdentifier: Float], Never>) in
+        return await withCheckedContinuation { (continuation: CheckedContinuation<[ObvAttachmentIdentifier: Float], Never>) in
             queueForAttachmentsProgresses.async { [weak self] in
                 guard let _self = self else { continuation.resume(returning: [:]); return }
-                var progressesToReturn = [AttachmentIdentifier: Float]()
+                var progressesToReturn = [ObvAttachmentIdentifier: Float]()
                 let appropriateChunksProgressesForAttachment = _self._chunksProgressesForAttachment.filter({ $0.value.dateOfLastUpdate > date })
                 for (attachmentId, value) in appropriateChunksProgressesForAttachment {
                     let totalBytesSent = value.chunkProgresses.map({ $0.totalBytesSent }).reduce(0, +)
@@ -511,7 +511,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
     }
     
     
-    func cancelAllAttachmentsUploadOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) throws {
+    func cancelAllAttachmentsUploadOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws {
         
         assert(currentAppType == .mainApp)
         guard currentAppType == .mainApp else { return }
@@ -632,7 +632,7 @@ extension UploadAttachmentChunksCoordinator {
     }
 
     
-    private func getOperationsForDownloadingSignedURLsForAttachment(attachmentId: AttachmentIdentifier, logSubsystem: String, obvContext: ObvContext, identityDelegate: ObvIdentityDelegate, appType: AppType) -> [Operation] {
+    private func getOperationsForDownloadingSignedURLsForAttachment(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, obvContext: ObvContext, identityDelegate: ObvIdentityDelegate, appType: AppType) -> [Operation] {
         
         var operations = [Operation]()
 
@@ -655,7 +655,7 @@ extension UploadAttachmentChunksCoordinator {
 extension UploadAttachmentChunksCoordinator: AttachmentChunksSignedURLsTracker {
     
     
-    func getSignedURLsSessionDidBecomeInvalid(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, error: GetSignedURLsSessionDelegate.ErrorForTracker?) {
+    func getSignedURLsSessionDidBecomeInvalid(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: GetSignedURLsSessionDelegate.ErrorForTracker?) {
         
         defer {
             attachmentStoppedToRefreshSignedURLs(attachmentId: attachmentId)
@@ -698,7 +698,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunksSignedURLsTracker {
 
 extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracker {
 
-    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesSent: Int64, totalBytesExpectedToSend: Int64), flowId: FlowIdentifier) {
+    func attachmentChunkDidProgress(attachmentId: ObvAttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesSent: Int64, totalBytesExpectedToSend: Int64), flowId: FlowIdentifier) {
         
         guard currentAppType == .mainApp else { return }
         
@@ -743,7 +743,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
     }
     
     
-    func attachmentChunksAreAcknowledged(attachmentId: AttachmentIdentifier, chunkNumbers: [Int], flowId: FlowIdentifier) {
+    func attachmentChunksAreAcknowledged(attachmentId: ObvAttachmentIdentifier, chunkNumbers: [Int], flowId: FlowIdentifier) {
         
         guard currentAppType == .mainApp else { return }
 
@@ -769,7 +769,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
     }
     
     
-    private func createChunksProgressesForAttachment(attachmentId: AttachmentIdentifier, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) -> ([ChunkProgress], Date)? {
+    private func createChunksProgressesForAttachment(attachmentId: ObvAttachmentIdentifier, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) -> ([ChunkProgress], Date)? {
         /// Must be executed on queueForAttachmentsProgresses
         assert(currentAppType == .mainApp)
         var chunksProgressess: ([ChunkProgress], Date)?
@@ -781,7 +781,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
     }
     
     
-    func uploadAttachmentChunksSessionDidBecomeInvalid(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, error: UploadAttachmentChunksSessionDelegate.ErrorForTracker?) {
+    func uploadAttachmentChunksSessionDidBecomeInvalid(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: UploadAttachmentChunksSessionDelegate.ErrorForTracker?) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -889,7 +889,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
 
 extension UploadAttachmentChunksCoordinator: FinalizeSignedURLsOperationsDelegate {
     
-    func signedURLsOperationsAreFinished(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, error: ResumeTaskForGettingAttachmentSignedURLsOperation.ReasonForCancel?) {
+    func signedURLsOperationsAreFinished(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: ResumeTaskForGettingAttachmentSignedURLsOperation.ReasonForCancel?) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -939,7 +939,7 @@ extension UploadAttachmentChunksCoordinator: FinalizeSignedURLsOperationsDelegat
 
 extension UploadAttachmentChunksCoordinator: FinalizePostAttachmentUploadRequestOperationDelegate {
     
-    func postAttachmentUploadRequestOperationsAreFinished(attachmentId: AttachmentIdentifier, urlSession: URLSession?, flowId: FlowIdentifier, error: FinalizePostAttachmentUploadRequestOperation.ReasonForCancel?) {
+    func postAttachmentUploadRequestOperationsAreFinished(attachmentId: ObvAttachmentIdentifier, urlSession: URLSession?, flowId: FlowIdentifier, error: FinalizePostAttachmentUploadRequestOperation.ReasonForCancel?) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)

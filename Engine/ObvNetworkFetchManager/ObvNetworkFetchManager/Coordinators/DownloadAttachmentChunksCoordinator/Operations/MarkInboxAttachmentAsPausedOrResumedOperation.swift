@@ -77,7 +77,7 @@ final class MarkInboxAttachmentAsPausedOrResumedOperation: Operation {
     }
 
     private let uuid = UUID()
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let logSubsystem: String
     private let log: OSLog
     weak private var contextCreator: ObvCreateContextDelegate?
@@ -85,10 +85,11 @@ final class MarkInboxAttachmentAsPausedOrResumedOperation: Operation {
     private let logCategory = String(describing: DeletePreviousAttachmentSignedURLsOperation.self)
     private let targetStatus: PausedOrResumed
     weak private var delegate: MarkInboxAttachmentAsPausedOrResumedOperationDelegate?
+    private let force: Bool
 
     private(set) var reasonForCancel: ReasonForCancel?
 
-    init(attachmentId: AttachmentIdentifier, targetStatus: PausedOrResumed, logSubsystem: String, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, delegate: MarkInboxAttachmentAsPausedOrResumedOperationDelegate?) {
+    init(attachmentId: ObvAttachmentIdentifier, targetStatus: PausedOrResumed, force: Bool, logSubsystem: String, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, delegate: MarkInboxAttachmentAsPausedOrResumedOperationDelegate?) {
         self.attachmentId = attachmentId
         self.logSubsystem = logSubsystem
         self.log = OSLog(subsystem: logSubsystem, category: logCategory)
@@ -96,6 +97,7 @@ final class MarkInboxAttachmentAsPausedOrResumedOperation: Operation {
         self.flowId = flowId
         self.targetStatus = targetStatus
         self.delegate = delegate
+        self.force = force
         super.init()
     }
     
@@ -137,7 +139,7 @@ final class MarkInboxAttachmentAsPausedOrResumedOperation: Operation {
                 case .paused:
                     try attachment.pauseDownload()
                 case .resumed:
-                    try attachment.resumeDownload()
+                    try attachment.resumeDownload(force: force)
                 }
             } catch {
                 return cancel(withReason: .couldNotResumeOrPauseDownload)
@@ -164,5 +166,5 @@ final class MarkInboxAttachmentAsPausedOrResumedOperation: Operation {
 
 
 protocol MarkInboxAttachmentAsPausedOrResumedOperationDelegate: AnyObject {
-    func inboxAttachmentWasJustMarkedAsPausedOrResumed(attachmentId: AttachmentIdentifier, pausedOrResumed: MarkInboxAttachmentAsPausedOrResumedOperation.PausedOrResumed, flowId: FlowIdentifier)
+    func inboxAttachmentWasJustMarkedAsPausedOrResumed(attachmentId: ObvAttachmentIdentifier, pausedOrResumed: MarkInboxAttachmentAsPausedOrResumedOperation.PausedOrResumed, flowId: FlowIdentifier)
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,12 +28,12 @@ public struct GroupInvitationProtocol: ConcreteCryptoProtocol {
     
     static let logCategory = "GroupInvitationProtocol"
     
-    static let id = CryptoProtocolId.GroupInvitation
+    static let id = CryptoProtocolId.groupInvitation
     
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.InvitationSent,
-                                                           StateId.ResponseSent,
-                                                           StateId.ResponseReceived,
-                                                           StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.invitationSent,
+                                                           StateId.responseSent,
+                                                           StateId.responseReceived,
+                                                           StateId.cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

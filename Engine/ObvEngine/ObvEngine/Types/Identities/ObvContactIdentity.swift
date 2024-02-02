@@ -40,6 +40,10 @@ public struct ObvContactIdentity: ObvIdentity {
     public var currentIdentityDetails: ObvIdentityDetails {
         return trustedIdentityDetails
     }
+    
+    public var contactIdentifier: ObvContactIdentifier {
+        ObvContactIdentifier(contactCryptoId: cryptoId, ownedCryptoId: ownedIdentity.cryptoId)
+    }
 
     init(cryptoIdentity: ObvCryptoIdentity, trustedIdentityDetails: ObvIdentityDetails, publishedIdentityDetails: ObvIdentityDetails?, ownedIdentity: ObvOwnedIdentity, isCertifiedByOwnKeycloak: Bool, isActive: Bool, isRevokedAsCompromised: Bool, isOneToOne: Bool) {
         self.cryptoId = ObvCryptoId(cryptoIdentity: cryptoIdentity)
@@ -54,8 +58,7 @@ public struct ObvContactIdentity: ObvIdentity {
     
     public func getGenericIdentityWithPublishedOrTrustedDetails() -> ObvGenericIdentity {
         let details = publishedIdentityDetails ?? trustedIdentityDetails
-        return ObvGenericIdentity(cryptoIdentity: cryptoId.cryptoIdentity,
-                                  currentIdentityDetails: details)
+        return ObvGenericIdentity.init(cryptoId: cryptoId, currentIdentityDetails: details)
     }
 }
 

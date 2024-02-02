@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import ObvTypes
 import ObvEncoder
 
 /// This structure is used to communicate contact identity details informations between the protocol manager and the identity manager. It is also used within the protocol allowing to publish owned details as well as within the channel creation (when sending the ack).
+/// The equivalent structure under Android is called JsonIdentityDetailsWithVersionAndPhoto.
 public struct IdentityDetailsElements {
     
     public let version: Int
@@ -34,6 +35,12 @@ public struct IdentityDetailsElements {
         self.coreDetails = coreDetails
         self.photoServerKeyAndLabel = photoServerKeyAndLabel
     }
+    
+    
+    public func fieldsAreTheSameButVersionAndSignedDetailsAreNotConsidered(than other: IdentityDetailsElements) -> Bool {
+        return self.coreDetails.fieldsAreTheSameAndSignedDetailsAreNotConsidered(than: other.coreDetails) && self.photoServerKeyAndLabel == other.photoServerKeyAndLabel
+    }
+    
 }
 
 extension IdentityDetailsElements: Codable {

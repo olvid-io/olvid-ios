@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvUICoreData
+import ObvSettings
 
 
 extension DurationOptionAlt: CustomStringConvertible {

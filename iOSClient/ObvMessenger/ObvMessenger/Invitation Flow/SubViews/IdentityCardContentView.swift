@@ -21,10 +21,11 @@ import SwiftUI
 import ObvEngine
 import CoreData
 import ObvTypes
-import ObvMetaManager
 import Combine
 import ObvUI
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
 
 
 class SingleIdentity: Identifiable, Hashable, ObservableObject {
@@ -173,8 +174,12 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
     convenience init(keycloakDetails: (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff)) {
         assert(Thread.isMainThread)
         let keycloakUserDetailsAndStuff = keycloakDetails.keycloakUserDetailsAndStuff
-        let apiKey = keycloakUserDetailsAndStuff.apiKey ?? ObvMessengerConstants.hardcodedAPIKey!
-        let serverAndAPIKeyToShow = ServerAndAPIKey(server: keycloakUserDetailsAndStuff.server, apiKey: apiKey)
+        let serverAndAPIKeyToShow: ServerAndAPIKey?
+        if let apiKey = keycloakUserDetailsAndStuff.apiKey {
+            serverAndAPIKeyToShow = ServerAndAPIKey(server: keycloakUserDetailsAndStuff.server, apiKey: apiKey)
+        } else {
+            serverAndAPIKeyToShow = nil
+        }
         self.init(firstName: keycloakUserDetailsAndStuff.firstName ?? "",
                   lastName: keycloakUserDetailsAndStuff.lastName ?? "",
                   position: keycloakUserDetailsAndStuff.position ?? "",
@@ -225,22 +230,30 @@ class SingleIdentity: Identifiable, Hashable, ObservableObject {
     
     fileprivate func setTrustedVariables(with contact: PersistedObvContactIdentity) {
         let coreDetails = contact.identityCoreDetails
-        self.firstName = coreDetails?.firstName ?? ""
-        self.lastName = coreDetails?.lastName ?? ""
-        self.position = coreDetails?.position ?? ""
-        self.company = coreDetails?.company ?? ""
+        if self.firstName != coreDetails?.firstName ?? "" {
+            self.firstName = coreDetails?.firstName ?? ""
+        }
+        if self.lastName != coreDetails?.lastName ?? "" {
+            self.lastName = coreDetails?.lastName ?? ""
+        }
+        if self.position != coreDetails?.position ?? "" {
+            self.position = coreDetails?.position ?? ""
+        }
+        if self.company != coreDetails?.company ?? "" {
+            self.company = coreDetails?.company ?? ""
+        }
         if self.photoURL != contact.photoURL {
             self.photoURL = contact.photoURL
         }
     }
 
-    func circledTextView(_ components: [String?]) -> Text? {
+    func circledText(_ components: [String?]) -> String? {
         let component = components
             .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
             .filter({ !$0.isEmpty })
             .first
         if let char = component?.first {
-            return Text(String(char))
+            return String(char)
         } else {
             return nil
         }
@@ -318,6 +331,8 @@ protocol SingleContactIdentityDelegate: AnyObject {
     func userWantsToPerformAnIntroduction(forContact: SingleContactIdentity)
     func userWantsToDeleteContact(_ contact: SingleContactIdentity, completion: @escaping (Bool) -> Void)
     func userWantsToUpdateTrustedIdentityDetails(ofContact: SingleContactIdentity, usingPublishedDetails: ObvIdentityDetails)
+    func userWantsToNavigateToListOfContactDevicesView(_ contact: PersistedObvContactIdentity)
+    func userWantsToNavigateToListOfTrustOriginsView(trustOrigins: [ObvTrustOrigin])
     func userWantsToNavigateToSingleGroupView(_ group: DisplayedContactGroup)
     func userWantsToDisplay(persistedDiscussion: PersistedDiscussion)
     func userWantsToEditContactNickname()
@@ -337,6 +352,7 @@ final class SingleContactIdentity: SingleIdentity {
     @Published var contactStatus: PersistedObvContactIdentity.Status
     @Published var customDisplayName: String?
     @Published var contactHasNoDevice: Bool
+    @Published var atLeastOneDeviceAllowsThisContactToReceiveMessages: Bool
     @Published var contactIsOneToOne: Bool
     @Published var isActive: Bool
     @Published var showReblockView: Bool
@@ -349,7 +365,9 @@ final class SingleContactIdentity: SingleIdentity {
     private var publishedPhotoURL: URL?
     var customPhotoURL: URL? {
         willSet {
-            self.objectWillChange.send()
+            DispatchQueue.main.async { [weak self] in
+                self?.objectWillChange.send()
+            }
         }
     }
 
@@ -360,12 +378,13 @@ final class SingleContactIdentity: SingleIdentity {
     private let observeChangesMadeToContact: Bool
 
     /// For previews only
-    init(firstName: String?, lastName: String?, position: String?, company: String?, customDisplayName: String? = nil, publishedContactDetails: ObvIdentityDetails?, contactStatus: PersistedObvContactIdentity.Status, contactHasNoDevice: Bool, contactIsOneToOne: Bool, isActive: Bool, trustOrigins: [ObvTrustOrigin] = []) {
+    init(firstName: String?, lastName: String?, position: String?, company: String?, customDisplayName: String? = nil, publishedContactDetails: ObvIdentityDetails?, contactStatus: PersistedObvContactIdentity.Status, atLeastOneDeviceAllowsThisContactToReceiveMessages: Bool, contactHasNoDevice: Bool, contactIsOneToOne: Bool, isActive: Bool, trustOrigins: [ObvTrustOrigin] = []) {
         self.publishedContactDetails = publishedContactDetails
         self.contactStatus = contactStatus
         self.persistedContact = nil
         self.customDisplayName = customDisplayName
         self.contactHasNoDevice = contactHasNoDevice
+        self.atLeastOneDeviceAllowsThisContactToReceiveMessages = atLeastOneDeviceAllowsThisContactToReceiveMessages
         self.contactIsOneToOne = contactIsOneToOne
         self.isActive = isActive
         self.showReblockView = false
@@ -392,6 +411,7 @@ final class SingleContactIdentity: SingleIdentity {
         self.customDisplayName = persistedContact.customDisplayName
         self.customPhotoURL = persistedContact.customPhotoURL
         self.contactHasNoDevice = persistedContact.devices.isEmpty
+        self.atLeastOneDeviceAllowsThisContactToReceiveMessages = persistedContact.atLeastOneDeviceAllowsThisContactToReceiveMessages
         self.contactIsOneToOne = persistedContact.isOneToOne
         self.isActive = persistedContact.isActive
         self.showReblockView = false
@@ -417,6 +437,7 @@ final class SingleContactIdentity: SingleIdentity {
                    showRedShield: !persistedContact.isActive,
                    identityColors: persistedContact.cryptoId.colors,
                    photoURL: persistedContact.photoURL)
+        observeContactChangedInViewContext()
         observeUpdateMadesToContactDevices()
         observeChangesOfCustomDisplayName()
         observeChangesOfCustomPhotoURL()
@@ -544,12 +565,13 @@ final class SingleContactIdentity: SingleIdentity {
     private func observeChangesOfCustomDisplayName() {
         guard let persistedContact = self.persistedContact else { assertionFailure(); return }
         keyValueObservations.append(persistedContact.observe(\.customDisplayName) { [weak self] (_,_)  in
-            assert(Thread.isMainThread)
-            guard let _self = self else { return }
-            withAnimation {
-                _self.customDisplayName = persistedContact.customDisplayName
+            DispatchQueue.main.async {
+                guard let _self = self else { return }
+                withAnimation {
+                    _self.customDisplayName = persistedContact.customDisplayName
+                }
+                _self.initialHash = _self.hashValue
             }
-            _self.initialHash = _self.hashValue
         })
     }
 
@@ -570,34 +592,59 @@ final class SingleContactIdentity: SingleIdentity {
     private func observeUpdateMadesToContactDevices() {
         guard let persistedContact = self.persistedContact else { assertionFailure(); return }
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observeDeletedPersistedObvContactDevice(queue: OperationQueue.main) { [weak self] (contactCryptoId) in
-                guard contactCryptoId == persistedContact.cryptoId else { return }
-                self?.setTrustedVariables(with: persistedContact)
+            ObvMessengerCoreDataNotification.observeDeletedPersistedObvContactDevice { [weak self] contactCryptoId in
+                DispatchQueue.main.async {
+                    guard contactCryptoId == persistedContact.cryptoId else { return }
+                    self?.setTrustedVariables(with: persistedContact)
+                }
             },
-            ObvMessengerCoreDataNotification.observeNewPersistedObvContactDevice(queue: OperationQueue.main) { [weak self] (_, contactCryptoId) in
-                guard contactCryptoId == persistedContact.cryptoId else { return }
-                self?.setTrustedVariables(with: persistedContact)
+            ObvMessengerCoreDataNotification.observeNewPersistedObvContactDevice { [weak self] _, contactCryptoId in
+                DispatchQueue.main.async {
+                    guard contactCryptoId == persistedContact.cryptoId else { return }
+                    self?.setTrustedVariables(with: persistedContact)
+                }
+            },
+            ObvMessengerCoreDataNotification.observeASecureChannelWithContactDeviceWasJustCreated { [weak self] persistedDeviceObjectID in
+                DispatchQueue.main.async {
+                    guard persistedContact.devices.map({ $0.typedObjectID }).contains(where: { $0 == persistedDeviceObjectID }) else { return }
+                    self?.setTrustedVariables(with: persistedContact)
+                }
             },
         ])
     }
     
     
+    private func observeContactChangedInViewContext() {
+        let NotificationName = Notification.Name.NSManagedObjectContextObjectsDidChange
+        observationTokens.append(NotificationCenter.default.addObserver(forName: NotificationName, object: nil, queue: nil) { [weak self] (notification) in
+            guard Thread.isMainThread else { return }
+            guard let context = notification.object as? NSManagedObjectContext else { assertionFailure(); return }
+            guard context == ObvStack.shared.viewContext else { return }
+            guard self?.persistedContact?.managedObjectContext == context else { return }
+            guard let persistedContact = self?.persistedContact else { assertionFailure(); return }
+            self?.setTrustedVariables(with: persistedContact)
+        })
+    }
+    
+
     private func observeObvContactAnswerNotifications() {
         guard let persistedContact = self.persistedContact else { assertionFailure(); return }
-        observationTokens.append(ObvMessengerInternalNotification.observeObvContactAnswer(queue: OperationQueue.main) { [weak self] (requestUUID, obvContact) in
-            guard self?.id == requestUUID else { return }
-            guard persistedContact.cryptoId == obvContact.cryptoId else { return }
-            self?.setTrustedVariables(with: persistedContact)
-            guard obvContact.trustedIdentityDetails != obvContact.publishedIdentityDetails else { return }
-            withAnimation {
-                self?.publishedContactDetails = obvContact.publishedIdentityDetails
-                if let photoURL = self?.publishedContactDetails?.photoURL {
-                    self?.publishedPhotoURL = photoURL
+        observationTokens.append(ObvMessengerInternalNotification.observeObvContactAnswer { [weak self] (requestUUID, obvContact) in
+            DispatchQueue.main.async {
+                guard self?.id == requestUUID else { return }
+                guard persistedContact.cryptoId == obvContact.cryptoId else { return }
+                self?.setTrustedVariables(with: persistedContact)
+                guard obvContact.trustedIdentityDetails != obvContact.publishedIdentityDetails else { return }
+                withAnimation {
+                    self?.publishedContactDetails = obvContact.publishedIdentityDetails
+                    if let photoURL = self?.publishedContactDetails?.photoURL {
+                        self?.publishedPhotoURL = photoURL
+                    }
+                    self?.contactStatus = persistedContact.status
+                    self?.isActive = persistedContact.isActive
+                    self?.showReblockView = obvContact.isActive && obvContact.isRevokedAsCompromised
+                    self?.showRedShield = !obvContact.isActive
                 }
-                self?.contactStatus = persistedContact.status
-                self?.isActive = persistedContact.isActive
-                self?.showReblockView = obvContact.isActive && obvContact.isRevokedAsCompromised
-                self?.showRedShield = !obvContact.isActive
             }
         })
     }
@@ -609,10 +656,12 @@ final class SingleContactIdentity: SingleIdentity {
         guard let currentContactCryptoId = persistedContact?.cryptoId else { assertionFailure(); return }
         guard let currentOwnedCryptoId = persistedContact?.ownedIdentity?.cryptoId else { return }
         let id = self.id
-        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactHasNewStatus(queue: OperationQueue.main) { (contactCryptoId, ownedCryptoId) in
-            guard (currentContactCryptoId, currentOwnedCryptoId) == (contactCryptoId, ownedCryptoId) else { return }
-            ObvMessengerInternalNotification.obvContactRequest(requestUUID: id, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-                .postOnDispatchQueue()
+        observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactHasNewStatus { (contactCryptoId, ownedCryptoId) in
+            DispatchQueue.main.async {
+                guard (currentContactCryptoId, currentOwnedCryptoId) == (contactCryptoId, ownedCryptoId) else { return }
+                ObvMessengerInternalNotification.obvContactRequest(requestUUID: id, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+                    .postOnDispatchQueue()
+            }
         })
     }
     
@@ -624,34 +673,53 @@ final class SingleContactIdentity: SingleIdentity {
         guard let currentContactCryptoId = persistedContact?.cryptoId else { assertionFailure(); return }
         guard let currentOwnedCryptoId = persistedContact?.ownedIdentity?.cryptoId else { return }
         let id = self.id
-        observationTokens.append(ObvMessengerInternalNotification.observeContactIdentityDetailsWereUpdated(queue: OperationQueue.main) { (contactCryptoId, ownedCryptoId) in
-            guard (currentContactCryptoId, currentOwnedCryptoId) == (contactCryptoId, ownedCryptoId) else { return }
-            ObvMessengerInternalNotification.obvContactRequest(requestUUID: id, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-                .postOnDispatchQueue()
+        observationTokens.append(ObvMessengerInternalNotification.observeContactIdentityDetailsWereUpdated { (contactCryptoId, ownedCryptoId) in
+            DispatchQueue.main.async {
+                guard (currentContactCryptoId, currentOwnedCryptoId) == (contactCryptoId, ownedCryptoId) else { return }
+                ObvMessengerInternalNotification.obvContactRequest(requestUUID: id, contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+                    .postOnDispatchQueue()
+            }
         })
     }
 
+    
     fileprivate func observeNewSavedCustomContactPictureCandidateNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeNewSavedCustomContactPictureCandidate() { [weak self] (requestUUID, url) in
             guard self?.id == requestUUID else { return }
             DispatchQueue.main.async {
-                withAnimation {
-                    self?.customPhotoURL = url
+                if self?.customPhotoURL != url {
+                    withAnimation {
+                        self?.customPhotoURL = url
+                    }
                 }
             }
         })
     }
+    
     
     override func setTrustedVariables(with contact: PersistedObvContactIdentity) {
         assert(Thread.isMainThread)
         assert(self.persistedContact == contact)
         withAnimation {
             super.setTrustedVariables(with: contact)
-            self.contactHasNoDevice = contact.devices.isEmpty
-            self.isActive = contact.isActive
-            self.contactStatus = contact.status
-            self.customDisplayName = contact.customDisplayName
-            self.contactIsOneToOne = contact.isOneToOne
+            if self.contactHasNoDevice != contact.devices.isEmpty {
+                self.contactHasNoDevice = contact.devices.isEmpty
+            }
+            if self.atLeastOneDeviceAllowsThisContactToReceiveMessages != contact.atLeastOneDeviceAllowsThisContactToReceiveMessages {
+                self.atLeastOneDeviceAllowsThisContactToReceiveMessages = contact.atLeastOneDeviceAllowsThisContactToReceiveMessages
+            }
+            if self.isActive != contact.isActive {
+                self.isActive = contact.isActive
+            }
+            if self.contactStatus != contact.status {
+                self.contactStatus = contact.status
+            }
+            if self.customDisplayName != contact.customDisplayName {
+                self.customDisplayName = contact.customDisplayName
+            }
+            if self.contactIsOneToOne != contact.isOneToOne {
+                self.contactIsOneToOne = contact.isOneToOne
+            }
         }
     }
 
@@ -677,16 +745,17 @@ final class SingleContactIdentity: SingleIdentity {
             .postOnDispatchQueue()
     }
     
-    func userWantsToRecreateTheSecureChannel() {
-        guard let persistedContact = self.persistedContact else { assertionFailure(); return }
-        let contactCryptoId = persistedContact.cryptoId
-        guard let ownedCryptoId = persistedContact.ownedIdentity?.cryptoId else { return }
-        ObvMessengerInternalNotification.userWantsToReCreateChannelEstablishmentProtocol(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
-            .postOnDispatchQueue()
-    }
-    
     func userWantsToNavigateToSingleGroupView(_ group: DisplayedContactGroup) {
         delegate?.userWantsToNavigateToSingleGroupView(group)
+    }
+    
+    func userWantsToNavigateToListOfContactDevicesView() {
+        guard let persistedContact else { assertionFailure(); return }
+        delegate?.userWantsToNavigateToListOfContactDevicesView(persistedContact)
+    }
+    
+    func userWantsToNavigateToListOfTrustOriginsView() {
+        delegate?.userWantsToNavigateToListOfTrustOriginsView(trustOrigins: trustOrigins)
     }
 
     func userWantsToDiscuss() {
@@ -702,11 +771,12 @@ final class SingleContactIdentity: SingleIdentity {
     }
     
     func userWantsToCallContact() {
-        guard isActive && !contactHasNoDevice else { return }
+        guard isActive && atLeastOneDeviceAllowsThisContactToReceiveMessages else { return }
         guard let persistedContact = persistedContact else { assertionFailure(); return }
-        let contactID = persistedContact.typedObjectID
+        let contactCryptoId = persistedContact.cryptoId
+        guard let ownedCryptoId = persistedContact.ownedIdentity?.cryptoId else { return }
 
-        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [contactID], groupId: nil)
+        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set([contactCryptoId]), groupId: nil)
             .postOnDispatchQueue()
     }
     
@@ -871,26 +941,53 @@ struct ProfilePictureAction {
 struct IdentityCardContentView: View {
     
     @ObservedObject var model: SingleIdentity
-    var displayMode: CircleAndTitlesDisplayMode = .normal
-    var editionMode: CircleAndTitlesEditionMode = .none
+    let displayMode: CircleAndTitlesDisplayMode
+    let editionMode: CircleAndTitlesEditionMode
+    
+    init(model: SingleIdentity, displayMode: CircleAndTitlesDisplayMode = .normal, editionMode: CircleAndTitlesEditionMode = .none) {
+        self.model = model
+        self.displayMode = displayMode
+        self.editionMode = editionMode
+    }
 
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: model.firstName.trimmingWhitespacesAndNewlines(),
+              titlePart2: model.lastName.trimmingWhitespacesAndNewlines(),
+              subtitle: model.position.trimmingWhitespacesAndNewlines(),
+              subsubtitle: model.company.trimmingWhitespacesAndNewlines())
+    }
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: model.circledText([model.firstName, model.lastName]),
+              icon: .person,
+              profilePicture: model.profilePicture,
+              showGreenShield: model.showGreenShield,
+              showRedShield: model.showRedShield)
+    }
+    
+    private var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: textViewModel,
+              profilePictureViewModelContent: profilePictureViewModelContent)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: model.identityColors?.background,
+              foreground: model.identityColors?.text)
+    }
+    
+    private var circleAndTitlesViewModel: CircleAndTitlesView.Model {
+        .init(content: circleAndTitlesViewModelContent,
+              colors: initialCircleViewModelColors,
+              displayMode: displayMode,
+              editionMode: editionMode)
+    }
+    
     var body: some View {
-        CircleAndTitlesView(titlePart1: model.firstName.trimmingWhitespacesAndNewlines(),
-                            titlePart2: model.lastName.trimmingWhitespacesAndNewlines(),
-                            subtitle: model.position.trimmingWhitespacesAndNewlines(),
-                            subsubtitle: model.company.trimmingWhitespacesAndNewlines(),
-                            circleBackgroundColor: model.identityColors?.background,
-                            circleTextColor: model.identityColors?.text,
-                            circledTextView: model.circledTextView([model.firstName, model.lastName]),
-                            systemImage: .person,
-                            profilePicture: model.profilePicture,
-                            showGreenShield: model.showGreenShield,
-                            showRedShield: model.showRedShield,
-                            editionMode: editionMode,
-                            displayMode: displayMode)
+        CircleAndTitlesView(model: circleAndTitlesViewModel)
     }
 
 }
+
 
 enum PreferredDetails {
     case trusted
@@ -898,6 +995,8 @@ enum PreferredDetails {
     case customOrTrusted
 }
 
+
+/// This view is a legacy view: it is very complex, and uses the `SingleContactIdentity` model which is very complex too. We shall not use this view in new views.
 struct ContactIdentityCardContentView: View {
 
     @ObservedObject var model: SingleContactIdentity
@@ -925,24 +1024,40 @@ struct ContactIdentityCardContentView: View {
         model.getProfilPicture(for: preferredDetails)
     }
 
-    private var titlePart1: String { firstName }
-
-    private var titlePart2: String { lastName }
-
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: firstName,
+              titlePart2: lastName,
+              subtitle: position,
+              subsubtitle: company)
+    }
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: model.circledText([firstName, lastName]),
+              icon: .person,
+              profilePicture: profilePicture,
+              showGreenShield: model.showGreenShield,
+              showRedShield: model.showRedShield)
+    }
+    
+    private var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: textViewModel,
+              profilePictureViewModelContent: profilePictureViewModelContent)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: model.identityColors?.background,
+              foreground: model.identityColors?.text)
+    }
+    
+    private var circleAndTitlesViewModel: CircleAndTitlesView.Model {
+        .init(content: circleAndTitlesViewModelContent,
+              colors: initialCircleViewModelColors,
+              displayMode: displayMode,
+              editionMode: editionMode)
+    }
+    
     var body: some View {
-        CircleAndTitlesView(titlePart1: titlePart1,
-                            titlePart2: titlePart2,
-                            subtitle: position,
-                            subsubtitle: company,
-                            circleBackgroundColor: model.identityColors?.background,
-                            circleTextColor: model.identityColors?.text,
-                            circledTextView: model.circledTextView([titlePart1, titlePart2]),
-                            systemImage: .person,
-                            profilePicture: profilePicture,
-                            showGreenShield: model.showGreenShield,
-                            showRedShield: model.showRedShield,
-                            editionMode: editionMode,
-                            displayMode: displayMode)
+        CircleAndTitlesView(model: circleAndTitlesViewModel)
     }
 
 }
@@ -951,35 +1066,61 @@ struct ContactIdentityCardContentView: View {
 struct GroupCardContentView: View {
     
     @ObservedObject var model: ContactGroup
-    var displayMode: CircleAndTitlesDisplayMode = .normal
-    var editionMode: CircleAndTitlesEditionMode = .none
+    let displayMode: CircleAndTitlesDisplayMode
+    let editionMode: CircleAndTitlesEditionMode
+    
+    init(model: ContactGroup, displayMode: CircleAndTitlesDisplayMode = .normal, editionMode: CircleAndTitlesEditionMode = .none) {
+        self.model = model
+        self.displayMode = displayMode
+        self.editionMode = editionMode
+    }
 
-    private var circledTextView: Text? {
+    private var circledText: String? {
         let components = [model.name]
             .compactMap({ $0?.trimmingCharacters(in: .whitespacesAndNewlines) })
             .filter({ !$0.isEmpty })
             .first
         if let char = components?.first {
-            return Text(String(char))
+            return String(char)
         } else {
             return nil
         }
     }
+    
+    private var textViewModel: TextView.Model {
+        .init(titlePart1: model.name,
+              titlePart2: nil,
+              subtitle: model.description,
+              subsubtitle: nil)
+    }
+    
+    private var profilePictureViewModelContent: ProfilePictureView.Model.Content {
+        .init(text: circledText,
+              icon: .person3Fill,
+              profilePicture: model.profilePicture,
+              showGreenShield: false,
+              showRedShield: false)
+    }
+    
+    private var circleAndTitlesViewModelContent: CircleAndTitlesView.Model.Content {
+        .init(textViewModel: textViewModel,
+              profilePictureViewModelContent: profilePictureViewModelContent)
+    }
+    
+    private var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: model.groupColors?.background,
+              foreground: model.groupColors?.text)
+    }
+    
+    private var circleAndTitlesViewModel: CircleAndTitlesView.Model {
+        .init(content: circleAndTitlesViewModelContent,
+              colors: initialCircleViewModelColors,
+              displayMode: displayMode,
+              editionMode: editionMode)
+    }
 
     var body: some View {
-        CircleAndTitlesView(titlePart1: model.name,
-                            titlePart2: nil,
-                            subtitle: model.description,
-                            subsubtitle: nil,
-                            circleBackgroundColor: model.groupColors?.background,
-                            circleTextColor: model.groupColors?.text,
-                            circledTextView: circledTextView,
-                            systemImage: .person3Fill,
-                            profilePicture: model.profilePicture,
-                            showGreenShield: false,
-                            showRedShield: false,
-                            editionMode: editionMode,
-                            displayMode: displayMode)
+        CircleAndTitlesView(model: circleAndTitlesViewModel)
     }
 
 }

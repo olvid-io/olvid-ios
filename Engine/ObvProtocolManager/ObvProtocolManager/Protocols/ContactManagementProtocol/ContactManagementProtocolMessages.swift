@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,21 +30,23 @@ extension ContactManagementProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
         
-        case InitiateContactDeletion = 0
-        case ContactDeletionNotification = 1
-        case PropagateContactDeletion = 2
-        case InitiateContactDowngrade = 3
-        case DowngradeNotification = 4
-        case PropagateDowngrade = 5
+        case initiateContactDeletion = 0
+        case contactDeletionNotification = 1
+        case propagateContactDeletion = 2
+        case initiateContactDowngrade = 3
+        case downgradeNotification = 4
+        case propagateDowngrade = 5
+        case performContactDeviceDiscovery = 6
         
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .InitiateContactDeletion     : return InitiateContactDeletionMessage.self
-            case .ContactDeletionNotification : return ContactDeletionNotificationMessage.self
-            case .PropagateContactDeletion    : return PropagateContactDeletionMessage.self
-            case .InitiateContactDowngrade    : return InitiateContactDowngradeMessage.self
-            case .DowngradeNotification       : return DowngradeNotificationMessage.self
-            case .PropagateDowngrade          : return PropagateDowngradeMessage.self
+            case .initiateContactDeletion      : return InitiateContactDeletionMessage.self
+            case .contactDeletionNotification  : return ContactDeletionNotificationMessage.self
+            case .propagateContactDeletion     : return PropagateContactDeletionMessage.self
+            case .initiateContactDowngrade     : return InitiateContactDowngradeMessage.self
+            case .downgradeNotification        : return DowngradeNotificationMessage.self
+            case .propagateDowngrade           : return PropagateDowngradeMessage.self
+            case .performContactDeviceDiscovery: return PerformContactDeviceDiscoveryMessage.self
             }
         }
     }
@@ -54,7 +56,7 @@ extension ContactManagementProtocol {
     
     struct InitiateContactDeletionMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.InitiateContactDeletion
+        let id: ConcreteProtocolMessageId = MessageId.initiateContactDeletion
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactIdentity: ObvCryptoIdentity
@@ -78,7 +80,7 @@ extension ContactManagementProtocol {
     
     struct ContactDeletionNotificationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.ContactDeletionNotification
+        let id: ConcreteProtocolMessageId = MessageId.contactDeletionNotification
         let coreProtocolMessage: CoreProtocolMessage
         
         var encodedInputs: [ObvEncoded] { return [] }
@@ -98,7 +100,7 @@ extension ContactManagementProtocol {
     
     struct PropagateContactDeletionMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.PropagateContactDeletion
+        let id: ConcreteProtocolMessageId = MessageId.propagateContactDeletion
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactIdentity: ObvCryptoIdentity
@@ -122,7 +124,7 @@ extension ContactManagementProtocol {
     
     struct InitiateContactDowngradeMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.InitiateContactDowngrade
+        let id: ConcreteProtocolMessageId = MessageId.initiateContactDowngrade
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactIdentity: ObvCryptoIdentity
@@ -146,7 +148,7 @@ extension ContactManagementProtocol {
     
     struct DowngradeNotificationMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.DowngradeNotification
+        let id: ConcreteProtocolMessageId = MessageId.downgradeNotification
         let coreProtocolMessage: CoreProtocolMessage
         
         var encodedInputs: [ObvEncoded] { return [] }
@@ -166,7 +168,7 @@ extension ContactManagementProtocol {
     
     struct PropagateDowngradeMessage: ConcreteProtocolMessage {
         
-        let id: ConcreteProtocolMessageId = MessageId.PropagateDowngrade
+        let id: ConcreteProtocolMessageId = MessageId.propagateDowngrade
         let coreProtocolMessage: CoreProtocolMessage
         
         let contactIdentity: ObvCryptoIdentity
@@ -181,6 +183,26 @@ extension ContactManagementProtocol {
         init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity) {
             self.coreProtocolMessage = coreProtocolMessage
             self.contactIdentity = contactIdentity
+        }
+        
+    }
+
+    
+    // MARK: - PerformContactDeviceDiscoveryMessage
+    
+    struct PerformContactDeviceDiscoveryMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.performContactDeviceDiscovery
+        let coreProtocolMessage: CoreProtocolMessage
+        
+        var encodedInputs: [ObvEncoded] { return [] }
+
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+        }
+        
+        init(coreProtocolMessage: CoreProtocolMessage) {
+            self.coreProtocolMessage = coreProtocolMessage
         }
         
     }

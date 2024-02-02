@@ -17,7 +17,6 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
   
-
 import Foundation
 import CoreData
 import ObvCrypto
@@ -25,6 +24,7 @@ import ObvEncoder
 import OlvidUtils
 import ObvTypes
 import ObvUICoreData
+import ObvSettings
 
 
 final class PersistedContactGroupToDisplayedContactGroupV49ToV50: NSEntityMigrationPolicy, ObvErrorMaker {

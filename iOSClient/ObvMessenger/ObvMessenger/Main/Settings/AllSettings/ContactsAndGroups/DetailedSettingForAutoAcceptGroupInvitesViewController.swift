@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,8 @@ import ObvTypes
 import ObvEngine
 import OlvidUtils
 import ObvUICoreData
+import Combine
+import ObvSettings
 
 
 final class DetailedSettingForAutoAcceptGroupInvitesViewController: UITableViewController, ObvErrorMaker {
@@ -35,6 +37,11 @@ final class DetailedSettingForAutoAcceptGroupInvitesViewController: UITableViewC
         self.obvEngine = obvEngine
         super.init(style: Self.settingsTableStyle)
     }
+    
+    deinit {
+        cancellables.forEach { $0.cancel() }
+        cancellables.removeAll()
+    }
 
     static let errorDomain = "DetailedSettingForAutoAcceptGroupInvitesViewController"
     
@@ -44,10 +51,31 @@ final class DetailedSettingForAutoAcceptGroupInvitesViewController: UITableViewC
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        observeChangesMadeFromOtherOwnedDevices()
     }
 
     private var shownRows = ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom.allCases
 
+    /// Allows to observe changes made to certain settings made from other owned devices
+    private var cancellables = Set<AnyCancellable>()
+
+    
+    private func observeChangesMadeFromOtherOwnedDevices() {
+        
+        ObvMessengerSettingsObservableObject.shared.$autoAcceptGroupInviteFrom
+            .compactMap { (autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice, ownedCryptoId) in
+                // We only observe changes made from other owned devices
+                guard changeMadeFromAnotherOwnedDevice else { return nil }
+                return autoAcceptGroupInviteFrom
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] (autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom) in
+                self?.tableView.reloadData()
+            }
+            .store(in: &cancellables)
+        
+    }
+    
 }
 
 
@@ -95,7 +123,7 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
                 let acceptableAutoAcceptType = try await suggestAutoAcceptingCurrentGroupInvitationsNowIfRequired(
                     selectedAutoAcceptType: selectedAutoAcceptType,
                     currentAutoAcceptType: ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom)
-                ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom = acceptableAutoAcceptType
+                ObvMessengerSettings.ContactsAndGroups.setAutoAcceptGroupInviteFrom(to: acceptableAutoAcceptType, changeMadeFromAnotherOwnedDevice: false, ownedCryptoId: ownedCryptoId)
                 tableView.reloadData()
             } catch {
                 assertionFailure(error.localizedDescription)
@@ -152,12 +180,13 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
         assert(Thread.isMainThread)
         guard !groupInvites.isEmpty else { return true }
         let traitCollection = self.traitCollection
+        let obvEngine = self.obvEngine
         return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<Bool, Error>) in
             assert(Thread.isMainThread)
             let alert = UIAlertController(title: Strings.Alert.title,
                                           message: Strings.Alert.message(numberOfInvitations: groupInvites.count),
                                           preferredStyleForTraitCollection: traitCollection)
-            let okAction = UIAlertAction(title: Strings.Alert.AcceptAction.title(numberOfInvitations: groupInvites.count), style: .default) { [weak self] _ in
+            let okAction = UIAlertAction(title: Strings.Alert.AcceptAction.title(numberOfInvitations: groupInvites.count), style: .default) { _ in
                 do {
                     var dialogsForEngine = [ObvDialog]()
                     for groupInvite in groupInvites {
@@ -173,10 +202,9 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
                             assertionFailure()
                         }
                     }
-                    let queueForRespondingToDialog = DispatchQueue(label: "Queue for responding to dialog")
                     for dialog in dialogsForEngine {
-                        queueForRespondingToDialog.async { [weak self] in
-                            self?.obvEngine.respondTo(dialog)
+                        Task {
+                            try? await obvEngine.respondTo(dialog)
                         }
                     }
                 } catch {
@@ -205,9 +233,9 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
         static let autoAcceptGroupInvitesFrom = NSLocalizedString("AUTO_ACCEPT_GROUP_INVITES_FROM", comment: "")
         struct Alert {
             static let title = NSLocalizedString("AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_TITLE", comment: "")
-            static func message(numberOfInvitations: Int) -> String { String.localizedStringWithFormat(NSLocalizedString("AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_MESSAGE", comment: ""), numberOfInvitations) }
+            static func message(numberOfInvitations: Int) -> String { String(format: NSLocalizedString("AUTO_ACCEPT_GROUP_%llu_INVITATIONS_ALERT_MESSAGE", comment: ""), numberOfInvitations) }
             struct AcceptAction {
-                static func title(numberOfInvitations: Int) -> String { String.localizedStringWithFormat(NSLocalizedString("AUTO_ACCEPT_GROUP_INVITATIONS_ALERT_ACCEPT_ACTION_TITLE", comment: ""), numberOfInvitations) }
+                static func title(numberOfInvitations: Int) -> String { String(format: NSLocalizedString("AUTO_ACCEPT_GROUP_%llu_INVITATIONS_ALERT_ACCEPT_ACTION_TITLE", comment: ""), numberOfInvitations) }
             }
         }
     }

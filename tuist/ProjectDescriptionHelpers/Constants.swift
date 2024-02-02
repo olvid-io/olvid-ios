@@ -1,6 +1,7 @@
 import ProjectDescription
 
 public enum Constants {
+    
     static let developmentRegion = "en"
 
     static let availableRegions = [
@@ -13,21 +14,27 @@ public enum Constants {
 
     static let sampleAppBaseBundleIdentifier = baseAppBundleIdentifier + ".sample_app"
 
-    public static let iOSDeploymentTargetVersion = "13.0"
+    public static let iOSDeploymentTargetVersion = "15.5"
 
-    public static let iOSDeploymentDevices: DeploymentDevice = [.iphone, .ipad]
+    public static let iOSDeploymentDevices: DeploymentDevice = [.iphone, .ipad, .mac]
 
-    public static let deploymentTarget: DeploymentTarget = .iOS(targetVersion: Constants.iOSDeploymentTargetVersion, devices: Constants.iOSDeploymentDevices)
+    public static let deploymentTarget: DeploymentTarget = .iOS(
+        targetVersion: Constants.iOSDeploymentTargetVersion,
+        devices: Constants.iOSDeploymentDevices,
+        supportsMacDesignedForIOS: false)
 
     static let developmentTeam = ""
 
-    static let marketingVersion = "0.12.9"
+    static let marketingVersion = "1.3.1"
 
     static var buildNumber: String {
         get throws {
-            return "661"
+            return "719"
         }
     }
+    
+    public static let nsHumanReadableCopyrightValue = "Copyright © 2019-2023 Olvid SAS"
+
 
     static let fileHeader = """
 /*

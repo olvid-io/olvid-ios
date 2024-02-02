@@ -19,6 +19,7 @@
 
 import Foundation
 
+/// See also `ObvSnapshotable` in `ObvTypes`
 public protocol ObvBackupable: AnyObject {
 
     var backupSource: ObvBackupableObjectSource { get }

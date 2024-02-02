@@ -79,7 +79,8 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
     var identityAndPermissionsAndDetails: GroupV2.IdentityAndPermissionsAndDetails? {
         guard let contactIdentity = contactIdentity else { assertionFailure(); return nil }
         let coreDetails = contactIdentity.publishedIdentityDetails?.serializedIdentityCoreDetails ?? contactIdentity.trustedIdentityDetails.serializedIdentityCoreDetails
-        return GroupV2.IdentityAndPermissionsAndDetails(identity: contactIdentity.cryptoIdentity,
+        guard let contactCryptoId = contactIdentity.cryptoIdentity else { assertionFailure(); return nil }
+        return GroupV2.IdentityAndPermissionsAndDetails(identity: contactCryptoId,
                                                         rawPermissions: allRawPermissions,
                                                         serializedIdentityCoreDetails: coreDetails,
                                                         groupInvitationNonce: groupInvitationNonce)
@@ -109,6 +110,19 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
         self.init(entity: entityDescription, insertInto: obvContext)
         self.groupInvitationNonce = backupItem.groupInvitationNonce
         self.rawPermissions = backupItem.rawPermissions.joined(separator: String(Self.separatorForPermissions))
+    }
+
+    
+    /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
+    fileprivate convenience init(snapshotItem: ContactGroupV2MemberSyncSnapshotItem, within obvContext: ObvContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Member.entityName, in: obvContext)!
+        self.init(entity: entityDescription, insertInto: obvContext)
+        guard let groupInvitationNonce = snapshotItem.groupInvitationNonce else {
+            assertionFailure()
+            throw ContactGroupV2MemberSyncSnapshotItem.ObvError.tryingToRestoreIncompleteNode
+        }
+        self.groupInvitationNonce = groupInvitationNonce
+        self.rawPermissions = snapshotItem.rawPermissions.joined(separator: String(Self.separatorForPermissions))
     }
 
     
@@ -196,7 +210,7 @@ struct ContactGroupV2MemberBackupItem: Codable, Hashable, ObvErrorMaker {
     fileprivate init(rawPermissions: String, groupInvitationNonce: Data, contactIdentity: ContactIdentity) {
         self.groupInvitationNonce = groupInvitationNonce
         self.rawPermissions = rawPermissions.split(separator: ContactGroupV2Member.separatorForPermissions).map({ String($0) })
-        self.contactIdentity = contactIdentity.cryptoIdentity.getIdentity()
+        self.contactIdentity = contactIdentity.identity
     }
 
     enum CodingKeys: String, CodingKey {
@@ -232,7 +246,7 @@ struct ContactGroupV2MemberBackupItem: Codable, Hashable, ObvErrorMaker {
         
         let allcontactIdentities = Set(obvContext.registeredObjects.compactMap({ $0 as? ContactIdentity }))
         let appropriateContact = allcontactIdentities.first(where: {
-            $0.ownedIdentityIdentity == ownedIdentity && $0.cryptoIdentity.getIdentity() == self.contactIdentity
+            $0.ownedIdentityIdentity == ownedIdentity && $0.identity == self.contactIdentity
         })
         guard let appropriateContact = appropriateContact else {
             throw Self.makeError(message: "Could not find contact associated to group v2 member")
@@ -242,4 +256,77 @@ struct ContactGroupV2MemberBackupItem: Codable, Hashable, ObvErrorMaker {
         
     }
 
+}
+
+
+
+// MARK: - For Snapshot purposes
+
+extension ContactGroupV2Member {
+    
+    var snapshotItem: ContactGroupV2MemberSyncSnapshotItem {
+        .init(rawPermissions: self.rawPermissions,
+              groupInvitationNonce: self.groupInvitationNonce)
+    }
+
+}
+
+
+struct ContactGroupV2MemberSyncSnapshotItem: Codable, Hashable, Identifiable {
+    
+    fileprivate let rawPermissions: [String]
+    fileprivate let groupInvitationNonce: Data?
+
+    let id = ObvSyncSnapshotNodeUtils.generateIdentifier()
+
+    enum CodingKeys: String, CodingKey {
+        case groupInvitationNonce = "invitation_nonce"
+        case rawPermissions = "permissions"
+    }
+
+    
+    fileprivate init(rawPermissions: String, groupInvitationNonce: Data) {
+        self.groupInvitationNonce = groupInvitationNonce
+        self.rawPermissions = rawPermissions.split(separator: ContactGroupV2Member.separatorForPermissions).map({ String($0) })
+    }
+
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(groupInvitationNonce, forKey: .groupInvitationNonce)
+        try container.encode(rawPermissions, forKey: .rawPermissions)
+    }
+
+    
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.groupInvitationNonce = try values.decodeIfPresent(Data.self, forKey: .groupInvitationNonce)
+        self.rawPermissions = try values.decodeIfPresent([String].self, forKey: .rawPermissions) ?? []
+    }
+    
+    
+    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let contactGroupV2Member = try ContactGroupV2Member(snapshotItem: self, within: obvContext)
+        try associations.associate(contactGroupV2Member, to: self)
+    }
+    
+    
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, ownedIdentity: Data, cryptoIdentity: ObvCryptoIdentity, contactIdentities: [ObvCryptoIdentity: ContactIdentity], within obvContext: ObvContext) throws {
+
+        let contactGroupV2Member: ContactGroupV2Member = try associations.getObject(associatedTo: self, within: obvContext)
+
+        guard let contactIdentity = contactIdentities[cryptoIdentity] else {
+            throw ObvError.couldNotFindContactAssociatedToGroupV2Member
+        }
+        
+        contactGroupV2Member.contactIdentity = contactIdentity
+        
+    }
+
+    
+    enum ObvError: Error {
+        case couldNotFindContactAssociatedToGroupV2Member
+        case tryingToRestoreIncompleteNode
+    }
+    
 }

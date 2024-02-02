@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -63,6 +63,11 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
     
     private var changedKeys = Set<String>()
 
+    /// This is only set while inserting a new `ContactDevice`. This is `true` iff the inserted instance was performed during a `ChannelCreationWithContactDeviceProtocol`.
+    ///
+    /// This value is used in the notification sent to the engine. When receiving the notification, the engine starts a new `ChannelCreationWithContactDeviceProtocol` *unless* this Boolean is `true`.
+    private var createdDuringChannelCreation: Bool?
+
     // MARK: - Initializer
     
     /// This initializer makes sure that we do not insert a contact device if another one with the same (`uid`, `contactIdentity`) already exists. Note that a `contactIdentity` is identified by its cryptoIdentity and its ownedIdentity. If a previous entity exists, this initializer fails.
@@ -71,7 +76,7 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
     ///   - uid: The `UID` of the device
     ///   - contactIdentity: The `ContactIdentity` that owns this device
     ///   - delegateManager: The `ObvIdentityDelegateManager`
-    convenience init?(uid: UID, contactIdentity: ContactIdentity, flowId: FlowIdentifier, delegateManager: ObvIdentityDelegateManager) {
+    convenience init?(uid: UID, contactIdentity: ContactIdentity, createdDuringChannelCreation: Bool, flowId: FlowIdentifier, delegateManager: ObvIdentityDelegateManager) {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: "ContactDevice")
         guard let obvContext = contactIdentity.obvContext else {
             os_log("Could not get a context", log: log, type: .fault)
@@ -89,13 +94,14 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
         self.rawCapabilities = nil // Set later
         self.contactIdentity = contactIdentity
         self.delegateManager = delegateManager
+        self.createdDuringChannelCreation = createdDuringChannelCreation
     }
 
     
     func deleteContactDevice() throws {
         guard let obvContext = self.obvContext else {
             assertionFailure()
-            throw ContactDevice.makeError(message: "Could not find contact --> could not delete device")
+            throw ContactDevice.makeError(message: "Could not find context --> could not delete device")
         }
         obvContext.delete(self)
     }
@@ -143,7 +149,8 @@ extension ContactDevice {
         let values: Set<ObliviousChannelIdentifier> = Set(items.compactMap {
             guard let contactIdentity = $0.contactIdentity else { return nil }
             guard let ownedIdentity = contactIdentity.ownedIdentity else { return nil }
-            return ObliviousChannelIdentifier(currentDeviceUid: ownedIdentity.currentDeviceUid, remoteCryptoIdentity: contactIdentity.cryptoIdentity, remoteDeviceUid: $0.uid)
+            guard let remoteCryptoIdentity = contactIdentity.cryptoIdentity else { assertionFailure(); return nil }
+            return ObliviousChannelIdentifier(currentDeviceUid: ownedIdentity.currentDeviceUid, remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: $0.uid)
         })
         return values
     }
@@ -154,19 +161,21 @@ extension ContactDevice {
 
 extension ContactDevice {
 
-    override func willSave() {
-        super.willSave()
+    override func prepareForDeletion() {
+        super.prepareForDeletion()
         
-        if isDeleted {
-            if let contactIdentity = self.contactIdentity, let ownedIdentity = contactIdentity.ownedIdentity {
-                self.contactCryptoIdentityOnDeletion = contactIdentity.cryptoIdentity
-                self.ownedCryptoIdentityOnDeletion = ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
-            }
+        if let contactIdentity = self.contactIdentity, let ownedIdentity = contactIdentity.ownedIdentity {
+            self.contactCryptoIdentityOnDeletion = contactIdentity.cryptoIdentity
+            self.ownedCryptoIdentityOnDeletion = ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity()
         }
         
-        changedKeys = Set<String>(self.changedValues().keys)
-
     }
+    
+    override func willSave() {
+        super.willSave()
+        changedKeys = Set<String>(self.changedValues().keys)
+    }
+    
     
     override func didSave() {
         super.didSave()
@@ -193,23 +202,31 @@ extension ContactDevice {
         
         if isInserted {
             
-            guard let contactIdentity, let ownedIdentity = contactIdentity.ownedIdentity else {
+            guard let contactIdentity, let ownedIdentity = contactIdentity.ownedIdentity, let contactIdentity = contactIdentity.cryptoIdentity else {
                 assertionFailure()
                 return
             }
+            assert(createdDuringChannelCreation != nil)
+            let createdDuringChannelCreation = self.createdDuringChannelCreation ?? false
             ObvIdentityNotificationNew.newContactDevice(ownedIdentity: ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(),
-                                                        contactIdentity: contactIdentity.cryptoIdentity,
+                                                        contactIdentity: contactIdentity,
                                                         contactDeviceUid: uid,
+                                                        createdDuringChannelCreation: createdDuringChannelCreation,
                                                         flowId: flowId)
                 .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
             
         } else if isDeleted {
             
-            guard let ownedCryptoIdentityOnDeletion = self.ownedCryptoIdentityOnDeletion, let contactCryptoIdentityOnDeletion = self.contactCryptoIdentityOnDeletion else {
-                os_log("ownedCryptoIdentityOnDeletion or contactCryptoIdentityOnDeletion is nil on deletion which is unexpected", log: log, type: .fault)
+            guard let ownedCryptoIdentityOnDeletion = self.ownedCryptoIdentityOnDeletion else {
+                os_log("ownedCryptoIdentityOnDeletion is nil on deletion which is unexpected", log: log, type: .fault)
                 return
             }
-            
+
+            guard let contactCryptoIdentityOnDeletion = self.contactCryptoIdentityOnDeletion else {
+                os_log("contactCryptoIdentityOnDeletion is nil on deletion which is unexpected", log: log, type: .fault)
+                return
+            }
+
             let notification = ObvIdentityNotificationNew.deletedContactDevice(ownedIdentity: ownedCryptoIdentityOnDeletion,
                                                                                contactIdentity: contactCryptoIdentityOnDeletion,
                                                                                contactDeviceUid: uid,
@@ -219,10 +236,10 @@ extension ContactDevice {
         } else if let ownedIdentity = contactIdentity?.ownedIdentity {
             
             guard let contactIdentity = self.contactIdentity else { assertionFailure(); return }
-            if changedKeys.contains(Predicate.Key.rawCapabilities.rawValue) {
+            if changedKeys.contains(Predicate.Key.rawCapabilities.rawValue), let contactIdentity = contactIdentity.cryptoIdentity {
                 ObvIdentityNotificationNew.contactObvCapabilitiesWereUpdated(
                     ownedIdentity: ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(),
-                    contactIdentity: contactIdentity.cryptoIdentity,
+                    contactIdentity: contactIdentity,
                     flowId: flowId)
                     .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
             }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -96,7 +96,7 @@ extension ObvFlowManager {
         return try backgroundTaskDelegate.startNewFlow(completionHandler: completionHandler)
     }
     
-    public func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier]) throws {
+    public func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier]) throws {
         guard let backgroundTaskDelegate = delegateManager.backgroundTaskDelegate else {
             throw Self.makeError(message: "The backgroundTaskDelegate is not set")
         }
@@ -116,14 +116,14 @@ extension ObvFlowManager {
 
     // Posting a return receipt (for message or an attachment)
 
-    public func startBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier {
+    public func startBackgroundActivityForPostingReturnReceipt(messageId: ObvMessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier {
         guard let backgroundTaskDelegate = delegateManager.backgroundTaskDelegate else {
             throw Self.makeError(message: "The backgroundTaskDelegate is not set")
         }
         return try backgroundTaskDelegate.startBackgroundActivityForPostingReturnReceipt(messageId: messageId, attachmentNumber: attachmentNumber)
     }
     
-    public func stopBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws {
+    public func stopBackgroundActivityForPostingReturnReceipt(messageId: ObvMessageIdentifier, attachmentNumber: Int?) throws {
         guard let backgroundTaskDelegate = delegateManager.backgroundTaskDelegate else {
             throw Self.makeError(message: "The backgroundTaskDelegate is not set")
         }
@@ -139,12 +139,12 @@ extension ObvFlowManager {
     
     // Deleting a message or an attachment
     
-    public func startBackgroundActivityForDeletingAMessage(messageId: MessageIdentifier) -> FlowIdentifier? {
+    public func startBackgroundActivityForDeletingAMessage(messageId: ObvMessageIdentifier) -> FlowIdentifier? {
         return self.delegateManager.backgroundTaskDelegate?.startBackgroundActivityForDeletingAMessage(messageId: messageId)
     }
     
     
-    public func startBackgroundActivityForDeletingAnAttachment(attachmentId: AttachmentIdentifier) -> FlowIdentifier? {
+    public func startBackgroundActivityForDeletingAnAttachment(attachmentId: ObvAttachmentIdentifier) -> FlowIdentifier? {
         return self.delegateManager.backgroundTaskDelegate?.startBackgroundActivityForDeletingAnAttachment(attachmentId: attachmentId)
     }
     
@@ -155,7 +155,7 @@ extension ObvFlowManager {
         try self.delegateManager.remoteNotificationDelegate.startBackgroundActivityForHandlingRemoteNotification(ownedCryptoIds: ownedCryptoIds, withCompletionHandler: handler)
     }
 
-    public func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    public func attachmentDownloadDecisionHasBeenTaken(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         self.delegateManager.remoteNotificationDelegate.attachmentDownloadDecisionHasBeenTaken(attachmentId: attachmentId, flowId: flowId)
     }
 

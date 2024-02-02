@@ -21,6 +21,7 @@ import Foundation
 import ObvEncoder
 import ObvCrypto
 import CryptoKit
+import ObvTypes
 
 /// This structure allows to transfer a server query from the engine to the server. This is for example used to ask the server about the list of device uids of a given identity.
 public struct ObvChannelServerQueryMessageToSend: ObvChannelMessageToSend {
@@ -56,6 +57,17 @@ extension ObvChannelServerQueryMessageToSend {
         case requestGroupBlobLock(groupIdentifier: GroupV2.Identifier, lockNonce: Data, signature: Data)
         case updateGroupBlob(groupIdentifier: GroupV2.Identifier, encodedServerAdminPublicKey: ObvEncoded, encryptedBlob: EncryptedData, lockNonce: Data, signature: Data)
         case getKeycloakData(serverURL: URL, serverLabel: UID)
+        case ownedDeviceDiscovery
+        case setOwnedDeviceName(ownedDeviceUID: UID, encryptedOwnedDeviceName: EncryptedData, isCurrentDevice: Bool)
+        case deactivateOwnedDevice(ownedDeviceUID: UID, isCurrentDevice: Bool)
+        case setUnexpiringOwnedDevice(ownedDeviceUID: UID)
+        // The following types concern the owned identity transfer protocol
+        case sourceGetSessionNumber(protocolInstanceUID: UID)
+        case sourceWaitForTargetConnection(protocolInstanceUID: UID)
+        case targetSendEphemeralIdentity(protocolInstanceUID: UID, transferSessionNumber: ObvOwnedIdentityTransferSessionNumber, payload: Data)
+        case transferRelay(protocolInstanceUID: UID, connectionIdentifier: String, payload: Data, thenCloseWebSocket: Bool)
+        case transferWait(protocolInstanceUID: UID, connectionIdentifier: String)
+        case closeWebsocketConnection(protocolInstanceUID: UID)
     }
     
 }

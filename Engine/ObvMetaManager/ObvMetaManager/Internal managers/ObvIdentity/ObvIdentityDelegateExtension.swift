@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,16 +26,16 @@ import ObvTypes
 public extension ObvIdentityDelegate {
     
     /// Generate an Owned Identity using the latest recommended types for the cryptographic keys.
-    func generateOwnedIdentity(withApiKey apiKey: UUID, onServerURL serverURL: URL, with identityDetails: ObvIdentityDetails, keycloakState: ObvKeycloakState?, using prng: PRNGService, within obvContext: ObvContext) -> ObvCryptoIdentity? {
+    func generateOwnedIdentity(onServerURL serverURL: URL, with identityDetails: ObvIdentityDetails, nameForCurrentDevice: String, keycloakState: ObvKeycloakState?, using prng: PRNGService, within obvContext: ObvContext) -> ObvCryptoIdentity? {
         
         let pkEncryptionImplemByteId = ObvCryptoSuite.sharedInstance.getDefaultPublicKeyEncryptionImplementationByteId()
         let authEmplemByteId = ObvCryptoSuite.sharedInstance.getDefaultAuthenticationImplementationByteId()
         
-        return generateOwnedIdentity(withApiKey: apiKey,
-                                     onServerURL: serverURL,
+        return generateOwnedIdentity(onServerURL: serverURL,
                                      with: identityDetails,
                                      accordingTo: pkEncryptionImplemByteId,
                                      and: authEmplemByteId,
+                                     nameForCurrentDevice: nameForCurrentDevice,
                                      keycloakState: keycloakState,
                                      using: prng,
                                      within: obvContext)

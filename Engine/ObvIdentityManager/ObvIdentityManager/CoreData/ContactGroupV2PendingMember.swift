@@ -123,7 +123,28 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
         self.isRestoringBackup = true
         self.delegateManager = nil
     }
- 
+
+    
+    /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
+    fileprivate convenience init(snapshotNode: ContactGroupV2PendingMemberSyncSnapshotItem, cryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2PendingMember.entityName, in: obvContext)!
+        self.init(entity: entityDescription, insertInto: obvContext)
+        guard let groupInvitationNonce = snapshotNode.groupInvitationNonce else {
+            assertionFailure()
+            throw ContactGroupV2PendingMemberSyncSnapshotItem.ObvError.tryingToRestoreIncompleteNode
+        }
+        self.groupInvitationNonce = groupInvitationNonce
+        self.rawIdentity = cryptoIdentity.getIdentity()
+        self.rawPermissions = snapshotNode.rawPermissions.joined(separator: String(Self.separatorForPermissions))
+        guard let serializedIdentityCoreDetails = snapshotNode.serializedIdentityCoreDetails else {
+            assertionFailure()
+            throw ContactGroupV2PendingMemberSyncSnapshotItem.ObvError.tryingToRestoreIncompleteNode
+        }
+        self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
+        self.isRestoringBackup = true
+        self.delegateManager = nil
+    }
+
     
     static func createAllPendingMembers(from otherGroupMembers: Set<GroupV2.IdentityAndPermissionsAndDetails>, in contactGroup: ContactGroupV2, delegateManager: ObvIdentityDelegateManager) throws -> Set<ContactGroupV2PendingMember> {
         try Set(otherGroupMembers.map { member in
@@ -244,6 +265,22 @@ extension ContactGroupV2PendingMember {
                 NSPredicate(format: predicateFormat, ownedIdentity)
             ])
         }
+        static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
+            let predicateChain = [Key.rawContactGroup.rawValue,
+                                  ContactGroupV2.Predicate.Key.rawOwnedIdentityIdentity.rawValue].joined(separator: ".")
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                contactGroupIsNotNil,
+                NSPredicate(predicateChain, EqualToData: ownedCryptoIdentity.getIdentity()),
+            ])
+        }
+        static func inGroupWithCategory(_ category: GroupV2.Identifier.Category) -> NSPredicate {
+            let predicateChain = [Key.rawContactGroup.rawValue,
+                                  ContactGroupV2.Predicate.Key.rawCategory.rawValue].joined(separator: ".")
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                contactGroupIsNotNil,
+                NSPredicate(predicateChain, EqualToInt: category.rawValue),
+            ])
+        }
     }
     
     
@@ -263,6 +300,20 @@ extension ContactGroupV2PendingMember {
         items.forEach({ $0.obvContext = obvContext })
         return Set(items)
         
+    }
+    
+    
+    /// Returns a set of crypto ids of users that are pending in at least one group v2 of the given category, restricting to groups of the given owned identity.
+    static func getAllPendingMembersCorrespondingToOwnedIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, groupCategory: GroupV2.Identifier.Category, within context: NSManagedObjectContext) throws -> Set<ObvCryptoIdentity> {
+        let request = Self.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity),
+            Predicate.inGroupWithCategory(groupCategory),
+        ])
+        request.fetchBatchSize = 1_000
+        request.propertiesToFetch = [Predicate.Key.rawIdentity.rawValue]
+        let items = try context.fetch(request)
+        return Set(items.compactMap(\.cryptoIdentity))
     }
 
     
@@ -335,15 +386,30 @@ struct ContactGroupV2PendingMemberBackupItem: Codable, Hashable, ObvErrorMaker {
         try container.encode(groupInvitationNonce, forKey: .groupInvitationNonce)
         try container.encode(rawIdentity, forKey: .rawIdentity)
         try container.encode(rawPermissions, forKey: .rawPermissions)
-        try container.encode(serializedIdentityCoreDetails, forKey: .serializedIdentityCoreDetails)
+        guard let coreDetailsAsString = String(data: serializedIdentityCoreDetails, encoding: .utf8) else {
+            throw Self.makeError(message: "Could not represent serializedIdentityCoreDetails as String")
+        }
+        try container.encode(coreDetailsAsString, forKey: .serializedIdentityCoreDetails)
     }
+    
     
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.groupInvitationNonce = try values.decode(Data.self, forKey: .groupInvitationNonce)
         self.rawIdentity = try values.decode(Data.self, forKey: .rawIdentity)
         self.rawPermissions = try values.decode([String].self, forKey: .rawPermissions)
-        self.serializedIdentityCoreDetails = try values.decode(Data.self, forKey: .serializedIdentityCoreDetails)
+                
+        if let coreDetailsAsString = try? values.decode(String.self, forKey: .serializedIdentityCoreDetails),
+                  let coreDetailsAsData = coreDetailsAsString.data(using: .utf8),
+           (try? ObvIdentityCoreDetails(coreDetailsAsData)) != nil {
+            self.serializedIdentityCoreDetails = coreDetailsAsData
+        } else if let coreDetailsAsData = try? values.decode(Data.self, forKey: .serializedIdentityCoreDetails),
+                  (try? ObvIdentityCoreDetails(coreDetailsAsData)) != nil {
+            self.serializedIdentityCoreDetails = coreDetailsAsData
+        } else {
+            throw Self.makeError(message: "Could not decode serializedIdentityCoreDetails")
+        }
+        
     }
     
     func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
@@ -355,4 +421,94 @@ struct ContactGroupV2PendingMemberBackupItem: Codable, Hashable, ObvErrorMaker {
         // Nothing to do here
     }
 
+}
+
+
+// MARK: - For Snapshot purposes
+
+extension ContactGroupV2PendingMember {
+
+    var snapshotItem: ContactGroupV2PendingMemberSyncSnapshotItem {
+        return .init(groupInvitationNonce: self.groupInvitationNonce,
+                     rawPermissions: self.rawPermissions,
+                     serializedIdentityCoreDetails: self.serializedIdentityCoreDetails)
+    }
+
+}
+
+
+struct ContactGroupV2PendingMemberSyncSnapshotItem: Codable, Hashable, Identifiable {
+    
+    fileprivate let groupInvitationNonce: Data?
+    fileprivate let rawPermissions: [String]
+    fileprivate let serializedIdentityCoreDetails: Data?
+
+    let id = ObvSyncSnapshotNodeUtils.generateIdentifier()
+
+    enum CodingKeys: String, CodingKey {
+        case groupInvitationNonce = "invitation_nonce"
+        case rawPermissions = "permissions"
+        case serializedIdentityCoreDetails = "serialized_details"
+    }
+
+    // Allows to prevent association failures in two items have identical variables
+    private let transientUuid = UUID()
+
+    
+    fileprivate init(groupInvitationNonce: Data, rawPermissions: String, serializedIdentityCoreDetails: Data) {
+        self.groupInvitationNonce = groupInvitationNonce
+        self.rawPermissions = rawPermissions.split(separator: ContactGroupV2PendingMember.separatorForPermissions).map({ String($0) })
+        self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
+    }
+
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(groupInvitationNonce, forKey: .groupInvitationNonce)
+        try container.encode(rawPermissions, forKey: .rawPermissions)
+        if let serializedIdentityCoreDetails {
+            guard let coreDetailsAsString = String(data: serializedIdentityCoreDetails, encoding: .utf8) else {
+                throw ObvError.couldNotSerializeCoreDetails
+            }
+            try container.encode(coreDetailsAsString, forKey: .serializedIdentityCoreDetails)
+        }
+    }
+    
+    
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.groupInvitationNonce = try values.decodeIfPresent(Data.self, forKey: .groupInvitationNonce)
+        self.rawPermissions = try values.decodeIfPresent([String].self, forKey: .rawPermissions) ?? []
+                
+        if let coreDetailsAsString = try? values.decodeIfPresent(String.self, forKey: .serializedIdentityCoreDetails),
+                  let coreDetailsAsData = coreDetailsAsString.data(using: .utf8),
+           (try? ObvIdentityCoreDetails(coreDetailsAsData)) != nil {
+            self.serializedIdentityCoreDetails = coreDetailsAsData
+        } else if let coreDetailsAsData = try? values.decodeIfPresent(Data.self, forKey: .serializedIdentityCoreDetails),
+                  (try? ObvIdentityCoreDetails(coreDetailsAsData)) != nil {
+            self.serializedIdentityCoreDetails = coreDetailsAsData
+        } else {
+            self.serializedIdentityCoreDetails = nil
+        }
+        
+    }
+    
+    
+    func restoreInstance(within obvContext: ObvContext, cryptoIdentity: ObvCryptoIdentity, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let contactGroupV2PendingMember = try ContactGroupV2PendingMember(snapshotNode: self, cryptoIdentity: cryptoIdentity, within: obvContext)
+        try associations.associate(contactGroupV2PendingMember, to: self)
+    }
+
+    
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+        // Nothing to do here
+    }
+
+    
+    enum ObvError: Error {
+        case couldNotSerializeCoreDetails
+        case couldNotDeserializeCoreDetails
+        case tryingToRestoreIncompleteNode
+    }
+    
 }

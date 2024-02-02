@@ -34,37 +34,29 @@ final class ProcessContactGroupJoinedHasUpdatedTrustedDetailsOperation: Contextu
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
+                assertionFailure()
+                return
+            }
+            
+            let groupIdentifier = obvContactGroup.groupIdentifier
+            
+            guard let groupJoined = try PersistedContactGroupJoined.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
+                assertionFailure()
+                return
+            }
+            
+            try groupJoined.resetGroupName(to: obvContactGroup.trustedOrLatestCoreDetails.name)
+            groupJoined.setStatus(to: .noNewPublishedDetails)
+            groupJoined.updatePhoto(with: obvContactGroup.trustedOrLatestPhotoURL)
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
-            
-            do {
-
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
-                    assertionFailure()
-                    return
-                }
-                
-                let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-                
-                guard let groupJoined = try PersistedContactGroupJoined.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
-                    assertionFailure()
-                    return
-                }
-                
-                try groupJoined.resetGroupName(to: obvContactGroup.trustedOrLatestCoreDetails.name)
-                groupJoined.setStatus(to: .noNewPublishedDetails)
-                groupJoined.updatePhoto(with: obvContactGroup.trustedOrLatestPhotoURL)
-
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
-        }
-
     }
 }

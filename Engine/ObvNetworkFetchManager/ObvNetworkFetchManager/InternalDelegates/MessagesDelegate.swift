@@ -27,8 +27,8 @@ import ObvServerInterface
 protocol MessagesDelegate {
     
     func downloadMessagesAndListAttachments(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
-    func processMarkForDeletionForMessageAndAttachmentsAndCreatePendingDeleteFromServer(messageId: MessageIdentifier, flowId: FlowIdentifier) throws
+    func processMarkForDeletionForMessageAndAttachmentsAndCreatePendingDeleteFromServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws
     func saveMessageReceivedOnWebsocket(message: ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer, downloadTimestampFromServer: Date, ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws
     
-    func downloadExtendedMessagePayload(messageId: MessageIdentifier, flowId: FlowIdentifier)
+    func downloadExtendedMessagePayload(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 }

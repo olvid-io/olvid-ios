@@ -29,4 +29,6 @@ protocol ServerQueryDelegate {
 
     func postAllPendingServerQuery(for ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
     func postAllPendingServerQuery(flowId: FlowIdentifier)
+    func deletePendingServerQueryOfNonExistingOwnedIdentities(flowId: FlowIdentifier)
+    
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,40 +48,34 @@ final class MarkReceivedJoinAsResumedOrPausedOperation: ContextualOperationWithS
         super.init()
     }
 
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            do {
-                
-                guard let message = try PersistedMessageReceived.get(messageIdentifierFromEngine: messageIdentifierFromEngine,
-                                                                     ownedCryptoId: ownedCryptoId,
-                                                                     within: obvContext.context)
-                else {
-                    assertionFailure()
-                    return
-                }
-                
-                guard let join = message.fyleMessageJoinWithStatuses.first(where: { $0.index == attachmentNumber }) else {
-                    assertionFailure()
-                    return
-                }
-                
-                switch resumeOrPause {
-                case .resume:
-                    join.tryToSetStatusTo(.downloading)
-                case .pause:
-                    join.tryToSetStatusTo(.downloadable)
-                }
-                
-            } catch(let error) {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            
+            guard let message = try PersistedMessageReceived.get(messageIdentifierFromEngine: messageIdentifierFromEngine,
+                                                                 ownedCryptoId: ownedCryptoId,
+                                                                 within: obvContext.context)
+            else {
                 assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+                return
             }
+            
+            guard let join = message.fyleMessageJoinWithStatuses.first(where: { $0.index == attachmentNumber }) else {
+                assertionFailure()
+                return
+            }
+            
+            switch resumeOrPause {
+            case .resume:
+                join.tryToSetStatusToDownloading()
+            case .pause:
+                join.tryToSetStatusToDownloadable()
+            }
+            
+        } catch(let error) {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }

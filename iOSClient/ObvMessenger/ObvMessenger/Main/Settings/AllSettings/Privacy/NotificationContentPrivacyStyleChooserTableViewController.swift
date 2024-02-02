@@ -19,6 +19,8 @@
 
 import UIKit
 import ObvUICoreData
+import ObvSettings
+
 
 class NotificationContentPrivacyStyleChooserTableViewController: UITableViewController {
 

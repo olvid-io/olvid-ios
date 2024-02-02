@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,9 +29,10 @@ final class SettingsFlowViewController: UINavigationController {
     private(set) var obvEngine: ObvEngine!
 
     private weak var createPasscodeDelegate: CreatePasscodeDelegate?
+    private weak var localAuthenticationDelegate: LocalAuthenticationDelegate?
     private weak var appBackupDelegate: AppBackupDelegate?
 
-    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, appBackupDelegate: AppBackupDelegate) {
+    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, localAuthenticationDelegate: LocalAuthenticationDelegate, appBackupDelegate: AppBackupDelegate) {
         let allSettingsTableViewController = AllSettingsTableViewController(ownedCryptoId: ownedCryptoId)
 
         super.init(rootViewController: allSettingsTableViewController)
@@ -39,6 +40,7 @@ final class SettingsFlowViewController: UINavigationController {
         self.ownedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
         self.createPasscodeDelegate = createPasscodeDelegate
+        self.localAuthenticationDelegate = localAuthenticationDelegate
         self.appBackupDelegate = appBackupDelegate
 
         allSettingsTableViewController.delegate = self
@@ -85,18 +87,21 @@ extension SettingsFlowViewController: AllSettingsTableViewControllerDelegate {
         case .interface:
             settingViewController = InterfaceSettingsTableViewController(ownedCryptoId: ownedCryptoId)
         case .discussions:
-            settingViewController = DiscussionsDefaultSettingsHostingViewController()
+            settingViewController = DiscussionsDefaultSettingsHostingViewController(ownedCryptoId: ownedCryptoId)
         case .privacy:
-            guard let createPasscodeDelegate = self.createPasscodeDelegate else {
+            guard let createPasscodeDelegate, let localAuthenticationDelegate else {
                 assertionFailure(); return
             }
-            settingViewController = PrivacyTableViewController(ownedCryptoId: ownedCryptoId, createPasscodeDelegate: createPasscodeDelegate)
+            settingViewController = PrivacyTableViewController(
+                ownedCryptoId: ownedCryptoId,
+                createPasscodeDelegate: createPasscodeDelegate,
+                localAuthenticationDelegate: localAuthenticationDelegate)
         case .backup:
             settingViewController = BackupTableViewController(obvEngine: obvEngine, appBackupDelegate: appBackupDelegate)
         case .about:
             settingViewController = AboutSettingsTableViewController()
         case .advanced:
-            settingViewController = AdvancedSettingsViewController(ownedCryptoId: ownedCryptoId)
+            settingViewController = AdvancedSettingsViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
         case .voip:
             settingViewController = VoIPSettingsTableViewController()
         }

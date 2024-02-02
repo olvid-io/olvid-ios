@@ -20,6 +20,8 @@
 import Foundation
 import ObvUICoreData
 import UI_SystemIcon
+import ObvSettings
+
 
 public extension NewComposeMessageViewAction {
     

@@ -108,6 +108,14 @@ public extension NSPredicate {
         self.init(format: "%K < %@", rawKey, date as NSDate)
     }
 
+    convenience init<T: RawRepresentable>(_ key: T, earlierOrAt date: Date) where T.RawValue == String {
+        self.init(key.rawValue, earlierOrAt: date)
+    }
+
+    convenience init(_ rawKey: String, earlierOrAt date: Date) {
+        self.init(format: "%K <= %@", rawKey, date as NSDate)
+    }
+
     convenience init<T: RawRepresentable>(_ key: T, earlierOrEqualTo date: Date) where T.RawValue == String {
         self.init(key.rawValue, earlierOrEqualTo: date)
     }

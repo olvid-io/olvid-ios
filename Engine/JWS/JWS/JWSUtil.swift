@@ -19,9 +19,13 @@
 
 import Foundation
 import JOSESwift
+import ObvEncoder
+import OlvidUtils
 
-public struct ObvJWKSet {
-
+public struct ObvJWKSet: ObvErrorMaker {
+    
+    public static let errorDomain = "ObvJWKSet"
+    
     fileprivate let jWKSet: JWKSet
 
     public init(data: Data) throws {
@@ -35,6 +39,37 @@ public struct ObvJWKSet {
     public init(fromSingleObvJWK obvJWK: ObvJWK) {
         self.jWKSet = JWKSet(keys: [obvJWK.jwk])
     }
+}
+
+
+/// We make `ObvJWKSet` conform to `ObvCodable` since this type is used within the engine's protocol messages.
+extension ObvJWKSet: ObvFailableCodable {
+    
+    public func obvEncode() throws -> ObvEncoder.ObvEncoded {
+        guard let obvJWKSetAsJSONData = self.jsonData() else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not encode ObvJWKSet")
+        }
+        return obvJWKSetAsJSONData.obvEncode()
+    }
+
+    
+    public init?(_ obvEncoded: ObvEncoded) {
+        
+        guard let obvJWKSetAsJSONData = Data(obvEncoded) else {
+            assertionFailure()
+            return nil
+        }
+        
+        do {
+            try self.init(data: obvJWKSetAsJSONData)
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return nil
+        }
+        
+    }
+    
 }
 
 
@@ -82,6 +117,35 @@ public struct ObvJWK: Equatable {
     }
 
 }
+
+
+/// We make `ObvJWK` conform to `ObvCodable` since this type is used within the engine's protocol messages.
+extension ObvJWK: ObvFailableCodable {
+    
+    public func obvEncode() throws -> ObvEncoder.ObvEncoded {
+        let jsonData = try self.jsonEncode()
+        return jsonData.obvEncode()
+    }
+
+    
+    public init?(_ obvEncoded: ObvEncoded) {
+        
+        guard let jsonData = Data(obvEncoded) else {
+            assertionFailure()
+            return nil
+        }
+
+        guard let obvJWK = try? Self.jsonDecode(rawObvJWK: jsonData) else {
+            assertionFailure()
+            return nil
+        }
+
+        self = obvJWK
+        
+    }
+    
+}
+
 
 
 public final class JWSUtil {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,7 +33,23 @@ import ObvUICoreData
 final class KeycloakManagerSingleton: ObvErrorMaker {
     
     static var shared = KeycloakManagerSingleton()
-    private init() {}
+    private init() {
+        observeNotifications()
+    }
+    
+    private var observationTokens = [NSObjectProtocol]()
+
+    deinit {
+        observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
+    }
+        
+    private func observeNotifications() {
+        observationTokens = [
+            ObvMessengerInternalNotification.observeNetworkInterfaceTypeChanged { isConnected in
+                Task { [weak self] in await self?.processNetworkInterfaceTypeChangedNotification(isConnected: isConnected) }
+            },
+        ]
+    }
     
     static let errorDomain = "KeycloakManagerSingleton"
     
@@ -124,12 +140,12 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     
     
     /// If the manager is not set, this function throws an `Error`. If any other error occurs, it can be casted to a `KeycloakManager.AddContactError`.
-    func addContact(ownedCryptoId: ObvCryptoId, userId: String, userIdentity: Data) async throws {
+    func addContact(ownedCryptoId: ObvCryptoId, userIdOrSignedDetails: KeycloakAddContactInfo, userIdentity: Data) async throws {
         guard let manager = manager else {
             assertionFailure()
             throw Self.makeError(message: "The internal manager is not set")
         }
-        try await manager.addContact(ownedCryptoId: ownedCryptoId, userId: userId, userIdentity: userIdentity)
+        try await manager.addContact(ownedCryptoId: ownedCryptoId, userIdOrSignedDetails: userIdOrSignedDetails, userIdentity: userIdentity)
     }
 
     
@@ -152,6 +168,19 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
         }
         return try await manager.syncAllManagedIdentities(ignoreSynchronizationInterval: true)
     }
+    
+    
+    private func processNetworkInterfaceTypeChangedNotification(isConnected: Bool) async {
+        guard isConnected else { return }
+        do {
+            os_log("🧥🛜 Call to syncAllManagedIdentities as network connexion is available", log: KeycloakManager.log, type: .info)
+            try await manager?.syncAllManagedIdentities(ignoreSynchronizationInterval: false)
+            os_log("🧥🛜 Call to syncAllManagedIdentities was successful", log: KeycloakManager.log, type: .info)
+        } catch {
+            os_log("🧥🛜 Call to syncAllManagedIdentities failed: %{public}@", log: KeycloakManager.log, type: .error, error.localizedDescription)
+        }
+    }
+    
 }
 
 
@@ -173,6 +202,7 @@ actor KeycloakManager: NSObject {
     private var currentAuthorizationFlow: OIDExternalUserAgentSession?
 
     private func setCurrentAuthorizationFlow(to newCurrentAuthorizationFlow: OIDExternalUserAgentSession?) {
+        self.currentAuthorizationFlow?.cancel()
         self.currentAuthorizationFlow = newCurrentAuthorizationFlow
     }
     
@@ -184,7 +214,7 @@ actor KeycloakManager: NSObject {
     private static var groupsPath = "olvid-rest/groups"
 
     private static let errorDomain = "KeycloakManager"
-    private static var log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "KeycloakManager")
+    fileprivate static var log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "KeycloakManager")
     static func makeError(message: String) -> Error { NSError(domain: KeycloakManager.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { KeycloakManager.makeError(message: message) }
 
@@ -237,7 +267,7 @@ actor KeycloakManager: NSObject {
         os_log("🧥 Call to unregisterKeycloakManagedOwnedIdentity", log: KeycloakManager.log, type: .info)
         do {
             setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: nil)
-            try await obvEngine.unbindOwnedIdentityFromKeycloakServer(ownedCryptoId: ownedCryptoId)
+            try await obvEngine.unbindOwnedIdentityFromKeycloak(ownedCryptoId: ownedCryptoId)
         } catch {
             guard failedAttempts < maxFailCount else {
                 assertionFailure()
@@ -305,6 +335,7 @@ actor KeycloakManager: NSObject {
                 throw UploadOwnedIdentityError.ownedIdentityWasRevoked
             case .authenticationRequired:
                 do {
+                    ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][2]")
                     try await openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState: iks, ownedCryptoId: ownedCryptoId)
                     return try await uploadOwnIdentity(ownedCryptoId: ownedCryptoId)
                 } catch let error as KeycloakDialogError {
@@ -397,77 +428,89 @@ actor KeycloakManager: NSObject {
 
 
     /// Throws a AddContactError
-    fileprivate func addContact(ownedCryptoId: ObvCryptoId, userId: String, userIdentity: Data) async throws {
+    fileprivate func addContact(ownedCryptoId: ObvCryptoId, userIdOrSignedDetails: KeycloakAddContactInfo, userIdentity: Data) async throws {
         os_log("🧥 Call to addContact", log: KeycloakManager.log, type: .info)
         
-        let iks: InternalKeycloakState
-        do {
-            iks = try await getInternalKeycloakState(for: ownedCryptoId)
-        } catch {
-            throw AddContactError.unkownError(error)
+        let signedUserDetails: SignedObvKeycloakUserDetails
+        switch userIdOrSignedDetails {
+        case .userId(let userId):
+            
+            let iks: InternalKeycloakState
+            do {
+                iks = try await getInternalKeycloakState(for: ownedCryptoId)
+            } catch {
+                throw AddContactError.unkownError(error)
+            }
+            
+            let addContactJSON = AddContactJSON(userId: userId)
+            let encoder = JSONEncoder()
+            let dataToSend: Data
+            do {
+                dataToSend = try encoder.encode(addContactJSON)
+            } catch {
+                throw AddContactError.unkownError(error)
+            }
+
+            let result: KeycloakManager.ApiResultForGetKeyPath
+            do {
+                result = try await keycloakApiRequest(serverURL: iks.keycloakServer, path: KeycloakManager.getKeyPath, accessToken: iks.accessToken, dataToSend: dataToSend)
+            } catch let error as KeycloakApiRequestError {
+                switch error {
+                case .permissionDenied:
+                    throw AddContactError.authenticationRequired
+                case .internalError, .invalidRequest, .identityAlreadyUploaded, .badResponse, .decodingFailed:
+                    throw AddContactError.badResponse
+                case .ownedIdentityWasRevoked:
+                    throw AddContactError.ownedIdentityWasRevoked
+                }
+            } catch {
+                assertionFailure("Unexpected error")
+                throw AddContactError.unkownError(error)
+            }
+                    
+            do {
+                guard let signatureVerificationKey = iks.signatureVerificationKey else {
+                    // We did not save the signature key used to sign our own details, se we cannot make sure the details of our future contact are signed with the appropriate key.
+                    // We fail and force a resync that will eventually store this server signature verification key
+                    Task {
+                        setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: nil)
+                        currentlySyncingOwnedIdentities.remove(ownedCryptoId)
+                        await synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: false, failedAttempts: 0)
+                    }
+                    throw AddContactError.willSyncKeycloakServerSignatureKey
+                }
+                // The signature key used to sign our own details is available, we use it to check the details of our future contact
+                do {
+                    signedUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(result.signature, with: signatureVerificationKey)
+                } catch {
+                    // The signature verification failed when using the key used to signed our own details. We check if the signature is valid using the key sent by the server
+                    do {
+                        _ = try JWSUtil.verifySignature(jwks: iks.jwks, signature: result.signature)
+                    } catch {
+                        // The signature is definitively invalid, we fail
+                        throw AddContactError.invalidSignature(error)
+                    }
+                    // If we reach this point, the signature is valid but with the wrong signature key --> we force a resync to detect key change and prompt user with a dialog
+                    Task {
+                        setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: nil)
+                        currentlySyncingOwnedIdentities.remove(ownedCryptoId)
+                        await synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: false, failedAttempts: 0)
+                    }
+                    throw AddContactError.willSyncKeycloakServerSignatureKey
+                }
+            }
+
+            
+        case .signedDetails(let signedDetails):
+            
+            signedUserDetails = signedDetails
+            
         }
         
-        let addContactJSON = AddContactJSON(userId: userId)
-        let encoder = JSONEncoder()
-        let dataToSend: Data
-        do {
-            dataToSend = try encoder.encode(addContactJSON)
-        } catch {
-            throw AddContactError.unkownError(error)
-        }
-
-        let result: KeycloakManager.ApiResultForGetKeyPath
-        do {
-            result = try await keycloakApiRequest(serverURL: iks.keycloakServer, path: KeycloakManager.getKeyPath, accessToken: iks.accessToken, dataToSend: dataToSend)
-        } catch let error as KeycloakApiRequestError {
-            switch error {
-            case .permissionDenied:
-                throw AddContactError.authenticationRequired
-            case .internalError, .invalidRequest, .identityAlreadyUploaded, .badResponse, .decodingFailed:
-                throw AddContactError.badResponse
-            case .ownedIdentityWasRevoked:
-                throw AddContactError.ownedIdentityWasRevoked
-            }
-        } catch {
-            assertionFailure("Unexpected error")
-            throw AddContactError.unkownError(error)
-        }
-                
-        let signedUserDetails: SignedObvKeycloakUserDetails
-        do {
-            guard let signatureVerificationKey = iks.signatureVerificationKey else {
-                // We did not save the signature key used to sign our own details, se we cannot make sure the details of our future contact are signed with the appropriate key.
-                // We fail and force a resync that will eventually store this server signature verification key
-                Task {
-                    setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: nil)
-                    currentlySyncingOwnedIdentities.remove(ownedCryptoId)
-                    await synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: false, failedAttempts: 0)
-                }
-                throw AddContactError.willSyncKeycloakServerSignatureKey
-            }
-            // The signature key used to sign our own details is available, we use it to check the details of our future contact
-            do {
-                signedUserDetails = try SignedObvKeycloakUserDetails.verifySignedUserDetails(result.signature, with: signatureVerificationKey)
-            } catch {
-                // The signature verification failed when using the key used to signed our own details. We check if the signature is valid using the key sent by the server
-                do {
-                    _ = try JWSUtil.verifySignature(jwks: iks.jwks, signature: result.signature)
-                } catch {
-                    // The signature is definitively invalid, we fail
-                    throw AddContactError.invalidSignature(error)
-                }
-                // If we reach this point, the signature is valid but with the wrong signature key --> we force a resync to detect key change and prompt user with a dialog
-                Task {
-                    setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: nil)
-                    currentlySyncingOwnedIdentities.remove(ownedCryptoId)
-                    await synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: false, failedAttempts: 0)
-                }
-                throw AddContactError.willSyncKeycloakServerSignatureKey
-            }
-        }
         guard signedUserDetails.identity == userIdentity else {
             throw AddContactError.badResponse
         }
+        
         do {
             try obvEngine.addKeycloakContact(with: ownedCryptoId, signedContactDetails: signedUserDetails)
         } catch(let error) {
@@ -780,7 +823,9 @@ actor KeycloakManager: NSObject {
         
         assert(Date().timeIntervalSince(lastSynchronizationDate) > 0)
         
-        guard Date().timeIntervalSince(lastSynchronizationDate) > self.synchronizationInterval || ignoreSynchronizationInterval else {
+        let timeIntervalSinceLastSynchronizationDate = Date().timeIntervalSince(lastSynchronizationDate)
+        guard timeIntervalSinceLastSynchronizationDate > self.synchronizationInterval || ignoreSynchronizationInterval else {
+            os_log("🧥 No need to sync as the last sync occured %{public}d seconds ago", log: KeycloakManager.log, type: .info, Int(timeIntervalSinceLastSynchronizationDate))
             return
         }
         
@@ -804,6 +849,7 @@ actor KeycloakManager: NSObject {
             switch error {
             case .authenticationRequired:
                 do {
+                    ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][3]")
                     try await openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState: iks, ownedCryptoId: ownedCryptoId)
                     return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
                 } catch let error as KeycloakDialogError {
@@ -962,6 +1008,7 @@ actor KeycloakManager: NSObject {
                     break // Do nothing
                 case .authenticationRequired:
                     do {
+                        ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][4]")
                         try await openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState: iks, ownedCryptoId: ownedCryptoId)
                         return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
                     } catch let error as KeycloakDialogError {
@@ -1051,11 +1098,11 @@ actor KeycloakManager: NSObject {
         // If we reach this point, the details on the server are identical to the ones stored locally.
         // We update the current API key if needed
         
-        let apiKey: UUID
+        let apiKey: UUID?
         do {
-            apiKey = try obvEngine.getApiKeyForOwnedIdentity(with: ownedCryptoId)
+            apiKey = try await obvEngine.getKeycloakAPIKey(ownedCryptoId: ownedCryptoId)
         } catch {
-            os_log("🧥 Could not retrieve the current API key from the owned identity.", log: KeycloakManager.log, type: .fault)
+            os_log("🧥 Could not retrieve the current API key from the owned identity: %{public}@", log: KeycloakManager.log, type: .fault, error.localizedDescription)
             return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
         }
 
@@ -1063,7 +1110,7 @@ actor KeycloakManager: NSObject {
             guard apiKey == apiKeyOnServer else {
                 // The api key returned by the server differs from the one store locally. We update the local key
                 do {
-                    try obvEngine.setAPIKey(for: ownedCryptoId, apiKey: apiKeyOnServer, keycloakServerURL: iks.keycloakServer)
+                    _ = try await obvEngine.registerThenSaveKeycloakAPIKey(ownedCryptoId: ownedCryptoId, apiKey: apiKeyOnServer)
                     return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: nil, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: 0)
                 } catch {
                     os_log("🧥 Could not update the local API key with the new one returned by the server.", log: KeycloakManager.log, type: .fault)
@@ -1077,7 +1124,7 @@ actor KeycloakManager: NSObject {
         // We update the Keycloak push topics stored within the engine
         
         do {
-            try obvEngine.updateKeycloakPushTopicsIfNeeded(ownedCryptoId: ownedCryptoId, pushTopics: keycloakUserDetailsAndStuff.pushTopics)
+            try await ObvPushNotificationManager.shared.updateKeycloakPushTopicsIfNeeded(ownedCryptoId: ownedCryptoId, pushTopics: keycloakUserDetailsAndStuff.pushTopics)
         } catch {
             os_log("🧥 Could not update the engine using the push topics returned by the server.", log: KeycloakManager.log, type: .fault)
             return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
@@ -1128,6 +1175,7 @@ actor KeycloakManager: NSObject {
             switch error {
             case .authenticationRequired:
                 do {
+                    ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][5]")
                     try await openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState: iks, ownedCryptoId: ownedCryptoId)
                     return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
                 } catch let error as KeycloakDialogError {
@@ -1193,7 +1241,7 @@ actor KeycloakManager: NSObject {
 
         guard currentFailedAttempts < self.maxFailCount else {
             currentlySyncingOwnedIdentities.remove(ownedCryptoId)
-            assertionFailure("Unexpected error")
+            //assertionFailure("Unexpected error. This also happens when the keycloak cannot be reached. When testing this scenario, this line can be commented out.")
             return
         }
 
@@ -1231,7 +1279,7 @@ actor KeycloakManager: NSObject {
         // We use the core details from the server, but keep the local photo URL
         let updatedIdentityDetails = ObvIdentityDetails(coreDetails: coreDetailsOnServer, photoURL: obvOwnedIdentity.currentIdentityDetails.photoURL)
         do {
-            try obvEngine.updatePublishedIdentityDetailsOfOwnedIdentity(with: ownedCryptoId, with: updatedIdentityDetails)
+            try await obvEngine.updatePublishedIdentityDetailsOfOwnedIdentity(with: ownedCryptoId, with: updatedIdentityDetails)
         } catch {
             os_log("🧥 Could not updated published identity details of owned identity: %{public}@", log: KeycloakManager.log, type: .fault, error.localizedDescription)
             assertionFailure()
@@ -1267,7 +1315,9 @@ actor KeycloakManager: NSObject {
               authState.isAuthorized,
               let (accessToken, _) = try? await authState.performAction(),
               let accessToken = accessToken else {
+            
             do {
+                ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][1] \(String(describing: obvKeycloakState.rawAuthState))")
                 try await openKeycloakAuthenticationRequiredTokenExpired(obvKeycloakState: obvKeycloakState, ownedCryptoId: ownedCryptoId)
             } catch let error as KeycloakDialogError {
                 switch error {
@@ -1276,9 +1326,12 @@ actor KeycloakManager: NSObject {
                 case .keycloakManagerError(let error):
                     throw GetObvKeycloakStateError.unkownError(error)
                 }
+                
             } catch {
-                assertionFailure("Unexpected error")
+                
+                //assertionFailure("Unexpected error. This also happens when the keycloak cannot be reached. When testing this scenario, this line can be commented out.")
                 throw GetObvKeycloakStateError.unkownError(error)
+                
             }
             
             guard failedAttempts < maxFailCount else {
@@ -1308,21 +1361,8 @@ actor KeycloakManager: NSObject {
 
     private func getJkws(url: URL) async throws -> Data {
         os_log("🧥 Call to getJkws", log: KeycloakManager.log, type: .info)
-        if #available(iOS 15, *) {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            return data
-        } else {
-            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
-                let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
-                    if let data = data {
-                        continuation.resume(returning: data)
-                    } else {
-                        continuation.resume(throwing: error ?? KeycloakManager.makeError(message: "No data received"))
-                    }
-                }
-                task.resume()
-            }
-        }
+        let (data, _) = try await URLSession.shared.data(from: url)
+        return data
     }
 
 
@@ -1619,6 +1659,11 @@ extension KeycloakManager {
         // Before authenticating, we test whether we have been revoked by the keycloak server
 
         guard let selfRevocationTestNonceFromEngine = try obvEngine.getOwnedIdentityKeycloakSelfRevocationTestNonce(ownedCryptoId: ownedCryptoId) else {
+            
+            // If reach this point, we make sure we can reach the keycloak server. To so, we perform a selfRevocationTest with a empty nonce.
+            // If this test throws, the user is not prompted to authenticate.
+            _ = try await selfRevocationTest(serverURL: serverURL, selfRevocationTestNonce: "")
+            
             // If we reach this point, we have no selfRevocationTestNonceFromEngine, we can immediately prompt for authentication
             try await openKeycloakAuthenticationRequired(serverURL: serverURL, clientId: clientId, clientSecret: clientSecret, ownedCryptoId: ownedCryptoId, title: title, message: message)
             return
@@ -1631,7 +1676,7 @@ extension KeycloakManager {
             // We unbind it at the engine level and display an alert to the user
             setLastSynchronizationDate(forOwnedIdentity: ownedCryptoId, to: nil)
             do {
-                try await obvEngine.unbindOwnedIdentityFromKeycloakServer(ownedCryptoId: ownedCryptoId)
+                try await obvEngine.unbindOwnedIdentityFromKeycloak(ownedCryptoId: ownedCryptoId)
                 try await openAppDialogKeycloakIdentityRevoked()
             } catch {
                 os_log("Could not unbind revoked owned identity: %{public}@", log: KeycloakManager.log, type: .fault, error.localizedDescription)
@@ -1675,13 +1720,18 @@ extension KeycloakManager {
         os_log("🧥 Call to openKeycloakAuthenticationRequired", log: KeycloakManager.log, type: .info)
         assert(Thread.isMainThread)
         
+        os_log("🧥 In openKeycloakAuthenticationRequired: Will request keycloakSceneDelegate", log: KeycloakManager.log, type: .debug)
         guard let keycloakSceneDelegate = await keycloakSceneDelegate else {
+            os_log("🧥 In openKeycloakAuthenticationRequired: could not get keycloakSceneDelegate", log: KeycloakManager.log, type: .error)
             assertionFailure()
             throw Self.makeError(message: "The keycloakSceneDelegate is not set")
         }
-        
+        os_log("🧥 In openKeycloakAuthenticationRequired: Did obtain keycloakSceneDelegate", log: KeycloakManager.log, type: .debug)
+
+        os_log("🧥 In openKeycloakAuthenticationRequired: Will request view controller for presenting", log: KeycloakManager.log, type: .debug)
         let viewController = try await keycloakSceneDelegate.requestViewControllerForPresenting()
-        
+        os_log("🧥 In openKeycloakAuthenticationRequired: Did obtain view controller for presenting", log: KeycloakManager.log, type: .debug)
+
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
          
             assert(Thread.isMainThread)
@@ -1711,6 +1761,7 @@ extension KeycloakManager {
             menu.addAction(authenticateAction)
             menu.addAction(cancelAction)
             
+            os_log("🧥 In openKeycloakAuthenticationRequired: Will present alert", log: KeycloakManager.log, type: .debug)
             viewController.present(menu, animated: true, completion: nil)
 
         }
@@ -1859,54 +1910,6 @@ extension KeycloakManager {
         let alert = UIAlertController(title: Strings.KeycloakRevocationForbidden.title, message: Strings.KeycloakRevocationForbidden.message, preferredStyle: .alert)
         alert.addAction(UIAlertAction.init(title: CommonString.Word.Ok, style: .cancel))
         viewController.present(alert, animated: true)
-    }
-
-
-    /// Throws a KeycloakDialogError
-    @MainActor
-    func openAddContact(userDetail: ObvKeycloakUserDetails, ownedCryptoId: ObvCryptoId) async throws {
-        os_log("🧥 Call to openAddContact", log: KeycloakManager.log, type: .info)
-
-        assert(Thread.isMainThread)
-
-        guard let identity = userDetail.identity else { return }
-
-        guard let keycloakSceneDelegate = await keycloakSceneDelegate else {
-            assertionFailure()
-            throw Self.makeError(message: "The keycloakSceneDelegate is not set")
-        }
-        
-        let viewController = try await keycloakSceneDelegate.requestViewControllerForPresenting()
-        
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-        
-            assert(Thread.isMainThread)
-
-            let menu = UIAlertController(title: Strings.AddContactTitle, message: Strings.AddContactMessage(userDetail.firstNameAndLastName), preferredStyle: UIDevice.current.actionSheetIfPhoneAndAlertOtherwise)
-            
-            let addContactAction = UIAlertAction(title: Strings.AddContactButton, style: .default) { _ in
-                Task { [weak self] in
-                    guard let _self = self else { return }
-                    do {
-                        try await _self.addContact(ownedCryptoId: ownedCryptoId, userId: userDetail.id, userIdentity: identity)
-                        continuation.resume()
-                    } catch {
-                        continuation.resume(throwing: KeycloakDialogError.keycloakManagerError(error))
-                    }
-                }
-            }
-            
-            let cancelAction = UIAlertAction(title: CommonString.Word.Cancel, style: .cancel) { _ in
-                continuation.resume(throwing: KeycloakDialogError.userHasCancelled)
-            }
-            
-            menu.addAction(addContactAction)
-            menu.addAction(cancelAction)
-            
-            viewController.present(menu, animated: true, completion: nil)
-
-        }
-        
     }
 
 
@@ -2086,4 +2089,10 @@ extension OIDAuthState: ObvErrorMaker {
         }
     }
         
+}
+
+
+enum KeycloakAddContactInfo {
+    case userId(userId: String)
+    case signedDetails(signedDetails: SignedObvKeycloakUserDetails)
 }

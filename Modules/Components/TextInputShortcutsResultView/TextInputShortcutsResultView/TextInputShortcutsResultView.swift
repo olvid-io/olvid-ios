@@ -19,7 +19,7 @@
 
 import UIKit
 import Platform_Base
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
 import class ObvUI.NewCircledInitialsView
 
 /// This view is supposed to be displayed inline within a discussion. At the time of writing (2023-04-03), it is only used for displaying a collection of mentionnable users.
@@ -107,13 +107,9 @@ public final class TextInputShortcutsResultView: UIView {
                 $0.backgroundColor = .clear
 
                 $0.showsSeparators = true
-
-                if #available(iOS 14.5, *) {
-                    $0.separatorConfiguration = .init(listAppearance: Constants.listAppearance)..{
-                        if #available(iOS 15, *) {
-                            $0.visualEffect = UIVibrancyEffect(blurEffect: blurEffect, style: .separator)
-                        }
-                    }
+                
+                $0.separatorConfiguration = .init(listAppearance: Constants.listAppearance)..{
+                    $0.visualEffect = UIVibrancyEffect(blurEffect: blurEffect, style: .separator)
                 }
             }
 

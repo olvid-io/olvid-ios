@@ -58,7 +58,7 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
     }
 
     
-    func postReturnReceiptWithElements(_ elements: (nonce: Data, key: Data), andStatus status: Int, to contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, withDeviceUids deviceUids: Set<UID>, messageId: MessageIdentifier, attachmentNumber: Int?, flowId: FlowIdentifier) async throws {
+    func postReturnReceiptWithElements(_ elements: (nonce: Data, key: Data), andStatus status: Int, to contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, withDeviceUids deviceUids: Set<UID>, messageId: ObvMessageIdentifier, attachmentNumber: Int?, flowId: FlowIdentifier) async throws {
         
         guard let identityDelegate = self.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
@@ -86,13 +86,16 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
                                                   deviceUids: Array(deviceUids),
                                                   flowId: flowId)
         method.identityDelegate = identityDelegate
-        let urlRequest = try method.getURLRequest()
         
+        // Since the request of a upload task should not contain a body or a body stream, we use URLSession.upload(for:from:), passing the data to send via the `from` attribute.
         guard let dataToSend = method.dataToSend else {
             throw ReturnReceiptSender.makeError(message: "Could not get data to send")
         }
+        method.dataToSend = nil
 
-        let (responseData, response) = try await URLSession.shared.obvUpload(for: urlRequest, from: dataToSend)
+        let urlRequest = try method.getURLRequest()
+
+        let (responseData, response) = try await URLSession.shared.upload(for: urlRequest, from: dataToSend)
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw Self.makeError(message: "Bad HTTPURLResponse")

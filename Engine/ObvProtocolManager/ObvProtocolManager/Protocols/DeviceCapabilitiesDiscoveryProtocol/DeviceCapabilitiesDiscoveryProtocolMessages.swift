@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,19 +26,19 @@ extension DeviceCapabilitiesDiscoveryProtocol {
     
     enum MessageId: Int, ConcreteProtocolMessageId {
 
-        case InitialForAddingOwnCapabilities = 0
-        case InitialSingleContactDevice = 1
-        case InitialSingleOwnedDevice = 2
-        case OwnCapabilitiesToContact = 3
-        case OwnCapabilitiesToSelf = 4
+        case initialForAddingOwnCapabilities = 0
+        case initialSingleContactDevice = 1
+        case initialSingleOwnedDevice = 2
+        case ownCapabilitiesToContact = 3
+        case ownCapabilitiesToSelf = 4
 
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
-            case .InitialForAddingOwnCapabilities : return InitialForAddingOwnCapabilitiesMessage.self
-            case .InitialSingleContactDevice      : return InitialSingleContactDeviceMessage.self
-            case .InitialSingleOwnedDevice        : return InitialSingleOwnedDeviceMessage.self
-            case .OwnCapabilitiesToContact        : return OwnCapabilitiesToContactMessage.self
-            case .OwnCapabilitiesToSelf           : return OwnCapabilitiesToSelfMessage.self
+            case .initialForAddingOwnCapabilities : return InitialForAddingOwnCapabilitiesMessage.self
+            case .initialSingleContactDevice      : return InitialSingleContactDeviceMessage.self
+            case .initialSingleOwnedDevice        : return InitialSingleOwnedDeviceMessage.self
+            case .ownCapabilitiesToContact        : return OwnCapabilitiesToContactMessage.self
+            case .ownCapabilitiesToSelf           : return OwnCapabilitiesToSelfMessage.self
             }
         }
 
@@ -49,7 +49,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
 
     struct InitialForAddingOwnCapabilitiesMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.InitialForAddingOwnCapabilities
+        let id: ConcreteProtocolMessageId = MessageId.initialForAddingOwnCapabilities
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -91,7 +91,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
 
     struct InitialSingleContactDeviceMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.InitialSingleContactDevice
+        let id: ConcreteProtocolMessageId = MessageId.initialSingleContactDevice
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -133,7 +133,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
 
     struct InitialSingleOwnedDeviceMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.InitialSingleOwnedDevice
+        let id: ConcreteProtocolMessageId = MessageId.initialSingleOwnedDevice
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -172,7 +172,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
 
     struct OwnCapabilitiesToContactMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.OwnCapabilitiesToContact
+        let id: ConcreteProtocolMessageId = MessageId.ownCapabilitiesToContact
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message
@@ -212,7 +212,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
 
     struct OwnCapabilitiesToSelfMessage: ConcreteProtocolMessage {
 
-        let id: ConcreteProtocolMessageId = MessageId.OwnCapabilitiesToContact
+        let id: ConcreteProtocolMessageId = MessageId.ownCapabilitiesToSelf
         let coreProtocolMessage: CoreProtocolMessage
 
         // Properties specific to this concrete protocol message

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,7 @@ import LinkPresentation
 import OlvidUtils
 import ObvEngine
 import ObvUICoreData
+import ObvSettings
 
 
 final class BootstrapCoordinator: ObvErrorMaker {
@@ -34,6 +35,7 @@ final class BootstrapCoordinator: ObvErrorMaker {
     private var observationTokens = [NSObjectProtocol]()
     private let coordinatorsQueue: OperationQueue
     private let queueForComposedOperations: OperationQueue
+    weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
 
     static let errorDomain = "BootstrapCoordinator"
 
@@ -65,7 +67,7 @@ final class BootstrapCoordinator: ObvErrorMaker {
         resetOwnObvCapabilities()
         autoAcceptPendingGroupInvitesIfPossible()
         if forTheFirstTime {
-            processRequestSyncAppDatabasesWithEngine(completion: { _ in })
+            processRequestSyncAppDatabasesWithEngine(queuePriority: .veryLow, completion: { _ in })
             deleteOrphanedPersistedAttachmentSentRecipientInfosOperation()
         }
     }
@@ -76,11 +78,11 @@ final class BootstrapCoordinator: ObvErrorMaker {
         // Internal Notifications
 
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observePersistedContactWasInserted { [weak self] contactPermanentID in
+            ObvMessengerCoreDataNotification.observePersistedContactWasInserted { [weak self] contactPermanentID, _, _ in
                 self?.processPersistedContactWasInsertedNotification(contactPermanentID: contactPermanentID)
             },
-            ObvMessengerInternalNotification.observeRequestSyncAppDatabasesWithEngine { [weak self] completion in
-                self?.processRequestSyncAppDatabasesWithEngine(completion: completion)
+            ObvMessengerInternalNotification.observeRequestSyncAppDatabasesWithEngine { [weak self] (queuePriority, completion) in
+                self?.processRequestSyncAppDatabasesWithEngine(queuePriority: queuePriority, completion: completion)
             },
         ])
         
@@ -138,8 +140,9 @@ extension BootstrapCoordinator {
     private func resyncPersistedInvitationsWithEngine() {
         Task(priority: .utility) {
             do {
+                guard let syncAtomRequestDelegate else { assertionFailure(); return }
                 let obvDialogsFromEngine = try await obvEngine.getAllDialogsWithinEngine()
-                let op1 = SyncPersistedInvitationsWithEngineOperation(obvDialogsFromEngine: obvDialogsFromEngine, obvEngine: obvEngine)
+                let op1 = SyncPersistedInvitationsWithEngineOperation(obvDialogsFromEngine: obvDialogsFromEngine, obvEngine: obvEngine, syncAtomRequestDelegate: syncAtomRequestDelegate)
                 let composedOp = createCompositionOfOneContextualOperation(op1: op1)
                 composedOp.queuePriority = .veryLow
                 coordinatorsQueue.addOperation(composedOp)
@@ -158,28 +161,75 @@ extension BootstrapCoordinator {
     }
 
 
-    private func processRequestSyncAppDatabasesWithEngine(completion: @escaping (Result<Void,Error>) -> Void) {
+    private func processRequestSyncAppDatabasesWithEngine(queuePriority: Operation.QueuePriority, completion: @escaping (Result<Void,Error>) -> Void) {
         assert(!Thread.isMainThread)
-        let op1 = SyncPersistedObvOwnedIdentitiesWithEngineOperation(obvEngine: obvEngine)
-        let op2 = SyncPersistedObvContactIdentitiesWithEngineOperation(obvEngine: obvEngine)
-        let op3 = SyncPersistedContactGroupsWithEngineOperation(obvEngine: obvEngine)
-        let op4 = SyncPersistedContactGroupsV2WithEngineOperation(obvEngine: obvEngine)
-        let composedOp = createCompositionOfFourContextualOperation(op1: op1, op2: op2, op3: op3, op4: op4)
-        composedOp.queuePriority = .veryLow
+
+        var operationsToQueue = [Operation]()
+        
+        do {
+            let op1 = SyncPersistedObvOwnedIdentitiesWithEngineOperation(obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            composedOp.queuePriority = queuePriority
+            composedOp.logExecutionDuration(log: Self.log)
+            operationsToQueue.append(composedOp)
+        }
+        
+        do {
+            let op1 = SyncPersistedObvOwnedDevicesWithEngineOperation(obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            composedOp.queuePriority = queuePriority
+            composedOp.logExecutionDuration(log: Self.log)
+            operationsToQueue.append(composedOp)
+        }
+        
+        do {
+            let op1 = SyncPersistedObvContactIdentitiesWithEngineOperation(obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            composedOp.queuePriority = queuePriority
+            composedOp.logExecutionDuration(log: Self.log)
+            operationsToQueue.append(composedOp)
+        }
+
+        do {
+            let op1 = SyncPersistedObvContactDevicesWithEngineOperation(obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            composedOp.queuePriority = queuePriority
+            composedOp.logExecutionDuration(log: Self.log)
+            operationsToQueue.append(composedOp)
+        }
+        
+        do {
+            let op1 = SyncPersistedContactGroupsWithEngineOperation(obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            composedOp.queuePriority = queuePriority
+            composedOp.logExecutionDuration(log: Self.log)
+            operationsToQueue.append(composedOp)
+        }
+
+        do {
+            let op1 = SyncPersistedContactGroupsV2WithEngineOperation(obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            composedOp.queuePriority = queuePriority
+            composedOp.logExecutionDuration(log: Self.log)
+            operationsToQueue.append(composedOp)
+        }
         
         let blockOp = BlockOperation()
         blockOp.completionBlock = {
-            if composedOp.isCancelled {
-                let reasonForCancel = composedOp.reasonForCancel ?? Self.makeError(message: "Request sync of app database with engine did fail without specifying a proper reason. This is a bug")
+            guard operationsToQueue.allSatisfy({ $0.isFinished && !$0.isCancelled }) else {
+                let reasonForCancel = Self.makeError(message: "One of the sync methods failed")
                 assertionFailure()
                 completion(.failure(reasonForCancel))
-            } else {
-                completion(.success(()))
+                return
             }
+            completion(.success(()))
         }
+        operationsToQueue.append(blockOp)
         
-        blockOp.addDependency(composedOp)
-        coordinatorsQueue.addOperations([composedOp, blockOp], waitUntilFinished: false)
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        
+        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+
     }
 
     

@@ -19,11 +19,12 @@
 
 import ObvUI
 import UIKit
+import ObvDesignSystem
 
 extension UIView {
     
-    var appTheme: ObvUI.AppTheme {
-        return ObvUI.AppTheme.shared
+    var appTheme: AppTheme {
+        return AppTheme.shared
     }
     
 }

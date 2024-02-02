@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,10 +22,9 @@ import ObvCrypto
 import ObvTypes
 import OlvidUtils
 
-
 protocol FreeTrialQueryDelegate: AnyObject {
     
-    func queryFreeTrial(for identity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier)
-    func processFreeTrialQueriesExpectingNewSession()
-    
+    func queryFreeTrial(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> Bool
+    func startFreeTrial(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements
+
 }

@@ -19,7 +19,7 @@
 
 import ObvUI
 import SwiftUI
-
+import ObvDesignSystem
 
 
 struct ObvSimpleListItemView: View {
@@ -43,18 +43,9 @@ struct ObvSimpleListItemView: View {
         self.title = title
         self.buttonConfig = nil
         if let date = date {
-            if #available(iOS 14, *) {
-                self.value = Text(date, style: .date)
-            } else {
-                let df = DateFormatter()
-                df.locale = Locale.current
-                df.doesRelativeDateFormatting = true
-                df.timeStyle = .short
-                df.dateStyle = .short
-                self.value = Text(df.string(from: date))
-            }
+            self.value = Text(date, style: .date)
         } else {
-            self.value = Text("-")
+            self.value = Text(verbatim: "-")
         }
         self.valueToCopyOnLongPress = nil
     }

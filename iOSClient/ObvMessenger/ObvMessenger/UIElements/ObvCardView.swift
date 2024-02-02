@@ -19,6 +19,7 @@
 
 import ObvUI
 import SwiftUI
+import ObvDesignSystem
 
 
 /// A View Builder allowing to create a card around the content.

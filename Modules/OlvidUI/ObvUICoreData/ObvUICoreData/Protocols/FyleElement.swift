@@ -18,10 +18,12 @@
  */
 
 import Foundation
+import UniformTypeIdentifiers
 
 public protocol FyleElement {
     var fileName: String { get }
-    var uti: String { get }
+    // var uti: String { get }
+    var contentType: UTType { get }
     var fullFileIsAvailable: Bool { get }
     var fyleURL: URL { get }
     var sha256: Data { get }

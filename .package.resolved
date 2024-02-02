@@ -1,0 +1,23 @@
+{
+  "pins" : [
+    {
+      "identity" : "appauth-ios-for-olvid",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/olvid-io/AppAuth-iOS-for-Olvid",
+      "state" : {
+        "branch" : "targetfix",
+        "revision" : "0d90e24667c4a1fd9a84edb27ce966cc395f1314"
+      }
+    },
+    {
+      "identity" : "joseswift-for-olvid",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/olvid-io/JOSESwift-for-Olvid",
+      "state" : {
+        "branch" : "targetfix",
+        "revision" : "a1cd4c990da61c86e5bb4cd7605e2d372cc10c72"
+      }
+    }
+  ],
+  "version" : 2
+}

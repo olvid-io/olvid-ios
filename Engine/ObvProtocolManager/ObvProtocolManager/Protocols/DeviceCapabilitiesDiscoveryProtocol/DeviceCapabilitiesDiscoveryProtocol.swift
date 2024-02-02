@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,13 +27,13 @@ public struct DeviceCapabilitiesDiscoveryProtocol: ConcreteCryptoProtocol {
     
     static let logCategory = "ContactCapabilitiesDiscoveryProtocol"
 
-    static let id = CryptoProtocolId.ContactCapabilitiesDiscovery
+    static let id = CryptoProtocolId.contactCapabilitiesDiscovery
 
     private static let errorDomain = "ContactCapabilitiesDiscoveryProtocol"
 
     static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Finished, StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.finished, StateId.cancelled]
 
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState
@@ -60,11 +60,8 @@ public struct DeviceCapabilitiesDiscoveryProtocol: ConcreteCryptoProtocol {
         return MessageId(rawValue: rawValue)
     }
 
-    static let allStepIds: [ConcreteProtocolStepId] = [
-        StepId.AddOwnCapabilitiesAndSendThemToAllContactsAndOwnedDevices,
-        StepId.SendOwnCapabilitiesToContactDevice,
-        StepId.ProcessReceivedContactDeviceCapabilities,
-        StepId.ProcessReceivedOwnedDeviceCapabilities,
-    ]
+    static var allStepIds: [ConcreteProtocolStepId] {
+        return StepId.allCases
+    }
 
 }

@@ -20,6 +20,7 @@
 import UIKit
 import PDFKit
 import MobileCoreServices
+import UniformTypeIdentifiers
 
 class ObvAutoGrowingTextView: UITextView, ViewForDragAndDropDelegate {
     
@@ -129,7 +130,7 @@ final class ViewForDragAndDrop: UIView {
     }
     
     private func setup() {
-        self.pasteConfiguration = UIPasteConfiguration(acceptableTypeIdentifiers: [String(kUTTypeData)])
+        self.pasteConfiguration = UIPasteConfiguration(acceptableTypeIdentifiers: [UTType.data.identifier])
     }
     
     override func canPaste(_ itemProviders: [NSItemProvider]) -> Bool {

@@ -44,7 +44,7 @@ final class TryToDeleteMessageAndAttachmentsCoordinator: NSObject {
         return URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: nil)
     }()
 
-    private var _currentTasks = [UIBackgroundTaskIdentifier: (attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
+    private var _currentTasks = [UIBackgroundTaskIdentifier: (attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
     private let currentTasksQueue = DispatchQueue(label: "TryToDeleteMessageAndAttachmentsCoordinatorQueueForCurrentTasks")
 
 }
@@ -54,7 +54,7 @@ final class TryToDeleteMessageAndAttachmentsCoordinator: NSObject {
 
 extension TryToDeleteMessageAndAttachmentsCoordinator {
     
-    private func currentTaskExistsForAttachment(withId attachmentId: AttachmentIdentifier) -> Bool {
+    private func currentTaskExistsForAttachment(withId attachmentId: ObvAttachmentIdentifier) -> Bool {
         var exist = true
         currentTasksQueue.sync {
             exist = _currentTasks.values.contains(where: { $0.attachmentId == attachmentId })
@@ -62,7 +62,7 @@ extension TryToDeleteMessageAndAttachmentsCoordinator {
         return exist
     }
     
-    private func taskExistsForAtLeastOneAttachmentAssociatedToMessage(withId messageId: MessageIdentifier) -> Bool {
+    private func taskExistsForAtLeastOneAttachmentAssociatedToMessage(withId messageId: ObvMessageIdentifier) -> Bool {
         var exist = true
         currentTasksQueue.sync {
             exist = _currentTasks.values.contains(where: { $0.attachmentId.messageId == messageId })
@@ -70,23 +70,23 @@ extension TryToDeleteMessageAndAttachmentsCoordinator {
         return exist
     }
 
-    private func removeInfoFor(_ task: URLSessionTask) -> (attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (AttachmentIdentifier, FlowIdentifier, Data)? = nil
+    private func removeInfoFor(_ task: URLSessionTask) -> (attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvAttachmentIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentTasks.removeValue(forKey: UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier))
         }
         return info
     }
     
-    private func getInfoFor(_ task: URLSessionTask) -> (mesattachmentIdsageId: AttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (AttachmentIdentifier, FlowIdentifier, Data)? = nil
+    private func getInfoFor(_ task: URLSessionTask) -> (mesattachmentIdsageId: ObvAttachmentIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvAttachmentIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)]
         }
         return info
     }
     
-    private func insert(_ task: URLSessionTask, forAttachmentId attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    private func insert(_ task: URLSessionTask, forAttachmentId attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         currentTasksQueue.sync {
             _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)] = (attachmentId, flowId, Data())
         }
@@ -108,7 +108,7 @@ extension TryToDeleteMessageAndAttachmentsCoordinator {
 
 extension TryToDeleteMessageAndAttachmentsCoordinator: TryToDeleteMessageAndAttachmentsDelegate {
 
-    func tryToDeleteMessageAndAttachments(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func tryToDeleteMessageAndAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
 
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -314,7 +314,7 @@ extension TryToDeleteMessageAndAttachmentsCoordinator: URLSessionDataDelegate {
     }
     
     
-    private func deleteMessageAndAttachmentsFromTheirOutboxes(messageId: MessageIdentifier, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, delegateManager: ObvNetworkSendDelegateManager, log: OSLog) {
+    private func deleteMessageAndAttachmentsFromTheirOutboxes(messageId: ObvMessageIdentifier, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, delegateManager: ObvNetworkSendDelegateManager, log: OSLog) {
         
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             

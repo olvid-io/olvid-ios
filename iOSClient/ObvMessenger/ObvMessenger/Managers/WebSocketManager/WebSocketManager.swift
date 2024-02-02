@@ -75,14 +75,14 @@ actor WebSocketManager {
                 Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: true) }
             },
             NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: nil) { _ in
-                 os_log("🧦 didEnterBackgroundNotification", log: Self.log, type: .info)
+                 os_log("didEnterBackgroundNotification", log: Self.log, type: .info)
                  Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: false) }
             },
             NotificationCenter.default.addObserver(forName: willTerminateNotification, object: nil, queue: nil) { _ in
                 os_log("🧦 willTerminateNotification", log: Self.log, type: .info)
                 Task { [weak self] in await self?.setiOSLifecycleStateRequiresWebSocket(to: false) }
             },
-            VoIPNotification.observeNewIncomingCall { incomingCall in
+            VoIPNotification.observeNewCallToShow { _ in
                 os_log("🧦 observeNewIncomingCall", log: Self.log, type: .info)
                 Task { [weak self] in await self?.setAnIncomingCallRequiresWebSocket(to: true) }
             },
@@ -136,7 +136,7 @@ actor WebSocketManager {
     
     private func disconnectWebsockets() async {
         assert(!Thread.isMainThread)
-        os_log("🧦🏁☎️🏓 Will request the engine to disconnect websockets", log: Self.log, type: .info)
+        os_log("🏁☎️🏓 Will request the engine to disconnect websockets", log: Self.log, type: .info)
         do {
             try await obvEngine.disconnectWebsockets()
         } catch {

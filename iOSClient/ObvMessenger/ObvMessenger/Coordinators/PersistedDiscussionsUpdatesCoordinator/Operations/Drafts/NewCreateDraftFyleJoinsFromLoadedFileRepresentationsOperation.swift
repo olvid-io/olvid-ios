@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvEngine
 import ObvCrypto
 import ObvUICoreData
 import OlvidUtils
+import UniformTypeIdentifiers
 
 
 /// This operation takes an array of loaded file representations as an input. This array is typically the output of a several `LoadFileRepresentationOperation` operations.
@@ -69,13 +70,7 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            assertionFailure()
-            completionHandler?(false)
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         let loadedItemProviders: [LoadedItemProvider]
         switch loadedItemProvidersType {
@@ -85,123 +80,120 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
             assert(operations.allSatisfy({$0.isFinished}))
             loadedItemProviders = operations.compactMap({ $0.loadedItemProvider })
         }
-
+        
         // We add as many attachments as we can
-        obvContext.performAndWait {
-
-            var tempURLsToDelete = [URL]()
-
-            for loadedItemProvider in loadedItemProviders {
+        
+        var tempURLsToDelete = [URL]()
+        
+        for loadedItemProvider in loadedItemProviders {
+            
+            switch loadedItemProvider {
                 
-                switch loadedItemProvider {
+            case .file(tempURL: let tempURL, fileType: let fileType, filename: let filename):
                 
-                case .file(tempURL: let tempURL, uti: let uti, filename: let filename):
-                    
-                    // Compute the sha256 of the file
-                    let sha256: Data
-                    do {
-                        sha256 = try Sha256.hash(fileAtUrl: tempURL)
-                    } catch {
-                        cancelAndContinue(withReason: .couldNotComputeSha256)
-                        tempURLsToDelete.append(tempURL)
-                        continue
-                    }
-                    
-                    // Get or create a Fyle
-                    guard let fyle: Fyle = try? Fyle.getOrCreate(sha256: sha256, within: obvContext.context) else {
-                        cancelAndContinue(withReason: .couldNotGetOrCreateFyle)
-                        tempURLsToDelete.append(tempURL)
-                        continue
-                    }
-                    
-                    // Create a PersistedDraftFyleJoin (if required)
-                    do {
-                        try createDraftFyleJoin(draftPermanentID: draftPermanentID, fileName: filename, uti: uti, fyle: fyle, within: obvContext.context)
-                    } catch {
-                        cancelAndContinue(withReason: .couldNotCreateDraftFyleJoin)
-                        tempURLsToDelete.append(tempURL)
-                        continue
-                    }
-                    
-                    // We move the received file to a permanent location
-
-                    do {
-                        try fyle.moveFileToPermanentURL(from: tempURL, logTo: log)
-                    } catch {
-                        cancelAndContinue(withReason: .couldNotMoveFileToPermanentURL(error: error))
-                        tempURLsToDelete.append(tempURL)
-                        continue
-                    }
-                    
-                case .text(content: let textContent):
-                    
-                    let qBegin = Locale.current.quotationBeginDelimiter ?? "\""
-                    let qEnd = Locale.current.quotationEndDelimiter ?? "\""
-                    
-                    let textToAppend = [qBegin, textContent, qEnd].joined(separator: "")
-                    
-                    guard let draft = try? PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
-                        cancelAndContinue(withReason: .couldNotGetDraft)
-                        continue
-                    }
-                    
-                    draft.appendContentToBody(textToAppend)
-                    
-                case .url(content: let url):
-                    
-                    guard let draft = try? PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
-                        cancelAndContinue(withReason: .couldNotGetDraft)
-                        continue
-                    }
-                    draft.appendContentToBody(url.absoluteString)
-                    
+                // Compute the sha256 of the file
+                let sha256: Data
+                do {
+                    sha256 = try Sha256.hash(fileAtUrl: tempURL)
+                } catch {
+                    cancelAndContinue(withReason: .couldNotComputeSha256)
+                    tempURLsToDelete.append(tempURL)
+                    continue
                 }
+                
+                // Get or create a Fyle
+                guard let fyle: Fyle = try? Fyle.getOrCreate(sha256: sha256, within: obvContext.context) else {
+                    cancelAndContinue(withReason: .couldNotGetOrCreateFyle)
+                    tempURLsToDelete.append(tempURL)
+                    continue
+                }
+                
+                // Create a PersistedDraftFyleJoin (if required)
+                do {
+                    try createDraftFyleJoin(draftPermanentID: draftPermanentID, fileName: filename, fileType: fileType, fyle: fyle, within: obvContext.context)
+                } catch {
+                    cancelAndContinue(withReason: .couldNotCreateDraftFyleJoin)
+                    tempURLsToDelete.append(tempURL)
+                    continue
+                }
+                
+                // We move the received file to a permanent location
+                
+                do {
+                    try fyle.moveFileToPermanentURL(from: tempURL, logTo: log)
+                } catch {
+                    cancelAndContinue(withReason: .couldNotMoveFileToPermanentURL(error: error))
+                    tempURLsToDelete.append(tempURL)
+                    continue
+                }
+                
+            case .text(content: let textContent):
+                
+                let qBegin = Locale.current.quotationBeginDelimiter ?? "\""
+                let qEnd = Locale.current.quotationEndDelimiter ?? "\""
+                
+                let textToAppend = [qBegin, textContent, qEnd].joined(separator: "")
+                
+                guard let draft = try? PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
+                    cancelAndContinue(withReason: .couldNotGetDraft)
+                    continue
+                }
+                
+                draft.appendContentToBody(textToAppend)
+                
+            case .url(content: let url):
+                
+                guard let draft = try? PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
+                    cancelAndContinue(withReason: .couldNotGetDraft)
+                    continue
+                }
+                draft.appendContentToBody(url.absoluteString)
                 
             }
             
-            for urlToDelete in tempURLsToDelete {
-                try? urlToDelete.moveToTrash()
-            }
-
-            if isCancelled {
-                completionHandler?(false)
-            } else {
-                let localCompletionHandler = self.completionHandler
-                if obvContext.context.hasChanges {
-                    do {
-                        let draftPermanentID = self.draftPermanentID
-                        try obvContext.addContextDidSaveCompletionHandler { error in
-                            guard error == nil else {
-                                localCompletionHandler?(false)
-                                return
-                            }
-                            ObvStack.shared.viewContext.perform {
-                                if let draftInViewContext = ObvStack.shared.viewContext.registeredObjects
-                                    .filter({ !$0.isDeleted })
-                                    .first(where: { ($0 as? PersistedDraft)?.objectPermanentID == draftPermanentID }) {
-                                    ObvStack.shared.viewContext.refresh(draftInViewContext, mergeChanges: true)
-                                }
-                                localCompletionHandler?(true)
-                            }
+        }
+        
+        for urlToDelete in tempURLsToDelete {
+            try? urlToDelete.moveToTrash()
+        }
+        
+        if isCancelled {
+            completionHandler?(false)
+        } else {
+            let localCompletionHandler = self.completionHandler
+            if obvContext.context.hasChanges {
+                do {
+                    let draftPermanentID = self.draftPermanentID
+                    try obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else {
+                            localCompletionHandler?(false)
+                            return
                         }
-                    } catch {
-                        localCompletionHandler?(false)
+                        ObvStack.shared.viewContext.perform {
+                            if let draftInViewContext = ObvStack.shared.viewContext.registeredObjects
+                                .filter({ !$0.isDeleted })
+                                .first(where: { ($0 as? PersistedDraft)?.objectPermanentID == draftPermanentID }) {
+                                ObvStack.shared.viewContext.refresh(draftInViewContext, mergeChanges: true)
+                            }
+                            localCompletionHandler?(true)
+                        }
                     }
-                } else {
-                    obvContext.addEndOfScopeCompletionHandler {
-                        localCompletionHandler?(true)
-                    }
+                } catch {
+                    localCompletionHandler?(false)
+                }
+            } else {
+                obvContext.addEndOfScopeCompletionHandler {
+                    localCompletionHandler?(true)
                 }
             }
-
         }
-                        
+        
     }
 
     
-    private func createDraftFyleJoin(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fileName: String, uti: String, fyle: Fyle, within context: NSManagedObjectContext) throws {
+    private func createDraftFyleJoin(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, fileName: String, fileType: UTType, fyle: Fyle, within context: NSManagedObjectContext) throws {
         if try PersistedDraftFyleJoin.get(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, within: context) == nil {
-            guard PersistedDraftFyleJoin(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, fileName: fileName, uti: uti, within: context) != nil else {
+            guard PersistedDraftFyleJoin(draftPermanentID: draftPermanentID, fyleObjectID: fyle.objectID, fileName: fileName, uti: fileType.identifier, within: context) != nil else {
                 throw makeError(message: "Could not create PersistedDraftFyleJoin")
             }
         }

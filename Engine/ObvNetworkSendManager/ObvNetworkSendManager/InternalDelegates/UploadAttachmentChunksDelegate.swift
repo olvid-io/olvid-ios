@@ -25,13 +25,13 @@ import OlvidUtils
 protocol UploadAttachmentChunksDelegate {
     
     func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) -> Bool
-    func processAllAttachmentsOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier)
-    func downloadSignedURLsForAttachments(attachmentIds: [AttachmentIdentifier], flowId: FlowIdentifier)
+    func processAllAttachmentsOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+    func downloadSignedURLsForAttachments(attachmentIds: [ObvAttachmentIdentifier], flowId: FlowIdentifier)
     func resumeMissingAttachmentUploads(flowId: FlowIdentifier)
     func processCompletionHandler(_ handler: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier identifer: String, withinFlowId flowId: FlowIdentifier)
     func cleanExistingOutboxAttachmentSessionsCreatedBy(_ creatorAppType: AppType, flowId: FlowIdentifier)
-    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async -> [AttachmentIdentifier: Float]
+    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async -> [ObvAttachmentIdentifier: Float]
     func queryServerOnSessionsTasksCreatedByShareExtension(flowId: FlowIdentifier)
-    func cancelAllAttachmentsUploadOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) throws
+    func cancelAllAttachmentsUploadOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws
 
 }

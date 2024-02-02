@@ -36,7 +36,7 @@ protocol OlvidTextInput: UITextInput {
 
     func olvid_word(at nsRange: NSRange) -> (result: String, range: Range<String.Index>)?
 
-    func olvid_word(at range: Range<String.Index>) -> (result: String, range: Range<String.Index>)?
+    //func olvid_word(at range: Range<String.Index>) -> (result: String, range: Range<String.Index>)?
 
     func olvid_lookup(for prefixes: Set<String>, excludedRanges: Set<NSRange>) -> OlvidTextInputTypes.LookupResult?
 }
@@ -71,45 +71,45 @@ extension UITextView: OlvidTextInput {
         return (result.word, result.range)
     }
 
-    func olvid_word(at range: Range<String.Index>) -> (result: String, range: Range<String.Index>)? {
-        guard let text,
-              text.isEmpty == false else {
-            return nil
-        }
-
-        let lhs = text[..<range.lowerBound]
-
-        let lhsComponents = lhs.components(separatedBy: .whitespacesAndNewlines)
-
-        let lhsWord = lhsComponents.last!
-
-        let rhs = text[range.lowerBound...]
-
-        let rhsComponents = rhs.components(separatedBy: .whitespacesAndNewlines)
-
-        let rhsWord = rhsComponents.first!
-
-        if range.lowerBound > text.startIndex {
-            let characterBeforeCursor = text[text.index(before: range.lowerBound)..<range.lowerBound]
-
-            if let whitespaceRange = characterBeforeCursor.rangeOfCharacter(from: .whitespaces),
-               text.distance(from: whitespaceRange.lowerBound, to: whitespaceRange.upperBound) == 1 {
-                let rhsRange = Range<String.Index>(uncheckedBounds: (lower: range.lowerBound, upper: text.index(range.lowerBound, offsetBy: rhsWord.count)))
-
-                return (rhsWord, rhsRange)
-            }
-        }
-
-        let word = lhsWord.appending(rhsWord)
-
-        if word.contains("\n") {
-            return (word.components(separatedBy: .newlines).last!, text.range(of: word)!)
-        }
-
-        let range = text.index(range.lowerBound, offsetBy: -lhsWord.count)..<text.index(range.lowerBound, offsetBy: rhsWord.count)
-
-        return (word, range)
-    }
+//    func olvid_word(at range: Range<String.Index>) -> (result: String, range: Range<String.Index>)? {
+//        guard let text,
+//              text.isEmpty == false else {
+//            return nil
+//        }
+//
+//        let lhs = text[..<range.lowerBound]
+//
+//        let lhsComponents = lhs.components(separatedBy: .whitespacesAndNewlines)
+//
+//        let lhsWord = lhsComponents.last!
+//
+//        let rhs = text[range.lowerBound...]
+//
+//        let rhsComponents = rhs.components(separatedBy: .whitespacesAndNewlines)
+//
+//        let rhsWord = rhsComponents.first!
+//
+//        if range.lowerBound > text.startIndex {
+//            let characterBeforeCursor = text[text.index(before: range.lowerBound)..<range.lowerBound]
+//
+//            if let whitespaceRange = characterBeforeCursor.rangeOfCharacter(from: .whitespaces),
+//               text.distance(from: whitespaceRange.lowerBound, to: whitespaceRange.upperBound) == 1 {
+//                let rhsRange = Range<String.Index>(uncheckedBounds: (lower: range.lowerBound, upper: text.index(range.lowerBound, offsetBy: rhsWord.count)))
+//
+//                return (rhsWord, rhsRange)
+//            }
+//        }
+//
+//        let word = lhsWord.appending(rhsWord)
+//
+//        if word.contains("\n") {
+//            return (word.components(separatedBy: .newlines).last!, text.range(of: word)!)
+//        }
+//
+//        let range = text.index(range.lowerBound, offsetBy: -lhsWord.count)..<text.index(range.lowerBound, offsetBy: rhsWord.count)
+//
+//        return (word, range)
+//    }
 
     func olvid_lookup(for prefixes: Set<String>, excludedRanges: Set<NSRange>) -> OlvidTextInputTypes.LookupResult? {
         guard prefixes.isEmpty == false else {

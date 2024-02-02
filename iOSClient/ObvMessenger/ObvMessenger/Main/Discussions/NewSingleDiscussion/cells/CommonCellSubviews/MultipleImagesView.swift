@@ -133,9 +133,27 @@ final class MultipleImagesView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWi
             } else {
                 imageView.reset()
             }
+        case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadableSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            if let downsizedThumbnail = downsizedThumbnail {
+                imageView.setDownsizedThumbnail(withImage: downsizedThumbnail)
+            } else {
+                imageView.reset()
+            }
         case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            if let downsizedThumbnail = downsizedThumbnail {
+                imageView.setDownsizedThumbnail(withImage: downsizedThumbnail)
+            } else {
+                imageView.reset()
+            }
+        case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadingSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
             tapToReadView.messageObjectID = nil
             if let downsizedThumbnail = downsizedThumbnail {
                 imageView.setDownsizedThumbnail(withImage: downsizedThumbnail)

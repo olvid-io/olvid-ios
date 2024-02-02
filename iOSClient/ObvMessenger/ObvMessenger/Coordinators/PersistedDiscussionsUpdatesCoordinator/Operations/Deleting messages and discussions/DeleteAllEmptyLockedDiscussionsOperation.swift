@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,19 +28,13 @@ final class DeleteAllEmptyLockedDiscussionsOperation: ContextualOperationWithSpe
  
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteAllEmptyLockedDiscussionsOperation.self))
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
 
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            do {
-                try PersistedDiscussion.deleteAllLockedDiscussionsWithNoMessage(within: obvContext.context, log: log)
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
-            }
+        do {
+            try PersistedDiscussion.deleteAllLockedDiscussionsWithNoMessage(within: obvContext.context, log: log)
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

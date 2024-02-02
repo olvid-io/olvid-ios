@@ -21,6 +21,7 @@ import LinkPresentation
 import CryptoKit
 import os.log
 import ObvUICoreData
+import ObvSettings
 
 
 extension LPMetadataProvider {

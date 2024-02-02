@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,8 @@ import os.log
 import OlvidUtils
 import ObvCrypto
 import ObvUICoreData
+import CoreData
+
 
 protocol LoadedItemProviderProvider: Operation {
     var loadedItemProviders: [LoadedItemProvider]? { get }
@@ -49,85 +51,78 @@ final class CreateFylesFromLoadedFileRepresentationsOperation: ContextualOperati
 
     private let Sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
         assert(loadedItemProviderProvider.isFinished)
-
-        guard let obvContext = self.obvContext else {
-            cancel(withReason: .contextIsNil)
-            return
-        }
-
+        
         guard let loadedItemProviders = loadedItemProviderProvider.loadedItemProviders else {
             cancel(withReason: .noLoadedItemProviders)
             return
         }
-
-        obvContext.performAndWait {
-
-            var tempURLsToDelete = [URL]()
-            var fyleJoins = [FyleJoin]()
-            var bodyTexts = [String]()
-
-            for loadedItemProvider in loadedItemProviders {
-
-                switch loadedItemProvider {
-
-                case .file(tempURL: let tempURL, uti: let uti, filename: let filename):
-
-                    // Compute the sha256 of the file
-                    let sha256: Data
-                    do {
-                        sha256 = try Sha256.hash(fileAtUrl: tempURL)
-                    } catch {
-                        cancelAndContinue(withReason: .couldNotComputeSha256)
-                        tempURLsToDelete.append(tempURL)
-                        continue
-                    }
-
-                    // Get or create a Fyle
-                    guard let fyle: Fyle = try? Fyle.getOrCreate(sha256: sha256, within: obvContext.context) else {
-                        cancelAndContinue(withReason: .couldNotGetOrCreateFyle)
-                        tempURLsToDelete.append(tempURL)
-                        continue
-                    }
-
-                    // We move the received file to a permanent location
-
-                    do {
-                        try fyle.moveFileToPermanentURL(from: tempURL, logTo: log)
-                    } catch {
-                        cancelAndContinue(withReason: .couldNotMoveFileToPermanentURL(error: error))
-                        tempURLsToDelete.append(tempURL)
-                        continue
-                    }
-
-                    let fyleJoin = FyleJoinImpl(fyle: fyle, fileName: filename, uti: uti, index: fyleJoins.count)
-
-                    fyleJoins += [fyleJoin]
-
-                case .text(content: let textContent):
-
-                    let qBegin = Locale.current.quotationBeginDelimiter ?? "\""
-                    let qEnd = Locale.current.quotationEndDelimiter ?? "\""
-
-                    let textToAppend = [qBegin, textContent, qEnd].joined(separator: "")
-
-                    bodyTexts.append(textToAppend)
-
-                case .url(content: let url):
-                    bodyTexts.append(url.absoluteString)
+        
+        var tempURLsToDelete = [URL]()
+        var fyleJoins = [FyleJoin]()
+        var bodyTexts = [String]()
+        
+        for loadedItemProvider in loadedItemProviders {
+            
+            switch loadedItemProvider {
+                
+            case .file(tempURL: let tempURL, fileType: let fileType, filename: let filename):
+                
+                // Compute the sha256 of the file
+                let sha256: Data
+                do {
+                    sha256 = try Sha256.hash(fileAtUrl: tempURL)
+                } catch {
+                    cancelAndContinue(withReason: .couldNotComputeSha256)
+                    tempURLsToDelete.append(tempURL)
+                    continue
                 }
-
+                
+                // Get or create a Fyle
+                guard let fyle: Fyle = try? Fyle.getOrCreate(sha256: sha256, within: obvContext.context) else {
+                    cancelAndContinue(withReason: .couldNotGetOrCreateFyle)
+                    tempURLsToDelete.append(tempURL)
+                    continue
+                }
+                
+                // We move the received file to a permanent location
+                
+                do {
+                    try fyle.moveFileToPermanentURL(from: tempURL, logTo: log)
+                } catch {
+                    cancelAndContinue(withReason: .couldNotMoveFileToPermanentURL(error: error))
+                    tempURLsToDelete.append(tempURL)
+                    continue
+                }
+                
+                let fyleJoin = FyleJoinImpl(fyle: fyle, fileName: filename, contentType: fileType, index: fyleJoins.count)
+                
+                fyleJoins += [fyleJoin]
+                
+            case .text(content: let textContent):
+                
+                let qBegin = Locale.current.quotationBeginDelimiter ?? "\""
+                let qEnd = Locale.current.quotationEndDelimiter ?? "\""
+                
+                let textToAppend = [qBegin, textContent, qEnd].joined(separator: "")
+                
+                bodyTexts.append(textToAppend)
+                
+            case .url(content: let url):
+                bodyTexts.append(url.absoluteString)
             }
-
-            self.bodyTexts = bodyTexts
-            self.fyleJoins = fyleJoins
-
-            for urlToDelete in tempURLsToDelete {
-                try? urlToDelete.moveToTrash()
-            }
-
+            
         }
+        
+        self.bodyTexts = bodyTexts
+        self.fyleJoins = fyleJoins
+        
+        for urlToDelete in tempURLsToDelete {
+            try? urlToDelete.moveToTrash()
+        }
+        
     }
 
 }

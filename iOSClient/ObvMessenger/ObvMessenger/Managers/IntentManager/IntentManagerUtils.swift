@@ -25,6 +25,9 @@ import os.log
 import ObvUI
 import ObvUICoreData
 import UI_SystemIcon
+import ObvSettings
+import ObvDesignSystem
+
 
 /// IntentManager utilities that can be used by all extentions.
 @available(iOS 14.0, *)

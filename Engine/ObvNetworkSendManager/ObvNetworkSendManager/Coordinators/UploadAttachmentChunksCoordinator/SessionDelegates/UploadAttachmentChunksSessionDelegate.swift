@@ -29,7 +29,7 @@ final class UploadAttachmentChunksSessionDelegate: NSObject {
     let uuid = UUID()
     private let logCategory = String(describing: UploadAttachmentChunksSessionDelegate.self)
     private let log: OSLog
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let obvContext: ObvContext
     private let appType: AppType
     private let queueSynchronizingCallsToTracker = DispatchQueue(label: "Queue for sync tracker calls within UploadAttachmentChunksSessionDelegate")
@@ -62,7 +62,7 @@ final class UploadAttachmentChunksSessionDelegate: NSObject {
         }
     }
     
-    init(attachmentId: AttachmentIdentifier, obvContext: ObvContext, appType: AppType, logSubsystem: String) {
+    init(attachmentId: ObvAttachmentIdentifier, obvContext: ObvContext, appType: AppType, logSubsystem: String) {
         self.log = OSLog(subsystem: logSubsystem, category: logCategory)
         self.attachmentId = attachmentId
         self.obvContext = obvContext
@@ -81,10 +81,10 @@ final class UploadAttachmentChunksSessionDelegate: NSObject {
 // MARK: - Tracker
 
 protocol AttachmentChunkUploadProgressTracker: AnyObject {
-    func uploadAttachmentChunksSessionDidBecomeInvalid(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, error: UploadAttachmentChunksSessionDelegate.ErrorForTracker?)
+    func uploadAttachmentChunksSessionDidBecomeInvalid(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: UploadAttachmentChunksSessionDelegate.ErrorForTracker?)
     func urlSessionDidFinishEventsForSessionWithIdentifier(_ identifier: String)
-    func attachmentChunkDidProgress(attachmentId: AttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesSent: Int64, totalBytesExpectedToSend: Int64), flowId: FlowIdentifier)
-    func attachmentChunksAreAcknowledged(attachmentId: AttachmentIdentifier, chunkNumbers: [Int], flowId: FlowIdentifier)
+    func attachmentChunkDidProgress(attachmentId: ObvAttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesSent: Int64, totalBytesExpectedToSend: Int64), flowId: FlowIdentifier)
+    func attachmentChunksAreAcknowledged(attachmentId: ObvAttachmentIdentifier, chunkNumbers: [Int], flowId: FlowIdentifier)
 }
 
 

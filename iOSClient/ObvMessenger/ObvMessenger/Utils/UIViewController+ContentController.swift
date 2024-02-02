@@ -23,7 +23,9 @@ extension UIViewController {
     
     func displayContentController(content: UIViewController) {
         
+        content.willMove(toParent: self)
         addChild(content)
+        content.didMove(toParent: self)
         
         content.view.translatesAutoresizingMaskIntoConstraints = true
         content.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -31,7 +33,6 @@ extension UIViewController {
         
         view.addSubview(content.view)
         
-        content.didMove(toParent: self)
     }
     
     

@@ -25,7 +25,10 @@ import CoreData
 import Combine
 import ObvUI
 import ObvUICoreData
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
+import ObvSettings
+import ObvDesignSystem
+
 
 protocol OwnedIdentityChooserViewControllerDelegate: AnyObject {
     func userUsedTheOwnedIdentityChooserViewControllerToChoose(ownedCryptoId: ObvCryptoId) async
@@ -136,16 +139,10 @@ fileprivate struct OwnedIdentityChooserInnerView: View {
                 }
                 List {
                     ForEach(models) { model in
-                        if #available(iOS 15.0, *) {
-                            OwnedIdentityItemView(
-                                model: model,
-                                delegate: delegate)
-                                .listRowSeparator(.hidden)
-                        } else {
-                            OwnedIdentityItemView(
-                                model: model,
-                                delegate: delegate)
-                        }
+                        OwnedIdentityItemView(
+                            model: model,
+                            delegate: delegate)
+                        .listRowSeparator(.hidden)
                     }
                     .if(allowDeletion, transform: { view in
                         view.onDelete { indexSet in
@@ -169,9 +166,9 @@ fileprivate struct OwnedIdentityChooserInnerView: View {
                 }
                 if allowCreation {
                     OlvidButton(style: .blue,
-                                title: Text("CREATE_NEW_OWNED_IDENTITY"),
+                                title: Text("ADD_OWNED_IDENTITY"),
                                 systemIcon: .personCropCircleBadgePlus) {
-                        ObvMessengerInternalNotification.userWantsToCreateNewOwnedIdentity
+                        ObvMessengerInternalNotification.userWantsToAddOwnedProfile
                             .postOnDispatchQueue()
                     }.padding(.horizontal).padding(.bottom)
                 }
@@ -347,8 +344,8 @@ struct OwnedIdentityChooserInnerView_Previews: PreviewProvider {
     private static let ownedCryptoIds = identitiesAsURLs.map({ ObvURLIdentity(urlRepresentation: $0)!.cryptoId })
 
     private static let ownedCircledInitialsConfigurations = [
-        CircledInitialsConfiguration.contact(initial: "S", photoURL: nil, showGreenShield: false, showRedShield: false, cryptoId: ownedCryptoIds[0], tintAdjustementMode: .normal),
-        CircledInitialsConfiguration.contact(initial: "T", photoURL: nil, showGreenShield: false, showRedShield: false, cryptoId: ownedCryptoIds[1], tintAdjustementMode: .normal),
+        CircledInitialsConfiguration.contact(initial: "S", photo: nil, showGreenShield: false, showRedShield: false, cryptoId: ownedCryptoIds[0], tintAdjustementMode: .normal),
+        CircledInitialsConfiguration.contact(initial: "T", photo: nil, showGreenShield: false, showRedShield: false, cryptoId: ownedCryptoIds[1], tintAdjustementMode: .normal),
     ]
 
     private static let models = [

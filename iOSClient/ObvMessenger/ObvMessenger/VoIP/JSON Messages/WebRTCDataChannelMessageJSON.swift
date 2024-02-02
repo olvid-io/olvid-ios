@@ -115,7 +115,7 @@ struct ContactBytesAndNameJSON: Codable {
         case rawGatheringPolicy = "gp"
     }
 
-    init(byteContactIdentity: Data, displayName: String, gatheringPolicy: GatheringPolicy) {
+    init(byteContactIdentity: Data, displayName: String, gatheringPolicy: OlvidCallGatheringPolicy) {
         self.byteContactIdentity = byteContactIdentity
         self.displayName = displayName
         self.rawGatheringPolicy = gatheringPolicy.rawValue
@@ -135,9 +135,9 @@ struct ContactBytesAndNameJSON: Codable {
         try container.encode(rawGatheringPolicy, forKey: .rawGatheringPolicy)
     }
 
-    var gatheringPolicy: GatheringPolicy? {
+    var gatheringPolicy: OlvidCallGatheringPolicy? {
         guard let rawGatheringPolicy = rawGatheringPolicy else { return nil }
-        return GatheringPolicy(rawValue: rawGatheringPolicy)
+        return OlvidCallGatheringPolicy(rawValue: rawGatheringPolicy)
     }
 
 }
@@ -150,19 +150,6 @@ struct UpdateParticipantsMessageJSON: WebRTCDataChannelInnerMessageJSON {
 
     enum CodingKeys: String, CodingKey {
         case callParticipants = "cp"
-    }
-
-    init(callParticipants: [CallParticipant]) async {
-        var callParticipants_: [ContactBytesAndNameJSON] = []
-        for callParticipant in callParticipants {
-            let callParticipantState = await callParticipant.getPeerState()
-            guard callParticipantState == .connected || callParticipantState == .reconnecting else { continue }
-            let remoteCryptoId = callParticipant.remoteCryptoId
-            let displayName = callParticipant.fullDisplayName
-            guard let gatheringPolicy = await callParticipant.gatheringPolicy else { continue }
-            callParticipants_.append(ContactBytesAndNameJSON(byteContactIdentity: remoteCryptoId.getIdentity(), displayName: displayName, gatheringPolicy: gatheringPolicy))
-        }
-        self.callParticipants = callParticipants_
     }
 
     init(from decoder: Decoder) throws {

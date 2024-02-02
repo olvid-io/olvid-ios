@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,21 +27,34 @@ import CoreData
 import ObvUICoreData
 
 
-protocol SingleOwnedIdentityFlowViewControllerDelegate: AnyObject {
+protocol SingleOwnedIdentityFlowViewControllerDelegate: AnyObject, StoreKitDelegate {
     func userWantsToDismissSingleOwnedIdentityFlowViewController(_ viewController: SingleOwnedIdentityFlowViewController)
+    func userWantsToAddNewDevice(_ viewController: SingleOwnedIdentityFlowViewController, ownedCryptoId: ObvCryptoId) async
 }
 
 
-final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwnedIdentityView>, SingleOwnedIdentityViewModelDelegate, HiddenProfilePasswordChooserViewControllerDelegate, OwnedIdentityDetailedInfosViewDelegate {
+enum StoreKitDelegatePurchaseResult {
+    case purchaseSucceeded(serverVerificationResult: ObvAppStoreReceipt.VerificationStatus)
+    case userCancelled
+    case pending
+}
 
+protocol StoreKitDelegate: AnyObject {
+    func userRequestedListOfSKProducts() async throws -> [Product]
+    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult
+    func userWantsToRestorePurchases() async throws
+}
+
+
+final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwnedIdentityView>, HiddenProfilePasswordChooserViewControllerDelegate, OwnedIdentityDetailedInfosViewDelegate, SingleOwnedIdentityViewActionsDelegate, OwnedDevicesListViewActionsDelegate, PermuteDeviceExpirationHostingViewControllerDelegate, ChooseDeviceToReactivateHostingViewControllerDelegate {
+        
     let ownedIdentity: PersistedObvOwnedIdentity
     let ownedCryptoId: ObvCryptoId
     let obvEngine: ObvEngine
     weak var delegate: SingleOwnedIdentityFlowViewControllerDelegate?
     private var editedOwnedIdentity: SingleIdentity?
-    private var availableSubscriptionPlans: AvailableSubscriptionPlans?
     private var apiKeyStatusAndExpiry: APIKeyStatusAndExpiry
-    private let model: SingleOwnedIdentityViewModel
+    private let actions: SingleOwnedIdentityViewActions
     private var rightBarButtonItem: UIBarButtonItem?
     private var legacyConfigureNavigationBarAndObserveNotificationsNeedsToBeCalled = true
     
@@ -49,7 +62,7 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
     
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "SingleOwnedIdentityFlowViewController")
 
-    init(ownedIdentity: PersistedObvOwnedIdentity, obvEngine: ObvEngine) {
+    init(ownedIdentity: PersistedObvOwnedIdentity, obvEngine: ObvEngine, delegate: SingleOwnedIdentityFlowViewControllerDelegate?) {
         assert(Thread.isMainThread)
         assert(ownedIdentity.managedObjectContext == ObvStack.shared.viewContext)
         self.ownedIdentity = ownedIdentity
@@ -57,17 +70,14 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
         self.obvEngine = obvEngine
         self.apiKeyStatusAndExpiry = APIKeyStatusAndExpiry(ownedIdentity: ownedIdentity)
         
-        let singleIdentity = SingleIdentity(ownedIdentity: ownedIdentity)
-        let model = SingleOwnedIdentityViewModel()
-        let view = SingleOwnedIdentityView(singleIdentity: singleIdentity,
+        let actions = SingleOwnedIdentityViewActions()
+        let view = SingleOwnedIdentityView(ownedIdentity: ownedIdentity,
                                            apiKeyStatusAndExpiry: apiKeyStatusAndExpiry,
-                                           dismissAction: model.dismiss,
-                                           editOwnedIdentityAction: model.userWantsToEditOwnedIdentity,
-                                           subscriptionPlanAction: model.userWantsToSeeSubscriptionPlans,
-                                           refreshStatusAction: model.userWantsToRefreshSubscriptionStatus)
-        self.model = model
+                                           actions: actions)
+        self.actions = actions
         super.init(rootView: view)
-        self.model.delegate = self
+        self.actions.delegate = self
+        self.delegate = delegate
     }
     
     required init?(coder: NSCoder) {
@@ -80,25 +90,10 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        if #available(iOS 14, *) {
-            configureNavigationBarAndObserveNotifications()
-        } else {
-            // ViewDidLoad is not called under iOS 13 (for some reason).
-            // We call legacyConfigureNavigationBarAndObserveNotifications() in viewWillAppear()
-        }
+        configureNavigationBarAndObserveNotifications()
     }
     
     
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        if #available(iOS 14, *) {
-            // We alread called configureNavigationBarAndObserveNotifications() in viewDidLoad
-        } else {
-            legacyConfigureNavigationBarAndObserveNotifications()
-        }
-    }
-    
-    @available(iOS 14, *)
     private func configureNavigationBarAndObserveNotifications() {
         title = NSLocalizedString("My Id", comment: "")
         
@@ -107,24 +102,27 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
         rightBarButtonItem = UIBarButtonItem(title: "", image: ellipsisImage, menu: provideMenu())
         navigationItem.rightBarButtonItem = rightBarButtonItem
         
-        observeNotifications()
-    }
-    
-    
-    @available(iOS, introduced: 13, deprecated: 14, message: "Use configureNavigationBarAndObserveNotifications() instead. Remove the legacyConfigureNavigationBarAndObserveNotificationsNeedsToBeCalled variable")
-    private func legacyConfigureNavigationBarAndObserveNotifications() {
-        guard legacyConfigureNavigationBarAndObserveNotificationsNeedsToBeCalled else { return }
-        defer { legacyConfigureNavigationBarAndObserveNotificationsNeedsToBeCalled = false }
-        title = NSLocalizedString("My Id", comment: "")
-        
-        let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-        let ellipsisImage = UIImage(systemIcon: .ellipsisCircle, withConfiguration: symbolConfiguration)
-        rightBarButtonItem = UIBarButtonItem(image: ellipsisImage, style: UIBarButtonItem.Style.plain, target: self, action: #selector(ellipsisButtonTapped))
-        navigationItem.rightBarButtonItem = rightBarButtonItem
+        navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(userWantsToDismissSingleOwnedIdentityFlowViewController))
         
         observeNotifications()
     }
     
+    
+    @objc
+    private func userWantsToDismissSingleOwnedIdentityFlowViewController() {
+        assert(delegate != nil)
+        delegate?.userWantsToDismissSingleOwnedIdentityFlowViewController(self)
+    }
+    
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        // This will allow to ask the engine to perform an owned device discovery
+        ObvMessengerInternalNotification.singleOwnedIdentityFlowViewControllerDidAppear(ownedCryptoId: ownedCryptoId)
+            .postOnDispatchQueue()
+        
+    }
     
     private func observeNotifications() {
         notificationTokens.append(contentsOf: [
@@ -181,9 +179,9 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
                 title: Strings.AtLeastOneUnhiddenProfileMustExistAlert.title,
                 message: Strings.AtLeastOneUnhiddenProfileMustExistAlert.message,
                 preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: Strings.AtLeastOneUnhiddenProfileMustExistAlert.actionCreateNewProfile, style: .default) { [weak self] _ in
+            alert.addAction(UIAlertAction(title: Strings.AtLeastOneUnhiddenProfileMustExistAlert.actionAddProfile, style: .default) { [weak self] _ in
                 self?.dismiss(animated: true)
-                ObvMessengerInternalNotification.userWantsToCreateNewOwnedIdentity
+                ObvMessengerInternalNotification.userWantsToAddOwnedProfile
                     .postOnDispatchQueue()
             })
             alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default))
@@ -194,23 +192,21 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
         let vc = HiddenProfilePasswordChooserViewController(ownedCryptoId: ownedCryptoId, delegate: self)
         vc.modalPresentationStyle = .popover
         if let popover = vc.popoverPresentationController {
-            if #available(iOS 15, *) {
-                let sheet = popover.adaptiveSheetPresentationController
-                if #available(iOS 16, *) {
-                    sheet.detents = [.custom(resolver: { context in
-                        switch context.containerTraitCollection.preferredContentSizeCategory {
-                        case .extraSmall, .small: return 450
-                        case .medium: return 500
-                        case .large: return 550
-                        default: return 600
-                        }
-                    }), .large()]
-                } else {
-                    sheet.detents = [.medium(), .large()]
-                }
-                sheet.prefersGrabberVisible = true
-                sheet.preferredCornerRadius = 16.0
+            let sheet = popover.adaptiveSheetPresentationController
+            if #available(iOS 16, *) {
+                sheet.detents = [.custom(resolver: { context in
+                    switch context.containerTraitCollection.preferredContentSizeCategory {
+                    case .extraSmall, .small: return 450
+                    case .medium: return 500
+                    case .large: return 550
+                    default: return 600
+                    }
+                }), .large()]
+            } else {
+                sheet.detents = [.medium(), .large()]
             }
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 16.0
             assert(rightBarButtonItem != nil)
             if #available(iOS 16, *) {
                 popover.sourceItem = rightBarButtonItem
@@ -239,9 +235,7 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
 
     
     private func updateMenu() {
-        if #available(iOS 14, *) {
-            rightBarButtonItem?.menu = provideMenu()
-        }
+        rightBarButtonItem?.menu = provideMenu()
     }
     
     
@@ -344,55 +338,6 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
     }
     
         
-    nonisolated
-    private func fetchSubscriptionPlanAction() {
-        // Step 1: Ask the engine (i.e., Olvid's server) whether a free trial is still available for this identity
-        do {
-            try obvEngine.queryServerForFreeTrial(for: ownedCryptoId, retrieveAPIKey: false)
-        } catch {
-            assertionFailure()
-        }
-        // Step 2: As StoreKit about available products
-        SubscriptionNotification.userRequestedListOfSKProducts
-            .postOnDispatchQueue()
-    }
-    
-    
-    nonisolated
-    private func userWantsToStartFreeTrialNow() {
-        do {
-            try obvEngine.queryServerForFreeTrial(for: ownedIdentity.cryptoId, retrieveAPIKey: true)
-        } catch {
-            assertionFailure()
-        }
-    }
-    
-    
-    nonisolated
-    private func userWantsToFallbackOnFreeVersion() {
-        guard let hardcodedAPIKey = ObvMessengerConstants.hardcodedAPIKey else {
-            assertionFailure()
-            return
-        }
-        ObvMessengerInternalNotification.userRequestedNewAPIKeyActivation(ownedCryptoId: ownedCryptoId, apiKey: hardcodedAPIKey)
-            .postOnDispatchQueue()
-    }
-    
-    
-    nonisolated
-    private func userWantsToBuySKProductNow(_ product: SKProduct) {
-        SubscriptionNotification.userRequestedToBuySKProduct(skProduct: product)
-            .postOnDispatchQueue()
-    }
-    
-    
-    nonisolated
-    private func userWantsToRestorePurchases() {
-        SubscriptionNotification.userRequestedToRestoreAppStorePurchases
-            .postOnDispatchQueue()
-    }
-    
-    
     @MainActor
     private func userWantsToPublishEditedOwnedIdentity() async {
         assert(Thread.isMainThread)
@@ -414,23 +359,17 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
         let ownedCryptoId = ownedIdentity.cryptoId
         let obvEngine = self.obvEngine
 
-        DispatchQueue(label: "Queue for calling updatePublishedIdentityDetailsOfOwnedIdentity").async {
-            do {
-                let newDetails = ObvIdentityDetails(coreDetails: newCoreIdentityDetails, photoURL: newProfilPictureURL)
-                try obvEngine.updatePublishedIdentityDetailsOfOwnedIdentity(with: ownedCryptoId, with: newDetails)
-            } catch {
-                DispatchQueue.main.async { [weak self] in
-                    self?.showHUD(type: .text(text: "Failed"))
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
-                }
-                return
-            }
-            
-            DispatchQueue.main.async { [weak self] in
-                self?.showHUD(type: .checkmark)
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { self?.hideHUD() }
-            }
+        do {
+            let newDetails = ObvIdentityDetails(coreDetails: newCoreIdentityDetails, photoURL: newProfilPictureURL)
+            try await obvEngine.updatePublishedIdentityDetailsOfOwnedIdentity(with: ownedCryptoId, with: newDetails)
+            showHUD(type: .checkmark)
+        } catch {
+            showHUD(type: .text(text: "Failed"))
         }
+
+        try? await Task.sleep(seconds: 2)
+        hideHUD()
+
     }
     
     
@@ -455,67 +394,8 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
         self.editedOwnedIdentity = nil
         dismiss(animated: true)
     }
-    
-    
-    // MARK: - SingleOwnedIdentityViewModelDelegate
-    
-    @MainActor
-    func dismiss() async {
-        delegate?.userWantsToDismissSingleOwnedIdentityFlowViewController(self)
-    }
-    
-    
-    @MainActor
-    func userWantsToEditOwnedIdentity() async {
-        assert(Thread.isMainThread)
-        // We are about to show a ViewController allowing to edit the owned identity.
-        // We load a new instance of the PersistedObvOwnedIdentity in a child view context: we want to prevent the view to be refreshed while the user is editing it.
-        // Not doing so would reset the edited text field if a message is received in the mean time (since this refreshes the view context).
-        let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-        childViewContext.parent = ObvStack.shared.viewContext
-        childViewContext.automaticallyMergesChangesFromParent = false
-        guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedIdentity.cryptoId, within: childViewContext) else { assertionFailure(); return }
-        editedOwnedIdentity = SingleIdentity(ownedIdentity: ownedIdentity)
-        let view = EditSingleOwnedIdentityNavigationView(
-            editionType: .edition,
-            singleIdentity: editedOwnedIdentity!,
-            userConfirmedPublishAction: { [weak self] in
-                Task { await self?.userWantsToPublishEditedOwnedIdentity() }
-            },
-            userWantsToUnbindFromKeycloakServer: { [weak self] ownedCryptoId in
-                Task { await self?.userWantsToUnbindFromKeycloakServer(ownedCryptoId: ownedCryptoId) }
-            },
-            dismissAction: { [weak self] in
-                Task { await self?.userWantsToDismissEditSingleIdentityView() }
-            })
-        let vc = UIHostingController(rootView: view)
-        present(vc, animated: true)
-    }
-    
-    
-    @MainActor
-    func userWantsToRefreshSubscriptionStatus() async {
-        let ownedCryptoId = self.ownedCryptoId
-        DispatchQueue(label: "Queue for refreshing API permissions").async { [weak self] in
-            try? self?.obvEngine.refreshAPIPermissions(for: ownedCryptoId)
-        }
-    }
-    
-    
-    @MainActor
-    func userWantsToSeeSubscriptionPlans() async {
-        self.availableSubscriptionPlans = AvailableSubscriptionPlans(ownedCryptoId: ownedIdentity.cryptoId,
-                                                                     fetchSubscriptionPlanAction: fetchSubscriptionPlanAction,
-                                                                     userWantsToStartFreeTrialNow: userWantsToStartFreeTrialNow,
-                                                                     userWantsToFallbackOnFreeVersion: userWantsToFallbackOnFreeVersion,
-                                                                     userWantsToBuy: userWantsToBuySKProductNow,
-                                                                     userWantsToRestorePurchases: userWantsToRestorePurchases)
-        let view = AvailableSubscriptionPlansView(plans: availableSubscriptionPlans!,
-                                                  dismissAction: { [weak self] in Task { self?.dismiss(animated: true) } })
-        let vc = UIHostingController(rootView: view)
-        self.present(vc, animated: true)
-    }
 
+    
 }
 
 
@@ -545,8 +425,378 @@ extension SingleOwnedIdentityFlowViewController {
     @MainActor func userWantsToDismissOwnedIdentityDetailedInfosView() async {
         presentedViewController?.dismiss(animated: true)
     }
+ 
+    func getKeycloakAPIKey(ownedCryptoId: ObvCryptoId) async throws -> UUID? {
+        return try await obvEngine.getKeycloakAPIKey(ownedCryptoId: ownedCryptoId)
+    }
     
 }
+
+
+// MARK: - OwnedDevicesListViewActionsDelegate
+
+extension SingleOwnedIdentityFlowViewController {
+    
+    func userWantsToSearchForNewOwnedDevices(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        Task {
+            do {
+                try await obvEngine.performOwnedDeviceDiscovery(ownedCryptoId: ownedCryptoId)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+            DispatchQueue.main.async { [weak self] in
+                self?.navigationController?.topViewController?.showHUD(type: .checkmark)
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(2)) { [weak self] in
+                    self?.navigationController?.topViewController?.hideHUD()
+                }
+            }
+        }
+    }
+    
+    func userWantsToClearAllOtherOwnedDevices(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        // No need to require a confirmation, this confirmation was required in the SwiftUI OwnedDevicesListView.
+        Task {
+            do {
+                try await obvEngine.deleteAllOtherOwnedDevicesAndChannelsThenPerformOwnedDeviceDiscovery(ownedCryptoId: ownedCryptoId)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        }
+    }
+    
+    func userWantsToRestartChannelCreationWithOtherOwnedDevice(ownedCryptoId: ObvTypes.ObvCryptoId, deviceIdentifier: Data) async {
+        do {
+            try await obvEngine.restartChannelEstablishmentProtocolsWithOwnedDevice(ownedCryptoId: ownedCryptoId, deviceIdentifier: deviceIdentifier)
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
+
+    @MainActor
+    func userWantsToRenameOwnedDevice(ownedCryptoId: ObvTypes.ObvCryptoId, deviceIdentifier: Data) async {
+        guard ownedIdentity.cryptoId == ownedCryptoId else { assertionFailure(); return }
+        guard let ownedDevice = ownedIdentity.devices.first(where: { $0.identifier == deviceIdentifier }) else { assertionFailure(); return }
+        let obvEngine = self.obvEngine
+        let alert = UIAlertController(title: NSLocalizedString("CHOOSE_DEVICE_NAME", comment: ""), message: nil, preferredStyle: .alert)
+        alert.addTextField { (textField) in
+            textField.text = ownedDevice.name
+        }
+        alert.addAction(.init(title: CommonString.Word.Cancel, style: .cancel))
+        alert.addAction(.init(title: CommonString.Word.Ok, style: .default) { [weak alert] _ in
+            guard let ownedDeviceName = alert?.textFields?.first?.text else { assertionFailure(); return }
+            Task {
+                try? await obvEngine.requestChangeOfOwnedDeviceName(ownedCryptoId: ownedCryptoId, deviceIdentifier: deviceIdentifier, ownedDeviceName: ownedDeviceName)
+            }
+        })
+        present(alert, animated: true)
+    }
+
+
+    @MainActor
+    internal func userWantsToDeactivateOtherOwnedDevice(ownedCryptoId: ObvCryptoId, deviceIdentifier: Data) async {
+        let obvEngine = self.obvEngine
+        let alert = UIAlertController(title: NSLocalizedString("REMOVE_OWNED_DEVICE_ALERT_TITLE", comment: ""), message: nil, preferredStyle: .alert)
+        alert.addAction(.init(title: CommonString.Word.Cancel, style: .cancel))
+        alert.addAction(.init(title: CommonString.Word.Deactivate, style: .destructive) { _ in
+            Task {
+                try? await obvEngine.requestDeactivationOfOtherOwnedDevice(ownedCryptoId: ownedCryptoId, deviceIdentifier: deviceIdentifier)
+            }
+        })
+        present(alert, animated: true)
+    }
+
+
+    @MainActor
+    func userWantsToKeepThisDeviceActive(ownedCryptoId: ObvCryptoId, deviceIdentifier: Data) async {
+        guard ownedCryptoId == ownedIdentity.cryptoId else { assertionFailure(); return }
+        guard ownedIdentity.isActive else { assertionFailure(); return }
+
+        // If the device is not active, this request makes no sense.
+        
+        guard ownedIdentity.isActive else { assertionFailure(); return }
+        
+        // If the device requested has no expiry, this request makes no sense.
+        
+        guard let deviceToKeepActive = ownedIdentity.devices.first(where: { $0.identifier == deviceIdentifier }) else { assertionFailure(); return }
+        guard deviceToKeepActive.expirationDate != nil else { assertionFailure(); return }
+        
+        // We have two cases to consider: either the owned identity is allowed to have multiple devices, or not.
+        
+        if ownedIdentity.effectiveAPIPermissions.contains(.multidevice) {
+            
+            // Since the owned identity is allowed to have multiple devices, keeping this device active will have no impact on other devices.
+            // Therefore, no need to alert the user, we can process the request immediately.
+            Task {
+                try? await obvEngine.requestSettingUnexpiringDevice(ownedCryptoId: ownedCryptoId, deviceIdentifier: deviceIdentifier)
+            }
+            
+        } else {
+            
+            // Since the owned identity is not allowed to have multiple device, keeping this device active will necessarily transfer the expiration to the device that currently has no expiration.
+            
+            guard let deviceWithoutExpiration = ownedIdentity.devices.first(where: { $0.expirationDate == nil }) else {
+                // We found no other device, which is unexpected. In production, we process the user request immediately.
+                assertionFailure()
+                Task {
+                    try? await obvEngine.requestSettingUnexpiringDevice(ownedCryptoId: ownedCryptoId, deviceIdentifier: deviceIdentifier)
+                }
+                return
+            }
+            
+            // If we reach this point, we alert the user, allowing her to decide whether she wants to indeed keep the device active (and add an expiration to the other device) or not.
+            
+            let model = PermuteDeviceExpirationViewModel(
+                ownedCryptoId: ownedCryptoId,
+                identifierOfDeviceToKeepActive: deviceToKeepActive.identifier,
+                nameOfDeviceToKeepActive: deviceToKeepActive.name,
+                identifierOfDeviceWithoutExpiration: deviceWithoutExpiration.identifier,
+                nameOfDeviceWithoutExpiration: deviceWithoutExpiration.name)
+            let vc = PermuteDeviceExpirationHostingViewController(model: model, delegate: self)
+            
+            if traitCollection.userInterfaceIdiom == .phone {
+                vc.modalPresentationStyle = .popover
+                if let popover = vc.popoverPresentationController {
+                    let sheet = popover.adaptiveSheetPresentationController
+                    sheet.detents = [.large()]
+                    sheet.prefersGrabberVisible = true
+                    sheet.preferredCornerRadius = 16.0
+                    assert(rightBarButtonItem != nil)
+                }
+            } else {
+                vc.modalPresentationStyle = .formSheet
+            }
+            present(vc, animated: true)
+
+        }
+        
+    }
+    
+    
+    @MainActor
+    func userWantsToReactivateThisDevice(ownedCryptoId: ObvCryptoId) async {
+        guard ownedIdentity.cryptoId == ownedCryptoId else { assertionFailure(); return }
+        
+        // If the device is active, this request makes no sense.
+        
+        guard !ownedIdentity.isActive else { assertionFailure(); return }
+        
+        // Get the required information about the current device
+        
+        guard let currentDeviceObj = ownedIdentity.devices
+            .first(where: { $0.secureChannelStatus == .currentDevice }) else { assertionFailure(); return }
+        let currentDevice = ChooseDeviceToReactivateViewModel.Device(deviceIdentifier: currentDeviceObj.deviceIdentifier, deviceName: currentDeviceObj.name, expirationDate: nil, latestRegistrationDate: nil)
+
+        // Present the view controller
+        
+        let vc = ChooseDeviceToReactivateHostingViewController(model: .init(ownedCryptoId: ownedCryptoId, currentDeviceName: currentDevice.deviceName, currentDeviceIdentifier: currentDevice.deviceIdentifier), obvEngine: obvEngine, delegate: self)
+        present(vc, animated: true)
+        
+    }
+    
+
+}
+
+
+// MARK: - ChooseDeviceToReactivateHostingViewControllerDelegate
+
+extension SingleOwnedIdentityFlowViewController {
+    
+    @MainActor
+    func userWantsToDismissChooseDeviceToReactivateHostingViewController() async {
+        if let vc = presentedViewController as? ChooseDeviceToReactivateHostingViewController {
+            vc.dismiss(animated: true)
+        }
+    }
+    
+}
+
+
+// MARK: - PermuteDeviceExpirationHostingViewControllerDelegate
+
+extension SingleOwnedIdentityFlowViewController {
+    
+    @MainActor
+    func userWantsToCancelAndDismissPermuteDeviceExpirationView() async {
+        guard presentedViewController is PermuteDeviceExpirationHostingViewController else { assertionFailure(); return }
+        presentedViewController?.dismiss(animated: true)
+    }
+    
+    
+    @MainActor
+    func userWantsToSeeSubscriptionPlansFromPermuteDeviceExpirationView() async {
+        guard presentedViewController is PermuteDeviceExpirationHostingViewController else { assertionFailure(); return }
+        presentedViewController?.dismiss(animated: true) { [weak self] in
+            Task { [weak self] in await self?.userWantsToSeeSubscriptionPlans() }
+        }
+    }
+    
+    
+    @MainActor
+    func userConfirmedFromPermuteDeviceExpirationView(ownedCryptoId: ObvCryptoId, identifierOfDeviceToKeepActive: Data, identifierOfDeviceWithoutExpiration: Data) async {
+        guard presentedViewController is PermuteDeviceExpirationHostingViewController else { assertionFailure(); return }
+        presentedViewController?.dismiss(animated: true) { [weak self] in
+            Task { [weak self] in
+                try? await self?.obvEngine.requestSettingUnexpiringDevice(ownedCryptoId: ownedCryptoId, deviceIdentifier: identifierOfDeviceToKeepActive)
+            }
+        }
+    }
+
+    
+}
+
+
+// MARK: - SingleOwnedIdentityViewActionsDelegate
+
+extension SingleOwnedIdentityFlowViewController {
+    
+    /// We are about to show a ViewController allowing to edit the owned identity.
+    /// We load a new instance of the PersistedObvOwnedIdentity in a child view context: we want to prevent the view to be refreshed while the user is editing it.
+    /// Not doing so would reset the edited text field if a message is received in the mean time (since this refreshes the view context).
+    @MainActor
+    func userWantsToEditOwnedIdentity(ownedCryptoId: ObvCryptoId) async {
+        guard ownedCryptoId == ownedIdentity.cryptoId else { assertionFailure(); return }
+        let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        childViewContext.parent = ObvStack.shared.viewContext
+        childViewContext.automaticallyMergesChangesFromParent = false
+        guard let ownedIdentity = try? PersistedObvOwnedIdentity.get(cryptoId: ownedIdentity.cryptoId, within: childViewContext) else { assertionFailure(); return }
+        editedOwnedIdentity = SingleIdentity(ownedIdentity: ownedIdentity)
+        let view = EditSingleOwnedIdentityNavigationView(
+            editionType: .edition,
+            singleIdentity: editedOwnedIdentity!,
+            userConfirmedPublishAction: { [weak self] in
+                Task { await self?.userWantsToPublishEditedOwnedIdentity() }
+            },
+            userWantsToUnbindFromKeycloakServer: { [weak self] ownedCryptoId in
+                Task { await self?.userWantsToUnbindFromKeycloakServer(ownedCryptoId: ownedCryptoId) }
+            },
+            dismissAction: { [weak self] in
+                Task { await self?.userWantsToDismissEditSingleIdentityView() }
+            })
+        let vc = UIHostingController(rootView: view)
+        present(vc, animated: true)
+    }
+    
+
+    @MainActor
+    func userWantsToSeeSubscriptionPlans() async {
+        let model = SubscriptionPlansViewModel(
+            ownedCryptoId: ownedIdentity.cryptoId,
+            showFreePlanIfAvailable: true)
+        let view = SubscriptionPlansView(model: model, actions: self, dismissActions: self)
+        let vc = UIHostingController(rootView: view)
+        self.present(vc, animated: true)
+    }
+    
+    
+    @MainActor
+    func userWantsToRefreshSubscriptionStatus() async {
+        let ownedCryptoId = self.ownedCryptoId
+        showHUD(type: .spinner)
+        do {
+            _ = try await obvEngine.refreshAPIPermissions(of: ownedCryptoId)
+            showHUD(type: .checkmark)
+        } catch {
+            showHUD(type: .xmark)
+        }
+        await suspendDuringTimeInterval(1.5)
+        hideHUD()
+    }
+
+    
+    // MARK: - OwnedDevicesCardViewActionsDelegate
+    
+    @MainActor
+    func userWantsToNavigateToListOfContactDevicesView(ownedCryptoId: ObvCryptoId) async {
+        
+        guard self.ownedIdentity.cryptoId == ownedCryptoId else { assertionFailure(); return }
+        
+        let view = OwnedDevicesListView(
+            model: ownedIdentity,
+            actions: self)
+        
+        let vc = UIHostingController(rootView: view)
+        navigationController?.pushViewController(vc, animated: true)
+
+    }
+
+    
+    @MainActor
+    func userWantsToAddNewDevice(ownedCryptoId: ObvCryptoId) async {
+        guard self.ownedIdentity.cryptoId == ownedCryptoId else { assertionFailure(); return }
+        await delegate?.userWantsToAddNewDevice(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+// MARK: - SubscriptionPlansViewActionsProtocol
+
+extension SingleOwnedIdentityFlowViewController: SubscriptionPlansViewActionsProtocol {
+    
+    func fetchSubscriptionPlans(for ownedCryptoId: ObvCryptoId, alsoFetchFreePlan: Bool) async throws -> (freePlanIsAvailable: Bool, products: [Product]) {
+
+        // Step 1: Ask the engine (i.e., Olvid's server) whether a free trial is still available for this identity
+        let freePlanIsAvailable: Bool
+        if alsoFetchFreePlan {
+            freePlanIsAvailable = try await obvEngine.queryServerForFreeTrial(for: ownedCryptoId)
+        } else {
+            freePlanIsAvailable = false
+        }
+
+        // Step 2: As StoreKit about available products
+        assert(delegate != nil)
+        let products = try await delegate?.userRequestedListOfSKProducts() ?? []
+
+        return (freePlanIsAvailable, products)
+        
+    }
+    
+
+    func userWantsToStartFreeTrialNow(ownedCryptoId: ObvCryptoId) async throws -> APIKeyElements {
+        let newAPIKeyElements = try await obvEngine.startFreeTrial(for: ownedCryptoId)
+        return newAPIKeyElements
+    }
+
+
+    func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNil }
+        return try await delegate.userWantsToBuy(product)
+    }
+    
+
+    func userWantsToRestorePurchases() async throws {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNil }
+        return try await delegate.userWantsToRestorePurchases()
+    }
+
+}
+
+
+// MARK: - SubscriptionPlansViewDismissActionsProtocol
+
+extension SingleOwnedIdentityFlowViewController: SubscriptionPlansViewDismissActionsProtocol {
+    
+    @MainActor
+    func userWantsToDismissSubscriptionPlansView() async {
+        presentedViewController?.dismiss(animated: true)
+    }
+    
+    
+    @MainActor
+    func dismissSubscriptionPlansViewAfterPurchaseWasMade() async {
+        presentedViewController?.dismiss(animated: true)
+    }
+    
+}
+
+extension SingleOwnedIdentityFlowViewController {
+    
+    enum ObvError: Error {
+        case theDelegateIsNil
+    }
+    
+}
+
 
 // MARK: - Strings
 
@@ -570,7 +820,7 @@ extension SingleOwnedIdentityFlowViewController {
         struct AtLeastOneUnhiddenProfileMustExistAlert {
             static let title = NSLocalizedString("AT_LEAST_ONE_UNHIDDEN_PROFILE_MUST_EXIST_TITLE", comment: "")
             static let message = NSLocalizedString("AT_LEAST_ONE_UNHIDDEN_PROFILE_MUST_EXIST_MESSAGE", comment: "")
-            static let actionCreateNewProfile = NSLocalizedString("CREATE_NEW_OWNED_IDENTITY", comment: "")
+            static let actionAddProfile = NSLocalizedString("ADD_OWNED_IDENTITY", comment: "")
         }
         struct AlertForEditingNickname {
             static let title = NSLocalizedString("ALERT_FOR_EDITING_NICKNAME_TITLE", comment: "")
@@ -581,32 +831,33 @@ extension SingleOwnedIdentityFlowViewController {
 }
 
 
-fileprivate protocol SingleOwnedIdentityViewModelDelegate: AnyObject {
-    func dismiss() async
-    func userWantsToEditOwnedIdentity() async
-    func userWantsToSeeSubscriptionPlans() async
-    func userWantsToRefreshSubscriptionStatus() async
-}
 
 
-fileprivate final class SingleOwnedIdentityViewModel {
+fileprivate final class SingleOwnedIdentityViewActions: SingleOwnedIdentityViewActionsDelegate {
     
-    weak var delegate: SingleOwnedIdentityViewModelDelegate?
-    
-    func dismiss() {
-        Task { await delegate?.dismiss() }
-    }
-    
-    func userWantsToEditOwnedIdentity() {
-        Task { await delegate?.userWantsToEditOwnedIdentity() }
+    weak var delegate: SingleOwnedIdentityViewActionsDelegate?
+
+    func userWantsToEditOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        await delegate?.userWantsToEditOwnedIdentity(ownedCryptoId: ownedCryptoId)
     }
 
-    func userWantsToSeeSubscriptionPlans() {
-        Task { await delegate?.userWantsToSeeSubscriptionPlans() }
+    func userWantsToSeeSubscriptionPlans() async {
+        await delegate?.userWantsToSeeSubscriptionPlans()
     }
     
-    func userWantsToRefreshSubscriptionStatus() {
-        Task { await delegate?.userWantsToRefreshSubscriptionStatus() }
+    func userWantsToRefreshSubscriptionStatus() async {
+        await delegate?.userWantsToRefreshSubscriptionStatus()
     }
-
+    
+    func userWantsToNavigateToListOfContactDevicesView(ownedCryptoId: ObvCryptoId) async {
+        await delegate?.userWantsToNavigateToListOfContactDevicesView(ownedCryptoId: ownedCryptoId)
+    }
+    
+    func userWantsToReactivateThisDevice(ownedCryptoId: ObvCryptoId) async {
+        await delegate?.userWantsToReactivateThisDevice(ownedCryptoId: ownedCryptoId)
+    }
+    
+    func userWantsToAddNewDevice(ownedCryptoId: ObvCryptoId) async {
+        await delegate?.userWantsToAddNewDevice(ownedCryptoId: ownedCryptoId)
+    }
 }

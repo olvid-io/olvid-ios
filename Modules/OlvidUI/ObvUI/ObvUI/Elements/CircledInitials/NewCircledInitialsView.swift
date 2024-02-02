@@ -20,8 +20,11 @@
 import SwiftUI
 import UIKit
 import ObvUICoreData
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
 import UI_SystemIcon
+import ObvDesignSystem
+import ObvSettings
+
 
 // MARK: - NewCircledInitialsView
 /// Square view, with a rounded clip view allowing to display either an icon, an initial (letter), or a photo.
@@ -53,7 +56,7 @@ public final class NewCircledInitialsView: UIView {
         setupIconView(icon: configuration.icon, tintColor: configuration.foregroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle))
 
         switch configuration {
-        case .contact(let initial, let photoURL, let showGreenShield, let showRedShield, let cryptoId, let tintAdjustmentMode):
+        case .contact(let initial, let photo, let showGreenShield, let showRedShield, let cryptoId, let tintAdjustmentMode):
             let textColor: UIColor
 
             let roundedClipViewBackgroundColor: UIColor
@@ -72,18 +75,22 @@ public final class NewCircledInitialsView: UIView {
 
             setupInitialView(string: initial, textColor: textColor)
             roundedClipView.backgroundColor = roundedClipViewBackgroundColor
-            setupPictureView(imageURL: photoURL)
+            setupPictureView(photo: photo)
             greenShieldView.isHidden = !showGreenShield
             redShieldView.isHidden = !showRedShield
-        case .group(let photoURL, _):
-            setupPictureView(imageURL: photoURL)
+        case .group(let photo, _):
+            setupPictureView(photo: photo)
             greenShieldView.isHidden = true
             redShieldView.isHidden = true
-        case .groupV2(photoURL: let photoURL, groupIdentifier: _, showGreenShield: let showGreenShield):
-            setupPictureView(imageURL: photoURL)
+        case .groupV2(photo: let photo, groupIdentifier: _, showGreenShield: let showGreenShield):
+            setupPictureView(photo: photo)
             greenShieldView.isHidden = !showGreenShield
             redShieldView.isHidden = true
         case .icon:
+            greenShieldView.isHidden = true
+            redShieldView.isHidden = true
+        case .photo(photo: let photo):
+            setupPictureView(photo: photo)
             greenShieldView.isHidden = true
             redShieldView.isHidden = true
         }
@@ -126,28 +133,45 @@ public final class NewCircledInitialsView: UIView {
     }
     
     
-    private func setupPictureView(imageURL: URL?) {
-        guard let imageURL = imageURL else {
+    private func setupPictureView(photo: CircledInitialsConfiguration.Photo?) {
+        guard let photo else {
             pictureView.image = nil
             pictureView.isHidden = true
             return
         }
-        guard FileManager.default.fileExists(atPath: imageURL.path) else {
-            // This happens when we are in the middle of a group details edition.
-            // The imageURL should soon be changed to a valid one.
-            pictureView.image = nil
-            pictureView.isHidden = true
-            return
-        }
-        guard let data = try? Data(contentsOf: imageURL) else {
-            pictureView.image = nil
-            pictureView.isHidden = true
-            return
-        }
-        guard let image = UIImage(data: data) else {
-            pictureView.image = nil
-            pictureView.isHidden = true
-            return
+        let image: UIImage
+        switch photo {
+        case .url(let imageURL):
+            guard let imageURL = imageURL else {
+                pictureView.image = nil
+                pictureView.isHidden = true
+                return
+            }
+            guard FileManager.default.fileExists(atPath: imageURL.path) else {
+                // This happens when we are in the middle of a group details edition.
+                // The imageURL should soon be changed to a valid one.
+                pictureView.image = nil
+                pictureView.isHidden = true
+                return
+            }
+            guard let data = try? Data(contentsOf: imageURL) else {
+                pictureView.image = nil
+                pictureView.isHidden = true
+                return
+            }
+            guard let _image = UIImage(data: data) else {
+                pictureView.image = nil
+                pictureView.isHidden = true
+                return
+            }
+            image = _image
+        case .image(let _image):
+            guard let _image else {
+                pictureView.image = nil
+                pictureView.isHidden = true
+                return
+            }
+            image = _image
         }
         pictureView.image = image
         pictureView.isHidden = false

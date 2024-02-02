@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import ObvTypes
 import ObvEncoder
 
 /// This structure is used within the protocol allowing to publish group details.
+/// The equivalent structure under Android is called JsonGroupDetailsWithVersionAndPhoto.
 public struct GroupDetailsElements: Equatable {
 
     public let version: Int
@@ -37,6 +38,10 @@ public struct GroupDetailsElements: Equatable {
 
     public func withPhotoServerKeyAndLabel(_ photoServerKeyAndLabel: PhotoServerKeyAndLabel?) -> GroupDetailsElements {
         GroupDetailsElements(version: self.version, coreDetails: self.coreDetails, photoServerKeyAndLabel: photoServerKeyAndLabel)
+    }
+
+    public func fieldsAreTheSameButVersionIsNotConsidered(than other: GroupDetailsElements) -> Bool {
+        return self.coreDetails == other.coreDetails && self.photoServerKeyAndLabel == other.photoServerKeyAndLabel
     }
 
 }

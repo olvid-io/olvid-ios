@@ -1,6 +1,0 @@
-/* Class = "UILabel"; text = "You don't have any invitation yet"; ObjectID = "0WL-Lh-bzC"; */
-"0WL-Lh-bzC.text" = "Vous n'avez aucune invitation pour le moment.";
-
-/* Class = "UILabel"; text = "You can either invite others to join your network, or be invited. In both cases, an invitation card will be displayed here (and replace this message)."; ObjectID = "tKK-a5-DNx"; */
-"tKK-a5-DNx.text" = "Afin d'envoyer une invitation, veuillez cliquer sur le bouton bleu en bas au centre.";
-

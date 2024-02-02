@@ -55,6 +55,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     @NSManaged private(set) var keycloakUserId: String?
     @NSManaged private(set) var latestGroupUpdateTimestamp: Date? // Given by the server
     @NSManaged private(set) var latestRevocationListTimetamp: Date? // Given by the server
+    @NSManaged private(set) var ownAPIKey: UUID?
     @NSManaged private(set) var rawAuthState: Data?
     @NSManaged private var rawJwks: Data
     @NSManaged private var rawOwnedIdentity: Data
@@ -167,6 +168,36 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
         self.rawServerSignatureKey = backupItem.rawServerSignatureKey
     }
 
+    
+    /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreated in a second step
+    fileprivate convenience init(snapshotNode: KeycloakServerSnapshotNode, rawOwnedIdentity: Data, within obvContext: ObvContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: KeycloakServer.entityName, in: obvContext)!
+        self.init(entity: entityDescription, insertInto: obvContext)
+        guard let clientId = snapshotNode.clientId else {
+            assertionFailure()
+            throw KeycloakServerSnapshotNode.ObvError.tryingToRestoreIncompleteSnapshot
+        }
+        self.clientId = clientId
+        self.clientSecret = snapshotNode.clientSecret
+        self.rawPushTopics = nil
+        self.keycloakUserId = snapshotNode.keycloakUserId
+        self.latestRevocationListTimetamp = nil
+        guard let rawJwks = snapshotNode.rawJwks else {
+            assertionFailure()
+            throw KeycloakServerSnapshotNode.ObvError.tryingToRestoreIncompleteSnapshot
+        }
+        self.rawJwks = rawJwks
+        guard let serverURL = snapshotNode.serverURL else {
+            assertionFailure()
+            throw KeycloakServerSnapshotNode.ObvError.tryingToRestoreIncompleteSnapshot
+        }
+        self.serverURL = serverURL
+        self.rawOwnedIdentity = rawOwnedIdentity
+        self.selfRevocationTestNonce = snapshotNode.selfRevocationTestNonce
+        self.rawServerSignatureKey = snapshotNode.rawServerSignatureKey
+    }
+
+    
     func setAuthState(authState: Data?) {
         self.rawAuthState = authState
     }
@@ -192,6 +223,11 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
         self.serverSignatureVerificationKey = key
     }
 
+    func saveRegisteredKeycloakAPIKey(apiKey newAPIKey: UUID) {
+        guard self.ownAPIKey != newAPIKey else { return }
+        self.ownAPIKey = newAPIKey
+    }
+    
     // MARK: - Identity revocation
 
     /// Called from `OwnedIdentity`. Returns a set of compromised contacts that are not forcefully trusted by the user.
@@ -261,8 +297,8 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
                 guard contact.isCertifiedByOwnKeycloak else { break }
             case .compromised:
                 // User key is compromised: mark the contact as revoked and delete all devices/channels from this contact
-                if !contact.isForcefullyTrustedByUser {
-                    compromisedContacts.insert(contact.cryptoIdentity)
+                if !contact.isForcefullyTrustedByUser, let contactCryptoIdentity = contact.cryptoIdentity {
+                    compromisedContacts.insert(contactCryptoIdentity)
                 }
                 contact.revokeAsCompromised(delegateManager: delegateManager) // This deletes the devices of the contact
             }
@@ -775,6 +811,126 @@ struct KeycloakGroupMemberKickedData: Decodable, ObvErrorMaker {
     fileprivate static func jsonDecode(_ data: Data) throws -> KeycloakGroupMemberKickedData {
         let decoder = JSONDecoder()
         return try decoder.decode(KeycloakGroupMemberKickedData.self, from: data)
+    }
+
+}
+
+
+// MARK: - For snapshot purposes
+
+
+extension KeycloakServer {
+
+    var snapshotNode: KeycloakServerSnapshotNode {
+        return KeycloakServerSnapshotNode(
+            serverURL: serverURL,
+            clientId: clientId,
+            clientSecret: clientSecret,
+            keycloakUserId: keycloakUserId,
+            selfRevocationTestNonce: selfRevocationTestNonce,
+            rawJwks: rawJwks, 
+            rawServerSignatureKey: rawServerSignatureKey)
+    }
+
+}
+
+
+struct KeycloakServerSnapshotNode: ObvSyncSnapshotNode {
+    
+    fileprivate let serverURL: URL?
+    fileprivate let clientId: String?
+    fileprivate let clientSecret: String?
+    fileprivate let keycloakUserId: String?
+    fileprivate let selfRevocationTestNonce: String?
+    fileprivate let rawJwks: Data?
+    fileprivate let rawServerSignatureKey: Data?
+
+    let id = Self.generateIdentifier()
+
+    private let domain: Set<CodingKeys>
+
+    private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
+
+    
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        case serverURL = "server_url"
+        case clientId = "client_id"
+        case clientSecret = "client_secret"
+        case keycloakUserId = "keycloak_user_id"
+        case selfRevocationTestNonce = "self_revocation_test_nonce"
+        case domain = "domain"
+        case rawJwks = "jwks"
+        case rawServerSignatureKey = "signature_key"
+    }
+
+    
+    fileprivate init(serverURL: URL, clientId: String, clientSecret: String?, keycloakUserId: String?, selfRevocationTestNonce: String?, rawJwks: Data, rawServerSignatureKey: Data?) {
+        self.serverURL = serverURL
+        self.clientId = clientId
+        self.clientSecret = clientSecret
+        self.keycloakUserId = keycloakUserId
+        self.selfRevocationTestNonce = selfRevocationTestNonce
+        self.rawJwks = rawJwks
+        self.rawServerSignatureKey = rawServerSignatureKey
+        self.domain = Self.defaultDomain
+    }
+
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.serverURL, forKey: .serverURL)
+        try container.encodeIfPresent(self.clientId, forKey: .clientId)
+        try container.encodeIfPresent(self.clientSecret, forKey: .clientSecret)
+        try container.encodeIfPresent(self.keycloakUserId, forKey: .keycloakUserId)
+        try container.encodeIfPresent(self.selfRevocationTestNonce, forKey: .selfRevocationTestNonce)
+        try container.encode(self.domain, forKey: .domain)
+        if let rawJwks {
+            let rawJwksAsString = String(data: rawJwks, encoding: .utf8)
+            try container.encodeIfPresent(rawJwksAsString, forKey: .rawJwks)
+        }
+        if let rawServerSignatureKey {
+            let rawServerSignatureKeyAsString = String(data: rawServerSignatureKey, encoding: .utf8)
+            try container.encodeIfPresent(rawServerSignatureKeyAsString, forKey: .rawServerSignatureKey)
+        }
+    }
+    
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        let rawKeys = try values.decode(Set<String>.self, forKey: .domain)
+        self.domain = Set(rawKeys.compactMap({ CodingKeys(rawValue: $0) }))
+        self.serverURL = try values.decodeIfPresent(URL.self, forKey: .serverURL)
+        self.clientId = try values.decodeIfPresent(String.self, forKey: .clientId)
+        self.keycloakUserId = try values.decodeIfPresent(String.self, forKey: .keycloakUserId)
+        self.clientSecret = try values.decodeIfPresent(String.self, forKey: .clientSecret)
+        self.selfRevocationTestNonce = try values.decodeIfPresent(String.self, forKey: .selfRevocationTestNonce)
+        let rawJwksAsString = try values.decodeIfPresent(String.self, forKey: .rawJwks)
+        self.rawJwks = rawJwksAsString?.data(using: .utf8)
+        let rawServerSignatureKeyAsString = try values.decodeIfPresent(String.self, forKey: .rawServerSignatureKey)
+        self.rawServerSignatureKey = rawServerSignatureKeyAsString?.data(using: .utf8)
+    }
+
+    
+    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations, rawOwnedIdentity: Data) throws {
+        
+        let mandatoryDomain = Set<CodingKeys>([.serverURL, .clientId, .keycloakUserId, .clientSecret, .rawJwks])
+        guard mandatoryDomain.isSubset(of: domain) else {
+            assertionFailure()
+            throw ObvError.tryingToRestoreIncompleteSnapshot
+        }
+        
+        let keycloakServer = try KeycloakServer(snapshotNode: self, rawOwnedIdentity: rawOwnedIdentity, within: obvContext)
+        try associations.associate(keycloakServer, to: self)
+    }
+
+    
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+        // Nothing do to here
+    }
+
+    
+    enum ObvError: Error {
+        case tryingToRestoreIncompleteSnapshot
     }
 
 }

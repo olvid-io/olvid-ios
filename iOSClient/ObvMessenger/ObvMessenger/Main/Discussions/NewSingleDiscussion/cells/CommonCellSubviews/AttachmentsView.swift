@@ -34,6 +34,9 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
         case completeButReadRequiresUserInteraction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>, fileSize: Int, uti: String)
         case cancelledByServer(fileSize: Int, uti: String, filename: String?)
+        // For received attachments sent from other owned device
+        case downloadableSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
+        case downloadingSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
         // For both
         case complete(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?, wasOpened: Bool?)
         
@@ -42,7 +45,7 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
             case .complete(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, wasOpened: _),
                  .uploadableOrUploading(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, progress: _):
                 return hardlink
-            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
+            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
                 return nil
             }
         }
@@ -137,9 +140,23 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
             imageView.reset()
             setTitleOnSubtitleView(titleView, filename: filename)
             setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
+        case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadableSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(titleView, filename: filename)
+            setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
         case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(titleView, filename: filename)
+            setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
+        case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadingSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
             tapToReadView.messageObjectID = nil
             imageView.reset()
             setTitleOnSubtitleView(titleView, filename: filename)

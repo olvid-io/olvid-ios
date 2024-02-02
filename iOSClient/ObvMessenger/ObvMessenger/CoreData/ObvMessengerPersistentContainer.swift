@@ -20,6 +20,8 @@
 import Foundation
 import CoreData
 import ObvUICoreData
+import ObvSettings
+
 
 final class ObvMessengerPersistentContainer: NSPersistentContainer {
     

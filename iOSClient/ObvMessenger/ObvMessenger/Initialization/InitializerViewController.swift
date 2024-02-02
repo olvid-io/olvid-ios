@@ -40,6 +40,8 @@ final class InitializerViewController: UIViewController {
     deinit {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
+    
+    override var canBecomeFirstResponder: Bool { true }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -84,7 +86,8 @@ final class InitializerViewController: UIViewController {
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        presentedViewController?.dismiss(animated: true)
+        // 2023-08-03 Commenting this out, to prevent the camera VC to be dismissed. Not clear why this was here"
+        // presentedViewController?.dismiss(animated: true)
     }
 
     

@@ -24,6 +24,8 @@ import ObvTypes
 import ObvCrypto
 import ObvUI
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
 
 
 final class GroupEditionFlowViewController: UIViewController {
@@ -34,7 +36,6 @@ final class GroupEditionFlowViewController: UIViewController {
         case addGroupV1Members(groupUid: UID, currentGroupMembers: Set<ObvCryptoId>)
         case removeGroupV1Members(groupUid: UID, currentGroupMembers: Set<ObvCryptoId>)
         case editGroupV1Details(obvContactGroup: ObvContactGroup)
-        case editGroupV2CustomNameAndCustomPhoto(groupIdentifier: Data)
         case editGroupV2AsAdmin(groupIdentifier: Data)
         case cloneGroup(initialGroupMembers: Set<ObvCryptoId>, initialGroupName: String?, initialGroupDescription: String?, initialPhotoURL: URL?)
         
@@ -175,38 +176,6 @@ extension GroupEditionFlowViewController {
             groupEditionVC.navigationItem.setLeftBarButton(cancelButtonItem, animated: false)
             flowNavigationController = ObvNavigationController(rootViewController: groupEditionVC)
             
-        case .editGroupV2CustomNameAndCustomPhoto(groupIdentifier: let groupIdentifier):
-            
-            guard let group = try? PersistedGroupV2.getWithPrimaryKey(ownCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, within: ObvStack.shared.viewContext) else {
-                assertionFailure()
-                dismiss(animated: true)
-                return
-            }
-            let circleConfig = group.circledInitialsConfiguration
-            let groupColors = (circleConfig.backgroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle), circleConfig.foregroundColor(appTheme: AppTheme.shared, using: ObvMessengerSettings.Interface.identityColorStyle))
-
-            let contactGroup = ContactGroup(name: group.customName ?? "",
-                                            description: "", // cannot be edited anyway in that case
-                                            members: [],
-                                            photoURL: group.customPhotoURL,
-                                            groupColors: groupColors)
-            let groupEditionVC = GroupEditionFlowViewHostingController(contactGroup: contactGroup, editionType: .editGroupV2CustomNameAndCustomPhoto) { [weak self] in
-                assert(Thread.isMainThread)
-                let customName: String? = contactGroup.name.isEmpty ? nil : contactGroup.name
-                let customPhotoURL: URL? = (contactGroup.photoURL == group.enginePhotoURL) ? nil : contactGroup.photoURL
-                ObvMessengerInternalNotification.userWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: group.typedObjectID,
-                                                                                            customName: customName,
-                                                                                            customPhotoURL: customPhotoURL)
-                .postOnDispatchQueue()
-                self?.flowNavigationController.dismiss(animated: true)
-            }
-
-            groupEditionVC.title = Strings.groupV2CustomNameAndPhotoEditionTitle
-            let cancelButtonItem = UIBarButtonItem.forClosing(target: self, action: #selector(cancelButtonTapped))
-            groupEditionVC.navigationItem.setLeftBarButton(cancelButtonItem, animated: false)
-            flowNavigationController = ObvNavigationController(rootViewController: groupEditionVC)
-            
-            
         case .editGroupV2AsAdmin(groupIdentifier: let groupIdentifier):
             
             guard let group = try? PersistedGroupV2.getWithPrimaryKey(ownCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, within: ObvStack.shared.viewContext) else {
@@ -308,8 +277,6 @@ extension GroupEditionFlowViewController {
             break
         case .editGroupV1Details:
             doneButtonItem?.isEnabled = groupName != nil && !groupName!.isEmpty
-        case .editGroupV2CustomNameAndCustomPhoto:
-            break
         case .editGroupV2AsAdmin:
             break
         }
@@ -360,8 +327,6 @@ extension GroupEditionFlowViewController {
             break
         case .editGroupV1Details:
             break
-        case .editGroupV2CustomNameAndCustomPhoto:
-            break
         case .editGroupV2AsAdmin:
             break
         }
@@ -403,11 +368,6 @@ extension GroupEditionFlowViewController {
             assertionFailure()
             return
             
-        case .editGroupV2CustomNameAndCustomPhoto:
-            
-            assertionFailure()
-            return
-
         case .editGroupV2AsAdmin:
             
             assertionFailure()
@@ -505,7 +465,6 @@ extension GroupEditionFlowViewController {
         case .addGroupV1Members,
              .removeGroupV1Members,
              .editGroupV1Details,
-             .editGroupV2CustomNameAndCustomPhoto,
              .editGroupV2AsAdmin:
             break
         }

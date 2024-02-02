@@ -280,7 +280,7 @@ extension BackgroundTaskCoordinator {
         try startFlowForBackgroundTask(with: Set<Expectation>(), completionHandler: completionHandler)
     }
     
-    func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier]) {
+    func addBackgroundActivityForPostingApplicationMessageAttachmentsWithinFlow(withFlowId flowId: FlowIdentifier, messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier]) {
         
         let expectations: Set<Expectation>
         if attachmentIds.isEmpty {
@@ -301,7 +301,7 @@ extension BackgroundTaskCoordinator {
     /// It is called *before* notifying the app. The app will eventually post a return receipt. To do that, it will make a request to the engine that will eventually call the
     /// ``stopBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?)`` bellow.
     ///
-    func startBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier {
+    func startBackgroundActivityForPostingReturnReceipt(messageId: ObvMessageIdentifier, attachmentNumber: Int?) throws -> FlowIdentifier {
         guard let delegateManager = delegateManager else {
             assertionFailure()
             throw Self.makeError(message: "🧾 The delegate manager is not set")
@@ -309,7 +309,7 @@ extension BackgroundTaskCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
         let expectations: Set<Expectation>
         if let attachmentNumber = attachmentNumber {
-            let attachmentId = AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+            let attachmentId = ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
             os_log("🧾 Starting background activity for attachmentId %{public}@", log: log, type: .debug, attachmentId.debugDescription)
             expectations = Set([.returnReceiptWasPostedForAttachment(attachmentId: attachmentId)])
         } else {
@@ -322,7 +322,7 @@ extension BackgroundTaskCoordinator {
     /// This method allows to stop the flow allowing to wait until a return receipt is posted. See the comment for the
     /// ``startBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws``
     /// method above.
-    func stopBackgroundActivityForPostingReturnReceipt(messageId: MessageIdentifier, attachmentNumber: Int?) throws {
+    func stopBackgroundActivityForPostingReturnReceipt(messageId: ObvMessageIdentifier, attachmentNumber: Int?) throws {
         guard let delegateManager = delegateManager else {
             assertionFailure()
             throw Self.makeError(message: "The delegate manager is not set")
@@ -330,7 +330,7 @@ extension BackgroundTaskCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: BackgroundTaskCoordinator.logCategory)
         let expectationsToRemove: [Expectation]
         if let attachmentNumber = attachmentNumber {
-            let attachmentId = AttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
+            let attachmentId = ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: attachmentNumber)
             os_log("🧾 Stopping background activity for attachmentId %{public}@", log: log, type: .debug, attachmentId.debugDescription)
             expectationsToRemove = [.returnReceiptWasPostedForAttachment(attachmentId: attachmentId)]
         } else {
@@ -357,11 +357,11 @@ extension BackgroundTaskCoordinator {
 
     // Deleting a message or an attachment
     
-    func startBackgroundActivityForDeletingAMessage(messageId: MessageIdentifier) -> FlowIdentifier? {
+    func startBackgroundActivityForDeletingAMessage(messageId: ObvMessageIdentifier) -> FlowIdentifier? {
         return FlowIdentifier()
     }
     
-    func startBackgroundActivityForDeletingAnAttachment(attachmentId: AttachmentIdentifier) -> FlowIdentifier? {
+    func startBackgroundActivityForDeletingAnAttachment(attachmentId: ObvAttachmentIdentifier) -> FlowIdentifier? {
         return FlowIdentifier()
     }
     

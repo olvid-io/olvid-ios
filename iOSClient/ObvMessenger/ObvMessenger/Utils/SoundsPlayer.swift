@@ -23,6 +23,7 @@ import AVFoundation
 import os.log
 import UIKit
 import ObvUICoreData
+import ObvSettings
 
 
 extension Sound {
@@ -46,9 +47,28 @@ final class SoundsPlayer<S: Sound>: NSObject, AVAudioPlayerDelegate {
         guard let filename = sound.filename else { assertionFailure(); return }
         let soundURL: URL
         if let note = note {
-            soundURL = Bundle.main.bundleURL.appendingPathComponent(filename + note.index).appendingPathExtension("caf")
+            if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+                soundURL = Bundle.main.bundleURL
+                    .appendingPathComponent("Contents")
+                    .appendingPathComponent("Resources")
+                    .appendingPathComponent(filename + note.index).appendingPathExtension("caf")
+            } else {
+                soundURL = Bundle.main.bundleURL.appendingPathComponent(filename + note.index).appendingPathExtension("caf")
+            }
         } else {
-            soundURL = Bundle.main.bundleURL.appendingPathComponent(filename)
+            if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+                soundURL = Bundle.main.bundleURL
+                    .appendingPathComponent("Contents")
+                    .appendingPathComponent("Resources")
+                    .appendingPathComponent(filename)
+            } else {
+                soundURL = Bundle.main.bundleURL.appendingPathComponent(filename)
+            }
+        }
+        guard FileManager.default.fileExists(atPath: soundURL.path) else {
+            os_log("🎵 Could not find audio file at path: %{public}@", log: log, type: .fault, filename, soundURL.path)
+            assertionFailure()
+            throw ObvError.fileDoesNotExist
         }
         let player = try AVAudioPlayer(contentsOf: soundURL)
         player.numberOfLoops = sound.loops ? Int.max : 0
@@ -75,11 +95,12 @@ final class SoundsPlayer<S: Sound>: NSObject, AVAudioPlayerDelegate {
                 os_log("🎵 Error in AVAudioSession %{public}@", log: self.log, type: .info, error.localizedDescription)
             }
         }
+        guard let currentAudioPlayer else { return }
         os_log("🎵 Play %{public}@", log: self.log, type: .info, filename)
-        self.currentAudioPlayer?.currentTime = 0
-        self.currentAudioPlayer?.play()
-        self.currentAudioPlayer?.delegate = self
+        currentAudioPlayer.currentTime = 0
+        currentAudioPlayer.delegate = self
         self.soundCurrentlyPlaying = sound
+        currentAudioPlayer.play()
         if let feedback = sound.feedback {
             self.feedbackGenerator.notificationOccurred(feedback)
         }
@@ -124,4 +145,7 @@ final class SoundsPlayer<S: Sound>: NSObject, AVAudioPlayerDelegate {
         }
     }
     
+    enum ObvError: Error {
+        case fileDoesNotExist
+    }
 }

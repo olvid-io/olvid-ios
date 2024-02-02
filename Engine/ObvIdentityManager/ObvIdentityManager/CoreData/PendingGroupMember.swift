@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -79,7 +79,7 @@ final class PendingGroupMember: NSManagedObject, ObvManagedObject {
     
     convenience init(contactGroup: ContactGroup, cryptoIdentityWithCoreDetails: CryptoIdentityWithCoreDetails, delegateManager: ObvIdentityDelegateManager) throws {
         guard let obvContext = contactGroup.obvContext else {
-            throw ObvIdentityManagerError.contextIsNil.error(withDomain: PendingGroupMember.errorDomain)
+            throw ObvIdentityManagerError.contextIsNil
         }
         let entityDescription = NSEntityDescription.entity(forEntityName: PendingGroupMember.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
@@ -90,6 +90,7 @@ final class PendingGroupMember: NSManagedObject, ObvManagedObject {
         self.delegateManager = delegateManager
     }
 
+    
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
     fileprivate convenience init(backupItem: PendingGroupMemberBackupItem, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: PendingGroupMember.entityName, in: obvContext)!
@@ -97,6 +98,16 @@ final class PendingGroupMember: NSManagedObject, ObvManagedObject {
         self.cryptoIdentity = backupItem.cryptoIdentity
         self.declined = backupItem.declined
         self.serializedIdentityCoreDetails = backupItem.serializedIdentityCoreDetails
+    }
+
+    
+    /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreater in a second step
+    fileprivate convenience init(cryptoIdentity: ObvCryptoIdentity, snapshotItem: PendingGroupMemberSyncSnapshotItem, within obvContext: ObvContext) {
+        let entityDescription = NSEntityDescription.entity(forEntityName: PendingGroupMember.entityName, in: obvContext)!
+        self.init(entity: entityDescription, insertInto: obvContext)
+        self.cryptoIdentity = cryptoIdentity
+        self.declined = snapshotItem.declined
+        self.serializedIdentityCoreDetails = snapshotItem.serializedIdentityCoreDetails
     }
 
 }
@@ -108,12 +119,16 @@ extension PendingGroupMember {
     
     func markAsDeclined(delegateManager: ObvIdentityDelegateManager?) {
         self.delegateManager = delegateManager
-        self.declined = true
+        if !self.declined {
+            self.declined = true
+        }
     }
     
     func unmarkAsDeclined(delegateManager: ObvIdentityDelegateManager?) {
         self.delegateManager = delegateManager
-        self.declined = false
+        if self.declined {
+            self.declined = false
+        }
     }
 
 }
@@ -292,4 +307,75 @@ struct PendingGroupMemberBackupItem: Codable, Hashable {
         // Nothing to do here
     }
 
+}
+
+
+// MARK: - For Snapshot purposes
+
+extension PendingGroupMember {
+    
+    var syncSnapshot: PendingGroupMemberSyncSnapshotItem {
+        .init(declined: declined,
+              serializedIdentityCoreDetails: serializedIdentityCoreDetails)
+    }
+
+}
+
+
+struct PendingGroupMemberSyncSnapshotItem: Codable, Hashable, Identifiable {
+    
+    fileprivate let declined: Bool
+    fileprivate let serializedIdentityCoreDetails: Data
+    
+    let id = ObvSyncSnapshotNodeUtils.generateIdentifier()
+    
+    enum CodingKeys: String, CodingKey {
+        case declined = "declined"
+        case serializedIdentityCoreDetails = "serialized_details"
+    }
+    
+    
+    fileprivate init(declined: Bool, serializedIdentityCoreDetails: Data) {
+        self.declined = declined
+        self.serializedIdentityCoreDetails = serializedIdentityCoreDetails
+    }
+
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(declined, forKey: .declined)
+        guard let serializedIdentityCoreDetailsAsString = String(data: serializedIdentityCoreDetails, encoding: .utf8) else {
+            throw ObvError.couldNotSerializeCoreDetails
+        }
+        try container.encode(serializedIdentityCoreDetailsAsString, forKey: .serializedIdentityCoreDetails)
+    }
+    
+    
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.declined = try values.decodeIfPresent(Bool.self, forKey: .declined) ?? false
+        let serializedIdentityCoreDetailsAsString = try values.decode(String.self, forKey: .serializedIdentityCoreDetails)
+        guard let serializedIdentityCoreDetailsAsData = serializedIdentityCoreDetailsAsString.data(using: .utf8) else {
+            throw ObvError.couldNotDeserializeCoreDetails
+        }
+        self.serializedIdentityCoreDetails = serializedIdentityCoreDetailsAsData
+    }
+
+    
+    func restoreInstance(within obvContext: ObvContext, cryptoIdentity: ObvCryptoIdentity, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+        let pendingGroupMember = PendingGroupMember(cryptoIdentity: cryptoIdentity, snapshotItem: self, within: obvContext)
+        try associations.associate(pendingGroupMember, to: self)
+    }
+    
+    
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+        // Nothing to do here
+    }
+
+    
+    enum ObvError: Error {
+        case couldNotSerializeCoreDetails
+        case couldNotDeserializeCoreDetails
+    }
+    
 }

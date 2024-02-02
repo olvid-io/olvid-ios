@@ -33,6 +33,4 @@ final class ObvBackupDelegateManager {
     weak var contextCreator: ObvCreateContextDelegate!
     weak var notificationDelegate: ObvNotificationDelegate!
 
-        
-    
 }

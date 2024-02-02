@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,13 +27,13 @@ public struct OneToOneContactInvitationProtocol: ConcreteCryptoProtocol {
     
     static let logCategory = "OneToOneContactInvitationProtocol"
 
-    static let id = CryptoProtocolId.OneToOneContactInvitation
+    static let id = CryptoProtocolId.oneToOneContactInvitation
 
     private static let errorDomain = "OneToOneContactInvitationProtocol"
 
     static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Finished, StateId.Cancelled]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.finished, StateId.cancelled]
 
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

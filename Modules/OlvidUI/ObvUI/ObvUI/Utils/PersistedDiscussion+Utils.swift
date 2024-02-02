@@ -21,6 +21,7 @@ import CoreData
 import ObvUICoreData
 import os.log
 import UIKit
+import ObvDesignSystem
 
 
 extension PersistedDiscussion {

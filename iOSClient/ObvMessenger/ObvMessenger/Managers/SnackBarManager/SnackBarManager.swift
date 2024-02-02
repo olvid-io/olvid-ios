@@ -24,6 +24,7 @@ import UIKit
 import AVFAudio
 import ObvEngine
 import ObvUICoreData
+import ObvSettings
 
 
 actor SnackBarManager {
@@ -63,7 +64,31 @@ actor SnackBarManager {
         await listenToUIApplicationNotifications()
         observationTokens.append(contentsOf: [
             ObvMessengerInternalNotification.observeMetaFlowControllerDidSwitchToOwnedIdentity { newOwnedCryptoId in
-                Task { [weak self] in await self?.replaceCurrentCryptoId(by: newOwnedCryptoId) }
+                Task { [weak self] in
+                    await self?.removeAllAlreadyCheckedIdentities()
+                    await self?.replaceCurrentCryptoId(by: newOwnedCryptoId)
+                    if let currentCryptoId = await self?.currentCryptoId {
+                        await self?.determineSnackBarToDisplay(for: currentCryptoId)
+                    }
+                }
+            },
+            ObvMessengerCoreDataNotification.observeOwnedIdentityWasReactivated { _ in
+                Task { [weak self] in
+                    await self?.removeAllAlreadyCheckedIdentities()
+                    if let currentCryptoId = await self?.currentCryptoId {
+                        // Since a backup is not linked to a specific owned identity, we use the current one for the snack bar
+                        await self?.determineSnackBarToDisplay(for: currentCryptoId)
+                    }
+                }
+            },
+            ObvMessengerCoreDataNotification.observeOwnedIdentityWasDeactivated { _ in
+                Task { [weak self] in
+                    await self?.removeAllAlreadyCheckedIdentities()
+                    if let currentCryptoId = await self?.currentCryptoId {
+                        // Since a backup is not linked to a specific owned identity, we use the current one for the snack bar
+                        await self?.determineSnackBarToDisplay(for: currentCryptoId)
+                    }
+                }
             },
             ObvMessengerInternalNotification.observeUserDismissedSnackBarForLater { [weak self] ownedCryptoId, snackBarCategory in
                 Task { [weak self] in await self?.processUserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory) }
@@ -198,6 +223,7 @@ actor SnackBarManager {
         let obvEngine = self.obvEngine
 
         var ownedIdentityHasAtLeastOneContact: Bool = false
+        var ownedIdentityIsActive = true
         ObvStack.shared.performBackgroundTaskAndWait { context in
             do {
                 guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: currentCryptoId, within: context) else {
@@ -206,12 +232,22 @@ actor SnackBarManager {
                 }
                 
                 ownedIdentityHasAtLeastOneContact = !ownedIdentity.contacts.isEmpty
+                ownedIdentityIsActive = ownedIdentity.isActive
             } catch {
                 os_log("SnackBarManager error: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 assertionFailure()
                 return
             }
         }
+        
+        // If the owned identity (profile) is inactive, inform the user
+        
+        guard ownedIdentityIsActive else {
+            ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.ownedIdentityIsInactive)
+                .postOnDispatchQueue()
+            return
+        }
+
 
         // We never display a snackbar if the owned identity has no contact
 

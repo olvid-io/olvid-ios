@@ -163,11 +163,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     
     private func getSourceStoreMetadata(storeURL: URL) throws -> [String: Any] {
         let dict: [String: Any]
-        if #available(iOS 15, *) {
-            dict = try NSPersistentStoreCoordinator.metadataForPersistentStore(type: .sqlite, at: storeURL)
-        } else {
-            dict = try NSPersistentStoreCoordinator.metadataForPersistentStore(ofType: NSSQLiteStoreType, at: storeURL)
-        }
+        dict = try NSPersistentStoreCoordinator.metadataForPersistentStore(type: .sqlite, at: storeURL)
         return dict
     }
     
@@ -276,7 +272,13 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
 
         let destinationManagedObjectModel = try getDestinationManagedObjectModel()
         migrationRunningLog.addEvent(message: "Destination Managed Object Model: \(destinationManagedObjectModel.versionIdentifier)")
-        os_log("Destination Managed Object Model: %{public}@", log: log, type: .info, destinationManagedObjectModel.versionIdentifier)
+        let versionChecksum: String
+        if #available(iOS 17, *) {
+            versionChecksum = destinationManagedObjectModel.versionChecksum
+        } else {
+            versionChecksum = "Only available in iOS17+"
+        }
+        os_log("Destination Managed Object Model: %{public}@ with version checksum: %{public}@", log: log, type: .info, destinationManagedObjectModel.versionIdentifier, versionChecksum)
 
         let sourceStoreMetadata: [String: Any]
         do {

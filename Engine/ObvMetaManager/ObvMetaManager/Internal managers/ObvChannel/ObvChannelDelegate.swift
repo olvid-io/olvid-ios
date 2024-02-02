@@ -28,7 +28,7 @@ public protocol ObvChannelDelegate: ObvManager {
     // Posting a channel message to send
     
     /// The returned set contains all the crypto identities to which the message was successfully posted.
-    func post(_: ObvChannelMessageToSend, randomizedWith: PRNGService, within: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>]
+    func postChannelMessage(_: ObvChannelMessageToSend, randomizedWith: PRNGService, within: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>]
     
     // Decrypting an application message
     
@@ -51,6 +51,8 @@ public protocol ObvChannelDelegate: ObvManager {
     func updateReceiveSeedOfObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid: UID, with: Seed, within: ObvContext) throws
     
     func anObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid: UID, within: ObvContext) throws -> Bool
+    
+    func anObliviousChannelExistsBetweenCurrentDeviceUid(_ currentDeviceUid: UID, andRemoteDeviceUid remoteDeviceUid: UID, of remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
 
     func aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid: UID, within: ObvContext) throws -> Bool
 

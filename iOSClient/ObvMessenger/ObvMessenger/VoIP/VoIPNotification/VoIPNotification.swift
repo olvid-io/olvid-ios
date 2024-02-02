@@ -36,34 +36,26 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 enum VoIPNotification {
-	case userWantsToKickParticipant(call: GenericCall, callParticipant: CallParticipant)
-	case userWantsToAddParticipants(call: GenericCall, contactIds: [OlvidUserId])
-	case callHasBeenUpdated(callUUID: UUID, updateKind: CallUpdateKind)
-	case callParticipantHasBeenUpdated(callParticipant: CallParticipant, updateKind: CallParticipantUpdateKind)
-	case reportCallEvent(callUUID: UUID, callReport: CallReport, groupId: GroupIdentifierBasedOnObjectID?, ownedCryptoId: ObvCryptoId)
-	case showCallViewControllerForAnsweringNonCallKitIncomingCall(incomingCall: GenericCall)
+	case reportCallEvent(callUUID: UUID, callReport: CallReport, groupId: GroupIdentifier?, ownedCryptoId: ObvCryptoId)
+	case newCallToShow(model: OlvidCallViewController.Model)
 	case noMoreCallInProgress
+	case callWasEnded(uuidForCallKit: UUID)
 	case serverDoesNotSupportCall
-	case newOutgoingCall(newOutgoingCall: GenericCall)
-	case newIncomingCall(newIncomingCall: GenericCall)
 	case showCallView
 	case hideCallView
-	case anIncomingCallShouldBeShownToUser(newIncomingCall: GenericCall)
+	case newWebRTCMessageToSend(webrtcMessage: WebRTCMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, forStartingCall: Bool)
+	case newOwnedWebRTCMessageToSend(ownedCryptoId: ObvCryptoId, webrtcMessage: WebRTCMessageJSON)
 
 	private enum Name {
-		case userWantsToKickParticipant
-		case userWantsToAddParticipants
-		case callHasBeenUpdated
-		case callParticipantHasBeenUpdated
 		case reportCallEvent
-		case showCallViewControllerForAnsweringNonCallKitIncomingCall
+		case newCallToShow
 		case noMoreCallInProgress
+		case callWasEnded
 		case serverDoesNotSupportCall
-		case newOutgoingCall
-		case newIncomingCall
 		case showCallView
 		case hideCallView
-		case anIncomingCallShouldBeShownToUser
+		case newWebRTCMessageToSend
+		case newOwnedWebRTCMessageToSend
 
 		private var namePrefix: String { String(describing: VoIPNotification.self) }
 
@@ -76,45 +68,21 @@ enum VoIPNotification {
 
 		static func forInternalNotification(_ notification: VoIPNotification) -> NSNotification.Name {
 			switch notification {
-			case .userWantsToKickParticipant: return Name.userWantsToKickParticipant.name
-			case .userWantsToAddParticipants: return Name.userWantsToAddParticipants.name
-			case .callHasBeenUpdated: return Name.callHasBeenUpdated.name
-			case .callParticipantHasBeenUpdated: return Name.callParticipantHasBeenUpdated.name
 			case .reportCallEvent: return Name.reportCallEvent.name
-			case .showCallViewControllerForAnsweringNonCallKitIncomingCall: return Name.showCallViewControllerForAnsweringNonCallKitIncomingCall.name
+			case .newCallToShow: return Name.newCallToShow.name
 			case .noMoreCallInProgress: return Name.noMoreCallInProgress.name
+			case .callWasEnded: return Name.callWasEnded.name
 			case .serverDoesNotSupportCall: return Name.serverDoesNotSupportCall.name
-			case .newOutgoingCall: return Name.newOutgoingCall.name
-			case .newIncomingCall: return Name.newIncomingCall.name
 			case .showCallView: return Name.showCallView.name
 			case .hideCallView: return Name.hideCallView.name
-			case .anIncomingCallShouldBeShownToUser: return Name.anIncomingCallShouldBeShownToUser.name
+			case .newWebRTCMessageToSend: return Name.newWebRTCMessageToSend.name
+			case .newOwnedWebRTCMessageToSend: return Name.newOwnedWebRTCMessageToSend.name
 			}
 		}
 	}
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
-		case .userWantsToKickParticipant(call: let call, callParticipant: let callParticipant):
-			info = [
-				"call": call,
-				"callParticipant": callParticipant,
-			]
-		case .userWantsToAddParticipants(call: let call, contactIds: let contactIds):
-			info = [
-				"call": call,
-				"contactIds": contactIds,
-			]
-		case .callHasBeenUpdated(callUUID: let callUUID, updateKind: let updateKind):
-			info = [
-				"callUUID": callUUID,
-				"updateKind": updateKind,
-			]
-		case .callParticipantHasBeenUpdated(callParticipant: let callParticipant, updateKind: let updateKind):
-			info = [
-				"callParticipant": callParticipant,
-				"updateKind": updateKind,
-			]
 		case .reportCallEvent(callUUID: let callUUID, callReport: let callReport, groupId: let groupId, ownedCryptoId: let ownedCryptoId):
 			info = [
 				"callUUID": callUUID,
@@ -122,29 +90,32 @@ enum VoIPNotification {
 				"groupId": OptionalWrapper(groupId),
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .showCallViewControllerForAnsweringNonCallKitIncomingCall(incomingCall: let incomingCall):
+		case .newCallToShow(model: let model):
 			info = [
-				"incomingCall": incomingCall,
+				"model": model,
 			]
 		case .noMoreCallInProgress:
 			info = nil
+		case .callWasEnded(uuidForCallKit: let uuidForCallKit):
+			info = [
+				"uuidForCallKit": uuidForCallKit,
+			]
 		case .serverDoesNotSupportCall:
 			info = nil
-		case .newOutgoingCall(newOutgoingCall: let newOutgoingCall):
-			info = [
-				"newOutgoingCall": newOutgoingCall,
-			]
-		case .newIncomingCall(newIncomingCall: let newIncomingCall):
-			info = [
-				"newIncomingCall": newIncomingCall,
-			]
 		case .showCallView:
 			info = nil
 		case .hideCallView:
 			info = nil
-		case .anIncomingCallShouldBeShownToUser(newIncomingCall: let newIncomingCall):
+		case .newWebRTCMessageToSend(webrtcMessage: let webrtcMessage, contactID: let contactID, forStartingCall: let forStartingCall):
 			info = [
-				"newIncomingCall": newIncomingCall,
+				"webrtcMessage": webrtcMessage,
+				"contactID": contactID,
+				"forStartingCall": forStartingCall,
+			]
+		case .newOwnedWebRTCMessageToSend(ownedCryptoId: let ownedCryptoId, webrtcMessage: let webrtcMessage):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"webrtcMessage": webrtcMessage,
 			]
 		}
 		return info
@@ -175,59 +146,23 @@ enum VoIPNotification {
 		}
 	}
 
-	static func observeUserWantsToKickParticipant(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GenericCall, CallParticipant) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToKickParticipant.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let call = notification.userInfo!["call"] as! GenericCall
-			let callParticipant = notification.userInfo!["callParticipant"] as! CallParticipant
-			block(call, callParticipant)
-		}
-	}
-
-	static func observeUserWantsToAddParticipants(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GenericCall, [OlvidUserId]) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToAddParticipants.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let call = notification.userInfo!["call"] as! GenericCall
-			let contactIds = notification.userInfo!["contactIds"] as! [OlvidUserId]
-			block(call, contactIds)
-		}
-	}
-
-	static func observeCallHasBeenUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID, CallUpdateKind) -> Void) -> NSObjectProtocol {
-		let name = Name.callHasBeenUpdated.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let callUUID = notification.userInfo!["callUUID"] as! UUID
-			let updateKind = notification.userInfo!["updateKind"] as! CallUpdateKind
-			block(callUUID, updateKind)
-		}
-	}
-
-	static func observeCallParticipantHasBeenUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (CallParticipant, CallParticipantUpdateKind) -> Void) -> NSObjectProtocol {
-		let name = Name.callParticipantHasBeenUpdated.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let callParticipant = notification.userInfo!["callParticipant"] as! CallParticipant
-			let updateKind = notification.userInfo!["updateKind"] as! CallParticipantUpdateKind
-			block(callParticipant, updateKind)
-		}
-	}
-
-	static func observeReportCallEvent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID, CallReport, GroupIdentifierBasedOnObjectID?, ObvCryptoId) -> Void) -> NSObjectProtocol {
+	static func observeReportCallEvent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID, CallReport, GroupIdentifier?, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.reportCallEvent.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let callUUID = notification.userInfo!["callUUID"] as! UUID
 			let callReport = notification.userInfo!["callReport"] as! CallReport
-			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifierBasedOnObjectID>
+			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifier>
 			let groupId = groupIdWrapper.value
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			block(callUUID, callReport, groupId, ownedCryptoId)
 		}
 	}
 
-	static func observeShowCallViewControllerForAnsweringNonCallKitIncomingCall(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GenericCall) -> Void) -> NSObjectProtocol {
-		let name = Name.showCallViewControllerForAnsweringNonCallKitIncomingCall.name
+	static func observeNewCallToShow(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (OlvidCallViewController.Model) -> Void) -> NSObjectProtocol {
+		let name = Name.newCallToShow.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let incomingCall = notification.userInfo!["incomingCall"] as! GenericCall
-			block(incomingCall)
+			let model = notification.userInfo!["model"] as! OlvidCallViewController.Model
+			block(model)
 		}
 	}
 
@@ -238,26 +173,18 @@ enum VoIPNotification {
 		}
 	}
 
+	static func observeCallWasEnded(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (UUID) -> Void) -> NSObjectProtocol {
+		let name = Name.callWasEnded.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let uuidForCallKit = notification.userInfo!["uuidForCallKit"] as! UUID
+			block(uuidForCallKit)
+		}
+	}
+
 	static func observeServerDoesNotSupportCall(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.serverDoesNotSupportCall.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
-		}
-	}
-
-	static func observeNewOutgoingCall(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GenericCall) -> Void) -> NSObjectProtocol {
-		let name = Name.newOutgoingCall.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let newOutgoingCall = notification.userInfo!["newOutgoingCall"] as! GenericCall
-			block(newOutgoingCall)
-		}
-	}
-
-	static func observeNewIncomingCall(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GenericCall) -> Void) -> NSObjectProtocol {
-		let name = Name.newIncomingCall.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let newIncomingCall = notification.userInfo!["newIncomingCall"] as! GenericCall
-			block(newIncomingCall)
 		}
 	}
 
@@ -275,11 +202,22 @@ enum VoIPNotification {
 		}
 	}
 
-	static func observeAnIncomingCallShouldBeShownToUser(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GenericCall) -> Void) -> NSObjectProtocol {
-		let name = Name.anIncomingCallShouldBeShownToUser.name
+	static func observeNewWebRTCMessageToSend(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (WebRTCMessageJSON, TypeSafeManagedObjectID<PersistedObvContactIdentity>, Bool) -> Void) -> NSObjectProtocol {
+		let name = Name.newWebRTCMessageToSend.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let newIncomingCall = notification.userInfo!["newIncomingCall"] as! GenericCall
-			block(newIncomingCall)
+			let webrtcMessage = notification.userInfo!["webrtcMessage"] as! WebRTCMessageJSON
+			let contactID = notification.userInfo!["contactID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
+			let forStartingCall = notification.userInfo!["forStartingCall"] as! Bool
+			block(webrtcMessage, contactID, forStartingCall)
+		}
+	}
+
+	static func observeNewOwnedWebRTCMessageToSend(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, WebRTCMessageJSON) -> Void) -> NSObjectProtocol {
+		let name = Name.newOwnedWebRTCMessageToSend.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let webrtcMessage = notification.userInfo!["webrtcMessage"] as! WebRTCMessageJSON
+			block(ownedCryptoId, webrtcMessage)
 		}
 	}
 

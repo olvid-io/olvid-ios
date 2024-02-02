@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import ObvUICoreData
 import os.log
 import QuickLook
 import UIKit
+import ObvDesignSystem
 
 
 @available(iOS 15.0, *)
@@ -54,8 +55,8 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     private var replyToCache = [TypeSafeManagedObjectID<PersistedMessage>: ReplyToBubbleView.Configuration]()
     private var replyToCacheCompletions = [TypeSafeManagedObjectID<PersistedMessage>: [() -> Void]]()
 
-    private var downsizedThumbnailCache = [TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>: UIImage]()
-    private var downsizedThumbnailCacheCompletions = [TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>: [(Result<Void, Error>) -> Void]]()
+    private var downsizedThumbnailCache = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: UIImage]()
+    private var downsizedThumbnailCacheCompletions = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: [(Result<Void, Error>) -> Void]]()
 
     private let internalQueue = DispatchQueue(label: "DiscussionCacheManager internal queue")
     private let queueForPostingNotifications = DispatchQueue(label: "DiscussionCacheManager internal queue for posting notifications")
@@ -435,7 +436,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
             if replyTo.isRemoteWiped {
                 
                 var deleterName: String?
-                if let ownedCryptoId = replyTo.discussion.ownedIdentity?.cryptoId,
+                if let ownedCryptoId = replyTo.discussion?.ownedIdentity?.cryptoId,
                    let deleterCryptoId = replyTo.deleterCryptoId,
                    let contact = try? PersistedObvContactIdentity.get(contactCryptoId: deleterCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
                     deleterName = contact.customOrShortDisplayName
@@ -560,17 +561,17 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     
     // MARK: - Downsized thumbnails
     
-    func getCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) -> UIImage? {
+    func getCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) -> UIImage? {
         return downsizedThumbnailCache[objectID]
     }
     
     
-    func removeCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) {
+    func removeCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) {
         _ = downsizedThumbnailCache.removeValue(forKey: objectID)
     }
     
     
-    func requestDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, data: Data, completionWhenImageCached: @escaping ((Result<Void, Error>) -> Void)) {
+    func requestDownsizedThumbnail(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, data: Data, completionWhenImageCached: @escaping ((Result<Void, Error>) -> Void)) {
 
         assert(Thread.isMainThread)
         
@@ -595,7 +596,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
         }
     }
 
-    private func requestDownsizedThumbnailFailed(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, errorMessage: String) {
+    private func requestDownsizedThumbnailFailed(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, errorMessage: String) {
         assert(!Thread.isMainThread)
         DispatchQueue.main.async { [weak self] in
             guard let _self = self else { return }
@@ -607,7 +608,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     }
 
     
-    private func requestDownsizedThumbnailFailedSucceeded(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, imageToCache: UIImage) {
+    private func requestDownsizedThumbnailFailedSucceeded(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, imageToCache: UIImage) {
         assert(!Thread.isMainThread)
         DispatchQueue.main.async { [weak self] in
             guard let _self = self else { return }

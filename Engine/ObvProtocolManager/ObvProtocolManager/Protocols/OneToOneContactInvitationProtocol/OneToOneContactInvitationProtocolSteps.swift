@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,50 +29,50 @@ extension OneToOneContactInvitationProtocol {
     
     enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
-        case AliceInvitesBob = 0
-        case BobProcessesAlicesInvitation = 1
-        case BobRespondsToAlicesInvitation = 2
-        case AliceReceivesBobsResponse = 3
-        case AliceAbortsHerInvitationToBob = 4
-        case BobProcessesAbort = 5
-        case ProcessContactUpgradedToOneToOneWhileInInvitationSentState = 6
-        case ProcessContactUpgradedToOneToOneWhileInInvitationReceivedState = 7
-        case ProcessPropagatedOneToOneInvitationMessage = 8
-        case ProcessPropagatedOneToOneResponseMessage = 9
-        case ProcessPropagatedAbortMessage = 10
-        case AliceProcessesUnexpectedBobResponse = 11
-        case AliceSendsOneToOneStatusSyncRequestMessages = 12
-        case BobProcessesSyncRequest = 13
+        case aliceInvitesBob = 0
+        case bobProcessesAlicesInvitation = 1
+        case bobRespondsToAlicesInvitation = 2
+        case aliceReceivesBobsResponse = 3
+        case aliceAbortsHerInvitationToBob = 4
+        case bobProcessesAbort = 5
+        case processContactUpgradedToOneToOneWhileInInvitationSentState = 6
+        case processContactUpgradedToOneToOneWhileInInvitationReceivedState = 7
+        case processPropagatedOneToOneInvitationMessage = 8
+        case processPropagatedOneToOneResponseMessage = 9
+        case processPropagatedAbortMessage = 10
+        case aliceProcessesUnexpectedBobResponse = 11
+        case aliceSendsOneToOneStatusSyncRequestMessages = 12
+        case bobProcessesSyncRequest = 13
 
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             switch self {
-            case .AliceInvitesBob:
+            case .aliceInvitesBob:
                 return AliceInvitesBobStep(from: concreteProtocol, and: receivedMessage)
-            case .BobProcessesAlicesInvitation:
+            case .bobProcessesAlicesInvitation:
                 return BobProcessesAlicesInvitationStep(from: concreteProtocol, and: receivedMessage)
-            case .BobRespondsToAlicesInvitation:
+            case .bobRespondsToAlicesInvitation:
                 return BobRespondsToAlicesInvitationStep(from: concreteProtocol, and: receivedMessage)
-            case .AliceReceivesBobsResponse:
+            case .aliceReceivesBobsResponse:
                 return AliceReceivesBobsResponseStep(from: concreteProtocol, and: receivedMessage)
-            case .AliceAbortsHerInvitationToBob:
+            case .aliceAbortsHerInvitationToBob:
                 return AliceAbortsHerInvitationToBobStep(from: concreteProtocol, and: receivedMessage)
-            case .BobProcessesAbort:
+            case .bobProcessesAbort:
                 return BobProcessesAbortStep(from: concreteProtocol, and: receivedMessage)
-            case .ProcessContactUpgradedToOneToOneWhileInInvitationSentState:
+            case .processContactUpgradedToOneToOneWhileInInvitationSentState:
                 return ProcessContactUpgradedToOneToOneWhileInInvitationSentStateStep(from: concreteProtocol, and: receivedMessage)
-            case .ProcessContactUpgradedToOneToOneWhileInInvitationReceivedState:
+            case .processContactUpgradedToOneToOneWhileInInvitationReceivedState:
                 return ProcessContactUpgradedToOneToOneWhileInInvitationReceivedStateStep(from: concreteProtocol, and: receivedMessage)
-            case .ProcessPropagatedOneToOneInvitationMessage:
+            case .processPropagatedOneToOneInvitationMessage:
                 return ProcessPropagatedOneToOneInvitationMessageStep(from: concreteProtocol, and: receivedMessage)
-            case .ProcessPropagatedOneToOneResponseMessage:
+            case .processPropagatedOneToOneResponseMessage:
                 return ProcessPropagatedOneToOneResponseMessageStep(from: concreteProtocol, and: receivedMessage)
-            case .ProcessPropagatedAbortMessage:
+            case .processPropagatedAbortMessage:
                 return ProcessPropagatedAbortMessageStep(from: concreteProtocol, and: receivedMessage)
-            case .AliceProcessesUnexpectedBobResponse:
+            case .aliceProcessesUnexpectedBobResponse:
                 return AliceProcessesUnexpectedBobResponseStep(from: concreteProtocol, and: receivedMessage)
-            case .AliceSendsOneToOneStatusSyncRequestMessages:
+            case .aliceSendsOneToOneStatusSyncRequestMessages:
                 return AliceSendsOneToOneStatusSyncRequestMessagesStep(from: concreteProtocol, and: receivedMessage)
-            case .BobProcessesSyncRequest:
+            case .bobProcessesSyncRequest:
                 return BobProcessesSyncRequestStep(from: concreteProtocol, and: receivedMessage)
             }
         }
@@ -107,10 +107,11 @@ extension OneToOneContactInvitationProtocol {
             // If Bob is already a OneToOne contact, there is nothing to do in theory. Yet, we decide to send the protocol message anyway.
             
             // Create an ObvDialog informing Alice that her request has been taken into account. This dialog also allows Alice to abort this
-            // Protocol.
-            
+            // Protocol. We only do this if Bob is not already oneToOne (as aborting the protocol using the dialog always reset the contact to
+            // non-oneToOne).
+
             let dialogUuid = UUID()
-            do {
+            if try !identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) {
                 let dialogType = ObvChannelDialogToSendType.oneToOneInvitationSent(contact: contactIdentity, ownedIdentity: ownedIdentity)
                 let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
                 let coreMessage = getCoreMessage(for: channelType)
@@ -118,7 +119,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Send a OneToOne invitation to Bob
@@ -130,7 +131,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ProtocolMessageToSend for OneToOneInvitationMessage")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne. This makes it possible to accept immediately in case
@@ -144,7 +145,7 @@ extension OneToOneContactInvitationProtocol {
 
             guard let _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
                                                                              contactCryptoIdentity: contactIdentity,
-                                                                             messageToSendRawId: MessageId.ContactUpgradedToOneToOne.rawValue,
+                                                                             messageToSendRawId: MessageId.contactUpgradedToOneToOne.rawValue,
                                                                              protocolInstance: thisProtocolInstance,
                                                                              delegateManager: delegateManager)
                 else {
@@ -163,7 +164,7 @@ extension OneToOneContactInvitationProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate OneToOne invitation to other devices.", log: log, type: .fault)
                     assertionFailure()
@@ -218,7 +219,7 @@ extension OneToOneContactInvitationProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ProtocolMessageToSend for OneToOneInvitationMessage")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
                 return FinishedState()
@@ -234,7 +235,7 @@ extension OneToOneContactInvitationProtocol {
                 let appropriateWaitingInstances = waitingInstances
                     .compactMap({ $0.protocolInstance })
                     .filter({ $0.cryptoProtocolId == self.cryptoProtocolId })
-                    .filter({ $0.currentStateRawId == StateId.InvitationSent.rawValue })
+                    .filter({ $0.currentStateRawId == StateId.invitationSent.rawValue })
                 guard appropriateWaitingInstances.isEmpty else {
                  
                     // If we reach this point, we can indeed auto-accept the invitation
@@ -257,7 +258,7 @@ extension OneToOneContactInvitationProtocol {
                         guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                             throw Self.makeError(message: "Could not generate ProtocolMessageToSend for OneToOneInvitationMessage")
                         }
-                        _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                     }
 
                     // We can finish this protocol instance
@@ -279,7 +280,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // If Bob decides to send an invitation to Alice (e.g., because he did not see Alice's invitation), we want to properly finish
@@ -293,7 +294,7 @@ extension OneToOneContactInvitationProtocol {
 
             guard let _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
                                                                              contactCryptoIdentity: contactIdentity,
-                                                                             messageToSendRawId: MessageId.ContactUpgradedToOneToOne.rawValue,
+                                                                             messageToSendRawId: MessageId.contactUpgradedToOneToOne.rawValue,
                                                                              protocolInstance: thisProtocolInstance,
                                                                              delegateManager: delegateManager)
                 else {
@@ -344,7 +345,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 
                 return FinishedState()
             }
@@ -358,7 +359,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ProtocolMessageToSend for OneToOneInvitationMessage")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Upgrade/downgrade Alice's OneToOne status
@@ -377,7 +378,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Propagate the answer to the other owned devices of Bob
@@ -391,7 +392,7 @@ extension OneToOneContactInvitationProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
                     assertionFailure()
@@ -461,7 +462,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Finish the protocol. Note that the ProtocolInstanceWaitingForContactUpgradeToOneToOne instance created in the
@@ -507,7 +508,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 
                 return FinishedState()
             }
@@ -528,7 +529,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ProtocolMessageToSend for AbortMessage")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Downgrade Bob's OneToOne status
@@ -547,7 +548,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Propagate the abort to the other owned devices of Alice
@@ -561,7 +562,7 @@ extension OneToOneContactInvitationProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate abort OneToOne invitation to other devices.", log: log, type: .fault)
                     assertionFailure()
@@ -628,7 +629,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Finish the protocol
@@ -681,7 +682,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Finish the protocol
@@ -734,7 +735,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Finish the protocol
@@ -786,7 +787,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Create an entry in the ProtocolInstanceWaitingForContactUpgradeToOneToOne. This makes it possible to accept immediately in case
@@ -800,7 +801,7 @@ extension OneToOneContactInvitationProtocol {
 
             guard let _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
                                                                              contactCryptoIdentity: contactIdentity,
-                                                                             messageToSendRawId: MessageId.ContactUpgradedToOneToOne.rawValue,
+                                                                             messageToSendRawId: MessageId.contactUpgradedToOneToOne.rawValue,
                                                                              protocolInstance: thisProtocolInstance,
                                                                              delegateManager: delegateManager)
                 else {
@@ -854,7 +855,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Finish this protocol. Note that the ProtocolInstanceWaitingForContactUpgradeToOneToOne instance created in the
@@ -904,7 +905,7 @@ extension OneToOneContactInvitationProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Finish the protocol. Note that the ProtocolInstanceWaitingForContactUpgradeToOneToOne instance created in the
@@ -964,7 +965,7 @@ extension OneToOneContactInvitationProtocol {
                                                             within: obvContext)
             
             let initialMessageToSend = try delegateManager.protocolStarterDelegate.getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: remoteIdentity)
-            _ = try channelDelegate.post(initialMessageToSend, randomizedWith: prng, within: obvContext)
+            _ = try channelDelegate.postChannelMessage(initialMessageToSend, randomizedWith: prng, within: obvContext)
 
             return FinishedState()
 
@@ -1012,7 +1013,7 @@ extension OneToOneContactInvitationProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ProtocolMessageToSend for OneToOneStatusSyncRequestMessage")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not sync OneToOne status with one of the contacts: %{public}@", log: log, type: .error, error.localizedDescription)
                     assertionFailure()
@@ -1089,7 +1090,7 @@ extension OneToOneContactInvitationProtocol {
                     let appropriateWaitingInstances = waitingInstances
                         .compactMap({ $0.protocolInstance })
                         .filter({ $0.cryptoProtocolId == self.cryptoProtocolId })
-                        .filter({ $0.currentStateRawId == StateId.InvitationSent.rawValue })
+                        .filter({ $0.currentStateRawId == StateId.invitationSent.rawValue })
                     guard appropriateWaitingInstances.isEmpty else {
                      
                         // Upgrade Alice's OneToOne status. When the context is saved, a notification will be send that the trust level was increased.
@@ -1115,13 +1116,13 @@ extension OneToOneContactInvitationProtocol {
                 
                 let newProtocolInstanceUid = UID.gen(with: prng)
                 let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity),
-                                                      cryptoProtocolId: .OneToOneContactInvitation,
+                                                      cryptoProtocolId: .oneToOneContactInvitation,
                                                       protocolInstanceUid: newProtocolInstanceUid)
                 let concreteProtocolMessage = OneToOneStatusSyncRequestMessage(coreProtocolMessage: coreMessage, aliceConsidersBobAsOneToOne: false)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ProtocolMessageToSend for OneToOneStatusSyncRequestMessage")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
 
                 // Finish the protocol
                 

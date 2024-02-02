@@ -119,7 +119,6 @@ public final class CompositionOfFiveContextualOperations<ReasonForCancelType1: L
             do {
                 guard obvContext.context.hasChanges else {
                     debugPrint("🙃 No need to save completion handler for op1: \(op1.debugDescription), op2: \(op2.debugDescription), op3: \(op3.debugDescription), op4: \(op4.debugDescription), op5: \(op5.debugDescription)")
-                    obvContext.makeAssertionChecks()
                     return
                 }
                 try obvContext.save(logOnFailure: log)

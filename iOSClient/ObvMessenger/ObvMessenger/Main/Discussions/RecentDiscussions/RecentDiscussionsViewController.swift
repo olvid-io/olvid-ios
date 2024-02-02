@@ -30,7 +30,7 @@ import UIKit
 final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem, OlvidMenuProvider, DiscussionsTableViewControllerDelegate, NewDiscussionsViewControllerDelegate {
 
     weak var delegate: RecentDiscussionsViewControllerDelegate?
-    
+
     // MARK: - Switching current owned identity
 
     @MainActor
@@ -59,13 +59,8 @@ extension RecentDiscussionsViewController {
         
         var rightBarButtonItems = [UIBarButtonItem]()
 
-        if #available(iOS 14, *) {
-            let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem()
-            rightBarButtonItems.append(ellipsisButton)
-        } else {
-            let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem(selector: #selector(ellipsisButtonTappedSelector))
-            rightBarButtonItems.append(ellipsisButton)
-        }
+        let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem()
+        rightBarButtonItems.append(ellipsisButton)
         
         #if DEBUG
         rightBarButtonItems.append(UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(insertDebugMessagesInAllExistingDiscussions)))
@@ -74,13 +69,7 @@ extension RecentDiscussionsViewController {
         navigationItem.rightBarButtonItems = rightBarButtonItems
     }
     
-    
-    @available(iOS, introduced: 13.0, deprecated: 14.0, message: "Used because iOS 13 does not support UIMenu on UIBarButtonItem")
-    @objc private func ellipsisButtonTappedSelector() {
-        ellipsisButtonTapped(sourceBarButtonItem: navigationItem.rightBarButtonItem)
-    }
-    
-    
+
     #if DEBUG
     @objc private func insertDebugMessagesInAllExistingDiscussions() {
 //        ObvMessengerInternalNotification.insertDebugMessagesInAllExistingDiscussions
@@ -197,18 +186,4 @@ extension RecentDiscussionsViewController {
         return menu
     }
     
-    @available(iOS, introduced: 13, deprecated: 14, message: "Use provideMenu() instead")
-    func provideAlertActions() -> [UIAlertAction] {
-        
-        // Update the parents alerts
-        var alertActions = [UIAlertAction]()
-        if let parentAlertActions = parent?.getFirstAlertActionsAvailable() {
-            alertActions.append(contentsOf: parentAlertActions)
-        }
-
-        // We do not show the edit pinned discussions action since they are only supported in iOS16+
-        
-        return alertActions
-        
-    }
 }

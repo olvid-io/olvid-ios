@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,65 +39,62 @@ final class SendReactionJSONOperation: ContextualOperationWithSpecificReasonForC
         super.init()
     }
 
-    override func main() {
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        let message: PersistedMessage
+        do {
+            guard let _message = try PersistedMessage.get(with: messageObjectID, within: obvContext.context) else {
+                return cancel(withReason: .cannotFindMessage)
+            }
+            message = _message
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
-        obvContext.performAndWait {
-
-            let message: PersistedMessage
-            do {
-                guard let _message = try PersistedMessage.get(with: messageObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .cannotFindMessage)
-                }
-                message = _message
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
-            let itemJSON: PersistedItemJSON
-            do {
-                let reactionJSON = try ReactionJSON(persistedMessageToReact: message, emoji: emoji)
-                itemJSON = PersistedItemJSON(reactionJSON: reactionJSON)
-            } catch {
-                return cancel(withReason: .couldNotConstructReactionJSON)
-            }
-
-            // Find all the contacts to which this item should be sent.
-
-            let discussion = message.discussion
-            let contactCryptoIds: Set<ObvCryptoId>
-            let ownCryptoId: ObvCryptoId
-            do {
-                (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
-            } catch {
-                return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
-            }
-
-            // Create a payload of the PersistedItemJSON we just created and send it.
-            // We do not keep track of the message identifiers from engine.
-
-            let payload: Data
-            do {
-                payload = try itemJSON.jsonEncode()
-            } catch {
-                return cancel(withReason: .failedToEncodePersistedItemJSON)
-            }
-
-            do {
-                _ = try obvEngine.post(messagePayload: payload,
-                                       extendedPayload: nil,
-                                       withUserContent: true,
-                                       isVoipMessageForStartingCall: false,
-                                       attachmentsToSend: [],
-                                       toContactIdentitiesWithCryptoId: contactCryptoIds,
-                                       ofOwnedIdentityWithCryptoId: ownCryptoId)
-            } catch {
-                return cancel(withReason: .couldNotPostMessageWithinEngine)
-            }
+        
+        let itemJSON: PersistedItemJSON
+        do {
+            let reactionJSON = try ReactionJSON(persistedMessageToReact: message, emoji: emoji)
+            itemJSON = PersistedItemJSON(reactionJSON: reactionJSON)
+        } catch {
+            return cancel(withReason: .couldNotConstructReactionJSON)
         }
-
+        
+        // Find all the contacts to which this item should be sent.
+        
+        guard let discussion = message.discussion else {
+            return cancel(withReason: .couldNotDetermineDiscussion)
+        }
+        let contactCryptoIds: Set<ObvCryptoId>
+        let ownCryptoId: ObvCryptoId
+        do {
+            (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
+        } catch {
+            return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
+        }
+        
+        // Create a payload of the PersistedItemJSON we just created and send it.
+        // We do not keep track of the message identifiers from engine.
+        
+        let payload: Data
+        do {
+            payload = try itemJSON.jsonEncode()
+        } catch {
+            return cancel(withReason: .failedToEncodePersistedItemJSON)
+        }
+        
+        do {
+            _ = try obvEngine.post(messagePayload: payload,
+                                   extendedPayload: nil,
+                                   withUserContent: true,
+                                   isVoipMessageForStartingCall: false,
+                                   attachmentsToSend: [],
+                                   toContactIdentitiesWithCryptoId: contactCryptoIds,
+                                   ofOwnedIdentityWithCryptoId: ownCryptoId,
+                                   alsoPostToOtherOwnedDevices: true)
+        } catch {
+            return cancel(withReason: .couldNotPostMessageWithinEngine)
+        }
+        
     }
 }
 
@@ -110,6 +107,7 @@ enum SendReactionJSONOperationReasonForCancel: LocalizedErrorWithLogType {
     case couldNotGetCryptoIdOfDiscussionParticipants(error: Error)
     case failedToEncodePersistedItemJSON
     case couldNotPostMessageWithinEngine
+    case couldNotDetermineDiscussion
 
     var logType: OSLogType { .fault }
 
@@ -129,6 +127,8 @@ enum SendReactionJSONOperationReasonForCancel: LocalizedErrorWithLogType {
             return "We failed to encode the persisted item JSON"
         case .couldNotPostMessageWithinEngine:
             return "We failed to post the serialized DeleteMessagesJSON within the engine"
+        case .couldNotDetermineDiscussion:
+            return "Could not determine discussion"
         }
     }
 

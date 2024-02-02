@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import OlvidUtils
 import ObvEngine
 import ObvUICoreData
 import os.log
+import CoreData
 
 
 final class SyncPersistedObvOwnedIdentitiesWithEngineOperation: ContextualOperationWithSpecificReasonForCancel<SyncPersistedObvOwnedIdentityWithEngineOperationReasonForCancel> {
@@ -34,11 +35,7 @@ final class SyncPersistedObvOwnedIdentitiesWithEngineOperation: ContextualOperat
         super.init()
     }
     
-    override func main() {
-        
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         // Get all owned identities within the engine
         
@@ -51,105 +48,97 @@ final class SyncPersistedObvOwnedIdentitiesWithEngineOperation: ContextualOperat
         }
         let cryptoIdsWithinEngine = Set(obvOwnedIdentitiesWithinEngine.map { $0.cryptoId })
         
-        obvContext.performAndWait {
-                    
-            // Get the owned identities within the app
-            
-            let ownedIdentitiesWithApp: [PersistedObvOwnedIdentity]
+        // Get the owned identities within the app
+        
+        let ownedIdentitiesWithApp: [PersistedObvOwnedIdentity]
+        do {
+            ownedIdentitiesWithApp = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
+        }
+        
+        // Determine the owned identities to create, delete, or update
+        
+        let cryptoIdsWithinApp = Set(ownedIdentitiesWithApp.map { $0.cryptoId })
+        let missingCryptoIds = cryptoIdsWithinEngine.subtracting(cryptoIdsWithinApp)
+        let cryptoIdsToDelete = cryptoIdsWithinApp.subtracting(cryptoIdsWithinEngine)
+        let cryptoIdsToUpdate = cryptoIdsWithinApp.subtracting(cryptoIdsToDelete)
+        
+        // Delete the owned identity that exist at the app level but not at the engine level
+        
+        for ownedCryptoId in cryptoIdsToDelete {
             do {
-                ownedIdentitiesWithApp = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+                guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else { continue }
+                try persistedOwnedIdentity.delete()
             } catch {
+                assertionFailure(error.localizedDescription)
+                // In production, continue anyway
+            }
+        }
+        
+        // Create the missing owned identities
+        
+        for ownedCryptoId in missingCryptoIds {
+            
+            guard let obvOwnedIdentity = obvOwnedIdentitiesWithinEngine.filter({ $0.cryptoId == ownedCryptoId }).first else {
+                os_log("Could not find owned identity to add, unexpected", log: log, type: .fault)
                 assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+                continue
             }
-
-            // Determine the owned identities to create, delete, or update
             
-            let cryptoIdsWithinApp = Set(ownedIdentitiesWithApp.map { $0.cryptoId })
-            let missingCryptoIds = cryptoIdsWithinEngine.subtracting(cryptoIdsWithinApp)
-            let cryptoIdsToDelete = cryptoIdsWithinApp.subtracting(cryptoIdsWithinEngine)
-            let cryptoIdsToUpdate = cryptoIdsWithinApp.subtracting(cryptoIdsToDelete)
-
-            os_log("Bootstrap: Number of missing owned identities to create   : %d", log: log, type: .info, missingCryptoIds.count)
-            os_log("Bootstrap: Number of existing owned identities to delete  : %d", log: log, type: .info, cryptoIdsToDelete.count)
-            os_log("Bootstrap: Number of existing owned identities to refresh : %d", log: log, type: .info, cryptoIdsToUpdate.count)
-            
-            // Delete the owned identity that exist at the app level but not at the engine level
-            
-            for ownedCryptoId in cryptoIdsToDelete {
-                do {
-                    guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else { continue }
-                    try persistedOwnedIdentity.delete()
-                } catch {
-                    assertionFailure(error.localizedDescription)
-                    // In production, continue anyway
-                }
+            guard PersistedObvOwnedIdentity(ownedIdentity: obvOwnedIdentity, within: obvContext.context) != nil else {
+                os_log("Failed to create persisted owned identity", log: log, type: .fault)
+                assertionFailure()
+                continue
             }
-
-            // Create the missing owned identities
             
-            for ownedCryptoId in missingCryptoIds {
-                
-                guard let obvOwnedIdentity = obvOwnedIdentitiesWithinEngine.filter({ $0.cryptoId == ownedCryptoId }).first else {
-                    os_log("Could not find owned identity to add, unexpected", log: log, type: .fault)
-                    assertionFailure()
-                    continue
-                }
-                
-                guard PersistedObvOwnedIdentity(ownedIdentity: obvOwnedIdentity, within: obvContext.context) != nil else {
-                    os_log("Failed to create persisted owned identity", log: log, type: .fault)
-                    assertionFailure()
-                    continue
-                }
-                
-            }
-
-            // Update the pre-existing identities
+        }
+        
+        // Update the pre-existing identities
+        
+        for ownedCryptoId in cryptoIdsToUpdate {
             
-            for ownedCryptoId in cryptoIdsToUpdate {
-                
-                guard let obvOwnedIdentityFromEngine = obvOwnedIdentitiesWithinEngine.filter({ $0.cryptoId == ownedCryptoId }).first else {
-                    os_log("Could not find owned identity to update within engine, unexpected", log: log, type: .fault)
-                    assertionFailure()
-                    continue
-                }
-
-                guard let ownedIdentityWithApp = ownedIdentitiesWithApp.filter({ $0.cryptoId == ownedCryptoId }).first else {
-                    os_log("Could not find owned identity to update within app, unexpected", log: log, type: .fault)
-                    assertionFailure()
-                    continue
-                }
-
-                do {
-                    try ownedIdentityWithApp.update(with: obvOwnedIdentityFromEngine)
-                } catch {
-                    os_log("Could not update app owned identity with engine owned identity: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                }
-                
+            guard let obvOwnedIdentityFromEngine = obvOwnedIdentitiesWithinEngine.filter({ $0.cryptoId == ownedCryptoId }).first else {
+                os_log("Could not find owned identity to update within engine, unexpected", log: log, type: .fault)
+                assertionFailure()
+                continue
             }
-
-            // For each existing owned within the app, make sure the capabilities are in sync with the information within the engine
+            
+            guard let ownedIdentityWithApp = ownedIdentitiesWithApp.filter({ $0.cryptoId == ownedCryptoId }).first else {
+                os_log("Could not find owned identity to update within app, unexpected", log: log, type: .fault)
+                assertionFailure()
+                continue
+            }
             
             do {
-                let persistedOwnedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
-                persistedOwnedIdentities.forEach { persistedOwnedIdentity in
-                    do {
-                        if let capabilities = try obvEngine.getCapabilitiesOfOwnedIdentity(persistedOwnedIdentity.cryptoId) {
-                            persistedOwnedIdentity.setContactCapabilities(to: capabilities)
-                        }
-                    } catch {
-                        os_log("Could sync the capabilities of one of the owned identity: %{public}@", log: log, type: .error, error.localizedDescription)
-                        assertionFailure()
-                        // We continue anyway
+                try ownedIdentityWithApp.update(with: obvOwnedIdentityFromEngine)
+            } catch {
+                os_log("Could not update app owned identity with engine owned identity: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+            
+        }
+        
+        // For each existing owned within the app, make sure the capabilities are in sync with the information within the engine
+        
+        do {
+            let persistedOwnedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+            persistedOwnedIdentities.forEach { persistedOwnedIdentity in
+                do {
+                    if let capabilities = try obvEngine.getCapabilitiesOfOwnedIdentity(persistedOwnedIdentity.cryptoId) {
+                        persistedOwnedIdentity.setContactCapabilities(to: capabilities)
                     }
+                } catch {
+                    os_log("Could sync the capabilities of one of the owned identity: %{public}@", log: log, type: .error, error.localizedDescription)
+                    assertionFailure()
+                    // We continue anyway
                 }
-            } catch {
-                os_log("Could sync the existing persisted owned identities capabilities with the information received from the engine: %{public}@", log: log, type: .error, error.localizedDescription)
-                assertionFailure()
-                // We continue anyway
             }
-            
+        } catch {
+            os_log("Could sync the existing persisted owned identities capabilities with the information received from the engine: %{public}@", log: log, type: .error, error.localizedDescription)
+            assertionFailure()
+            // We continue anyway
         }
         
     }

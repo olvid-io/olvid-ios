@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,8 @@ import Foundation
 import OlvidUtils
 import ObvTypes
 import ObvUICoreData
+import CoreData
+
 
 final class RemoveUpdateInProgressForGroupV2Operation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
@@ -34,22 +36,15 @@ final class RemoveUpdateInProgressForGroupV2Operation: ContextualOperationWithSp
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            do {
-                guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier, within: obvContext.context) else {
-                    return
-                }
-                group.removeUpdateInProgress()
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier, within: obvContext.context) else {
+                return
             }
-            
+            group.removeUpdateInProgress()
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

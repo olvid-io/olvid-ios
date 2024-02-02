@@ -3,7 +3,7 @@ import ProjectDescriptionHelpers
 
 // MARK: SPM Packages
 let gmpPackage = TargetDependency.SPMDependency.gmp
-let joseSwiftSPM = TargetDependency.SPMDependency.joseSwift
+//let joseSwiftSPM = TargetDependency.SPMDependency.joseSwift
 // MARK: -
 
 // MARK: External Targets
@@ -33,7 +33,12 @@ let jws = Target.swiftLibrary(name: "JWS",
                               isExtensionSafe: true,
                               sources: "JWS/JWS/*.swift",
                               dependencies: [
-                                .init(joseSwiftSPM)
+                                .package(product: "JOSESwift"),
+                                //.init(.appAuth),
+                                //.init(joseSwiftSPM),
+                                //.init(.joseSwift),
+                                .target(name: "ObvEncoder"),
+                                olvidUtils,
                               ],
                               resources: [])
 // MARK: -
@@ -46,6 +51,17 @@ let obvBackupManager = Target.swiftLibrary(name: "ObvBackupManager",
                                             .target(name: "ObvMetaManager"),
                                            ],
                                            resources: [])
+// MARK: -
+
+// MARK: ObvSyncSnapshotManager
+let obvSyncSnapshotManager = Target.swiftLibrary(name: "ObvSyncSnapshotManager",
+                                                 isExtensionSafe: true,
+                                                 sources: "ObvSyncSnapshotManager/ObvSyncSnapshotManager/**/*.swift",
+                                                 dependencies: [
+                                                    .target(name: "ObvTypes"),
+                                                    .target(name: "ObvMetaManager"),
+                                                 ],
+                                                 resources: [])
 // MARK: -
 
 // MARK: ObvChannelManager
@@ -83,7 +99,9 @@ let obvDatabaseManager = Target.swiftLibrary(name: "ObvDatabaseManager",
                                              dependencies: [
                                                 .target(name: "ObvTypes"),
                                                 .target(name: "ObvMetaManager"),
-                                                coreDataStack
+                                                .target(name: "ObvEncoder"),
+                                                .target(name: "ObvCrypto"),
+                                                coreDataStack,
                                              ],
                                              resources: [],
                                              coreDataModels: [
@@ -118,10 +136,12 @@ let obvEngine = Target.swiftLibrary(name: "ObvEngine",
                                         .target(name: "ObvNotificationCenter"),
                                         .target(name: "ObvNetworkSendManager"),
                                         .target(name: "ObvNetworkFetchManager"),
+                                        .target(name: "ObvTypes"),
                                         olvidUtils,
                                         .target(name: "ObvMetaManager"),
                                         .target(name: "ObvIdentityManager"),
                                         .target(name: "ObvBackupManager"),
+                                        .target(name: "ObvSyncSnapshotManager"),
                                         .target(name: "ObvChannelManager"),
                                     ],
                                     resources: [],
@@ -266,25 +286,62 @@ let obvTypesTests = Target.swiftLibraryTests(name: "ObvTypesTests",
 
 // MARK: -
 
+let projectPackages: [Package] = [
+    // .remote(url: "https://github.com/olvid-io/AppAuth-iOS-for-Olvid", requirement: .branch("targetfix")),
+    .remote(url: "https://github.com/olvid-io/JOSESwift-for-Olvid", requirement: .branch("targetfix")),
+]
+
+enum OlvidProjectPackage: CaseIterable {
+    
+    case appAuth
+    case joseSwift
+    
+    var package: Package {
+        switch self {
+        case .appAuth:
+            return .remote(url: "https://github.com/olvid-io/AppAuth-iOS-for-Olvid", requirement: .branch("targetfix"))
+        case .joseSwift:
+            return .remote(url: "https://github.com/olvid-io/JOSESwift-for-Olvid", requirement: .branch("targetfix"))
+        }
+    }
+    
+    var name: String {
+        switch self {
+        case .appAuth:
+            return "AppAuth"
+        case .joseSwift:
+            return "JOSESwift"
+        }
+    }
+    
+    static var packages: [Package] {
+        Self.allCases.map(\.package)
+    }
+    
+}
+
+
 let project = Project.createProject(name: "Engine",
-                                    packages: [],
-                                    targets: [bigInt,
-                                              bigIntTests,
-                                              jws,
-                                              obvBackupManager,
-                                              obvChannelManager,
-                                              obvCrypto,
-                                              obvDatabaseManager,
-                                              obvEncoder,
-                                              obvEngine,
-                                              obvFlowManager,
-                                              obvIdentityManager,
-                                              obvMetaManager,
-                                              obvNetworkFetchManager,
-                                              obvNetworkSendManager,
-                                              obvNotificationCenter,
-                                              obvOperation,
-                                              obvProtocolManager,
-                                              obvServerInterface,
-                                              obvTypes,
-                                              obvTypesTests])
+                                    packages: OlvidProjectPackage.packages,
+                                    targets: [
+                                        bigInt,
+                                        bigIntTests,
+                                        jws,
+                                        obvBackupManager,
+                                        obvSyncSnapshotManager,
+                                        obvChannelManager,
+                                        obvCrypto,
+                                        obvDatabaseManager,
+                                        obvEncoder,
+                                        obvEngine,
+                                        obvFlowManager,
+                                        obvIdentityManager,
+                                        obvMetaManager,
+                                        obvNetworkFetchManager,
+                                        obvNetworkSendManager,
+                                        obvNotificationCenter,
+                                        obvOperation,
+                                        obvProtocolManager,
+                                        obvServerInterface,
+                                        obvTypes,
+                                        obvTypesTests])

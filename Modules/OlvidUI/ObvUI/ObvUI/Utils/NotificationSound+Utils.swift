@@ -19,6 +19,7 @@
 
 import Foundation
 import ObvUICoreData
+import ObvSettings
 
 
 extension NotificationSound {
@@ -28,105 +29,97 @@ extension NotificationSound {
         case .none: return CommonString.Title.noNotificationSounds
         case .system: return CommonString.Title.systemSound
 
-        case .busy:                 return "BUSY".localizedString
-        case .chime:                return "CHIME".localizedString
-        case .cinemaBringTheDrama:  return "BRING_THE_DRAMA".localizedString
-        case .frenzy:               return "FRENZY".localizedString
-        case .hornBoat:             return "HORN_BOAT".localizedString
-        case .hornBus:              return "HORN_BUS".localizedString
-        case .hornCar:              return "HORN_CAR".localizedString
-        case .hornDixie:            return "HORN_DIXIE".localizedString
-        case .hornTaxi:             return "HORN_TAXI".localizedString
-        case .hornTrain1:           return "HORN_TRAIN_1".localizedString
-        case .hornTrain2:           return "HORN_TRAIN_2".localizedString
-        case .paranoid:             return "PARANOID".localizedString
-        case .weird:                return "WEIRD".localizedString
+        case .busy:                 return NSLocalizedString("BUSY", comment: "")
+        case .chime:                return NSLocalizedString("CHIME", comment: "")
+        case .cinemaBringTheDrama:  return NSLocalizedString("BRING_THE_DRAMA", comment: "")
+        case .frenzy:               return NSLocalizedString("FRENZY", comment: "")
+        case .hornBoat:             return NSLocalizedString("HORN_BOAT", comment: "")
+        case .hornBus:              return NSLocalizedString("HORN_BUS", comment: "")
+        case .hornCar:              return NSLocalizedString("HORN_CAR", comment: "")
+        case .hornDixie:            return NSLocalizedString("HORN_DIXIE", comment: "")
+        case .hornTaxi:             return NSLocalizedString("HORN_TAXI", comment: "")
+        case .hornTrain1:           return NSLocalizedString("HORN_TRAIN_1", comment: "")
+        case .hornTrain2:           return NSLocalizedString("HORN_TRAIN_2", comment: "")
+        case .paranoid:             return NSLocalizedString("PARANOID", comment: "")
+        case .weird:                return NSLocalizedString("WEIRD", comment: "")
 
-        case .birdCardinal:     return "BIRD_CARDINAL".localizedString
-        case .birdCoqui:        return "BIRD_COQUI".localizedString
-        case .birdCrow:         return "BIRD_CROW".localizedString
-        case .birdCuckoo:       return "BIRD_CUCKOO".localizedString
-        case .birdDuckQuack:    return "BIRD_DUCK_QUACK".localizedString
-        case .birdDuckQuacks:   return "BIRD_DUCK_QUACKS".localizedString
-        case .birdEagle:        return "BIRD_EAGLE".localizedString
-        case .birdInForest:     return "BIRD_IN_FOREST".localizedString
-        case .birdMagpie:       return "BIRD_MAGPIE".localizedString
-        case .birdOwlHorned:    return "BIRD_OWL_HORNED".localizedString
-        case .birdOwlTawny:     return "BIRD_OWL_TAWNY".localizedString
-        case .birdTweet:        return "BIRD_TWEET".localizedString
-        case .birdWarning:      return "BIRD_WARNING".localizedString
-        case .chickenRooster:   return "CHICKEN_ROOSTER".localizedString
-        case .chickenRoster:    return "CHICKEN_ROSTER".localizedString
-        case .chicken:          return "CHICKEN".localizedString
-        case .cicada:           return "CICADA".localizedString
-        case .cowMoo:           return "COW_MOO".localizedString
-        case .elephant:         return "ELEPHANT".localizedString
-        case .felinePanthera:   return "PANTHERA".localizedString
-        case .felineTiger:      return "TIGER".localizedString
-        case .frog:             return "FROG".localizedString
-        case .goat:             return "GOAT".localizedString
-        case .horseWhinnies:    return "HORSE_WHINNIES".localizedString
-        case .puppy:            return "PUPPY".localizedString
-        case .sheep:            return "SHEEP".localizedString
-        case .turkeyGobble:     return "TURKEY_GOBBLE".localizedString
-        case .turkeyNoises:     return "TURKEY_NOISES".localizedString
+        case .birdCardinal:     return NSLocalizedString("BIRD_CARDINAL", comment: "")
+        case .birdCoqui:        return NSLocalizedString("BIRD_COQUI", comment: "")
+        case .birdCrow:         return NSLocalizedString("BIRD_CROW", comment: "")
+        case .birdCuckoo:       return NSLocalizedString("BIRD_CUCKOO", comment: "")
+        case .birdDuckQuack:    return NSLocalizedString("BIRD_DUCK_QUACK", comment: "")
+        case .birdDuckQuacks:   return NSLocalizedString("BIRD_DUCK_QUACKS", comment: "")
+        case .birdEagle:        return NSLocalizedString("BIRD_EAGLE", comment: "")
+        case .birdInForest:     return NSLocalizedString("BIRD_IN_FOREST", comment: "")
+        case .birdMagpie:       return NSLocalizedString("BIRD_MAGPIE", comment: "")
+        case .birdOwlHorned:    return NSLocalizedString("BIRD_OWL_HORNED", comment: "")
+        case .birdOwlTawny:     return NSLocalizedString("BIRD_OWL_TAWNY", comment: "")
+        case .birdTweet:        return NSLocalizedString("BIRD_TWEET", comment: "")
+        case .birdWarning:      return NSLocalizedString("BIRD_WARNING", comment: "")
+        case .chickenRooster:   return NSLocalizedString("CHICKEN_ROOSTER", comment: "")
+        case .chickenRoster:    return NSLocalizedString("CHICKEN_ROSTER", comment: "")
+        case .chicken:          return NSLocalizedString("CHICKEN", comment: "")
+        case .cicada:           return NSLocalizedString("CICADA", comment: "")
+        case .cowMoo:           return NSLocalizedString("COW_MOO", comment: "")
+        case .elephant:         return NSLocalizedString("ELEPHANT", comment: "")
+        case .felinePanthera:   return NSLocalizedString("PANTHERA", comment: "")
+        case .felineTiger:      return NSLocalizedString("TIGER", comment: "")
+        case .frog:             return NSLocalizedString("FROG", comment: "")
+        case .goat:             return NSLocalizedString("GOAT", comment: "")
+        case .horseWhinnies:    return NSLocalizedString("HORSE_WHINNIES", comment: "")
+        case .puppy:            return NSLocalizedString("PUPPY", comment: "")
+        case .sheep:            return NSLocalizedString("SHEEP", comment: "")
+        case .turkeyGobble:     return NSLocalizedString("TURKEY_GOBBLE", comment: "")
+        case .turkeyNoises:     return NSLocalizedString("TURKEY_NOISES", comment: "")
 
-        case .bell:         return "BELL".localizedString
-        case .block:        return "BLOCK".localizedString
-        case .calm:         return "CALM".localizedString
-        case .cloud:        return "CLOUD".localizedString
-        case .heyChamp:     return "HEY_CHAMP".localizedString
-        case .kotoNeutral:  return "KOTO".localizedString
-        case .modular:      return "MODULAR".localizedString
-        case .oringz452:    return "ORINGZ".localizedString
-        case .polite:       return "POLITE".localizedString
-        case .sonar:        return "SONAR".localizedString
-        case .strike:       return "STRIKE".localizedString
-        case .unphased:     return "UNPHASED".localizedString
-        case .unstrung:     return "UNSTRUNG".localizedString
-        case .woodblock:    return "WOODBLOCK".localizedString
+        case .bell:         return NSLocalizedString("BELL", comment: "")
+        case .block:        return NSLocalizedString("BLOCK", comment: "")
+        case .calm:         return NSLocalizedString("CALM", comment: "")
+        case .cloud:        return NSLocalizedString("CLOUD", comment: "")
+        case .heyChamp:     return NSLocalizedString("HEY_CHAMP", comment: "")
+        case .kotoNeutral:  return NSLocalizedString("KOTO", comment: "")
+        case .modular:      return NSLocalizedString("MODULAR", comment: "")
+        case .oringz452:    return NSLocalizedString("ORINGZ", comment: "")
+        case .polite:       return NSLocalizedString("POLITE", comment: "")
+        case .sonar:        return NSLocalizedString("SONAR", comment: "")
+        case .strike:       return NSLocalizedString("STRIKE", comment: "")
+        case .unphased:     return NSLocalizedString("UNPHASED", comment: "")
+        case .unstrung:     return NSLocalizedString("UNSTRUNG", comment: "")
+        case .woodblock:    return NSLocalizedString("WOODBLOCK", comment: "")
 
-        case .areYouKidding:        return "ARE_YOU_KIDDING".localizedString
-        case .circusClownHorn:      return "CIRCUS_CLOWN_HORN".localizedString
-        case .enoughWithTheRalking: return "ENOUGH_WITH_THE_TALKING".localizedString
-        case .funnyFanfare:         return "FUNNY_FANFARE".localizedString
-        case .nestling:             return "NESTLING".localizedString
-        case .niceCut:              return "NICE_CUT".localizedString
-        case .ohReally:             return "OH_REALLY".localizedString
-        case .springy:              return "SPRINGY".localizedString
+        case .areYouKidding:        return NSLocalizedString("ARE_YOU_KIDDING", comment: "")
+        case .circusClownHorn:      return NSLocalizedString("CIRCUS_CLOWN_HORN", comment: "")
+        case .enoughWithTheRalking: return NSLocalizedString("ENOUGH_WITH_THE_TALKING", comment: "")
+        case .funnyFanfare:         return NSLocalizedString("FUNNY_FANFARE", comment: "")
+        case .nestling:             return NSLocalizedString("NESTLING", comment: "")
+        case .niceCut:              return NSLocalizedString("NICE_CUT", comment: "")
+        case .ohReally:             return NSLocalizedString("OH_REALLY", comment: "")
+        case .springy:              return NSLocalizedString("SPRINGY", comment: "")
 
-        case .bassoon:          return "BASSOON".localizedString
-        case .brass:            return "BRASS".localizedString
-        case .clarinet:         return "CLARINET".localizedString
-        case .clav_fly:         return "CLAV_FLY".localizedString
-        case .clav_guitar:      return "CLAV_GUITAR".localizedString
-        case .flute:            return "FLUTE".localizedString
-        case .glockenspiel:     return "GLOCKENSPIEL".localizedString
-        case .harp:             return "HARP".localizedString
-        case .koto:             return "KOTO".localizedString
-        case .oboe:             return "OBOE".localizedString
-        case .piano:            return "PIANO".localizedString
-        case .pipa:             return "PIPA".localizedString
-        case .saxo:             return "SAXO".localizedString
-        case .strings:          return "STRINGS".localizedString
-        case .synth_airship:    return "SYNTH_AIRSHIP".localizedString
-        case .synth_chordal:    return "SYNTH_CHORDAL".localizedString
-        case .synth_cosmic:     return "SYNTH_COSMIC".localizedString
-        case .synth_droplets:   return "SYNTH_DROPLETS".localizedString
-        case .synth_emotive:    return "SYNTH_EMOTIVE".localizedString
-        case .synth_fm:         return "SYNTH_FM".localizedString
-        case .synth_lush_arp:   return "SYNTH_LUSHARP".localizedString
-        case .synth_pecussive:  return "SYNTH_PECUSSIVE".localizedString
-        case .synth_quantizer:  return "SYNTH_QUANTIZER".localizedString
+        case .bassoon:          return NSLocalizedString("BASSOON", comment: "")
+        case .brass:            return NSLocalizedString("BRASS", comment: "")
+        case .clarinet:         return NSLocalizedString("CLARINET", comment: "")
+        case .clav_fly:         return NSLocalizedString("CLAV_FLY", comment: "")
+        case .clav_guitar:      return NSLocalizedString("CLAV_GUITAR", comment: "")
+        case .flute:            return NSLocalizedString("FLUTE", comment: "")
+        case .glockenspiel:     return NSLocalizedString("GLOCKENSPIEL", comment: "")
+        case .harp:             return NSLocalizedString("HARP", comment: "")
+        case .koto:             return NSLocalizedString("KOTO", comment: "")
+        case .oboe:             return NSLocalizedString("OBOE", comment: "")
+        case .piano:            return NSLocalizedString("PIANO", comment: "")
+        case .pipa:             return NSLocalizedString("PIPA", comment: "")
+        case .saxo:             return NSLocalizedString("SAXO", comment: "")
+        case .strings:          return NSLocalizedString("STRINGS", comment: "")
+        case .synth_airship:    return NSLocalizedString("SYNTH_AIRSHIP", comment: "")
+        case .synth_chordal:    return NSLocalizedString("SYNTH_CHORDAL", comment: "")
+        case .synth_cosmic:     return NSLocalizedString("SYNTH_COSMIC", comment: "")
+        case .synth_droplets:   return NSLocalizedString("SYNTH_DROPLETS", comment: "")
+        case .synth_emotive:    return NSLocalizedString("SYNTH_EMOTIVE", comment: "")
+        case .synth_fm:         return NSLocalizedString("SYNTH_FM", comment: "")
+        case .synth_lush_arp:   return NSLocalizedString("SYNTH_LUSHARP", comment: "")
+        case .synth_pecussive:  return NSLocalizedString("SYNTH_PECUSSIVE", comment: "")
+        case .synth_quantizer:  return NSLocalizedString("SYNTH_QUANTIZER", comment: "")
         }
     }
 
-    
-}
-
-
-fileprivate extension String {
-    var localizedString: String {
-        NSLocalizedString(self, comment: "")
-    }
 }

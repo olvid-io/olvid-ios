@@ -124,19 +124,17 @@ public final class ScrollToBottomButton: UIButton {
         let circlePathBaseRect = CGRect(origin: .zero,
                                         size: Constants.size)
 
-        if #available(iOS 13.4, *) {
-            isPointerInteractionEnabled = true
-
-            pointerStyleProvider = { button, proposedEffect, proposedShape -> UIPointerStyle? in
-                let targetedPreview = proposedEffect.preview
-
-                let convertedRect = button.convert(circlePathBaseRect, to: targetedPreview.target.container)
-
-                let bezier = UIBezierPath(ovalIn: convertedRect)
-
-                return .init(effect: .highlight(targetedPreview),
-                             shape: .path(bezier))
-            }
+        isPointerInteractionEnabled = true
+        
+        pointerStyleProvider = { button, proposedEffect, proposedShape -> UIPointerStyle? in
+            let targetedPreview = proposedEffect.preview
+            
+            let convertedRect = button.convert(circlePathBaseRect, to: targetedPreview.target.container)
+            
+            let bezier = UIBezierPath(ovalIn: convertedRect)
+            
+            return .init(effect: .highlight(targetedPreview),
+                         shape: .path(bezier))
         }
 
         let circlePath = UIBezierPath(ovalIn: circlePathBaseRect)

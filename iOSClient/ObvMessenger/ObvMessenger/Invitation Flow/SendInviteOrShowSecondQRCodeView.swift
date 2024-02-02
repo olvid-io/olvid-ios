@@ -17,13 +17,13 @@
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 import ObvEngine
 import ObvTypes
 import ObvUI
 import ObvUICoreData
 import SwiftUI
 import UI_SystemIcon
+import ObvDesignSystem
 
 
 struct SendInviteOrShowSecondQRCodeView: View {
@@ -69,9 +69,7 @@ struct SendInviteOrShowSecondQRCodeView: View {
     }
 
     private func useSmallScreenMode(for geometry: GeometryProxy) -> Bool {
-        if #available(iOS 13.4, *) {
-            if sizeCategory.isAccessibilityCategory { return true }
-        }
+        if sizeCategory.isAccessibilityCategory { return true }
         // Small screen mode for iPhone 6, iPhone 6S, iPhone 7, iPhone 8, iPhone SE (2016)
         return max(geometry.size.height, geometry.size.width) < 510
     }

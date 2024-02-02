@@ -34,6 +34,9 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, downsizedThumbnail: UIImage?)
         case completeButReadRequiresUserInteraction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>)
         case cancelledByServer // Also used when there is an error with the Fyle URL
+        // For received attachments sent from other owned device
+        case downloadableSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, downsizedThumbnail: UIImage?)
+        case downloadingSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, downsizedThumbnail: UIImage?)
         // For both (downsizedThumbnail always nil for sent attachments)
         case complete(downsizedThumbnail: UIImage?, hardlink: HardLinkToFyle?, thumbnail: UIImage?)
 
@@ -41,7 +44,7 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
             switch self {
             case .complete(downsizedThumbnail: _, hardlink: let hardlink, thumbnail: _), .uploadableOrUploading(hardlink: let hardlink, thumbnail: _, progress: _):
                 return hardlink
-            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer:
+            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
                 return nil
             }
         }
@@ -89,9 +92,33 @@ final class SingleImageView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
                 imageView.reset()
             }
             bubble.backgroundColor = .systemFill
+        case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadableSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            if let downsizedThumbnail = downsizedThumbnail {
+                hidingView.isHidden = true
+                imageView.setDownsizedThumbnail(withImage: downsizedThumbnail)
+            } else {
+                hidingView.isHidden = false
+                imageView.reset()
+            }
+            bubble.backgroundColor = .systemFill
         case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
             tapToReadView.isHidden = true
             fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            if let downsizedThumbnail = downsizedThumbnail {
+                hidingView.isHidden = true
+                imageView.setDownsizedThumbnail(withImage: downsizedThumbnail)
+            } else {
+                hidingView.isHidden = false
+                imageView.reset()
+            }
+            bubble.backgroundColor = .systemFill
+        case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, downsizedThumbnail: let downsizedThumbnail):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadingSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
             tapToReadView.messageObjectID = nil
             if let downsizedThumbnail = downsizedThumbnail {
                 hidingView.isHidden = true

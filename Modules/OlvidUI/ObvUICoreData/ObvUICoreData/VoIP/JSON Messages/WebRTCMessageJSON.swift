@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,6 +34,7 @@ public struct WebRTCMessageJSON: Codable {
         case kick = 9
         case newIceCandidate = 10
         case removeIceCandidates = 11
+        case answeredOrRejectedOnOtherDevice = 12
 
         public var description: String {
             switch self {
@@ -49,12 +50,13 @@ public struct WebRTCMessageJSON: Codable {
             case .kick: return "kick"
             case .newIceCandidate: return "newIceCandidate"
             case .removeIceCandidates: return "removeIceCandidates"
+            case .answeredOrRejectedOnOtherDevice: return "answeredOrRejectedOnOtherDevice"
             }
         }
 
         public var isAllowedToBeRelayed: Bool {
             switch self {
-            case .startCall, .answerCall, .rejectCall, .ringing, .busy, .kick:
+            case .startCall, .answerCall, .rejectCall, .ringing, .busy, .kick, .answeredOrRejectedOnOtherDevice:
                 return false
             case .hangedUp, .reconnect, .newParticipantOffer, .newParticipantAnswer, .newIceCandidate, .removeIceCandidates:
                 return true

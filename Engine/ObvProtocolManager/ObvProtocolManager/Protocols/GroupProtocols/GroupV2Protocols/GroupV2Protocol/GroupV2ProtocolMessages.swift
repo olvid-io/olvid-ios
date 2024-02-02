@@ -62,6 +62,7 @@ extension GroupV2Protocol {
         case dialogInformative = 50
         case dialogFreezeGroupV2Invitation = 200
         case initiateUpdateKeycloakGroups = 300
+        case autoAcceptInvitation = 400
 
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
@@ -98,6 +99,7 @@ extension GroupV2Protocol {
             case .initiateTargetedPing                : return InitiateTargetedPingMessage.self
             case .dialogFreezeGroupV2Invitation       : return DialogFreezeGroupV2InvitationMessage.self
             case .initiateUpdateKeycloakGroups        : return InitiateUpdateKeycloakGroupsMessage.self
+            case .autoAcceptInvitation                : return AutoAcceptInvitationMessage.self
             }
         }
     }
@@ -492,7 +494,7 @@ extension GroupV2Protocol {
         init(forSimulatingReceivedMessageForOwnedIdentity ownedIdentity: ObvCryptoIdentity, protocolInstanceUid: UID) {
             self.coreProtocolMessage = CoreProtocolMessage.getServerQueryCoreProtocolMessageForSimulatingReceivedMessage(
                 ownedIdentity: ownedIdentity,
-                cryptoProtocolId: .GroupV2,
+                cryptoProtocolId: .groupV2,
                 protocolInstanceUid: protocolInstanceUid)
             self.groupDeletionWasSuccessful = true
         }
@@ -1032,26 +1034,26 @@ extension GroupV2Protocol {
         
         // Properties specific to this concrete protocol message
 
-        let contactIdentity: ObvCryptoIdentity
-        let contactDeviceUID: UID
+        let remoteIdentity: ObvCryptoIdentity
+        let remoteDeviceUID: UID
         
         // Init when sending this message
 
-        init(coreProtocolMessage: CoreProtocolMessage, contactIdentity: ObvCryptoIdentity, contactDeviceUID: UID) {
+        init(coreProtocolMessage: CoreProtocolMessage, remoteIdentity: ObvCryptoIdentity, remoteDeviceUID: UID) {
             self.coreProtocolMessage = coreProtocolMessage
-            self.contactIdentity = contactIdentity
-            self.contactDeviceUID = contactDeviceUID
+            self.remoteIdentity = remoteIdentity
+            self.remoteDeviceUID = remoteDeviceUID
         }
 
         var encodedInputs: [ObvEncoded] {
-            [contactIdentity.obvEncode(), contactDeviceUID.obvEncode()]
+            [remoteIdentity.obvEncode(), remoteDeviceUID.obvEncode()]
         }
         
         // Init when receiving this message
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            (contactIdentity, contactDeviceUID) = try message.encodedInputs.obvDecode()
+            (remoteIdentity, remoteDeviceUID) = try message.encodedInputs.obvDecode()
         }
         
     }
@@ -1300,4 +1302,29 @@ extension GroupV2Protocol {
         }
 
     }
+    
+    
+    // MARK: - AutoAcceptInvitationFromOwnedIdentityMessage
+    
+    struct AutoAcceptInvitationMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.autoAcceptInvitation
+        let coreProtocolMessage: CoreProtocolMessage
+        
+        // Init when sending this message
+
+        init(coreProtocolMessage: CoreProtocolMessage) {
+            self.coreProtocolMessage = coreProtocolMessage
+        }
+
+        var encodedInputs: [ObvEncoded] { [] }
+        
+        // Init when receiving this message
+
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+        }
+
+    }
+
 }

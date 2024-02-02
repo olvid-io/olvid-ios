@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -64,9 +64,14 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
     }
     
     func getPhotoURL(identityPhotosDirectory: URL) -> URL? {
+        guard let url = getRawPhotoURL(identityPhotosDirectory: identityPhotosDirectory) else { return nil }
+        guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
+        return url
+    }
+    
+    private func getRawPhotoURL(identityPhotosDirectory: URL) -> URL? {
         guard let photoFilename = photoFilename else { return nil }
         let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
-        guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
         return url
     }
     
@@ -218,10 +223,10 @@ extension ContactIdentityDetails {
         let contactCryptoIdentity = self.contactIdentity.cryptoIdentity
         try obvContext.addContextDidSaveCompletionHandler { error in
             guard error == nil else { assertionFailure(); return }
-            if self is ContactIdentityDetailsPublished {
+            if self is ContactIdentityDetailsPublished, let contactCryptoIdentity {
                 ObvIdentityNotificationNew.publishedPhotoOfContactIdentityHasBeenUpdated(ownedIdentity: ownedCryptoIdentity, contactIdentity: contactCryptoIdentity)
                     .postOnBackgroundQueue(within: notificationDelegate)
-            } else if self is ContactIdentityDetailsTrusted {
+            } else if self is ContactIdentityDetailsTrusted, let contactCryptoIdentity {
                 ObvIdentityNotificationNew.trustedPhotoOfContactIdentityHasBeenUpdated(ownedIdentity: ownedCryptoIdentity, contactIdentity: contactCryptoIdentity)
                     .postOnBackgroundQueue(within: notificationDelegate)
             } else {
@@ -249,6 +254,9 @@ extension ContactIdentityDetails {
         static var withoutPhotoFilename: NSPredicate {
             NSPredicate(withNilValueForKey: Key.photoFilename)
         }
+        static var withPhotoFilename: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.photoFilename)
+        }
         static var withPhotoServerKey: NSPredicate {
             NSPredicate(withNonNilValueForKey: Key.photoServerKeyEncoded)
         }
@@ -271,8 +279,25 @@ extension ContactIdentityDetails {
         let photoFilenames = Set(details.compactMap({ $0.photoFilename }))
         return photoFilenames
     }
+
     
+    static func getInfosAboutContactsHavingPhotoFilename(identityPhotosDirectory: URL, within obvContext: ObvContext) throws -> [(ownedCryptoId: ObvCryptoIdentity, contactCryptoId: ObvCryptoIdentity, contactIdentityDetailsElements: IdentityDetailsElements, photoURL: URL)] {
+        let request: NSFetchRequest<ContactIdentityDetails> = ContactIdentityDetails.fetchRequest()
+        request.predicate = Predicate.withPhotoFilename
+        let items = try obvContext.fetch(request)
+        let results: [(ownedCryptoId: ObvCryptoIdentity, contactCryptoId: ObvCryptoIdentity, contactIdentityDetailsElements: IdentityDetailsElements, photoURL: URL)] = items.compactMap { details in
+            guard let contactCryptoId = details.contactIdentity.cryptoIdentity,
+                  let ownedCryptoId = details.contactIdentity.ownedIdentity?.cryptoIdentity,
+                  let contactIdentityDetailsElements = details.getIdentityDetailsElements(identityPhotosDirectory: identityPhotosDirectory),
+                  let photoURL = details.getRawPhotoURL(identityPhotosDirectory: identityPhotosDirectory) else {
+                return nil
+            }
+            return (ownedCryptoId, contactCryptoId, contactIdentityDetailsElements, photoURL)
+        }
+        return results
+    }
     
+
     static func getAllWithMissingPhotoFilename(within obvContext: ObvContext) throws -> [ContactIdentityDetails] {
         let request: NSFetchRequest<ContactIdentityDetails> = ContactIdentityDetails.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,7 +51,7 @@ final class ReceivedMessageCoordinator: ReceivedMessageDelegate {
 
     // MARK: Queuing ProtocolInstanceInputsConsumerOperations
     
-    private func queueNewProtocolOperationIfThereIsNotAlreadyOne(receivedMessageId messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    private func queueNewProtocolOperationIfThereIsNotAlreadyOne(receivedMessageId messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ReceivedMessageCoordinator.logCategory)
         os_log("Queuing a ProtocolOperation", log: log, type: .debug)
         let op = ProtocolOperation(receivedMessageId: messageId,
@@ -65,9 +65,10 @@ final class ReceivedMessageCoordinator: ReceivedMessageDelegate {
 }
 
 // MARK: Implementing ProtocolInstanceInputsConsumerDelegate
+
 extension ReceivedMessageCoordinator {
     
-    func processReceivedMessage(withId messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func processReceivedMessage(withId messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         queueNewProtocolOperationIfThereIsNotAlreadyOne(receivedMessageId: messageId, flowId: flowId)
     }
     
@@ -101,6 +102,45 @@ extension ReceivedMessageCoordinator {
     }
     
     
+    /// This method is called during boostrap. It deletes all `CryptoProtocolId.ownedIdentityTransfer` protocol instances.
+    /// We declare this method in this coordinator to make sure it does not interfere with the processing of protocol messages.
+    func deleteOwnedIdentityTransferProtocolInstances(flowId: FlowIdentifier) {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ReceivedMessageCoordinator.logCategory)
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        let op1 = DeleteOwnedIdentityTransferProtocolInstancesOperation()
+        let queueForComposedOperations = OperationQueue.createSerialQueue()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
+        queueForProtocolOperations.addOperation(composedOp)
+        
+    }
+    
+    
+    /// This method is called during boostrap. It deletes all `ReceivedMessage` concerning a identity transfer protocol instance.
+    /// We declare this method in this coordinator to make sure it does not interfere with the processing of protocol messages.
+    func deleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocol(flowId: FlowIdentifier) {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: ReceivedMessageCoordinator.logCategory)
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        let op1 = DeleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocolOperation()
+        let queueForComposedOperations = OperationQueue.createSerialQueue()
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
+        queueForProtocolOperations.addOperation(composedOp)
+
+    }
+    
     /// This method is called during boostrap. It deletes all received messages that are older than 15 days and that have no associated protocol instance.
     func deleteObsoleteReceivedMessages(flowId: FlowIdentifier) {
 
@@ -132,7 +172,7 @@ extension ReceivedMessageCoordinator {
         }
         
         queueForProtocolOperations.addOperation { [weak self] in
-            var messageIds = Set<MessageIdentifier>()
+            var messageIds = [ObvMessageIdentifier]()
             contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
                 do {
                     messageIds = try ReceivedMessage.getAllMessageIds(within: obvContext)
@@ -281,7 +321,7 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
         let randomFlowId = FlowIdentifier()
         contextCreator.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
 
-            let idsOfOtherReceivedMessages: [MessageIdentifier]
+            let idsOfOtherReceivedMessages: [ObvMessageIdentifier]
 
             guard let receivedMessages = ReceivedMessage.getAll(protocolInstanceUid: protocolInstanceUid,
                                                                 ownedCryptoIdentity: protocolInstanceOwnedIdentity,
@@ -390,7 +430,7 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
                                                                          ownedIdentity: message.messageId.ownedCryptoIdentity,
                                                                          dialogType: ObvChannelDialogToSendType.delete,
                                                                          encodedElements: 0.obvEncode())
-                        _ = try? channelDelegate.post(deleteDialog, randomizedWith: operation.prng, within: obvContext)
+                        _ = try? channelDelegate.postChannelMessage(deleteDialog, randomizedWith: operation.prng, within: obvContext)
                         obvContext.delete(message)
                     }
                     try obvContext.save(logOnFailure: log)
@@ -429,4 +469,29 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
             }
         }
     }
+}
+
+
+// MARK: - Syncronized execution of external operations
+
+extension ReceivedMessageCoordinator {
+    
+    /// Allows to queue an operation on the queue on which protocol steps are executed.
+    func executeOnQueueForProtocolOperations<ReasonForCancelType: LocalizedErrorWithLogType>(operation: OperationWithSpecificReasonForCancel<ReasonForCancelType>) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let originalCompletionBlock = operation.completionBlock
+            operation.completionBlock = {
+                originalCompletionBlock?()
+                if let reasontForCancel = operation.reasonForCancel {
+                    assert(operation.isCancelled)
+                    continuation.resume(throwing: reasontForCancel)
+                } else {
+                    assert(!operation.isCancelled)
+                    continuation.resume()
+                }
+            }
+            queueForProtocolOperations.addOperation(operation)
+        }
+    }
+    
 }

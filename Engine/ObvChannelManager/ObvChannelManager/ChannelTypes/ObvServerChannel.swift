@@ -47,7 +47,7 @@ final class ObvServerChannel: ObvChannel {
 // MARK: - Implementing ObvChannel
 extension ObvServerChannel {
     
-    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> MessageIdentifier {
+    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> ObvMessageIdentifier {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvServerChannel.logCategory)
         
@@ -91,6 +91,26 @@ extension ObvServerChannel {
                 serverQueryType = .updateGroupBlob(groupIdentifier: groupIdentifier, encodedServerAdminPublicKey: encodedServerAdminPublicKey, encryptedBlob: encryptedBlob, lockNonce: lockNonce, signature: signature)
             case .getKeycloakData(serverURL: let serverURL, serverLabel: let serverLabel):
                 serverQueryType = .getKeycloakData(serverURL: serverURL, serverLabel: serverLabel)
+            case .ownedDeviceDiscovery:
+                serverQueryType = .ownedDeviceDiscovery
+            case .setOwnedDeviceName(ownedDeviceUID: let ownedDeviceUID, encryptedOwnedDeviceName: let encryptedOwnedDeviceName, isCurrentDevice: let isCurrentDevice):
+                serverQueryType = .setOwnedDeviceName(ownedDeviceUID: ownedDeviceUID, encryptedOwnedDeviceName: encryptedOwnedDeviceName, isCurrentDevice: isCurrentDevice)
+            case .deactivateOwnedDevice(ownedDeviceUID: let ownedDeviceUID, isCurrentDevice: let isCurrentDevice):
+                serverQueryType = .deactivateOwnedDevice(ownedDeviceUID: ownedDeviceUID, isCurrentDevice: isCurrentDevice)
+            case .setUnexpiringOwnedDevice(ownedDeviceUID: let ownedDeviceUID):
+                serverQueryType = .setUnexpiringOwnedDevice(ownedDeviceUID: ownedDeviceUID)
+            case .sourceGetSessionNumber(protocolInstanceUID: let protocolInstanceUID):
+                serverQueryType = .sourceGetSessionNumber(protocolInstanceUID: protocolInstanceUID)
+            case .sourceWaitForTargetConnection(protocolInstanceUID: let protocolInstanceUID):
+                serverQueryType = .sourceWaitForTargetConnection(protocolInstanceUID: protocolInstanceUID)
+            case .targetSendEphemeralIdentity(protocolInstanceUID: let protocolInstanceUID, transferSessionNumber: let transferSessionNumber, payload: let payload):
+                serverQueryType = .targetSendEphemeralIdentity(protocolInstanceUID: protocolInstanceUID, transferSessionNumber: transferSessionNumber, payload: payload)
+            case .transferRelay(protocolInstanceUID: let protocolInstanceUID, connectionIdentifier: let connectionIdentifier, payload: let payload, thenCloseWebSocket: let thenCloseWebSocket):
+                serverQueryType = .transferRelay(protocolInstanceUID: protocolInstanceUID, connectionIdentifier: connectionIdentifier, payload: payload, thenCloseWebSocket: thenCloseWebSocket)
+            case .transferWait(protocolInstanceUID: let protocolInstanceUID, connectionIdentifier: let connectionIdentifier):
+                serverQueryType = .transferWait(protocolInstanceUID: protocolInstanceUID, connectionIdentifier: connectionIdentifier)
+            case .closeWebsocketConnection(protocolInstanceUID: let protocolInstanceUID):
+                serverQueryType = .closeWebsocketConnection(protocolInstanceUID: protocolInstanceUID)
             }
             
             let serverQuery = ServerQuery(ownedIdentity: ownedIdentity, queryType: serverQueryType, encodedElements: message.encodedElements)
@@ -98,7 +118,7 @@ extension ObvServerChannel {
             networkFetchDelegate.postServerQuery(serverQuery, within: obvContext)
             
             let randomUid = UID.gen(with: prng)
-            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid)
+            let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid)
 
             return messageId
 
@@ -127,8 +147,9 @@ extension ObvServerChannel {
             guard message.messageType == .ServerQuery else {
                 throw ObvServerChannel.makeError(message: "Wrong message type")
             }
-            
-            if try identityDelegate.isOwned(ownedIdentity, within: obvContext) {
+
+            /// We check that the identity is owned. On some occasions (like in the owned identity transfer protocol), we can use ephemeral owned identities
+            if try identityDelegate.isOwned(ownedIdentity, within: obvContext) || message.channelType.fromOwnedIdentity.serverURL == ObvConstants.ephemeralIdentityServerURL {
                 acceptableChannels = [ObvServerChannel(ownedIdentity: ownedIdentity)]
             } else {
                 assertionFailure()
@@ -145,7 +166,7 @@ extension ObvServerChannel {
         
     }
 
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>] {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvServerChannel.logCategory)
 

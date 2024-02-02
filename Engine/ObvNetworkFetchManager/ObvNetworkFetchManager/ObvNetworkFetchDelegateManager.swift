@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,29 +29,34 @@ final class ObvNetworkFetchDelegateManager {
     static let defaultLogSubsystem = "io.olvid.network.fetch"
     private(set) var logSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     
-    func prependLogSubsystem(with prefix: String) {
-        logSubsystem = "\(prefix).\(logSubsystem)"
-    }
-    
     let inbox: URL
     
     let internalNotificationCenter = NotificationCenter()
 
+    // MARK: - Queues allowing to execute Core Data operations
+    
+    let queueSharedAmongCoordinators = OperationQueue.createSerialQueue(name: "Queue shared among coordinators of ObvNetworkFetchManagerImplementation", qualityOfService: .default)
+    let queueForComposedOperations = {
+        let queue = OperationQueue()
+        queue.name = "Queue for composed operations"
+        queue.qualityOfService = .default
+        return queue
+    }()
+
     // MARK: Instance variables (internal delegates)
     
     let networkFetchFlowDelegate: NetworkFetchFlowDelegate
-    let getAndSolveChallengeDelegate: GetAndSolveChallengeDelegate
-    let getTokenDelegate: GetTokenDelegate
+    let serverSessionDelegate: ServerSessionDelegate
     let messagesDelegate: MessagesDelegate
     let downloadAttachmentChunksDelegate: DownloadAttachmentChunksDelegate
     let deleteMessageAndAttachmentsFromServerDelegate: DeleteMessageAndAttachmentsFromServerDelegate
     let serverPushNotificationsDelegate: ServerPushNotificationsDelegate
     let webSocketDelegate: WebSocketDelegate
     let getTurnCredentialsDelegate: GetTurnCredentialsDelegate?
-    let queryApiKeyStatusDelegate: QueryApiKeyStatusDelegate?
     let freeTrialQueryDelegate: FreeTrialQueryDelegate?
     let verifyReceiptDelegate: VerifyReceiptDelegate?
     let serverQueryDelegate: ServerQueryDelegate
+    let serverQueryWebSocketDelegate: ServerQueryWebSocketDelegate
     let serverUserDataDelegate: ServerUserDataDelegate
     let wellKnownCacheDelegate: WellKnownCacheDelegate
 
@@ -67,26 +72,27 @@ final class ObvNetworkFetchDelegateManager {
 
     // MARK: Initialiazer
     
-    init(inbox: URL, sharedContainerIdentifier: String, supportBackgroundFetch: Bool, networkFetchFlowDelegate: NetworkFetchFlowDelegate, getAndSolveChallengeDelegate: GetAndSolveChallengeDelegate, getTokenDelegate: GetTokenDelegate, downloadMessagesAndListAttachmentsDelegate: MessagesDelegate, downloadAttachmentChunksDelegate: DownloadAttachmentChunksDelegate, deleteMessageAndAttachmentsFromServerDelegate: DeleteMessageAndAttachmentsFromServerDelegate, serverPushNotificationsDelegate: ServerPushNotificationsDelegate, webSocketDelegate: WebSocketDelegate, getTurnCredentialsDelegate: GetTurnCredentialsDelegate?, queryApiKeyStatusDelegate: QueryApiKeyStatusDelegate, freeTrialQueryDelegate: FreeTrialQueryDelegate, verifyReceiptDelegate: VerifyReceiptDelegate, serverQueryDelegate: ServerQueryDelegate, serverUserDataDelegate: ServerUserDataDelegate, wellKnownCacheDelegate: WellKnownCacheDelegate) {
+    init(inbox: URL, sharedContainerIdentifier: String, supportBackgroundFetch: Bool, logPrefix: String, networkFetchFlowDelegate: NetworkFetchFlowDelegate, serverSessionDelegate: ServerSessionDelegate, downloadMessagesAndListAttachmentsDelegate: MessagesDelegate, downloadAttachmentChunksDelegate: DownloadAttachmentChunksDelegate, deleteMessageAndAttachmentsFromServerDelegate: DeleteMessageAndAttachmentsFromServerDelegate, serverPushNotificationsDelegate: ServerPushNotificationsDelegate, webSocketDelegate: WebSocketDelegate, getTurnCredentialsDelegate: GetTurnCredentialsDelegate?, freeTrialQueryDelegate: FreeTrialQueryDelegate, verifyReceiptDelegate: VerifyReceiptDelegate, serverQueryDelegate: ServerQueryDelegate, serverQueryWebSocketDelegate: ServerQueryWebSocketDelegate, serverUserDataDelegate: ServerUserDataDelegate, wellKnownCacheDelegate: WellKnownCacheDelegate) {
 
+        self.logSubsystem = "\(logPrefix).\(logSubsystem)"
         self.inbox = inbox
         self.sharedContainerIdentifier = sharedContainerIdentifier
         self.supportBackgroundFetch = supportBackgroundFetch
         
         self.networkFetchFlowDelegate = networkFetchFlowDelegate
-        self.getAndSolveChallengeDelegate = getAndSolveChallengeDelegate
-        self.getTokenDelegate = getTokenDelegate
+        self.serverSessionDelegate = serverSessionDelegate
         self.messagesDelegate = downloadMessagesAndListAttachmentsDelegate
         self.downloadAttachmentChunksDelegate = downloadAttachmentChunksDelegate
         self.deleteMessageAndAttachmentsFromServerDelegate = deleteMessageAndAttachmentsFromServerDelegate
         self.serverPushNotificationsDelegate = serverPushNotificationsDelegate
         self.webSocketDelegate = webSocketDelegate
         self.getTurnCredentialsDelegate = getTurnCredentialsDelegate
-        self.queryApiKeyStatusDelegate = queryApiKeyStatusDelegate
-        self.freeTrialQueryDelegate = freeTrialQueryDelegate
+        //self.queryApiKeyStatusDelegate = queryApiKeyStatusDelegate
         self.verifyReceiptDelegate = verifyReceiptDelegate
         self.serverQueryDelegate = serverQueryDelegate
+        self.serverQueryWebSocketDelegate = serverQueryWebSocketDelegate
         self.serverUserDataDelegate = serverUserDataDelegate
         self.wellKnownCacheDelegate = wellKnownCacheDelegate
+        self.freeTrialQueryDelegate = freeTrialQueryDelegate
     }
 }

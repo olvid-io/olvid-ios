@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import OlvidUtils
 import ObvTypes
 import ObvCrypto
 import ObvUICoreData
+import ObvSettings
 
 
 final class NotificationService: UNNotificationServiceExtension {
@@ -89,7 +90,7 @@ final class NotificationService: UNNotificationServiceExtension {
 
         // Extract the information from the received notification
         
-        guard let encryptedNotification = EncryptedPushNotification(content: request.content) else {
+        guard let encryptedNotification = ObvEncryptedPushNotification(content: request.content) else {
             os_log("Could not extract information from the received notification", log: log, type: .error)
             cleanUserDefaults()
             addNotification()
@@ -142,7 +143,7 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     
-    private func tryToCreateNewMessageNotificationByFetchingReceivedMessageFromDatabase(encryptedPushNotification: EncryptedPushNotification, request: UNNotificationRequest) async -> Bool {
+    private func tryToCreateNewMessageNotificationByFetchingReceivedMessageFromDatabase(encryptedPushNotification: ObvEncryptedPushNotification, request: UNNotificationRequest) async -> Bool {
 
         var messageReceivedStructure: PersistedMessageReceived.Structure?
         var messageRepliedToStructure: PersistedMessage.AbstractStructure?
@@ -179,7 +180,7 @@ final class NotificationService: UNNotificationServiceExtension {
             }
         }
 
-        guard let messageReceivedStructure = messageReceivedStructure else {
+        guard let messageReceivedStructure else {
             return false
         }
         
@@ -217,7 +218,7 @@ final class NotificationService: UNNotificationServiceExtension {
     
     
     /// Returns true if the encrypted pushed notification was processed, either because a user notification was created, or because we detected that no notification should be shown.
-    private func tryToCreateNewMessageNotificationByDecrypting(encryptedPushNotification: EncryptedPushNotification, request: UNNotificationRequest) async -> Bool {
+    private func tryToCreateNewMessageNotificationByDecrypting(encryptedPushNotification: ObvEncryptedPushNotification, request: UNNotificationRequest) async -> Bool {
 
         let log = self.log
         
@@ -230,7 +231,7 @@ final class NotificationService: UNNotificationServiceExtension {
         
         let obvMessage: ObvMessage
         do {
-            obvMessage = try obvEngine.decrypt(encryptedPushNotification: encryptedPushNotification)
+            obvMessage = try await obvEngine.decrypt(encryptedPushNotification: encryptedPushNotification)
         } catch {
             os_log("Could not decrypt information", log: log, type: .info)
             return false
@@ -275,8 +276,8 @@ final class NotificationService: UNNotificationServiceExtension {
                 return
             }
 
-            let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
-            let groupV2Identifier: Data?
+            let groupV1Identifier: GroupV1Identifier?
+            let groupV2Identifier: GroupV2Identifier?
             if let messageJSON = persistedItemJSON.message {
                 groupV1Identifier = messageJSON.groupV1Identifier
                 groupV2Identifier = messageJSON.groupV2Identifier
@@ -298,7 +299,7 @@ final class NotificationService: UNNotificationServiceExtension {
                         os_log("Could not find owned identity. This is ok if it was just deleted.", log: log, type: .error)
                         return
                     }
-                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupId: groupV1Identifier, ownedIdentity: ownedIdentity) else {
+                    guard let contactGroup = try PersistedContactGroup.getContactGroup(groupIdentifier: groupV1Identifier, ownedIdentity: ownedIdentity) else {
                         throw Self.makeError(message: "Could not find contact group")
                     }
                     discussion = contactGroup.discussion
@@ -392,8 +393,8 @@ final class NotificationService: UNNotificationServiceExtension {
                 try NotificationService.obvEngine!.postReturnReceiptWithElements(
                     returnReceiptJSON.elements,
                     andStatus: ReturnReceiptJSON.Status.delivered.rawValue,
-                    forContactCryptoId: obvMessage.fromContactIdentity.cryptoId,
-                    ofOwnedIdentityCryptoId: obvMessage.fromContactIdentity.ownedIdentity.cryptoId,
+                    forContactCryptoId: obvMessage.fromContactIdentity.contactCryptoId,
+                    ofOwnedIdentityCryptoId: obvMessage.fromContactIdentity.ownedCryptoId,
                     messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine,
                     attachmentNumber: nil)
             } catch {
@@ -436,7 +437,7 @@ final class NotificationService: UNNotificationServiceExtension {
                 } else {
                     // Extract Extended Payload
                     // In practice, this is disappointing as the server seems to often send a nil extended payload as soon as there are more than one image (i.e., one attachment) to show.
-                    let op = ExtractReceivedExtendedPayloadOperation(obvMessage: obvMessage)
+                    let op = ExtractReceivedExtendedPayloadOperation(input: .messageSentByContact(obvMessage: obvMessage))
                     op.start()
                     assert(op.isFinished)
                     attachementImages = op.attachementImages
@@ -575,11 +576,11 @@ final class NotificationService: UNNotificationServiceExtension {
 }
 
 
-fileprivate extension EncryptedPushNotification {
+fileprivate extension ObvEncryptedPushNotification {
     
     init?(content: UNNotificationContent) {
         
-        let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "EncryptedPushNotification")
+        let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "ObvEncryptedPushNotification")
 
         let wrappedKeyString = content.userInfo["encryptedHeader"] as? String ?? content.title
         let encryptedContentString = content.userInfo["encryptedMessage"] as? String ?? content.body

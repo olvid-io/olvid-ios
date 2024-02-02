@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,8 +23,11 @@ import OlvidUtils
 import ObvTypes
 import ObvUI
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
 
 
+@MainActor
 final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
 
     static let errorDomain = "PrivacyTableViewController"
@@ -35,6 +38,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
     private var observationTokens = [NSObjectProtocol]()
 
     private(set) weak var createPasscodeDelegate: CreatePasscodeDelegate?
+    private(set) weak var localAuthenticationDelegate: LocalAuthenticationDelegate?
 
     let dateComponentsFormatter: DateComponentsFormatter = {
         let df = DateComponentsFormatter()
@@ -43,9 +47,10 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         return df
     }()
 
-    init(ownedCryptoId: ObvCryptoId, createPasscodeDelegate: CreatePasscodeDelegate) {
+    init(ownedCryptoId: ObvCryptoId, createPasscodeDelegate: CreatePasscodeDelegate, localAuthenticationDelegate: LocalAuthenticationDelegate) {
         self.ownedCryptoId = ownedCryptoId
         self.createPasscodeDelegate = createPasscodeDelegate
+        self.localAuthenticationDelegate = localAuthenticationDelegate
         self.authenticationMethod = AuthenticationMethod.bestAvailableAuthenticationMethod()
         super.init(style: Self.settingsTableStyle)
 
@@ -57,8 +62,10 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
     }
 
     private func observeNotifications() {
-        let token = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.reload()
+        let token = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: nil) {  _ in
+            Task { [weak self] in
+                await self?.reload()
+            }
         }
         observationTokens += [token]
     }
@@ -138,7 +145,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         case biometricsWithCustomPasscodeFallback
         case customPasscode
         static var shown: [LocalAuthenticationPolicyItem] {
-            assert(LocalAuthenticationPolicy.allCases.count == LocalAuthenticationPolicyItem.allCases.count)
+            assert(ObvLocalAuthenticationPolicy.allCases.count == LocalAuthenticationPolicyItem.allCases.count)
             return LocalAuthenticationPolicyItem.allCases
         }
         static func shownItemAt(item: Int) -> LocalAuthenticationPolicyItem? {
@@ -152,7 +159,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
             case .customPasscode: return "customPasscode"
             }
         }
-        var localAuthenticationPolicy: LocalAuthenticationPolicy {
+        var localAuthenticationPolicy: ObvLocalAuthenticationPolicy {
             switch self {
             case .none: return .none
             case .deviceOwnerAuthentication: return .deviceOwnerAuthentication
@@ -259,15 +266,10 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
             let cell = UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
             let isPolicyAvailable = policy.isAvailable(whenBestAvailableAuthenticationMethodIs: authenticationMethod)
             let title = policy.title(authenticationMethod: authenticationMethod)
-            if #available(iOS 14, *) {
-                var configuration = cell.defaultContentConfiguration()
-                configuration.text = title
-                configuration.textProperties.color = isPolicyAvailable ? AppTheme.shared.colorScheme.label : AppTheme.shared.colorScheme.secondaryLabel
-                cell.contentConfiguration = configuration
-            } else {
-                cell.textLabel?.text = title
-                cell.textLabel?.isEnabled = isPolicyAvailable
-            }
+            var configuration = cell.defaultContentConfiguration()
+            configuration.text = title
+            configuration.textProperties.color = isPolicyAvailable ? AppTheme.shared.colorScheme.label : AppTheme.shared.colorScheme.secondaryLabel
+            cell.contentConfiguration = configuration
             if ObvMessengerSettings.Privacy.localAuthenticationPolicy == policy {
                 cell.accessoryType = .checkmark
             } else {
@@ -288,15 +290,10 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
                 } else if let duration = dateComponentsFormatter.string(from: gracePeriod) {
                     details = CommonString.gracePeriodTitle(duration)
                 }
-                if #available(iOS 14, *) {
-                    var configuration = cell.defaultContentConfiguration()
-                    configuration.text = title
-                    configuration.secondaryText = details
-                    cell.contentConfiguration = configuration
-                } else {
-                    cell.textLabel?.text = title
-                    cell.detailTextLabel?.text = details
-                }
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = title
+                configuration.secondaryText = details
+                cell.contentConfiguration = configuration
                 cell.accessoryType = .disclosureIndicator
                 return cell
             }
@@ -332,15 +329,10 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
                 case .background:
                     details = NSLocalizedString("ALERT_CHOOSE_HIDDEN_PROFILE_CLOSE_POLICY_ACTION_BACKGROUND", comment: "")
                 }
-                if #available(iOS 14, *) {
-                    var configuration = cell.defaultContentConfiguration()
-                    configuration.text = title
-                    configuration.secondaryText = details
-                    cell.contentConfiguration = configuration
-                } else {
-                    cell.textLabel?.text = title
-                    cell.detailTextLabel?.text = details
-                }
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = title
+                configuration.secondaryText = details
+                cell.contentConfiguration = configuration
                 cell.accessoryType = .disclosureIndicator
                 return cell
             }
@@ -348,7 +340,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
     }
     
 
-    private func localAuthenticationPolicy(changeTo newPolicy: LocalAuthenticationPolicy, completionHandler: @escaping () -> Void) {
+    private func localAuthenticationPolicy(changeTo newPolicy: ObvLocalAuthenticationPolicy, completionHandler: @escaping () -> Void) {
         let currentPolicy = ObvMessengerSettings.Privacy.localAuthenticationPolicy
         guard currentPolicy != newPolicy else {
             DispatchQueue.main.async {
@@ -368,7 +360,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
                         try await requestLocalAuthentication(with: .deviceOwnerAuthentication)
 
                     case .biometricsWithCustomPasscodeFallback:
-                        try await requestLocalAuthentication(with: .deviceOwnerAuthenticationWithBiometrics)
+                        try await requestLocalAuthentication(with: newPolicy)
                         try await startCustomPasscodeDefinitionWorkflow()
 
                     case .customPasscode:
@@ -420,7 +412,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
 
                     case .biometricsWithCustomPasscodeFallback:
                         try await requestCustomPasscode()
-                        try await requestLocalAuthentication(with: .deviceOwnerAuthenticationWithBiometrics)
+                        try await requestLocalAuthentication(with: .biometricsWithCustomPasscodeFallback)
 
                     case .customPasscode: assertionFailure(); return
                     }
@@ -513,19 +505,23 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
     }
 
     
-    private func requestLocalAuthentication(with policy: LAPolicy) async throws {
-        let laContext = LAContext()
-        var error: NSError?
-        guard laContext.canEvaluatePolicy(policy, error: &error) else {
-            if let error = error {
-                throw error
-            } else {
-                assertionFailure()
-                throw ObvLAError.internalError
-            }
+    private func requestLocalAuthentication(with policy: ObvLocalAuthenticationPolicy) async throws {
+        
+        preventPrivacyWindowSceneFromShowingOnNextWillResignActive()
+        
+        let result = await localAuthenticationDelegate?.performLocalAuthentication(
+            customPasscodePresentingViewController: self,
+            uptimeAtTheTimeOfChangeoverToNotActiveState: nil,
+            localizedReason: Strings.changingSettingRequiresAuthentication,
+            policy: policy)
+        
+        switch result {
+        case .authenticated:
+            return
+        case .cancelled, .lockedOut, .none:
+            throw ObvLAError.internalError
         }
-        try await laContext.evaluatePolicy(policy, localizedReason: Strings.changingSettingRequiresAuthentication)
-
+        
     }
 
     
@@ -554,7 +550,7 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
                 assertionFailure()
                 throw ObvLAError.internalError
             }
-            let laResult = await createPasscodeDelegate.requestCustomPasscode(viewController: self)
+            let laResult = await createPasscodeDelegate.requestCustomPasscode(customPasscodePresentingViewController: self)
             switch laResult {
             case .authenticated:
                 return
@@ -662,53 +658,92 @@ final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
         
 }
 
-fileprivate extension LocalAuthenticationPolicy {
 
-    private func localizedString(for method: AuthenticationMethod, systemOrCustom: Bool, titleOrExplanation: Bool) -> String {
-        var component = ["LOGIN_WITH"]
-        switch method {
-        case .none:
-            // Biometry method is unknown we show both.
-            component += ["TOUCH_ID", "FACE_ID"]
-        case .passcode:
-            break
-        case .touchID:
-            component += ["TOUCH_ID"]
-        case .faceID:
-            component += ["FACE_ID"]
-        }
-        component += systemOrCustom ? ["SYSTEM"] : ["CUSTOM"]
-        component += ["PASSCODE"]
-        component += titleOrExplanation ? ["TITLE"] : ["EXPLANATION"]
-        return NSLocalizedString(component.joined(separator: "_"), comment: "")
+fileprivate extension ObvLocalAuthenticationPolicy {
+
+
+    private enum PasscodeKind {
+        case system
+        case custom
     }
+    
+
+    private enum LocalizedStringKind {
+        case title
+        case explanation
+    }
+    
+
+    private func localizedString(for method: AuthenticationMethod, passcodeKind: PasscodeKind, localizedStringKind: LocalizedStringKind) -> String {
+        switch (method, passcodeKind, localizedStringKind) {
+
+        case (.none, .system, .title):
+            return NSLocalizedString("LOGIN_WITH_TOUCH_ID_FACE_ID_SYSTEM_PASSCODE_TITLE", comment: "")
+        case (.none, .system, .explanation):
+            return NSLocalizedString("LOGIN_WITH_TOUCH_ID_FACE_ID_SYSTEM_PASSCODE_EXPLANATION", comment: "")
+        case (.none, .custom, .title):
+            return NSLocalizedString("LOGIN_WITH_TOUCH_ID_FACE_ID_CUSTOM_PASSCODE_TITLE", comment: "")
+        case (.none, .custom, .explanation):
+            return NSLocalizedString("LOGIN_WITH_TOUCH_ID_FACE_ID_CUSTOM_PASSCODE_EXPLANATION", comment: "")
+
+        case (.passcode, .system, .title):
+            return NSLocalizedString("LOGIN_WITH_SYSTEM_PASSCODE_TITLE", comment: "")
+        case (.passcode, .system, .explanation):
+            return NSLocalizedString("LOGIN_WITH_SYSTEM_PASSCODE_EXPLANATION", comment: "")
+        case (.passcode, .custom, .title):
+            return NSLocalizedString("LOGIN_WITH_CUSTOM_PASSCODE_TITLE", comment: "")
+        case (.passcode, .custom, .explanation):
+            return NSLocalizedString("LOGIN_WITH_CUSTOM_PASSCODE_EXPLANATION", comment: "")
+
+        case (.touchID, .system, .title):
+            return NSLocalizedString("LOGIN_WITH_TOUCH_ID_SYSTEM_PASSCODE_TITLE", comment: "")
+        case (.touchID, .system, .explanation):
+            return NSLocalizedString("LOGIN_WITH_TOUCH_ID_SYSTEM_PASSCODE_EXPLANATION", comment: "")
+        case (.touchID, .custom, .title):
+            return NSLocalizedString("LOGIN_WITH_TOUCH_ID_CUSTOM_PASSCODE_TITLE", comment: "")
+        case (.touchID, .custom, .explanation):
+            return NSLocalizedString("LOGIN_WITH_TOUCH_ID_CUSTOM_PASSCODE_EXPLANATION", comment: "")
+
+        case (.faceID, .system, .title):
+            return NSLocalizedString("LOGIN_WITH_FACE_ID_SYSTEM_PASSCODE_TITLE", comment: "")
+        case (.faceID, .system, .explanation):
+            return NSLocalizedString("LOGIN_WITH_FACE_ID_SYSTEM_PASSCODE_EXPLANATION", comment: "")
+        case (.faceID, .custom, .title):
+            return NSLocalizedString("LOGIN_WITH_FACE_ID_CUSTOM_PASSCODE_TITLE", comment: "")
+        case (.faceID, .custom, .explanation):
+            return NSLocalizedString("LOGIN_WITH_FACE_ID_CUSTOM_PASSCODE_EXPLANATION", comment: "")
+
+        }
+    }
+    
 
     func title(authenticationMethod method: AuthenticationMethod) -> String {
         switch self {
         case .none: return CommonString.Word.None
         case .deviceOwnerAuthentication:
-            return localizedString(for: method, systemOrCustom: true, titleOrExplanation: true)
+            return localizedString(for: method, passcodeKind: .system, localizedStringKind: .title)
         case .biometricsWithCustomPasscodeFallback:
             var method = method
             if method == .passcode {
                 method = .none // We only want biometry in this case
             }
-            return localizedString(for: method, systemOrCustom: false, titleOrExplanation: true)
+            return localizedString(for: method, passcodeKind: .custom, localizedStringKind: .title)
         case .customPasscode:
-            return localizedString(for: .passcode, systemOrCustom: false, titleOrExplanation: true)
+            return localizedString(for: .passcode, passcodeKind: .custom, localizedStringKind: .title)
         }
     }
+
 
     func explanation(authenticationMethod method: AuthenticationMethod) -> String {
         switch self {
         case .none:
             return NSLocalizedString("NO_AUTHENTICATION_EXPLANATION", comment: "")
         case .deviceOwnerAuthentication:
-            return localizedString(for: method, systemOrCustom: true, titleOrExplanation: false)
+            return localizedString(for: method, passcodeKind: .system, localizedStringKind: .explanation)
         case .biometricsWithCustomPasscodeFallback:
-            return localizedString(for: method, systemOrCustom: false, titleOrExplanation: false)
+            return localizedString(for: method, passcodeKind: .custom, localizedStringKind: .explanation)
         case .customPasscode:
-            return localizedString(for: .passcode, systemOrCustom: false, titleOrExplanation: false)
+            return localizedString(for: .passcode, passcodeKind: .custom, localizedStringKind: .explanation)
         }
     }
 

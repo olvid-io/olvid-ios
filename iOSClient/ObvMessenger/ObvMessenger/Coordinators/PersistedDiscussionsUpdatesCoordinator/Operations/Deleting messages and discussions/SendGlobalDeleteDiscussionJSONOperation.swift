@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -43,60 +43,64 @@ final class SendGlobalDeleteDiscussionJSONOperation: OperationWithSpecificReason
 
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
             
-            // We create the PersistedItemJSON instance to send
-
-            let discussion: PersistedDiscussion
             do {
-                guard let _discussion = try PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: context) else {
+                
+                // We create the PersistedItemJSON instance to send
+                
+                guard let discussion = try PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: context) else {
                     return cancel(withReason: .couldNotFindDiscussion)
                 }
-                discussion = _discussion
+                
+                let deleteDiscussionJSON: DeleteDiscussionJSON
+                do {
+                    deleteDiscussionJSON = try DeleteDiscussionJSON(persistedDiscussionToDelete: discussion)
+                } catch {
+                    return cancel(withReason: .couldNotConstructDeleteDiscussionJSON(error: error))
+                }
+                let itemJSON = PersistedItemJSON(deleteDiscussionJSON: deleteDiscussionJSON)
+                
+                // Find all the contacts to which this item should be sent.
+                
+                let contactCryptoIds: Set<ObvCryptoId>
+                let ownCryptoId: ObvCryptoId
+                do {
+                    (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
+                } catch {
+                    return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
+                }
+                
+                guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownCryptoId, within: context) else {
+                    return cancel(withReason: .couldNotFindOwnedIdentity)
+                }
+                        
+                // Create a payload of the PersistedItemJSON we just created and send it.
+                // We do not keep track of the message identifiers from engine.
+                
+                let payload: Data
+                do {
+                    payload = try itemJSON.jsonEncode()
+                } catch {
+                    return cancel(withReason: .failedToEncodePersistedItemJSON)
+                }
+                
+                guard !contactCryptoIds.isEmpty || ownedIdentity.devices.count > 1 else { return }
+                
+                do {
+                    _ = try obvEngine.post(messagePayload: payload,
+                                           extendedPayload: nil,
+                                           withUserContent: false,
+                                           isVoipMessageForStartingCall: false,
+                                           attachmentsToSend: [],
+                                           toContactIdentitiesWithCryptoId: contactCryptoIds,
+                                           ofOwnedIdentityWithCryptoId: ownCryptoId,
+                                           alsoPostToOtherOwnedDevices: true)
+                } catch {
+                    return cancel(withReason: .couldNotPostMessageWithinEngine)
+                }
+                
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }
-            
-            let deleteDiscussionJSON: DeleteDiscussionJSON
-            do {
-                deleteDiscussionJSON = try DeleteDiscussionJSON(persistedDiscussionToDelete: discussion)
-            } catch {
-                return cancel(withReason: .couldNotConstructDeleteDiscussionJSON(error: error))
-            }
-            let itemJSON = PersistedItemJSON(deleteDiscussionJSON: deleteDiscussionJSON)
-
-            // Find all the contacts to which this item should be sent.
-            
-            let contactCryptoIds: Set<ObvCryptoId>
-            let ownCryptoId: ObvCryptoId
-            do {
-                (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
-            } catch {
-                return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
-            }
-
-            // Create a payload of the PersistedItemJSON we just created and send it.
-            // We do not keep track of the message identifiers from engine.
-            
-            let payload: Data
-            do {
-                payload = try itemJSON.jsonEncode()
-            } catch {
-                return cancel(withReason: .failedToEncodePersistedItemJSON)
-            }
-            
-            guard !contactCryptoIds.isEmpty else { return }
-            
-            do {
-                _ = try obvEngine.post(messagePayload: payload,
-                                       extendedPayload: nil,
-                                       withUserContent: false,
-                                       isVoipMessageForStartingCall: false,
-                                       attachmentsToSend: [],
-                                       toContactIdentitiesWithCryptoId: contactCryptoIds,
-                                       ofOwnedIdentityWithCryptoId: ownCryptoId)
-            } catch {
-                return cancel(withReason: .couldNotPostMessageWithinEngine)
-            }
-
         }
         
     }
@@ -112,6 +116,7 @@ enum SendGlobalDeleteDiscussionJSONOperationReasonForCancel: LocalizedErrorWithL
     case couldNotGetCryptoIdOfDiscussionParticipants(error: Error)
     case failedToEncodePersistedItemJSON
     case couldNotPostMessageWithinEngine
+    case couldNotFindOwnedIdentity
     
     var logType: OSLogType {
         switch self {
@@ -120,6 +125,7 @@ enum SendGlobalDeleteDiscussionJSONOperationReasonForCancel: LocalizedErrorWithL
              .couldNotGetCryptoIdOfDiscussionParticipants,
              .failedToEncodePersistedItemJSON,
              .couldNotPostMessageWithinEngine,
+             .couldNotFindOwnedIdentity,
              .couldNotConstructDeleteDiscussionJSON:
             return .fault
         }
@@ -139,6 +145,8 @@ enum SendGlobalDeleteDiscussionJSONOperationReasonForCancel: LocalizedErrorWithL
             return "We failed to encode the persisted item JSON"
         case .couldNotPostMessageWithinEngine:
             return "We failed to post the serialized DeleteMessagesJSON within the engine"
+        case .couldNotFindOwnedIdentity:
+            return "Could not find owned identity"
         }
     }
 

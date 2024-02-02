@@ -9,6 +9,8 @@ public extension TargetDependency {
 
         public static let obvBackupManager: TargetDependency = .project(target: "ObvBackupManager", path: .relativeToRoot("Engine"))
 
+        public static let obvSyncSnapshotManager: TargetDependency = .project(target: "ObvSyncSnapshotManager", path: .relativeToRoot("Engine"))
+
         public static let obvChannelManager: TargetDependency = .project(target: "ObvChannelManager", path: .relativeToRoot("Engine"))
 
         public static let obvCrypto: TargetDependency = .project(target: "ObvCrypto", path: .relativeToRoot("Engine"))
@@ -64,25 +66,23 @@ public extension TargetDependency {
                 }
             }
 
-            public static let attachmentsDropView: TargetDependency = .project(target: "Discussions_AttachmentsDropView", path: .relativeToRoot("Modules/Discussions"))
-
             public static let scrollToBottomButton: TargetDependency = .project(target: "Discussions_ScrollToBottomButton", path: .relativeToRoot("Modules/Discussions"))
         }
 
+        
         public enum UI {
-
-            public enum CircledInitialsView {
-                public static let configuration: TargetDependency = .project(target: "UI_CircledInitialsView_CircledInitialsConfiguration", path: .relativeToRoot("Modules/UI"))
-            }
-
-	    public static let systemIcon: TargetDependency = .project(target: "UI_SystemIcon", path: .relativeToRoot("Modules/UI"))
-
+//            public enum CircledInitialsView {
+//                public static let configuration: TargetDependency = .project(target: "UI_CircledInitialsView_CircledInitialsConfiguration", path: .relativeToRoot("Modules/UI"))
+//            }
+            public static let obvCircledInitials: TargetDependency = .project(target: "UI_ObvCircledInitials", path: .relativeToRoot("Modules/UI"))
+            public static let obvPhotoButton: TargetDependency = .project(target: "UI_ObvPhotoButton", path: .relativeToRoot("Modules/UI"))
+            public static let systemIcon: TargetDependency = .project(target: "UI_SystemIcon", path: .relativeToRoot("Modules/UI"))
             public static let systemIconSwiftUI: TargetDependency = .project(target: "UI_SystemIcon_SwiftUI", path: .relativeToRoot("Modules/UI"))
-
             public static let systemIconUIKit: TargetDependency = .project(target: "UI_SystemIcon_UIKit", path: .relativeToRoot("Modules/UI"))
-
+            public static let obvImageEditor: TargetDependency = .project(target: "UI_ObvImageEditor", path: .relativeToRoot("Modules/UI"))
         }
 
+        
         public enum Platform {
             public static let base: TargetDependency = .project(target: "Platform_Base", path: .relativeToRoot("Modules/Platform"))
 
@@ -102,5 +102,10 @@ public extension TargetDependency {
         public static let obvUICoreData: TargetDependency = .project(target: "ObvUICoreData", path: .relativeToRoot("Modules"))
 
         public static let olvidUtils: TargetDependency = .project(target: "OlvidUtils", path: .relativeToRoot("Modules"))
+        
+        public static let obvDesignSystem: TargetDependency = .project(target: "ObvDesignSystem", path: .relativeToRoot("Modules"))
+
+        public static let obvSettings: TargetDependency = .project(target: "ObvSettings", path: .relativeToRoot("Modules"))
+
     }
 }

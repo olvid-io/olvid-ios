@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -41,7 +41,7 @@ final class EncryptAttachmentChunkOperation: Operation, ObvErrorMaker {
     static let errorDomain = "EncryptAttachmentChunkOperation"
 
     private let uuid = UUID()
-    let attachmentId: AttachmentIdentifier
+    let attachmentId: ObvAttachmentIdentifier
     let chunkNumber: Int
     private let logSubsystem: String
     private let log: OSLog
@@ -53,7 +53,7 @@ final class EncryptAttachmentChunkOperation: Operation, ObvErrorMaker {
     
     private(set) var reasonForCancel: ReasonForCancel?
     
-    init(attachmentId: AttachmentIdentifier, chunkNumber: Int, outbox: URL, logSubsystem: String, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate) {
+    init(attachmentId: ObvAttachmentIdentifier, chunkNumber: Int, outbox: URL, logSubsystem: String, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate) {
         self.attachmentId = attachmentId
         self.chunkNumber = chunkNumber
         self.flowId = flowId
@@ -159,12 +159,12 @@ extension EncryptAttachmentChunkOperation {
 
     private func writeEncryptedChunkToTempFile(encryptedChunk: EncryptedData, outbox: URL) throws -> URL {
         // If required, create a directory for all that attachments of the message
-        let messageDirectory = outbox.appendingPathComponent(attachmentId.messageId.directoryName, isDirectory: true)
+        let messageDirectory = outbox.appendingPathComponent(attachmentId.messageId.directoryNameForMessageAttachments, isDirectory: true)
         if !FileManager.default.fileExists(atPath: messageDirectory.path) {
             try FileManager.default.createDirectory(at: messageDirectory, withIntermediateDirectories: true, attributes: nil)
         }
         // If required, create a directory for this attachment
-        let attachmentDirectory = messageDirectory.appendingPathComponent(attachmentId.directoryName, isDirectory: true)
+        let attachmentDirectory = messageDirectory.appendingPathComponent(attachmentId.directoryNameForAttachmentChunks, isDirectory: true)
         if !FileManager.default.fileExists(atPath: attachmentDirectory.path) {
             try FileManager.default.createDirectory(at: attachmentDirectory, withIntermediateDirectories: true, attributes: nil)
         }
@@ -186,22 +186,5 @@ extension EncryptAttachmentChunkOperation {
             throw Self.makeError(message: "Could not get file size")
         }
         return size
-    }
-}
-
-
-extension MessageIdentifier {
-    
-    var directoryName: String {
-        let sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
-        return sha256.hash(self.rawValue).hexString()
-    }
-    
-}
-
-extension AttachmentIdentifier {
-    
-    var directoryName: String {
-        return "\(self.attachmentNumber)"
     }
 }

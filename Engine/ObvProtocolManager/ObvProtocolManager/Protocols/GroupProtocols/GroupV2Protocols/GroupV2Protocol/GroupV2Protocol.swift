@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,7 +28,7 @@ public struct GroupV2Protocol: ConcreteCryptoProtocol {
     
     static let logCategory = "GroupV2Protocol"
     
-    static let id = CryptoProtocolId.GroupV2
+    static let id = CryptoProtocolId.groupV2
     
     static let finalStateIds: [ConcreteProtocolStateId] = [StateId.final]
     

@@ -44,7 +44,7 @@ final class ResumeDownloadsOfMissingChunksOperation: Operation {
     private let log: OSLog
     private let flowId: FlowIdentifier
     private let logCategory = String(describing: ResumeDownloadsOfMissingChunksOperation.self)
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private(set) var urlSession: URLSession?
     
     private weak var contextCreator: ObvCreateContextDelegate?
@@ -53,7 +53,7 @@ final class ResumeDownloadsOfMissingChunksOperation: Operation {
 
     private(set) var reasonForCancel: ReasonForCancel?
     
-    init(attachmentId: AttachmentIdentifier, logSubsystem: String, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, identityDelegate: ObvIdentityDelegate, delegate: FinalizeDownloadChunksOperationsDelegate) {
+    init(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, identityDelegate: ObvIdentityDelegate, delegate: FinalizeDownloadChunksOperationsDelegate) {
         self.flowId = flowId
         self.logSubsystem = logSubsystem
         self.log = OSLog(subsystem: logSubsystem, category: logCategory)
@@ -188,6 +188,6 @@ extension ResumeDownloadsOfMissingChunksOperation {
 
 protocol FinalizeDownloadChunksOperationsDelegate: AnyObject {
     
-    func downloadChunksOperationsAreFinished(attachmentId: AttachmentIdentifier, urlSession: URLSession?, flowId: FlowIdentifier, error: ResumeDownloadsOfMissingChunksOperation.ReasonForCancel?)
+    func downloadChunksOperationsAreFinished(attachmentId: ObvAttachmentIdentifier, urlSession: URLSession?, flowId: FlowIdentifier, error: ResumeDownloadsOfMissingChunksOperation.ReasonForCancel?)
     
 }

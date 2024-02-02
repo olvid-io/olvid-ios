@@ -71,11 +71,11 @@ final class InboxAttachmentChunk: NSManagedObject, ObvManagedObject {
     }
 
     /// This identifier is expected to be non nil, unless this `InboxAttachmentChunk` was deleted on another thread.
-    private(set) var messageId: MessageIdentifier? {
+    private(set) var messageId: ObvMessageIdentifier? {
         get {
             guard let rawMessageIdOwnedIdentity = self.rawMessageIdOwnedIdentity else { return nil }
             guard let rawMessageIdUid = self.rawMessageIdUid else { return nil }
-            return MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
+            return ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
         }
         set {
             guard let newValue else { assertionFailure("We should not be setting a nil value"); return }
@@ -85,10 +85,10 @@ final class InboxAttachmentChunk: NSManagedObject, ObvManagedObject {
     }
 
     /// This identifier is expected to be non nil, unless this `InboxAttachmentChunk` was deleted on another thread.
-    private(set) var attachmentId: AttachmentIdentifier? {
+    private(set) var attachmentId: ObvAttachmentIdentifier? {
         get {
             guard let messageId = self.messageId else { return nil }
-            return AttachmentIdentifier(messageId: messageId, attachmentNumber: self.attachmentNumber)
+            return ObvAttachmentIdentifier(messageId: messageId, attachmentNumber: self.attachmentNumber)
         }
         set {
             guard let newValue else { assertionFailure("We should not be setting a nil value"); return }
@@ -120,7 +120,8 @@ final class InboxAttachmentChunk: NSManagedObject, ObvManagedObject {
 
 extension InboxAttachmentChunk {
         
-    func resetDownload() throws {
+    func resetDownload() {
+        guard self.cleartextChunkWasWrittenToAttachmentFile else { return }
         self.cleartextChunkWasWrittenToAttachmentFile = false
     }
     
@@ -162,7 +163,7 @@ extension InboxAttachmentChunk {
         _ = try obvContext.execute(request)
     }
 
-    static func getAllMissingAttachmentChunks(ofAttachmentId attachmentId: AttachmentIdentifier, within obvContext: ObvContext) throws -> [InboxAttachmentChunk] {
+    static func getAllMissingAttachmentChunks(ofAttachmentId attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) throws -> [InboxAttachmentChunk] {
         let request: NSFetchRequest<InboxAttachmentChunk> = InboxAttachmentChunk.fetchRequest()
         request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %d AND %K == FALSE",
                                         rawMessageIdOwnedIdentityKey, attachmentId.messageId.ownedCryptoIdentity.getIdentity() as NSData,

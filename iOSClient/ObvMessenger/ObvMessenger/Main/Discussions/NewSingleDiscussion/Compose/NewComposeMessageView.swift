@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,8 +30,11 @@ import ObvUI
 import Platform_Base
 import ObvUICoreData
 import Components_TextInputShortcutsResultView
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
 import Discussions_Mentions_ComposeMessageBuilder
+import ObvSettings
+import ObvDesignSystem
+
 
 /// Namespace for everything `NewComposeMessageView` related
 enum NewComposeMessageViewTypes {
@@ -242,6 +245,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         return df
     }()
 
+
     private func button(for action: NewComposeMessageViewAction) -> UIButton? {
         switch action {
         case .oneTimeEphemeralMessage:
@@ -284,12 +288,13 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         guard !draft.isDeleted else { return false }
         switch action {
         case .oneTimeEphemeralMessage,
-                .scanDocument,
                 .shootPhotoOrMovie,
                 .chooseImageFromLibrary,
                 .choseFile,
                 .composeMessageSettings:
             return true
+        case .scanDocument:
+            return !ObvMessengerConstants.targetEnvironmentIsMacCatalyst
         case .introduceThisContact:
             switch try? draft.discussion.kind {
             case .oneToOne(withContactIdentity: let contactIdentity):
@@ -369,6 +374,15 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         CompositionViewFreezeManager.shared.unregister(self)
     }
 
+    override var isHidden: Bool {
+        get {
+            super.isHidden
+        }
+        set {
+            shortcutsView.isHidden = newValue
+            super.isHidden = newValue
+        }
+    }
     
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -1126,7 +1140,7 @@ extension NewComposeMessageView {
         assert(Thread.isMainThread)
         let imagePicker = UIImagePickerController()
         imagePicker.sourceType = .camera
-        imagePicker.mediaTypes = [kUTTypeImage, kUTTypeMovie] as [String]
+        imagePicker.mediaTypes = [UTType.image, UTType.movie].map(\.identifier)
         imagePicker.delegate = self
         imagePicker.allowsEditing = false
         animatedEndEditing { [weak self] _ in
@@ -1177,8 +1191,7 @@ extension NewComposeMessageView {
             animatedEndEditing { [weak self] _ in
                 guard let _self = self else { return }
                 ObvAudioRecorder.shared.delegate = _self
-                let uti = AVFileType.m4a.rawValue
-                guard let fileExtention = ObvUTIUtils.preferredTagWithClass(inUTI: uti, inTagClass: .FilenameExtension) else { return }
+                guard let fileExtention = UTType.m4a.preferredFilenameExtension else { assertionFailure(); return }
                 let name = "Recording @ \(_self.dateFormatter.string(from: Date()))"
                 let tempFileName = [name, fileExtention].joined(separator: ".")
                 let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
@@ -1926,7 +1939,9 @@ extension NewComposeMessageView: AutoGrowingTextViewDelegate {
     
     func userPastedItemProviders(in autoGrowingTextView: AutoGrowingTextView, itemProviders: [NSItemProvider]) {
         guard autoGrowingTextView == self.textViewForTyping else { assertionFailure(); return }
-        addAttachments(from: itemProviders)
+        Task {
+            await addAttachments(from: itemProviders)
+        }
     }
 
     func autoGrowingTextView(_ textView: AutoGrowingTextView, perform action: AutoGrowingTextViewTypes.DelegateTypes.Action) {
@@ -2110,7 +2125,7 @@ extension NewComposeMessageView {
     /// Appends an array of `NSItemProvider`s to the current draft, either as text pasted in the text view, or as attachments.
     /// - Parameters:
     ///   - itemProviders: An array of item providers to append
-    func addAttachments(from itemProviders: [NSItemProvider]) {
+    func addAttachments(from itemProviders: [NSItemProvider], attachAllItems: Bool = false) async {
 
         let draftPermanentID = draft.objectPermanentID
 
@@ -2118,14 +2133,18 @@ extension NewComposeMessageView {
         // - One for the items we want to paste as text in the text view
         // - One for the items we want to add as attachments
         
-        let itemProvidersToPaste = itemProviders.filter({ $0.registeredTypeIdentifiers.contains(where: { $0.utiConformsTo(kUTTypeText) } ) })
-        let itemProvidersToAttach = itemProviders.filter({ !itemProvidersToPaste.contains($0) })
+        let itemProvidersToPaste = attachAllItems ? [] : itemProviders.filter {
+            $0.obvRegisteredContentTypes.contains(where: { $0.conforms(to: .text) } )
+        }
+        let itemProvidersToAttach = itemProviders.filter {
+            !itemProvidersToPaste.contains($0)
+        }
 
         // Process the item providers that we want to paste as text (i.e. Strings and URLs)
         
         itemProvidersToPaste.forEach { itemProviderToPaste in
             let textViewForTyping = self.textViewForTyping
-            itemProviderToPaste.loadItem(forTypeIdentifier: String(kUTTypeText)) { item, error in
+            itemProviderToPaste.loadItem(forTypeIdentifier: UTType.text.identifier) { item, error in
                 if let error {
                     assertionFailure(error.localizedDescription)
                     return
@@ -2139,9 +2158,12 @@ extension NewComposeMessageView {
                         }
                     }
                 } else {
-                    DispatchQueue.main.async {
-                        textViewForTyping.paste(itemProviders: [itemProviderToPaste])
-                    }
+                    // 2023-08-03 As we made the NewComposeMessageView.addAttachments(from:) async, we commented this code
+                    // that should never be executed anyway
+                    assertionFailure()
+//                    DispatchQueue.main.async {
+//                        textViewForTyping.paste(itemProviders: [itemProviderToPaste])
+//                    }
                 }
             }
         }
@@ -2152,12 +2174,24 @@ extension NewComposeMessageView {
         
         delegateViewController?.showHUD(type: .spinner)
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraft(draftPermanentID: draftPermanentID, itemProviders: itemProvidersToAttach) { success in
-            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: success) } catch { assertionFailure() }
-        }
-        .postOnDispatchQueue(self.internalQueue)
+        let success = await sendUserWantsToAddAttachmentsToDraftNotification(draftPermanentID: draftPermanentID, itemProviders: itemProvidersToAttach)
+        do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: success) } catch { assertionFailure() }
         
     }
+    
+    
+    private func sendUserWantsToAddAttachmentsToDraftNotification(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async -> Bool {
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraft(
+                draftPermanentID: draftPermanentID,
+                itemProviders: itemProviders)
+            { success in
+                continuation.resume(returning: success)
+            }
+            .postOnDispatchQueue(self.internalQueue)
+        }
+    }
+    
 }
 
 // MARK: - AirDrop files
@@ -2198,7 +2232,7 @@ extension NewComposeMessageView: UIImagePickerControllerDelegate, UINavigationCo
                 do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
                 return
             }
-            guard ([kUTTypeImage, kUTTypeMovie] as [String]).contains(chosenMediaType) else {
+            guard ([UTType.image, .movie].map(\.identifier)).contains(chosenMediaType) else {
                 do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
                 return
             }
@@ -2232,13 +2266,9 @@ extension NewComposeMessageView: UIImagePickerControllerDelegate, UINavigationCo
                 }
                 .postOnDispatchQueue()
             } else if let originalImage = info[.originalImage] as? UIImage {
-                let uti = String(kUTTypeJPEG)
-                guard let fileExtention = ObvUTIUtils.preferredTagWithClass(inUTI: uti, inTagClass: .FilenameExtension) else {
-                    do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
-                    return
-                }
+                let fileExtension = UTType.jpeg.preferredFilenameExtension ?? "jpeg"
                 let name = "Photo @ \(dateFormatter.string(from: Date()))"
-                let tempFileName = [name, fileExtention].joined(separator: ".")
+                let tempFileName = [name, fileExtension].joined(separator: ".")
                 let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
                 guard let pickedImageJpegData = originalImage.jpegData(compressionQuality: 1.0) else {
                     do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
@@ -2302,7 +2332,7 @@ extension NewComposeMessageView: VNDocumentCameraViewControllerDelegate {
             
             // Write the pdf to a temporary location
             let name = "Scan @ \(dateFormatter.string(from: Date()))"
-            let tempFileName = [name, String(kUTTypePDF)].joined(separator: ".")
+            let tempFileName = [name, UTType.pdf.preferredFilenameExtension ?? "pdf"].joined(separator: ".")
             let url = ObvUICoreDataConstants.ContainerURL.forTempFiles.appendingPathComponent(tempFileName)
             guard pdfDocument.write(to: url) else {
                 do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: false) } catch { assertionFailure() }
@@ -2378,12 +2408,5 @@ extension Optional where Wrapped == TextInputShortcutsResultView.TextShortcutIte
         } else {
             self = .none
         }
-    }
-}
-
-
-fileprivate extension String {
-    func utiConformsTo(_ otherUTI: CFString) -> Bool {
-        UTTypeConformsTo(self as CFString, otherUTI)
     }
 }

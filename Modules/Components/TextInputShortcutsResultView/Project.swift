@@ -10,7 +10,8 @@ let textInputShortcutsResultView = Target.swiftLibrary(
     dependencies: [
         .Modules.Platform.base,
         .Modules.obvUI,
-        .Modules.UI.CircledInitialsView.configuration,
+        .Modules.UI.obvCircledInitials,
+        //.Modules.UI.CircledInitialsView.configuration,
     ]
 )
 

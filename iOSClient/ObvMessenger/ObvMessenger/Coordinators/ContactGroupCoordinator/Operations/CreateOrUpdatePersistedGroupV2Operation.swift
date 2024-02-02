@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,13 +19,15 @@
   
 
 import Foundation
+import os.log
 import OlvidUtils
 import ObvTypes
 import ObvEngine
 import ObvUICoreData
+import CoreData
 
 
-final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
+final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpecificReasonForCancel<CreateOrUpdatePersistedGroupV2Operation.ReasonForCancel> {
     
     private let obvGroupV2: ObvGroupV2
     private let initiator: ObvGroupV2.CreationOrUpdateInitiator
@@ -38,22 +40,15 @@ final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpec
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
+        do {
             
-            let group: PersistedGroupV2
-            do {
-                group = try PersistedGroupV2.createOrUpdate(obvGroupV2: obvGroupV2,
-                                                            createdByMe: initiator == .createdByMe,
-                                                            within: obvContext.context)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: obvGroupV2.ownIdentity, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
             }
+            
+            let group = try ownedIdentity.createOrUpdateGroupV2(obvGroupV2: obvGroupV2, createdByMe: initiator == .createdByMe)
             
             /* If we the group was updated by someone else and if the list of users that can change the discussion shared setttings was changed (compared to the one we knew about),
              * we might be in a situation where one of the new members allowed to change these shared settings did change the settings while we were not aware of her rights to do so.
@@ -101,7 +96,8 @@ final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpec
                                                isVoipMessageForStartingCall: false,
                                                attachmentsToSend: [],
                                                toContactIdentitiesWithCryptoId: toContactIdentitiesWithCryptoId,
-                                               ofOwnedIdentityWithCryptoId: obvGroupV2.ownIdentity)
+                                               ofOwnedIdentityWithCryptoId: obvGroupV2.ownIdentity,
+                                               alsoPostToOtherOwnedDevices: true)
                     }
                     
                 } catch {
@@ -112,7 +108,37 @@ final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpec
                 
             } // End of if initiator == .createdOrUpdatedBySomeoneElse...
             
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }
+    
+    
+    
+    enum ReasonForCancel: LocalizedErrorWithLogType {
+        
+        case coreDataError(error: Error)
+        case couldNotFindPersistedOwnedIdentity
+
+        var logType: OSLogType {
+            switch self {
+            case .coreDataError,
+                    .couldNotFindPersistedOwnedIdentity:
+                return .fault
+            }
+        }
+        
+        var errorDescription: String? {
+            switch self {
+            case .coreDataError(error: let error):
+                return "Core Data error: \(error.localizedDescription)"
+            case .couldNotFindPersistedOwnedIdentity:
+                return "Could not find persisted owned identity"
+            }
+        }
+
+    }
+
+    
 }

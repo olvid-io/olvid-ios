@@ -19,6 +19,7 @@
 
 import ObvUI
 import UIKit
+import ObvDesignSystem
 
 
 /// When setting this class within a storyboard, the type should be set to "custom"
@@ -56,7 +57,7 @@ class ObvButton: UIButton {
     
     private func setup() {
         self.layer.cornerRadius = self.cornerRadius
-        self.contentEdgeInsets = UIEdgeInsets(top: topPadding, left: sidePadding, bottom: topPadding, right: sidePadding)
+        // self.contentEdgeInsets = UIEdgeInsets(top: topPadding, left: sidePadding, bottom: topPadding, right: sidePadding)
         setTitle(self.title(for: .normal), for: .normal)
         setTitleColors()
         resetColors()

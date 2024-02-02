@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,26 +20,58 @@
 import ObvUI
 import SwiftUI
 import ObvUICoreData
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
+import ObvDesignSystem
 
+
+
+/// Legacy view. Use InitialCircleViewNew instead.
 struct InitialCircleView: View {
 
-    let circledTextView: Text?
-    let systemImage: CircledInitialsIcon
-    let circleBackgroundColor: UIColor?
-    let circleTextColor: UIColor?
-    let circleDiameter: CGFloat
-
-    init(circledTextView: Text?, systemImage: CircledInitialsIcon, circleBackgroundColor: UIColor?, circleTextColor: UIColor?, circleDiameter: CGFloat = 70.0) {
-        self.circledTextView = circledTextView
-        self.systemImage = systemImage
-        self.circleBackgroundColor = circleBackgroundColor
-        self.circleTextColor = circleTextColor
-        self.circleDiameter = circleDiameter
-    }
+    struct Model: Identifiable {
         
-    private var systemImageSizeAdjustement: CGFloat {
-        switch systemImage {
+        let id: UUID
+        
+        struct Content {
+            let text: String?
+            let icon: CircledInitialsIcon
+        }
+        
+        struct Colors {
+            let background: UIColor
+            let foreground: UIColor
+            
+            init(background: UIColor?, foreground: UIColor?) {
+                self.background = background ?? AppTheme.shared.colorScheme.systemFill
+                self.foreground = foreground ?? AppTheme.shared.colorScheme.secondaryLabel
+            }
+            
+        }
+        
+        let content: Content
+        let colors: Colors
+        let circleDiameter: CGFloat
+
+        init(content: Content, colors: Colors, circleDiameter: CGFloat) {
+            self.id = UUID()
+            self.content = content
+            self.colors = colors
+            self.circleDiameter = circleDiameter
+        }
+        
+    }
+    
+    
+    let model: Model
+    
+    
+    init(model: Model) {
+        self.model = model
+    }
+
+    
+    private var iconSizeAdjustement: CGFloat {
+        switch model.content.icon {
         case .person: return 2
         case .person3Fill: return 3
         case .personFillXmark: return 2
@@ -48,97 +80,90 @@ struct InitialCircleView: View {
         }
     }
     
-    private var textColor: Color {
-        Color(circleTextColor ?? AppTheme.shared.colorScheme.secondaryLabel)
-    }
     
-    private var backgroundColor: Color {
-        Color(circleBackgroundColor ?? AppTheme.shared.colorScheme.systemFill)
-    }
-
     var body: some View {
         ZStack {
             Circle()
-                .frame(width: circleDiameter, height: circleDiameter)
-                .foregroundColor(backgroundColor)
-            if let circledTextView = self.circledTextView {
-                circledTextView
-                    .font(Font.system(size: circleDiameter/2.0, weight: .black, design: .rounded))
-                    .foregroundColor(textColor)
+                .frame(width: model.circleDiameter, height: model.circleDiameter)
+                .foregroundColor(Color(model.colors.background))
+            if let text = model.content.text {
+                Text(text)
+                    .font(Font.system(size: model.circleDiameter/2.0, weight: .black, design: .rounded))
+                    .foregroundColor(Color(model.colors.foreground))
             } else {
-                Image(systemName: systemImage.icon.systemName)
-                    .font(Font.system(size: circleDiameter/systemImageSizeAdjustement, weight: .semibold, design: .default))
-                    .foregroundColor(textColor)
+                Image(systemName: model.content.icon.icon.systemName)
+                    .font(Font.system(size: model.circleDiameter/iconSizeAdjustement, weight: .semibold, design: .default))
+                    .foregroundColor(Color(model.colors.foreground))
             }
         }
     }
 }
 
 
+// MARK: - NSManagedObjects extensions
+
+extension PersistedObvOwnedIdentity {
+    
+    var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: self.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared),
+              foreground: self.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared))
+    }
+    
+}
+
+extension PersistedGroupV2Member {
+    
+    var initialCircleViewModelColors: InitialCircleView.Model.Colors {
+        .init(background: self.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared),
+              foreground: self.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared))
+    }
+
+}
+
+
 
 struct InitialCircleView_Previews: PreviewProvider {
     
-    private struct TestData: Identifiable {
-        let id = UUID()
-        let circledTextView: Text?
-        let systemImage: CircledInitialsIcon
-        let circleBackgroundColor: UIColor?
-        let circleTextColor: UIColor?
-        let circleDiameter: CGFloat
-    }
-    
-    private static let testData = [
-        TestData(circledTextView: Text("SV"),
-                 systemImage: .person,
-                 circleBackgroundColor: nil,
-                 circleTextColor: nil,
-                 circleDiameter: 70),
-        TestData(circledTextView: Text("A"),
-                 systemImage: .person,
-                 circleBackgroundColor: .red,
-                 circleTextColor: .blue,
-                 circleDiameter: 70),
-        TestData(circledTextView: Text("MF"),
-                 systemImage: .person,
-                 circleBackgroundColor: nil,
-                 circleTextColor: nil,
-                 circleDiameter: 120),
-        TestData(circledTextView: nil,
-                 systemImage: .person,
-                 circleBackgroundColor: .purple,
-                 circleTextColor: .green,
-                 circleDiameter: 70),
-        TestData(circledTextView: nil,
-                 systemImage: .person,
-                 circleBackgroundColor: .purple,
-                 circleTextColor: .green,
-                 circleDiameter: 120),
-        TestData(circledTextView: nil,
-                 systemImage: .person,
-                 circleBackgroundColor: .purple,
-                 circleTextColor: .green,
-                 circleDiameter: 70),
+
+    private static let testModels = [
+        InitialCircleView.Model(content: .init(text: "SV",
+                                               icon: .person),
+                                colors: .init(background: nil,
+                                              foreground: nil),
+                                circleDiameter: 60),
+        InitialCircleView.Model(content: .init(text: "A",
+                                               icon: .person),
+                                colors: .init(background: .red,
+                                              foreground: .blue),
+                                circleDiameter: 70),
+        InitialCircleView.Model(content: .init(text: "MF",
+                                               icon: .person),
+                                colors: .init(background: nil,
+                                              foreground: nil),
+                                circleDiameter: 120),
+        InitialCircleView.Model(content: .init(text: nil,
+                                               icon: .person),
+                                colors: .init(background: .purple,
+                                              foreground: .green),
+                                circleDiameter: 70),
+        InitialCircleView.Model(content: .init(text: nil,
+                                               icon: .person),
+                                colors: .init(background: .purple,
+                                              foreground: .green),
+                                circleDiameter: 120),
     ]
     
     static var previews: some View {
         Group {
-            ForEach(testData) {
-                InitialCircleView(circledTextView: $0.circledTextView,
-                                  systemImage: $0.systemImage,
-                                  circleBackgroundColor: $0.circleBackgroundColor,
-                                  circleTextColor: $0.circleTextColor,
-                                  circleDiameter: $0.circleDiameter)
+            ForEach(testModels) { model in
+                InitialCircleView(model: model)
                     .padding()
                     .background(Color(.systemBackground))
                     .environment(\.colorScheme, .dark)
                     .previewLayout(.sizeThatFits)
             }
-            ForEach(testData) {
-                InitialCircleView(circledTextView: $0.circledTextView,
-                                  systemImage: $0.systemImage,
-                                  circleBackgroundColor: $0.circleBackgroundColor,
-                                  circleTextColor: $0.circleTextColor,
-                                  circleDiameter: $0.circleDiameter)
+            ForEach(testModels) { model in
+                InitialCircleView(model: model)
                     .padding()
                     .background(Color(.systemBackground))
                     .environment(\.colorScheme, .light)

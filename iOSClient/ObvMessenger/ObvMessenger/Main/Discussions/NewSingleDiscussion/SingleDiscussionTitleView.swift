@@ -70,11 +70,7 @@ final class SingleDiscussionTitleView: UIView {
         let names = group.contactIdentities
             .sorted { $0.customOrShortDisplayName < $1.customOrShortDisplayName }
             .compactMap({ $0.customOrShortDisplayName })
-        if #available(iOS 15, *) {
-            subtitle = names.formatted(.list(type: .and, width: .short))
-        } else {
-            subtitle = names.joined(separator: ", ")
-        }
+        subtitle = names.formatted(.list(type: .and, width: .short))
 
         self.init(title: title,
                   subtitle: subtitle)

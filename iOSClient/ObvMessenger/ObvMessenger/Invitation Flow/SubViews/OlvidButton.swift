@@ -21,6 +21,7 @@ import ObvUI
 import SwiftUI
 import UI_SystemIcon
 import UI_SystemIcon_SwiftUI
+import ObvDesignSystem
 
 fileprivate extension OlvidButton.Style {
 
@@ -36,6 +37,7 @@ fileprivate extension OlvidButton.Style {
         case .green: return .green
         case .red: return .red
         case .redOnTransparentBackground: return .clear
+        case .text: return .clear
         }
     }
 
@@ -51,6 +53,7 @@ fileprivate extension OlvidButton.Style {
         case .green: return .white
         case .red: return .white
         case .redOnTransparentBackground: return .red
+        case .text: return Color(AppTheme.shared.colorScheme.olvidLight)
         }
     }
 }
@@ -72,6 +75,7 @@ struct OlvidButton: View {
         case green
         case red
         case redOnTransparentBackground
+        case text
     }
     
     let style: Style
@@ -114,22 +118,11 @@ struct OlvidButton: View {
 
     var body: some View {
         Button(action: action) {
-            if #available(iOS 14, *) {
-                buttonContent {
-                    Label(
-                        title: { title },
-                        icon: { systemIcon != nil ? Image(systemIcon: systemIcon!) : nil }
-                    )
-                }
-            } else {
-                buttonContent {
-                    HStack {
-                        if let systemIcon = self.systemIcon {
-                            Image(systemIcon: systemIcon)
-                        }
-                        title
-                    }
-                }
+            buttonContent {
+                Label(
+                    title: { title },
+                    icon: { systemIcon != nil ? Image(systemIcon: systemIcon!) : nil }
+                )
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -265,6 +258,12 @@ struct OlvidButton_Previews: PreviewProvider {
                     .background(Color(.systemBackground))
                     .environment(\.colorScheme, .light)
                     .previewDisplayName("Blue example in light mode without label")
+                OlvidButton(style: .text, title: Text("Save"), action: {})
+                    .padding()
+                    .previewLayout(.sizeThatFits)
+                    .background(Color(.systemBackground))
+                    .environment(\.colorScheme, .light)
+                    .previewDisplayName("Text example in light mode")
             }
         }
     }

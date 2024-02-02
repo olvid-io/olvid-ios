@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,74 +30,59 @@ protocol NetworkFetchFlowDelegate {
 
     // MARK: - Session's Challenge/Response/Token related methods
     
-    func resetServerSession(for identity: ObvCryptoIdentity, within obvContext: ObvContext) throws
-    func serverSessionRequired(for: ObvCryptoIdentity, flowId: FlowIdentifier) throws
-    func serverSession(of: ObvCryptoIdentity, hasInvalidToken: Data, flowId: FlowIdentifier) throws
-    func getAndSolveChallengeWasNotNeeded(for: ObvCryptoIdentity, flowId: FlowIdentifier)
-    func failedToGetOrSolveChallenge(for: ObvCryptoIdentity, flowId: FlowIdentifier)
+    func refreshAPIPermissions(of ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements
+    func getValidServerSessionToken(for ownedCryptoIdentity: ObvCryptoIdentity, currentInvalidToken: Data?, flowId: FlowIdentifier) async throws -> (serverSessionToken: Data, apiKeyElements: APIKeyElements)
     
-    func newChallengeResponse(for: ObvCryptoIdentity, flowId: FlowIdentifier) throws
-    func getTokenWasNotNeeded(for: ObvCryptoIdentity, flowId: FlowIdentifier)
-    func failedToGetToken(for: ObvCryptoIdentity, flowId: FlowIdentifier)
-    func newToken(_ token: Data, for: ObvCryptoIdentity, flowId: FlowIdentifier)
-    func newAPIKeyElementsForCurrentAPIKeyOf(_ ownedIdentity: ObvCryptoIdentity, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?, flowId: FlowIdentifier)
-    func newAPIKeyElementsForAPIKey(serverURL: URL, apiKey: UUID, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?, flowId: FlowIdentifier)
-    func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier)
-    func apiKeyStatusQueryFailed(ownedIdentity: ObvCryptoIdentity, apiKey: UUID)
-
-    func newFreeTrialAPIKeyForOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier)
-    func noMoreFreeTrialAPIKeyAvailableForOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-    func freeTrialIsStillAvailableForOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
+    func verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus]
+    func queryAPIKeyStatus(for ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> APIKeyElements
+    func registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> ObvRegisterApiKeyResult
 
     // MARK: - Downloading message and listing attachments
     
-    func downloadingMessagesAndListingAttachmentFailed(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
+    func downloadingMessagesAndListingAttachmentFailed(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier) async
     func downloadingMessagesAndListingAttachmentWasNotNeeded(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
     func downloadingMessagesAndListingAttachmentWasPerformed(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
     func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-    func messagePayloadAndFromIdentityWereSet(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier)
+    func messagePayloadAndFromIdentityWereSet(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier)
     
     // MARK: - Downloading encrypted extended message payload
     
-    func downloadingMessageExtendedPayloadFailed(messageId: MessageIdentifier, flowId: FlowIdentifier)
-    func downloadingMessageExtendedPayloadWasPerformed(messageId: MessageIdentifier, flowId: FlowIdentifier)
+    func downloadingMessageExtendedPayloadFailed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+    func downloadingMessageExtendedPayloadWasPerformed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     
     // MARK: - Attachment's related methods
     
-    func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func attachmentWasDownloaded(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func attachmentWasCancelledByServer(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float]
+    func resumeDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, forceResume: Bool, flowId: FlowIdentifier)
+    func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+    func attachmentWasDownloaded(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+    func attachmentWasCancelledByServer(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+    func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float]
 
     // MARK: - Deletion related methods
     
-    func newPendingDeleteToProcessForMessage(messageId: MessageIdentifier, flowId: FlowIdentifier)
-    func failedToProcessPendingDeleteFromServer(messageId: MessageIdentifier, flowId: FlowIdentifier)
-    func messageAndAttachmentsWereDeletedFromServerAndInboxes(messageId: MessageIdentifier, flowId: FlowIdentifier)
+    func newPendingDeleteToProcessForMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+    func failedToProcessPendingDeleteFromServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async
+    func messageAndAttachmentsWereDeletedFromServerAndInboxes(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     
     // MARK: - Push notification's related methods
     
-    func serverReportedThatAnotherDeviceIsAlreadyRegistered(forOwnedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-    func serverReportedThatThisDeviceWasSuccessfullyRegistered(forOwnedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
     func serverReportedThatThisDeviceIsNotRegistered(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
     func fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 
     // MARK: - Handling Server Queries
 
     func post(_: ServerQuery, within: ObvContext)
-    func newPendingServerQueryToProcessWithObjectId(_: NSManagedObjectID, flowId: FlowIdentifier)
-    func failedToProcessServerQuery(withObjectId: NSManagedObjectID, flowId: FlowIdentifier)
+    func newPendingServerQueryToProcessWithObjectId(_: NSManagedObjectID, isWebSocket: Bool, flowId: FlowIdentifier) async
+    func failedToProcessServerQuery(withObjectId: NSManagedObjectID, flowId: FlowIdentifier) async
     func successfullProcessOfServerQuery(withObjectId: NSManagedObjectID, flowId: FlowIdentifier)
-    func pendingServerQueryWasDeletedFromDatabase(objectId: NSManagedObjectID, flowId: FlowIdentifier)
 
     // MARK: - Handling user data
 
-    func failedToProcessServerUserData(input: ServerUserDataInput, flowId: FlowIdentifier)
+    func failedToProcessServerUserData(input: ServerUserDataInput, flowId: FlowIdentifier) async
 
     // MARK: - Finalizing the initialization and handling events
     
-    func resetAllFailedFetchAttempsCountersAndRetryFetching()
+    func resetAllFailedFetchAttempsCountersAndRetryFetching() async
     
     // MARK: - Forwarding urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) and notifying successfull/failed listing (for performing fetchCompletionHandlers within the engine)
 
@@ -108,7 +93,7 @@ protocol NetworkFetchFlowDelegate {
     func newWellKnownWasCached(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
     func cachedWellKnownWasUpdated(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
     func currentCachedWellKnownCorrespondToThatOnServer(server: URL, wellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
-    func failedToQueryServerWellKnown(serverURL: URL, flowId: FlowIdentifier)
+    func failedToQueryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) async
     
     // MARK: - Reacting to web socket changes
     

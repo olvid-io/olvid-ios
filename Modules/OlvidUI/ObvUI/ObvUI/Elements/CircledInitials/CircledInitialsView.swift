@@ -16,14 +16,15 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
-  
 
 import Foundation
 import ObvUICoreData
 import SwiftUI
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
 import UI_SystemIcon
 import UI_SystemIcon_SwiftUI
+import ObvDesignSystem
+
 
 // MARK: - SwiftUINewCircledInitialsView
 public struct CircledInitialsView: View {
@@ -91,7 +92,7 @@ fileprivate struct RoundedClipView: View {
         case .icon(let icon, let color): return AnyView(createIconView(using: icon, color: color))
         case .initial(let text, let color): return AnyView(createInitialView(using: text, color: color))
         case .picture(let image): return AnyView(createPictureView(using: image))
-        case .none: return AnyView(Text(""))
+        case .none: return AnyView(Text(verbatim: ""))
         }
     }
     

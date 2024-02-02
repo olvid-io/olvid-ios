@@ -78,10 +78,10 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     // MARK: Other variables
     
     /// Expected to be non-nil. We never allow setting this identifier to `nil`.
-    private(set) var messageId: MessageIdentifier? {
+    private(set) var messageId: ObvMessageIdentifier? {
         get {
             guard !isDeleted else { return nil }
-            return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)
+            return ObvMessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)
         }
         set {
             guard let newValue = newValue else { assertionFailure(); return }
@@ -90,7 +90,7 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     }
     
     /// Always `nil`, unless this outbox message get deleted
-    private var messageIdWhenDeleted: MessageIdentifier?
+    private var messageIdWhenDeleted: ObvMessageIdentifier?
     
     private(set) var messageUidFromServer: UID? {
         get { guard let uid = self.rawMessageUidFromServer else { return nil };  return UID(uid: uid) }
@@ -125,7 +125,7 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     // MARK: - Initializer
     
-    convenience init?(messageId: MessageIdentifier, serverURL: URL, encryptedContent: EncryptedData, encryptedExtendedMessagePayload: EncryptedData?, isAppMessageWithUserContent: Bool, isVoipMessage: Bool, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) {
+    convenience init?(messageId: ObvMessageIdentifier, serverURL: URL, encryptedContent: EncryptedData, encryptedExtendedMessagePayload: EncryptedData?, isAppMessageWithUserContent: Bool, isVoipMessage: Bool, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) {
         
         do {
             guard try OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) == nil else { assertionFailure(); return nil }
@@ -215,7 +215,7 @@ extension OutboxMessage {
             case unsortedAttachments = "unsortedAttachments"
         }
         
-        static func withMessageId(_ messageId: MessageIdentifier) -> NSPredicate {
+        static func withMessageId(_ messageId: ObvMessageIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: messageId.ownedCryptoIdentity.getIdentity()),
                 NSPredicate(Key.rawMessageIdUid, EqualToData: messageId.uid.raw),
@@ -243,7 +243,7 @@ extension OutboxMessage {
         return NSFetchRequest<OutboxMessage>(entityName: OutboxMessage.entityName)
     }
 
-    static func get(messageId: MessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> OutboxMessage? {
+    static func get(messageId: ObvMessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> OutboxMessage? {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageId(messageId)
         request.fetchLimit = 1
@@ -267,7 +267,7 @@ extension OutboxMessage {
         return items.map { $0.delegateManager = delegateManager; return $0 }
     }
 
-    static func delete(messageId: MessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws {
+    static func delete(messageId: ObvMessageIdentifier, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws {
         let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageId(messageId)
         guard let item = try obvContext.fetch(request).first else { return }

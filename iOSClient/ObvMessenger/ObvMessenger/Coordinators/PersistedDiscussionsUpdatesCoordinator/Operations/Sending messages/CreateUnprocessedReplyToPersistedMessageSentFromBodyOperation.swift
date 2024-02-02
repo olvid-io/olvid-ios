@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -43,47 +43,48 @@ final class CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation: Conte
         super.init()
     }
 
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            do {
-                guard let contactIdentity = try PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: obvContext.context) else {
-                    assertionFailure()
-                    return cancel(withReason: .couldNotFindContactIdentityInDatabase)
-                }
-
-                // Find message to reply to
-                guard let messageToReply = try PersistedMessageReceived.get(messageIdentifierFromEngine: messageIdentifierFromEngine, from: contactIdentity) else {
-                    assertionFailure()
-                    return cancel(withReason: .couldNotFindReceivedMessageInDatabase)
-                }
-
-                let discussion = messageToReply.discussion
-                let lastMessage = try PersistedMessage.getLastMessage(in: discussion)
-
-                // Do not set replyTo if the message to reply to is the last message of the discussion.
-                let effectiveReplyTo = lastMessage == messageToReply ? nil : messageToReply
-
-                // Create message to send
-                let persistedMessageSent = try PersistedMessageSent(body: textBody, replyTo: effectiveReplyTo, fyleJoins: [], discussion: discussion, readOnce: false, visibilityDuration: nil, existenceDuration: nil, forwarded: false, mentions: [])
-
-                do {
-                    try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])
-                } catch {
-                    return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
-                }
-
-                self.messageSentPermanentID = persistedMessageSent.objectPermanentID
-
-            } catch {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            guard let contactIdentity = try PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: obvContext.context) else {
                 assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+                return cancel(withReason: .couldNotFindContactIdentityInDatabase)
             }
+            
+            // Find message to reply to
+            guard let messageToReply = try PersistedMessageReceived.get(messageIdentifierFromEngine: messageIdentifierFromEngine, from: contactIdentity) else {
+                assertionFailure()
+                return cancel(withReason: .couldNotFindReceivedMessageInDatabase)
+            }
+            
+            guard let discussion = messageToReply.discussion else {
+                return cancel(withReason: .couldNotDetermineDiscussion)
+            }
+            let lastMessage = try PersistedMessage.getLastMessage(in: discussion)
+            
+            // Do not set replyTo if the message to reply to is the last message of the discussion.
+            let effectiveReplyTo = lastMessage == messageToReply ? nil : messageToReply
+            
+            // Create message to send
+            
+            let persistedMessageSent = try PersistedMessageSent.createPersistedMessageSentWhenReplyingFromTheNotificationExtensionNotification(
+                body: textBody,
+                discussion: discussion,
+                effectiveReplyTo: effectiveReplyTo)
+            
+            do {
+                try obvContext.context.obtainPermanentIDs(for: [persistedMessageSent])
+            } catch {
+                return cancel(withReason: .couldNotObtainPermanentIDForPersistedMessageSent)
+            }
+            
+            self.messageSentPermanentID = persistedMessageSent.objectPermanentID
+            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
+        
     }
 
 }
@@ -96,6 +97,7 @@ enum CreateUnprocessedReplyToPersistedMessageSentFromBodyOperationReasonForCance
     case couldNotObtainPermanentIDForPersistedMessageSent
     case couldNotFindContactIdentityInDatabase
     case couldNotFindReceivedMessageInDatabase
+    case couldNotDetermineDiscussion
 
     var logType: OSLogType {
         switch self {
@@ -111,6 +113,8 @@ enum CreateUnprocessedReplyToPersistedMessageSentFromBodyOperationReasonForCance
             return .error
         case .couldNotFindContactIdentityInDatabase:
             return .error
+        case .couldNotDetermineDiscussion:
+            return .fault
         }
     }
 
@@ -122,6 +126,7 @@ enum CreateUnprocessedReplyToPersistedMessageSentFromBodyOperationReasonForCance
         case .coreDataError(error: let error): return "Core Data error: \(error.localizedDescription)"
         case .couldNotObtainPermanentIDForPersistedMessageSent: return "Could not obtain persisted permanent ID for PersistedMessageSent"
         case .couldNotFindReceivedMessageInDatabase: return "Could not find received message in database"
+        case .couldNotDetermineDiscussion: return "Could not determine discussion"
         }
     }
 

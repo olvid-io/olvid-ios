@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,8 +19,11 @@
 
 import UIKit
 import ObvUICoreData
+import ObvSettings
 
-class FetchContentRichURLsMetadataChooserTableViewController: UITableViewController {
+
+
+final class FetchContentRichURLsMetadataChooserTableViewController: UITableViewController {
     
     init() {
         super.init(style: Self.settingsTableStyle)
@@ -32,7 +35,7 @@ class FetchContentRichURLsMetadataChooserTableViewController: UITableViewControl
     
     override func viewDidLoad() {
         super.viewDidLoad()        
-        title = DiscussionsSettingsTableViewController.Strings.RichLinks.title
+        title = Strings.RichLinks.title
     }
 
     // MARK: - Table view data source
@@ -54,7 +57,7 @@ class FetchContentRichURLsMetadataChooserTableViewController: UITableViewControl
         case .never:
             cell.textLabel?.text = CommonString.Word.Never
         case .withinSentMessagesOnly:
-            cell.textLabel?.text = DiscussionsSettingsTableViewController.Strings.RichLinks.sentMessagesOnly
+            cell.textLabel?.text = Strings.RichLinks.sentMessagesOnly
         case .always:
             cell.textLabel?.text = CommonString.Word.Always
         }
@@ -77,5 +80,17 @@ class FetchContentRichURLsMetadataChooserTableViewController: UITableViewControl
         
     }
     
+    
+}
+
+
+extension FetchContentRichURLsMetadataChooserTableViewController {
+    
+        struct Strings {
+            struct RichLinks {
+                static let title = NSLocalizedString("Rich link preview", comment: "Cell title")
+                static let sentMessagesOnly = NSLocalizedString("Sent messages only", comment: "")
+            }
+        }
     
 }

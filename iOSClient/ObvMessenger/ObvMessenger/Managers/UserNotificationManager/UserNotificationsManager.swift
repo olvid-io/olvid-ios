@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,8 @@ import ObvTypes
 import CoreData
 import AVFAudio
 import ObvUICoreData
+import ObvSettings
+
 
 final class UserNotificationsManager: NSObject {
     
@@ -145,13 +147,13 @@ extension UserNotificationsManager {
 
                     let discussion: PersistedDiscussion?
                     switch groupId {
-                    case .groupV1(let objectID):
-                        guard let contactGroup = try? PersistedContactGroup.get(objectID: objectID.objectID, within: context) else { return }
+                    case .groupV1(groupV1Identifier: let groupV1Identifier):
+                        guard let contactGroup = try? PersistedContactGroup.getContactGroup(groupIdentifier: groupV1Identifier, ownedCryptoId: ownedCryptoId, within: context) else { return }
                         discussion = contactGroup.discussion
-                    case .groupV2(let objectID):
-                        guard let group = try? PersistedGroupV2.get(objectID: objectID, within: context) else { return }
+                    case .groupV2(groupV2Identifier:let groupV2Identifier):
+                        guard let group = try? PersistedGroupV2.get(ownIdentity: ownedCryptoId, appGroupIdentifier: groupV2Identifier, within: context) else { return }
                         discussion = group.discussion
-                    case .none:
+                    case nil:
                         discussion = contactIdentity.oneToOneDiscussion
                     }
                     guard let discussion = discussion, discussion.status == .active else { return }
@@ -195,7 +197,7 @@ extension UserNotificationsManager {
                     @unknown default:
                         break
                     }
-                case .acceptedOutgoingCall, .acceptedIncomingCall, .rejectedOutgoingCall, .rejectedIncomingCall, .busyOutgoingCall, .unansweredOutgoingCall, .uncompletedOutgoingCall, .newParticipantInIncomingCall, .newParticipantInOutgoingCall:
+                case .acceptedOutgoingCall, .acceptedIncomingCall, .rejectedOutgoingCall, .rejectedIncomingCall, .busyOutgoingCall, .unansweredOutgoingCall, .uncompletedOutgoingCall, .newParticipantInIncomingCall, .newParticipantInOutgoingCall, .answeredOrRejectedOnOtherDevice, .rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse:
                     // Do nothing
                     break
                 }
@@ -234,7 +236,7 @@ extension UserNotificationsManager {
             ObvStack.shared.performBackgroundTask { (context) in
                 let notificationCenter = UNUserNotificationCenter.current()
                 guard let messageReceived = try? PersistedMessageReceived.get(with: persistedMessageReceivedObjectID, within: context) as? PersistedMessageReceived else { assertionFailure(); return }
-                let discussion = messageReceived.discussion
+                guard let discussion = messageReceived.discussion else { assertionFailure(); return }
                 do {
                     let notificationId = ObvUserNotificationIdentifier.newMessage(messageIdentifierFromEngine: messageReceived.messageIdentifierFromEngine)
 

@@ -28,7 +28,7 @@ import ObvCrypto
     static let defaultLogSubsystem = "io.olvid.operation"
     private let log = OSLog(subsystem: ObvOperation.defaultLogSubsystem, category: "ObvOperation")
     
-    open var className: String { return "ObvOperation" }
+    open var debugClassName: String { return "ObvOperation" }
     
     private static let internalDispatchQueue = DispatchQueue.init(label: "io.olvid.obvoperation.internal")
     
@@ -134,7 +134,7 @@ import ObvCrypto
     let uid: UID? // This is essentially to prevent the execution of two `ObvOperation`s with the same uid
     lazy public var operationIdentifier: ObvOperationIdentifier? = {
         guard let uid = uid else { return nil }
-        return ObvOperationIdentifier.init(className: className, uid: uid)
+        return ObvOperationIdentifier.init(className: debugClassName, uid: uid)
     }()
     
     private static var identifiersOfOperationsCurrentlyExecuting = Set<ObvOperationIdentifier>()
@@ -239,7 +239,7 @@ import ObvCrypto
     /// This method is called by the operation queue
     override public final func start() {
         
-        os_log("This ObvOperation did start: %@", log: log, type: .debug, self.operationIdentifier?.debugDescription ?? self.className)
+        os_log("This ObvOperation did start: %@", log: log, type: .debug, self.operationIdentifier?.debugDescription ?? self.debugClassName)
         
         guard state == .Ready else {
             os_log("An ObvOperation must be queued on an operation queue", log: log, type: .fault)
@@ -295,7 +295,7 @@ import ObvCrypto
             
             delegate?.operationDidFinish(operation: self)
 
-            os_log("ObvOperation did finish: %@", log: log, type: .debug, self.operationIdentifier?.debugDescription ?? self.className)
+            os_log("ObvOperation did finish: %@", log: log, type: .debug, self.operationIdentifier?.debugDescription ?? self.debugClassName)
         }
     }
 }

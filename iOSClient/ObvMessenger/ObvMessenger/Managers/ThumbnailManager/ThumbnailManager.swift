@@ -22,6 +22,7 @@ import os.log
 import QuickLookThumbnailing
 import MobileCoreServices
 import ObvUICoreData
+import ObvSettings
 
 
 enum ThumbnailType {
@@ -139,9 +140,9 @@ final class ThumbnailManager {
             case .normal:
                 
                 guard fyleElement.fullFileIsAvailable else {
-                    self?.createSymbolThumbnail(uti: fyleElement.uti) { (image) in
+                    self?.createSymbolThumbnail(contentType: fyleElement.contentType) { (image) in
                         guard let image = image else {
-                            os_log("Could not generate an appropriate thumbnail for uti %{public}@", log: log, type: .fault, fyleElement.uti)
+                            os_log("Could not generate an appropriate thumbnail for content type %{public}@", log: log, type: .fault, fyleElement.contentType.debugDescription)
                             assertionFailure()
                             return
                         }
@@ -166,7 +167,7 @@ final class ThumbnailManager {
                     guard let _self = self else { return }
                     switch result {
                     case .success(let hardLinkToFyle):
-                        _self.createThumbnail(hardLinkToFyle: hardLinkToFyle, size: size, uti: hardLinkToFyle.uti) { (image, isSymbol) in
+                        _self.createThumbnail(hardLinkToFyle: hardLinkToFyle, size: size, contentType: hardLinkToFyle.contentType) { (image, isSymbol) in
                             let thumbnail = Thumbnail(fyleURL: hardLinkToFyle.fyleURL, fileName: hardLinkToFyle.fileName, size: size, image: image, isSymbol: isSymbol)
                             if !isSymbol {
                                 self?.thumbnails.insert(thumbnail)
@@ -186,7 +187,7 @@ final class ThumbnailManager {
     }
     
 
-    private func createThumbnail(hardLinkToFyle: HardLinkToFyle, size: CGSize, uti: String, completionHandler: @escaping (UIImage, Bool) -> Void) {
+    private func createThumbnail(hardLinkToFyle: HardLinkToFyle, size: CGSize, contentType: UTType, completionHandler: @escaping (UIImage, Bool) -> Void) {
         assert(size != CGSize.zero)
         guard let hardlinkURL = hardLinkToFyle.hardlinkURL else {
             os_log("The hardlink within the hardLinkToFyle is nil, which is unexpected", log: log, type: .fault)
@@ -200,9 +201,9 @@ final class ThumbnailManager {
             guard let log = self?.log else { return }
             if thumbnail == nil || error != nil {
                 os_log("The thumbnail generation failed. We try to set an appropriate generic thumbnail", log: log, type: .error)
-                self?.createSymbolThumbnail(uti: uti) { (thumbnail) in
+                self?.createSymbolThumbnail(contentType: contentType) { (thumbnail) in
                     guard let thumbnail = thumbnail else {
-                        os_log("Could not generate an appropriate thumbnail for uti %{public}@", log: log, type: .fault, uti)
+                        os_log("Could not generate an appropriate thumbnail for content type %{public}@", log: log, type: .fault, contentType.debugDescription)
                         return
                     }
                     self?.queueForNotifications.addOperation {
@@ -220,17 +221,17 @@ final class ThumbnailManager {
     }
     
 
-    private func createSymbolThumbnail(uti: String, completionHandler: @escaping (UIImage?) -> Void) {
+    private func createSymbolThumbnail(contentType: UTType, completionHandler: @escaping (UIImage?) -> Void) {
         // See CoreServices > UTCoreTypes
-        if ObvUTIUtils.uti(uti, conformsTo: "org.openxmlformats.wordprocessingml.document" as CFString) {
+        if contentType.conforms(to: UTType.OpenXML.docx) {
             // Word (docx) document
             let image = UIImage(systemName: "doc.fill")
             completionHandler(image)
-        } else if ObvUTIUtils.uti(uti, conformsTo: kUTTypeArchive) {
+        } else if contentType.conforms(to: .archive) {
             // Zip archive
             let image = UIImage(systemName: "rectangle.compress.vertical")
             completionHandler(image)
-        } else if ObvUTIUtils.uti(uti, conformsTo: kUTTypeWebArchive) {
+        } else if contentType.conforms(to: .webArchive) {
             // Web archive
             let image = UIImage(systemName: "archivebox.fill")
             completionHandler(image)
@@ -239,7 +240,7 @@ final class ThumbnailManager {
             completionHandler(image)
         }
     }
-    
+
 }
 
 

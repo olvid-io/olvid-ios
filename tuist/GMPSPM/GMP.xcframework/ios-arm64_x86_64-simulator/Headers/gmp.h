@@ -2323,7 +2323,7 @@ enum
 };
 
 /* Define CC and CFLAGS which were used to build this version of GMP */
-#define __GMP_CC "/Applications/Xcode-14.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"
+#define __GMP_CC "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"
 #define __GMP_CFLAGS "-O2 -pedantic -march=armv8-a"
 
 /* Major version number is the value of __GNU_MP__ too, above. */

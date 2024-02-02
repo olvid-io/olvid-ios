@@ -20,6 +20,8 @@
 import UIKit
 import OlvidUtils
 import ObvUICoreData
+import ObvSettings
+
 
 class VoIPSettingsTableViewController: UITableViewController {
 
@@ -44,6 +46,83 @@ class VoIPSettingsTableViewController: UITableViewController {
     
     private let kbsFormatter = KbsFormatter()
     
+    
+    private enum Section: CaseIterable {
+        
+        case normal
+        case experimental
+        
+        static var shown: [Section] {
+            if ObvMessengerConstants.showExperimentalFeature {
+                return Section.allCases
+            } else {
+                return [.normal]
+            }
+        }
+        
+        var numberOfItems: Int {
+            switch self {
+            case .normal: return NormalItem.shown.count
+            case .experimental: return ExperimentalItem.shown.count
+            }
+        }
+
+        static func shownSectionAt(section: Int) -> Section? {
+            guard section < shown.count else { assertionFailure(); return nil }
+            return shown[section]
+        }
+
+    }
+    
+    
+    private enum NormalItem: CaseIterable {
+        case receiveCallsOnThisDevice
+        case includesCallsInRecents
+        
+        static var shown: [NormalItem] {
+            if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+                return [.receiveCallsOnThisDevice]
+            } else {
+                return [.receiveCallsOnThisDevice, .includesCallsInRecents]
+            }
+        }
+
+        static func shownItemAt(item: Int) -> NormalItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+
+        var cellIdentifier: String {
+            switch self {
+            case .receiveCallsOnThisDevice: return "ReceiveCallsOnThisDeviceCell"
+            case .includesCallsInRecents: return "IncludesCallsInRecentsCell"
+            }
+        }
+        
+    }
+    
+    
+    private enum ExperimentalItem: CaseIterable {
+        
+        case maxaveragebitrate
+        
+        static var shown: [ExperimentalItem] {
+            return ExperimentalItem.allCases
+        }
+
+        static func shownItemAt(item: Int) -> ExperimentalItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+
+        var cellIdentifier: String {
+            switch self {
+            case .maxaveragebitrate: return "MaxAverageBitrateCell"
+            }
+        }
+        
+    }
+    
 }
 
 // MARK: - UITableViewDataSource
@@ -51,80 +130,106 @@ class VoIPSettingsTableViewController: UITableViewController {
 extension VoIPSettingsTableViewController {
     
     override func numberOfSections(in tableView: UITableView) -> Int {
-        return ObvMessengerConstants.showExperimentalFeature ? 3 : 2
+        return Section.shown.count
     }
     
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        switch section {
-        case 0:
-            var rows = 1
-            if isCallKitEnabled { rows += 1 } // For includesCallsInRecents
-            return rows
-        case 1:
-            return 1 // Maxaveragebitrate
-        default:
-            return 0
-        }
+        guard let section = Section.shownSectionAt(section: section) else { return 0 }
+        return section.numberOfItems
     }
 
-    private var isCallKitEnabled: Bool {
-        get { ObvMessengerSettings.VoIP.isCallKitEnabled }
-        set { ObvMessengerSettings.VoIP.isCallKitEnabled = newValue }
-    }
-
+    
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
-        let cell: UITableViewCell
-        
-        switch indexPath {
-        case IndexPath(row: 0, section: 0):
-            let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: "UseCallKitCell")
-            _cell.selectionStyle = .none
-            _cell.title = Strings.useCallKit
-            _cell.switchIsOn = isCallKitEnabled
-            _cell.blockOnSwitchValueChanged = { (value) in
-                ObvMessengerSettings.VoIP.isCallKitEnabled = value
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
-                    tableView.reloadData()
-                }
-            }
-            cell = _cell
-        case IndexPath(row: 1, section: 0):
-            let _cell = ObvTitleAndSwitchTableViewCell(reuseIdentifier: "IncludesCallsInRecents")
-            _cell.selectionStyle = .none
-            _cell.title = Strings.includesCallsInRecents
-            _cell.switchIsOn = ObvMessengerSettings.VoIP.isIncludesCallsInRecentsEnabled
-            _cell.blockOnSwitchValueChanged = { (value) in
-                ObvMessengerSettings.VoIP.isIncludesCallsInRecentsEnabled = value
-            }
-            cell = _cell
-        case IndexPath(row: 0, section: 1):
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            cell.textLabel?.text = Strings.maxaveragebitrate
-            if let maxaveragebitrate = ObvMessengerSettings.VoIP.maxaveragebitrate {
-                cell.detailTextLabel?.text = kbsFormatter.string(from: maxaveragebitrate as NSNumber)
-            } else {
-                cell.detailTextLabel?.text = CommonString.Word.None
-            }
-            cell.accessoryType = .disclosureIndicator
-        default:
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            assert(false)
+        let cellInCaseOfError = UITableViewCell(style: .default, reuseIdentifier: nil)
+
+        guard let section = Section.shownSectionAt(section: indexPath.section) else {
+            assertionFailure()
+            return cellInCaseOfError
         }
-        
-        return cell
+
+        switch section {
+
+        case .normal:
+            
+            guard let item = NormalItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            
+            switch item {
+                
+            case .receiveCallsOnThisDevice:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) as? ObvTitleAndSwitchTableViewCell ?? ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                cell.title = Strings.receiveCallsOnThisDevice
+                cell.switchIsOn = ObvMessengerSettings.VoIP.receiveCallsOnThisDevice
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.VoIP.receiveCallsOnThisDevice = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadData()
+                    }
+                }
+                return cell
+                
+            case .includesCallsInRecents:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) as? ObvTitleAndSwitchTableViewCell ?? ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                cell.title = Strings.includesCallsInRecents
+                cell.switchIsOn = ObvMessengerSettings.VoIP.isIncludesCallsInRecentsEnabled
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.VoIP.isIncludesCallsInRecentsEnabled = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadData()
+                    }
+                }
+                return cell
+                
+            }
+
+        case .experimental:
+
+            guard let item = ExperimentalItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            
+            switch item {
+
+            case .maxaveragebitrate:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .value1, reuseIdentifier: nil)
+                cell.textLabel?.text = Strings.maxaveragebitrate
+                if let maxaveragebitrate = ObvMessengerSettings.VoIP.maxaveragebitrate {
+                    cell.detailTextLabel?.text = kbsFormatter.string(from: maxaveragebitrate as NSNumber)
+                } else {
+                    cell.detailTextLabel?.text = CommonString.Word.None
+                }
+                cell.accessoryType = .disclosureIndicator
+                return cell
+
+            }
+            
+
+        }
+
     }
  
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        switch indexPath {
-        case IndexPath(row: 0, section: 1):
-            let vc = MaxAverageBitrateChooserTableViewController()
-            self.navigationController?.pushViewController(vc, animated: true)
-        default:
-            break
+        
+        guard let section = Section.shownSectionAt(section: indexPath.section) else { assertionFailure(); return }
+
+        switch section {
+
+        case .normal:
+
+            return
+            
+        case .experimental:
+
+            guard let item = ExperimentalItem.shownItemAt(item: indexPath.item) else { return }
+
+            switch item {
+            case .maxaveragebitrate:
+                let vc = MaxAverageBitrateChooserTableViewController()
+                self.navigationController?.pushViewController(vc, animated: true)
+            }
+            
         }
+        
     }
 
 }
@@ -133,9 +238,8 @@ extension VoIPSettingsTableViewController {
 extension VoIPSettingsTableViewController {
     
     private struct Strings {
-        static let useCallKit = NSLocalizedString("USE_CALLKIT", comment: "")
+        static let receiveCallsOnThisDevice = NSLocalizedString("RECEIVE_CALLS_ON_THIS_DEVICE", comment: "")
         static let includesCallsInRecents = NSLocalizedString("INCLUDE_CALL_IN_RECENTS", comment: "")
-        static let useLoadBalancedTurnServers = NSLocalizedString("USE_LOAD_BALANCED_TURN_SERVERS", comment: "")
         static let maxaveragebitrate = NSLocalizedString("MAX_AVG_BITRATE", comment: "")
     }
     

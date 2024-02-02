@@ -79,7 +79,6 @@ public final class CompositionOfTwoContextualOperations<ReasonForCancelType1: Lo
             do {
                 guard obvContext.context.hasChanges else {
                     debugPrint("🙃 No need to save completion handler for op1: \(op1.debugDescription), op2: \(op2.debugDescription)")
-                    obvContext.makeAssertionChecks()
                     return
                 }
                 try obvContext.save(logOnFailure: log)

@@ -42,6 +42,9 @@ class ProtocolStep {
     let solveChallengeDelegate: ObvSolveChallengeDelegate
     let notificationDelegate: ObvNotificationDelegate
     let protocolStarterDelegate: ProtocolStarterDelegate
+    let networkPostDelegate: ObvNetworkPostDelegate // Used when deleting an owned identity
+    let networkFetchDelegate: ObvNetworkFetchDelegate // Used when deleting an owned identity
+    let syncSnapshotDelegate: ObvSyncSnapshotDelegate
     
     var ownedIdentity: ObvCryptoIdentity {
         concreteCryptoProtocol.ownedIdentity
@@ -92,12 +95,34 @@ class ProtocolStep {
             return nil
         }
         self.solveChallengeDelegate = _solveChallengeDelegate
+        
         guard let _notificationDelegate = concreteCryptoProtocol.delegateManager.notificationDelegate else {
             os_log("The notification delegate is not set", log: log, type: .fault)
             assertionFailure()
             return nil
         }
         self.notificationDelegate = _notificationDelegate
+
+        guard let _networkPostDelegate = concreteCryptoProtocol.delegateManager.networkPostDelegate else {
+            os_log("The networkPostDelegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return nil
+        }
+        self.networkPostDelegate = _networkPostDelegate
+
+        guard let _networkFetchDelegate = concreteCryptoProtocol.delegateManager.networkFetchDelegate else {
+            os_log("The networkPostDelegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return nil
+        }
+        self.networkFetchDelegate = _networkFetchDelegate
+
+        guard let _syncSnapshotDelegate = concreteCryptoProtocol.delegateManager.syncSnapshotDelegate else {
+            os_log("The networkPostDelegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return nil
+        }
+        self.syncSnapshotDelegate = _syncSnapshotDelegate
 
         do {
             guard try expectedReceptionChannelInfo.accepts(receivedMessageReceptionChannelInfo, identityDelegate: identityDelegate, within: concreteCryptoProtocol.obvContext) else {

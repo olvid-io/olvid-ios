@@ -2,6 +2,7 @@ import ProjectDescription
 import Foundation
 
 internal extension SettingsDictionary {
+    
     func applicationExtensionAPIOnly(_ value: Bool) -> Self {
         if value {
             return merging(["APPLICATION_EXTENSION_API_ONLY": .init(booleanLiteral: value)])
@@ -9,6 +10,7 @@ internal extension SettingsDictionary {
             return self
         }
     }
+    
 
     func enableModuleDefinition(moduleName: String) -> Self {
         return merging([
@@ -25,8 +27,8 @@ internal extension SettingsDictionary {
         return merging(["GENERATE_INFOPLIST_FILE": false])
     }
 
-    func disableSwiftLocalizableStringsExtraction() -> Self {
-        return merging(["SWIFT_EMIT_LOC_STRINGS": false])
+    func setSwiftLocalizableStringsExtraction(to bool: Bool) -> Self {
+        return merging(["SWIFT_EMIT_LOC_STRINGS": .init(booleanLiteral: bool)])
     }
 
     func assetCompilerAppIcon(name: String) -> Self {
@@ -91,7 +93,7 @@ private extension Settings {
     ]
 
     private static let _keysToExcludeForUITargetsFromRecommendedDefaultSettings: Set<String> = [
-        "ASSETCATALOG_COMPILER_APPICON_NAME"
+        "ASSETCATALOG_COMPILER_APPICON_NAME",
     ]
 
     static let defaultSettingsForProjects: DefaultSettings = {
@@ -109,14 +111,18 @@ private extension Settings {
 }
 
 public extension Settings {
+    
+    
     static func defaultProjectSettings() -> Self {
         return defaultProjectSettings(appending: [:])
     }
+
 
     static func defaultProjectSettings(
         appending base: SettingsDictionary,
         iOSDeploymentTargetVersion: String = Constants.iOSDeploymentTargetVersion
     ) -> Self {
+        
         let baseSettings: SettingsDictionary = base
             .injectBaseValues()
             .automaticCodeSigning(devTeam: Constants.developmentTeam)
@@ -124,7 +130,7 @@ public extension Settings {
             .currentProjectVersion(try! Constants.buildNumber)
             .iOSDeploymentTargetVersion(iOSDeploymentTargetVersion)
             .disableInfoPlistGeneration()
-            .disableSwiftLocalizableStringsExtraction()
+            .setSwiftLocalizableStringsExtraction(to: true)
             .swiftActiveCompilationConditions("$(inherited)", "$(OLVID_MODE_SWIFT_ACTIVE_COMPILATION_CONDITIONS)", "$(OLVID_SERVER_SWIFT_ACTIVE_COMPILATION_CONDITIONS)")
             .excludedFileNames("$(inherited)", "$(OLVID_MODE_EXCLUDED_SOURCE_FILE_NAMES)", "$(OLVID_SERVER_EXCLUDED_SOURCE_FILE_NAMES)")
             .disableAppleGenericVersioning()
@@ -133,6 +139,7 @@ public extension Settings {
                          configurations: defaultConfigurations,
                          defaultSettings: defaultSettingsForProjects)
     }
+    
 
     static func defaultSPMProjectSettings() -> Self {
         return .settings(base: [:],
@@ -161,27 +168,16 @@ public extension Settings {
 }
 
 private extension Configuration {
+
     private static func modeBaseSettings(activeCompilationConditions: String...,
                                          includedSourceFileNames: String...,
-                                         excludedSourceFileNames: String...,
-                                         enableBonjourInfoPlistAdditions: Bool,
-                                         enableRevealInfoPlistAdditions: Bool) -> SettingsDictionary {
-        if enableRevealInfoPlistAdditions && !enableBonjourInfoPlistAdditions {
-            preconditionFailure("enableBonjourInfoPlistAdditions should be enable if enabling enableRevealInfoPlistAdditions")
-        }
+                                         excludedSourceFileNames: String...) -> SettingsDictionary {
 
-        let excludeRevealSourceFilenames: [String]
-
-        if enableRevealInfoPlistAdditions {
-            excludeRevealSourceFilenames = []
-        } else {
-            excludeRevealSourceFilenames = ["Reveal*"]
-        }
-
-        return ["OLVID_MODE_SWIFT_ACTIVE_COMPILATION_CONDITIONS": .array(["$(inherited)"] + activeCompilationConditions),
-                "OLVID_MODE_INCLUDED_SOURCE_FILE_NAMES": .array(["$(inherited)"] + includedSourceFileNames),
-                "OLVID_MODE_EXCLUDED_SOURCE_FILE_NAMES": .array(["$(inherited)"] + excludedSourceFileNames + excludeRevealSourceFilenames),
-                "OLVID_ENABLE_INFO_PLIST_BONJOUR_ADDITIONS": .init(booleanLiteral: enableBonjourInfoPlistAdditions)]
+        return [
+            "OLVID_MODE_SWIFT_ACTIVE_COMPILATION_CONDITIONS": .array(["$(inherited)"] + activeCompilationConditions),
+            "OLVID_MODE_INCLUDED_SOURCE_FILE_NAMES": .array(["$(inherited)"] + includedSourceFileNames),
+            "OLVID_MODE_EXCLUDED_SOURCE_FILE_NAMES": .array(["$(inherited)"] + excludedSourceFileNames),
+        ]
     }
 
     private static func serverBaseSettings(bundleIdentifierSuffix: String,
@@ -190,7 +186,6 @@ private extension Configuration {
                                            notificationServiceExtensionBundleIdentifier: String,
                                            intentsExtensionBundleIdentifier: String,
                                            activeCompilationConditions: String...,
-                                           harcodedAPIKey: String,
                                            serverURL: String,
                                            includedSourceFileNames: String...,
                                            excludedSourceFileNames: String...,
@@ -200,22 +195,23 @@ private extension Configuration {
                                            invitationsHost: String,
                                            configurationsHost: String,
                                            openIDRedirectHost: String) -> SettingsDictionary {
-        return ["OLVID_PRODUCT_BUNDLE_IDENTIFIER_SERVER_SUFFIX": .string(bundleIdentifierSuffix),
-                "OLVID_PRODUCT_BUNDLE_DISPLAY_NAME_SERVER_SUFFIX": .string(displayNameSuffix),
-                "OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_SHARE_EXTENSION": .string(shareExtensionBundleIdentifier),
-                "OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_NOTIFICATION_SERVICE_EXTENSION": .string(notificationServiceExtensionBundleIdentifier),
-                "OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_INTENTS_EXTENSION": .string(intentsExtensionBundleIdentifier),
-                "OLVID_SERVER_SWIFT_ACTIVE_COMPILATION_CONDITIONS": .array(["$(inherited)"] + activeCompilationConditions),
-                "HARDCODED_API_KEY": .string(harcodedAPIKey),
-                "OBV_SERVER_URL": .string(serverURL),
-                "OLVID_SERVER_INCLUDED_SOURCE_FILE_NAMES": .array(["$(inherited)"] + includedSourceFileNames),
-                "OLVID_SERVER_EXCLUDED_SOURCE_FILE_NAMES": .array(["$(inherited)"] + excludedSourceFileNames),
-                "OLVID_ASSETCATALOG_COMPILER_APPICON_NAME_SUFFIX": .string(assetCatalogAppIconNameSuffix),
-                "OBV_DEVELOPMENT_MODE": .init(booleanLiteral: isDevelopmentServerMode),
-                "OBV_APP_GROUP_IDENTIFIER": .string(appGroupIdentifier),
-                "OBV_HOST_FOR_INVITATIONS": .string(invitationsHost),
-                "OBV_HOST_FOR_CONFIGURATIONS": .string(configurationsHost),
-                "OBV_HOST_FOR_OPENID_REDIRECT": .string(openIDRedirectHost)]
+        return [
+            "OLVID_PRODUCT_BUNDLE_IDENTIFIER_SERVER_SUFFIX": .string(bundleIdentifierSuffix),
+            "OLVID_PRODUCT_BUNDLE_DISPLAY_NAME_SERVER_SUFFIX": .string(displayNameSuffix),
+            "OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_SHARE_EXTENSION": .string(shareExtensionBundleIdentifier),
+            "OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_NOTIFICATION_SERVICE_EXTENSION": .string(notificationServiceExtensionBundleIdentifier),
+            "OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_INTENTS_EXTENSION": .string(intentsExtensionBundleIdentifier),
+            "OLVID_SERVER_SWIFT_ACTIVE_COMPILATION_CONDITIONS": .array(["$(inherited)"] + activeCompilationConditions),
+            "OBV_SERVER_URL": .string(serverURL),
+            "OLVID_SERVER_INCLUDED_SOURCE_FILE_NAMES": .array(["$(inherited)"] + includedSourceFileNames),
+            "OLVID_SERVER_EXCLUDED_SOURCE_FILE_NAMES": .array(["$(inherited)"] + excludedSourceFileNames),
+            "OLVID_ASSETCATALOG_COMPILER_APPICON_NAME_SUFFIX": .string(assetCatalogAppIconNameSuffix),
+            "OBV_DEVELOPMENT_MODE": .init(booleanLiteral: isDevelopmentServerMode),
+            "OBV_APP_GROUP_IDENTIFIER": .string(appGroupIdentifier),
+            "OBV_HOST_FOR_INVITATIONS": .string(invitationsHost),
+            "OBV_HOST_FOR_CONFIGURATIONS": .string(configurationsHost),
+            "OBV_HOST_FOR_OPENID_REDIRECT": .string(openIDRedirectHost),
+        ]
     }
 
     private static let productionServerBase: SettingsDictionary = {
@@ -225,7 +221,6 @@ private extension Configuration {
                                   notificationServiceExtensionBundleIdentifier: "io.olvid.messenger.extension-notification-service",
                                   intentsExtensionBundleIdentifier: "io.olvid.messenger.ObvMessengerIntentsExtension",
                                   activeCompilationConditions: "OLVID_SERVER_PRODUCTION",
-                                  harcodedAPIKey: "5288afb8-bfe0-2ab9-cb24-7b93a54be5d5",
                                   serverURL: "https://server.olvid.io",
                                   assetCatalogAppIconNameSuffix: "",
                                   isDevelopmentServerMode: false,
@@ -234,29 +229,21 @@ private extension Configuration {
                                   configurationsHost: "configuration.olvid.io",
                                   openIDRedirectHost: "openid-redirect.olvid.io")
     }()
+    
+    static let appStoreDebug: Self = .debug(
+        name: .appStoreDebug,
+        settings: modeBaseSettings(activeCompilationConditions: "DEBUG").merging(productionServerBase),
+        xcconfig: nil)
 
-    static let appStoreDebug: Self = .debug(name: .appStoreDebug,
-                                            settings: modeBaseSettings(activeCompilationConditions: "DEBUG",
-                                                                       excludedSourceFileNames: "RevealServer.xcframework",
-                                                                       enableBonjourInfoPlistAdditions: false,
-                                                                       enableRevealInfoPlistAdditions: false)
-                                                .merging(productionServerBase),
-                                            xcconfig: nil)
+    static let appStoreRelease: Self = .release(
+        name: .appStoreRelease,
+        settings: modeBaseSettings(activeCompilationConditions: "RELEASE").merging(productionServerBase),
+        xcconfig: nil)
 
-    static let appStoreRelease: Self = .release(name: .appStoreRelease,
-                                                settings: modeBaseSettings(activeCompilationConditions: "RELEASE",
-                                                                           excludedSourceFileNames: "RevealServer.xcframework",
-                                                                           enableBonjourInfoPlistAdditions: false,
-                                                                           enableRevealInfoPlistAdditions: false)
-                                                    .merging(productionServerBase),
-                                                xcconfig: nil)
 }
 
 internal extension ConfigurationName {
-    /// AppStore~Debug
     static let appStoreDebug: Self = "AppStore~Debug"
-
-    /// AppStore~Release
     static let appStoreRelease: Self = "AppStore~Release"
 }
 

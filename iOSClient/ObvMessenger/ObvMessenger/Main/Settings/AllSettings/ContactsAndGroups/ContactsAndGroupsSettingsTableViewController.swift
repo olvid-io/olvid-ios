@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,8 @@ import UIKit
 import ObvTypes
 import ObvEngine
 import ObvUICoreData
+import Combine
+import ObvSettings
 
 
 final class ContactsAndGroupsSettingsTableViewController: UITableViewController {
@@ -29,6 +31,9 @@ final class ContactsAndGroupsSettingsTableViewController: UITableViewController 
     private let ownedCryptoId: ObvCryptoId
     private let obvEngine: ObvEngine
     
+    /// Allows to observe changes made to certain settings made from other owned devices
+    private var cancellables = Set<AnyCancellable>()
+
     init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
         self.ownedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
@@ -39,9 +44,15 @@ final class ContactsAndGroupsSettingsTableViewController: UITableViewController 
         fatalError("init(coder:) has not been implemented")
     }
 
+    deinit {
+        cancellables.forEach { $0.cancel() }
+        cancellables.removeAll()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = CommonString.Title.contactsAndGroups
+        observeChangesMadeFromOtherOwnedDevices()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -65,6 +76,23 @@ final class ContactsAndGroupsSettingsTableViewController: UITableViewController 
     }
     private var shownGroupsRows = [GroupsRow.autoAcceptGroupInvitesFrom]
     
+    
+    private func observeChangesMadeFromOtherOwnedDevices() {
+        
+        ObvMessengerSettingsObservableObject.shared.$autoAcceptGroupInviteFrom
+            .compactMap { (autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice, ownedCryptoId) in
+                // We only observe changes made from other owned devices
+                guard changeMadeFromAnotherOwnedDevice else { return nil }
+                return autoAcceptGroupInviteFrom
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] (autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom) in
+                self?.tableView.reloadData()
+            }
+            .store(in: &cancellables)
+
+    }
+
 }
 
 
@@ -99,42 +127,26 @@ extension ContactsAndGroupsSettingsTableViewController {
             guard indexPath.row < shownContactsRows.count else { assertionFailure(); return UITableViewCell() }
             switch shownContactsRows[indexPath.row] {
             case .contactSortOrder:
-                if #available(iOS 14, *) {
-                    let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-                    var configuration = UIListContentConfiguration.valueCell()
-                    configuration.text = CommonString.Title.contactsSortOrder
-                    configuration.secondaryText = ObvMessengerSettings.Interface.contactsSortOrder.description
-                    cell.contentConfiguration = configuration
-                    cell.accessoryType = .disclosureIndicator
-                    return cell
-                } else {
-                    let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-                    cell.textLabel?.text = CommonString.Title.contactsSortOrder
-                    cell.detailTextLabel?.text = ObvMessengerSettings.Interface.contactsSortOrder.description
-                    cell.accessoryType = .disclosureIndicator
-                    return cell
-                }
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                var configuration = UIListContentConfiguration.valueCell()
+                configuration.text = CommonString.Title.contactsSortOrder
+                configuration.secondaryText = ObvMessengerSettings.Interface.contactsSortOrder.description
+                cell.contentConfiguration = configuration
+                cell.accessoryType = .disclosureIndicator
+                return cell
             }
             
         case .groups:
             guard indexPath.row < shownGroupsRows.count else { assertionFailure(); return UITableViewCell() }
             switch shownGroupsRows[indexPath.row] {
             case .autoAcceptGroupInvitesFrom:
-                if #available(iOS 14, *) {
-                    let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-                    var configuration = UIListContentConfiguration.valueCell()
-                    configuration.text = DetailedSettingForAutoAcceptGroupInvitesViewController.Strings.autoAcceptGroupInvitesFrom
-                    configuration.secondaryText = ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom.localizedDescription
-                    cell.contentConfiguration = configuration
-                    cell.accessoryType = .disclosureIndicator
-                    return cell
-                } else {
-                    let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-                    cell.textLabel?.text = DetailedSettingForAutoAcceptGroupInvitesViewController.Strings.autoAcceptGroupInvitesFrom
-                    cell.detailTextLabel?.text = ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom.localizedDescription
-                    cell.accessoryType = .disclosureIndicator
-                    return cell
-                }
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                var configuration = UIListContentConfiguration.valueCell()
+                configuration.text = DetailedSettingForAutoAcceptGroupInvitesViewController.Strings.autoAcceptGroupInvitesFrom
+                configuration.secondaryText = ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom.localizedDescription
+                cell.contentConfiguration = configuration
+                cell.accessoryType = .disclosureIndicator
+                return cell
             }
         }
         

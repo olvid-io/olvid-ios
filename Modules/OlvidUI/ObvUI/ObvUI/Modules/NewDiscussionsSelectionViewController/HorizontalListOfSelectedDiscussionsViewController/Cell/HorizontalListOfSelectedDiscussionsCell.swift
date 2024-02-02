@@ -23,7 +23,9 @@ import Foundation
 import ObvUICoreData
 import SwiftUI
 import UIKit
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
+import ObvDesignSystem
+
 
 @available(iOS 16.0, *)
 extension HorizontalListOfSelectedDiscussionsViewController {

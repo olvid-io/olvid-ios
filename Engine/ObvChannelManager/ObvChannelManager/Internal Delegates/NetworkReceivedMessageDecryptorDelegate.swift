@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,6 @@ import ObvTypes
 import OlvidUtils
 
 protocol NetworkReceivedMessageDecryptorDelegate {
-    func decryptAndProcess(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within obvContext: ObvContext) throws
+    func decryptAndProcessNetworkReceivedMessageEncrypted(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within obvContext: ObvContext) throws
     func decrypt(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within obvContext: ObvContext) throws -> ReceivedApplicationMessage
 }

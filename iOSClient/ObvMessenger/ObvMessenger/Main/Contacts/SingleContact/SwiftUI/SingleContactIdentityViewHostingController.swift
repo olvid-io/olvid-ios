@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,16 +27,17 @@ import ObvUICoreData
 
 
 protocol SingleContactIdentityViewHostingControllerDelegate: AnyObject {
+    func userWantsToNavigateToListOfContactDevicesView(_ contact: PersistedObvContactIdentity, within nav: UINavigationController?)
+    func userWantsToNavigateToListOfTrustOriginsView(_ trustOrigins: [ObvTrustOrigin], within nav: UINavigationController?)
     func userWantsToNavigateToSingleGroupView(_ group: DisplayedContactGroup, within nav: UINavigationController?)
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
-    func userWantsToEditContactNickname(persistedContactObjectId: NSManagedObjectID)
-    func userWantsToInviteContactToOneToOne(persistedContactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
+    func userWantsToInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
     func userWantsToCancelSentInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
     func userWantsToSyncOneToOneStatusOfContact(persistedContactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 }
 
 
-final class SingleContactIdentityViewHostingController: UIHostingController<SingleContactIdentityView>, SingleContactIdentityDelegate, SomeSingleContactViewController, ObvErrorMaker {
+final class SingleContactIdentityViewHostingController: UIHostingController<SingleContactIdentityView>, SingleContactIdentityDelegate, SomeSingleContactViewController, ObvErrorMaker, PersonalNoteEditorViewActionsDelegate, EditNicknameAndCustomPictureViewControllerDelegate {
     
     let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "SingleContactIdentityViewHostingController")
     static let errorDomain = "SingleContactIdentityViewHostingController"
@@ -44,7 +45,6 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
     let currentOwnedCryptoId: ObvCryptoId
     let contactPermanentID: ContactPermanentID
     private let contact: SingleContactIdentity
-    private var editedSingleContact: SingleContactIdentity? = nil
     private var observationTokens = [NSObjectProtocol]()
     private let persistedObvContactIdentityObjectID: NSManagedObjectID
     let contactCryptoId: ObvCryptoId
@@ -100,12 +100,62 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
         }
     }
     
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        addRightBarButtonMenu()
+
+    }
+    
+    
+    private func addRightBarButtonMenu() {
+        
+        let actionEditNote = UIAction(
+            title: NSLocalizedString("EDIT_PERSONAL_NOTE", comment: ""),
+            image: UIImage(systemIcon: .pencil(.none)),
+            handler: userWantsToShowPersonalNoteEditor)
+        
+        let actionEditNicknameAndCustomPhoto = UIAction(
+            title: NSLocalizedString("EDIT_NICKNAME_AND_CUSTOM_PHOTO", comment: ""),
+            image: UIImage(systemIcon: .camera(.none)),
+            handler: { [weak self] _ in self?.userWantsToEditContactNickname() }
+        )
+        
+        let menu = UIMenu(children: [actionEditNote, actionEditNicknameAndCustomPhoto])
+        
+        let barButtonItem = UIBarButtonItem(image: UIImage(systemIcon: .ellipsisCircle), menu: menu)
+        
+        navigationItem.rightBarButtonItems = [barButtonItem]
+    }
+    
+    
+    private func userWantsToShowPersonalNoteEditor(_ action: UIAction) {
+        guard let contact = try? PersistedObvContactIdentity.get(
+            contactCryptoId: contactCryptoId,
+            ownedIdentityCryptoId: currentOwnedCryptoId,
+            whereOneToOneStatusIs: .any,
+            within: ObvStack.shared.viewContext) else { return }
+        let personalNote = contact.note
+        let viewControllerToPresent = PersonalNoteEditorHostingController(model: .init(initialText: personalNote), actions: self)
+        if let sheet = viewControllerToPresent.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+            sheet.prefersEdgeAttachedInCompactHeight = true
+            sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+            sheet.preferredCornerRadius = 16.0
+        }
+        present(viewControllerToPresent, animated: true, completion: nil)
+    }
+    
+    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         guard let ownedIdentityCryptoId = self.ownedIdentityCryptoId else { assertionFailure(); return }
         ObvMessengerInternalNotification.userDidSeeNewDetailsOfContact(contactCryptoId: contactCryptoId, ownedCryptoId: ownedIdentityCryptoId)
             .postOnDispatchQueue()
-        ObvMessengerInternalNotification.resyncContactIdentityDevicesWithEngine(contactCryptoId: contactCryptoId, ownedCryptoId: ownedIdentityCryptoId)
+        let obvContactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedIdentityCryptoId)
+        ObvMessengerInternalNotification.resyncContactIdentityDevicesWithEngine(obvContactIdentifier: obvContactIdentifier)
             .postOnDispatchQueue()
     }
     
@@ -152,11 +202,15 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
         guard let persistedContact = contact.persistedContact else { assertionFailure(); return }
         let contactCryptoId = persistedContact.cryptoId
         guard let ownedCryptoId = persistedContact.ownedIdentity?.cryptoId else { assertionFailure(); return }
-        do {
-            try obvEngine.updateTrustedIdentityDetailsOfContactIdentity(with: contactCryptoId, ofOwnedIdentityWithCryptoId: ownedCryptoId, with: details)
-        } catch {
-            os_log("Could not update trusted identity details of a contact", log: log, type: .error)
-            assertionFailure()
+        let obvEngine = self.obvEngine
+        let log = self.log
+        Task.detached {
+            do {
+                try await obvEngine.updateTrustedIdentityDetailsOfContactIdentity(with: contactCryptoId, ofOwnedIdentityWithCryptoId: ownedCryptoId, with: details)
+            } catch {
+                os_log("Could not update trusted identity details of a contact", log: log, type: .error)
+                assertionFailure()
+            }
         }
     }
 
@@ -166,6 +220,14 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
     }
 
     
+    func userWantsToNavigateToListOfContactDevicesView(_ contact: PersistedObvContactIdentity) {
+        delegate?.userWantsToNavigateToListOfContactDevicesView(contact, within: navigationController)
+    }
+
+    func userWantsToNavigateToListOfTrustOriginsView(trustOrigins: [ObvTrustOrigin]) {
+        delegate?.userWantsToNavigateToListOfTrustOriginsView(trustOrigins, within: navigationController)
+    }
+    
     func userWantsToDisplay(persistedDiscussion: PersistedDiscussion) {
         delegate?.userWantsToDisplay(persistedDiscussion: persistedDiscussion)
     }
@@ -173,28 +235,37 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
     func userWantsToEditContactNickname() {
         assert(Thread.isMainThread)
         guard let persistedContact = contact.persistedContact else { return }
-        let trustOrigins = contact.trustOrigins
-        editedSingleContact = SingleContactIdentity(persistedContact: persistedContact,
-                                                    observeChangesMadeToContact: true,
-                                                    trustOrigins: trustOrigins,
-                                                    fetchGroups: true)
-        let view = EditSingleContactIdentityNicknameNavigationView(singleIdentity: editedSingleContact!, saveAction: {
-            self.dismiss(animated: true)
-            ObvMessengerInternalNotification.userWantsToEditContactNicknameAndPicture(
-                persistedContactObjectID: persistedContact.objectID,
-                customDisplayName: self.editedSingleContact?.customDisplayName,
-                customPhotoURL: self.editedSingleContact?.customPhotoURL).postOnDispatchQueue()
-        }, dismissAction: {
-            self.editedSingleContact = nil
-            self.dismiss(animated: true)
-        })
-        let vc = UIHostingController(rootView: view)
+        guard let contactIdentifier = try? persistedContact.contactIdentifier else { assertionFailure(); return }
+        guard let contactInitial = persistedContact.circledInitialsConfiguration.initials?.text else { assertionFailure(); return }
+        let contactPhoto: UIImage?
+        if let url = persistedContact.photoURL {
+            contactPhoto = UIImage(contentsOfFile: url.path)
+        } else {
+            contactPhoto = nil
+        }
+        let currentCustomPhoto: UIImage?
+        if let url = persistedContact.customPhotoURL {
+            currentCustomPhoto = UIImage(contentsOfFile: url.path)
+        } else {
+            currentCustomPhoto = nil
+        }
+        let currentNickname = persistedContact.customDisplayName ?? ""
+        let vc = EditNicknameAndCustomPictureViewController(
+            model: .init(identifier: .contact(contactIdentifier: contactIdentifier),
+                         currentInitials: contactInitial,
+                         defaultPhoto: contactPhoto,
+                         currentCustomPhoto: currentCustomPhoto,
+                         currentNickname: currentNickname),
+            delegate: self)
         present(vc, animated: true)
     }
     
     func userWantsToInviteContactToOneToOne() {
-        guard let persistedContact = contact.persistedContact else { return }
-        delegate?.userWantsToInviteContactToOneToOne(persistedContactObjectID: persistedContact.typedObjectID)
+        guard let ownedCryptoId = contact.persistedContact?.ownedIdentity?.cryptoId,
+              let contactCryptoId = contact.persistedContact?.cryptoId else {
+            return
+        }
+        delegate?.userWantsToInviteContactToOneToOne(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
     }
     
     func userWantsToCancelSentInviteContactToOneToOne() {
@@ -238,4 +309,53 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
         })
     }
     
+    
+    // MARK: - PersonalNoteEditorViewActionsDelegate
+    
+    func userWantsToDismissPersonalNoteEditorView() async {
+        guard presentedViewController is PersonalNoteEditorHostingController else { return }
+        presentedViewController?.dismiss(animated: true)
+    }
+    
+    
+    @MainActor
+    func userWantsToUpdatePersonalNote(with newText: String?) async {
+        let contactIdentifier = ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: currentOwnedCryptoId)
+        ObvMessengerInternalNotification.userWantsToUpdatePersonalNoteOnContact(contactIdentifier: contactIdentifier, newText: newText)
+            .postOnDispatchQueue()
+        presentedViewController?.dismiss(animated: true)
+    }
+
+    
+    // MARK: - EditNicknameAndCustomPictureViewControllerDelegate
+    
+    @MainActor
+    func userWantsToSaveNicknameAndCustomPicture(controller: EditNicknameAndCustomPictureViewController, identifier: EditNicknameAndCustomPictureView.Model.IdentifierKind, nickname: String, customPhoto: UIImage?) async {
+        let contactIdentifier: ObvContactIdentifier
+        switch identifier {
+        case .groupV2:
+            assertionFailure("The controller is expected to be configured with an identifier corresponding to the contact shown by this view controller")
+            return
+        case .contact(let _contactIdentifier):
+            contactIdentifier = _contactIdentifier
+        }
+        controller.dismiss(animated: true)
+        guard let persistedContact = contact.persistedContact else { return }
+        guard contactIdentifier == (try? persistedContact.contactIdentifier) else { assertionFailure(); return }
+        let sanitizedNickname = nickname.trimmingWhitespacesAndNewlines()
+        let newNickname = sanitizedNickname.isEmpty ? nil : sanitizedNickname
+        ObvMessengerInternalNotification.userWantsToEditContactNicknameAndPicture(
+            persistedContactObjectID: persistedContact.objectID,
+            customDisplayName: newNickname,
+            customPhoto: customPhoto)
+        .postOnDispatchQueue()
+    }
+    
+    
+    @MainActor
+    func userWantsToDismissEditNicknameAndCustomPictureViewController(controller: EditNicknameAndCustomPictureViewController) async {
+        controller.dismiss(animated: true)
+    }
+    
+
 }

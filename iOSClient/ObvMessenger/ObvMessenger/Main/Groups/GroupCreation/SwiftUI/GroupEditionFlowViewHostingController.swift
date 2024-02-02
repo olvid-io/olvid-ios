@@ -20,6 +20,7 @@
 import SwiftUI
 import ObvTypes
 import ObvUI
+import ObvDesignSystem
 
 
 final class GroupEditionFlowViewHostingController: UIHostingController<OwnedGroupEditionFlowView> {
@@ -29,7 +30,6 @@ final class GroupEditionFlowViewHostingController: UIHostingController<OwnedGrou
         case createGroupV2
         case editGroupV1 // Always as admin
         case editGroupV2AsAdmin
-        case editGroupV2CustomNameAndCustomPhoto
     }
 
     init(contactGroup: ContactGroup, editionType: EditionType, userConfirmedPublishAction: @escaping () -> Void) {
@@ -85,8 +85,6 @@ struct OwnedGroupEditionFlowView: View {
             return contactGroup.hasChanged
         case .editGroupV2AsAdmin:
             return contactGroup.hasChanged
-        case .editGroupV2CustomNameAndCustomPhoto:
-            return contactGroup.hasChanged
         }
     }
 
@@ -99,14 +97,13 @@ struct OwnedGroupEditionFlowView: View {
         switch editionType {
         case .createGroupV1, .createGroupV2: return NSLocalizedString("CREATE_GROUP", comment: "")
         case .editGroupV1, .editGroupV2AsAdmin: return NSLocalizedString("PUBLISH_GROUP", comment: "")
-        case .editGroupV2CustomNameAndCustomPhoto: return NSLocalizedString("SAVE_CUSTOM_GROUP_VALUES", comment: "")
         }
     }
 
     var actionTitle: String {
         switch editionType {
         case .createGroupV1, .createGroupV2: return NSLocalizedString("PUBLISH_NEW_GROUP", comment: "")
-        case .editGroupV1, .editGroupV2AsAdmin, .editGroupV2CustomNameAndCustomPhoto: return NSLocalizedString("EDIT_GROUP", comment: "")
+        case .editGroupV1, .editGroupV2AsAdmin: return NSLocalizedString("EDIT_GROUP", comment: "")
         }
     }
 
@@ -114,7 +111,6 @@ struct OwnedGroupEditionFlowView: View {
         switch editionType {
         case .createGroupV1, .createGroupV2: return NSLocalizedString("ARE_YOU_SURE_CREATE_NEW_OWNED_GROUP", comment: "")
         case .editGroupV1, .editGroupV2AsAdmin: return NSLocalizedString("ARE_YOU_SURE_PUBLISH_EDITED_OWNED_GROUP", comment: "")
-        case .editGroupV2CustomNameAndCustomPhoto: assertionFailure(); return ""
         }
     }
 
@@ -122,7 +118,6 @@ struct OwnedGroupEditionFlowView: View {
         switch editionType {
         case .createGroupV1, .createGroupV2: return NSLocalizedString("CREATE_MY_GROUP", comment: "")
         case .editGroupV1, .editGroupV2AsAdmin: return NSLocalizedString("PUBLISH_MY_GROUP", comment: "")
-        case .editGroupV2CustomNameAndCustomPhoto: assertionFailure(); return ""
         }
     }
 
@@ -161,9 +156,6 @@ struct OwnedGroupEditionFlowView: View {
                                 switch editionType {
                                 case .createGroupV1, .createGroupV2, .editGroupV1, .editGroupV2AsAdmin:
                                     isPublishActionSheetShown = true
-                                case .editGroupV2CustomNameAndCustomPhoto:
-                                    publishingInProgress = true
-                                    userConfirmedPublishAction()
                                 }
                             })
                                 .padding(.all, 10)
@@ -178,10 +170,6 @@ struct OwnedGroupEditionFlowView: View {
                             Section(header: Text("ENTER_GROUP_DETAILS")) {
                                 TextField(LocalizedStringKey("GROUP_NAME"), text: $contactGroup.name)
                                 TextField(LocalizedStringKey("GROUP_DESCRIPTION"), text: $contactGroup.description)
-                            }.disabled(isPublishActionSheetShown)
-                        case .editGroupV2CustomNameAndCustomPhoto:
-                            Section(header: Text("CHOOSE_GROUP_NICKNAME")) {
-                                TextField(LocalizedStringKey("FORM_NICKNAME"), text: $contactGroup.name)
                             }.disabled(isPublishActionSheetShown)
                         }
                         if !contactGroup.members.isEmpty {

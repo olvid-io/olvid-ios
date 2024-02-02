@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import OlvidUtils
 import os.log
 import CoreData
 import ObvUICoreData
+import CoreData
 
 
 final class AddReplyToOnDraftOperation: ContextualOperationWithSpecificReasonForCancel<AddReplyToOnDraftOperationReasonForCancel> {
@@ -36,30 +37,24 @@ final class AddReplyToOnDraftOperation: ContextualOperationWithSpecificReasonFor
     }
     
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            do {
-                guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindDraftInDatabase)
-                }
-                guard let repliedTo = try PersistedMessage.get(with: messageObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindMessageInDatabase)
-                }
-                guard draft.discussion == repliedTo.discussion else {
-                    return cancel(withReason: .incoherentDiscussion)
-                }
-                guard repliedTo is PersistedMessageReceived || repliedTo is PersistedMessageSent else {
-                    return cancel(withReason: .repliedToMessageIsNeitherSentOrReceived)
-                }
-                draft.setReplyTo(to: repliedTo)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindDraftInDatabase)
             }
+            guard let repliedTo = try PersistedMessage.get(with: messageObjectID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindMessageInDatabase)
+            }
+            guard draft.discussion == repliedTo.discussion else {
+                return cancel(withReason: .incoherentDiscussion)
+            }
+            guard repliedTo is PersistedMessageReceived || repliedTo is PersistedMessageSent else {
+                return cancel(withReason: .repliedToMessageIsNeitherSentOrReceived)
+            }
+            draft.setReplyTo(to: repliedTo)
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

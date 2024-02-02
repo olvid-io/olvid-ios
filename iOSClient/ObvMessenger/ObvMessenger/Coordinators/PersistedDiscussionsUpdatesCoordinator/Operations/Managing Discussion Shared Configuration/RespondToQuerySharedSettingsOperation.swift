@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,91 +22,129 @@ import Foundation
 import OlvidUtils
 import ObvEngine
 import ObvUICoreData
+import os.log
+import ObvTypes
+import CoreData
 
 
-/// The operation processes received QuerySharedSettingsJSON requests for group v2 discussions.
+/// The operation processes received QuerySharedSettingsJSON requests by a contact or another device of the owned identity.
 ///
-/// If we consider that our discussion details are more recent than those of the contact who made the request, we send an ``anOldDiscussionSharedConfigurationWasReceived`` notification.
-/// This notification will be catched by the coordinator who will eventually send our shared details to the contact who made the request (provided that we have the right to change the group discussion details).
-final class RespondToQuerySharedSettingsOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
+/// If we consider that our discussion details are more recent than those of the contact who made the request, we send an ``aDiscussionSharedConfigurationIsNeededByContact``
+/// or an ``aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice`` notification. This notification will be catched by the coordinator who will
+/// eventually send our shared details to the contact who made the request.
+///
+final class RespondToQuerySharedSettingsOperation: ContextualOperationWithSpecificReasonForCancel<RespondToQuerySharedSettingsOperation.ReasonForCancel> {
     
-    let fromContactIdentity: ObvContactIdentity
-    let querySharedSettingsJSON: QuerySharedSettingsJSON
+    enum Requester {
+        case contact(contactIdentifier: ObvContactIdentifier)
+        case ownedIdentity(ownedCryptoId: ObvCryptoId)
+    }
+
+    private let querySharedSettingsJSON: QuerySharedSettingsJSON
+    private let requester: Requester
     
-    init(fromContactIdentity: ObvContactIdentity, querySharedSettingsJSON: QuerySharedSettingsJSON) {
-        self.fromContactIdentity = fromContactIdentity
+    init(querySharedSettingsJSON: QuerySharedSettingsJSON, requester: Requester) {
         self.querySharedSettingsJSON = querySharedSettingsJSON
+        self.requester = requester
         super.init()
     }
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+        do {
+            
+            let weShouldSendBackOurSharedSettings: Bool
+            let discussionId: DiscussionIdentifier
+            
+            switch requester {
+                
+            case .contact(contactIdentifier: let contactIdentifier):
+                
+                guard let contact = try PersistedObvContactIdentity.get(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindContact)
+                }
+                
+                (weShouldSendBackOurSharedSettings, discussionId) = try contact.processQuerySharedSettingsRequestFromThisContact(querySharedSettingsJSON: querySharedSettingsJSON)
+                
+            case .ownedIdentity(ownedCryptoId: let ownedCryptoId):
+                
+                guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindOwnedIdentity)
+                }
+                
+                (weShouldSendBackOurSharedSettings, discussionId) = try ownedIdentity.processQuerySharedSettingsRequestFromThisOwnedIdentity(querySharedSettingsJSON: querySharedSettingsJSON)
+                
+            }
+            
+            if weShouldSendBackOurSharedSettings {
+                switch requester {
+                case .contact(contactIdentifier: let contactIdentifier):
+                    requestSendingDiscussionSharedConfigurationToContact(contactIdentifier: contactIdentifier, discussionId: discussionId, within: obvContext)
+                case .ownedIdentity(ownedCryptoId: let ownedCryptoId):
+                    requestSendingDiscussionSharedConfigurationToAnotherOwnedDevice(ownedCryptoId: ownedCryptoId, discussionId: discussionId, within: obvContext)
+                }
+            }
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
+    }
 
-            do {
-                
-                let ownIdentity = fromContactIdentity.ownedIdentity.cryptoId
-                let groupV2Identifier = querySharedSettingsJSON.groupV2Identifier
-                let sharedSettingsVersionKnownByContact = querySharedSettingsJSON.knownSharedSettingsVersion ?? Int.min
-                let sharedExpirationKnownByContact = querySharedSettingsJSON.knownSharedExpiration
-
-                // Try to get the group
-                
-                guard let group = try PersistedGroupV2.get(ownIdentity: ownIdentity, appGroupIdentifier: groupV2Identifier, within: obvContext.context) else {
-                    // We could not get the group, there is not much we can do
-                    return
-                }
-                
-                guard let discussion = group.discussion else {
-                    // We could not get the discussion, there is not much we can do
-                    return
-                }
-                
-                let sharedConfiguration = discussion.sharedConfiguration
-                
-                // Get the values known locally
-                
-                let sharedSettingsVersionKnownLocally = sharedConfiguration.version
-                let sharedExpirationKnownLocally: ExpirationJSON?
-                if sharedSettingsVersionKnownLocally >= 0 {
-                    sharedExpirationKnownLocally = sharedConfiguration.toExpirationJSON()
-                } else {
-                    sharedExpirationKnownLocally = nil
-                }
-                
-                // If the locally known values are identical to the values known to the contact, we are done, we do not need to answer the query
-                
-                guard sharedSettingsVersionKnownByContact <= sharedSettingsVersionKnownLocally || sharedExpirationKnownByContact != sharedExpirationKnownLocally else {
-                    return
-                }
-                
-                // If we reach this point, something differed between the shared settings of our contact and ours
-
-                var weShouldSentBackTheSharedSettings = false
-                if sharedSettingsVersionKnownLocally > sharedSettingsVersionKnownByContact {
-                    weShouldSentBackTheSharedSettings = true
-                } else if sharedSettingsVersionKnownLocally == sharedSettingsVersionKnownByContact && sharedExpirationKnownByContact != sharedExpirationKnownLocally {
-                    weShouldSentBackTheSharedSettings = true
-                }
-                
-                guard weShouldSentBackTheSharedSettings else {
-                    return
-                }
-                
-                // If we reach this point, we must send our shared settings back
-                
-                discussion.sendNotificationIndicatingThatAnOldDiscussionSharedConfigurationWasReceived()
-                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+    
+    private func requestSendingDiscussionSharedConfigurationToContact(contactIdentifier: ObvContactIdentifier, discussionId: DiscussionIdentifier, within obvContext: ObvContext) {
+        do {
+            try obvContext.addContextDidSaveCompletionHandler { error in
+                guard error == nil else { return }
+                ObvMessengerInternalNotification.aDiscussionSharedConfigurationIsNeededByContact(
+                    contactIdentifier: contactIdentifier,
+                    discussionId: discussionId)
+                .postOnDispatchQueue()
             }
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
 
+    
+    private func requestSendingDiscussionSharedConfigurationToAnotherOwnedDevice(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, within obvContext: ObvContext) {
+        do {
+            try obvContext.addContextDidSaveCompletionHandler { error in
+                guard error == nil else { return }
+                ObvMessengerInternalNotification.aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice(
+                    ownedCryptoId: ownedCryptoId,
+                    discussionId: discussionId)
+                .postOnDispatchQueue()
+            }
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
+
+    
+    enum ReasonForCancel: LocalizedErrorWithLogType {
+        
+        case coreDataError(error: Error)
+        case couldNotFindOwnedIdentity
+        case couldNotFindContact
+
+        var logType: OSLogType {
+            return .fault
+        }
+
+        var errorDescription: String? {
+            switch self {
+            case .coreDataError(error: let error):
+                return "Core Data error: \(error.localizedDescription)"
+            case .couldNotFindOwnedIdentity:
+                return "Could not find owned identity"
+            case .couldNotFindContact:
+                return "Could not find the contact identity"
+            }
         }
 
     }
 
+    
+    
 }

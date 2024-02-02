@@ -105,7 +105,7 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
         
         switch config {
         case .loading:
-            bodyLabel.text = MessageCollectionViewCell.Strings.replyToMessageUnavailable
+            bodyLabel.text = Self.Strings.replyToMessageUnavailable
             bodyLabel.textColor = UIColor.secondaryLabel
             bodyLabel.showInStack = true
             nameLabel.text = nil
@@ -116,7 +116,7 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
             imageView.reset()
             imageView.showInStack = false
         case .messageWasDeleted:
-            bodyLabel.text = MessageCollectionViewCell.Strings.replyToMessageWasDeleted
+            bodyLabel.text = Self.Strings.replyToMessageWasDeleted
             bodyLabel.textColor = UIColor.secondaryLabel
             bodyLabel.showInStack = true
             nameLabel.text = nil
@@ -332,6 +332,14 @@ final class ReplyToBubbleView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWit
                 return NSLocalizedString("Remotely wiped", comment: "")
             }
         }
+
+//        static let seeAttachments = { (count: Int) in
+//            return String.localizedStringWithFormat(NSLocalizedString("see count attachments", comment: "Number of attachments"), count)
+//        }
+
+        static let replyToMessageWasDeleted = NSLocalizedString("Deleted message", comment: "Body displayed when a reply-to message was deleted.")
+        
+        static let replyToMessageUnavailable = NSLocalizedString("UNAVAILABLE_MESSAGE", comment: "Body displayed when a reply-to message cannot be found.")
 
     }
 

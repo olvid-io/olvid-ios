@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -81,7 +81,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         }
     }
     
-    var attachmentIds: [AttachmentIdentifier] {
+    var attachmentIds: [ObvAttachmentIdentifier] {
         return attachments.compactMap { $0.attachmentId }
     }
 
@@ -100,11 +100,11 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     }
     
     /// This identifier is expected to be non nil, unless this `InboxMessage` was deleted on another thread.
-    private(set) var messageId: MessageIdentifier? {
+    private(set) var messageId: ObvMessageIdentifier? {
         get {
             guard let rawMessageIdOwnedIdentity = self.rawMessageIdOwnedIdentity else { return nil }
             guard let rawMessageIdUid = self.rawMessageIdUid else { return nil }
-            return MessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
+            return ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
         }
         set {
             guard let newValue else { assertionFailure("We should not be setting a nil value"); return }
@@ -130,14 +130,30 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     /// We expect to return a non-nil URL, unless this `InboxMessage` was deleted on another thread.
     func getAttachmentDirectory(withinInbox inbox: URL) -> URL? {
         guard let messageId else { return nil }
-        let sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
-        let directoryName = sha256.hash(messageId.rawValue).hexString()
+        // Return a legacy value if appropriate
+        if let url = Self.getLegacyAttachmentDirectoryIfItExistsOnDisk(withinInbox: inbox, messageId: messageId) {
+            return url
+        }
+        // Since we did not find any file at the legacy URL, we compute an appropriate, deterministic, URL.
+        let directoryName = messageId.directoryNameForMessageAttachments
         return inbox.appendingPathComponent(directoryName, isDirectory: true)
+    }
+    
+    
+    private static func getLegacyAttachmentDirectoryIfItExistsOnDisk(withinInbox inbox: URL, messageId: ObvMessageIdentifier) -> URL? {
+        let directoryNames = messageId.legacyDirectoryNamesForMessageAttachments
+        for directoryName in directoryNames {
+            let url = inbox.appendingPathComponent(directoryName, isDirectory: true)
+            if FileManager.default.fileExists(atPath: url.path) {
+                return url
+            }
+        }
+        return nil
     }
     
     // MARK: - Initializer
     
-    convenience init(messageId: MessageIdentifier, encryptedContent: EncryptedData, hasEncryptedExtendedMessagePayload: Bool, wrappedKey: EncryptedData, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, within obvContext: ObvContext) throws {
+    convenience init(messageId: ObvMessageIdentifier, encryptedContent: EncryptedData, hasEncryptedExtendedMessagePayload: Bool, wrappedKey: EncryptedData, messageUploadTimestampFromServer: Date, downloadTimestampFromServer: Date, localDownloadTimestamp: Date, within obvContext: ObvContext) throws {
         
         guard !Self.thisMessageWasRecentlyDeleted(messageId: messageId) else {
             throw InternalError.tryingToInsertAMessageThatWasAlreadyDeleted
@@ -167,7 +183,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     /// We keep in memory a list of all messages that were "recently" deleted. This prevents the re-creation of a message that we would list from the server and delete at the same time.
     /// Every 10 minutes or so, we remove old entries.
-    private static var _messagesRecentlyDeleted = [MessageIdentifier: Date]()
+    private static var _messagesRecentlyDeleted = [ObvMessageIdentifier: Date]()
     
     /// This queue allows to synchronise access to `_messagesRecentlyDeleted`
     private static var messagesRecentlyDeletedQueue = DispatchQueue(label: "MessagesRecentlyDeletedQueue", attributes: .concurrent)
@@ -190,7 +206,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     
     /// Returns `true` iff we recently deleted a message with the given message identifier.
-    private static func thisMessageWasRecentlyDeleted(messageId: MessageIdentifier) -> Bool {
+    private static func thisMessageWasRecentlyDeleted(messageId: ObvMessageIdentifier) -> Bool {
         removeOldEntriesFromMessagesRecentlyDeletedIfAppropriate()
         var result = false
         messagesRecentlyDeletedQueue.sync {
@@ -200,7 +216,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     }
 
     
-    private static func trackRecentlyDeletedMessage(messageId: MessageIdentifier) {
+    private static func trackRecentlyDeletedMessage(messageId: ObvMessageIdentifier) {
         messagesRecentlyDeletedQueue.async(flags: .barrier) {
             _messagesRecentlyDeleted[messageId] = Date()
         }
@@ -313,7 +329,7 @@ extension InboxMessage {
         static func withMessageIdUid(_ uid: UID) -> NSPredicate {
             NSPredicate(Key.rawMessageIdUidKey, EqualToData: uid.raw)
         }
-        static func withMessageIdentifier(_ messageId: MessageIdentifier) -> NSPredicate {
+        static func withMessageIdentifier(_ messageId: ObvMessageIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 withMessageIdOwnedCryptoId(messageId.ownedCryptoIdentity),
                 withMessageIdUid(messageId.uid),
@@ -369,7 +385,7 @@ extension InboxMessage {
     }
 
     
-    static func get(messageId: MessageIdentifier, within obvContext: ObvContext) throws -> InboxMessage? {
+    static func get(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws -> InboxMessage? {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageIdentifier(messageId)
         request.fetchLimit = 1

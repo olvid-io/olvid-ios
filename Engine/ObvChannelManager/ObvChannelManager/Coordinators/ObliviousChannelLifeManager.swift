@@ -240,6 +240,19 @@ extension ObliviousChannelLifeManager {
 
     }
     
+    
+    public func anObliviousChannelExistsBetweenCurrentDeviceUid(_ currentDeviceUid: UID, andRemoteDeviceUid remoteDeviceUid: UID, of remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+    
+        let channel = try ObvObliviousChannel.get(currentDeviceUid: currentDeviceUid,
+                                                  remoteCryptoIdentity: remoteIdentity,
+                                                  remoteDeviceUid: remoteDeviceUid,
+                                                  necessarilyConfirmed: false,
+                                                  within: obvContext)
+        return channel != nil
+        
+    }
+    
+    
     public func aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity remoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid remoteDeviceUid: UID, within obvContext: ObvContext) throws -> Bool {
         
         guard let delegateManager = delegateManager else {

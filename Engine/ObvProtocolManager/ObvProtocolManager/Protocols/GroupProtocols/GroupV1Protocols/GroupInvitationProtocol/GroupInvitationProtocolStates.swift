@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,21 +29,21 @@ extension GroupInvitationProtocol {
     
     enum StateId: Int, ConcreteProtocolStateId {
         
-        case InitialState = 0
-        case InvitationSent = 1
-        case InvitationReceived = 2
-        case ResponseSent = 3
-        case ResponseReceived = 4
-        case Cancelled = 5
+        case initialState = 0
+        case invitationSent = 1
+        case invitationReceived = 2
+        case responseSent = 3
+        case responseReceived = 4
+        case cancelled = 5
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
-            case .InitialState       : return ConcreteProtocolInitialState.self
-            case .InvitationSent     : return InvitationSentState.self
-            case .InvitationReceived : return InvitationReceivedState.self
-            case .ResponseSent       : return ResponseSentState.self
-            case .ResponseReceived   : return ResponseReceivedState.self
-            case .Cancelled          : return CancelledState.self
+            case .initialState       : return ConcreteProtocolInitialState.self
+            case .invitationSent     : return InvitationSentState.self
+            case .invitationReceived : return InvitationReceivedState.self
+            case .responseSent       : return ResponseSentState.self
+            case .responseReceived   : return ResponseReceivedState.self
+            case .cancelled          : return CancelledState.self
             }
         }
     }
@@ -53,7 +53,7 @@ extension GroupInvitationProtocol {
     
     struct InvitationSentState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.InvitationSent
+        let id: ConcreteProtocolStateId = StateId.invitationSent
         
         init(_: ObvEncoded) {}
         
@@ -68,7 +68,7 @@ extension GroupInvitationProtocol {
     
     struct InvitationReceivedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.InvitationReceived
+        let id: ConcreteProtocolStateId = StateId.invitationReceived
         
         let groupInformation: GroupInformation
         let dialogUuid: UUID
@@ -102,7 +102,7 @@ extension GroupInvitationProtocol {
     
     struct ResponseSentState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.ResponseSent
+        let id: ConcreteProtocolStateId = StateId.responseSent
         
         init(_: ObvEncoded) {}
         
@@ -117,7 +117,7 @@ extension GroupInvitationProtocol {
     
     struct ResponseReceivedState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.ResponseReceived
+        let id: ConcreteProtocolStateId = StateId.responseReceived
         
         init(_: ObvEncoded) {}
         
@@ -132,7 +132,7 @@ extension GroupInvitationProtocol {
     
     struct CancelledState: TypeConcreteProtocolState {
         
-        let id: ConcreteProtocolStateId = StateId.Cancelled
+        let id: ConcreteProtocolStateId = StateId.cancelled
         
         init(_: ObvEncoded) throws {}
         

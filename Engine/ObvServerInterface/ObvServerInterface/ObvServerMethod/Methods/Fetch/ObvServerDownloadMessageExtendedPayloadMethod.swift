@@ -36,14 +36,14 @@ public final class ObvServerDownloadMessageExtendedPayloadMethod: ObvServerDataM
     
     public var ownedIdentity: ObvCryptoIdentity { messageId.ownedCryptoIdentity }
 
-    private let messageId: MessageIdentifier
+    private let messageId: ObvMessageIdentifier
     private let token: Data
     public let flowId: FlowIdentifier
     public let isActiveOwnedIdentityRequired = true
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public init(messageId: MessageIdentifier, token: Data, flowId: FlowIdentifier) {
+    public init(messageId: ObvMessageIdentifier, token: Data, flowId: FlowIdentifier) {
         self.messageId = messageId
         self.flowId = flowId
         self.token = token

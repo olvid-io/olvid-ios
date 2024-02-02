@@ -91,12 +91,8 @@ extension UserNotificationAction {
 extension UNNotificationAction {
 
     convenience init(identifier: String, title: String, options: UNNotificationActionOptions = [], icon: SystemIcon) {
-        if #available(iOS 15.0, *) {
-            let actionIcon = UNNotificationActionIcon(systemImageName: icon.systemName)
-            self.init(identifier: identifier, title: title, options: options, icon: actionIcon)
-        } else {
-            self.init(identifier: identifier, title: title, options: options)
-        }
+        let actionIcon = UNNotificationActionIcon(systemImageName: icon.systemName)
+        self.init(identifier: identifier, title: title, options: options, icon: actionIcon)
     }
 
 }
@@ -104,11 +100,7 @@ extension UNNotificationAction {
 extension UNTextInputNotificationAction {
 
     convenience init(identifier: String, title: String, options: UNNotificationActionOptions = [], icon: SystemIcon, textInputButtonTitle: String, textInputPlaceholder: String) {
-        if #available(iOS 15.0, *) {
-            let actionIcon = UNNotificationActionIcon(systemImageName: icon.systemName)
-            self.init(identifier: identifier, title: title, options: options, icon: actionIcon, textInputButtonTitle: textInputButtonTitle, textInputPlaceholder: textInputPlaceholder)
-        } else {
-            self.init(identifier: identifier, title: title, options: options, textInputButtonTitle: textInputButtonTitle, textInputPlaceholder: textInputPlaceholder)
-        }
+        let actionIcon = UNNotificationActionIcon(systemImageName: icon.systemName)
+        self.init(identifier: identifier, title: title, options: options, icon: actionIcon, textInputButtonTitle: textInputButtonTitle, textInputPlaceholder: textInputPlaceholder)
     }
 }

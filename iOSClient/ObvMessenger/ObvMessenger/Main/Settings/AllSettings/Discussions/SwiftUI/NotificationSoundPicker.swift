@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -16,7 +16,6 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
-  
 
 import AudioToolbox
 import ObvUI
@@ -24,6 +23,8 @@ import ObvUICoreData
 import SwiftUI
 import UI_SystemIcon
 import UI_SystemIcon_SwiftUI
+import ObvSettings
+import ObvDesignSystem
 
 
 struct NotificationSoundPicker<Content: View>: View {
@@ -37,7 +38,7 @@ struct NotificationSoundPicker<Content: View>: View {
                                                           content: content,
                                                           showDefault: showDefault)) {
             HStack {
-                ObvLabel("NOTIFICATION_SOUNDS_LABEL", systemIcon: .musicNoteList)
+                Label("NOTIFICATION_SOUNDS_LABEL", systemIcon: .musicNoteList)
                 Spacer()
                 content(selection)
                     .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
@@ -114,7 +115,7 @@ struct NotificationSoundList<Content: View>: View {
                                        selection: $selection,
                                        content: content)
         }
-        .obvNavigationTitle(Text("NOTIFICATION_SOUNDS_LABEL"))
+        .navigationTitle(Text("NOTIFICATION_SOUNDS_LABEL"))
     }
 }
 

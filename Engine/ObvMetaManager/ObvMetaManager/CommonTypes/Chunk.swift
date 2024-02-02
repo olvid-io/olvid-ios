@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -70,6 +70,18 @@ public struct Chunk {
     }
 
     public func writeToURL(_ url: URL, offset: Int) throws {
+        
+        // Make sure the url exists
+        do {
+            let directory = url.deletingLastPathComponent()
+            if !FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            }
+            if !FileManager.default.fileExists(atPath: url.path) {
+                FileManager.default.createFile(atPath: url.path, contents: nil)
+            }
+        }
+        
         let fd = open(url.path, O_RDWR)
         guard fd != -1 else {
             assertionFailure()
@@ -112,12 +124,7 @@ public struct Chunk {
         
     public static func decrypt(encryptedChunkAtFileHandle fh: FileHandle, with key: AuthenticatedEncryptionKey) throws -> Chunk {
         fh.seek(toFileOffset: 0)
-        let encryptedChunkRaw: Data?
-        if #available(iOS 13.4, *) {
-            encryptedChunkRaw = try fh.readToEnd()
-        } else {
-            encryptedChunkRaw = fh.readDataToEndOfFile()
-        }
+        let encryptedChunkRaw = try fh.readToEnd()
         guard let data = encryptedChunkRaw else { throw Chunk.makeError(message: "No chunk data found at file handle") }
         let encryptedChunk = EncryptedData(data: data)
         return try decrypt(encryptedChunk: encryptedChunk, with: key)

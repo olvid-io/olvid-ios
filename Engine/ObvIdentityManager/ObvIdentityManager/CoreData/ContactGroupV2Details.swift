@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import OlvidUtils
 import ObvMetaManager
 import ObvCrypto
 import ObvEncoder
+import ObvTypes
 import os.log
 
 
@@ -138,6 +139,23 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     }
 
     
+    /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreated in a second step
+    fileprivate convenience init(snapshotNode: ContactGroupV2DetailsSyncSnapshotNode, within obvContext: ObvContext) throws {
+        let entityDescription = NSEntityDescription.entity(forEntityName: ContactGroupV2Details.entityName, in: obvContext)!
+        self.init(entity: entityDescription, insertInto: obvContext)
+        self.rawPhotoServerIdentity = snapshotNode.rawPhotoServerIdentity
+        self.rawPhotoServerKeyEncoded = snapshotNode.rawPhotoServerKeyEncoded
+        self.photoServerLabel = snapshotNode.photoServerLabel
+        guard let serializedCoreDetails = snapshotNode.serializedCoreDetails else {
+            assertionFailure()
+            throw ContactGroupV2DetailsSyncSnapshotNode.ObvError.tryingToRestoreIncompleteNode
+        }
+        self.serializedCoreDetails = serializedCoreDetails
+        self.isRestoringBackup = true
+        self.delegateManager = nil
+    }
+
+    
     func delete(delegateManager: ObvIdentityDelegateManager) throws {
         let identityPhotosDirectory = delegateManager.identityPhotosDirectory
         guard let obvContext = obvContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }
@@ -163,9 +181,14 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     }
     
     func getPhotoURL(identityPhotosDirectory: URL) -> URL? {
+        guard let url = getRawPhotoURL(identityPhotosDirectory: identityPhotosDirectory) else { return nil }
+        guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
+        return url
+    }
+
+    private func getRawPhotoURL(identityPhotosDirectory: URL) -> URL? {
         guard let photoFilename = photoFilename else { return nil }
         let url = identityPhotosDirectory.appendingPathComponent(photoFilename)
-        guard FileManager.default.fileExists(atPath: url.path) else { assertionFailure(); return nil }
         return url
     }
 
@@ -407,6 +430,9 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         static var withoutPhotoFilename: NSPredicate {
             NSPredicate(withNilValueForKey: Key.photoFilename)
         }
+        static var withPhotoFilename: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.photoFilename)
+        }
         static var withoutContactGroup: NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(withNilValueForKey: Key.contactGroupInCaseTheDetailsArePublished),
@@ -415,6 +441,27 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         }
     }
 
+    
+    static func getInfosAboutGroupsHavingPhotoFilename(identityPhotosDirectory: URL, within obvContext: ObvContext) throws -> [(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo, photoURL: URL)] {
+        
+        let request: NSFetchRequest<ContactGroupV2Details> = ContactGroupV2Details.fetchRequest()
+        request.predicate = Predicate.withPhotoFilename
+        let items = try obvContext.fetch(request)
+        let results: [(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverPhotoInfo: GroupV2.ServerPhotoInfo, photoURL: URL)] = items.compactMap { details in
+            
+            guard let photoURL = details.getRawPhotoURL(identityPhotosDirectory: identityPhotosDirectory),
+                  let group = details.contactGroupInCaseTheDetailsArePublished ?? details.contactGroupInCaseTheDetailsAreTrusted,
+                  let ownedIdentity = group.ownedIdentity?.cryptoIdentity,
+                  let groupIdentifier = group.groupIdentifier,
+                  let serverPhotoInfo = details.serverPhotoInfo
+            else {
+                return nil
+            }
+            return (ownedIdentity, groupIdentifier, serverPhotoInfo, photoURL)
+        }
+        return results
+    }
+    
     
     static func getAllPhotoURLs(identityPhotosDirectory: URL, within obvContext: ObvContext) throws -> Set<URL> {
         let request: NSFetchRequest<ContactGroupV2Details> = ContactGroupV2Details.fetchRequest()
@@ -568,4 +615,151 @@ struct ContactGroupV2DetailsBackupItem: Codable, Hashable, ObvErrorMaker {
         // Nothing to do here
     }
 
+}
+
+
+
+// MARK: - For Snapshot purposes
+
+
+extension ContactGroupV2Details {
+    
+    var snapshotNode: ContactGroupV2DetailsSyncSnapshotNode {
+        .init(rawPhotoServerIdentity: self.rawPhotoServerIdentity,
+              rawPhotoServerKeyEncoded: self.rawPhotoServerKeyEncoded,
+              photoServerLabel: self.photoServerLabel,
+              serializedCoreDetails: self.serializedCoreDetails)
+    }
+    
+}
+
+
+struct ContactGroupV2DetailsSyncSnapshotNode: ObvSyncSnapshotNode, Equatable, Hashable {
+    
+    private let domain: Set<CodingKeys>
+    fileprivate let rawPhotoServerIdentity: Data?
+    fileprivate let rawPhotoServerKeyEncoded: Data?
+    fileprivate let photoServerLabel: UID?
+    fileprivate let serializedCoreDetails: Data?
+
+    let id = Self.generateIdentifier()
+
+    private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
+    
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        case rawPhotoServerIdentity = "photo_server_identity"
+        case rawPhotoServerKeyEncoded = "photo_server_key"
+        case photoServerLabel = "photo_server_label"
+        case serializedCoreDetails = "serialized_details"
+        case domain = "domain"
+    }
+
+    
+    fileprivate init(rawPhotoServerIdentity: Data?, rawPhotoServerKeyEncoded: Data?, photoServerLabel: UID?, serializedCoreDetails: Data) {
+        if let rawPhotoServerKeyEncoded = rawPhotoServerKeyEncoded, let photoServerLabel = photoServerLabel {
+            self.rawPhotoServerKeyEncoded = rawPhotoServerKeyEncoded
+            self.photoServerLabel = photoServerLabel
+        } else {
+            self.rawPhotoServerKeyEncoded = nil
+            self.photoServerLabel = nil
+        }
+        self.rawPhotoServerIdentity = rawPhotoServerIdentity // Nil for keycloak groups
+        self.serializedCoreDetails = serializedCoreDetails
+        self.domain = Self.defaultDomain
+    }
+
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(domain, forKey: .domain)
+        if let serializedCoreDetails {
+            guard let serializedCoreDetailsAsString = String(data: serializedCoreDetails, encoding: .utf8) else {
+                throw ObvError.couldNotSerializeCoreDetails
+            }
+            try container.encode(serializedCoreDetailsAsString, forKey: .serializedCoreDetails)
+        }
+        try container.encodeIfPresent(rawPhotoServerIdentity, forKey: .rawPhotoServerIdentity)
+        try container.encodeIfPresent(rawPhotoServerKeyEncoded, forKey: .rawPhotoServerKeyEncoded)
+        try container.encodeIfPresent(photoServerLabel?.raw, forKey: .photoServerLabel)
+    }
+    
+    
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        
+        let rawKeys = try values.decode(Set<String>.self, forKey: .domain)
+        self.domain = Set(rawKeys.compactMap({ CodingKeys(rawValue: $0) }))
+
+        if let serializedCoreDetailsAsString = try values.decodeIfPresent(String.self, forKey: .serializedCoreDetails) {
+            guard let serializedCoreDetailsAsData = serializedCoreDetailsAsString.data(using: .utf8) else {
+                throw ObvError.couldNotDeserializeCoreDetails
+            }
+            self.serializedCoreDetails = serializedCoreDetailsAsData
+        } else {
+            self.serializedCoreDetails = nil
+        }
+
+        if values.allKeys.contains(.photoServerLabel) && values.allKeys.contains(.rawPhotoServerKeyEncoded) && values.allKeys.contains(.rawPhotoServerIdentity) {
+            do {
+                self.rawPhotoServerIdentity = try values.decodeIfPresent(Data.self, forKey: .rawPhotoServerIdentity)
+                self.rawPhotoServerKeyEncoded = try values.decodeIfPresent(Data.self, forKey: .rawPhotoServerKeyEncoded)
+                if let photoServerLabelAsData = try? values.decodeIfPresent(Data.self, forKey: .photoServerLabel),
+                   let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    // Expected
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else if let photoServerLabelAsUID = try values.decodeIfPresent(UID.self, forKey: .photoServerLabel) {
+                    assertionFailure()
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else if let photoServerLabelAsString = try? values.decode(String.self, forKey: .photoServerLabel),
+                          let photoServerLabelAsData = Data(base64Encoded: photoServerLabelAsString),
+                          let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    assertionFailure()
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else if let photoServerLabelAsString = try? values.decode(String.self, forKey: .photoServerLabel),
+                          let photoServerLabelAsData = Data(hexString: photoServerLabelAsString),
+                          let photoServerLabelAsUID = UID(uid: photoServerLabelAsData) {
+                    assertionFailure()
+                    self.photoServerLabel = photoServerLabelAsUID
+                } else {
+                    throw ObvError.couldNotDecodePhotoServerLabel
+                }
+            } catch {
+                assertionFailure()
+                throw error
+            }
+        } else {
+            self.rawPhotoServerIdentity = nil
+            self.rawPhotoServerKeyEncoded = nil
+            self.photoServerLabel = nil
+        }
+
+    }
+    
+    
+    func restoreInstance(within obvContext: ObvContext, associations: inout SnapshotNodeManagedObjectAssociations) throws {
+
+        let minimumDomain: Set<CodingKeys> = Set([.serializedCoreDetails])
+        guard minimumDomain.isSubset(of: domain) else {
+            assertionFailure()
+            throw ObvError.tryingToRestoreIncompleteNode
+        }
+                
+        let contactGroupV2Details = try ContactGroupV2Details(snapshotNode: self, within: obvContext)
+        try associations.associate(contactGroupV2Details, to: self)
+        
+    }
+    
+    
+    func restoreRelationships(associations: SnapshotNodeManagedObjectAssociations, within obvContext: ObvContext) throws {
+        // Nothing to do here
+    }
+
+    
+    enum ObvError: Error {
+        case couldNotSerializeCoreDetails
+        case couldNotDeserializeCoreDetails
+        case couldNotDecodePhotoServerLabel
+        case tryingToRestoreIncompleteNode
+    }
+    
 }

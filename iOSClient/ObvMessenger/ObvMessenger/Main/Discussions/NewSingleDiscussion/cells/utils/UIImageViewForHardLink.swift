@@ -24,7 +24,6 @@ import MobileCoreServices
 import ObvUICoreData
 
 
-@available(iOS 14.0, *)
 final class UIImageViewForHardLink: UIImageView, UIViewWithTappableStuff {
     
     private(set) var hardlink: HardLinkToFyle?
@@ -62,18 +61,18 @@ final class UIImageViewForHardLink: UIImageView, UIViewWithTappableStuff {
         self.isHidden = false
     }
     
-    private var imageForUTI = [String: UIImage]()
+    private var imageForContentType = [UTType: UIImage]()
 
     private func setDefaultImageForUTIWithinHardlink(_ newHardlink: HardLinkToFyle) {
         assert(Thread.isMainThread)
-        let uti = newHardlink.uti
-        if let image = imageForUTI[uti] {
+        let contentType = newHardlink.contentType
+        if let image = imageForContentType[contentType] {
             setImageAndHardlink(newImage: image, newHardlink: newHardlink, contentMode: .center)
         } else {
             let configuration = UIImage.SymbolConfiguration(pointSize: 20)
-            let icon = ObvUTIUtils.getIcon(forUTI: uti)
+            let icon = contentType.systemIcon
             let image = UIImage(systemIcon: icon, withConfiguration: configuration)!
-            imageForUTI[uti] = image
+            imageForContentType[contentType] = image
             setImageAndHardlink(newImage: image, newHardlink: newHardlink, contentMode: .center)
         }
         self.alpha = 1.0
@@ -99,7 +98,6 @@ final class UIImageViewForHardLink: UIImageView, UIViewWithTappableStuff {
 
 
 
-@available(iOS 14.0, *)
 final class UIImageViewForHardLinkForOlvidStack: ViewForOlvidStack, UIViewWithTappableStuff {
  
     var hardlink: HardLinkToFyle? {

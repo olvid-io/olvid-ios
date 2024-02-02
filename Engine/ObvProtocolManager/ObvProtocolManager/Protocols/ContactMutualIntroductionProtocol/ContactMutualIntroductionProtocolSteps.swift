@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,49 +28,53 @@ import OlvidUtils
 
 extension ContactMutualIntroductionProtocol {
     
-    enum StepId: Int, ConcreteProtocolStepId {
+    enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
         // Mediator's side
-        case IntroduceContacts = 0
+        case introduceContacts = 0
         
         // Contact's sides
-        case CheckTrustLevelsAndShowDialog = 1
-        case PropagateInviteResponse = 2
-        case ProcessPropagatedInviteResponse = 3
-        case PropagateNotificationAddTrustAndSendAck = 4
-        case ProcessPropagatedNotificationAndAddTrust = 5
-        case NotifyMutualTrustEstablished = 6
-        case RecheckTrustLevelsAfterTrustLevelIncrease = 7
+        case checkTrustLevelsAndShowDialog = 1
+        case propagateInviteResponse = 2
+        case processPropagatedInviteResponse = 3
+        case propagateNotificationAddTrustAndSendAck = 4
+        case processPropagatedNotificationAndAddTrust = 5
+        case notifyMutualTrustEstablished = 6
+        case recheckTrustLevelsAfterTrustLevelIncrease = 7
+        case processPropagatedInitialMessage = 8
         
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             
             switch self {
                 
             // Mediator's side
-            case .IntroduceContacts:
+            case .introduceContacts:
                 let step = IntroduceContactsStep(from: concreteProtocol, and: receivedMessage)
                 return step
-                
+            case .processPropagatedInitialMessage:
+                let step = ProcessPropagatedInitialMessageStep(from: concreteProtocol, and: receivedMessage)
+                return step
+
             // Contact's sides
-            case .CheckTrustLevelsAndShowDialog:
+            case .checkTrustLevelsAndShowDialog:
                 let step = CheckTrustLevelsAndShowDialogStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .PropagateInviteResponse:
+            case .propagateInviteResponse:
                 let step = PropagateInviteResponseStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessPropagatedInviteResponse:
+            case .processPropagatedInviteResponse:
                 let step = ProcessPropagatedInviteResponseStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .PropagateNotificationAddTrustAndSendAck:
+            case .propagateNotificationAddTrustAndSendAck:
                 let step = PropagateNotificationAddTrustAndSendAckStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .ProcessPropagatedNotificationAndAddTrust:
+            case .processPropagatedNotificationAndAddTrust:
                 let step = ProcessPropagatedNotificationAndAddTrustStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .NotifyMutualTrustEstablished:
+            case .notifyMutualTrustEstablished:
                 let step = NotifyMutualTrustEstablishedStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .RecheckTrustLevelsAfterTrustLevelIncrease:
+            case .recheckTrustLevelsAfterTrustLevelIncrease:
                 let step = RecheckTrustLevelsAfterTrustLevelIncreaseStep(from: concreteProtocol, and: receivedMessage)
                 return step
 
@@ -102,9 +106,7 @@ extension ContactMutualIntroductionProtocol {
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactMutualIntroductionProtocol.logCategory)
 
             let contactIdentityA = receivedMessage.contactIdentityA
-            let contactIdentityCoreDetailsA = receivedMessage.contactIdentityCoreDetailsA
             let contactIdentityB = receivedMessage.contactIdentityB
-            let contactIdentityCoreDetailsB = receivedMessage.contactIdentityCoreDetailsB
 
             // Make sure both contacts are trusted (i.e., are part of the ContactIdentity database of the owned identity), active and OneToOne.
             
@@ -122,6 +124,24 @@ extension ContactMutualIntroductionProtocol {
                     return CancelledState()
                 }
             }
+            
+            // Recover the current published core details of contact A
+            
+            let contactIdentityCoreDetailsA: ObvIdentityCoreDetails
+            do {
+                let publishedDetails = try identityDelegate.getPublishedIdentityDetailsOfContactIdentity(contactIdentityA, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                let trustedDetails = try identityDelegate.getTrustedIdentityDetailsOfContactIdentity(contactIdentityA, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                contactIdentityCoreDetailsA = publishedDetails?.contactIdentityDetailsElements.coreDetails ?? trustedDetails.contactIdentityDetailsElements.coreDetails
+            }
+
+            // Recover the current published core details of contact b
+            
+            let contactIdentityCoreDetailsB: ObvIdentityCoreDetails
+            do {
+                let publishedDetails = try identityDelegate.getPublishedIdentityDetailsOfContactIdentity(contactIdentityB, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                let trustedDetails = try identityDelegate.getTrustedIdentityDetailsOfContactIdentity(contactIdentityB, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                contactIdentityCoreDetailsB = publishedDetails?.contactIdentityDetailsElements.coreDetails ?? trustedDetails.contactIdentityDetailsElements.coreDetails
+            }
 
             // Post an invitation message to contact A
 
@@ -131,7 +151,7 @@ extension ContactMutualIntroductionProtocol {
                                                                         contactIdentity: contactIdentityB,
                                                                         contactIdentityCoreDetails: contactIdentityCoreDetailsB)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Post an invitation message to contact B
@@ -142,7 +162,46 @@ extension ContactMutualIntroductionProtocol {
                                                                         contactIdentity: contactIdentityA,
                                                                         contactIdentityCoreDetails: contactIdentityCoreDetailsA)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+            }
+            
+            // If we have other devices, propagate the invite so the invitation sent messages can be inserted in the relevant discussion
+            
+            let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
+
+            if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                do {
+                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let concreteProtocolMessage = PropagatedInitialMessage(
+                        coreProtocolMessage: coreMessage,
+                        contactIdentityA: contactIdentityA,
+                        contactIdentityB: contactIdentityB)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                } catch {
+                    assertionFailure()
+                    os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
+                }
+            }
+            
+            // Send a notification to insert invitation sent messages in relevant discussions
+
+            do {
+                let notificationDelegate = self.notificationDelegate
+                let ownedCryptoId = self.ownedIdentity
+                try obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return}
+                    ObvProtocolNotification.contactIntroductionInvitationSent(
+                        ownedIdentity: ownedCryptoId,
+                        contactIdentityA: contactIdentityA,
+                        contactIdentityB: contactIdentityB)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+                }
+            } catch {
+                assertionFailure(error.localizedDescription)
             }
 
             // Return the new state
@@ -151,6 +210,55 @@ extension ContactMutualIntroductionProtocol {
 
         }
     }
+    
+    
+    // MARK: - ProcessPropagatedInitialMessageStep
+    
+    final class ProcessPropagatedInitialMessageStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: ConcreteProtocolInitialState
+        let receivedMessage: PropagatedInitialMessage
+        
+        init?(startState: ConcreteProtocolInitialState, receivedMessage: PropagatedInitialMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let contactIdentityA = receivedMessage.contactIdentityA
+            let contactIdentityB = receivedMessage.contactIdentityB
+
+            // Send a notification to insert invitation sent messages in relevant discussions
+
+            do {
+                let notificationDelegate = self.notificationDelegate
+                let ownedCryptoId = self.ownedIdentity
+                try obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return}
+                    ObvProtocolNotification.contactIntroductionInvitationSent(
+                        ownedIdentity: ownedCryptoId,
+                        contactIdentityA: contactIdentityA,
+                        contactIdentityB: contactIdentityB)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+                }
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+
+            // Return the new state
+            
+            return ContactsIntroducedState()
+
+        }
+    }
+
     
     
     // MARK: - ShowInvitationDialogStep
@@ -235,7 +343,7 @@ extension ContactMutualIntroductionProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
                 // If, in the future, the introduced contact becomes a OneToOne contact, we want end this protocol.
@@ -252,7 +360,7 @@ extension ContactMutualIntroductionProtocol {
                     _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(
                         ownedCryptoIdentity: ownedIdentity,
                         contactCryptoIdentity: contactIdentity,
-                        messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
+                        messageToSendRawId: MessageId.trustLevelIncreased.rawValue,
                         protocolInstance: thisProtocolInstance,
                         delegateManager: delegateManager)
 
@@ -324,7 +432,7 @@ extension ContactMutualIntroductionProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
                 }
@@ -342,7 +450,7 @@ extension ContactMutualIntroductionProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
 
                 return InvitationRejectedState()
             }
@@ -358,7 +466,7 @@ extension ContactMutualIntroductionProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             do {
@@ -429,7 +537,7 @@ extension ContactMutualIntroductionProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 
                 return InvitationRejectedState()
             }
@@ -445,7 +553,7 @@ extension ContactMutualIntroductionProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Return the new state
@@ -508,14 +616,14 @@ extension ContactMutualIntroductionProtocol {
                 let trustOrigin = TrustOrigin.introduction(timestamp: Date(), mediator: mediatorIdentity)
                 
                 if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                    try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                    try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 } else {
                     try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in
                     if try !identityDelegate.isDevice(withUid: contactDeviceUid, aDeviceOfContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext) {
-                        try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                        try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
                     }
                 }
             } catch {
@@ -535,7 +643,7 @@ extension ContactMutualIntroductionProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } catch {
                     os_log("Could not propagate notification to other devices.", log: log, type: .fault)
                 }
@@ -551,7 +659,7 @@ extension ContactMutualIntroductionProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Return the new state
@@ -603,14 +711,14 @@ extension ContactMutualIntroductionProtocol {
                 let trustOrigin = TrustOrigin.introduction(timestamp: Date(), mediator: mediatorIdentity)
                 
                 if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                    try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                    try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 } else {
                     try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in
                     if try !identityDelegate.isDevice(withUid: contactDeviceUid, aDeviceOfContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext) {
-                        try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                        try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
                     }
                 }
             } catch {
@@ -654,7 +762,7 @@ extension ContactMutualIntroductionProtocol {
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let dialogUuid = startState.dialogUuid
             let acceptType = startState.acceptType
-            let mediatorIdentity = startState.mediatorIdentity
+            // let mediatorIdentity = startState.mediatorIdentity
 
             // Display a mutual trust established dialog
             
@@ -662,16 +770,6 @@ extension ContactMutualIntroductionProtocol {
             case AcceptType.alreadyTrusted:
                 // We do not notify the user in this case
                 break
-                
-            case AcceptType.automatic:
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let dialogType = ObvChannelDialogToSendType.autoconfirmedContactIntroduction(contact: contact, mediatorIdentity: mediatorIdentity)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
-                let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
-                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
-                }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
                 
             case AcceptType.manual:
                 let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
@@ -681,7 +779,7 @@ extension ContactMutualIntroductionProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 
             default:
                 // Cannot happen
@@ -749,7 +847,7 @@ extension ContactMutualIntroductionProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
                 do {
@@ -800,7 +898,7 @@ extension ContactMutualIntroductionProtocol {
                 
                 guard let _ = ProtocolInstanceWaitingForContactUpgradeToOneToOne(ownedCryptoIdentity: ownedIdentity,
                                                                                  contactCryptoIdentity: contactIdentity,
-                                                                                 messageToSendRawId: MessageId.TrustLevelIncreased.rawValue,
+                                                                                 messageToSendRawId: MessageId.trustLevelIncreased.rawValue,
                                                                                  protocolInstance: thisProtocolInstance,
                                                                                  delegateManager: delegateManager)
                     else {
@@ -819,7 +917,7 @@ extension ContactMutualIntroductionProtocol {
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
                     }
-                    _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
                 // Return the new state
@@ -871,7 +969,7 @@ extension ProtocolStep {
             guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                 throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
             }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
         }
         
         

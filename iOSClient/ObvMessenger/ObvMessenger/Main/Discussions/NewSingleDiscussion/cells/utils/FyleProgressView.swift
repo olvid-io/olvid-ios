@@ -31,6 +31,9 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
         case downloadable(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress)
         case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress)
         case cancelled
+        // For received attachments sent from other owned device
+        case downloadableSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress)
+        case downloadingSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress)
         // For both
         case complete
         var debugDescription: String {
@@ -39,8 +42,12 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
                 return "FyleProgressViewConfiguration.uploadableOrUploading<progress: \(progress.debugDescription)>"
             case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress):
                 return "FyleProgressViewConfiguration.downloadable<receivedJoinObjectID: \(receivedJoinObjectID.debugDescription), progress: \(progress.debugDescription)>"
+            case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress):
+                return "FyleProgressViewConfiguration.downloadableSent<sentJoinObjectID: \(sentJoinObjectID.debugDescription), progress: \(progress.debugDescription)>"
             case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress):
                 return "FyleProgressViewConfiguration.downloading<receivedJoinObjectID: \(receivedJoinObjectID.debugDescription), progress: \(progress.debugDescription)>"
+            case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress):
+                return "FyleProgressViewConfiguration.downloadingSent<sentJoinObjectID: \(sentJoinObjectID.debugDescription), progress: \(progress.debugDescription)>"
             case .cancelled:
                 return "FyleProgressViewConfiguration.cancelled"
             case .complete:
@@ -69,7 +76,7 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
             progressView.isHidden = false
             progressView.observedProgress = progress
             isUserInteractionEnabled = false
-        case .downloadable(_, progress: let progress):
+        case .downloadable(_, progress: let progress), .downloadableSent(_, progress: let progress):
             imageViewWhenPaused.isHidden = false
             imageViewWhenDownloading.isHidden = true
             imageViewWhenCancelled.isHidden = true
@@ -77,7 +84,7 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
             progressView.isHidden = (progress.completedUnitCount == 0)
             progressView.observedProgress = progress
             isUserInteractionEnabled = true
-        case .downloading(_, progress: let progress):
+        case .downloading(_, progress: let progress), .downloadingSent(_, progress: let progress):
             imageViewWhenPaused.isHidden = true
             imageViewWhenDownloading.isHidden = false
             imageViewWhenCancelled.isHidden = true
@@ -110,12 +117,14 @@ final class FyleProgressView: UIView, UIViewWithTappableStuff {
         guard !self.isHidden else { return nil }
         switch currentConfiguration {
         case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: _):
-            debugPrint("☸️ Tap received to pause")
             return .receivedFyleMessageJoinWithStatusToPauseDownload(receivedJoinObjectID: receivedJoinObjectID)
         case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: _):
-            debugPrint("☸️ Tap received to download")
             return .receivedFyleMessageJoinWithStatusToResumeDownload(receivedJoinObjectID: receivedJoinObjectID)
-        default:
+        case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: _):
+            return .sentFyleMessageJoinWithStatusReceivedFromOtherOwnedDeviceToPauseDownload(sentJoinObjectID: sentJoinObjectID)
+        case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: _):
+            return .sentFyleMessageJoinWithStatusReceivedFromOtherOwnedDeviceToResumeDownload(sentJoinObjectID: sentJoinObjectID)
+        case .uploadableOrUploading, .cancelled, .complete, .none:
             return nil
         }
     }

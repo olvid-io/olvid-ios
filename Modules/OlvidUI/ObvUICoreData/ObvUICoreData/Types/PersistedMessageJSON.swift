@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 import OlvidUtils
+import ObvSettings
 
 
 public struct PersistedItemJSON: Codable {
@@ -37,6 +38,8 @@ public struct PersistedItemJSON: Codable {
     public let updateMessageJSON: UpdateMessageJSON?
     public let reactionJSON: ReactionJSON?
     public let screenCaptureDetectionJSON: ScreenCaptureDetectionJSON?
+    public let limitedVisibilityMessageOpenedJSON: LimitedVisibilityMessageOpenedJSON?
+    public let discussionRead: DiscussionReadJSON?
 
     enum CodingKeys: String, CodingKey {
         case message = "message"
@@ -49,6 +52,8 @@ public struct PersistedItemJSON: Codable {
         case updateMessageJSON = "upm"
         case reactionJSON = "reacm"
         case screenCaptureDetectionJSON = "scd"
+        case limitedVisibilityMessageOpenedJSON = "lvo"
+        case discussionRead = "dr"
     }
     
     public init(messageJSON: MessageJSON) {
@@ -62,6 +67,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
     
     public init(returnReceiptJSON: ReturnReceiptJSON) {
@@ -75,6 +82,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
     
     public init(messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON) {
@@ -88,6 +97,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
     
     public init(webrtcMessage: WebRTCMessageJSON) {
@@ -101,6 +112,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
     
     public init(discussionSharedConfiguration: DiscussionSharedConfigurationJSON) {
@@ -114,6 +127,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
     
     public init(deleteMessagesJSON: DeleteMessagesJSON) {
@@ -127,6 +142,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
 
     public init(deleteDiscussionJSON: DeleteDiscussionJSON) {
@@ -140,6 +157,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
     
     public init(querySharedSettingsJSON: QuerySharedSettingsJSON) {
@@ -153,6 +172,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
 
     public init(updateMessageJSON: UpdateMessageJSON) {
@@ -166,6 +187,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = updateMessageJSON
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
 
     public init(reactionJSON: ReactionJSON) {
@@ -179,6 +202,8 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = reactionJSON
         self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
     }
 
     public init(screenCaptureDetectionJSON: ScreenCaptureDetectionJSON) {
@@ -192,6 +217,38 @@ public struct PersistedItemJSON: Codable {
         self.updateMessageJSON = nil
         self.reactionJSON = nil
         self.screenCaptureDetectionJSON = screenCaptureDetectionJSON
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = nil
+    }
+
+    public init(limitedVisibilityMessageOpenedJSON: LimitedVisibilityMessageOpenedJSON) {
+        self.message = nil
+        self.returnReceipt = nil
+        self.webrtcMessage = nil
+        self.discussionSharedConfiguration = nil
+        self.deleteMessagesJSON = nil
+        self.deleteDiscussionJSON = nil
+        self.querySharedSettingsJSON = nil
+        self.updateMessageJSON = nil
+        self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = limitedVisibilityMessageOpenedJSON
+        self.discussionRead = nil
+    }
+
+    public init(discussionRead: DiscussionReadJSON) {
+        self.message = nil
+        self.returnReceipt = nil
+        self.webrtcMessage = nil
+        self.discussionSharedConfiguration = nil
+        self.deleteMessagesJSON = nil
+        self.deleteDiscussionJSON = nil
+        self.querySharedSettingsJSON = nil
+        self.updateMessageJSON = nil
+        self.reactionJSON = nil
+        self.screenCaptureDetectionJSON = nil
+        self.limitedVisibilityMessageOpenedJSON = nil
+        self.discussionRead = discussionRead
     }
 
     public func jsonEncode() throws -> Data {
@@ -215,8 +272,9 @@ public struct DiscussionSharedConfigurationJSON: Codable {
 
     let version: Int
     let expiration: ExpirationJSON
-    let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
-    let groupV2Identifier: Data?
+    let oneToOneIdentifier: OneToOneIdentifierJSON?
+    let groupV1Identifier: GroupV1Identifier?
+    let groupV2Identifier: GroupV2Identifier?
 
     public var groupIdentifier: GroupIdentifier? {
         if let groupV1Identifier = groupV1Identifier {
@@ -234,25 +292,29 @@ public struct DiscussionSharedConfigurationJSON: Codable {
         case groupUid = "guid" // For group V1
         case groupOwner = "go" // For group V1
         case groupV2Identifier = "gid2"
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
     }
 
-    init(version: Int, expiration: ExpirationJSON) {
+    init(version: Int, expiration: ExpirationJSON, oneToOneIdentifier: OneToOneIdentifierJSON) {
         self.version = version
         self.expiration = expiration
+        self.oneToOneIdentifier = oneToOneIdentifier
         self.groupV1Identifier = nil
         self.groupV2Identifier = nil
     }
 
-    init(version: Int, expiration: ExpirationJSON, groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)) {
+    init(version: Int, expiration: ExpirationJSON, groupV1Identifier: GroupV1Identifier) {
         self.version = version
         self.expiration = expiration
+        self.oneToOneIdentifier = nil
         self.groupV1Identifier = groupV1Identifier
         self.groupV2Identifier = nil
     }
 
-    init(version: Int, expiration: ExpirationJSON, groupV2Identifier: Data) {
+    init(version: Int, expiration: ExpirationJSON, groupV2Identifier: GroupV2Identifier) {
         self.version = version
         self.expiration = expiration
+        self.oneToOneIdentifier = nil
         self.groupV1Identifier = nil
         self.groupV2Identifier = groupV2Identifier
     }
@@ -269,6 +331,7 @@ public struct DiscussionSharedConfigurationJSON: Codable {
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
         if let groupV1Identifier = groupV1Identifier {
             try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
             try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
@@ -289,21 +352,31 @@ public struct DiscussionSharedConfigurationJSON: Codable {
             self.expiration = ExpirationJSON(readOnce: false, visibilityDuration: nil, existenceDuration: nil)
         }
         
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
+
         let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
         let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
         
         let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
         
-        if let groupUidRaw = groupUidRaw,
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
             let groupOwnerIdentity = groupOwnerIdentity,
             let groupUid = UID(uid: groupUidRaw),
             let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         } else {
+            // This happens when receiving a message for a one2one discussion from a device running an old version of Olvid, which didn't use to send the oneToOneIdentifier)
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         }
@@ -395,6 +468,48 @@ public struct ReturnReceiptJSON: Codable {
 }
 
 
+public struct OneToOneIdentifierJSON: Codable, Equatable {
+    
+    private let identity1: ObvCryptoId
+    private let identity2: ObvCryptoId
+    
+    var identities: Set<ObvCryptoId> {
+        return Set([identity1, identity2])
+    }
+    
+    public func getContactIdentity(ownedIdentity: ObvCryptoId) -> ObvCryptoId? {
+        if identity1 == ownedIdentity {
+            return identity2
+        } else if identity2 == ownedIdentity {
+            return identity1
+        } else {
+            assertionFailure()
+            return nil
+        }
+    }
+
+    public init(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) {
+        self.identity1 = ownedCryptoId
+        self.identity2 = contactCryptoId
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(self.identity1.getIdentity())
+        try container.encode(self.identity2.getIdentity())
+    }
+    
+    public init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let rawIdentity1 = try container.decode(Data.self)
+        let rawIdentity2 = try container.decode(Data.self)
+        self.identity1 = try ObvCryptoId(identity: rawIdentity1)
+        self.identity2 = try ObvCryptoId(identity: rawIdentity2)
+    }
+    
+}
+
+
 public struct ExpirationJSON: Codable, Equatable {
 
     public let readOnce: Bool
@@ -471,8 +586,9 @@ public struct MessageJSON: Codable {
     public let senderSequenceNumber: Int
     public let senderThreadIdentifier: UUID
     public let body: String?
-    public let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
-    public let groupV2Identifier: Data?
+    public let oneToOneIdentifier: OneToOneIdentifierJSON?
+    public let groupV1Identifier: GroupV1Identifier?
+    public let groupV2Identifier: GroupV2Identifier?
     public let replyTo: MessageReferenceJSON?
     public let expiration: ExpirationJSON?
     let forwarded: Bool
@@ -498,6 +614,7 @@ public struct MessageJSON: Codable {
         case groupUid = "guid" // For group v1
         case groupOwner = "go" // For group v1
         case groupV2Identifier = "gid2" // For group v2
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
         case body = "body"
         case replyTo = "re"
         case expiration = "exp"
@@ -506,10 +623,11 @@ public struct MessageJSON: Codable {
         case userMentions = "um"
     }
     
-    public init(senderSequenceNumber: Int, senderThreadIdentifier: UUID, body: String?, replyTo: MessageReferenceJSON?, expiration: ExpirationJSON?, forwarded: Bool, userMentions: [UserMention]) {
+    public init(senderSequenceNumber: Int, senderThreadIdentifier: UUID, body: String?, oneToOneIdentifier: OneToOneIdentifierJSON, replyTo: MessageReferenceJSON?, expiration: ExpirationJSON?, forwarded: Bool, userMentions: [UserMention]) {
         self.senderSequenceNumber = senderSequenceNumber
         self.senderThreadIdentifier = senderThreadIdentifier
         self.body = body
+        self.oneToOneIdentifier = oneToOneIdentifier
         self.groupV1Identifier = nil
         self.groupV2Identifier = nil
         self.replyTo = replyTo
@@ -519,10 +637,11 @@ public struct MessageJSON: Codable {
         self.userMentions = userMentions
     }
 
-    public init(senderSequenceNumber: Int, senderThreadIdentifier: UUID, body: String?, groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId), replyTo: MessageReferenceJSON?, expiration: ExpirationJSON?, forwarded: Bool, userMentions: [UserMention]) {
+    public init(senderSequenceNumber: Int, senderThreadIdentifier: UUID, body: String?, groupV1Identifier: GroupV1Identifier, replyTo: MessageReferenceJSON?, expiration: ExpirationJSON?, forwarded: Bool, userMentions: [UserMention]) {
         self.senderSequenceNumber = senderSequenceNumber
         self.senderThreadIdentifier = senderThreadIdentifier
         self.body = body
+        self.oneToOneIdentifier = nil
         self.groupV1Identifier = groupV1Identifier
         self.groupV2Identifier = nil
         self.replyTo = replyTo
@@ -532,10 +651,11 @@ public struct MessageJSON: Codable {
         self.userMentions = userMentions
     }
 
-    public init(senderSequenceNumber: Int, senderThreadIdentifier: UUID, body: String?, groupV2Identifier: Data, replyTo: MessageReferenceJSON?, expiration: ExpirationJSON?, forwarded: Bool, originalServerTimestamp: Date?, userMentions: [UserMention]) {
+    public init(senderSequenceNumber: Int, senderThreadIdentifier: UUID, body: String?, groupV2Identifier: GroupV2Identifier, replyTo: MessageReferenceJSON?, expiration: ExpirationJSON?, forwarded: Bool, originalServerTimestamp: Date?, userMentions: [UserMention]) {
         self.senderSequenceNumber = senderSequenceNumber
         self.senderThreadIdentifier = senderThreadIdentifier
         self.body = body
+        self.oneToOneIdentifier = nil
         self.groupV1Identifier = nil
         self.groupV2Identifier = groupV2Identifier
         self.replyTo = replyTo
@@ -554,21 +674,31 @@ public struct MessageJSON: Codable {
 
         self.body = body
 
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
+        
         let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
         let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
         
         let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
         
-        if let groupUidRaw = groupUidRaw,
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
             let groupOwnerIdentity = groupOwnerIdentity,
             let groupUid = UID(uid: groupUidRaw),
             let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         } else {
+            // This happens when receiving a message for a one2one discussion from a device running an old version of Olvid, which didn't use to send the oneToOneIdentifier)
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         }
@@ -589,25 +719,14 @@ public struct MessageJSON: Codable {
            try values.decodeNil(forKey: .userMentions) == false {
             let decodingBlock: (Decoder) throws -> UserMention?
 
-            if #available(iOS 15, *) {
-                let configuration = UserMention.Configuration(message: body)
-
-                decodingBlock = { decoder -> UserMention? in
-                    do {
-                        return try UserMention(from: decoder, configuration: configuration)
-                    } catch let error as UserMention.MentionError.DecodingError {
-                        assertionFailure("failed to decode with error: \(error)") //used for debugging
-                        return nil
-                    }
-                }
-            } else {
-                decodingBlock = { decoder -> UserMention? in
-                    do {
-                        return try UserMention(from: decoder, messageBody: body)
-                    } catch let error as UserMention.MentionError.DecodingError {
-                        assertionFailure("failed to decode with error: \(error)") //used for debugging
-                        return nil
-                    }
+            let configuration = UserMention.Configuration(message: body)
+            
+            decodingBlock = { decoder -> UserMention? in
+                do {
+                    return try UserMention(from: decoder, configuration: configuration)
+                } catch let error as UserMention.MentionError.DecodingError {
+                    assertionFailure("failed to decode with error: \(error)") //used for debugging
+                    return nil
                 }
             }
 
@@ -629,6 +748,7 @@ public struct MessageJSON: Codable {
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
         if let groupV1Identifier = groupV1Identifier {
             try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
             try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
@@ -650,23 +770,9 @@ public struct MessageJSON: Codable {
         }
         try container.encode(forwarded, forKey: .forwarded)
 
-        if let body,
-            userMentions.isEmpty == false {
-            if #available(iOS 15, *) {
-                let configuration = UserMention.Configuration(message: body)
-
-                try container.encode(userMentions, forKey: .userMentions, configuration: configuration)
-            } else {
-                let encoder = container.superEncoder(forKey: .userMentions)
-
-                var _innerContainer = encoder.unkeyedContainer()
-
-                for aMention in userMentions {
-                    let _currentDecoder = _innerContainer.superEncoder()
-
-                    try aMention.encode(to: _currentDecoder, messageBody: body)
-                }
-            }
+        if let body, userMentions.isEmpty == false {
+            let configuration = UserMention.Configuration(message: body)
+            try container.encode(userMentions, forKey: .userMentions, configuration: configuration)
         }
     }
     
@@ -715,65 +821,65 @@ extension MessageJSON {
     }
 }
 
-@available(iOS, deprecated: 15, message: "Please use `CodableWithConfiguration` conformance now")
-extension MessageJSON.UserMention: Codable {
-    @available(*, deprecated, renamed: "init(from:messageBody:)")
-    public init(from decoder: Decoder) throws {
-        fatalError("init(from:) has not been implemented, please use init(from:messageBody:)")
-    }
-
-    @available(*, deprecated, renamed: "encode(to:messageBody:)")
-    public func encode(to encoder: Encoder) throws {
-        fatalError("encode(to:) has not been implemented, please use encode(to:messageBody:)")
-    }
-
-    public init(from decoder: Decoder, messageBody: String) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-
-        let data = try container.decode(Data.self, forKey: .mentionedCryptoId)
-
-        mentionedCryptoId = try ObvCryptoId(identity: data)
-
-        let rangeStart = try container.decode(Int.self, forKey: .rangeStart)
-
-        let rangeEnd = try container.decode(Int.self, forKey: .rangeEnd)
-
-        let startIndex = String.Index(utf16Offset: rangeStart, in: messageBody)
-
-        let endIndex = String.Index(utf16Offset: rangeEnd, in: messageBody)
-
-        let messageBodyRange = messageBody.startIndex..<messageBody.endIndex
-
-        guard endIndex >= startIndex else {
-            throw MentionError.DecodingError.mentionRangeInvalid(lower: startIndex, upper: endIndex)
-        }
-
-        if endIndex > messageBody.startIndex {
-            guard messageBodyRange.contains(startIndex),
-                  messageBodyRange.contains(messageBody.index(before: endIndex)) else {
-                throw MentionError.DecodingError.mentionRangeNotWithinMessageRange(mentionRange: startIndex..<endIndex, message: messageBody)
-            }
-        }
-
-        range = startIndex..<endIndex
-    }
-
-    public func encode(to encoder: Encoder, messageBody: String) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-
-        try container.encode(mentionedCryptoId.cryptoIdentity.getIdentity(), forKey: .mentionedCryptoId)
-
-        try container.encode(range.lowerBound.utf16Offset(in: messageBody), forKey: .rangeStart)
-
-        try container.encode(range.upperBound.utf16Offset(in: messageBody), forKey: .rangeEnd)
-    }
-    
-    private enum CodingKeys: String, CodingKey {
-        case mentionedCryptoId = "uid"
-        case rangeStart = "rs"
-        case rangeEnd = "re"
-    }
-}
+// @available(iOS, deprecated: 15, message: "Please use `CodableWithConfiguration` conformance now")
+//extension MessageJSON.UserMention: Codable {
+//    @available(*, deprecated, renamed: "init(from:messageBody:)")
+//    public init(from decoder: Decoder) throws {
+//        fatalError("init(from:) has not been implemented, please use init(from:messageBody:)")
+//    }
+//
+//    @available(*, deprecated, renamed: "encode(to:messageBody:)")
+//    public func encode(to encoder: Encoder) throws {
+//        fatalError("encode(to:) has not been implemented, please use encode(to:messageBody:)")
+//    }
+//
+//    public init(from decoder: Decoder, messageBody: String) throws {
+//        let container = try decoder.container(keyedBy: CodingKeys.self)
+//
+//        let data = try container.decode(Data.self, forKey: .mentionedCryptoId)
+//
+//        mentionedCryptoId = try ObvCryptoId(identity: data)
+//
+//        let rangeStart = try container.decode(Int.self, forKey: .rangeStart)
+//
+//        let rangeEnd = try container.decode(Int.self, forKey: .rangeEnd)
+//
+//        let startIndex = String.Index(utf16Offset: rangeStart, in: messageBody)
+//
+//        let endIndex = String.Index(utf16Offset: rangeEnd, in: messageBody)
+//
+//        let messageBodyRange = messageBody.startIndex..<messageBody.endIndex
+//
+//        guard endIndex >= startIndex else {
+//            throw MentionError.DecodingError.mentionRangeInvalid(lower: startIndex, upper: endIndex)
+//        }
+//
+//        if endIndex > messageBody.startIndex {
+//            guard messageBodyRange.contains(startIndex),
+//                  messageBodyRange.contains(messageBody.index(before: endIndex)) else {
+//                throw MentionError.DecodingError.mentionRangeNotWithinMessageRange(mentionRange: startIndex..<endIndex, message: messageBody)
+//            }
+//        }
+//
+//        range = startIndex..<endIndex
+//    }
+//
+//    public func encode(to encoder: Encoder, messageBody: String) throws {
+//        var container = encoder.container(keyedBy: CodingKeys.self)
+//
+//        try container.encode(mentionedCryptoId.cryptoIdentity.getIdentity(), forKey: .mentionedCryptoId)
+//
+//        try container.encode(range.lowerBound.utf16Offset(in: messageBody), forKey: .rangeStart)
+//
+//        try container.encode(range.upperBound.utf16Offset(in: messageBody), forKey: .rangeEnd)
+//    }
+//
+//    private enum CodingKeys: String, CodingKey {
+//        case mentionedCryptoId = "uid"
+//        case rangeStart = "rs"
+//        case rangeEnd = "re"
+//    }
+//}
 
 extension MessageJSON.UserMention {
     /// A namespace for encoding/decoding ``MessageJSON/UserMention``s
@@ -786,12 +892,11 @@ extension MessageJSON.UserMention {
             /// Denotes an inconsistent state within the string indices, more generally the lower is higher then the upper bound or vice-versa
             case mentionRangeInvalid(lower: String.Index, upper: String.Index)
             /// Denotes an error where the mention range is not contained within the actual message
-            case mentionRangeNotWithinMessageRange(mentionRange: Range<String.Index>, message: String)
+            // case mentionRangeNotWithinMessageRange(mentionRange: Range<String.Index>, message: String)
         }
     }
 }
 
-@available(iOS 15, *)
 extension MessageJSON.UserMention: CodableWithConfiguration {
     public typealias DecodingConfiguration = Configuration
     public typealias EncodingConfiguration = Configuration
@@ -802,7 +907,14 @@ extension MessageJSON.UserMention: CodableWithConfiguration {
         let message: String
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case mentionedCryptoId = "uid"
+        case rangeStart = "rs"
+        case rangeEnd = "re"
+    }
+
     public init(from decoder: Decoder, configuration: DecodingConfiguration) throws {
+        
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         let data = try container.decode(Data.self, forKey: .mentionedCryptoId)
@@ -819,18 +931,16 @@ extension MessageJSON.UserMention: CodableWithConfiguration {
 
         let endIndex = String.Index(utf16Offset: rangeEnd, in: messageBody)
 
-        let messageBodyRange = messageBody.startIndex..<messageBody.endIndex
-
-        guard endIndex >= startIndex else {
+        guard endIndex > startIndex, startIndex >= messageBody.startIndex, endIndex <= messageBody.endIndex else {
             throw MentionError.DecodingError.mentionRangeInvalid(lower: startIndex, upper: endIndex)
         }
 
-        if endIndex > messageBody.startIndex {
-            guard messageBodyRange.contains(startIndex),
-                  messageBodyRange.contains(messageBody.index(before: endIndex)) else {
-                throw MentionError.DecodingError.mentionRangeNotWithinMessageRange(mentionRange: startIndex..<endIndex, message: messageBody)
-            }
-        }
+//        if endIndex > messageBody.startIndex {
+//            guard messageBodyRange.contains(startIndex),
+//                  messageBodyRange.contains(messageBody.index(before: endIndex)) else {
+//                throw MentionError.DecodingError.mentionRangeNotWithinMessageRange(mentionRange: startIndex..<endIndex, message: messageBody)
+//            }
+//        }
 
         range = startIndex..<endIndex
     }
@@ -868,6 +978,19 @@ public struct MessageReferenceJSON: Codable {
     }
     
     
+    public func getMessageId(ownedCryptoId: ObvCryptoId) -> MessageIdentifier {
+        let authorIdentifier = MessageWriterIdentifier(
+            senderSequenceNumber: senderSequenceNumber,
+            senderThreadIdentifier: senderThreadIdentifier,
+            senderIdentifier: senderIdentifier)
+        if senderIdentifier == ownedCryptoId.getIdentity() {
+            return .sent(id: .authorIdentifier(writerIdentifier: authorIdentifier))
+        } else {
+            return .received(id: .authorIdentifier(writerIdentifier: authorIdentifier))
+        }
+    }
+    
+    
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         self.senderSequenceNumber = try values.decode(Int.self, forKey: .senderSequenceNumber)
@@ -892,8 +1015,9 @@ public struct DeleteMessagesJSON: Codable {
     private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { DeleteMessagesJSON.makeError(message: message) }
 
-    let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
-    let groupV2Identifier: Data?
+    public let oneToOneIdentifier: OneToOneIdentifierJSON?
+    let groupV1Identifier: GroupV1Identifier?
+    let groupV2Identifier: GroupV2Identifier?
     public let messagesToDelete: [MessageReferenceJSON]
     
     public var groupIdentifier: GroupIdentifier? {
@@ -911,6 +1035,7 @@ public struct DeleteMessagesJSON: Codable {
         case groupOwner = "go" // For group V1
         case groupV2Identifier = "gid2" // For group V2
         case messagesToDelete = "refs"
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
     }
     
     public init(persistedMessagesToDelete: [PersistedMessage]) throws {
@@ -919,16 +1044,23 @@ public struct DeleteMessagesJSON: Codable {
         
         let discussion: PersistedDiscussion
         do {
-            let discussions = Set(persistedMessagesToDelete.map { $0.discussion })
+            let discussions = Set(persistedMessagesToDelete.compactMap { $0.discussion })
             guard discussions.count == 1 else {
                 throw DeleteMessagesJSON.makeError(message: "Could not construct DeleteMessagesJSON. Expecting one discussion, got \(discussions.count)")
             }
-            discussion = discussions.first!
+            guard let _discussion = discussions.first else {
+                throw DeleteMessagesJSON.makeError(message: "Could not construct DeleteMessagesJSON. Expecting one discussion")
+            }
+            discussion = _discussion
         }
 
         self.messagesToDelete = persistedMessagesToDelete.compactMap { $0.toMessageReferenceJSON() }
         switch try discussion.kind {
         case .oneToOne:
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId, let contactCryptoId = (discussion as? PersistedOneToOneDiscussion)?.contactIdentity?.cryptoId else {
+                throw DeleteMessagesJSON.makeError(message: "Could not determine OneToOneIdentifierJSON")
+            }
+            self.oneToOneIdentifier = OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         case .groupV1(withContactGroup: let contactGroup):
@@ -937,12 +1069,14 @@ public struct DeleteMessagesJSON: Codable {
                   let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) else {
                 throw DeleteMessagesJSON.makeError(message: "Could not determine group v1 id")
             }
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         case .groupV2(withGroup: let group):
             guard let groupV2Identifier = group?.groupIdentifier else {
                 throw DeleteMessagesJSON.makeError(message: "Could not determine group v2 id")
             }
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         }
@@ -951,6 +1085,7 @@ public struct DeleteMessagesJSON: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
         if let groupV1Identifier = groupV1Identifier {
             try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
             try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
@@ -967,18 +1102,27 @@ public struct DeleteMessagesJSON: Codable {
         let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
         let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
         
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
         let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
         
-        if let groupUidRaw = groupUidRaw,
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
             let groupOwnerIdentity = groupOwnerIdentity,
             let groupUid = UID(uid: groupUidRaw),
             let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         } else {
+            // This happens when receiving a message for a one2one discussion from a device running an old version of Olvid, which didn't use to send the oneToOneIdentifier)
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         }
@@ -997,8 +1141,9 @@ public struct DeleteDiscussionJSON: Codable {
     private static func makeError(message: String) -> Error { NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
     private func makeError(message: String) -> Error { DeleteDiscussionJSON.makeError(message: message) }
 
-    let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
-    let groupV2Identifier: Data?
+    public let oneToOneIdentifier: OneToOneIdentifierJSON?
+    let groupV1Identifier: GroupV1Identifier?
+    let groupV2Identifier: GroupV2Identifier?
 
     public var groupIdentifier: GroupIdentifier? {
         if let groupV1Identifier = groupV1Identifier {
@@ -1014,11 +1159,17 @@ public struct DeleteDiscussionJSON: Codable {
         case groupUid = "guid" // For group V1
         case groupOwner = "go" // For group V1
         case groupV2Identifier = "gid2"
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
     }
     
     public init(persistedDiscussionToDelete discussion: PersistedDiscussion) throws {
         switch try discussion.kind {
         case .oneToOne:
+            guard let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion else {
+                assertionFailure()
+                throw DeleteDiscussionJSON.makeError(message: "Could not cast discussion into a one2one discussion. Unexpected, this is a bug")
+            }
+            self.oneToOneIdentifier = try oneToOneDiscussion.oneToOneIdentifier
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         case .groupV1(withContactGroup: let contactGroup):
@@ -1027,12 +1178,14 @@ public struct DeleteDiscussionJSON: Codable {
                   let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) else {
                 throw DeleteDiscussionJSON.makeError(message: "Could not determine group v1 id")
             }
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         case .groupV2(withGroup: let group):
             guard let groupV2Identifier = group?.groupIdentifier else {
                 throw DeleteDiscussionJSON.makeError(message: "Could not determine group v2 id")
             }
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         }
@@ -1040,6 +1193,7 @@ public struct DeleteDiscussionJSON: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
         if let groupV1Identifier = groupV1Identifier {
             try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
             try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
@@ -1055,18 +1209,26 @@ public struct DeleteDiscussionJSON: Codable {
         let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
         let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
         
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
         let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
         
-        if let groupUidRaw = groupUidRaw,
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
             let groupOwnerIdentity = groupOwnerIdentity,
             let groupUid = UID(uid: groupUidRaw),
             let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         } else {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         }
@@ -1080,22 +1242,108 @@ public struct QuerySharedSettingsJSON: Codable, ObvErrorMaker {
     
     public static let errorDomain = "QuerySharedSettingsJSON"
 
-    public let groupV2Identifier: Data
+    public let oneToOneIdentifier: OneToOneIdentifierJSON?
+    public let groupV1Identifier: GroupV1Identifier?
+    public let groupV2Identifier: GroupV2Identifier?
     public let knownSharedSettingsVersion: Int?
     public let knownSharedExpiration: ExpirationJSON?
 
-    public init(groupV2Identifier: Data, knownSharedSettingsVersion: Int?, knownSharedExpiration: ExpirationJSON?) {
-        self.groupV2Identifier = groupV2Identifier
+    public init(oneToOneIdentifier: OneToOneIdentifierJSON, knownSharedSettingsVersion: Int?, knownSharedExpiration: ExpirationJSON?) {
         self.knownSharedSettingsVersion = knownSharedSettingsVersion
         self.knownSharedExpiration = knownSharedExpiration
+        self.oneToOneIdentifier = oneToOneIdentifier
+        self.groupV1Identifier = nil
+        self.groupV2Identifier = nil
     }
-    
+
+    public init(groupV1Identifier: GroupV1Identifier, knownSharedSettingsVersion: Int?, knownSharedExpiration: ExpirationJSON?) {
+        self.knownSharedSettingsVersion = knownSharedSettingsVersion
+        self.knownSharedExpiration = knownSharedExpiration
+        self.oneToOneIdentifier = nil
+        self.groupV1Identifier = groupV1Identifier
+        self.groupV2Identifier = nil
+    }
+
+    public init(groupV2Identifier: GroupV2Identifier, knownSharedSettingsVersion: Int?, knownSharedExpiration: ExpirationJSON?) {
+        self.knownSharedSettingsVersion = knownSharedSettingsVersion
+        self.knownSharedExpiration = knownSharedExpiration
+        self.oneToOneIdentifier = nil
+        self.groupV1Identifier = nil
+        self.groupV2Identifier = groupV2Identifier
+    }
+
     enum CodingKeys: String, CodingKey {
+        case groupUid = "guid" // For group V1
+        case groupOwner = "go" // For group V1
         case groupV2Identifier = "gid2"
         case knownSharedSettingsVersion = "ksv"
         case knownSharedExpiration = "exp"
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
     }
     
+    
+    public var groupIdentifier: GroupIdentifier? {
+        if let groupV1Identifier = groupV1Identifier {
+            return .groupV1(groupV1Identifier: groupV1Identifier)
+        } else if let groupV2Identifier = groupV2Identifier {
+            return .groupV2(groupV2Identifier: groupV2Identifier)
+        } else {
+            return nil
+        }
+    }
+
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
+        if let groupV1Identifier = groupV1Identifier {
+            try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
+            try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
+        }
+        if let groupV2Identifier = groupV2Identifier {
+            try container.encode(groupV2Identifier, forKey: .groupV2Identifier)
+        }
+        try container.encodeIfPresent(knownSharedSettingsVersion, forKey: .knownSharedSettingsVersion)
+        try container.encodeIfPresent(knownSharedExpiration, forKey: .knownSharedExpiration)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
+        
+        let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
+        let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
+        
+        let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
+        
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
+            let groupOwnerIdentity = groupOwnerIdentity,
+            let groupUid = UID(uid: groupUidRaw),
+            let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
+            self.groupV2Identifier = nil
+        } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = groupV2Identifier
+        } else {
+            // This happens when receiving a message for a one2one discussion from a device running an old version of Olvid, which didn't use to send the oneToOneIdentifier)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        }
+
+        self.knownSharedSettingsVersion = try values.decodeIfPresent(Int.self, forKey: .knownSharedSettingsVersion)
+        self.knownSharedExpiration = try values.decodeIfPresent(ExpirationJSON.self, forKey: .knownSharedExpiration)
+
+    }
+
 }
 
 
@@ -1107,8 +1355,9 @@ public struct UpdateMessageJSON: Codable {
     private func makeError(message: String) -> Error { UpdateMessageJSON.makeError(message: message) }
 
     public let messageToEdit: MessageReferenceJSON
-    let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
-    let groupV2Identifier: Data?
+    public let oneToOneIdentifier: OneToOneIdentifierJSON?
+    let groupV1Identifier: GroupV1Identifier?
+    let groupV2Identifier: GroupV2Identifier?
     public let newTextBody: String?
     public let userMentions: [MessageJSON.UserMention]
 
@@ -1129,6 +1378,7 @@ public struct UpdateMessageJSON: Codable {
         case body = "body"
         case messageToEdit = "ref"
         case userMentions = "um"
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
     }
     
     public init(persistedMessageSentToEdit msg: PersistedMessageSent, newTextBody: String?, userMentions: [MessageJSON.UserMention]) throws {
@@ -1136,9 +1386,20 @@ public struct UpdateMessageJSON: Codable {
         guard let msgRef = msg.toMessageReferenceJSON() else {
             throw UpdateMessageJSON.makeError(message: "Could not create MessageReferenceJSON")
         }
+        guard let discussion = msg.discussion else {
+            throw UpdateMessageJSON.makeError(message: "Discussion is nil")
+        }
         self.messageToEdit = msgRef
-        switch try msg.discussion.kind {
+        guard let discussionKind = try msg.discussion?.kind else {
+            throw UpdateMessageJSON.makeError(message: "Could not find discussion")
+        }
+        switch discussionKind {
         case .oneToOne:
+            guard let oneToOneDiscussion = discussion as? PersistedOneToOneDiscussion else {
+                assertionFailure()
+                throw UpdateMessageJSON.makeError(message: "Could not cast discussion into a one2one discussion. Unexpected, this is a bug")
+            }
+            self.oneToOneIdentifier = try oneToOneDiscussion.oneToOneIdentifier
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         case .groupV1(withContactGroup: let contactGroup):
@@ -1147,12 +1408,14 @@ public struct UpdateMessageJSON: Codable {
                   let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) else {
                 throw UpdateMessageJSON.makeError(message: "Could not determine group v1 uid")
             }
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         case .groupV2(withGroup: let group):
             guard let groupV2Identifier = group?.groupIdentifier else {
                 throw UpdateMessageJSON.makeError(message: "Could not determine group v2 uid")
             }
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         }
@@ -1161,6 +1424,7 @@ public struct UpdateMessageJSON: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
         if let groupV1Identifier = groupV1Identifier {
             try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
             try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
@@ -1173,44 +1437,40 @@ public struct UpdateMessageJSON: Codable {
         }
         try container.encode(messageToEdit, forKey: .messageToEdit)
 
-        if let newTextBody,
-            userMentions.isEmpty == false {
-            if #available(iOS 15, *) {
-                let configuration = MessageJSON.UserMention.Configuration(message: newTextBody)
-
-                try container.encode(userMentions, forKey: .userMentions, configuration: configuration)
-            } else {
-                let encoder = container.superEncoder(forKey: .userMentions)
-
-                var _innerContainer = encoder.unkeyedContainer()
-
-                for aMention in userMentions {
-                    let _currentDecoder = _innerContainer.superEncoder()
-
-                    try aMention.encode(to: _currentDecoder, messageBody: newTextBody)
-                }
-            }
+        if let newTextBody, userMentions.isEmpty == false {
+            let configuration = MessageJSON.UserMention.Configuration(message: newTextBody)
+            try container.encode(userMentions, forKey: .userMentions, configuration: configuration)
         }
     }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
 
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
+        
         let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
         let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
         
         let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
         
-        if let groupUidRaw = groupUidRaw,
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
             let groupOwnerIdentity = groupOwnerIdentity,
             let groupUid = UID(uid: groupUidRaw),
             let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         } else {
+            // This happens when receiving a message for a one2one discussion from a device running an old version of Olvid, which didn't use to send the oneToOneIdentifier)
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         }
@@ -1224,25 +1484,14 @@ public struct UpdateMessageJSON: Codable {
            try values.decodeNil(forKey: .userMentions) == false {
             let decodingBlock: (Decoder) throws -> MessageJSON.UserMention?
 
-            if #available(iOS 15, *) {
-                let configuration = MessageJSON.UserMention.Configuration(message: newTextBody)
-
-                decodingBlock = { decoder -> MessageJSON.UserMention? in
-                    do {
-                        return try MessageJSON.UserMention(from: decoder, configuration: configuration)
-                    } catch let error as MessageJSON.UserMention.MentionError.DecodingError {
-                        assert(false, "failed to decode with error: \(error)") //used for debugging
-                        return nil
-                    }
-                }
-            } else {
-                decodingBlock = { decoder -> MessageJSON.UserMention? in
-                    do {
-                        return try MessageJSON.UserMention(from: decoder, messageBody: newTextBody)
-                    } catch let error as MessageJSON.UserMention.MentionError.DecodingError {
-                        assert(false, "failed to decode with error: \(error)") //used for debugging
-                        return nil
-                    }
+            let configuration = MessageJSON.UserMention.Configuration(message: newTextBody)
+            
+            decodingBlock = { decoder -> MessageJSON.UserMention? in
+                do {
+                    return try MessageJSON.UserMention(from: decoder, configuration: configuration)
+                } catch let error as MessageJSON.UserMention.MentionError.DecodingError {
+                    assert(false, "failed to decode with error: \(error)") //used for debugging
+                    return nil
                 }
             }
 
@@ -1262,6 +1511,20 @@ public struct UpdateMessageJSON: Codable {
         }
     }
 
+    
+    /// Allows to serialize this request when it must be saved for later in the `RemoteRequestSavedForLater` database
+    public func jsonEncode() throws -> Data {
+        let encoder = JSONEncoder()
+        return try encoder.encode(self)
+    }
+
+    
+    /// Allows to deserialize this message when it was saved for later in the `RemoteRequestSavedForLater` database
+    public static func jsonDecode(_ data: Data) throws -> UpdateMessageJSON {
+        let decoder = JSONDecoder()
+        return try decoder.decode(UpdateMessageJSON.self, from: data)
+    }
+
 }
 
 public struct ReactionJSON: Codable {
@@ -1272,8 +1535,9 @@ public struct ReactionJSON: Codable {
     private func makeError(message: String) -> Error { ReactionJSON.makeError(message: message) }
 
     public let messageReference: MessageReferenceJSON
-    public let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
-    public let groupV2Identifier: Data?
+    let oneToOneIdentifier: OneToOneIdentifierJSON?
+    public let groupV1Identifier: GroupV1Identifier?
+    public let groupV2Identifier: GroupV2Identifier?
     public let emoji: String?
 
     public var groupIdentifier: GroupIdentifier? {
@@ -1292,6 +1556,7 @@ public struct ReactionJSON: Codable {
         case groupV2Identifier = "gid2"
         case emoji = "reac"
         case messageReference = "ref"
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
     }
 
     public init(persistedMessageToReact msg: PersistedMessage, emoji: String?) throws {
@@ -1299,9 +1564,19 @@ public struct ReactionJSON: Codable {
         guard let msgRef = msg.toMessageReferenceJSON() else {
             throw ReactionJSON.makeError(message: "Could not create MessageReferenceJSON")
         }
+        guard let discussion = msg.discussion else {
+            throw ReactionJSON.makeError(message: "Discussion is nil")
+        }
         self.messageReference = msgRef
-        switch try msg.discussion.kind {
+        guard let discussionKind = try msg.discussion?.kind else {
+            throw ReactionJSON.makeError(message: "Could not find discussion")
+        }
+        switch discussionKind {
         case .oneToOne:
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId, let contactCryptoId = (discussion as? PersistedOneToOneDiscussion)?.contactIdentity?.cryptoId else {
+                throw ReactionJSON.makeError(message: "Could not determine OneToOneIdentifierJSON")
+            }
+            self.oneToOneIdentifier = OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         case .groupV1(withContactGroup: let contactGroup):
@@ -1310,12 +1585,14 @@ public struct ReactionJSON: Codable {
                   let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) else {
                       throw ReactionJSON.makeError(message: "Could not determine group v1 uid")
                   }
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         case .groupV2(withGroup: let group):
             guard let groupV2Identifier = group?.groupIdentifier else {
                 throw ReactionJSON.makeError(message: "Could not determine group v2 uid")
             }
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         }
@@ -1323,6 +1600,7 @@ public struct ReactionJSON: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
         if let groupV1Identifier = groupV1Identifier {
             try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
             try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
@@ -1340,18 +1618,26 @@ public struct ReactionJSON: Codable {
         let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
         let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
 
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
         let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
-        
-        if let groupUidRaw = groupUidRaw,
+
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
             let groupOwnerIdentity = groupOwnerIdentity,
             let groupUid = UID(uid: groupUidRaw),
             let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         } else {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         }
@@ -1360,16 +1646,30 @@ public struct ReactionJSON: Codable {
         self.messageReference = try values.decode(MessageReferenceJSON.self, forKey: .messageReference)
     }
 
+    /// Allows to serialize this request when it must be saved for later in the `RemoteRequestSavedForLater` database
+    public func jsonEncode() throws -> Data {
+        let encoder = JSONEncoder()
+        return try encoder.encode(self)
+    }
+
+    
+    /// Allows to deserialize this message when it was saved for later in the `RemoteRequestSavedForLater` database
+    public static func jsonDecode(_ data: Data) throws -> ReactionJSON {
+        let decoder = JSONDecoder()
+        return try decoder.decode(ReactionJSON.self, from: data)
+    }
+
 }
 
 
 public struct ScreenCaptureDetectionJSON: Codable, ObvErrorMaker {
     
-    private let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "DiscussionSharedConfigurationJSON")
+    private let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "ScreenCaptureDetectionJSON")
     public static let errorDomain = "ScreenCaptureDetectionJSON"
 
-    let groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)?
-    let groupV2Identifier: Data?
+    public let oneToOneIdentifier: OneToOneIdentifierJSON?
+    let groupV1Identifier: GroupV1Identifier?
+    let groupV2Identifier: GroupV2Identifier?
 
     public var groupIdentifier: GroupIdentifier? {
         if let groupV1Identifier = groupV1Identifier {
@@ -1385,19 +1685,23 @@ public struct ScreenCaptureDetectionJSON: Codable, ObvErrorMaker {
         case groupUid = "guid" // For group V1
         case groupOwner = "go" // For group V1
         case groupV2Identifier = "gid2"
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
     }
 
-    public init() {
+    public init(oneToOneIdentifier: OneToOneIdentifierJSON) {
+        self.oneToOneIdentifier = oneToOneIdentifier
         self.groupV1Identifier = nil
         self.groupV2Identifier = nil
     }
 
-    public init(groupV1Identifier: (groupUid: UID, groupOwner: ObvCryptoId)) {
+    public init(groupV1Identifier: GroupV1Identifier) {
+        self.oneToOneIdentifier = nil
         self.groupV1Identifier = groupV1Identifier
         self.groupV2Identifier = nil
     }
 
-    public init(groupV2Identifier: Data) {
+    public init(groupV2Identifier: GroupV2Identifier) {
+        self.oneToOneIdentifier = nil
         self.groupV1Identifier = nil
         self.groupV2Identifier = groupV2Identifier
     }
@@ -1414,6 +1718,7 @@ public struct ScreenCaptureDetectionJSON: Codable, ObvErrorMaker {
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
         if let groupV1Identifier = groupV1Identifier {
             try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
             try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
@@ -1429,21 +1734,280 @@ public struct ScreenCaptureDetectionJSON: Codable, ObvErrorMaker {
         let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
         let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
         
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
         let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
         
-        if let groupUidRaw = groupUidRaw,
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
             let groupOwnerIdentity = groupOwnerIdentity,
             let groupUid = UID(uid: groupUidRaw),
             let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
-            self.groupV1Identifier = (groupUid, groupOwner)
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = groupV2Identifier
         } else {
+            self.oneToOneIdentifier = nil
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         }
+    }
+
+}
+
+
+public struct LimitedVisibilityMessageOpenedJSON: Codable {
+        
+    let messageReference: MessageReferenceJSON
+    let oneToOneIdentifier: OneToOneIdentifierJSON?
+    let groupV1Identifier: GroupV1Identifier?
+    let groupV2Identifier: GroupV2Identifier?
+    
+    public var groupIdentifier: GroupIdentifier? {
+        if let groupV1Identifier {
+            return .groupV1(groupV1Identifier: groupV1Identifier)
+        } else if let groupV2Identifier {
+            return .groupV2(groupV2Identifier: groupV2Identifier)
+        } else {
+            return nil
+        }
+    }
+    
+    
+    public func getMessageId(ownedCryptoId: ObvCryptoId) throws -> ReceivedMessageIdentifier {
+        let messageId = messageReference.getMessageId(ownedCryptoId: ownedCryptoId)
+        switch messageId {
+        case .sent, .system:
+            throw ObvError.doesNotReferenceReceivedMessage
+        case .received(let id):
+            return id
+        }
+    }
+
+    
+    public func getDiscussionId(ownedCryptoId: ObvCryptoId) throws -> DiscussionIdentifier {
+        if let groupV1Identifier {
+            return .groupV1(id: .groupV1Identifier(groupV1Identifier: groupV1Identifier))
+        } else if let groupV2Identifier {
+            return .groupV2(id: .groupV2Identifier(groupV2Identifier: groupV2Identifier))
+        } else if let oneToOneIdentifier {
+            guard let contactCryptoId = oneToOneIdentifier.getContactIdentity(ownedIdentity: ownedCryptoId) else {
+                assertionFailure()
+                throw ObvError.couldNotDetermineDiscussionIdentifier
+            }
+            return .oneToOne(id: .contactCryptoId(contactCryptoId: contactCryptoId))
+        } else {
+            throw ObvError.noDiscussionWasSpecified
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case messageReference = "m"
+        case groupUid = "guid" // For group V1
+        case groupOwner = "go" // For group V1
+        case groupV2Identifier = "gid2"
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
+    }
+
+    public init(messageReference: MessageReferenceJSON, oneToOneIdentifier: OneToOneIdentifierJSON) {
+        self.messageReference = messageReference
+        self.oneToOneIdentifier = oneToOneIdentifier
+        self.groupV1Identifier = nil
+        self.groupV2Identifier = nil
+    }
+
+    public init(messageReference: MessageReferenceJSON, groupV1Identifier: GroupV1Identifier) {
+        self.messageReference = messageReference
+        self.oneToOneIdentifier = nil
+        self.groupV1Identifier = groupV1Identifier
+        self.groupV2Identifier = nil
+    }
+
+    public init(messageReference: MessageReferenceJSON, groupV2Identifier: GroupV2Identifier) {
+        self.messageReference = messageReference
+        self.oneToOneIdentifier = nil
+        self.groupV1Identifier = nil
+        self.groupV2Identifier = groupV2Identifier
+    }
+
+    func jsonEncode() throws -> Data {
+        let encoder = JSONEncoder()
+        return try encoder.encode(self)
+    }
+
+    static func jsonDecode(_ data: Data) throws -> ScreenCaptureDetectionJSON {
+        let decoder = JSONDecoder()
+        return try decoder.decode(ScreenCaptureDetectionJSON.self, from: data)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(messageReference, forKey: .messageReference)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
+        if let groupV1Identifier = groupV1Identifier {
+            try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
+            try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
+        }
+        try container.encodeIfPresent(groupV2Identifier, forKey: .groupV2Identifier)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        
+        self.messageReference = try values.decode(MessageReferenceJSON.self, forKey: .messageReference)
+        
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
+
+        let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
+        let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
+        
+        let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
+        
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
+            let groupOwnerIdentity = groupOwnerIdentity,
+            let groupUid = UID(uid: groupUidRaw),
+            let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
+            self.groupV2Identifier = nil
+        } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = groupV2Identifier
+        } else {
+            throw ObvError.noDiscussionWasSpecified
+        }
+    }
+
+    enum ObvError: LocalizedError {
+        case noDiscussionWasSpecified
+        case couldNotDetermineDiscussionIdentifier
+        case doesNotReferenceReceivedMessage
+    }
+
+}
+
+
+public struct DiscussionReadJSON: Codable {
+    
+    public let lastReadMessageServerTimestamp: Date
+    public let oneToOneIdentifier: OneToOneIdentifierJSON?
+    public let groupV1Identifier: GroupV1Identifier?
+    public let groupV2Identifier: GroupV2Identifier?
+
+    public func getDiscussionId(ownedCryptoId: ObvCryptoId) throws -> DiscussionIdentifier {
+        if let groupV1Identifier {
+            return .groupV1(id: .groupV1Identifier(groupV1Identifier: groupV1Identifier))
+        } else if let groupV2Identifier {
+            return .groupV2(id: .groupV2Identifier(groupV2Identifier: groupV2Identifier))
+        } else if let oneToOneIdentifier {
+            guard let contactCryptoId = oneToOneIdentifier.getContactIdentity(ownedIdentity: ownedCryptoId) else {
+                assertionFailure()
+                throw ObvError.couldNotDetermineDiscussionIdentifier
+            }
+            return .oneToOne(id: .contactCryptoId(contactCryptoId: contactCryptoId))
+        } else {
+            throw ObvError.noDiscussionWasSpecified
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case lastReadMessageServerTimestamp = "tim"
+        case groupUid = "guid" // For group V1
+        case groupOwner = "go" // For group V1
+        case groupV2Identifier = "gid2"
+        case oneToOneIdentifier = "o2oi" // For one-to-one discussions
+    }
+
+    public init(lastReadMessageServerTimestamp: Date, oneToOneIdentifier: OneToOneIdentifierJSON) {
+        self.lastReadMessageServerTimestamp = lastReadMessageServerTimestamp
+        self.oneToOneIdentifier = oneToOneIdentifier
+        self.groupV1Identifier = nil
+        self.groupV2Identifier = nil
+    }
+
+    public init(lastReadMessageServerTimestamp: Date, groupV1Identifier: GroupV1Identifier) {
+        self.lastReadMessageServerTimestamp = lastReadMessageServerTimestamp
+        self.oneToOneIdentifier = nil
+        self.groupV1Identifier = groupV1Identifier
+        self.groupV2Identifier = nil
+    }
+
+    public init(lastReadMessageServerTimestamp: Date, groupV2Identifier: GroupV2Identifier) {
+        self.lastReadMessageServerTimestamp = lastReadMessageServerTimestamp
+        self.oneToOneIdentifier = nil
+        self.groupV1Identifier = nil
+        self.groupV2Identifier = groupV2Identifier
+    }
+
+    func jsonEncode() throws -> Data {
+        let encoder = JSONEncoder()
+        return try encoder.encode(self)
+    }
+
+    static func jsonDecode(_ data: Data) throws -> ScreenCaptureDetectionJSON {
+        let decoder = JSONDecoder()
+        return try decoder.decode(ScreenCaptureDetectionJSON.self, from: data)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(lastReadMessageServerTimestamp.epochInMs, forKey: .lastReadMessageServerTimestamp)
+        try container.encodeIfPresent(oneToOneIdentifier, forKey: .oneToOneIdentifier)
+        if let groupV1Identifier = groupV1Identifier {
+            try container.encode(groupV1Identifier.groupUid.raw, forKey: .groupUid)
+            try container.encode(groupV1Identifier.groupOwner.getIdentity(), forKey: .groupOwner)
+        }
+        try container.encodeIfPresent(groupV2Identifier, forKey: .groupV2Identifier)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        
+        let lastReadMessageServerTimestampInMilliseconds = try values.decode(Int64.self, forKey: .lastReadMessageServerTimestamp)
+        self.lastReadMessageServerTimestamp = Date(epochInMs: lastReadMessageServerTimestampInMilliseconds)
+        
+        let oneToOneIdentifier = try values.decodeIfPresent(OneToOneIdentifierJSON.self, forKey: .oneToOneIdentifier)
+
+        let groupUidRaw = try values.decodeIfPresent(Data.self, forKey: .groupUid)
+        let groupOwnerIdentity = try values.decodeIfPresent(Data.self, forKey: .groupOwner)
+        
+        let groupV2Identifier = try values.decodeIfPresent(Data.self, forKey: .groupV2Identifier)
+        
+        if let oneToOneIdentifier {
+            self.oneToOneIdentifier = oneToOneIdentifier
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = nil
+        } else if let groupUidRaw = groupUidRaw,
+            let groupOwnerIdentity = groupOwnerIdentity,
+            let groupUid = UID(uid: groupUidRaw),
+            let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) {
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
+            self.groupV2Identifier = nil
+        } else if let groupV2Identifier = groupV2Identifier {
+            self.oneToOneIdentifier = nil
+            self.groupV1Identifier = nil
+            self.groupV2Identifier = groupV2Identifier
+        } else {
+            throw ObvError.noDiscussionWasSpecified
+        }
+    }
+
+    enum ObvError: LocalizedError {
+        case noDiscussionWasSpecified
+        case couldNotDetermineDiscussionIdentifier
+        case doesNotReferenceReceivedMessage
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,149 +23,162 @@ import os.log
 import ObvEngine
 import OlvidUtils
 import ObvUICoreData
+import ObvTypes
 
 /// When receiving a shared configuration for a discussion, we merge it with our own current configuration.
-final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOperationWithSpecificReasonForCancel<MergeDiscussionSharedExpirationConfigurationOperationReasonForCancel>, OperationProvidingPersistedDiscussion {
+final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOperationWithSpecificReasonForCancel<MergeDiscussionSharedExpirationConfigurationOperation.ReasonForCancel> {
     
-    let discussionSharedConfiguration: DiscussionSharedConfigurationJSON
-    let fromContactIdentity: ObvContactIdentity
-    let messageUploadTimestampFromServer: Date
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MergeDiscussionSharedExpirationConfigurationOperation.self))
-
-    private(set) var updatedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>? // Set if the operation changes something and finishes without cancelling
+    private let discussionSharedConfiguration: DiscussionSharedConfigurationJSON
+    private let origin: Origin
+    private let messageUploadTimestampFromServer: Date
+    private let messageLocalDownloadTimestamp: Date
     
-    var persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>? {
-        updatedDiscussionObjectID
+    
+    enum Origin {
+        case fromContact(contactIdentifier: ObvContactIdentifier)
+        case fromOtherDeviceOfOwnedIdentity(ownedCryptoId: ObvCryptoId)
     }
 
-    init(discussionSharedConfiguration: DiscussionSharedConfigurationJSON, fromContactIdentity: ObvContactIdentity, messageUploadTimestampFromServer: Date) {
+
+    init(discussionSharedConfiguration: DiscussionSharedConfigurationJSON, origin: Origin, messageUploadTimestampFromServer: Date, messageLocalDownloadTimestamp: Date) {
         self.discussionSharedConfiguration = discussionSharedConfiguration
-        self.fromContactIdentity = fromContactIdentity
+        self.origin = origin
         self.messageUploadTimestampFromServer = messageUploadTimestampFromServer
+        self.messageLocalDownloadTimestamp = messageLocalDownloadTimestamp
         super.init()
     }
     
-    override func main() {
-        
-        guard let obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
+    
+    enum Result {
+        case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
+        case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
+        case contactIsNotOneToOne
+        case merged
+    }
 
-            do {
+    
+    private(set) var result: Result?
+
+
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            
+            switch origin {
                 
-                guard let persistedContact = try PersistedObvContactIdentity.get(persisted: fromContactIdentity, whereOneToOneStatusIs: .any, within: obvContext.context) else {
-                    return cancel(withReason: .contactCannotBeFound)
+            case .fromContact(contactIdentifier: let contactIdentifier):
+                
+                guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: contactIdentifier.ownedCryptoId, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
+                }
+
+                let (discussionId, weShouldSendBackOurSharedSettings) = try persistedOwnedIdentity.mergeReceivedDiscussionSharedConfigurationSentByContact(
+                    discussionSharedConfiguration: discussionSharedConfiguration,
+                    messageUploadTimestampFromServer: messageUploadTimestampFromServer, 
+                    messageLocalDownloadTimestamp: messageLocalDownloadTimestamp,
+                    contactCryptoId: contactIdentifier.contactCryptoId)
+                
+                result = .merged
+                                      
+                if weShouldSendBackOurSharedSettings {
+                    requestSendingDiscussionSharedConfiguration(contactIdentifier: contactIdentifier, discussionId: discussionId, within: obvContext)
+                }
+
+                
+            case .fromOtherDeviceOfOwnedIdentity(ownedCryptoId: let ownedCryptoId):
+                
+                guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
                 }
                 
-                let initiator = PersistedDiscussionSharedConfiguration.Initiator.contact(ownedCryptoId: fromContactIdentity.ownedIdentity.cryptoId,
-                                                                                         contactCryptoId: fromContactIdentity.cryptoId,
-                                                                                         messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-
-                switch discussionSharedConfiguration.groupIdentifier {
-                    
-                case .none:
-                    
-                    // The configuration concerns the one2one discussion we have with the contact
-                    guard let oneToOneDiscussion = persistedContact.oneToOneDiscussion else {
-                        return cancel(withReason: .discussionCannotBeFound)
-                    }
-                    self.updatedDiscussionObjectID = oneToOneDiscussion.typedObjectID.downcast
-                    let sharedConfiguration = oneToOneDiscussion.sharedConfiguration
-                    try sharedConfiguration.mergePersistedDiscussionSharedConfiguration(with: discussionSharedConfiguration, initiator: initiator)
-                    
-                case .groupV1(groupV1Identifier: let groupV1Identifier):
-                    
-                    // The configuration concerns a group discussion
-                    guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: fromContactIdentity.ownedIdentity, within: obvContext.context) else {
-                        return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
-                    }
-                    let contactGroup: PersistedContactGroup
-                    guard let _contactGroup = try PersistedContactGroupJoined.getContactGroup(groupId: groupV1Identifier, ownedIdentity: persistedOwnedIdentity) else {
-                        return cancel(withReason: .contactGroupCannotBeFound)
-                    }
-                    contactGroup = _contactGroup
-                    self.updatedDiscussionObjectID = contactGroup.discussion.typedObjectID.downcast
-                    guard contactGroup.ownerIdentity == fromContactIdentity.cryptoId.getIdentity() else {
-                        return cancel(withReason: .sharedConfigWasNotSentByGroupOwner)
-                    }
-                    let sharedConfiguration = contactGroup.discussion.sharedConfiguration
-                    try sharedConfiguration.mergePersistedDiscussionSharedConfiguration(with: discussionSharedConfiguration, initiator: initiator)
-
-                case .groupV2(groupV2Identifier: let groupV2Identifier):
-                    
-                    // The configuration concerns a group v2 discussion
-                    guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: fromContactIdentity.ownedIdentity, within: obvContext.context) else {
-                        return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
-                    }
-                    guard let group = try PersistedGroupV2.get(ownIdentity: persistedOwnedIdentity, appGroupIdentifier: groupV2Identifier) else {
-                        return cancel(withReason: .contactGroupCannotBeFound)
-                    }
-                    guard let discussion = group.discussion else {
-                        return cancel(withReason: .discussionCannotBeFound)
-                    }
-                    self.updatedDiscussionObjectID = discussion.typedObjectID.downcast
-                    let sharedConfiguration = discussion.sharedConfiguration
-                    try sharedConfiguration.mergePersistedDiscussionSharedConfiguration(with: discussionSharedConfiguration, initiator: initiator)
-
-                }
+                let (discussionId, weShouldSendBackOurSharedSettings) = try persistedOwnedIdentity.mergeReceivedDiscussionSharedConfigurationSentByThisOwnedIdentity(
+                    discussionSharedConfiguration: discussionSharedConfiguration, 
+                    messageUploadTimestampFromServer: messageUploadTimestampFromServer)
                                 
-            } catch {
+                result = .merged
+
+                if weShouldSendBackOurSharedSettings {
+                    ObvMessengerInternalNotification.aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice(
+                        ownedCryptoId: ownedCryptoId,
+                        discussionId: discussionId)
+                    .postOnDispatchQueue()
+                }
+                
+            }
+            
+        } catch {
+            
+            if let error = error as? ObvUICoreDataError {
+                switch error {
+                case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
+                    result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+                    return
+                case .couldNotFindContactWithId(contactIdentifier: let contactIdentifier):
+                    // This can happen if the owned identity performed a mutual scan with the contact from another owned device
+                    result = .couldNotFindContactInDatabase(contactCryptoId: contactIdentifier.contactCryptoId)
+                    return
+                case .contactIsNotOneToOne:
+                    // This can happen when receiving a shared config from a contact who just accepted our invitation to be a oneToOne contact. We should not fail as this case is handled:
+                    // we will soon turn her into a oneToOne contact, and thus, send her back our own shared config for the discussion. Upon receiving our discussion shared settings, she will
+                    // again send us back her shared settings if required.
+                    result = .contactIsNotOneToOne
+                    return
+                default:
+                    return cancel(withReason: .coreDataError(error: error))
+                }
+            } else {
                 return cancel(withReason: .coreDataError(error: error))
             }
-                
         }
         
     }
-}
-
-enum MergeDiscussionSharedExpirationConfigurationOperationReasonForCancel: LocalizedErrorWithLogType {
     
-    case coreDataError(error: Error)
-    case discussionCannotBeFound
-    case contactCannotBeFound
-    case couldNotFindPersistedOwnedIdentity
-    case contactGroupCannotBeFound
-    case sharedConfigWasNotSentByGroupOwner
-    case unexpectedError
-    case contextIsNil
 
-    var logType: OSLogType {
-        switch self {
-        case .coreDataError,
-             .couldNotFindPersistedOwnedIdentity,
-             .contextIsNil,
-             .unexpectedError:
-            return .fault
-        case .discussionCannotBeFound,
-             .contactCannotBeFound,
-             .contactGroupCannotBeFound,
-             .sharedConfigWasNotSentByGroupOwner:
-            return .error
+    // We had to create a contact, meaning we had to create/unlock a one2one discussion. In that case, we want to (re)send the discussion shared settings to our contact.
+    // This allows to make sure those settings are in sync.
+    private func requestSendingDiscussionSharedConfiguration(contactIdentifier: ObvContactIdentifier, discussionId: DiscussionIdentifier, within obvContext: ObvContext) {
+        do {
+            try obvContext.addContextDidSaveCompletionHandler { error in
+                guard error == nil else { return }
+                ObvMessengerInternalNotification.aDiscussionSharedConfigurationIsNeededByContact(
+                    contactIdentifier: contactIdentifier,
+                    discussionId: discussionId)
+                .postOnDispatchQueue()
+            }
+        } catch {
+            assertionFailure(error.localizedDescription)
         }
     }
+
     
-    var errorDescription: String? {
-        switch self {
-        case .coreDataError(error: let error):
-            return "Core Data error: \(error.localizedDescription)"
-        case .discussionCannotBeFound:
-            return "Could not find discussion in database"
-        case .contactCannotBeFound:
-            return "Could not find contact in database"
-        case .couldNotFindPersistedOwnedIdentity:
-            return "Could not find persisted owned identity"
-        case .contactGroupCannotBeFound:
-            return "Could not find contact group"
-        case .sharedConfigWasNotSentByGroupOwner:
-            return "Group discussion configuration was not sent by the group owner"
-        case .unexpectedError:
-            return "Unexpected error. This is a bug."
-        case .contextIsNil:
-            return "Context is nil"
+    
+    enum ReasonForCancel: LocalizedErrorWithLogType {
+        
+        case coreDataError(error: Error)
+        case couldNotFindPersistedOwnedIdentity
+        case contextIsNil
+
+        var logType: OSLogType {
+            switch self {
+            case .coreDataError,
+                 .couldNotFindPersistedOwnedIdentity,
+                 .contextIsNil:
+                return .fault
+            }
         }
+        
+        var errorDescription: String? {
+            switch self {
+            case .coreDataError(error: let error):
+                return "Core Data error: \(error.localizedDescription)"
+            case .couldNotFindPersistedOwnedIdentity:
+                return "Could not find persisted owned identity"
+            case .contextIsNil:
+                return "Context is nil"
+            }
+        }
+
     }
 
 }

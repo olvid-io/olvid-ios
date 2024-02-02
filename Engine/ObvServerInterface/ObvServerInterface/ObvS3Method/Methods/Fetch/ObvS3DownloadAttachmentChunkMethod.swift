@@ -30,7 +30,7 @@ public final class ObvS3DownloadAttachmentChunkMethod: ObvS3DownloadMethod {
     static let log = OSLog(subsystem: "io.olvid.server.interface.ObvS3DownloadAttachmentChunkMethod", category: "ObvServerInterface")
 
     public var signedURL: URL
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let chunkNumber: Int
     public let isActiveOwnedIdentityRequired = true
     public let flowId: FlowIdentifier
@@ -40,7 +40,7 @@ public final class ObvS3DownloadAttachmentChunkMethod: ObvS3DownloadMethod {
 
     weak public var identityDelegate: ObvIdentityDelegate?
 
-    public init(attachmentId: AttachmentIdentifier, chunkNumber: Int, signedURL: URL, flowId: FlowIdentifier) {
+    public init(attachmentId: ObvAttachmentIdentifier, chunkNumber: Int, signedURL: URL, flowId: FlowIdentifier) {
         self.flowId = flowId
         self.signedURL = signedURL
         self.attachmentId = attachmentId

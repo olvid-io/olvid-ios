@@ -34,35 +34,27 @@ final class ProcessContactGroupOwnedDiscardedLatestDetailsOperation: ContextualO
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
+                assertionFailure()
+                return
+            }
+            
+            let groupIdentifier = obvContactGroup.groupIdentifier
+            
+            guard let groupOwned = try PersistedContactGroupOwned.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
+                assertionFailure()
+                return
+            }
+            
+            groupOwned.setStatus(to: .noLatestDetails)
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-        obvContext.performAndWait {
-            
-            do {
-
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
-                    assertionFailure()
-                    return
-                }
-                
-                let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
-                
-                guard let groupOwned = try PersistedContactGroupOwned.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
-                    assertionFailure()
-                    return
-                }
-                
-                groupOwned.setStatus(to: .noLatestDetails)
-
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-
-        }
-
     }
 }

@@ -19,6 +19,8 @@
 
 import SwiftUI
 import ObvUI
+import ObvDesignSystem
+
 
 @available(iOS 16.0, *)
 private let kCircledInitialsViewSize = CircledInitialsView.Size.medium

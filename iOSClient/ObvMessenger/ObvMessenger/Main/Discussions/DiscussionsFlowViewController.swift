@@ -135,7 +135,12 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
         // Local delete action
         
         alert.addAction(UIAlertAction(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.actionDeleteAll, style: .destructive, handler: { (action) in
-            ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: persistedDiscussion.objectID, deletionType: .local, completionHandler: completionHandler)
+            guard let ownedCryptoId = persistedDiscussion.ownedIdentity?.cryptoId else { return }
+            ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(
+                ownedCryptoId: ownedCryptoId,
+                discussionObjectID: persistedDiscussion.typedObjectID,
+                deletionType: .local,
+                completionHandler: completionHandler)
                 .postOnDispatchQueue()
         }))
         
@@ -156,7 +161,12 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
                                       message: Strings.AlertConfirmAllDiscussionMessagesDeletionGlobally.message,
                                       preferredStyleForTraitCollection: self.traitCollection)
         alert.addAction(UIAlertAction(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.actionDeleteAllGlobally, style: .destructive, handler: { (action) in
-            ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: discussion.objectID, deletionType: .global, completionHandler: completionHandler)
+            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else { return }
+            ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(
+                ownedCryptoId: ownedCryptoId,
+                discussionObjectID: discussion.typedObjectID,
+                deletionType: .global,
+                completionHandler: completionHandler)
                 .postOnDispatchQueue()
         }))
         alert.addAction(UIAlertAction.init(title: CommonString.Word.Cancel, style: .cancel) { (action) in

@@ -132,7 +132,7 @@ extension ObvNetworkSendManagerImplementation {
     }
     
     
-    public func cancelPostOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) throws {
+    public func cancelPostOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws {
         
         try delegateManager.uploadMessageAndGetUidsDelegate.cancelMessageUpload(messageId: messageId, flowId: flowId)
         try delegateManager.uploadAttachmentChunksDelegate.cancelAllAttachmentsUploadOfMessage(messageId: messageId, flowId: flowId)
@@ -150,7 +150,7 @@ extension ObvNetworkSendManagerImplementation {
         return delegateManager.networkSendFlowDelegate.backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: backgroundURLSessionIdentifier)
     }
 
-    public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+    public func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float] {
         return try await delegateManager.networkSendFlowDelegate.requestUploadAttachmentProgressesUpdatedSince(date: date)
     }
 
@@ -158,7 +158,7 @@ extension ObvNetworkSendManagerImplementation {
         bootstrapWorker.replayTransactionsHistory(transactions: transactions, within: obvContext)
     }
     
-    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) async {
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: ObvMessageIdentifier, flowId: FlowIdentifier) async {
         await bootstrapWorker.deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: messageIdentifier, flowId: flowId)
     }
     

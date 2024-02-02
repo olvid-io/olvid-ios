@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import OlvidUtils
 import ObvTypes
 import os.log
 import ObvUICoreData
+import CoreData
 
 
 final class ProcessContactWasDeletedOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -35,24 +36,16 @@ final class ProcessContactWasDeletedOperation: ContextualOperationWithSpecificRe
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
+        do {
             
-            do {
-
-                let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: obvContext.context)
-                try contact?.deleteAndLockOneToOneDiscussion()
-
-            } catch {
-                
-                return cancel(withReason: .coreDataError(error: error))
-                
-            }
+            let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: obvContext.context)
+            try contact?.deleteAndLockOneToOneDiscussion()
+            
+        } catch {
+            
+            return cancel(withReason: .coreDataError(error: error))
             
         }
         

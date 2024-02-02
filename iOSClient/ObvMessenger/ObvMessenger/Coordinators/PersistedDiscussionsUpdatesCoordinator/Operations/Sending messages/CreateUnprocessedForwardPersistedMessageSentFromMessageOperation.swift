@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -40,58 +40,47 @@ final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: Co
         super.init()
     }
 
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        obvContext.performAndWait {
-            do {
-                // Find discussion
-                guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else {
-                    assertionFailure()
-                    return cancel(withReason: .couldNotFindDiscussionInDatabase)
-                }
-
-                // Find message to forward
-                guard let messageToForward = try PersistedMessage.getManagedObject(withPermanentID: messagePermanentID, within: obvContext.context) else {
-                    assertionFailure()
-                    return cancel(withReason: .couldNotFindMessageInDatabase)
-                }
-
-                let forwarded: Bool
-                switch messageToForward.kind {
-                case .received:
-                    forwarded = true
-                case .sent:
-                    // Do not mark the message as forwarded if the user forwards its own messages.
-                    forwarded = false
-                case .none, .system:
-                    forwarded = false
-                    assertionFailure("It is not possible to forward a system message and none kind should be overridden in subclasses.")
-                }
-
-                // Create message to send
-                let persistedMessageSent = try PersistedMessageSent(
-                    body: messageToForward.textBody,
-                    replyTo: nil,
-                    fyleJoins: messageToForward.fyleMessageJoinWithStatus ?? [],
-                    discussion: discussion,
-                    readOnce: false,
-                    visibilityDuration: nil,
-                    existenceDuration: nil,
-                    forwarded: forwarded,
-                    mentions: messageToForward.mentions.compactMap({ try? $0.userMention }))
-
-                self.messageSentPermanentID = persistedMessageSent.objectPermanentID
-
-            } catch {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            // Find discussion
+            guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else {
                 assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+                return cancel(withReason: .couldNotFindDiscussionInDatabase)
             }
-
+            
+            // Find message to forward
+            guard let messageToForward = try PersistedMessage.getManagedObject(withPermanentID: messagePermanentID, within: obvContext.context) else {
+                assertionFailure()
+                return cancel(withReason: .couldNotFindMessageInDatabase)
+            }
+            
+            let forwarded: Bool
+            switch messageToForward.kind {
+            case .received:
+                forwarded = true
+            case .sent:
+                // Do not mark the message as forwarded if the user forwards its own messages.
+                forwarded = false
+            case .none, .system:
+                forwarded = false
+                assertionFailure("It is not possible to forward a system message and none kind should be overridden in subclasses.")
+            }
+            
+            // Create message to send
+            
+            let persistedMessageSent = try PersistedMessageSent.createPersistedMessageSentWhenForwardingAMessage(
+                messageToForward: messageToForward,
+                discussion: discussion,
+                forwarded: forwarded)
+            
+            self.messageSentPermanentID = persistedMessageSent.objectPermanentID
+            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 
 }

@@ -141,22 +141,17 @@ struct DisplayableLogsListInnerView: View {
                             }
                         }
                     }
-                    if #available(iOS 15.0, *) {
-                        navigationLink.swipeActions {
-                            Button(role: .destructive) {
-                                deleteLogAction(filename)
-                            } label: {
-                                Image(systemIcon: .trash)
-                            }
-                            Button {
-                                shareAction(filename)
-                            } label: {
-                                Image(systemIcon: .squareAndArrowUp)
-                            }
+                    navigationLink.swipeActions {
+                        Button(role: .destructive) {
+                            deleteLogAction(filename)
+                        } label: {
+                            Image(systemIcon: .trash)
                         }
-                    } else {
-                        // Delete and share actions are in SingleDisplayableLogView
-                        navigationLink
+                        Button {
+                            shareAction(filename)
+                        } label: {
+                            Image(systemIcon: .squareAndArrowUp)
+                        }
                     }
                 }
             }

@@ -66,8 +66,8 @@ final class MessageHeader: NSManagedObject, ObvManagedObject {
     
     // MARK: Other variables
     
-    private(set) var messageId: MessageIdentifier {
-        get { return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
+    private(set) var messageId: ObvMessageIdentifier {
+        get { return ObvMessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
         set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
     }
 

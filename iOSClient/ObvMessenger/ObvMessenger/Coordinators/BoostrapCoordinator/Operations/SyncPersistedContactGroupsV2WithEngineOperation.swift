@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvEngine
 import os.log
 import ObvTypes
 import ObvUICoreData
+import CoreData
 
 
 final class SyncPersistedContactGroupsV2WithEngineOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -36,87 +37,78 @@ final class SyncPersistedContactGroupsV2WithEngineOperation: ContextualOperation
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         os_log("Syncing Persisted Contact Groups V2 with Engine Contact Groups V2", log: log, type: .info)
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
+        do {
             
-            do {
+            // Delete orphaned `PersistedGroupV2Member` entities
+            
+            try PersistedGroupV2Member.deleteOrphanedPersistedGroupV2Members(within: obvContext.context)
+            
+            // Loop over all owned identities
+            
+            let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+            
+            try ownedIdentities.forEach { ownedIdentity in
                 
-                // Delete orphaned `PersistedGroupV2Member` entities
+                let groups: Set<ObvGroupV2>
+                do {
+                    groups = try obvEngine.getAllObvGroupV2OfOwnedIdentity(with: ownedIdentity.cryptoId)
+                } catch {
+                    assertionFailure()
+                    os_log("Could not get all group v2 from engine for an owned identity: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    return
+                }
                 
-                try PersistedGroupV2Member.deleteOrphanedPersistedGroupV2Members(within: obvContext.context)
+                // Create or update the PersistedGroupV2 instances
                 
-                // Loop over all owned identities
-                
-                let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
-                
-                try ownedIdentities.forEach { ownedIdentity in
-
-                    let groups: Set<ObvGroupV2>
+                groups.forEach { obvGroupV2 in
                     do {
-                        groups = try obvEngine.getAllObvGroupV2OfOwnedIdentity(with: ownedIdentity.cryptoId)
+                        _ = try ownedIdentity.createOrUpdateGroupV2(obvGroupV2: obvGroupV2, createdByMe: false)
+                    } catch {
+                        os_log("Could not create or update a PersistedGroupV2: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        assertionFailure()
+                        // Continue anyway
+                    }
+                }
+                
+                // Remove any PersistedGroupV2 that does not exist within the engine
+                
+                let persistedGroups = try PersistedGroupV2.getAllPersistedGroupV2(ownedIdentity: ownedIdentity)
+                let appGroupIdentifierToKeep = Set(groups.map({ $0.appGroupIdentifier }))
+                for persistedGroup in persistedGroups {
+                    if appGroupIdentifierToKeep.contains(persistedGroup.groupIdentifier) { continue }
+                    do {
+                        try persistedGroup.delete()
                     } catch {
                         assertionFailure()
-                        os_log("Could not get all group v2 from engine for an owned identity: %{public}@", log: log, type: .fault, error.localizedDescription)
-                        return
+                        os_log("Could not delete one of the PersistedGroupV2 present within the app but not within the engine: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        continue
                     }
-                    
-                    // Create or update the PersistedGroupV2 instances
-                    
-                    groups.forEach { obvGroupV2 in
-                        do {
-                            _ = try PersistedGroupV2.createOrUpdate(obvGroupV2: obvGroupV2,
-                                                                    createdByMe: false,
-                                                                    within: obvContext.context)
-                        } catch {
-                            os_log("Could not create or update a PersistedGroupV2: %{public}@", log: log, type: .fault, error.localizedDescription)
-                            assertionFailure()
-                            // Continue anyway
-                        }
-                    }
-                    
-                    // Remove any PersistedGroupV2 that does not exist within the engine
-
-                    let persistedGroups = try PersistedGroupV2.getAllPersistedGroupV2(ownedIdentity: ownedIdentity)
-                    let appGroupIdentifierToKeep = Set(groups.map({ $0.appGroupIdentifier }))
-                    for persistedGroup in persistedGroups {
-                        if appGroupIdentifierToKeep.contains(persistedGroup.groupIdentifier) { continue }
-                        do {
-                            try persistedGroup.delete()
-                        } catch {
-                            assertionFailure()
-                            os_log("Could not delete one of the PersistedGroupV2 present within the app but not within the engine: %{public}@", log: log, type: .fault, error.localizedDescription)
-                            continue
-                        }
-                    }
-                     
-                    // Make sure that all remaining persisted contact groups do have an associated display contact group.
-                    // For those that have one, make sure it is in sync.
-                    
-                    for group in persistedGroups {
-                        guard !group.isDeleted else { continue }
-                        do {
-                            try group.createOrUpdateTheAssociatedDisplayedContactGroup()
-                        } catch {
-                            os_log("Could not create or update the underlying displayed contact group of a persisted contact group: %{public}@", log: log, type: .fault, error.localizedDescription)
-                            assertionFailure() // In production, continue anyway
-                        }
-                    }
-
-                } // End ownedIdentities.forEach
+                }
                 
-            } catch {
-                assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
-            }
+                // Make sure that all remaining persisted contact groups do have an associated display contact group.
+                // For those that have one, make sure it is in sync.
                 
-        } // End obvContext.performAndWait
+                for group in persistedGroups {
+                    guard !group.isDeleted else { continue }
+                    do {
+                        try group.createOrUpdateTheAssociatedDisplayedContactGroup()
+                    } catch {
+                        os_log("Could not create or update the underlying displayed contact group of a persisted contact group: %{public}@", log: log, type: .fault, error.localizedDescription)
+                        assertionFailure() // In production, continue anyway
+                    }
+                }
+                
+            } // End ownedIdentities.forEach
+            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
+        }
+        
     }
     
 }

@@ -20,6 +20,9 @@
 import ObvUI
 import UIKit
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
+
 
 final class AboutSettingsTableViewController: UITableViewController {
 
@@ -111,58 +114,32 @@ final class AboutSettingsTableViewController: UITableViewController {
             case .minimumSupportedVersion:
                 let cell = tableView.dequeueReusableCell(withIdentifier: "AboutSettingsTableViewControllerCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "AboutSettingsTableViewControllerCell")
                 cell.selectionStyle = .none
-                if #available(iOS 14, *) {
-                    var configuration = cell.defaultContentConfiguration()
-                    configuration.text = Strings.minimumSupportedVersion
-                    if let version = ObvMessengerSettings.AppVersionAvailable.minimum {
-                        configuration.secondaryText = String(describing: version)
-                    } else {
-                        configuration.secondaryText = CommonString.Word.Unavailable
-                    }
-                    cell.contentConfiguration = configuration
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = Strings.minimumSupportedVersion
+                if let version = ObvMessengerSettings.AppVersionAvailable.minimum {
+                    configuration.secondaryText = String(describing: version)
                 } else {
-                    cell.textLabel?.text = Strings.minimumSupportedVersion
-                    if let version = ObvMessengerSettings.AppVersionAvailable.minimum {
-                        cell.detailTextLabel?.text = String(describing: version)
-                    } else {
-                        cell.detailTextLabel?.text = CommonString.Word.Unavailable
-                    }
-                    cell.selectionStyle = .none
+                    configuration.secondaryText = CommonString.Word.Unavailable
                 }
+                cell.contentConfiguration = configuration
                 return cell
             case .minimumRecommendedVersion:
                 let cell = tableView.dequeueReusableCell(withIdentifier: "AboutSettingsTableViewControllerCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "AboutSettingsTableViewControllerCell")
-                if #available(iOS 14, *) {
-                    var configuration = cell.defaultContentConfiguration()
-                    configuration.text = Strings.minimumRecommendedVersion
-                    if let version = ObvMessengerSettings.AppVersionAvailable.latest {
-                        configuration.secondaryText = String(describing: version)
-                    } else {
-                        configuration.secondaryText = CommonString.Word.Unavailable
-                    }
-                    cell.contentConfiguration = configuration
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = Strings.minimumRecommendedVersion
+                if let version = ObvMessengerSettings.AppVersionAvailable.latest {
+                    configuration.secondaryText = String(describing: version)
                 } else {
-                    cell.textLabel?.text = Strings.minimumRecommendedVersion
-                    if let version = ObvMessengerSettings.AppVersionAvailable.latest {
-                        cell.detailTextLabel?.text = String(describing: version)
-                    } else {
-                        cell.detailTextLabel?.text = CommonString.Word.Unavailable
-                    }
-                    cell.selectionStyle = .none
+                    configuration.secondaryText = CommonString.Word.Unavailable
                 }
+                cell.contentConfiguration = configuration
                 return cell
             case .goToAppStore:
                 let cell = tableView.dequeueReusableCell(withIdentifier: "AboutSettingsTableViewControllerCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "AboutSettingsTableViewControllerCell")
-                if #available(iOS 14, *) {
-                    var configuration = cell.defaultContentConfiguration()
-                    configuration.text = Strings.upgradeOlvidNow
-                    configuration.textProperties.color = AppTheme.shared.colorScheme.link
-                    cell.contentConfiguration = configuration
-                } else {
-                    cell.textLabel?.text = Strings.upgradeOlvidNow
-                    cell.detailTextLabel?.text = nil
-                    cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
-                }
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = Strings.upgradeOlvidNow
+                configuration.textProperties.color = AppTheme.shared.colorScheme.link
+                cell.contentConfiguration = configuration
                 cell.selectionStyle = .default
                 return cell
             }
@@ -175,22 +152,18 @@ final class AboutSettingsTableViewController: UITableViewController {
                 cell.textLabel?.text = Strings.termsOfUse
                 cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
                 cell.selectionStyle = .default
-                if #available(iOS 14.0, *) {
-                    let icon = NSTextAttachment()
-                    icon.image = UIImage(systemIcon: .network)?.withTintColor(AppTheme.shared.colorScheme.link)
-                    cell.detailTextLabel?.attributedText = NSMutableAttributedString(attachment: icon)
-                }
+                let icon = NSTextAttachment()
+                icon.image = UIImage(systemIcon: .network)?.withTintColor(AppTheme.shared.colorScheme.link)
+                cell.detailTextLabel?.attributedText = NSMutableAttributedString(attachment: icon)
                 return cell
             case .privacyPolicy:
                 let cell = tableView.dequeueReusableCell(withIdentifier: "AboutSettingsTableViewControllerCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "AboutSettingsTableViewControllerCell")
                 cell.textLabel?.text = Strings.privacyPolicy
                 cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
                 cell.selectionStyle = .default
-                if #available(iOS 14.0, *) {
-                    let icon = NSTextAttachment()
-                    icon.image = UIImage(systemIcon: .network)?.withTintColor(AppTheme.shared.colorScheme.link)
-                    cell.detailTextLabel?.attributedText = NSMutableAttributedString(attachment: icon)
-                }
+                let icon = NSTextAttachment()
+                icon.image = UIImage(systemIcon: .network)?.withTintColor(AppTheme.shared.colorScheme.link)
+                cell.detailTextLabel?.attributedText = NSMutableAttributedString(attachment: icon)
                 return cell
             case .acknowlegments:
                 let cell = tableView.dequeueReusableCell(withIdentifier: "AboutSettingsTableViewControllerCell") ?? UITableViewCell(style: .value1, reuseIdentifier: "AboutSettingsTableViewControllerCell")

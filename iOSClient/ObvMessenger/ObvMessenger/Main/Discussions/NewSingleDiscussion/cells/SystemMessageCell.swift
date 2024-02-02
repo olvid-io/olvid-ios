@@ -98,6 +98,8 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWith
             content.backgroundColor = appTheme.colorScheme.green
         case .contactIsOneToOneAgain:
             content.backgroundColor = appTheme.colorScheme.green
+        case .contactWasIntroducedToAnotherContact:
+            content.backgroundColor = appTheme.colorScheme.green
         case .callLogItem:
             content.backgroundColor = appTheme.colorScheme.purple
         case .updatedDiscussionSharedSettings:
@@ -151,6 +153,8 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWith
             switch callReportKind {
             case .rejectedIncomingCallBecauseOfDeniedRecordPermission:
                 return .systemCellShowingCallLogItemRejectedIncomingCallBecauseOfDeniedRecordPermission
+            case .rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse:
+                return .systemCellShowingCallLogItemRejectedBecauseOfVoIPSettings
             default:
                 return nil
             }
@@ -167,6 +171,7 @@ final class SystemMessageCell: UICollectionViewCell, CellWithMessage, UIViewWith
                 .rejoinedGroup,
                 .contactIsOneToOneAgain,
                 .ownedIdentityDidCaptureSensitiveMessages,
+                .contactWasIntroducedToAnotherContact,
                 .contactIdentityDidCaptureSensitiveMessages:
             return nil
         }
@@ -191,8 +196,11 @@ extension SystemMessageCell {
     var fyleMessagesJoinWithStatus: [FyleMessageJoinWithStatus]? { nil }
     var imageAttachments: [FyleMessageJoinWithStatus]? { nil } // Legacy, replaced by itemProvidersForImages
     var itemProvidersForImages: [UIActivityItemProvider]? { nil }
-    var itemProvidersForAllAttachments: [UIActivityItemProvider]? { nil }
-
+    var activityItemProvidersForAllAttachments: [UIActivityItemProvider]? { nil }
+    var itemProvidersForAllAttachments: [NSItemProvider]? { nil }
+    var uiDragItemsForAllAttachments: [UIDragItem]? { nil }
+    var hardlinkURLsForAllAttachments: [URL]? { nil }
+    
     var infoViewController: UIViewController? {
         guard message?.infoActionCanBeMadeAvailable == true else { return nil }
         if let item = message?.optionalCallLogItem {

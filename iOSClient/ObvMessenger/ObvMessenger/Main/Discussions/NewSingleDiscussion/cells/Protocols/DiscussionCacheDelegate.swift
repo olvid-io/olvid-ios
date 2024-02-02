@@ -44,9 +44,9 @@ protocol DiscussionCacheDelegate: AnyObject {
     func requestReplyToBubbleViewConfiguration(message: PersistedMessage, completionWhenCellNeedsUpdateConfiguration: @escaping () -> Void) -> ReplyToBubbleView.Configuration?
     
     // Downsized thumbnails
-    func getCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) -> UIImage?
-    func removeCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
-    func requestDownsizedThumbnail(objectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, data: Data, completionWhenImageCached: @escaping ((Result<Void, Error>) -> Void))
+    func getCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) -> UIImage?
+    func removeCachedDownsizedThumbnail(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>)
+    func requestDownsizedThumbnail(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, data: Data, completionWhenImageCached: @escaping ((Result<Void, Error>) -> Void))
     
     // Images (and thumbnails) for FyleMessageJoinWithStatus
     func getCachedPreparedImage(for objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) -> UIImage?

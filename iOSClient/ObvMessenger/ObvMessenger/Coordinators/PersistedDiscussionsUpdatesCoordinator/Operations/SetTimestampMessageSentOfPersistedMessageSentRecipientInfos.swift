@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,36 +38,28 @@ final class SetTimestampMessageSentOfPersistedMessageSentRecipientInfosOperation
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
+        do {
             
-            do {
+            for (messageIdentifierFromEngine, timestampFromServer) in messageIdentifierFromEngineAndTimestampFromServer {
                 
-                for (messageIdentifierFromEngine, timestampFromServer) in messageIdentifierFromEngineAndTimestampFromServer {
-                    
-                    let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfosWithoutTimestampDeliveredAndMatching(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, within: obvContext.context)
-                    
-                    // Note that the infos list may be empty for that messageIdentifierFromEngine and owned identity.
-                    // Since we now (2022-02-24) also filter out infos that already have a timestampMessageSent, this is not an issue.
-                    
-                    infos.forEach {
-                        $0.setTimestampMessageSent(to: timestampFromServer)
-                    }
-
+                let infos = try PersistedMessageSentRecipientInfos.getAllPersistedMessageSentRecipientInfosWithoutTimestampDeliveredAndMatching(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, within: obvContext.context)
+                
+                // Note that the infos list may be empty for that messageIdentifierFromEngine and owned identity.
+                // Since we now (2022-02-24) also filter out infos that already have a timestampMessageSent, this is not an issue.
+                
+                infos.forEach {
+                    $0.setTimestampMessageSent(to: timestampFromServer)
                 }
                 
-
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
             }
-
+            
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 
 }

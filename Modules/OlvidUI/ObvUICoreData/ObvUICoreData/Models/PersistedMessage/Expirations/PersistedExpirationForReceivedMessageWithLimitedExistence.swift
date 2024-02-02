@@ -58,7 +58,7 @@ extension PersistedExpirationForReceivedMessageWithLimitedExistence {
         return NSFetchRequest<PersistedExpirationForReceivedMessageWithLimitedExistence>(entityName: PersistedExpirationForReceivedMessageWithLimitedExistence.entityName)
     }
 
-    public static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
+    static func deleteAllOrphaned(within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<NSFetchRequestResult> = PersistedExpirationForReceivedMessageWithLimitedExistence.fetchRequest()
         request.predicate = Predicate.withNoMessage
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)

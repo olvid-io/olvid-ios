@@ -19,6 +19,7 @@
 
 import ObvUI
 import SwiftUI
+import ObvDesignSystem
 
 
 struct ObvChevron: View {
@@ -38,13 +39,13 @@ struct ObvChevron: View {
                 .imageScale(.large)
                 .foregroundColor(.white)
                 .colorMultiply(selected ? Color.clear : ObvChevron.normalColor)
-                .animation(.spring())
+                .animation(.spring(), value: 0.3)
                 .clipShape(Circle().scale(0.7))
             Image(systemIcon: .chevronRightCircleFill)
                 .imageScale(.large)
                 .foregroundColor(.white)
                 .colorMultiply(selected ? ObvChevron.selectedColor : Color.clear)
-                .animation(.spring())
+                .animation(.spring(), value: 0.3)
         }
     }
 }

@@ -18,6 +18,7 @@
  */
 
 import SwiftUI
+import UI_ObvImageEditor
 
 struct CircledCameraButtonView: View {
     
@@ -39,120 +40,131 @@ struct CircledCameraButtonView: View {
 
     @Binding var profilePicture: UIImage?
     
-    @State private var activeSheet: ActiveSheet? = nil
-    @State private var sheetIsPresented: Bool = false // Only for iOS13
+    @State private var activeSheet: ActiveSheet?
     @State private var pictureState: UIImage? = nil
+    @State private var isSheetPresented: Bool = false
+    @State private var isFileImporterPresented: Bool = false
     @State private var profilePictureMenuIsPresented: Bool = false
 
-    var profilePictureEditionActionsSheet: [ActionSheet.Button] {
-        var result: [ActionSheet.Button] = []
-        for action in buildCameraButtonActions() {
-            result += [Alert.Button.default(Text(action.title), action: action.handler)]
-        }
-        result.append(Alert.Button.cancel({ profilePictureMenuIsPresented = false }))
-        return result
+    private func userTappedMenuButtonForPhotoLibrary() {
+        self.activeSheet = .libraryPicker
+        self.isSheetPresented = true
+        self.isFileImporterPresented = false
     }
 
-    private func buildCameraButtonActions() -> [ProfilePictureAction] {
-        var actions: [ProfilePictureAction] = []
-        actions += [ProfilePictureAction(title: NSLocalizedString("CHOOSE_PICTURE", comment: "")) {
-            self.activeSheet = .libraryPicker
-            if #unavailable(iOS 14.0) {
-                self.sheetIsPresented = true
+    
+    private func userTappedMenuButtonForFilesApp() {
+        self.activeSheet = nil
+        self.isSheetPresented = false
+        self.isFileImporterPresented = true
+    }
+    
+    private func userTappedMenuButtonForCamera() {
+        self.activeSheet = .cameraPicker
+        self.isSheetPresented = true
+        self.isFileImporterPresented = false
+    }
+    
+    
+    private func userTappedMenuButtonForRemovingPicture() {
+        self.profilePicture = nil
+        self.isSheetPresented = false
+        self.isFileImporterPresented = false
+    }
+    
+    
+    /// Called when the file importer is dismissed.
+    @MainActor
+    private func processFileImporterResult(_ result: Result<[URL], Error>) async {
+        switch result {
+        case .success(let urls):
+            assert(urls.count == 1)
+            guard let url = urls.first else { return }
+            let gotAccess = url.startAccessingSecurityScopedResource()
+            guard gotAccess else { return }
+            defer { url.stopAccessingSecurityScopedResource() }
+            guard let image = UIImage(contentsOfFile: url.path) else { return }
+            withAnimation {
+                self.pictureState = image
+                self.activeSheet = .editor
+                self.isSheetPresented = true
             }
-        }]
-        if UIImagePickerController.isCameraDeviceAvailable(.front) {
-            actions += [ProfilePictureAction(title: NSLocalizedString("TAKE_PICTURE", comment: "")) {
-                self.activeSheet = .cameraPicker
-                if #unavailable(iOS 14.0) {
-                    self.sheetIsPresented = true
-                }
-            }]
+        case .failure(let failure):
+            assertionFailure(failure.localizedDescription)
         }
-        actions += [ProfilePictureAction(title: NSLocalizedString("REMOVE_PICTURE", comment: "")) {
-            self.profilePicture = nil
-        }]
-        return actions
+    }
+    
+    
+    /// Called when the user taps the accept or reject button of the image editor. If the user accepted the edited image, this edited image is passed as a parameter.
+    @MainActor
+    private func userAcceptedOrRejectedEditedImage(_ editedImage: UIImage?) async {
+        withAnimation {
+            self.activeSheet = nil
+            self.isSheetPresented = false
+            if let editedImage {
+                self.profilePicture = editedImage
+            }
+        }
     }
     
     var body: some View {
-        if #available(iOS 14.0, *) {
-            iOS14Body
-        } else {
-            iOS13Body
-        }
-    }
-    
-    @available(iOS 14, *)
-    private var iOS14Body: some View {
-        UIButtonWrapper(title: nil, actions: buildCameraButtonActions().map { $0.toAction }) {
-            CircledCameraView()
-        }
-        .frame(width: 44, height: 44)
-        .sheet(item: $activeSheet) { item in
-            switch item {
-            case .cameraPicker:
-                ImagePicker(image: $pictureState, useCamera: true) {
-                    activeSheet = .editor
+        
+        Menu {
+            Button(action: userTappedMenuButtonForPhotoLibrary) {
+                Label("PHOTO_LIBRARY", systemIcon: .photoOnRectangleAngled)
+            }
+            Button(action: userTappedMenuButtonForFilesApp) {
+                Label("FILES_APP", systemIcon: .doc)
+            }
+            if UIImagePickerController.isCameraDeviceAvailable(.front) {
+                Button(action: userTappedMenuButtonForCamera) {
+                    Label("TAKE_PICTURE", systemIcon: .camera(.none))
                 }
+            }
+            Button(action: userTappedMenuButtonForRemovingPicture) {
+                Label("REMOVE_PICTURE", systemIcon: .trash)
+            }
+        } label: {
+            CircledCameraView()
+                .frame(width: 44, height: 44)
+        }
+        .sheet(isPresented: $isSheetPresented) {
+            switch activeSheet {
             case .libraryPicker:
                 ImagePicker(image: $pictureState, useCamera: false) {
-                    activeSheet = .editor
+                    withAnimation {
+                        activeSheet = .editor
+                    }
                 }
+                .ignoresSafeArea()
+            case .cameraPicker:
+                ImagePicker(image: $pictureState, useCamera: true) {
+                    withAnimation {
+                        activeSheet = .editor
+                    }
+                }
+                .ignoresSafeArea()
             case .editor:
-                ImageEditor(image: $pictureState) {
-                    activeSheet = nil
-                    if let image = pictureState {
-                        withAnimation {
-                            self.profilePicture = image
-                        }
+                if let pictureState {
+                    ObvImageEditorViewControllerRepresentable(
+                        originalImage: pictureState,
+                        showZoomButtons: false,
+                        maxReturnedImageSize: (1080, 1080))
+                    { editedImage in
+                        Task { await userAcceptedOrRejectedEditedImage(editedImage) }
                     }
+                    .ignoresSafeArea()
                 }
+            case nil:
+                EmptyView()
             }
         }
-    }
-    
-    
-    private var iOS13Body: some View {
-        Button(action: { profilePictureMenuIsPresented.toggle() }) {
-            CircledCameraView()
-        }
-        .frame(width: 44, height: 44)
-        .actionSheet(isPresented: $profilePictureMenuIsPresented, content: {
-            ActionSheet(title: Text("PROFILE_PICTURE"), message: nil, buttons: profilePictureEditionActionsSheet)
-        })
-        .sheet(isPresented: $sheetIsPresented, onDismiss: {
-            if activeSheet != nil && !sheetIsPresented {
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) {
-                    sheetIsPresented = true
-                }
+        .fileImporter(
+            isPresented: $isFileImporterPresented,
+            allowedContentTypes: [.jpeg],
+            allowsMultipleSelection: false) { result in
+                Task { await processFileImporterResult(result) }
             }
-        }, content: {
-            if let item = activeSheet {
-                switch item {
-                case .cameraPicker:
-                    ImagePicker(image: $pictureState, useCamera: true) {
-                        activeSheet = .editor
-                        sheetIsPresented = false
-                    }
-                case .libraryPicker:
-                    ImagePicker(image: $pictureState, useCamera: false) {
-                        activeSheet = .editor
-                        sheetIsPresented = false
-                    }
-                case .editor:
-                    ImageEditor(image: $pictureState) {
-                        activeSheet = nil
-                        sheetIsPresented = false
-                        if let image = pictureState {
-                            withAnimation {
-                                self.profilePicture = image
-                            }
-                        }
-                    }
-                }
-            }
-        })
     }
     
 }

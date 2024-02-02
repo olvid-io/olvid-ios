@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -168,7 +168,7 @@ extension BootstrapWorker {
 
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
 
-            let outboxMessageIdentifiers: [MessageIdentifier]
+            let outboxMessageIdentifiers: [ObvMessageIdentifier]
             do {
                 let outboxMessages = try OutboxMessage.getAll(delegateManager: delegateManager, within: obvContext)
                 outboxMessageIdentifiers = outboxMessages.compactMap { $0.messageId }
@@ -233,7 +233,7 @@ extension BootstrapWorker {
         let relevantChanges = changes.filter { $0.changedObjectID.entity.name == OutboxMessage.entity().name && $0.changeType == .update }
         
         // Used to ensure we only post the relevant notification once
-        var notificationPosted = Set<MessageIdentifier>()
+        var notificationPosted = Set<ObvMessageIdentifier>()
         
         for change in relevantChanges {
             guard let updatedProperties = change.updatedProperties else { continue }
@@ -292,7 +292,7 @@ extension BootstrapWorker {
     }
     
     
-    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: MessageIdentifier, flowId: FlowIdentifier) async {
+    public func deleteHistoryConcerningTheAcknowledgementOfOutboxMessage(messageIdentifier: ObvMessageIdentifier, flowId: FlowIdentifier) async {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -447,7 +447,7 @@ extension BootstrapWorker {
         
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
-            let existingMessageIds: Set<MessageIdentifier>
+            let existingMessageIds: Set<ObvMessageIdentifier>
             do {
                 let existingMessages = try OutboxMessage.getAll(delegateManager: delegateManager, within: obvContext)
                 existingMessageIds = Set(existingMessages.compactMap({ $0.messageId }))
@@ -456,8 +456,14 @@ extension BootstrapWorker {
                 return
             }
 
-            let messageDirectoriesToKeep: Set<URL> = Set(existingMessageIds.map { outbox.appendingPathComponent($0.directoryName, isDirectory: true) })
-            
+            let legacyMessageDirectoriesToKeep: Set<URL> = existingMessageIds.reduce(Set<URL>()) { partialResult, messageId in
+                Set(messageId.legacyDirectoryNamesForMessageAttachments.map {
+                    outbox.appendingPathComponent($0, isDirectory: true)
+                })
+            }
+            let nonLegacyMessageDirectoriesToKeep: Set<URL> = Set(existingMessageIds.map { outbox.appendingPathComponent($0.directoryNameForMessageAttachments, isDirectory: true) })
+            let messageDirectoriesToKeep = legacyMessageDirectoriesToKeep.union(nonLegacyMessageDirectoriesToKeep)
+
             messageDirectoriesToDelete = messageDirectories.subtracting(messageDirectoriesToKeep)
             
         }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,77 +35,69 @@ final class WipeExpiredMessagesOperation: ContextualOperationWithSpecificReasonF
         super.init()
     }
 
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
+        var infos = [InfoAboutWipedOrDeletedPersistedMessage]()
+        
+        // Deal with sent messages
+        
+        do {
+            let now = Date()
+            let expiredMessages = try PersistedMessageSent.getSentMessagesThatExpired(before: now, within: obvContext.context)
+            for message in expiredMessages {
+                if let expirationForSentLimitedExistence = message.expirationForSentLimitedExistence, expirationForSentLimitedExistence.expirationDate < now {
+                    let info = try message.deleteExpiredMessage()
+                    infos += [info]
+                } else if let expirationForSentLimitedVisibility = message.expirationForSentLimitedVisibility, expirationForSentLimitedVisibility.expirationDate < now {
+                    do {
+                        let info = try message.wipeOrDeleteExpiredMessageSent()
+                        infos += [info]
+                    } catch {
+                        os_log("Could not wipe a message sent with expired visibility", log: log, type: .fault)
+                        assertionFailure()
+                        // Continue anyway
+                    }
+                } else {
+                    assertionFailure("A message that we fetched because it expired has not expiration before now. Weird.")
+                }
+            }
+        } catch {
+            cancel(withReason: .coreDataError(error: error))
+            return
         }
         
-        obvContext.performAndWait {
-            
-            var infos = [InfoAboutWipedOrDeletedPersistedMessage]()
-
-            // Deal with sent messages
-
-            do {
-                let now = Date()
-                let expiredMessages = try PersistedMessageSent.getSentMessagesThatExpired(before: now, within: obvContext.context)
-                for message in expiredMessages {
-                    if let expirationForSentLimitedExistence = message.expirationForSentLimitedExistence, expirationForSentLimitedExistence.expirationDate < now {
-                        let info = try message.delete(requester: nil)
-                        infos += [info]
-                    } else if let expirationForSentLimitedVisibility = message.expirationForSentLimitedVisibility, expirationForSentLimitedVisibility.expirationDate < now {
-                        do {
-                            let info = try message.wipeOrDelete(requester: nil)
-                            infos += [info]
-                        } catch {
-                            os_log("Could not wipe a message sent with expired visibility", log: log, type: .fault)
-                            assertionFailure()
-                            // Continue anyway
-                        }
-                    } else {
-                        assertionFailure("A message that we fetched because it expired has not expiration before now. Weird.")
+        // Deal with received messages
+        
+        do {
+            let expiredMessages = try PersistedMessageReceived.getReceivedMessagesThatExpired(within: obvContext.context)
+            for message in expiredMessages {
+                let info = try message.deleteExpiredMessage()
+                infos += [info]
+            }
+        } catch {
+            cancel(withReason: .coreDataError(error: error))
+            return
+        }
+        
+        // Notify on context save
+        
+        do {
+            if !infos.isEmpty {
+                try obvContext.addContextDidSaveCompletionHandler { error in
+                    guard error == nil else { return }
+                    // We wiped/deleted some persisted messages. We notify about that.
+                    
+                    InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
+                    
+                    // Refresh objects in the view context
+                    
+                    if let viewContext = self.viewContext {
+                        InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
                     }
                 }
-            } catch {
-                cancel(withReason: .coreDataError(error: error))
-                return
             }
-
-            // Deal with received messages
-
-            do {
-                let expiredMessages = try PersistedMessageReceived.getReceivedMessagesThatExpired(within: obvContext.context)
-                for message in expiredMessages {
-                    let info = try message.delete(requester: nil)
-                    infos += [info]
-                }
-            } catch {
-                cancel(withReason: .coreDataError(error: error))
-                return
-            }
-
-            // Notify on context save
-            
-            do {
-                if !infos.isEmpty {
-                    try obvContext.addContextDidSaveCompletionHandler { error in
-                        guard error == nil else { return }
-                        // We wiped/deleted some persisted messages. We notify about that.
-                        
-                        InfoAboutWipedOrDeletedPersistedMessage.notifyThatMessagesWereWipedOrDeleted(infos)
-                        
-                        // Refresh objects in the view context
-                        
-                        if let viewContext = self.viewContext {
-                            InfoAboutWipedOrDeletedPersistedMessage.refresh(viewContext: viewContext, infos)
-                        }
-                    }
-                }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

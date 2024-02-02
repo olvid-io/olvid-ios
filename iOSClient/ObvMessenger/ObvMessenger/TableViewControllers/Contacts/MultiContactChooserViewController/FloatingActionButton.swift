@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -68,12 +68,9 @@ struct FloatingButtonView: View {
             Spacer()
             if !showBackground {
                 content
-            } else if #available(iOS 15.0, *) {
-                content
-                    .background(.ultraThinMaterial)
             } else {
                 content
-                    .background(Color(.systemBackground).edgesIgnoringSafeArea(.all))
+                    .background(.ultraThinMaterial)
             }
         }
     }

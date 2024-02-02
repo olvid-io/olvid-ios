@@ -51,15 +51,15 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         self.log = OSLog(subsystem: ObvNetworkFetchManagerImplementationDummy.defaultLogSubsystem, category: "ObvNetworkFetchManagerImplementationDummy")
     }
     
+    public func registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> ObvRegisterApiKeyResult {
+        os_log("registerOwnedAPIKeyOnServerNow does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "registerOwnedAPIKeyOnServerNow does nothing in this dummy implementation")
+    }
+    
     public func registerPushNotification(_ pushNotification: ObvPushNotificationType, flowId: FlowIdentifier) {
         os_log("registerPushNotification does nothing in this dummy implementation", log: log, type: .error)
     }
 
-    public func getServerPushNotification(ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvPushNotificationType? {
-        os_log("getServerPushNotification does nothing in this dummy implementation", log: log, type: .error)
-        return nil
-    }
-    
     public func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) {
         os_log("updatedListOfOwnedIdentites does nothing in this dummy implementation", log: log, type: .error)
     }
@@ -68,26 +68,36 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("queryServerWellKnown does nothing in this dummy implementation", log: log, type: .error)
     }
 
-    public func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
-        os_log("verifyReceipt does nothing in this dummy implementation", log: log, type: .error)
+    public func verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
+        os_log("verifyReceiptAndRefreshAPIPermissions does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "verifyReceiptAndRefreshAPIPermissions does nothing in this dummy implementation")
     }
 
-    public func queryFreeTrial(for identity: ObvCryptoIdentity, retrieveAPIKey: Bool, flowId: FlowIdentifier) {
+    public func queryFreeTrial(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> Bool {
         os_log("queryFreeTrial does nothing in this dummy implementation", log: log, type: .error)
+        return true
     }
 
-    public func resetServerSession(for identity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        os_log("resetServerSession does nothing in this dummy implementation", log: log, type: .error)
+    public func startFreeTrial(for identity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements {
+        os_log("startFreeTrial does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "startFreeTrial does nothing in this dummy implementation")
+    }
+    
+    public func refreshAPIPermissions(of ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> APIKeyElements {
+        os_log("refreshAPIPermissions does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "refreshAPIPermissions does nothing in this dummy implementation")
     }
 
-    public func queryAPIKeyStatus(for identity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) {
+    public func queryAPIKeyStatus(for identity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> APIKeyElements {
         os_log("queryAPIKeyStatus does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "queryAPIKeyStatus does nothing in this dummy implementation")
     }
 
-    public func getTurnCredentials(ownedIdenty: ObvCryptoIdentity, callUuid: UUID, username1: String, username2: String, flowId: FlowIdentifier) {
+    public func getTurnCredentials(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> ObvTurnCredentials {
         os_log("getTurnCredentials does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getTurnCredentials does nothing in this dummy implementation")
     }
-
+    
     public func getWebSocketState(ownedIdentity: ObvCrypto.ObvCryptoIdentity) async throws -> (URLSessionTask.State, TimeInterval?) {
         os_log("getWebSocketState does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "getWebSocketState does nothing in this dummy implementation")
@@ -105,37 +115,37 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("downloadMessages(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func getEncryptedMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) -> ObvNetworkReceivedMessageEncrypted? {
+    public func getEncryptedMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) -> ObvNetworkReceivedMessageEncrypted? {
         os_log("getEncryptedMessage(messageId: MessageIdentifier) does nothing in this dummy implementation", log: log, type: .error)
         return nil
     }
     
-    public func getDecryptedMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) -> ObvNetworkReceivedMessageDecrypted? {
+    public func getDecryptedMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) -> ObvNetworkReceivedMessageDecrypted? {
         os_log("getDecryptedMessage(messageId: MessageIdentifier) does nothing in this dummy implementation", log: log, type: .error)
         return nil
     }
     
-    public func allAttachmentsCanBeDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) throws -> Bool {
+    public func allAttachmentsCanBeDownloadedForMessage(withId: ObvMessageIdentifier, within: ObvContext) throws -> Bool {
         os_log("allAttachmentsCanBeDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "allAttachmentsCanBeDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation")
     }
     
-    public func allAttachmentsHaveBeenDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) throws -> Bool {
+    public func allAttachmentsHaveBeenDownloadedForMessage(withId: ObvMessageIdentifier, within: ObvContext) throws -> Bool {
         os_log("allAttachmentsHaveBeenDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "allAttachmentsHaveBeenDownloadedForMessage(withId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation")
     }
     
-    public func attachment(withId: AttachmentIdentifier, canBeDownloadedwithin: ObvContext) throws -> Bool {
+    public func attachment(withId: ObvAttachmentIdentifier, canBeDownloadedwithin: ObvContext) throws -> Bool {
         os_log("attachment(withId: AttachmentIdentifier, canBeDownloadedwithin: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "attachment(withId: AttachmentIdentifier, canBeDownloadedwithin: ObvContext) does nothing in this dummy implementation")
     }
     
-    public func setRemoteCryptoIdentity(_ remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithmessageId: MessageIdentifier, within obvContext: ObvContext) throws {
+    public func setRemoteCryptoIdentity(_ remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithmessageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
         os_log("set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithMessageId: MessageIdentifier, within obvContext: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithMessageId: MessageIdentifier, within obvContext: ObvContext) does nothing in this dummy implementation")
     }
     
-    public func getAttachment(withId attachmentId: AttachmentIdentifier, within obvContext: ObvContext) -> ObvNetworkFetchReceivedAttachment? {
+    public func getAttachment(withId attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) -> ObvNetworkFetchReceivedAttachment? {
         os_log("getAttachment(withId: AttachmentIdentifier) does nothing in this dummy implementation", log: log, type: .error)
         return nil
     }
@@ -149,27 +159,27 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("storeCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func deleteMessageAndAttachments(messageId: MessageIdentifier, within: ObvContext) {
+    public func deleteMessageAndAttachments(messageId: ObvMessageIdentifier, within: ObvContext) {
         os_log("deleteMessageAndAttachments(messageId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func markMessageForDeletion(messageId: MessageIdentifier, within: ObvContext) {
+    public func markMessageForDeletion(messageId: ObvMessageIdentifier, within: ObvContext) {
         os_log("markMessageForDeletion(messageId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func markAttachmentForDeletion(attachmentId: AttachmentIdentifier, within: ObvContext) {
+    public func markAttachmentForDeletion(attachmentId: ObvAttachmentIdentifier, within: ObvContext) {
         os_log("markAttachmentForDeletion(attachmentId: AttachmentIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func resumeDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    public func resumeDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, forceResume: Bool, flowId: FlowIdentifier) {
         os_log("resumeDownloadOfAttachment does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func pauseDownloadOfAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    public func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         os_log("pauseDownloadOfAttachment does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+    public func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float] {
         os_log("requestDownloadAttachmentProgressesUpdatedSince does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "requestDownloadAttachmentProgressesUpdatedSince does nothing in this dummy implementation")
     }
@@ -194,6 +204,15 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("prepareForOwnedIdentityDeletion does nothing in this dummy implementation", log: log, type: .error)
     }
 
+    public func finalizeOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws {
+        os_log("finalizeOwnedIdentityDeletion does nothing in this dummy implementation", log: log, type: .error)
+    }
+    
+    public func performOwnedDeviceDiscoveryNow(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> EncryptedData {
+        os_log("performOwnedDeviceDiscoveryNow does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "performOwnedDeviceDiscoveryNow does nothing in this dummy implementation")
+    }
+    
     // MARK: - Implementing ObvManager
     
     public let requiredDelegates = [ObvEngineDelegateType]()

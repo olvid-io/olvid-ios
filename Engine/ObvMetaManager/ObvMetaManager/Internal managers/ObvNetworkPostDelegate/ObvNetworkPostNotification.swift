@@ -33,14 +33,14 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 public enum ObvNetworkPostNotification {
-	case newOutboxMessageAndAttachmentsToUpload(messageId: MessageIdentifier, attachmentIds: [AttachmentIdentifier], flowId: FlowIdentifier)
-	case outboxMessageAndAttachmentsDeleted(messageId: MessageIdentifier, flowId: FlowIdentifier)
-	case attachmentUploadRequestIsTakenCareOf(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
+	case newOutboxMessageAndAttachmentsToUpload(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], flowId: FlowIdentifier)
+	case outboxMessageAndAttachmentsDeleted(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+	case attachmentUploadRequestIsTakenCareOf(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
 	case postNetworkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case outboxMessageWasUploaded(messageId: MessageIdentifier, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool, flowId: FlowIdentifier)
-	case outboxAttachmentWasAcknowledged(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier)
-	case outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageId: MessageIdentifier, timestampFromServer: Date)], flowId: FlowIdentifier)
-	case outboxMessageCouldNotBeSentToServer(messageId: MessageIdentifier, flowId: FlowIdentifier)
+	case outboxMessageWasUploaded(messageId: ObvMessageIdentifier, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool, flowId: FlowIdentifier)
+	case outboxAttachmentWasAcknowledged(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+	case outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageId: ObvMessageIdentifier, timestampFromServer: Date)], flowId: FlowIdentifier)
+	case outboxMessageCouldNotBeSentToServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 
 	private enum Name {
 		case newOutboxMessageAndAttachmentsToUpload
@@ -134,29 +134,29 @@ public enum ObvNetworkPostNotification {
 		}
 	}
 
-	public static func observeNewOutboxMessageAndAttachmentsToUpload(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, [AttachmentIdentifier], FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeNewOutboxMessageAndAttachmentsToUpload(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, [ObvAttachmentIdentifier], FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.newOutboxMessageAndAttachmentsToUpload.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
-			let attachmentIds = notification.userInfo!["attachmentIds"] as! [AttachmentIdentifier]
+			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
+			let attachmentIds = notification.userInfo!["attachmentIds"] as! [ObvAttachmentIdentifier]
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(messageId, attachmentIds, flowId)
 		}
 	}
 
-	public static func observeOutboxMessageAndAttachmentsDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeOutboxMessageAndAttachmentsDeleted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessageAndAttachmentsDeleted.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
+			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(messageId, flowId)
 		}
 	}
 
-	public static func observeAttachmentUploadRequestIsTakenCareOf(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (AttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeAttachmentUploadRequestIsTakenCareOf(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvAttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.attachmentUploadRequestIsTakenCareOf.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let attachmentId = notification.userInfo!["attachmentId"] as! AttachmentIdentifier
+			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(attachmentId, flowId)
 		}
@@ -171,10 +171,10 @@ public enum ObvNetworkPostNotification {
 		}
 	}
 
-	public static func observeOutboxMessageWasUploaded(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, Date, Bool, Bool, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeOutboxMessageWasUploaded(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, Date, Bool, Bool, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessageWasUploaded.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
+			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let timestampFromServer = notification.userInfo!["timestampFromServer"] as! Date
 			let isAppMessageWithUserContent = notification.userInfo!["isAppMessageWithUserContent"] as! Bool
 			let isVoipMessage = notification.userInfo!["isVoipMessage"] as! Bool
@@ -183,28 +183,28 @@ public enum ObvNetworkPostNotification {
 		}
 	}
 
-	public static func observeOutboxAttachmentWasAcknowledged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (AttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeOutboxAttachmentWasAcknowledged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvAttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxAttachmentWasAcknowledged.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let attachmentId = notification.userInfo!["attachmentId"] as! AttachmentIdentifier
+			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(attachmentId, flowId)
 		}
 	}
 
-	public static func observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping ([(messageId: MessageIdentifier, timestampFromServer: Date)], FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeOutboxMessagesAndAllTheirAttachmentsWereAcknowledged(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping ([(messageId: ObvMessageIdentifier, timestampFromServer: Date)], FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessagesAndAllTheirAttachmentsWereAcknowledged.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messageIdsAndTimestampsFromServer = notification.userInfo!["messageIdsAndTimestampsFromServer"] as! [(messageId: MessageIdentifier, timestampFromServer: Date)]
+			let messageIdsAndTimestampsFromServer = notification.userInfo!["messageIdsAndTimestampsFromServer"] as! [(messageId: ObvMessageIdentifier, timestampFromServer: Date)]
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(messageIdsAndTimestampsFromServer, flowId)
 		}
 	}
 
-	public static func observeOutboxMessageCouldNotBeSentToServer(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (MessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+	public static func observeOutboxMessageCouldNotBeSentToServer(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.outboxMessageCouldNotBeSentToServer.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messageId = notification.userInfo!["messageId"] as! MessageIdentifier
+			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(messageId, flowId)
 		}

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,9 +32,9 @@ public struct TrustEstablishmentWithSASProtocol: ConcreteCryptoProtocol, ObvErro
     
     static let logCategory = "TrustEstablishmentWithSASProtocol"
     
-    static let id = CryptoProtocolId.TrustEstablishmentWithSAS
+    static let id = CryptoProtocolId.trustEstablishmentWithSAS
     
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.Cancelled, StateId.MutualTrustConfirmed]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.cancelled, StateId.mutualTrustConfirmed]
     
     public static let errorDomain = "TrustEstablishmentWithSASProtocol"
 
@@ -63,18 +63,10 @@ public struct TrustEstablishmentWithSASProtocol: ConcreteCryptoProtocol, ObvErro
         return MessageId(rawValue: rawValue)
     }
     
-    static let allStepIds: [ConcreteProtocolStepId] = [StepId.SendCommitment,
-                                                       StepId.StoreDecommitment,
-                                                       StepId.ShowSasDialogAndSendDecommitment,
-                                                       StepId.StoreAndPropagateCommitmentAndAskForConfirmation,
-                                                       StepId.StoreCommitmentAndAskForConfirmation,
-                                                       StepId.SendSeedAndPropagateConfirmation,
-                                                       StepId.ReceiveConfirmationFromOtherDevice,
-                                                       StepId.ShowSasDialog,
-                                                       StepId.CheckSas,
-                                                       StepId.CheckPropagatedSas,
-                                                       StepId.NotifiedMutualTrustEstablishedLegacy,
-                                                       StepId.AddTrust]
+    static var allStepIds: [ConcreteProtocolStepId] {
+        return StepId.allCases
+    }
+    
 }
 
 

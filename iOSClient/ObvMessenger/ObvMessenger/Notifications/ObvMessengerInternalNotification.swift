@@ -24,6 +24,7 @@ import ObvEngine
 import OlvidUtils
 import ObvCrypto
 import ObvUICoreData
+import ObvSettings
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?
@@ -36,18 +37,16 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 enum ObvMessengerInternalNotification {
-	case messagesAreNotNewAnymore(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessage>>)
+	case messagesAreNotNewAnymore(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier])
 	case userWantsToRefreshContactGroupJoined(obvContactGroup: ObvContactGroup)
 	case externalTransactionsWereMergedIntoViewContext
 	case newMuteExpiration(expirationDate: Date)
 	case wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
-	case userWantsToCallAndIsAllowedTo(contactIds: [OlvidUserId], ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifierBasedOnObjectID?)
-	case userWantsToSelectAndCallContacts(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: GroupIdentifierBasedOnObjectID?)
-	case userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], groupId: GroupIdentifierBasedOnObjectID?)
-	case newWebRTCMessageWasReceived(webrtcMessage: WebRTCMessageJSON, contactId: OlvidUserId, messageUploadTimestampFromServer: Date, messageIdentifierFromEngine: Data)
-	case newObvMessageWasReceivedViaPushKitNotification(obvMessage: ObvMessage)
-	case newWebRTCMessageToSend(webrtcMessage: WebRTCMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, forStartingCall: Bool)
-	case isCallKitEnabledSettingDidChange
+	case userWantsToCallAndIsAllowedTo(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?)
+	case userWantsToSelectAndCallContacts(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?)
+	case userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?)
+	case newWebRTCMessageWasReceived(webrtcMessage: WebRTCMessageJSON, fromOlvidUser: OlvidUserId, messageUID: UID)
+	case newObvEncryptedPushNotificationWasReceivedViaPushKitNotification(encryptedNotification: ObvEncryptedPushNotification)
 	case isIncludesCallsInRecentsEnabledSettingDidChange
 	case networkInterfaceTypeChanged(isConnected: Bool)
 	case outgoingCallFailedBecauseUserDeniedRecordPermission
@@ -55,26 +54,24 @@ enum ObvMessengerInternalNotification {
 	case rejectedIncomingCallBecauseUserDeniedRecordPermission
 	case userRequestedDeletionOfPersistedMessage(ownedCryptoId: ObvCryptoId, persistedMessageObjectID: NSManagedObjectID, deletionType: DeletionType)
 	case trashShouldBeEmptied
-	case userRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: NSManagedObjectID, deletionType: DeletionType, completionHandler: (Bool) -> Void)
+	case userRequestedDeletionOfPersistedDiscussion(ownedCryptoId: ObvCryptoId, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, deletionType: DeletionType, completionHandler: (Bool) -> Void)
 	case newCallLogItem(objectID: TypeSafeManagedObjectID<PersistedCallLogItem>)
 	case callLogItemWasUpdated(objectID: TypeSafeManagedObjectID<PersistedCallLogItem>)
 	case userWantsToIntroduceContactToAnotherContact(ownedCryptoId: ObvCryptoId, firstContactCryptoId: ObvCryptoId, secondContactCryptoIds: Set<ObvCryptoId>)
 	case userWantsToShareOwnPublishedDetails(ownedCryptoId: ObvCryptoId, sourceView: UIView)
 	case userWantsToSendInvite(ownedIdentity: ObvOwnedIdentity, urlIdentity: ObvURLIdentity)
-	case userRequestedAPIKeyStatus(ownedCryptoId: ObvCryptoId, apiKey: UUID)
-	case userRequestedNewAPIKeyActivation(ownedCryptoId: ObvCryptoId, apiKey: UUID)
 	case userWantsToNavigateToDeepLink(deepLink: ObvDeepLink)
 	case useLoadBalancedTurnServersDidChange
-	case userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: Set<TypeSafeManagedObjectID<PersistedMessageReceived>>)
+	case userWantsToReadReceivedMessageThatRequiresUserAction(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier)
 	case requestThumbnail(fyleElement: FyleElement, size: CGSize, thumbnailType: ThumbnailType, completionHandler: ((Thumbnail) -> Void))
 	case userHasOpenedAReceivedAttachment(receivedFyleJoinID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
-	case userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(persistedDiscussionObjectID: NSManagedObjectID, expirationJSON: ExpirationJSON, ownedCryptoId: ObvCryptoId)
+	case userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, expirationJSON: ExpirationJSON)
 	case userWantsToDeleteContact(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId, viewController: UIViewController, completionHandler: ((Bool) -> Void))
 	case cleanExpiredMessagesBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case applyRetentionPoliciesBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case updateBadgeBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case applyAllRetentionPoliciesNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
-	case userWantsToSendEditedVersionOfSentMessage(sentMessageObjectID: NSManagedObjectID, newTextBody: String)
+	case userWantsToSendEditedVersionOfSentMessage(ownedCryptoId: ObvCryptoId, sentMessageObjectID: TypeSafeManagedObjectID<PersistedMessageSent>, newTextBody: String)
 	case newProfilePictureCandidateToCache(requestUUID: UUID, profilePicture: UIImage)
 	case newCachedProfilePictureCandidate(requestUUID: UUID, url: URL)
 	case newCustomContactPictureCandidateToSave(requestUUID: UUID, profilePicture: UIImage)
@@ -82,15 +79,13 @@ enum ObvMessengerInternalNotification {
 	case obvContactRequest(requestUUID: UUID, contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case obvContactAnswer(requestUUID: UUID, obvContact: ObvContactIdentity)
 	case userWantsToMarkAllMessagesAsNotNewWithinDiscussion(persistedDiscussionObjectID: NSManagedObjectID, completionHandler: (Bool) -> Void)
-	case resyncContactIdentityDevicesWithEngine(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
-	case resyncContactIdentityDetailsStatusWithEngine(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
+	case resyncContactIdentityDevicesWithEngine(obvContactIdentifier: ObvContactIdentifier)
 	case serverDoesNotSuppoortCall
 	case pastedStringIsNotValidOlvidURL
 	case userWantsToRestartChannelEstablishmentProtocol(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
-	case userWantsToReCreateChannelEstablishmentProtocol(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case contactIdentityDetailsWereUpdated(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case userDidSeeNewDetailsOfContact(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
-	case userWantsToEditContactNicknameAndPicture(persistedContactObjectID: NSManagedObjectID, customDisplayName: String?, customPhotoURL: URL?)
+	case userWantsToEditContactNicknameAndPicture(persistedContactObjectID: NSManagedObjectID, customDisplayName: String?, customPhoto: UIImage?)
 	case userWantsToBindOwnedIdentityToKeycloak(ownedCryptoId: ObvCryptoId, obvKeycloakState: ObvKeycloakState, keycloakUserId: String, completionHandler: (Bool) -> Void)
 	case userWantsToUnbindOwnedIdentityFromKeycloak(ownedCryptoId: ObvCryptoId, completionHandler: (Bool) -> Void)
 	case userWantsToRemoveDraftFyleJoin(draftFyleJoinObjectID: TypeSafeManagedObjectID<PersistedDraftFyleJoin>)
@@ -110,7 +105,7 @@ enum ObvMessengerInternalNotification {
 	case UserDismissedSnackBarForLater(ownedCryptoId: ObvCryptoId, snackBarCategory: OlvidSnackBarCategory)
 	case UserRequestedToResetAllAlerts
 	case olvidSnackBarShouldBeHidden(ownedCryptoId: ObvCryptoId)
-	case userWantsToUpdateReaction(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, emoji: String?)
+	case userWantsToUpdateReaction(ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?)
 	case currentUserActivityDidChange(previousUserActivity: ObvUserActivityType, currentUserActivity: ObvUserActivityType)
 	case displayedSnackBarShouldBeRefreshed
 	case requestUserDeniedRecordPermissionAlert
@@ -122,7 +117,7 @@ enum ObvMessengerInternalNotification {
 	case installedOlvidAppIsOutdated(presentingViewController: UIViewController?)
 	case userOwnedIdentityWasRevokedByKeycloak(ownedCryptoId: ObvCryptoId)
 	case uiRequiresSignedContactDetails(ownedIdentityCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId, completion: (SignedObvKeycloakUserDetails?) -> Void)
-	case requestSyncAppDatabasesWithEngine(completion: (Result<Void,Error>) -> Void)
+	case requestSyncAppDatabasesWithEngine(queuePriority: Operation.QueuePriority, completion: (Result<Void,Error>) -> Void)
 	case uiRequiresSignedOwnedDetails(ownedIdentityCryptoId: ObvCryptoId, completion: (SignedObvKeycloakUserDetails?) -> Void)
 	case listMessagesOnServerBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case userWantsToSendOneToOneInvitationToContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
@@ -140,16 +135,16 @@ enum ObvMessengerInternalNotification {
 	case badgeForInvitationsHasBeenUpdated(ownedCryptoId: ObvCryptoId, newCount: Int)
 	case requestRunningLog(completion: (RunningLogError) -> Void)
 	case metaFlowControllerViewDidAppear
-	case userWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, customName: String?, customPhotoURL: URL?)
+	case userWantsToUpdateCustomNameAndGroupV2Photo(ownedCryptoId: ObvCryptoId, groupIdentifier: Data, customName: String?, customPhoto: UIImage?)
 	case userHasSeenPublishedDetailsOfGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>)
 	case tooManyWrongPasscodeAttemptsCausedLockOut
 	case backupForExportWasExported
 	case backupForUploadWasUploaded
 	case backupForUploadFailedToUpload
-	case userWantsToCreateNewOwnedIdentity
+	case userWantsToAddOwnedProfile
 	case userWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ObvCryptoId)
 	case userWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: ObvCryptoId)
-	case userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, notifyContacts: Bool)
+	case userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool)
 	case userWantsToHideOwnedIdentity(ownedCryptoId: ObvCryptoId, password: String)
 	case failedToHideOwnedIdentity(ownedCryptoId: ObvCryptoId)
 	case userWantsToSwitchToOtherHiddenOwnedIdentity(password: String)
@@ -169,6 +164,15 @@ enum ObvMessengerInternalNotification {
 	case userWantsToUnarchiveDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, updateTimestampOfLastMessage: Bool, completionHandler: ((Bool) -> Void)?)
 	case userWantsToRefreshDiscussions(completionHandler: (() -> Void))
 	case updateNormalizedSearchKeyOnPersistedDiscussions(ownedIdentity: ObvCryptoId, completionHandler: (() -> Void)?)
+	case aDiscussionSharedConfigurationIsNeededByContact(contactIdentifier: ObvContactIdentifier, discussionId: DiscussionIdentifier)
+	case aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier)
+	case userWantsToDeleteOwnedContactGroup(ownedCryptoId: ObvCryptoId, groupUid: UID)
+	case singleOwnedIdentityFlowViewControllerDidAppear(ownedCryptoId: ObvCryptoId)
+	case userWantsToSetCustomNameOfJoinedGroupV1(ownedCryptoId: ObvCryptoId, groupId: GroupV1Identifier, groupNameCustom: String?)
+	case userWantsToUpdatePersonalNoteOnContact(contactIdentifier: ObvContactIdentifier, newText: String?)
+	case userWantsToUpdatePersonalNoteOnGroupV1(ownedCryptoId: ObvCryptoId, groupId: GroupV1Identifier, newText: String?)
+	case userWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data, newText: String?)
+	case allPersistedInvitationCanBeMarkedAsOld(ownedCryptoId: ObvCryptoId)
 
 	private enum Name {
 		case messagesAreNotNewAnymore
@@ -180,9 +184,7 @@ enum ObvMessengerInternalNotification {
 		case userWantsToSelectAndCallContacts
 		case userWantsToCallButWeShouldCheckSheIsAllowedTo
 		case newWebRTCMessageWasReceived
-		case newObvMessageWasReceivedViaPushKitNotification
-		case newWebRTCMessageToSend
-		case isCallKitEnabledSettingDidChange
+		case newObvEncryptedPushNotificationWasReceivedViaPushKitNotification
 		case isIncludesCallsInRecentsEnabledSettingDidChange
 		case networkInterfaceTypeChanged
 		case outgoingCallFailedBecauseUserDeniedRecordPermission
@@ -196,11 +198,9 @@ enum ObvMessengerInternalNotification {
 		case userWantsToIntroduceContactToAnotherContact
 		case userWantsToShareOwnPublishedDetails
 		case userWantsToSendInvite
-		case userRequestedAPIKeyStatus
-		case userRequestedNewAPIKeyActivation
 		case userWantsToNavigateToDeepLink
 		case useLoadBalancedTurnServersDidChange
-		case userWantsToReadReceivedMessagesThatRequiresUserAction
+		case userWantsToReadReceivedMessageThatRequiresUserAction
 		case requestThumbnail
 		case userHasOpenedAReceivedAttachment
 		case userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration
@@ -218,11 +218,9 @@ enum ObvMessengerInternalNotification {
 		case obvContactAnswer
 		case userWantsToMarkAllMessagesAsNotNewWithinDiscussion
 		case resyncContactIdentityDevicesWithEngine
-		case resyncContactIdentityDetailsStatusWithEngine
 		case serverDoesNotSuppoortCall
 		case pastedStringIsNotValidOlvidURL
 		case userWantsToRestartChannelEstablishmentProtocol
-		case userWantsToReCreateChannelEstablishmentProtocol
 		case contactIdentityDetailsWereUpdated
 		case userDidSeeNewDetailsOfContact
 		case userWantsToEditContactNicknameAndPicture
@@ -281,7 +279,7 @@ enum ObvMessengerInternalNotification {
 		case backupForExportWasExported
 		case backupForUploadWasUploaded
 		case backupForUploadFailedToUpload
-		case userWantsToCreateNewOwnedIdentity
+		case userWantsToAddOwnedProfile
 		case userWantsToSwitchToOtherOwnedIdentity
 		case userWantsToDeleteOwnedIdentityButHasNotConfirmedYet
 		case userWantsToDeleteOwnedIdentityAndHasConfirmed
@@ -304,6 +302,15 @@ enum ObvMessengerInternalNotification {
 		case userWantsToUnarchiveDiscussion
 		case userWantsToRefreshDiscussions
 		case updateNormalizedSearchKeyOnPersistedDiscussions
+		case aDiscussionSharedConfigurationIsNeededByContact
+		case aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice
+		case userWantsToDeleteOwnedContactGroup
+		case singleOwnedIdentityFlowViewControllerDidAppear
+		case userWantsToSetCustomNameOfJoinedGroupV1
+		case userWantsToUpdatePersonalNoteOnContact
+		case userWantsToUpdatePersonalNoteOnGroupV1
+		case userWantsToUpdatePersonalNoteOnGroupV2
+		case allPersistedInvitationCanBeMarkedAsOld
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -325,9 +332,7 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToSelectAndCallContacts: return Name.userWantsToSelectAndCallContacts.name
 			case .userWantsToCallButWeShouldCheckSheIsAllowedTo: return Name.userWantsToCallButWeShouldCheckSheIsAllowedTo.name
 			case .newWebRTCMessageWasReceived: return Name.newWebRTCMessageWasReceived.name
-			case .newObvMessageWasReceivedViaPushKitNotification: return Name.newObvMessageWasReceivedViaPushKitNotification.name
-			case .newWebRTCMessageToSend: return Name.newWebRTCMessageToSend.name
-			case .isCallKitEnabledSettingDidChange: return Name.isCallKitEnabledSettingDidChange.name
+			case .newObvEncryptedPushNotificationWasReceivedViaPushKitNotification: return Name.newObvEncryptedPushNotificationWasReceivedViaPushKitNotification.name
 			case .isIncludesCallsInRecentsEnabledSettingDidChange: return Name.isIncludesCallsInRecentsEnabledSettingDidChange.name
 			case .networkInterfaceTypeChanged: return Name.networkInterfaceTypeChanged.name
 			case .outgoingCallFailedBecauseUserDeniedRecordPermission: return Name.outgoingCallFailedBecauseUserDeniedRecordPermission.name
@@ -341,11 +346,9 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToIntroduceContactToAnotherContact: return Name.userWantsToIntroduceContactToAnotherContact.name
 			case .userWantsToShareOwnPublishedDetails: return Name.userWantsToShareOwnPublishedDetails.name
 			case .userWantsToSendInvite: return Name.userWantsToSendInvite.name
-			case .userRequestedAPIKeyStatus: return Name.userRequestedAPIKeyStatus.name
-			case .userRequestedNewAPIKeyActivation: return Name.userRequestedNewAPIKeyActivation.name
 			case .userWantsToNavigateToDeepLink: return Name.userWantsToNavigateToDeepLink.name
 			case .useLoadBalancedTurnServersDidChange: return Name.useLoadBalancedTurnServersDidChange.name
-			case .userWantsToReadReceivedMessagesThatRequiresUserAction: return Name.userWantsToReadReceivedMessagesThatRequiresUserAction.name
+			case .userWantsToReadReceivedMessageThatRequiresUserAction: return Name.userWantsToReadReceivedMessageThatRequiresUserAction.name
 			case .requestThumbnail: return Name.requestThumbnail.name
 			case .userHasOpenedAReceivedAttachment: return Name.userHasOpenedAReceivedAttachment.name
 			case .userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration: return Name.userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration.name
@@ -363,11 +366,9 @@ enum ObvMessengerInternalNotification {
 			case .obvContactAnswer: return Name.obvContactAnswer.name
 			case .userWantsToMarkAllMessagesAsNotNewWithinDiscussion: return Name.userWantsToMarkAllMessagesAsNotNewWithinDiscussion.name
 			case .resyncContactIdentityDevicesWithEngine: return Name.resyncContactIdentityDevicesWithEngine.name
-			case .resyncContactIdentityDetailsStatusWithEngine: return Name.resyncContactIdentityDetailsStatusWithEngine.name
 			case .serverDoesNotSuppoortCall: return Name.serverDoesNotSuppoortCall.name
 			case .pastedStringIsNotValidOlvidURL: return Name.pastedStringIsNotValidOlvidURL.name
 			case .userWantsToRestartChannelEstablishmentProtocol: return Name.userWantsToRestartChannelEstablishmentProtocol.name
-			case .userWantsToReCreateChannelEstablishmentProtocol: return Name.userWantsToReCreateChannelEstablishmentProtocol.name
 			case .contactIdentityDetailsWereUpdated: return Name.contactIdentityDetailsWereUpdated.name
 			case .userDidSeeNewDetailsOfContact: return Name.userDidSeeNewDetailsOfContact.name
 			case .userWantsToEditContactNicknameAndPicture: return Name.userWantsToEditContactNicknameAndPicture.name
@@ -426,7 +427,7 @@ enum ObvMessengerInternalNotification {
 			case .backupForExportWasExported: return Name.backupForExportWasExported.name
 			case .backupForUploadWasUploaded: return Name.backupForUploadWasUploaded.name
 			case .backupForUploadFailedToUpload: return Name.backupForUploadFailedToUpload.name
-			case .userWantsToCreateNewOwnedIdentity: return Name.userWantsToCreateNewOwnedIdentity.name
+			case .userWantsToAddOwnedProfile: return Name.userWantsToAddOwnedProfile.name
 			case .userWantsToSwitchToOtherOwnedIdentity: return Name.userWantsToSwitchToOtherOwnedIdentity.name
 			case .userWantsToDeleteOwnedIdentityButHasNotConfirmedYet: return Name.userWantsToDeleteOwnedIdentityButHasNotConfirmedYet.name
 			case .userWantsToDeleteOwnedIdentityAndHasConfirmed: return Name.userWantsToDeleteOwnedIdentityAndHasConfirmed.name
@@ -449,15 +450,26 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToUnarchiveDiscussion: return Name.userWantsToUnarchiveDiscussion.name
 			case .userWantsToRefreshDiscussions: return Name.userWantsToRefreshDiscussions.name
 			case .updateNormalizedSearchKeyOnPersistedDiscussions: return Name.updateNormalizedSearchKeyOnPersistedDiscussions.name
+			case .aDiscussionSharedConfigurationIsNeededByContact: return Name.aDiscussionSharedConfigurationIsNeededByContact.name
+			case .aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice: return Name.aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice.name
+			case .userWantsToDeleteOwnedContactGroup: return Name.userWantsToDeleteOwnedContactGroup.name
+			case .singleOwnedIdentityFlowViewControllerDidAppear: return Name.singleOwnedIdentityFlowViewControllerDidAppear.name
+			case .userWantsToSetCustomNameOfJoinedGroupV1: return Name.userWantsToSetCustomNameOfJoinedGroupV1.name
+			case .userWantsToUpdatePersonalNoteOnContact: return Name.userWantsToUpdatePersonalNoteOnContact.name
+			case .userWantsToUpdatePersonalNoteOnGroupV1: return Name.userWantsToUpdatePersonalNoteOnGroupV1.name
+			case .userWantsToUpdatePersonalNoteOnGroupV2: return Name.userWantsToUpdatePersonalNoteOnGroupV2.name
+			case .allPersistedInvitationCanBeMarkedAsOld: return Name.allPersistedInvitationCanBeMarkedAsOld.name
 			}
 		}
 	}
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
-		case .messagesAreNotNewAnymore(persistedMessageObjectIDs: let persistedMessageObjectIDs):
+		case .messagesAreNotNewAnymore(ownedCryptoId: let ownedCryptoId, discussionId: let discussionId, messageIds: let messageIds):
 			info = [
-				"persistedMessageObjectIDs": persistedMessageObjectIDs,
+				"ownedCryptoId": ownedCryptoId,
+				"discussionId": discussionId,
+				"messageIds": messageIds,
 			]
 		case .userWantsToRefreshContactGroupJoined(obvContactGroup: let obvContactGroup):
 			info = [
@@ -474,41 +486,35 @@ enum ObvMessengerInternalNotification {
 				"launchedByBackgroundTask": launchedByBackgroundTask,
 				"completionHandler": completionHandler,
 			]
-		case .userWantsToCallAndIsAllowedTo(contactIds: let contactIds, ownedIdentityForRequestingTurnCredentials: let ownedIdentityForRequestingTurnCredentials, groupId: let groupId):
+		case .userWantsToCallAndIsAllowedTo(ownedCryptoId: let ownedCryptoId, contactCryptoIds: let contactCryptoIds, ownedIdentityForRequestingTurnCredentials: let ownedIdentityForRequestingTurnCredentials, groupId: let groupId):
 			info = [
-				"contactIds": contactIds,
+				"ownedCryptoId": ownedCryptoId,
+				"contactCryptoIds": contactCryptoIds,
 				"ownedIdentityForRequestingTurnCredentials": ownedIdentityForRequestingTurnCredentials,
 				"groupId": OptionalWrapper(groupId),
 			]
-		case .userWantsToSelectAndCallContacts(contactIDs: let contactIDs, groupId: let groupId):
+		case .userWantsToSelectAndCallContacts(ownedCryptoId: let ownedCryptoId, contactCryptoIds: let contactCryptoIds, groupId: let groupId):
 			info = [
-				"contactIDs": contactIDs,
+				"ownedCryptoId": ownedCryptoId,
+				"contactCryptoIds": contactCryptoIds,
 				"groupId": OptionalWrapper(groupId),
 			]
-		case .userWantsToCallButWeShouldCheckSheIsAllowedTo(contactIDs: let contactIDs, groupId: let groupId):
+		case .userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: let ownedCryptoId, contactCryptoIds: let contactCryptoIds, groupId: let groupId):
 			info = [
-				"contactIDs": contactIDs,
+				"ownedCryptoId": ownedCryptoId,
+				"contactCryptoIds": contactCryptoIds,
 				"groupId": OptionalWrapper(groupId),
 			]
-		case .newWebRTCMessageWasReceived(webrtcMessage: let webrtcMessage, contactId: let contactId, messageUploadTimestampFromServer: let messageUploadTimestampFromServer, messageIdentifierFromEngine: let messageIdentifierFromEngine):
+		case .newWebRTCMessageWasReceived(webrtcMessage: let webrtcMessage, fromOlvidUser: let fromOlvidUser, messageUID: let messageUID):
 			info = [
 				"webrtcMessage": webrtcMessage,
-				"contactId": contactId,
-				"messageUploadTimestampFromServer": messageUploadTimestampFromServer,
-				"messageIdentifierFromEngine": messageIdentifierFromEngine,
+				"fromOlvidUser": fromOlvidUser,
+				"messageUID": messageUID,
 			]
-		case .newObvMessageWasReceivedViaPushKitNotification(obvMessage: let obvMessage):
+		case .newObvEncryptedPushNotificationWasReceivedViaPushKitNotification(encryptedNotification: let encryptedNotification):
 			info = [
-				"obvMessage": obvMessage,
+				"encryptedNotification": encryptedNotification,
 			]
-		case .newWebRTCMessageToSend(webrtcMessage: let webrtcMessage, contactID: let contactID, forStartingCall: let forStartingCall):
-			info = [
-				"webrtcMessage": webrtcMessage,
-				"contactID": contactID,
-				"forStartingCall": forStartingCall,
-			]
-		case .isCallKitEnabledSettingDidChange:
-			info = nil
 		case .isIncludesCallsInRecentsEnabledSettingDidChange:
 			info = nil
 		case .networkInterfaceTypeChanged(isConnected: let isConnected):
@@ -529,9 +535,10 @@ enum ObvMessengerInternalNotification {
 			]
 		case .trashShouldBeEmptied:
 			info = nil
-		case .userRequestedDeletionOfPersistedDiscussion(persistedDiscussionObjectID: let persistedDiscussionObjectID, deletionType: let deletionType, completionHandler: let completionHandler):
+		case .userRequestedDeletionOfPersistedDiscussion(ownedCryptoId: let ownedCryptoId, discussionObjectID: let discussionObjectID, deletionType: let deletionType, completionHandler: let completionHandler):
 			info = [
-				"persistedDiscussionObjectID": persistedDiscussionObjectID,
+				"ownedCryptoId": ownedCryptoId,
+				"discussionObjectID": discussionObjectID,
 				"deletionType": deletionType,
 				"completionHandler": completionHandler,
 			]
@@ -559,25 +566,17 @@ enum ObvMessengerInternalNotification {
 				"ownedIdentity": ownedIdentity,
 				"urlIdentity": urlIdentity,
 			]
-		case .userRequestedAPIKeyStatus(ownedCryptoId: let ownedCryptoId, apiKey: let apiKey):
-			info = [
-				"ownedCryptoId": ownedCryptoId,
-				"apiKey": apiKey,
-			]
-		case .userRequestedNewAPIKeyActivation(ownedCryptoId: let ownedCryptoId, apiKey: let apiKey):
-			info = [
-				"ownedCryptoId": ownedCryptoId,
-				"apiKey": apiKey,
-			]
 		case .userWantsToNavigateToDeepLink(deepLink: let deepLink):
 			info = [
 				"deepLink": deepLink,
 			]
 		case .useLoadBalancedTurnServersDidChange:
 			info = nil
-		case .userWantsToReadReceivedMessagesThatRequiresUserAction(persistedMessageObjectIDs: let persistedMessageObjectIDs):
+		case .userWantsToReadReceivedMessageThatRequiresUserAction(ownedCryptoId: let ownedCryptoId, discussionId: let discussionId, messageId: let messageId):
 			info = [
-				"persistedMessageObjectIDs": persistedMessageObjectIDs,
+				"ownedCryptoId": ownedCryptoId,
+				"discussionId": discussionId,
+				"messageId": messageId,
 			]
 		case .requestThumbnail(fyleElement: let fyleElement, size: let size, thumbnailType: let thumbnailType, completionHandler: let completionHandler):
 			info = [
@@ -590,11 +589,11 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"receivedFyleJoinID": receivedFyleJoinID,
 			]
-		case .userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(persistedDiscussionObjectID: let persistedDiscussionObjectID, expirationJSON: let expirationJSON, ownedCryptoId: let ownedCryptoId):
+		case .userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(ownedCryptoId: let ownedCryptoId, discussionId: let discussionId, expirationJSON: let expirationJSON):
 			info = [
-				"persistedDiscussionObjectID": persistedDiscussionObjectID,
-				"expirationJSON": expirationJSON,
 				"ownedCryptoId": ownedCryptoId,
+				"discussionId": discussionId,
+				"expirationJSON": expirationJSON,
 			]
 		case .userWantsToDeleteContact(contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId, viewController: let viewController, completionHandler: let completionHandler):
 			info = [
@@ -620,8 +619,9 @@ enum ObvMessengerInternalNotification {
 				"launchedByBackgroundTask": launchedByBackgroundTask,
 				"completionHandler": completionHandler,
 			]
-		case .userWantsToSendEditedVersionOfSentMessage(sentMessageObjectID: let sentMessageObjectID, newTextBody: let newTextBody):
+		case .userWantsToSendEditedVersionOfSentMessage(ownedCryptoId: let ownedCryptoId, sentMessageObjectID: let sentMessageObjectID, newTextBody: let newTextBody):
 			info = [
+				"ownedCryptoId": ownedCryptoId,
 				"sentMessageObjectID": sentMessageObjectID,
 				"newTextBody": newTextBody,
 			]
@@ -661,26 +661,15 @@ enum ObvMessengerInternalNotification {
 				"persistedDiscussionObjectID": persistedDiscussionObjectID,
 				"completionHandler": completionHandler,
 			]
-		case .resyncContactIdentityDevicesWithEngine(contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId):
+		case .resyncContactIdentityDevicesWithEngine(obvContactIdentifier: let obvContactIdentifier):
 			info = [
-				"contactCryptoId": contactCryptoId,
-				"ownedCryptoId": ownedCryptoId,
-			]
-		case .resyncContactIdentityDetailsStatusWithEngine(contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId):
-			info = [
-				"contactCryptoId": contactCryptoId,
-				"ownedCryptoId": ownedCryptoId,
+				"obvContactIdentifier": obvContactIdentifier,
 			]
 		case .serverDoesNotSuppoortCall:
 			info = nil
 		case .pastedStringIsNotValidOlvidURL:
 			info = nil
 		case .userWantsToRestartChannelEstablishmentProtocol(contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId):
-			info = [
-				"contactCryptoId": contactCryptoId,
-				"ownedCryptoId": ownedCryptoId,
-			]
-		case .userWantsToReCreateChannelEstablishmentProtocol(contactCryptoId: let contactCryptoId, ownedCryptoId: let ownedCryptoId):
 			info = [
 				"contactCryptoId": contactCryptoId,
 				"ownedCryptoId": ownedCryptoId,
@@ -695,11 +684,11 @@ enum ObvMessengerInternalNotification {
 				"contactCryptoId": contactCryptoId,
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .userWantsToEditContactNicknameAndPicture(persistedContactObjectID: let persistedContactObjectID, customDisplayName: let customDisplayName, customPhotoURL: let customPhotoURL):
+		case .userWantsToEditContactNicknameAndPicture(persistedContactObjectID: let persistedContactObjectID, customDisplayName: let customDisplayName, customPhoto: let customPhoto):
 			info = [
 				"persistedContactObjectID": persistedContactObjectID,
 				"customDisplayName": OptionalWrapper(customDisplayName),
-				"customPhotoURL": OptionalWrapper(customPhotoURL),
+				"customPhoto": OptionalWrapper(customPhoto),
 			]
 		case .userWantsToBindOwnedIdentityToKeycloak(ownedCryptoId: let ownedCryptoId, obvKeycloakState: let obvKeycloakState, keycloakUserId: let keycloakUserId, completionHandler: let completionHandler):
 			info = [
@@ -784,10 +773,11 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .userWantsToUpdateReaction(messageObjectID: let messageObjectID, emoji: let emoji):
+		case .userWantsToUpdateReaction(ownedCryptoId: let ownedCryptoId, messageObjectID: let messageObjectID, newEmoji: let newEmoji):
 			info = [
+				"ownedCryptoId": ownedCryptoId,
 				"messageObjectID": messageObjectID,
-				"emoji": OptionalWrapper(emoji),
+				"newEmoji": OptionalWrapper(newEmoji),
 			]
 		case .currentUserActivityDidChange(previousUserActivity: let previousUserActivity, currentUserActivity: let currentUserActivity):
 			info = [
@@ -830,8 +820,9 @@ enum ObvMessengerInternalNotification {
 				"contactCryptoId": contactCryptoId,
 				"completion": completion,
 			]
-		case .requestSyncAppDatabasesWithEngine(completion: let completion):
+		case .requestSyncAppDatabasesWithEngine(queuePriority: let queuePriority, completion: let completion):
 			info = [
+				"queuePriority": queuePriority,
 				"completion": completion,
 			]
 		case .uiRequiresSignedOwnedDetails(ownedIdentityCryptoId: let ownedIdentityCryptoId, completion: let completion):
@@ -926,11 +917,12 @@ enum ObvMessengerInternalNotification {
 			]
 		case .metaFlowControllerViewDidAppear:
 			info = nil
-		case .userWantsToUpdateCustomNameAndGroupV2Photo(groupObjectID: let groupObjectID, customName: let customName, customPhotoURL: let customPhotoURL):
+		case .userWantsToUpdateCustomNameAndGroupV2Photo(ownedCryptoId: let ownedCryptoId, groupIdentifier: let groupIdentifier, customName: let customName, customPhoto: let customPhoto):
 			info = [
-				"groupObjectID": groupObjectID,
+				"ownedCryptoId": ownedCryptoId,
+				"groupIdentifier": groupIdentifier,
 				"customName": OptionalWrapper(customName),
-				"customPhotoURL": OptionalWrapper(customPhotoURL),
+				"customPhoto": OptionalWrapper(customPhoto),
 			]
 		case .userHasSeenPublishedDetailsOfGroupV2(groupObjectID: let groupObjectID):
 			info = [
@@ -944,7 +936,7 @@ enum ObvMessengerInternalNotification {
 			info = nil
 		case .backupForUploadFailedToUpload:
 			info = nil
-		case .userWantsToCreateNewOwnedIdentity:
+		case .userWantsToAddOwnedProfile:
 			info = nil
 		case .userWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: let ownedCryptoId):
 			info = [
@@ -954,10 +946,10 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: let ownedCryptoId, notifyContacts: let notifyContacts):
+		case .userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: let ownedCryptoId, globalOwnedIdentityDeletion: let globalOwnedIdentityDeletion):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
-				"notifyContacts": notifyContacts,
+				"globalOwnedIdentityDeletion": globalOwnedIdentityDeletion,
 			]
 		case .userWantsToHideOwnedIdentity(ownedCryptoId: let ownedCryptoId, password: let password):
 			info = [
@@ -1043,6 +1035,52 @@ enum ObvMessengerInternalNotification {
 				"ownedIdentity": ownedIdentity,
 				"completionHandler": OptionalWrapper(completionHandler),
 			]
+		case .aDiscussionSharedConfigurationIsNeededByContact(contactIdentifier: let contactIdentifier, discussionId: let discussionId):
+			info = [
+				"contactIdentifier": contactIdentifier,
+				"discussionId": discussionId,
+			]
+		case .aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice(ownedCryptoId: let ownedCryptoId, discussionId: let discussionId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"discussionId": discussionId,
+			]
+		case .userWantsToDeleteOwnedContactGroup(ownedCryptoId: let ownedCryptoId, groupUid: let groupUid):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"groupUid": groupUid,
+			]
+		case .singleOwnedIdentityFlowViewControllerDidAppear(ownedCryptoId: let ownedCryptoId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+			]
+		case .userWantsToSetCustomNameOfJoinedGroupV1(ownedCryptoId: let ownedCryptoId, groupId: let groupId, groupNameCustom: let groupNameCustom):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"groupId": groupId,
+				"groupNameCustom": OptionalWrapper(groupNameCustom),
+			]
+		case .userWantsToUpdatePersonalNoteOnContact(contactIdentifier: let contactIdentifier, newText: let newText):
+			info = [
+				"contactIdentifier": contactIdentifier,
+				"newText": OptionalWrapper(newText),
+			]
+		case .userWantsToUpdatePersonalNoteOnGroupV1(ownedCryptoId: let ownedCryptoId, groupId: let groupId, newText: let newText):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"groupId": groupId,
+				"newText": OptionalWrapper(newText),
+			]
+		case .userWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: let ownedCryptoId, groupIdentifier: let groupIdentifier, newText: let newText):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+				"groupIdentifier": groupIdentifier,
+				"newText": OptionalWrapper(newText),
+			]
+		case .allPersistedInvitationCanBeMarkedAsOld(ownedCryptoId: let ownedCryptoId):
+			info = [
+				"ownedCryptoId": ownedCryptoId,
+			]
 		}
 		return info
 	}
@@ -1072,11 +1110,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeMessagesAreNotNewAnymore(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Set<TypeSafeManagedObjectID<PersistedMessage>>) -> Void) -> NSObjectProtocol {
+	static func observeMessagesAreNotNewAnymore(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, DiscussionIdentifier, [MessageIdentifier]) -> Void) -> NSObjectProtocol {
 		let name = Name.messagesAreNotNewAnymore.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageObjectIDs = notification.userInfo!["persistedMessageObjectIDs"] as! Set<TypeSafeManagedObjectID<PersistedMessage>>
-			block(persistedMessageObjectIDs)
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let discussionId = notification.userInfo!["discussionId"] as! DiscussionIdentifier
+			let messageIds = notification.userInfo!["messageIds"] as! [MessageIdentifier]
+			block(ownedCryptoId, discussionId, messageIds)
 		}
 	}
 
@@ -1112,70 +1152,55 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToCallAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([OlvidUserId], ObvCryptoId, GroupIdentifierBasedOnObjectID?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToCallAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Set<ObvCryptoId>, ObvCryptoId, GroupIdentifier?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToCallAndIsAllowedTo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactIds = notification.userInfo!["contactIds"] as! [OlvidUserId]
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let contactCryptoIds = notification.userInfo!["contactCryptoIds"] as! Set<ObvCryptoId>
 			let ownedIdentityForRequestingTurnCredentials = notification.userInfo!["ownedIdentityForRequestingTurnCredentials"] as! ObvCryptoId
-			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifierBasedOnObjectID>
+			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifier>
 			let groupId = groupIdWrapper.value
-			block(contactIds, ownedIdentityForRequestingTurnCredentials, groupId)
+			block(ownedCryptoId, contactCryptoIds, ownedIdentityForRequestingTurnCredentials, groupId)
 		}
 	}
 
-	static func observeUserWantsToSelectAndCallContacts(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([TypeSafeManagedObjectID<PersistedObvContactIdentity>], GroupIdentifierBasedOnObjectID?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToSelectAndCallContacts(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Set<ObvCryptoId>, GroupIdentifier?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSelectAndCallContacts.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactIDs = notification.userInfo!["contactIDs"] as! [TypeSafeManagedObjectID<PersistedObvContactIdentity>]
-			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifierBasedOnObjectID>
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let contactCryptoIds = notification.userInfo!["contactCryptoIds"] as! Set<ObvCryptoId>
+			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifier>
 			let groupId = groupIdWrapper.value
-			block(contactIDs, groupId)
+			block(ownedCryptoId, contactCryptoIds, groupId)
 		}
 	}
 
-	static func observeUserWantsToCallButWeShouldCheckSheIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([TypeSafeManagedObjectID<PersistedObvContactIdentity>], GroupIdentifierBasedOnObjectID?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToCallButWeShouldCheckSheIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Set<ObvCryptoId>, GroupIdentifier?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToCallButWeShouldCheckSheIsAllowedTo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactIDs = notification.userInfo!["contactIDs"] as! [TypeSafeManagedObjectID<PersistedObvContactIdentity>]
-			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifierBasedOnObjectID>
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let contactCryptoIds = notification.userInfo!["contactCryptoIds"] as! Set<ObvCryptoId>
+			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifier>
 			let groupId = groupIdWrapper.value
-			block(contactIDs, groupId)
+			block(ownedCryptoId, contactCryptoIds, groupId)
 		}
 	}
 
-	static func observeNewWebRTCMessageWasReceived(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (WebRTCMessageJSON, OlvidUserId, Date, Data) -> Void) -> NSObjectProtocol {
+	static func observeNewWebRTCMessageWasReceived(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (WebRTCMessageJSON, OlvidUserId, UID) -> Void) -> NSObjectProtocol {
 		let name = Name.newWebRTCMessageWasReceived.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let webrtcMessage = notification.userInfo!["webrtcMessage"] as! WebRTCMessageJSON
-			let contactId = notification.userInfo!["contactId"] as! OlvidUserId
-			let messageUploadTimestampFromServer = notification.userInfo!["messageUploadTimestampFromServer"] as! Date
-			let messageIdentifierFromEngine = notification.userInfo!["messageIdentifierFromEngine"] as! Data
-			block(webrtcMessage, contactId, messageUploadTimestampFromServer, messageIdentifierFromEngine)
+			let fromOlvidUser = notification.userInfo!["fromOlvidUser"] as! OlvidUserId
+			let messageUID = notification.userInfo!["messageUID"] as! UID
+			block(webrtcMessage, fromOlvidUser, messageUID)
 		}
 	}
 
-	static func observeNewObvMessageWasReceivedViaPushKitNotification(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvMessage) -> Void) -> NSObjectProtocol {
-		let name = Name.newObvMessageWasReceivedViaPushKitNotification.name
+	static func observeNewObvEncryptedPushNotificationWasReceivedViaPushKitNotification(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvEncryptedPushNotification) -> Void) -> NSObjectProtocol {
+		let name = Name.newObvEncryptedPushNotificationWasReceivedViaPushKitNotification.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let obvMessage = notification.userInfo!["obvMessage"] as! ObvMessage
-			block(obvMessage)
-		}
-	}
-
-	static func observeNewWebRTCMessageToSend(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (WebRTCMessageJSON, TypeSafeManagedObjectID<PersistedObvContactIdentity>, Bool) -> Void) -> NSObjectProtocol {
-		let name = Name.newWebRTCMessageToSend.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let webrtcMessage = notification.userInfo!["webrtcMessage"] as! WebRTCMessageJSON
-			let contactID = notification.userInfo!["contactID"] as! TypeSafeManagedObjectID<PersistedObvContactIdentity>
-			let forStartingCall = notification.userInfo!["forStartingCall"] as! Bool
-			block(webrtcMessage, contactID, forStartingCall)
-		}
-	}
-
-	static func observeIsCallKitEnabledSettingDidChange(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.isCallKitEnabledSettingDidChange.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
+			let encryptedNotification = notification.userInfo!["encryptedNotification"] as! ObvEncryptedPushNotification
+			block(encryptedNotification)
 		}
 	}
 
@@ -1232,13 +1257,14 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserRequestedDeletionOfPersistedDiscussion(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, DeletionType, @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
+	static func observeUserRequestedDeletionOfPersistedDiscussion(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, TypeSafeManagedObjectID<PersistedDiscussion>, DeletionType, @escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
 		let name = Name.userRequestedDeletionOfPersistedDiscussion.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedDiscussionObjectID = notification.userInfo!["persistedDiscussionObjectID"] as! NSManagedObjectID
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let discussionObjectID = notification.userInfo!["discussionObjectID"] as! TypeSafeManagedObjectID<PersistedDiscussion>
 			let deletionType = notification.userInfo!["deletionType"] as! DeletionType
 			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
-			block(persistedDiscussionObjectID, deletionType, completionHandler)
+			block(ownedCryptoId, discussionObjectID, deletionType, completionHandler)
 		}
 	}
 
@@ -1286,24 +1312,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserRequestedAPIKeyStatus(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, UUID) -> Void) -> NSObjectProtocol {
-		let name = Name.userRequestedAPIKeyStatus.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let apiKey = notification.userInfo!["apiKey"] as! UUID
-			block(ownedCryptoId, apiKey)
-		}
-	}
-
-	static func observeUserRequestedNewAPIKeyActivation(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, UUID) -> Void) -> NSObjectProtocol {
-		let name = Name.userRequestedNewAPIKeyActivation.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let apiKey = notification.userInfo!["apiKey"] as! UUID
-			block(ownedCryptoId, apiKey)
-		}
-	}
-
 	static func observeUserWantsToNavigateToDeepLink(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvDeepLink) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToNavigateToDeepLink.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1319,11 +1327,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToReadReceivedMessagesThatRequiresUserAction(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Set<TypeSafeManagedObjectID<PersistedMessageReceived>>) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToReadReceivedMessagesThatRequiresUserAction.name
+	static func observeUserWantsToReadReceivedMessageThatRequiresUserAction(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, DiscussionIdentifier, ReceivedMessageIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToReadReceivedMessageThatRequiresUserAction.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageObjectIDs = notification.userInfo!["persistedMessageObjectIDs"] as! Set<TypeSafeManagedObjectID<PersistedMessageReceived>>
-			block(persistedMessageObjectIDs)
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let discussionId = notification.userInfo!["discussionId"] as! DiscussionIdentifier
+			let messageId = notification.userInfo!["messageId"] as! ReceivedMessageIdentifier
+			block(ownedCryptoId, discussionId, messageId)
 		}
 	}
 
@@ -1346,13 +1356,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, ExpirationJSON, ObvCryptoId) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, DiscussionIdentifier, ExpirationJSON) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSetAndShareNewDiscussionSharedExpirationConfiguration.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedDiscussionObjectID = notification.userInfo!["persistedDiscussionObjectID"] as! NSManagedObjectID
-			let expirationJSON = notification.userInfo!["expirationJSON"] as! ExpirationJSON
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			block(persistedDiscussionObjectID, expirationJSON, ownedCryptoId)
+			let discussionId = notification.userInfo!["discussionId"] as! DiscussionIdentifier
+			let expirationJSON = notification.userInfo!["expirationJSON"] as! ExpirationJSON
+			block(ownedCryptoId, discussionId, expirationJSON)
 		}
 	}
 
@@ -1400,12 +1410,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToSendEditedVersionOfSentMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, String) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToSendEditedVersionOfSentMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, TypeSafeManagedObjectID<PersistedMessageSent>, String) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToSendEditedVersionOfSentMessage.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let sentMessageObjectID = notification.userInfo!["sentMessageObjectID"] as! NSManagedObjectID
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let sentMessageObjectID = notification.userInfo!["sentMessageObjectID"] as! TypeSafeManagedObjectID<PersistedMessageSent>
 			let newTextBody = notification.userInfo!["newTextBody"] as! String
-			block(sentMessageObjectID, newTextBody)
+			block(ownedCryptoId, sentMessageObjectID, newTextBody)
 		}
 	}
 
@@ -1473,21 +1484,11 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeResyncContactIdentityDevicesWithEngine(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
+	static func observeResyncContactIdentityDevicesWithEngine(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentifier) -> Void) -> NSObjectProtocol {
 		let name = Name.resyncContactIdentityDevicesWithEngine.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			block(contactCryptoId, ownedCryptoId)
-		}
-	}
-
-	static func observeResyncContactIdentityDetailsStatusWithEngine(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.resyncContactIdentityDetailsStatusWithEngine.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			block(contactCryptoId, ownedCryptoId)
+			let obvContactIdentifier = notification.userInfo!["obvContactIdentifier"] as! ObvContactIdentifier
+			block(obvContactIdentifier)
 		}
 	}
 
@@ -1514,15 +1515,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToReCreateChannelEstablishmentProtocol(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToReCreateChannelEstablishmentProtocol.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let contactCryptoId = notification.userInfo!["contactCryptoId"] as! ObvCryptoId
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			block(contactCryptoId, ownedCryptoId)
-		}
-	}
-
 	static func observeContactIdentityDetailsWereUpdated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, ObvCryptoId) -> Void) -> NSObjectProtocol {
 		let name = Name.contactIdentityDetailsWereUpdated.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1541,15 +1533,15 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToEditContactNicknameAndPicture(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, String?, URL?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToEditContactNicknameAndPicture(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID, String?, UIImage?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToEditContactNicknameAndPicture.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let persistedContactObjectID = notification.userInfo!["persistedContactObjectID"] as! NSManagedObjectID
 			let customDisplayNameWrapper = notification.userInfo!["customDisplayName"] as! OptionalWrapper<String>
 			let customDisplayName = customDisplayNameWrapper.value
-			let customPhotoURLWrapper = notification.userInfo!["customPhotoURL"] as! OptionalWrapper<URL>
-			let customPhotoURL = customPhotoURLWrapper.value
-			block(persistedContactObjectID, customDisplayName, customPhotoURL)
+			let customPhotoWrapper = notification.userInfo!["customPhoto"] as! OptionalWrapper<UIImage>
+			let customPhoto = customPhotoWrapper.value
+			block(persistedContactObjectID, customDisplayName, customPhoto)
 		}
 	}
 
@@ -1716,13 +1708,14 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToUpdateReaction(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedMessage>, String?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToUpdateReaction(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, TypeSafeManagedObjectID<PersistedMessage>, String?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToUpdateReaction.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let messageObjectID = notification.userInfo!["messageObjectID"] as! TypeSafeManagedObjectID<PersistedMessage>
-			let emojiWrapper = notification.userInfo!["emoji"] as! OptionalWrapper<String>
-			let emoji = emojiWrapper.value
-			block(messageObjectID, emoji)
+			let newEmojiWrapper = notification.userInfo!["newEmoji"] as! OptionalWrapper<String>
+			let newEmoji = newEmojiWrapper.value
+			block(ownedCryptoId, messageObjectID, newEmoji)
 		}
 	}
 
@@ -1816,11 +1809,12 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeRequestSyncAppDatabasesWithEngine(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (@escaping (Result<Void,Error>) -> Void) -> Void) -> NSObjectProtocol {
+	static func observeRequestSyncAppDatabasesWithEngine(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Operation.QueuePriority, @escaping (Result<Void,Error>) -> Void) -> Void) -> NSObjectProtocol {
 		let name = Name.requestSyncAppDatabasesWithEngine.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let queuePriority = notification.userInfo!["queuePriority"] as! Operation.QueuePriority
 			let completion = notification.userInfo!["completion"] as! (Result<Void,Error>) -> Void
-			block(completion)
+			block(queuePriority, completion)
 		}
 	}
 
@@ -1988,15 +1982,16 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToUpdateCustomNameAndGroupV2Photo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedGroupV2>, String?, URL?) -> Void) -> NSObjectProtocol {
+	static func observeUserWantsToUpdateCustomNameAndGroupV2Photo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, String?, UIImage?) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToUpdateCustomNameAndGroupV2Photo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let groupObjectID = notification.userInfo!["groupObjectID"] as! TypeSafeManagedObjectID<PersistedGroupV2>
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let groupIdentifier = notification.userInfo!["groupIdentifier"] as! Data
 			let customNameWrapper = notification.userInfo!["customName"] as! OptionalWrapper<String>
 			let customName = customNameWrapper.value
-			let customPhotoURLWrapper = notification.userInfo!["customPhotoURL"] as! OptionalWrapper<URL>
-			let customPhotoURL = customPhotoURLWrapper.value
-			block(groupObjectID, customName, customPhotoURL)
+			let customPhotoWrapper = notification.userInfo!["customPhoto"] as! OptionalWrapper<UIImage>
+			let customPhoto = customPhotoWrapper.value
+			block(ownedCryptoId, groupIdentifier, customName, customPhoto)
 		}
 	}
 
@@ -2036,8 +2031,8 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToCreateNewOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToCreateNewOwnedIdentity.name
+	static func observeUserWantsToAddOwnedProfile(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToAddOwnedProfile.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			block()
 		}
@@ -2063,8 +2058,8 @@ enum ObvMessengerInternalNotification {
 		let name = Name.userWantsToDeleteOwnedIdentityAndHasConfirmed.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let notifyContacts = notification.userInfo!["notifyContacts"] as! Bool
-			block(ownedCryptoId, notifyContacts)
+			let globalOwnedIdentityDeletion = notification.userInfo!["globalOwnedIdentityDeletion"] as! Bool
+			block(ownedCryptoId, globalOwnedIdentityDeletion)
 		}
 	}
 
@@ -2233,6 +2228,92 @@ enum ObvMessengerInternalNotification {
 			let completionHandlerWrapper = notification.userInfo!["completionHandler"] as! OptionalWrapper<(() -> Void)>
 			let completionHandler = completionHandlerWrapper.value
 			block(ownedIdentity, completionHandler)
+		}
+	}
+
+	static func observeADiscussionSharedConfigurationIsNeededByContact(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentifier, DiscussionIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.aDiscussionSharedConfigurationIsNeededByContact.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let contactIdentifier = notification.userInfo!["contactIdentifier"] as! ObvContactIdentifier
+			let discussionId = notification.userInfo!["discussionId"] as! DiscussionIdentifier
+			block(contactIdentifier, discussionId)
+		}
+	}
+
+	static func observeADiscussionSharedConfigurationIsNeededByAnotherOwnedDevice(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, DiscussionIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let discussionId = notification.userInfo!["discussionId"] as! DiscussionIdentifier
+			block(ownedCryptoId, discussionId)
+		}
+	}
+
+	static func observeUserWantsToDeleteOwnedContactGroup(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, UID) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToDeleteOwnedContactGroup.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let groupUid = notification.userInfo!["groupUid"] as! UID
+			block(ownedCryptoId, groupUid)
+		}
+	}
+
+	static func observeSingleOwnedIdentityFlowViewControllerDidAppear(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.singleOwnedIdentityFlowViewControllerDidAppear.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			block(ownedCryptoId)
+		}
+	}
+
+	static func observeUserWantsToSetCustomNameOfJoinedGroupV1(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, GroupV1Identifier, String?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToSetCustomNameOfJoinedGroupV1.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let groupId = notification.userInfo!["groupId"] as! GroupV1Identifier
+			let groupNameCustomWrapper = notification.userInfo!["groupNameCustom"] as! OptionalWrapper<String>
+			let groupNameCustom = groupNameCustomWrapper.value
+			block(ownedCryptoId, groupId, groupNameCustom)
+		}
+	}
+
+	static func observeUserWantsToUpdatePersonalNoteOnContact(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvContactIdentifier, String?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToUpdatePersonalNoteOnContact.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let contactIdentifier = notification.userInfo!["contactIdentifier"] as! ObvContactIdentifier
+			let newTextWrapper = notification.userInfo!["newText"] as! OptionalWrapper<String>
+			let newText = newTextWrapper.value
+			block(contactIdentifier, newText)
+		}
+	}
+
+	static func observeUserWantsToUpdatePersonalNoteOnGroupV1(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, GroupV1Identifier, String?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToUpdatePersonalNoteOnGroupV1.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let groupId = notification.userInfo!["groupId"] as! GroupV1Identifier
+			let newTextWrapper = notification.userInfo!["newText"] as! OptionalWrapper<String>
+			let newText = newTextWrapper.value
+			block(ownedCryptoId, groupId, newText)
+		}
+	}
+
+	static func observeUserWantsToUpdatePersonalNoteOnGroupV2(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Data, String?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToUpdatePersonalNoteOnGroupV2.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			let groupIdentifier = notification.userInfo!["groupIdentifier"] as! Data
+			let newTextWrapper = notification.userInfo!["newText"] as! OptionalWrapper<String>
+			let newText = newTextWrapper.value
+			block(ownedCryptoId, groupIdentifier, newText)
+		}
+	}
+
+	static func observeAllPersistedInvitationCanBeMarkedAsOld(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
+		let name = Name.allPersistedInvitationCanBeMarkedAsOld.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
+			block(ownedCryptoId)
 		}
 	}
 

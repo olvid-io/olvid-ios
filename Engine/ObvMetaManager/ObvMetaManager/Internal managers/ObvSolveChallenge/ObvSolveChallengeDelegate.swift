@@ -27,7 +27,7 @@ public protocol ObvSolveChallengeDelegate: ObvManager {
     
     func solveChallenge(_ challengeType: ChallengeType, for: ObvCryptoIdentity, using: PRNGService, within obvContext: ObvContext) throws -> Data
     
-    func getApiKeyForOwnedIdentity(_: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID?
+    // func getApiKeyForOwnedIdentity(_: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID?
 }
 
 

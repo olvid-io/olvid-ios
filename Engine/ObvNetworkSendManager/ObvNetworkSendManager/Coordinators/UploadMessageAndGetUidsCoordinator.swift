@@ -44,7 +44,7 @@ final class UploadMessageAndGetUidsCoordinator: NSObject {
         return URLSession(configuration: sessionConfiguration, delegate: self, delegateQueue: nil)
     }()
     
-    private var _currentTasks = [UIBackgroundTaskIdentifier: (messageId: MessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
+    private var _currentTasks = [UIBackgroundTaskIdentifier: (messageId: ObvMessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)]()
     private let currentTasksQueue = DispatchQueue(label: "UploadMessageAndGetUidsCoordinatorQueueForCurrentTasks")
 
 }
@@ -54,7 +54,7 @@ final class UploadMessageAndGetUidsCoordinator: NSObject {
 
 extension UploadMessageAndGetUidsCoordinator {
     
-    private func currentTaskExistsForMessage(withId id: MessageIdentifier) -> Bool {
+    private func currentTaskExistsForMessage(withId id: ObvMessageIdentifier) -> Bool {
         var exist = true
         currentTasksQueue.sync {
             exist = _currentTasks.values.contains(where: { $0.messageId == id })
@@ -62,23 +62,23 @@ extension UploadMessageAndGetUidsCoordinator {
         return exist
     }
     
-    private func removeInfoFor(_ task: URLSessionTask) -> (messageId: MessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (MessageIdentifier, FlowIdentifier, Data)? = nil
+    private func removeInfoFor(_ task: URLSessionTask) -> (messageId: ObvMessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvMessageIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentTasks.removeValue(forKey: UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier))
         }
         return info
     }
     
-    private func getInfoFor(_ task: URLSessionTask) -> (messageId: MessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
-        var info: (MessageIdentifier, FlowIdentifier, Data)? = nil
+    private func getInfoFor(_ task: URLSessionTask) -> (messageId: ObvMessageIdentifier, flowId: FlowIdentifier, dataReceived: Data)? {
+        var info: (ObvMessageIdentifier, FlowIdentifier, Data)? = nil
         currentTasksQueue.sync {
             info = _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)]
         }
         return info
     }
     
-    private func insert(_ task: URLSessionTask, forMessageId messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    private func insert(_ task: URLSessionTask, forMessageId messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         currentTasksQueue.sync {
             _currentTasks[UIBackgroundTaskIdentifier(rawValue: task.taskIdentifier)] = (messageId, flowId, Data())
         }
@@ -109,7 +109,7 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
         case failedToCreateTask(error: Error)
     }
     
-    func getIdFromServerUploadMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func getIdFromServerUploadMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
 
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
@@ -124,7 +124,7 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
             return
         }
         
-        os_log("Will try to get Id from server for message %{public}@ within flow %{public}@", log: log, type: .fault, messageId.debugDescription, flowId.debugDescription)
+        os_log("Will try to get Id from server for message %{public}@ within flow %{public}@", log: log, type: .info, messageId.debugDescription, flowId.debugDescription)
         
         var syncQueueOutput: SyncQueueOutput? // The state after the localQueue.sync is executed
         
@@ -219,7 +219,7 @@ extension UploadMessageAndGetUidsCoordinator: UploadMessageAndGetUidDelegate {
     }
     
     
-    func cancelMessageUpload(messageId: MessageIdentifier, flowId: FlowIdentifier) throws {
+    func cancelMessageUpload(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)

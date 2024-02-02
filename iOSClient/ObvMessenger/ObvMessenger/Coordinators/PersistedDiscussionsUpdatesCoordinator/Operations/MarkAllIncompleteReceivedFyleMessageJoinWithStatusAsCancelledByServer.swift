@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,33 +22,30 @@ import CoreData
 import os.log
 import OlvidUtils
 import ObvUICoreData
+import ObvTypes
 
 
 /// This operation is typically executed when requesting the download progresses of incomplete attachments that results being absent from the engine's inbox.
 /// In that case, we know we won't receive the missing bytes of any of the message attachments, so we mark all the incomplete `ReceivedFyleMessageJoinWithStatus`
 /// of the message as `cancelledByServer`.
-final class MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServer: OperationWithSpecificReasonForCancel<MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServerReasonForCancel> {
+final class MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServer: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServer.self))
 
+    private let ownedCryptoId: ObvCryptoId
     private let messageIdentifierFromEngine: Data
     
-    init(messageIdentifierFromEngine: Data) {
+    init(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data) {
+        self.ownedCryptoId = ownedCryptoId
         self.messageIdentifierFromEngine = messageIdentifierFromEngine
         super.init()
     }
  
     
-    override func main() {
-        
-        ObvStack.shared.performBackgroundTaskAndWait { (context) in
-
-            let receivedMessages: [PersistedMessageReceived]
-            do {
-                receivedMessages = try PersistedMessageReceived.getAll(messageIdentifierFromEngine: messageIdentifierFromEngine, within: context)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        do {
+            
+            let receivedMessages = try PersistedMessageReceived.getAll(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, within: obvContext.context)
             
             guard !receivedMessages.isEmpty else {
                 // No message found, so there is nothing to do
@@ -62,41 +59,17 @@ final class MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServe
                 for join in message.fyleMessageJoinWithStatuses {
                     switch join.status {
                     case .downloadable, .downloading:
-                        join.tryToSetStatusTo(.cancelledByServer)
+                        join.tryToSetStatusToCancelledByServer()
                     case .complete, .cancelledByServer:
                         break
                     }
                 }
             }
             
-            do {
-                try context.save(logOnFailure: log)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-        
-    }
-    
-}
 
-
-enum MarkAllIncompleteReceivedFyleMessageJoinWithStatusAsCancelledByServerReasonForCancel: LocalizedErrorWithLogType {
-    case coreDataError(error: Error)
-    
-    var logType: OSLogType {
-        switch self {
-        case .coreDataError:
-            return .fault
-        }
-    }
-    
-    var errorDescription: String? {
-        switch self {
-        case .coreDataError(error: let error):
-            return "Core Data error: \(error.localizedDescription)"
-        }
     }
     
 }

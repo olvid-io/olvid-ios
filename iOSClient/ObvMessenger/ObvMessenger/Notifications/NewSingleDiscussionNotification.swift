@@ -48,6 +48,8 @@ enum NewSingleDiscussionNotification {
 	case userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
 	case userWantsToDownloadReceivedFyleMessageJoinWithStatus(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
 	case updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>)
+	case userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>)
+	case userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>)
 
 	private enum Name {
 		case userWantsToReadReceivedMessagesThatRequiresUserAction
@@ -65,6 +67,8 @@ enum NewSingleDiscussionNotification {
 		case userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus
 		case userWantsToDownloadReceivedFyleMessageJoinWithStatus
 		case updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility
+		case userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice
+		case userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice
 
 		private var namePrefix: String { String(describing: NewSingleDiscussionNotification.self) }
 
@@ -92,6 +96,8 @@ enum NewSingleDiscussionNotification {
 			case .userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus: return Name.userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus.name
 			case .userWantsToDownloadReceivedFyleMessageJoinWithStatus: return Name.userWantsToDownloadReceivedFyleMessageJoinWithStatus.name
 			case .updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility: return Name.updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility.name
+			case .userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice: return Name.userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice.name
+			case .userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice: return Name.userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice.name
 			}
 		}
 	}
@@ -170,6 +176,14 @@ enum NewSingleDiscussionNotification {
 			info = [
 				"discussionPermanentID": discussionPermanentID,
 				"messagePermanentIDs": messagePermanentIDs,
+			]
+		case .userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(sentJoinObjectID: let sentJoinObjectID):
+			info = [
+				"sentJoinObjectID": sentJoinObjectID,
+			]
+		case .userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(sentJoinObjectID: let sentJoinObjectID):
+			info = [
+				"sentJoinObjectID": sentJoinObjectID,
 			]
 		}
 		return info
@@ -331,6 +345,22 @@ enum NewSingleDiscussionNotification {
 			let discussionPermanentID = notification.userInfo!["discussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
 			let messagePermanentIDs = notification.userInfo!["messagePermanentIDs"] as! Set<ObvManagedObjectPermanentID<PersistedMessage>>
 			block(discussionPermanentID, messagePermanentIDs)
+		}
+	}
+
+	static func observeUserWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let sentJoinObjectID = notification.userInfo!["sentJoinObjectID"] as! TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>
+			block(sentJoinObjectID)
+		}
+	}
+
+	static func observeUserWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let sentJoinObjectID = notification.userInfo!["sentJoinObjectID"] as! TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>
+			block(sentJoinObjectID)
 		}
 	}
 

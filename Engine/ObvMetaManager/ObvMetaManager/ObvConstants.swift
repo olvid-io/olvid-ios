@@ -55,7 +55,6 @@ public struct ObvConstants {
     
     // Backup related constants
     public static let maxTimeUntilBackupIsRequired: TimeInterval = 24 * 60 * 60 // In seconds, 24h
-    public static let compressBackupedData = true // We will set this to false in a later release
     
     // Keycloak revocation related constants
     public static let keycloakSignatureValidity: TimeInterval = 5_184_000 // In seconds, 60 days
@@ -63,4 +62,27 @@ public struct ObvConstants {
     // Group V2 invitation nonce
     public static let groupInvitationNonceLength = 16
     public static let groupLockNonceLength = 32
+    
+    // Fake server used during the owned identity transfer protocol on a target device, when generating an ephemeral owned identity
+    public static let ephemeralIdentityServerURL = URL(string: "ephemeral_fake_server")!
+    
+    public static let transferWSServerURL = URL(string: "wss://transfer.olvid.io")!
+
+
+    // When a protocol requires to generate a "deterministic" seed, it must pass the appropriate enum value to the ``getDeterministicSeed(diversifiedUsing:secretMACKey:forProtocol:)`` method of the identity manager.
+    public enum SeedProtocol {
+        case trustEstablishmentWithSAS
+        case ownedIdentityTransfer
+        public var fixedByte: UInt8 {
+            switch self {
+            case .trustEstablishmentWithSAS:
+                return 0x55
+            case .ownedIdentityTransfer:
+                return 0x56
+            }
+        }
+    }
+
+    public static let transferMaxPayloadSize = 10_000 // in Bytes
+
 }

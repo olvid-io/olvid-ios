@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,7 +38,8 @@ final actor AppManagersHolder {
     private let appBackupManager: AppBackupManager
     private let expirationMessagesManager: ExpirationMessagesManager
     private let retentionMessagesManager: RetentionMessagesManager
-    private let callManager: CallManager
+    //private let callManager: CallManager
+    private let callProvider: CallProviderDelegate
     private let profilePictureManager: ProfilePictureManager
     private let subscriptionManager: SubscriptionManager
     private let muteDiscussionManager: MuteDiscussionManager
@@ -48,13 +49,7 @@ final actor AppManagersHolder {
     private let backgroundTasksManager: BackgroundTasksManager
     private let webSocketManager: WebSocketManager
     private let localAuthenticationManager: LocalAuthenticationManager
-    private let intentManager: IntentDelegate? = {
-        if #available(iOS 14, *) {
-            return IntentManager()
-        } else {
-            return nil
-        }
-    }()
+    private let intentManager: IntentDelegate = IntentManager()
 
     private var observationTokens = [NSObjectProtocol]()
 
@@ -66,6 +61,10 @@ final actor AppManagersHolder {
     }
     var appBackupDelegate: AppBackupDelegate {
         appBackupManager
+    }
+    
+    var storeKitDelegate: StoreKitDelegate {
+        subscriptionManager
     }
 
     init(obvEngine: ObvEngine, backgroundTasksManager: BackgroundTasksManager, userNotificationsManager: UserNotificationsManager) {
@@ -80,7 +79,8 @@ final actor AppManagersHolder {
         self.appBackupManager = AppBackupManager(obvEngine: obvEngine)
         self.expirationMessagesManager = ExpirationMessagesManager()
         self.retentionMessagesManager = RetentionMessagesManager()
-        self.callManager = CallManager(obvEngine: obvEngine)
+        //self.callManager = CallManager(obvEngine: obvEngine)
+        self.callProvider = CallProviderDelegate(obvEngine: obvEngine)
         self.profilePictureManager = ProfilePictureManager()
         self.subscriptionManager = SubscriptionManager(obvEngine: obvEngine)
         self.muteDiscussionManager = MuteDiscussionManager()
@@ -103,15 +103,14 @@ final actor AppManagersHolder {
         // Observe app lifecycle events
         await observeAppBasedLifeCycleEvents()
         // Subscribe to notifications
-        await callManager.performPostInitialization()
+        // await callManager.performPostInitialization()
+        callProvider.performPostInitialization()
         // Initialize the Keycloak manager singleton
         await keycloakManager.performPostInitialization()
         await webSocketManager.performPostInitialization()
         await localAuthenticationManager.performPostInitialization()
         await snackBarManager.performPostInitialization()
-        if #available(iOS 14, *) {
-            (intentManager as? IntentManager)?.performPostInitialization()
-        }
+        (intentManager as? IntentManager)?.performPostInitialization()
     }
     
     
@@ -121,7 +120,7 @@ final actor AppManagersHolder {
         await expirationMessagesManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await userNotificationsBadgesManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await snackBarManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
-        await callManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
+        //await callManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await webSocketManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
     }
 
@@ -132,11 +131,11 @@ final actor AppManagersHolder {
         let didEnterBackgroundNotification = UIApplication.didEnterBackgroundNotification
         let tokens = [
             NotificationCenter.default.addObserver(forName: didEnterBackgroundNotification, object: nil, queue: .main) { _ in
-                 os_log("🧦 didEnterBackgroundNotification", log: Self.log, type: .info)
+                 os_log("didEnterBackgroundNotification", log: Self.log, type: .info)
                  Task { [weak self] in
-                     os_log("🧦 Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground starts", log: Self.log, type: .info)
+                     os_log("Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground starts", log: Self.log, type: .info)
                      await self?.cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground()
-                     os_log("🧦 Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground ends", log: Self.log, type: .info)
+                     os_log("Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground ends", log: Self.log, type: .info)
                  }
             },
         ]

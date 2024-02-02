@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,61 +26,66 @@ import ObvCrypto
 import ObvTypes
 import OlvidUtils
 
-@objc(PendingServerQuery)
-class PendingServerQuery: NSManagedObject, ObvManagedObject, ObvErrorMaker {
 
-    // MARK: Internal constants
+@objc(PendingServerQuery)
+final class PendingServerQuery: NSManagedObject, ObvManagedObject {
 
     private static let entityName = "PendingServerQuery"
-    static let errorDomain = "PendingServerQuery"
-    private static let encodedElementsKey = "encodedElements"
-    private static let encodedQueryTypeKey = "encodedQueryType"
-    private static let encodedResponseTypeKey = "encodedResponseType"
 
     // MARK: Attributes
-
+    
+    @NSManaged private(set) var isWebSocket: Bool
+    @NSManaged private var rawEncodedElements: Data
+    @NSManaged private var rawEncodedQueryType: Data
+    @NSManaged private var rawEncodedResponseType: Data?
+    @NSManaged private var rawOwnedIdentity: Data
+    
+    
+    // MARK: Accessors
+    
     private(set) var encodedElements: ObvEncoded {
-        get {
-            let rawData = kvoSafePrimitiveValue(forKey: PendingServerQuery.encodedElementsKey) as! Data
-            return ObvEncoded(withRawData: rawData)!
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue.rawData, forKey: PendingServerQuery.encodedElementsKey)
-        }
+        get { ObvEncoded(withRawData: rawEncodedElements)! }
+        set { self.rawEncodedElements = newValue.rawData }
     }
+    
+    
     private(set) var queryType: ServerQuery.QueryType {
-        get {
-            let rawData = kvoSafePrimitiveValue(forKey: PendingServerQuery.encodedQueryTypeKey) as! Data
-            let encodedQueryType = ObvEncoded(withRawData: rawData)!
-            return ServerQuery.QueryType(encodedQueryType)!
-        }
-        set {
-            kvoSafeSetPrimitiveValue(newValue.obvEncode().rawData, forKey: PendingServerQuery.encodedQueryTypeKey)
-        }
+        get { ServerQuery.QueryType(ObvEncoded(withRawData: rawEncodedQueryType)!)! }
+        set { self.rawEncodedQueryType = newValue.obvEncode().rawData }
     }
+    
+    
     var responseType: ServerResponse.ResponseType? {
         get {
-            let rawData = kvoSafePrimitiveValue(forKey: PendingServerQuery.encodedResponseTypeKey) as! Data?
-            if let rawData = rawData {
-                let encodedResponseType = ObvEncoded(withRawData: rawData)!
-                return ServerResponse.ResponseType(encodedResponseType)
-            } else {
-                return nil
-            }
+            guard let rawEncodedResponseType else { return nil }
+            guard let encodedResponseType = ObvEncoded(withRawData: rawEncodedResponseType),
+                  let responseType = ServerResponse.ResponseType(encodedResponseType) else { assertionFailure(); return nil }
+            return responseType
         }
         set {
-            if let newValue = newValue {
-                kvoSafeSetPrimitiveValue(newValue.obvEncode().rawData, forKey: PendingServerQuery.encodedResponseTypeKey)
-            }
+            guard let newValue else { assertionFailure("We do not expect to set a nil value"); return }
+            self.rawEncodedResponseType = newValue.obvEncode().rawData
         }
     }
-    @NSManaged private(set) var ownedIdentity: ObvCryptoIdentity
-
+    
+    
+    var ownedIdentity: ObvCryptoIdentity {
+        get throws {
+            guard let ownedCryptoIdentity = ObvCryptoIdentity(from: rawOwnedIdentity) else {
+                if !isDeleted { assertionFailure() }
+                throw ObvError.couldNotParseOwnedIdentity
+            }
+            return ownedCryptoIdentity
+        }
+    }
+    
+    
     // MARK: Other variables
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
     var obvContext: ObvContext?
 
+    
     // MARK: - Initializer
 
     convenience init(serverQuery: ServerQuery, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) {
@@ -90,8 +95,10 @@ class PendingServerQuery: NSManagedObject, ObvManagedObject, ObvErrorMaker {
 
         self.encodedElements = serverQuery.encodedElements
         self.queryType = serverQuery.queryType
-        self.ownedIdentity = serverQuery.ownedIdentity
+        self.rawOwnedIdentity = serverQuery.ownedIdentity.getIdentity()
         self.delegateManager = delegateManager
+        self.obvContext = obvContext
+        self.isWebSocket = serverQuery.isWebSocket
 
     }
 
@@ -102,11 +109,12 @@ class PendingServerQuery: NSManagedObject, ObvManagedObject, ObvErrorMaker {
 
 extension PendingServerQuery {
 
-    func delete(flowId: FlowIdentifier) {
-        guard let obvContext = self.obvContext else {
-            assertionFailure("ObvContext is nil in PendingServerQuery")
+    func deletePendingServerQuery(within obvContext: ObvContext) {
+        guard self.managedObjectContext == obvContext.context else {
+            assertionFailure("Unexpected context")
             return
         }
+        self.obvContext = obvContext
         obvContext.delete(self)
     }
 
@@ -118,44 +126,106 @@ extension PendingServerQuery {
     
     struct Predicate {
         enum Key: String {
-            case ownedIdentity = "ownedIdentity"
+            case isWebSocket = "isWebSocket"
+            case rawEncodedElements = "rawEncodedElements"
+            case rawEncodedQueryType = "rawEncodedQueryType"
+            case rawEncodedResponseType = "rawEncodedResponseType"
+            case rawOwnedIdentity = "rawOwnedIdentity"
         }
         static func withOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity) -> NSPredicate {
-            NSPredicate(format: "%K == %@", Key.ownedIdentity.rawValue, ownedCryptoIdentity)
+            NSPredicate(Key.rawOwnedIdentity, EqualToData: ownedCryptoIdentity.getIdentity())
+        }
+        static func whereIsWebSocketIs(_ isWebSocket: Bool) -> NSPredicate {
+            NSPredicate(Key.isWebSocket, is: isWebSocket)
+        }
+        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+            NSPredicate(withObjectID: objectID)
         }
     }
 
-    @nonobjc class func fetchRequest() -> NSFetchRequest<PendingServerQuery> {
-        return NSFetchRequest<PendingServerQuery>(entityName: PendingServerQuery.entityName)
+    
+    @nonobjc static func fetchRequest() -> NSFetchRequest<PendingServerQuery> {
+        NSFetchRequest<PendingServerQuery>(entityName: PendingServerQuery.entityName)
     }
 
-    static func get(objectId: NSManagedObjectID, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> PendingServerQuery {
-        guard let serverQuery = try obvContext.existingObject(with: objectId) as? PendingServerQuery else {
-            throw Self.makeError(message: "Could not find PendingServerQuery")
-        }
-        serverQuery.delegateManager = delegateManager
-        return serverQuery
-    }
-
-    static func getAllServerQuery(for identity: ObvCryptoIdentity, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
+    
+    static func get(objectId: NSManagedObjectID, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> PendingServerQuery? {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
-        request.predicate = Predicate.withOwnedCryptoIdentity(identity)
-        return try obvContext.fetch(request)
+        request.predicate = Predicate.withObjectID(objectId)
+        request.fetchLimit = 1
+        let item = try obvContext.fetch(request).first
+        item?.delegateManager = delegateManager
+        item?.obvContext = obvContext
+        return item
+    }
+    
+
+    enum BoolOrAny {
+        case any
+        case bool(_ value: Bool)
+    }
+    
+    static func getAllServerQuery(for identity: ObvCryptoIdentity, isWebSocket: BoolOrAny, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
+        let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
+        var subpredicates = [Predicate.withOwnedCryptoIdentity(identity)]
+        switch isWebSocket {
+        case .any:
+            break
+        case .bool(let isWebSocket):
+            subpredicates += [Predicate.whereIsWebSocketIs(isWebSocket)]
+        }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: subpredicates)
+        let items = try obvContext.fetch(request)
+        items.forEach { item in
+            item.delegateManager = delegateManager
+            item.obvContext = obvContext
+        }
+        return items
     }
 
+    
     static func getAllServerQuery(delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
         request.fetchBatchSize = 1_000
-        return try obvContext.fetch(request)
+        let items = try obvContext.fetch(request)
+        items.forEach { item in
+            item.delegateManager = delegateManager
+            item.obvContext = obvContext
+        }
+        return items
     }
     
+    
     static func deleteAllServerQuery(for identity: ObvCryptoIdentity, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws {
-        let serverQueries = try getAllServerQuery(for: identity, delegateManager: delegateManager, within: obvContext)
+        let serverQueries = try getAllServerQuery(for: identity, isWebSocket: .any, delegateManager: delegateManager, within: obvContext)
         for serverQuery in serverQueries {
-            serverQuery.delete(flowId: obvContext.flowId)
+            serverQuery.deletePendingServerQuery(within: obvContext)
         }
     }
 
+    
+    static func deleteAllWebSocketServerQuery(within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
+        request.predicate = Predicate.whereIsWebSocketIs(true)
+        let items = try obvContext.fetch(request)
+        items.forEach { item in
+            item.deletePendingServerQuery(within: obvContext)
+        }
+    }
+    
+}
+
+
+// MARK: - Errors
+
+extension PendingServerQuery {
+    
+    enum ObvError: Error {
+        case theDelegateManagerIsNil
+        case couldNotFindPendingServerQuery
+        case couldNotParseOwnedIdentity
+    }
+    
 }
 
 // MARK: - Managing Change Events
@@ -172,9 +242,9 @@ extension PendingServerQuery {
         }
 
         if isInserted, let flowId = self.obvContext?.flowId {
-            delegateManager.networkFetchFlowDelegate.newPendingServerQueryToProcessWithObjectId(self.objectID, flowId: flowId)
-        } else if isDeleted, let flowId = self.obvContext?.flowId {
-            delegateManager.networkFetchFlowDelegate.pendingServerQueryWasDeletedFromDatabase(objectId: self.objectID, flowId: flowId)
+            let objectID = self.objectID
+            let isWebSocket = self.isWebSocket
+            Task { await delegateManager.networkFetchFlowDelegate.newPendingServerQueryToProcessWithObjectId(objectID, isWebSocket: isWebSocket, flowId: flowId) }
         }
     }
 

@@ -43,7 +43,7 @@ final class ObvLocalChannel: ObvChannel {
         self.ownedIdentity = ownedIdentity
     }
     
-    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> MessageIdentifier {
+    private func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> ObvMessageIdentifier {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvLocalChannel.logCategory)
         
@@ -75,7 +75,7 @@ final class ObvLocalChannel: ObvChannel {
             }
             
             let randomUid = UID.gen(with: prng)
-            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid) // For a local message, to toIdentity is also the from (owned) identity
+            let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid) // For a local message, to toIdentity is also the from (owned) identity
 
             let receivedMessage = ObvProtocolReceivedMessage(messageId: messageId,
                                                              timestamp: message.timestamp,
@@ -117,7 +117,7 @@ final class ObvLocalChannel: ObvChannel {
             try protocolDelegate.process(receivedMessage, within: obvContext)
 
             let randomUid = UID.gen(with: prng)
-            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid) // For a local message, to toIdentity is also the from (owned) identity
+            let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid) // For a local message, to toIdentity is also the from (owned) identity
 
             return messageId
             
@@ -138,7 +138,7 @@ final class ObvLocalChannel: ObvChannel {
             try protocolDelegate.process(receivedMessage, within: obvContext)
             
             let randomUid = UID.gen(with: prng)
-            let messageId = MessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid) // For a local message, to toIdentity is also the from (owned) identity
+            let messageId = ObvMessageIdentifier(ownedCryptoIdentity: ownedIdentity, uid: randomUid) // For a local message, to toIdentity is also the from (owned) identity
 
             return messageId
 
@@ -168,7 +168,9 @@ extension ObvLocalChannel {
                 throw ObvLocalChannel.makeError(message: "Wrong message type")
             }
 
-            guard try identityDelegate.isOwned(ownedIdentity, within: obvContext) else {
+            // We check that the identity is owned, or that its server is the fake server used for ephemeral identities during the owned identity transfer protocol
+            
+            guard try identityDelegate.isOwned(ownedIdentity, within: obvContext) || ownedIdentity.serverURL == ObvConstants.ephemeralIdentityServerURL else {
                 os_log("Cannot send local message to an identity that is not owned", log: log, type: .error)
                 throw ObvLocalChannel.makeError(message: "Cannot send local message to an identity that is not owned")
             }
@@ -183,7 +185,7 @@ extension ObvLocalChannel {
         return acceptableChannels
     }
     
-    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [MessageIdentifier: Set<ObvCryptoIdentity>] {
+    static func post(_ message: ObvChannelMessageToSend, randomizedWith prng: PRNGService, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>] {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvLocalChannel.logCategory)
 

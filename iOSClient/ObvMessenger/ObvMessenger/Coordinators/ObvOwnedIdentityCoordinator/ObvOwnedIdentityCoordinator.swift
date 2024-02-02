@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,7 +34,8 @@ final class ObvOwnedIdentityCoordinator {
     private var observationTokens = [NSObjectProtocol]()
     private let coordinatorsQueue: OperationQueue
     private let queueForComposedOperations: OperationQueue
-    
+    weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
+
     init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
         self.obvEngine = obvEngine
         self.coordinatorsQueue = coordinatorsQueue
@@ -61,7 +62,7 @@ final class ObvOwnedIdentityCoordinator {
                 self?.ownedIdentityWasReactivated(ownedCryptoId: ownedCryptoId)
             },
             ObvEngineNotificationNew.observeNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(within: NotificationCenter.default) { [weak self] (ownedIdentity, apiKeyStatus, apiPermissions, apiKeyExpirationDate) in
-                self?.processNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentityNotification(ownedIdentity: ownedIdentity, apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate.value)
+                self?.processNewAPIKeyElementsForCurrentAPIKeyOfOwnedIdentityNotification(ownedIdentity: ownedIdentity, apiKeyStatus: apiKeyStatus, apiPermissions: apiPermissions, apiKeyExpirationDate: apiKeyExpirationDate)
             },
             ObvEngineNotificationNew.observePublishedPhotoOfOwnedIdentityHasBeenUpdated(within: NotificationCenter.default) { [weak self] ownedIdentity in
                 self?.processOwnedIdentityPhotoHasBeenUpdated(ownedIdentity: ownedIdentity)
@@ -72,6 +73,24 @@ final class ObvOwnedIdentityCoordinator {
             ObvEngineNotificationNew.observeOwnedIdentityWasDeleted(within: NotificationCenter.default) { [weak self] in
                 self?.processOwnedIdentityWasDeleted()
             },
+            ObvEngineNotificationNew.observeKeycloakSynchronizationRequired(within: NotificationCenter.default) { [weak self] ownedCryptoId in
+                Task { [weak self] in await self?.processKeycloakSynchronizationRequired(ownedCryptoId: ownedCryptoId) }
+            },
+            ObvEngineNotificationNew.observeDeletedObliviousChannelWithRemoteOwnedDevice(within: NotificationCenter.default) { [weak self] in
+                self?.syncPersistedObvOwnedDevicesWithEngine()
+            },
+            ObvEngineNotificationNew.observeNewConfirmedObliviousChannelWithRemoteOwnedDevice(within: NotificationCenter.default) { [weak self] in
+                self?.syncPersistedObvOwnedDevicesWithEngine()
+            },
+            ObvEngineNotificationNew.observeNewRemoteOwnedDevice(within: NotificationCenter.default) { [weak self] in
+                self?.syncPersistedObvOwnedDevicesWithEngine()
+            },
+            ObvEngineNotificationNew.observeAnOwnedDeviceWasUpdated(within: NotificationCenter.default) { [weak self] ownedCryptoId in
+                self?.syncPersistedObvOwnedDevicesWithEngine()
+            },
+            ObvEngineNotificationNew.observeAnOwnedDeviceWasDeleted(within: NotificationCenter.default) { [weak self] ownedCryptoId in
+                self?.syncPersistedObvOwnedDevicesWithEngine()
+            },
         ])
 
         // Internal Notifications
@@ -80,8 +99,10 @@ final class ObvOwnedIdentityCoordinator {
             ObvMessengerCoreDataNotification.observeNewPersistedObvOwnedIdentity { [weak self] (ownedCryptoId, isActive) in
                 self?.processNewPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId, isActive: isActive)
             },
-            ObvMessengerInternalNotification.observeUserWantsToBindOwnedIdentityToKeycloak { [weak self] (ownedCryptoId, obvKeycloakState, keycloakUserId, completionHandler) in
-                self?.processUserWantsToBindOwnedIdentityToKeycloakNotification(ownedCryptoId: ownedCryptoId, obvKeycloakState: obvKeycloakState, keycloakUserId: keycloakUserId, completionHandler: completionHandler)
+            ObvMessengerInternalNotification.observeUserWantsToBindOwnedIdentityToKeycloak { (ownedCryptoId, obvKeycloakState, keycloakUserId, completionHandler) in
+                Task { [weak self] in
+                    await self?.processUserWantsToBindOwnedIdentityToKeycloakNotification(ownedCryptoId: ownedCryptoId, obvKeycloakState: obvKeycloakState, keycloakUserId: keycloakUserId, completionHandler: completionHandler)
+                }
             },
             ObvMessengerInternalNotification.observeUserWantsToUnbindOwnedIdentityFromKeycloak { (ownedCryptoId, completionHandler) in
                 Task { [weak self] in await self?.processUserWantsToUnbindOwnedIdentityFromKeycloakNotification(ownedCryptoId: ownedCryptoId, completion: completionHandler) }
@@ -95,14 +116,20 @@ final class ObvOwnedIdentityCoordinator {
             ObvMessengerInternalNotification.observeUserWantsToUnhideOwnedIdentity { [weak self] ownedCryptoId in
                 self?.processUserWantsToUnhideOwnedIdentity(ownedCryptoId: ownedCryptoId)
             },
-            ObvMessengerInternalNotification.observeUserWantsToDeleteOwnedIdentityAndHasConfirmed { [weak self] (ownedCryptoId, notifyContacts) in
-                self?.processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ownedCryptoId, notifyContacts: notifyContacts)
+            ObvMessengerInternalNotification.observeUserWantsToDeleteOwnedIdentityAndHasConfirmed { [weak self] ownedCryptoId, globalOwnedIdentityDeletion in
+                self?.processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
             },
             ObvMessengerInternalNotification.observeRecomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities { [weak self] in
                 self?.recomputeBadgeCountsForAllOwnedIdentities()
             },
             ObvMessengerInternalNotification.observeUserWantsToUpdateOwnedCustomDisplayName { [weak self] ownedCryptoId, newCustomDisplayName in
                 self?.updateOwnedNickname(ownedCryptoId: ownedCryptoId, newCustomDisplayName: newCustomDisplayName)
+            },
+            ObvMessengerInternalNotification.observeSingleOwnedIdentityFlowViewControllerDidAppear { [weak self] ownedCryptoId in
+                Task { [weak self] in await self?.processSingleOwnedIdentityFlowViewControllerDidAppear(ownedCryptoId: ownedCryptoId) }
+            },
+            ObvMessengerInternalNotification.observeAllPersistedInvitationCanBeMarkedAsOld { ownedCryptoId in
+                Task { [weak self] in await self?.processAllPersistedInvitationCanBeMarkedAsOld(ownedCryptoId: ownedCryptoId) }
             },
         ])
         
@@ -111,6 +138,7 @@ final class ObvOwnedIdentityCoordinator {
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
         if forTheFirstTime {
             recomputeBadgeCountsForAllOwnedIdentities()
+            nameCurrentDeviceWithoutSpecifiedName()
         }
     }
 
@@ -119,8 +147,26 @@ final class ObvOwnedIdentityCoordinator {
 
 extension ObvOwnedIdentityCoordinator {
     
+    /// When the `SingleOwnedIdentityFlowViewController` is presented to the user, we want to refresh the list of devices.
+    /// To do so, we always perform an owned device discovery.
+    private func processSingleOwnedIdentityFlowViewControllerDidAppear(ownedCryptoId: ObvCryptoId) async {
+        do {
+            try await obvEngine.performOwnedDeviceDiscovery(ownedCryptoId: ownedCryptoId)
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
+    
+    
+    private func processAllPersistedInvitationCanBeMarkedAsOld(ownedCryptoId: ObvCryptoId) async {
+        let op1 = MarkAllPersistedInvitationAsOldOperation(ownedCryptoId: ownedCryptoId)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
+    }
+
+    
     private func updateOwnedNickname(ownedCryptoId: ObvCryptoId, newCustomDisplayName: String?) {
-        let op1 = UpdateOwnedCustomDisplayNameOperation(ownedCryptoId: ownedCryptoId, newCustomDisplayName: newCustomDisplayName)
+        let op1 = UpdateOwnedCustomDisplayNameOperation(ownedCryptoId: ownedCryptoId, newCustomDisplayName: newCustomDisplayName, makeSyncAtomRequest: true, syncAtomRequestDelegate: syncAtomRequestDelegate)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }
@@ -133,8 +179,15 @@ extension ObvOwnedIdentityCoordinator {
     }
     
     
-    private func processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, notifyContacts: Bool) {
-        let op1 = DeleteOwnedIdentityOperation(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, notifyContacts: notifyContacts, delegate: self)
+    private func nameCurrentDeviceWithoutSpecifiedName() {
+        let op1 = NameCurrentDeviceWithoutSpecifiedNameOperation(obvEngine: obvEngine)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
+    }
+    
+    
+    private func processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) {
+        let op1 = DeleteOwnedIdentityOperation(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion, delegate: self)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         composedOp.queuePriority = .veryHigh
         self.coordinatorsQueue.addOperation(composedOp)
@@ -176,28 +229,24 @@ extension ObvOwnedIdentityCoordinator {
 
     
     private func processNewPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) {
-        Task { try? await obvEngine.downloadMessagesAndConnectWebsockets() }
         Task {
-            if isActive {
-                // If the owned identity is active, we want to kick other devices on next register to push notifications.
-                // This works because:
-                // Case 1: the owned identity is new, created on this device, and the kick does nothing
-                // Case 2: the owned identity was restored from a backup, and we *do* want to kick other devices
-                await ObvPushNotificationManager.shared.doKickOtherDevicesOnNextRegister()
-            }
-            await ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
-            // When a new owned identity is created, we request an update of the owned identity capabilities
-            do {
-                try obvEngine.setCapabilitiesOfCurrentDeviceForAllOwnedIdentities(ObvMessengerConstants.supportedObvCapabilities)
-            } catch {
-                assertionFailure("Could not set capabilities")
-            }
+            await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
+            try? await obvEngine.downloadMessagesAndConnectWebsockets()
+            try? obvEngine.setCapabilitiesOfCurrentDeviceForAllOwnedIdentities(ObvMessengerConstants.supportedObvCapabilities)
         }
     }
     
 
     private func ownedIdentityWasDeactivated(ownedCryptoId: ObvCryptoId) {
         let op1 = UpdateOwnedIdentityAsItWasDeactivatedOperation(ownedCryptoId: ownedCryptoId)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        self.coordinatorsQueue.addOperation(composedOp)
+    }
+
+    
+    /// Called whenever we receive a notification indicating that a secure channel has been deleted/confirmed with a remote owned device.
+    private func syncPersistedObvOwnedDevicesWithEngine() {
+        let op1 = SyncPersistedObvOwnedDevicesWithEngineOperation(obvEngine: obvEngine)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }
@@ -246,44 +295,47 @@ extension ObvOwnedIdentityCoordinator {
     }
     
     
-    private func processUserWantsToBindOwnedIdentityToKeycloakNotification(ownedCryptoId: ObvCryptoId, obvKeycloakState: ObvKeycloakState, keycloakUserId: String, completionHandler: @escaping (Bool) -> Void) {
+    private func processKeycloakSynchronizationRequired(ownedCryptoId: ObvCryptoId) async {
         do {
-            try obvEngine.bindOwnedIdentityToKeycloak(ownedCryptoId: ownedCryptoId, keycloakState: obvKeycloakState, keycloakUserId: keycloakUserId) { result in
-                DispatchQueue.main.async {
-                    Task {
-                        assert(Thread.isMainThread)
-                        switch result {
-                        case .failure(let error):
-                            os_log("Engine failed to bind owned identity to keycloak server: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                            assertionFailure()
-                            completionHandler(false)
-                            return
-                        case .success:
-                            await KeycloakManagerSingleton.shared.registerKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoId, firstKeycloakBinding: true)
-                            do {
-                                try await KeycloakManagerSingleton.shared.uploadOwnIdentity(ownedCryptoId: ownedCryptoId)
-                            } catch let error as KeycloakManager.UploadOwnedIdentityError {
-                                os_log("Could not upload owned identity to the Keycloak server: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                                completionHandler(false)
-                                return
-                            } catch {
-                                os_log("Could not upload owned identity to the Keycloak server: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                                assertionFailure("Unexpected error")
-                                completionHandler(false)
-                                return
-                            }
-                            completionHandler(true)
-                            return
-                        }
-                    }
-                }
-            }
+            try await KeycloakManagerSingleton.shared.syncAllManagedIdentities()
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
+
+    
+    private func processUserWantsToBindOwnedIdentityToKeycloakNotification(ownedCryptoId: ObvCryptoId, obvKeycloakState: ObvKeycloakState, keycloakUserId: String, completionHandler: @escaping (Bool) -> Void) async {
+        
+        do {
+            try await obvEngine.bindOwnedIdentityToKeycloak(ownedCryptoId: ownedCryptoId, keycloakState: obvKeycloakState, keycloakUserId: keycloakUserId)
         } catch {
             os_log("The call to bindOwnedIdentityToKeycloak failed: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-            completionHandler(false)
             assertionFailure()
+            completionHandler(false)
+            return
         }
 
+        await KeycloakManagerSingleton.shared.registerKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoId, firstKeycloakBinding: true)
+        
+        do {
+            try await KeycloakManagerSingleton.shared.uploadOwnIdentity(ownedCryptoId: ownedCryptoId)
+        } catch let error as KeycloakManager.UploadOwnedIdentityError {
+            os_log("Could not upload owned identity to the Keycloak server: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            completionHandler(false)
+            return
+        } catch {
+            os_log("Could not upload owned identity to the Keycloak server: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure("Unexpected error")
+            completionHandler(false)
+            return
+        }
+        
+        completionHandler(true)
+    
+        // Last, make sure we always try to perform a sync
+        
+        try? await KeycloakManagerSingleton.shared.syncAllManagedIdentities()
+        
     }
 
     
@@ -303,8 +355,8 @@ extension ObvOwnedIdentityCoordinator {
 
 extension ObvOwnedIdentityCoordinator: DeleteOwnedIdentityOperationDelegate {
     
-    func deleteHiddenOwnedIdentityAsTheLastVisibleOwnedIdentityIsBeingDeleted(hiddenOwnedCryptoId: ObvCryptoId, notifyContacts: Bool) {
-        processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: hiddenOwnedCryptoId, notifyContacts: notifyContacts)
+    func deleteHiddenOwnedIdentityAsTheLastVisibleOwnedIdentityIsBeingDeleted(hiddenOwnedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) {
+        processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: hiddenOwnedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
     }
     
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import Foundation
 import CoreData
+import UniformTypeIdentifiers
 import MobileCoreServices
 import ObvUICoreData
 
@@ -81,7 +82,7 @@ final class ReceivedFyleMessageJoinWithStatusToReceivedFyleMessageJoinWithStatus
         
         let uti: String
         
-        if let _uti = ObvUTIUtils.utiOfFile(withName: newReceivedFyleMessageJoinWithStatus.fileName) {
+        if let _uti = Self.utiOfFile(withName: newReceivedFyleMessageJoinWithStatus.fileName) {
             // Try 1: Using the filename
             uti = _uti
         } else {
@@ -96,14 +97,14 @@ final class ReceivedFyleMessageJoinWithStatusToReceivedFyleMessageJoinWithStatus
                 let userInfo = [NSLocalizedFailureReasonErrorKey: message]
                 throw NSError(domain: errorDomain, code: 0, userInfo: userInfo)
             }
-            if let _uti = ObvUTIUtils.guessUTIOfBinaryFile(atURL: url) {
+            if let _uti = Self.guessUTIOfBinaryFile(atURL: url) {
                 uti = _uti
-                if let ext = ObvUTIUtils.preferredTagWithClass(inUTI: uti, inTagClass: .FilenameExtension) {
+                if let ext = Self.preferredTagWithClassFilenameExtension(inUTI: uti) {
                     let newFileName = [newReceivedFyleMessageJoinWithStatus.fileName, ext].joined(separator: ".")
                     newReceivedFyleMessageJoinWithStatus.setValue(newFileName, forKey: "fileName")
                 }
             } else {
-                uti = kUTTypeData as String
+                uti = UTType.data.identifier
             }
         }
         
@@ -115,4 +116,47 @@ final class ReceivedFyleMessageJoinWithStatusToReceivedFyleMessageJoinWithStatus
         
     }
     
+    
+    private static func utiOfFile(withName fileName: String) -> String? {
+        let fileExtension = NSString(string: fileName).pathExtension
+        return Self.utiOfFile(withExtension: fileExtension)
+    }
+    
+    
+    private static func utiOfFile(withExtension fileExtension: String) -> String? {
+        guard !fileExtension.isEmpty else { return nil }
+        return UTType(filenameExtension: fileExtension)?.identifier
+    }
+    
+
+    private static func guessUTIOfBinaryFile(atURL url: URL) -> String? {
+        
+        let jpegPrefix = Data([0xff, 0xd8])
+        let pngPrefix = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        let pdfPrefix = Data([0x25, 0x50, 0x44, 0x46, 0x2D])
+        let mp4Signatures = ["ftyp", "mdat", "moov", "pnot", "udta", "uuid", "moof", "free", "skip", "jP2 ", "wide", "load", "ctab", "imap", "matt", "kmat", "clip", "crgn", "sync", "chap", "tmcd", "scpt", "ssrc", "PICT"].map { Data([UInt8]($0.utf8)) }
+        
+        guard let fileData = try? Data(contentsOf: url) else {
+            return nil
+        }
+        
+        if fileData.starts(with: jpegPrefix) {
+            return UTType.jpeg.identifier
+        } else if fileData.starts(with: pngPrefix) {
+            return UTType.png.identifier
+        } else if fileData.starts(with: pdfPrefix) {
+            return UTType.pdf.identifier
+        } else if mp4Signatures.contains(fileData.advanced(by: 4)[0..<4]) {
+            return UTType.mpeg4Movie.identifier
+        } else {
+            return nil
+        }
+
+    }
+
+    
+    private static func preferredTagWithClassFilenameExtension(inUTI uti: String) -> String? {
+        return UTType(uti)?.preferredFilenameExtension
+    }
+
 }

@@ -29,34 +29,74 @@ final class UpdateCustomNicknameAndPictureForContactOperation: ContextualOperati
 
     let persistedContactObjectID: NSManagedObjectID
     let customDisplayName: String?
-    let customPhotoURL: URL?
+    let customPhoto: PhotoKind
+    private let makeSyncAtomRequest: Bool
+    private weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
     
-    init(persistedContactObjectID: NSManagedObjectID, customDisplayName: String?, customPhotoURL: URL?) {
+    enum PhotoKind {
+        case url(url: URL?)
+        case image(image: UIImage?)
+    }
+    
+    init(persistedContactObjectID: NSManagedObjectID, customDisplayName: String?, customPhoto: PhotoKind, makeSyncAtomRequest: Bool, syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?) {
         self.persistedContactObjectID = persistedContactObjectID
         self.customDisplayName = customDisplayName
-        self.customPhotoURL = customPhotoURL
+        self.customPhoto = customPhoto
+        self.makeSyncAtomRequest = makeSyncAtomRequest
+        self.syncAtomRequestDelegate = syncAtomRequestDelegate
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        obvContext.performAndWait {
+        do {
             
-            do {
-                
-                guard let contact = try PersistedObvContactIdentity.get(objectID: persistedContactObjectID, within: obvContext.context) else { assertionFailure(); return }
-                try contact.setCustomDisplayName(to: customDisplayName)
-                contact.setCustomPhotoURL(with: customPhotoURL)
-
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+            guard let contact = try PersistedObvContactIdentity.get(objectID: persistedContactObjectID, within: obvContext.context) else { assertionFailure(); return }
+            let customDisplayNameWasUpdated = try contact.setCustomDisplayName(to: customDisplayName)
+            switch customPhoto {
+            case .url(let url):
+                contact.setCustomPhotoURL(with: url)
+            case .image(let image):
+                try contact.setCustomPhoto(with: image)
             }
 
+            // If the custom display name was updated, we propagate the change to our other owned devices
+            
+            if makeSyncAtomRequest && customDisplayNameWasUpdated {
+                if let ownedCryptoId = contact.ownedIdentity?.cryptoId, let syncAtomRequestDelegate = self.syncAtomRequestDelegate {
+                    let contactCryptoId = contact.cryptoId
+                    let syncAtom = ObvSyncAtom.contactNickname(contactCryptoId: contactCryptoId, contactNickname: customDisplayName)
+                    try? obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else { return }
+                        Task.detached {
+                            await syncAtomRequestDelegate.requestPropagationToOtherOwnedDevices(of: syncAtom, for: ownedCryptoId)
+                        }
+                    }
+                } else {
+                    assertionFailure("Could not propagate the new nickname to our other owned devices")
+                }
+            }
+            
+            // If the contact is updated, we want to refresh it in the view context to update the UI
+            
+            if contact.isUpdated {
+                do {
+                    let contactObjectID = contact.objectID
+                    try obvContext.addContextDidSaveCompletionHandler { error in
+                        guard error == nil else { return }
+                        viewContext.perform {
+                            guard let contactInViewContext = viewContext.registeredObjects.first(where: { $0.objectID == contactObjectID }) else { return }
+                            viewContext.refresh(contactInViewContext, mergeChanges: false)
+                        }
+                    }
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                }
+            }
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }

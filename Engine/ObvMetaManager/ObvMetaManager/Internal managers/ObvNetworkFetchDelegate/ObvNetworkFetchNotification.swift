@@ -32,10 +32,10 @@ public struct ObvNetworkFetchNotification {
             public static let messageId = "messageId"
             public static let flowId = "flowId"
         }
-        public static func parse(_ notification: Notification) -> (messageId: MessageIdentifier, flowId: FlowIdentifier)? {
+        public static func parse(_ notification: Notification) -> (messageId: ObvMessageIdentifier, flowId: FlowIdentifier)? {
             guard notification.name == name else { return nil }
             guard let userInfo = notification.userInfo else { return nil }
-            guard let messageId = userInfo[Key.messageId] as? MessageIdentifier else { return nil }
+            guard let messageId = userInfo[Key.messageId] as? ObvMessageIdentifier else { return nil }
             guard let flowId = userInfo[Key.flowId] as? FlowIdentifier else { return nil }
             return (messageId, flowId)
         }

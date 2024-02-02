@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,6 +38,7 @@ final class NetworkSendFlowCoordinator: ObvErrorMaker {
     private var failedFetchAttemptsCounterManager = FailedFetchAttemptsCounterManager()
     private var retryManager = SendRetryManager()
     private let outbox: URL
+    private let nwPathMonitor = NWPathMonitor()
     
     private let queueForPostingNotifications = DispatchQueue(label: "Queue for posting certain notifications from the NetworkSendFlowCoordinator")
     
@@ -93,7 +94,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
                               wrappedKey: header.wrappedMessageKey)
         }
         
-        var attachmentIds = [AttachmentIdentifier]()
+        var attachmentIds = [ObvAttachmentIdentifier]()
         if let attachments = message.attachments {
             var attachmentNumber = 0
             for attachment in attachments {
@@ -103,7 +104,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
                                          deleteAfterSend: attachment.deleteAfterSend,
                                          byteSize: attachment.byteSize,
                                          key: attachment.key)
-                let attachmentId = AttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber)
+                let attachmentId = ObvAttachmentIdentifier(messageId: message.messageId, attachmentNumber: attachmentNumber)
                 attachmentIds.append(attachmentId)
                 
                 attachmentNumber += 1
@@ -124,7 +125,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     }
     
     
-    func newOutboxMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func newOutboxMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -141,7 +142,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     }
     
     
-    func failedUploadAndGetUidOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func failedUploadAndGetUidOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -160,7 +161,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     }
 
     
-    func successfulUploadOfMessage(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func successfulUploadOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -217,7 +218,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     
     
     
-    func messageAndAttachmentsWereExternallyCancelledAndCanSafelyBeDeletedNow(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func messageAndAttachmentsWereExternallyCancelledAndCanSafelyBeDeletedNow(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -231,12 +232,12 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     
     
     
-    func newProgressForAttachment(attachmentId: AttachmentIdentifier) {
+    func newProgressForAttachment(attachmentId: ObvAttachmentIdentifier) {
         failedFetchAttemptsCounterManager.reset(counter: .uploadAttachment(attachmentId: attachmentId))
     }
 
     
-    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [AttachmentIdentifier: Float] {
+    func requestUploadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float] {
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
             os_log("The Delegate Manager is not set", log: log, type: .fault)
@@ -283,7 +284,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     
     
     
-    func acknowledgedAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    func acknowledgedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -306,14 +307,14 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     }
 
     
-    func attachmentFailedToUpload(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    func attachmentFailedToUpload(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         let delay = failedFetchAttemptsCounterManager.incrementAndGetDelay(.uploadAttachment(attachmentId: attachmentId))
         retryManager.executeWithDelay(delay) { [weak self] in
             self?.delegateManager?.uploadAttachmentChunksDelegate.resumeMissingAttachmentUploads(flowId: flowId)
         }
     }
     
-    func signedURLsDownloadFailedForAttachment(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    func signedURLsDownloadFailedForAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         let delay = failedFetchAttemptsCounterManager.incrementAndGetDelay(.uploadAttachment(attachmentId: attachmentId))
         retryManager.executeWithDelay(delay) { [weak self] in
             self?.delegateManager?.uploadAttachmentChunksDelegate.downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)
@@ -321,7 +322,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     }
 
 
-    func messageAndAttachmentsWereDeletedFromTheirOutboxes(messageId: MessageIdentifier, flowId: FlowIdentifier) {
+    func messageAndAttachmentsWereDeletedFromTheirOutboxes(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
 
         cleanOutboxForMessage(messageId)
         
@@ -367,9 +368,8 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     // MARK: - Monitor Network Path Status
     
     private func monitorNetworkChanges() {
-        let monitor = NWPathMonitor()
-        monitor.start(queue: DispatchQueue(label: "NetworkSendMonitor"))
-        monitor.pathUpdateHandler = self.networkPathDidChange
+        nwPathMonitor.start(queue: DispatchQueue(label: "NetworkSendMonitor"))
+        nwPathMonitor.pathUpdateHandler = self.networkPathDidChange
     }
 
     
@@ -391,7 +391,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
 
 extension NetworkSendFlowCoordinator {
     
-    func cleanOutboxForMessage(_ messageId: MessageIdentifier) {
+    func cleanOutboxForMessage(_ messageId: ObvMessageIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -402,15 +402,30 @@ extension NetworkSendFlowCoordinator {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
 
-        let messageURL = outbox.appendingPathComponent(messageId.directoryName, isDirectory: true)
-        guard FileManager.default.fileExists(atPath: messageURL.path) else { return }
-        do {
-            try FileManager.default.removeItem(at: messageURL)
-        } catch {
-            os_log("Could not clean outbox for message %{public}@: %{public}@", log: log, type: .fault, messageId.debugDescription, error.localizedDescription)
+        // Legacy cleaning
+        for legacyDirectoryNameForMessageAttachments in messageId.legacyDirectoryNamesForMessageAttachments {
+            let messageURL = outbox.appendingPathComponent(legacyDirectoryNameForMessageAttachments, isDirectory: true)
+            if FileManager.default.fileExists(atPath: messageURL.path) {
+                do {
+                    try FileManager.default.removeItem(at: messageURL)
+                } catch {
+                    os_log("Could not clean outbox for message %{public}@: %{public}@", log: log, type: .fault, messageId.debugDescription, error.localizedDescription)
+                }
+            }
         }
         
+        // Non-legacy cleaning
+        do {
+            let messageURL = outbox.appendingPathComponent(messageId.directoryNameForMessageAttachments, isDirectory: true)
+            if FileManager.default.fileExists(atPath: messageURL.path) {
+                do {
+                    try FileManager.default.removeItem(at: messageURL)
+                } catch {
+                    os_log("Could not clean outbox for message %{public}@: %{public}@", log: log, type: .fault, messageId.debugDescription, error.localizedDescription)
+                }
+            }
+        }
+
     }
-    
     
 }

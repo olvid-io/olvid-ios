@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,15 +23,18 @@ import Combine
 import ObvUI
 import ObvUICoreData
 import UI_SystemIcon
+import ObvTypes
+import ObvSettings
+import ObvDesignSystem
 
 
 final class DiscussionsDefaultSettingsHostingViewController: UIHostingController<DiscussionsDefaultSettingsWrapperView> {
 
     fileprivate let model: DiscussionsDefaultSettingsViewModel
 
-    init() {
+    init(ownedCryptoId: ObvCryptoId) {
         assert(Thread.isMainThread)
-        let model = DiscussionsDefaultSettingsViewModel()
+        let model = DiscussionsDefaultSettingsViewModel(ownedCryptoId: ownedCryptoId)
         let view = DiscussionsDefaultSettingsWrapperView(model: model)
         self.model = model
         super.init(rootView: view)
@@ -52,6 +55,7 @@ final class DiscussionsDefaultSettingsHostingViewController: UIHostingController
 
 final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
 
+    let ownedCryptoId: ObvCryptoId
     var doSendReadReceipt: Binding<Bool>!
     var alwaysShowNotificationsWhenMentioned: Binding<Bool>!
     var doFetchContentRichURLsMetadata: Binding<ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice>!
@@ -68,7 +72,11 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
 
     @Published var changed: Bool // This allows to "force" the refresh of the view
 
-    init() {
+    /// Allows to observe changes made to certain settings made from other owned devices
+    private var cancellables = Set<AnyCancellable>()
+
+    init(ownedCryptoId: ObvCryptoId) {
+        self.ownedCryptoId = ownedCryptoId
         self.changed = false
         self.doSendReadReceipt = Binding<Bool>(get: getDoSendReadReceipt, set: setDoSendReadReceipt)
         alwaysShowNotificationsWhenMentioned = Binding<Bool> {
@@ -95,8 +103,32 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
         self.retainWipedOutboundMessages = Binding<Bool>(get: getRetainWipedOutboundMessages, set: setRetainWipedOutboundMessages)
         self.notificationSound = Binding<OptionalNotificationSound>(get: getNotificationSound, set: setNotificationSound)
         self.performInteractionDonation = Binding<Bool>(get: getPerformInteractionDonation, set: setPerformInteractionDonation)
+        observeChangesMadeFromOtherOwnedDevices()
     }
     
+    deinit {
+        cancellables.forEach { $0.cancel() }
+        cancellables.removeAll()
+    }
+
+    private func observeChangesMadeFromOtherOwnedDevices() {
+        
+        ObvMessengerSettingsObservableObject.shared.$doSendReadReceipt
+            .compactMap { (doSendReadReceipt, changeMadeFromAnotherOwnedDevice, ownedCryptoId) in
+                // We only observe changes made from other owned devices
+                guard changeMadeFromAnotherOwnedDevice else { return nil }
+                return doSendReadReceipt
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] (doSendReadReceipt: Bool) in
+                withAnimation {
+                    self?.changed.toggle()
+                }
+            }
+            .store(in: &cancellables)
+
+    }
+
     private func getTimeBasedRetention() -> DurationOptionAlt {
         ObvMessengerSettings.Discussions.timeBasedRetentionPolicy
     }
@@ -135,7 +167,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     }
 
     private func setDoSendReadReceipt(_ newValue: Bool) {
-        ObvMessengerSettings.Discussions.doSendReadReceipt = newValue
+        ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: newValue, changeMadeFromAnotherOwnedDevice: false, ownedCryptoId: ownedCryptoId)
         withAnimation {
             self.changed.toggle()
         }
@@ -278,7 +310,14 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
     @State private var presentChooseNotificationSoundSheet: Bool = false
 
     private var sendReadReceiptSectionFooter: Text {
-        Text(doSendReadReceipt ? DiscussionsSettingsTableViewController.Strings.SendReadRecceipts.explanationWhenYes : DiscussionsSettingsTableViewController.Strings.SendReadRecceipts.explanationWhenNo)
+        Text(doSendReadReceipt ? Strings.SendReadRecceipts.explanationWhenYes : Strings.SendReadRecceipts.explanationWhenNo)
+    }
+    
+    private struct Strings {
+        struct SendReadRecceipts {
+            static let explanationWhenYes = NSLocalizedString("Your contacts will be notified when you have read their messages. This settting can be overriden on a per discussion basis.", comment: "Explantation")
+            static let explanationWhenNo = NSLocalizedString("Your contacts won't be notified when you read their messages. This settting can be overriden on a per discussion basis.", comment: "Explantation")
+        }
     }
 
     private func countBasedRetentionIncrement() {
@@ -293,12 +332,12 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
         Form {
             Section(footer: sendReadReceiptSectionFooter) {
                 Toggle(isOn: $doSendReadReceipt) {
-                    ObvLabel("SEND_READ_RECEIPTS_LABEL", systemImage: "eye.fill")
+                    Label("SEND_READ_RECEIPTS_LABEL", systemImage: "eye.fill")
                 }
             }
             Section(footer: Text("discussion-default-settings-view.mention-notification-mode.picker.footer.title")) {
                 Picker(selection: $alwaysShowNotificationsWhenMentioned,
-                       label: ObvLabel("discussion-default-settings-view.mention-notification-mode.picker.title", systemIcon: .bell(.fill))) {
+                       label: Label("discussion-default-settings-view.mention-notification-mode.picker.title", systemIcon: .bell(.fill))) {
                     Text(NSLocalizedString("discussion-default-settings-view.mention-notification-mode.picker.mode.always",
                                            comment: "Display title for the `always` value for mention notification mode"))
                         .tag(true)
@@ -310,7 +349,7 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
             }
             Section {
                 Picker(selection: $doFetchContentRichURLsMetadata, label:
-                        ObvLabel("SHOW_RICH_LINK_PREVIEW_LABEL", systemImage: "text.below.photo.fill")) {
+                        Label("SHOW_RICH_LINK_PREVIEW_LABEL", systemImage: "text.below.photo.fill")) {
                     ForEach(ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice.allCases) { value in
                         switch value {
                         case .never:
@@ -341,7 +380,7 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
             }
             Section(footer: Text("PERFORM_INTERACTION_DONATION_FOOTER")) {
                 Toggle(isOn: $performInteractionDonation) {
-                    ObvLabel("PERFORM_INTERACTION_DONATION_LABEL", systemIcon: .squareAndArrowUp)
+                    Label("PERFORM_INTERACTION_DONATION_LABEL", systemIcon: .squareAndArrowUp)
                 }
             }
             Group {
@@ -353,7 +392,7 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                 }
                 Section(footer: Text("COUNT_BASED_SECTION_FOOTER")) {
                     Toggle(isOn: $countBasedRetentionIsActive) {
-                        ObvLabel("COUNT_BASED_LABEL", systemImage: "number")
+                        Label("COUNT_BASED_LABEL", systemImage: "number")
                     }
                     if countBasedRetentionIsActive {
                         Stepper(onIncrement: countBasedRetentionIncrement,
@@ -363,7 +402,7 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                     }
                 }
                 Section(footer: Text("TIME_BASED_SECTION_FOOTER")) {
-                    Picker(selection: $timeBasedRetention, label: ObvLabel("TIME_BASED_LABEL", systemIcon: .calendarBadgeClock)) {
+                    Picker(selection: $timeBasedRetention, label: Label("TIME_BASED_LABEL", systemIcon: .calendarBadgeClock)) {
                         ForEach(DurationOptionAlt.allCases) { duration in
                             Text(duration.description).tag(duration)
                         }
@@ -384,12 +423,12 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                 }
                 Section(footer: Text("AUTO_READ_SECTION_FOOTER")) {
                     Toggle(isOn: $autoRead) {
-                        ObvLabel("AUTO_READ_LABEL", systemImage: "hand.tap.fill")
+                        Label("AUTO_READ_LABEL", systemImage: "hand.tap.fill")
                     }
                 }
                 Section(footer: Text("RETAIN_WIPED_OUTBOUND_MESSAGES_SECTION_FOOTER")) {
                     Toggle(isOn: $retainWipedOutboundMessages) {
-                        ObvLabel("RETAIN_WIPED_OUTBOUND_MESSAGES_LABEL", systemImage: "trash.slash")
+                        Label("RETAIN_WIPED_OUTBOUND_MESSAGES_LABEL", systemImage: "trash.slash")
                     }
                 }
             }
@@ -407,18 +446,18 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                 }
                 Section(footer: Text("READ_ONCE_SECTION_FOOTER")) {
                     Toggle(isOn: $readOnce) {
-                        ObvLabel("READ_ONCE_LABEL", systemImage: "flame.fill")
+                        Label("READ_ONCE_LABEL", systemImage: "flame.fill")
                     }
                 }
                 Section(footer: Text("LIMITED_VISIBILITY_SECTION_FOOTER")) {
-                    Picker(selection: $visibilityDuration, label: ObvLabel("LIMITED_VISIBILITY_LABEL", systemIcon: .eyes)) {
+                    Picker(selection: $visibilityDuration, label: Label("LIMITED_VISIBILITY_LABEL", systemIcon: .eyes)) {
                         ForEach(DurationOption.allCases) { duration in
                             Text(duration.description).tag(duration)
                         }
                     }
                 }
                 Section(footer: Text("LIMITED_EXISTENCE_SECTION_FOOTER")) {
-                    Picker(selection: $existenceDuration, label: ObvLabel("LIMITED_EXISTENCE_SECTION_LABEL", systemImage: "timer")) {
+                    Picker(selection: $existenceDuration, label: Label("LIMITED_EXISTENCE_SECTION_LABEL", systemImage: "timer")) {
                         ForEach(DurationOption.allCases) { duration in
                             Text(duration.description).tag(duration)
                         }

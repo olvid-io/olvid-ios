@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import Foundation
 import OlvidUtils
 import os.log
 import ObvUICoreData
+import CoreData
 
 
 final class CreateRandomDraftDebugOperation: ContextualOperationWithSpecificReasonForCancel<CreateRandomDraftDebugOperationReasonForCancel> {
@@ -32,29 +33,21 @@ final class CreateRandomDraftDebugOperation: ContextualOperationWithSpecificReas
         super.init()
     }
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-        
-        obvContext.performAndWait {
-            
-            do {
-                guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindDiscussion)
-                }
-                
-                discussion.draft.reset()
-                
-                let randomBodySize = Int.random(in: Range<Int>.init(uncheckedBounds: (lower: 2, upper: 200)))
-                let randomBody = CreateRandomDraftDebugOperation.randomString(length: randomBodySize)
-                discussion.draft.replaceContentWith(newBody: randomBody, newMentions: Set<MessageJSON.UserMention>())
-                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+        do {
+            guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindDiscussion)
             }
             
+            discussion.draft.reset()
+            
+            let randomBodySize = Int.random(in: Range<Int>.init(uncheckedBounds: (lower: 2, upper: 200)))
+            let randomBody = CreateRandomDraftDebugOperation.randomString(length: randomBodySize)
+            discussion.draft.replaceContentWith(newBody: randomBody, newMentions: Set<MessageJSON.UserMention>())
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

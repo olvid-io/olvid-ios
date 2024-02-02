@@ -47,6 +47,13 @@ final public class PrivateKeyForPublicKeyEncryptionDecoder: ObvDecoder {
             return PrivateKeyForPublicKeyEncryptionOnEdwardsCurve(obvDictionary: obvDic, curveByteId: .Curve25519ByteId)
         }
     }
+    public static func obvDecodeOrThrow(_ encodedKey: ObvEncoded) throws -> PrivateKeyForPublicKeyEncryption {
+        guard let key = Self.obvDecode(encodedKey) else { assertionFailure(); throw ObvError.decodingFailed}
+        return key
+    }
+    enum ObvError: Error {
+        case decodingFailed
+    }
 }
 
 struct PrivateKeyForPublicKeyEncryptionOnEdwardsCurve: PrivateKeyForPublicKeyEncryption, PrivateKeyFromEdwardsCurveScalar {

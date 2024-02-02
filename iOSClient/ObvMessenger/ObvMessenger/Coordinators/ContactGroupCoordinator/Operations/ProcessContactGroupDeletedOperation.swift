@@ -40,39 +40,31 @@ final class ProcessContactGroupDeletedOperation: ContextualOperationWithSpecific
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        obvContext.performAndWait {
+        do {
             
-            do {
-                
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: obvOwnedIdentity.cryptoId, within: obvContext.context) else {
-                    assertionFailure()
-                    return
-                }
-                
-                let groupId = (groupUid, groupOwner)
-                
-                guard let group = try PersistedContactGroup.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) else {
-                    return
-                }
-                
-                let persistedGroupDiscussion = group.discussion
-                
-                try persistedGroupDiscussion.setStatus(to: .locked)
-                
-                try group.delete()
-
-            } catch {
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: obvOwnedIdentity.cryptoId, within: obvContext.context) else {
                 assertionFailure()
-                return cancel(withReason: .coreDataError(error: error))
+                return
             }
             
+            let groupIdentifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
+            
+            guard let group = try PersistedContactGroup.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) else {
+                return
+            }
+            
+            let persistedGroupDiscussion = group.discussion
+            
+            try persistedGroupDiscussion.setStatus(to: .locked)
+            
+            try group.delete()
+            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }

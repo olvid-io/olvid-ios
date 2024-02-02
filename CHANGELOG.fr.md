@@ -1,5 +1,69 @@
 # Changelog
 
+## [1.3.1 (719)] - 2023-12-11
+
+- Bugfix
+
+## [1.3 (716)] - 2023-12-08
+
+- Les appels sécurisés sont désormais disponibles sur macOS !
+- Les interfaces des appels sécurisés ont été repensées pour s'adapter à tous les écrans et orientations.
+- Introduction d'une nouvelle interface permettant de modifier le surnom et la photo personnalisée d'un contact ou d'un groupe.
+- Il est désormais possible d'inviter tous les membres d'un groupe en une seule fois pour des discussions privées individuelles.
+- Correction d'une erreur sous macOS lors de l'importation d'un fichier via AirDrop.
+- Résolution de plusieurs bugs liés aux utilisateurs gérés par Keycloak lorsque le serveur Keycloak n'est pas accessible.
+- Correction d'un crash sur certains iPhone lors de la rotation de l'écran.
+- Correction d'un bug empêchant les appels sécurisés de fonctionner lorsque l'heure locale de l'appareil est incorrecte.
+- Diverses autres corrections mineures.
+
+## [1.2 (709)] - 2023-10-25
+
+- Il est possible de souscrire un abonnement au moment de l'ajout d'un nouvel appareil.
+- Corrige des erreurs de traduction.
+- Corrige une erreur pouvant provoquer un crash de l'app en arrière plan.
+- Corrige un certain nombre de bug concernant les groupes (y compris les groupes administrés par annuaire).
+- Plusieurs corrections afin d'améliorer l'expérience en multi-appareils.
+
+## [1.1 (705)] - 2023-10-15
+
+- Nouveau tab d'invitations !
+- Améliore le processus d'onboarding.
+- Corrige l'écran d'autorisation à l'occasion de la demande de micro.
+- Corrige un bug empêchant parfois d'arriver au terme d'une invitation.
+
+## [1.0 (703)] - 2023-10-10
+
+- Mise à jour majeure ! Bienvenue à Olvid v1.0 ;-)
+- Vous pouvez maintenant utiliser votre profil sur plusieurs appareils simultanément !
+- Commencez une discussion sur votre iPhone, continuez-la sur votre Mac, terminez-la sur votre iPad.
+- Tous vos contacts, groupes et paramètres restent synchronisés entre tous vos appareils.
+- Ajoutez un nouveau contact depuis votre iPhone, discutez ensuite depuis n’importe lequel de vos appareils.
+- Vos conversations restent sécurisées de bout en bout (chiffrées de bout en bout et authentifiées de bout en bout) entre tous vos appareils et ceux de vos contacts.
+- Ajouter un nouvel appareil à votre liste d’appareils ne demande que quelques secondes grâce à un nouveau processus « d’onboarding » sécurisé complètement revu !
+- Changer de téléphone ne demande que quelques secondes si vous avez encore votre ancien appareil sous la main.
+
+## [0.12.12 (694)] - 2023-09-15
+
+- Tout est prêt pour iOS 17 !
+- Il est possible de faire un glisser-déposer depuis (et vers) la vue de discussion sur iPadOS.
+- Corrige de nombreuses erreurs dans les textes français.
+- Corrige un bug empêchant parfois une sauvegarde d'être restaurée.
+- Corrige un bug empêchant parfois l'accès à une pièce jointe après son téléchargement.
+- Corrige un bug empêchant le copier/coller de certains liens dans la zone de composition.
+- Corrige un bug empêchant un profil de profiter du droit d'appeler d'un autre profil.
+- La liste des origines de confiance est maintenant affichée sur un écran séparé.
+- Un paramètre avancé permet de télécharger les photos de profil manquantes pour les contacts, groupes et profils personnels.
+
+## [0.12.11 (669)] - 2023-07-19
+
+- Corrige un bug empêchant le copier/coller de certains liens dans la zone de composition.
+- Amélioration de l'interface de la fiche contact.
+
+## [0.12.10 (666)] - 2023-07-11
+
+- Corrige un bug empêchant le téléchargement de pièces jointes sous iOS 17 beta 3
+- Autres corrections de bug mineurs
+
 ## [0.12.9 (661)] - 2023-05-22
 
 - Améliore le protocole concernant les nouveaux groupes afin de limiter les situations où des membres en attente de deviennent jamais membre à part entière. Bref, ça marche encore mieux qu'avant.
@@ -136,7 +200,7 @@
 - Corrige un problème rencontré sous iOS 16 concernant les autorisations systématiques demandées au moment de faire un copier/coller.
 - Corrige un bug empêchant l'affichage de certaines notifications d'appel manqué.
 - Le démarrage d'Olvid est encore plus rapide qu'avant.
-- Afin de ne jamais rater un appel sécurisé, vous avez maintenant la possibilité d'accorder l'accès au micro pendant l'onboarding.
+- Afin de ne jamais raté un appel sécurisé, vous avez maintenant la possibilité d'accorder l'accès au micro pendant l'onboarding.
 
 ## [0.11.1 (564)] - 2022-09-22
 

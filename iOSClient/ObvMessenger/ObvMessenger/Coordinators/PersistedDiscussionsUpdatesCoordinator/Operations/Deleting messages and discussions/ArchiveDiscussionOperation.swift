@@ -20,6 +20,7 @@
 import Foundation
 import OlvidUtils
 import ObvUICoreData
+import CoreData
 
 
 final class ArchiveDiscussionOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
@@ -38,31 +39,27 @@ final class ArchiveDiscussionOperation: ContextualOperationWithSpecificReasonFor
         super.init()
     }
     
-    override func main() {
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
-
-        obvContext.performAndWait {
-            do {
-                guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else { return }
-                switch action {
-                case .archive:
-                    try discussion.archive()
-                case .unarchive(updateTimestampOfLastMessage: let updateTimestampOfLastMessage):
-                    if updateTimestampOfLastMessage {
-                        // Unarchive and update the timestampOfLastMessage so that the unarchived discussion is shown at the top of the list.
-                        // The reasoning behind this is that when a user unarchives a discussion, the intention is to interact with it.
-                        // Not updating the timestamp would mean that in a long discussions list, the previously archived discussion would be
-                        // shown at the very bottom.
-                        discussion.unarchiveAndUpdateTimestampOfLastMessage()
-                    } else {
-                        discussion.unarchive()
-                    }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            guard let discussion = try PersistedDiscussion.getManagedObject(withPermanentID: discussionPermanentID, within: obvContext.context) else { return }
+            switch action {
+            case .archive:
+                try discussion.archive()
+            case .unarchive(updateTimestampOfLastMessage: let updateTimestampOfLastMessage):
+                if updateTimestampOfLastMessage {
+                    // Unarchive and update the timestampOfLastMessage so that the unarchived discussion is shown at the top of the list.
+                    // The reasoning behind this is that when a user unarchives a discussion, the intention is to interact with it.
+                    // Not updating the timestamp would mean that in a long discussions list, the previously archived discussion would be
+                    // shown at the very bottom.
+                    discussion.unarchiveAndUpdateTimestampOfLastMessage()
+                } else {
+                    discussion.unarchive()
                 }
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
             }
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
+        
     }
 }

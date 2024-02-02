@@ -21,6 +21,7 @@ import Foundation
 import UserNotifications
 import os.log
 import ObvUICoreData
+import ObvSettings
 
 
 final class UserNotificationsScheduler {

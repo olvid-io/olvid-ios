@@ -112,16 +112,10 @@ public final class ObvContext: Hashable {
     }
  
     
-    func makeAssertionChecks() {
-        assert(contextDidSaveCompletionHandlers.isEmpty)
-    }
-    
     deinit {
         if let token {
             NotificationCenter.default.removeObserver(token)
         }
-        assert(contextDidSaveCompletionHandlers.isEmpty)
-        assert(endOfScopeCompletionHandlers.isEmpty)
     }
     
     private func performAllContextWillSaveCompletionHandlers() {

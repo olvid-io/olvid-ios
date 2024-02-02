@@ -50,7 +50,7 @@ final class FinalizePostAttachmentUploadRequestOperation: Operation {
     }
 
     private let uuid = UUID()
-    private let attachmentId: AttachmentIdentifier
+    private let attachmentId: ObvAttachmentIdentifier
     private let flowId: FlowIdentifier
     private let log: OSLog
     private let logCategory = String(describing: FinalizePostAttachmentUploadRequestOperation.self)
@@ -58,7 +58,7 @@ final class FinalizePostAttachmentUploadRequestOperation: Operation {
     
     private weak var delegate: FinalizePostAttachmentUploadRequestOperationDelegate?
         
-    init(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier, logSubsystem: String, notificationDelegate: ObvNotificationDelegate, delegate: FinalizePostAttachmentUploadRequestOperationDelegate) {
+    init(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, logSubsystem: String, notificationDelegate: ObvNotificationDelegate, delegate: FinalizePostAttachmentUploadRequestOperationDelegate) {
         self.attachmentId = attachmentId
         self.flowId = flowId
         self.notificationDelegate = notificationDelegate
@@ -214,6 +214,6 @@ final class FinalizePostAttachmentUploadRequestOperation: Operation {
 
 protocol FinalizePostAttachmentUploadRequestOperationDelegate: AnyObject {
     
-    func postAttachmentUploadRequestOperationsAreFinished(attachmentId: AttachmentIdentifier, urlSession: URLSession?, flowId: FlowIdentifier, error: FinalizePostAttachmentUploadRequestOperation.ReasonForCancel?)
+    func postAttachmentUploadRequestOperationsAreFinished(attachmentId: ObvAttachmentIdentifier, urlSession: URLSession?, flowId: FlowIdentifier, error: FinalizePostAttachmentUploadRequestOperation.ReasonForCancel?)
     
 }

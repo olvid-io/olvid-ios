@@ -84,7 +84,7 @@ extension DownloadGroupV2PhotoProtocol {
             }
 
             guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
 
             return DownloadingPhotoState(groupIdentifier: groupIdentifier, serverPhotoInfo: serverPhotoInfo)
             

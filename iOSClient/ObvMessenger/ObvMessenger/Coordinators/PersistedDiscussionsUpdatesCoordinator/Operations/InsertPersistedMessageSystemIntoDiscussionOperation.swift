@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -68,11 +68,7 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: ContextualOpera
 
     
 
-    override func main() {
-        
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         let persistedDiscussionObjectID: NSManagedObjectID
         
@@ -86,95 +82,94 @@ final class InsertPersistedMessageSystemIntoDiscussionOperation: ContextualOpera
             }
             persistedDiscussionObjectID = objectID.objectID
         }
-
-        obvContext.performAndWait {
+        
+        do {
             
-            do {
-                
-                guard let discussion = try PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: obvContext.context) else {
-                    return cancel(withReason: .couldNotFindPersistedDiscussionInDatabase)
-                }
-                
-                switch persistedMessageSystemCategory {
-                case .ownedIdentityIsPartOfGroupV2Admins:
-                    guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
-                        return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
-                    }
-                    _ = try? PersistedMessageSystem.insertOwnedIdentityIsPartOfGroupV2AdminsMessage(within: groupV2Discussion)
-                case .ownedIdentityIsNoLongerPartOfGroupV2Admins:
-                    guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
-                        return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
-                    }
-                    _ = try? PersistedMessageSystem.insertOwnedIdentityIsNoLongerPartOfGroupV2AdminsMessage(within: groupV2Discussion)
-                case .membersOfGroupV2WereUpdated:
-                    guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
-                        return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
-                    }
-                    _ = try? PersistedMessageSystem.insertMembersOfGroupV2WereUpdatedSystemMessage(within: groupV2Discussion)
-                case .contactJoinedGroup,
-                        .contactLeftGroup:
-                    guard let contactIdentityObjectID = self.optionalContactIdentityObjectID else {
-                        return cancel(withReason: .noContactIdentityObjectIDAlthoughItIsRequired(persistedMessageSystemCategory: persistedMessageSystemCategory))
-                    }
-                    let contactIdentity = try PersistedObvContactIdentity.get(objectID: contactIdentityObjectID, within: obvContext.context)
-                    switch try? discussion.kind {
-                    case .oneToOne, .none:
-                        return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
-                    case .groupV1, .groupV2:
-                        break
-                    }
-                    _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: contactIdentity, optionalCallLogItem: nil, discussion: discussion, timestamp: Date())
-                case .contactRevokedByIdentityProvider:
-                    // We do not need to pass the optional identity, as it is obvious in this case. And we prevent merge conflicts by doing so.
-                    _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: nil, optionalCallLogItem: nil, discussion: discussion, timestamp: Date())
-                case .callLogItem:
-                    guard let callLogItemObjectID = self.optionalCallLogItemObjectID else {
-                        return cancel(withReason: .noCallLogItemObjectIDAlthoughItIsRequired)
-                    }
-                    
-                    guard let item = try PersistedCallLogItem.get(objectID: callLogItemObjectID, within: obvContext.context) else {
-                        return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
-                    }
-                    _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: nil, optionalCallLogItem: item, discussion: discussion, timestamp: Date())
-                case .numberOfNewMessages:
-                    assertionFailure("Not implemented")
-                case .discussionIsEndToEndEncrypted:
-                    assertionFailure("Not implemented")
-                case .contactWasDeleted:
-                    assertionFailure("Not implemented")
-                case .updatedDiscussionSharedSettings:
-                    assertionFailure("Not implemented")
-                case .notPartOfTheGroupAnymore:
-                    assertionFailure("Not implemented")
-                case .rejoinedGroup:
-                    assertionFailure("Not implemented")
-                case .contactIsOneToOneAgain:
-                    assertionFailure("Not implemented")
-                case .ownedIdentityDidCaptureSensitiveMessages:
-                    assertionFailure("Not implemented")
-                case .contactIdentityDidCaptureSensitiveMessages:
-                    assertionFailure("Not implemented")
-                case .discussionWasRemotelyWiped:
-                    switch discussion.status {
-                    case .active:
-                        break
-                    case .preDiscussion, .locked:
-                        return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
-                    }
-                    guard let contactIdentityObjectID = optionalContactIdentityObjectID else {
-                        return cancel(withReason: .noContactIdentityObjectIDAlthoughItIsRequired(persistedMessageSystemCategory: persistedMessageSystemCategory))
-                    }
-                    guard let contactIdentity = try PersistedObvContactIdentity.get(objectID: contactIdentityObjectID, within: obvContext.context) else {
-                        return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
-                    }
-                    assert(messageUploadTimestampFromServer != nil)
-                    try discussion.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: Date())
-                    try PersistedMessageSystem.insertDiscussionWasRemotelyWipedSystemMessage(within: discussion, byContact: contactIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-                }
-                
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+            guard let discussion = try PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: obvContext.context) else {
+                return cancel(withReason: .couldNotFindPersistedDiscussionInDatabase)
             }
+            
+            switch persistedMessageSystemCategory {
+            case .ownedIdentityIsPartOfGroupV2Admins:
+                guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
+                    return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                }
+                _ = try? PersistedMessageSystem.insertOwnedIdentityIsPartOfGroupV2AdminsMessage(within: groupV2Discussion)
+            case .ownedIdentityIsNoLongerPartOfGroupV2Admins:
+                guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
+                    return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                }
+                _ = try? PersistedMessageSystem.insertOwnedIdentityIsNoLongerPartOfGroupV2AdminsMessage(within: groupV2Discussion)
+            case .membersOfGroupV2WereUpdated:
+                guard let groupV2Discussion = discussion as? PersistedGroupV2Discussion else {
+                    return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                }
+                _ = try? PersistedMessageSystem.insertMembersOfGroupV2WereUpdatedSystemMessage(within: groupV2Discussion)
+            case .contactJoinedGroup,
+                    .contactLeftGroup:
+                guard let contactIdentityObjectID = self.optionalContactIdentityObjectID else {
+                    return cancel(withReason: .noContactIdentityObjectIDAlthoughItIsRequired(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                }
+                let contactIdentity = try PersistedObvContactIdentity.get(objectID: contactIdentityObjectID, within: obvContext.context)
+                switch try? discussion.kind {
+                case .oneToOne, .none:
+                    return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                case .groupV1, .groupV2:
+                    break
+                }
+                _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: contactIdentity, optionalOwnedCryptoId: nil, optionalCallLogItem: nil, discussion: discussion, timestamp: Date())
+            case .contactRevokedByIdentityProvider:
+                // We do not need to pass the optional identity, as it is obvious in this case. And we prevent merge conflicts by doing so.
+                _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: nil, optionalOwnedCryptoId: nil, optionalCallLogItem: nil, discussion: discussion, timestamp: Date())
+            case .callLogItem:
+                guard let callLogItemObjectID = self.optionalCallLogItemObjectID else {
+                    return cancel(withReason: .noCallLogItemObjectIDAlthoughItIsRequired)
+                }
+                
+                guard let item = try PersistedCallLogItem.get(objectID: callLogItemObjectID, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
+                }
+                _ = try PersistedMessageSystem(persistedMessageSystemCategory, optionalContactIdentity: nil, optionalOwnedCryptoId: nil, optionalCallLogItem: item, discussion: discussion, timestamp: Date())
+            case .numberOfNewMessages:
+                assertionFailure("Not implemented")
+            case .discussionIsEndToEndEncrypted:
+                assertionFailure("Not implemented")
+            case .contactWasDeleted:
+                assertionFailure("Not implemented")
+            case .updatedDiscussionSharedSettings:
+                assertionFailure("Not implemented")
+            case .notPartOfTheGroupAnymore:
+                assertionFailure("Not implemented")
+            case .rejoinedGroup:
+                assertionFailure("Not implemented")
+            case .contactIsOneToOneAgain:
+                assertionFailure("Not implemented")
+            case .ownedIdentityDidCaptureSensitiveMessages:
+                assertionFailure("Not implemented")
+            case .contactIdentityDidCaptureSensitiveMessages:
+                assertionFailure("Not implemented")
+            case .contactWasIntroducedToAnotherContact:
+                assertionFailure("Not implemented")
+            case .discussionWasRemotelyWiped:
+                switch discussion.status {
+                case .active:
+                    break
+                case .preDiscussion, .locked:
+                    return cancel(withReason: .inappropriatePersistedMessageSystemCategoryForGivenDiscussion(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                }
+                guard let contactIdentityObjectID = optionalContactIdentityObjectID else {
+                    return cancel(withReason: .noContactIdentityObjectIDAlthoughItIsRequired(persistedMessageSystemCategory: persistedMessageSystemCategory))
+                }
+                guard let contactIdentity = try PersistedObvContactIdentity.get(objectID: contactIdentityObjectID, within: obvContext.context) else {
+                    return cancel(withReason: .couldNotFindPersistedObvContactIdentityInDatabase)
+                }
+                assert(messageUploadTimestampFromServer != nil)
+                try discussion.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: Date())
+                try PersistedMessageSystem.insertDiscussionWasRemotelyWipedSystemMessage(within: discussion, byContact: contactIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            }
+            
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

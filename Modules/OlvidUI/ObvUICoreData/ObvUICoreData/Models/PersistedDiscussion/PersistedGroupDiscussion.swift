@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,8 @@ import ObvEngine
 import ObvTypes
 import ObvCrypto
 import OlvidUtils
+import ObvSettings
+
 
 @objc(PersistedGroupDiscussion)
 public final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker, ObvIdentifiableManagedObject {
@@ -63,24 +65,18 @@ public final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker,
 
     // MARK: - Initializer
     
-    public convenience init(contactGroup: PersistedContactGroup, groupName: String, ownedIdentity: PersistedObvOwnedIdentity, status: Status, sharedConfigurationToKeep: PersistedDiscussionSharedConfiguration? = nil, localConfigurationToKeep: PersistedDiscussionLocalConfiguration? = nil, permanentUUIDToKeep: UUID? = nil, draftToKeep: PersistedDraft? = nil, pinnedIndexToKeep: Int? = nil, timestampOfLastMessageToKeep: Date? = nil) throws {
+    public convenience init(contactGroup: PersistedContactGroup, groupName: String, ownedIdentity: PersistedObvOwnedIdentity, status: Status) throws {
         try self.init(title: groupName,
                       ownedIdentity: ownedIdentity,
                       forEntityName: PersistedGroupDiscussion.entityName,
                       status: status,
-                      shouldApplySharedConfigurationFromGlobalSettings: contactGroup.category == .owned,
-                      sharedConfigurationToKeep: sharedConfigurationToKeep,
-                      localConfigurationToKeep: localConfigurationToKeep,
-                      permanentUUIDToKeep: permanentUUIDToKeep,
-                      draftToKeep: draftToKeep,
-                      pinnedIndexToKeep: pinnedIndexToKeep,
-                      timestampOfLastMessageToKeep: timestampOfLastMessageToKeep)
+                      shouldApplySharedConfigurationFromGlobalSettings: contactGroup.category == .owned)
         self.contactGroup = contactGroup
-        if sharedConfigurationToKeep == nil && contactGroup.category == .owned {
+        if contactGroup.category == .owned {
             self.sharedConfiguration.setValuesUsingSettings()
         }
 
-        try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: timestampOfLastMessageToKeep ?? Date())
+        try? insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: Date())
     }
 
     
@@ -121,11 +117,20 @@ extension PersistedGroupDiscussion {
         static func withGroupUID(_ groupUID: UID) -> NSPredicate {
             NSPredicate(Key.rawGroupUID, EqualToData: groupUID.raw)
         }
-        static func withGroupOwnedCryptoId(_ groupOwnerCryptoId: ObvCryptoId) -> NSPredicate {
+        static func withGroupOwnerCryptoId(_ groupOwnerCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.rawOwnerIdentityIdentity, EqualToData: groupOwnerCryptoId.getIdentity())
         }
         static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(PersistedDiscussion.Predicate.Key.ownedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
+        }
+        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+            PersistedDiscussion.Predicate.persistedDiscussion(withObjectID: objectID)
+        }
+        static func withGroupV1Identifier(_ groupV1Identifier: GroupV1Identifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withGroupUID(groupV1Identifier.groupUid),
+                withGroupOwnerCryptoId(groupV1Identifier.groupOwner),
+            ])
         }
     }
 
@@ -144,13 +149,32 @@ extension PersistedGroupDiscussion {
         let request: NSFetchRequest<PersistedGroupDiscussion> = NSFetchRequest<PersistedGroupDiscussion>(entityName: PersistedGroupDiscussion.entityName)
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withGroupUID(groupUID),
-            Predicate.withGroupOwnedCryptoId(groupOwnerCryptoId),
+            Predicate.withGroupOwnerCryptoId(groupOwnerCryptoId),
             Predicate.withOwnedCryptoId(ownedCryptoId),
         ])
         request.fetchLimit = 1
         return (try context.fetch(request)).first
     }
     
+    static func getPersistedGroupDiscussion(ownedIdentity: PersistedObvOwnedIdentity, groupV1DiscussionId: GroupV1DiscussionIdentifier) throws -> PersistedGroupDiscussion? {
+        guard let context = ownedIdentity.managedObjectContext else { assertionFailure(); throw ObvError.noContext }
+        let request: NSFetchRequest<PersistedGroupDiscussion> = PersistedGroupDiscussion.fetchRequest()
+        switch groupV1DiscussionId {
+        case .objectID(let objectID):
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withObjectID(objectID),
+                Predicate.withOwnedCryptoId(ownedIdentity.cryptoId),
+            ])
+        case .groupV1Identifier(groupV1Identifier: let groupV1Identifier):
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withOwnedCryptoId(ownedIdentity.cryptoId),
+                Predicate.withGroupV1Identifier(groupV1Identifier),
+            ])
+        }
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
 }
 
 public extension TypeSafeManagedObjectID where T == PersistedGroupDiscussion {

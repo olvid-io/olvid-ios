@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,10 +27,6 @@ public extension Label where Title == Text, Icon == Image {
 
     init(_ titleKey: LocalizedStringKey, systemIcon icon: SystemIcon) {
         self.init(titleKey, systemImage: icon.systemName)
-    }
-
-    init<S>(_ title: S, systemIcon icon: SystemIcon) where S: StringProtocol {
-        self.init(title, systemImage: icon.systemName)
     }
 
 }

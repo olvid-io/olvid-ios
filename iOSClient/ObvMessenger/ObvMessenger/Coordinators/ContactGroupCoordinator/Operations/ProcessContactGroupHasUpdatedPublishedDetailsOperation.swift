@@ -34,50 +34,42 @@ final class ProcessContactGroupHasUpdatedPublishedDetailsOperation: ContextualOp
         super.init()
     }
     
-    override func main() {
-
-        guard let obvContext = self.obvContext else {
-            return cancel(withReason: .contextIsNil)
-        }
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        obvContext.performAndWait {
+        do {
             
-            do {
+            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
+                assertionFailure()
+                return
+            }
+            
+            let groupIdentifier = obvContactGroup.groupIdentifier
+            
+            switch obvContactGroup.groupType {
+            case .owned:
                 
-                guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
+                guard let groupOwned = try PersistedContactGroupOwned.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
                     assertionFailure()
                     return
                 }
                 
-                let groupId = (obvContactGroup.groupUid, obvContactGroup.groupOwner.cryptoId)
+                try groupOwned.resetGroupName(to: obvContactGroup.publishedCoreDetails.name)
+                groupOwned.setStatus(to: .noLatestDetails)
                 
-                switch obvContactGroup.groupType {
-                case .owned:
-                    
-                    guard let groupOwned = try PersistedContactGroupOwned.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupOwned else {
-                        assertionFailure()
-                        return
-                    }
-                    
-                    try groupOwned.resetGroupName(to: obvContactGroup.publishedCoreDetails.name)
-                    groupOwned.setStatus(to: .noLatestDetails)
-                    
-                case .joined:
-                    
-                    guard let groupJoined = try PersistedContactGroupJoined.getContactGroup(groupId: groupId, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
-                        assertionFailure()
-                        return
-                    }
-                    
-                    groupJoined.setStatus(to: .unseenPublishedDetails)
-                    
+            case .joined:
+                
+                guard let groupJoined = try PersistedContactGroupJoined.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
+                    assertionFailure()
+                    return
                 }
                 
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
+                groupJoined.setStatus(to: .unseenPublishedDetails)
+                
             }
             
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
-
+        
     }
 }

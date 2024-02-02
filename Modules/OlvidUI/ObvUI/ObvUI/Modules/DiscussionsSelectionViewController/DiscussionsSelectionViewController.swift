@@ -20,9 +20,9 @@
 
 import UIKit
 import CoreData
-import ObvEngine
 import ObvTypes
 import ObvUICoreData
+import ObvDesignSystem
 
 
 public protocol DiscussionsSelectionViewControllerDelegate: AnyObject {

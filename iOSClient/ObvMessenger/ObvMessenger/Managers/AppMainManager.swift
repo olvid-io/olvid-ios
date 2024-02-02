@@ -25,6 +25,8 @@ import OlvidUtils
 import ObvTypes
 import ObvUI
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
 
 
 final actor AppMainManager: ObvErrorMaker {
@@ -207,6 +209,7 @@ final actor AppMainManager: ObvErrorMaker {
         migrationToV0_12_5()
         migrationToV0_12_6()
         migrationToV0_12_8()
+        migrationToV1_4()
     }
     
     
@@ -348,7 +351,7 @@ extension AppMainManager {
         os_log("🍎✅ We received a remote notification device token: %{public}@", log: Self.log, type: .info, deviceToken.hexString())
         _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()
         await ObvPushNotificationManager.shared.setCurrentDeviceToken(to: deviceToken)
-        await ObvPushNotificationManager.shared.tryToRegisterToPushNotifications()
+        await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
     }
     
     
@@ -358,7 +361,7 @@ extension AppMainManager {
         if ObvMessengerConstants.areRemoteNotificationsAvailable == true {
             os_log("%@", log: Self.log, type: .error, error.localizedDescription)
         }
-        Task { await ObvPushNotificationManager.shared.tryToRegisterToPushNotifications() }
+        await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
     }
 
     
@@ -402,6 +405,23 @@ extension AppMainManager {
             
             os_log("🌊 We sucessfully synced all managed identities with the keycloak server, calling the completion handler of the background notification with tag %{public}@", log: Self.log, type: .info, tag.uuidString)
             completionHandler(.newData)
+            return
+
+        } else if userInfo["ownedDevices"] != nil {
+
+            os_log("🧥 The received notification is an ownedDevices notification targeted for our owned identity", log: Self.log, type: .debug)
+
+            Task {
+                do {
+                    try await obvEngine.performOwnedDeviceDiscoveryForAllOwnedIdentities()
+                    await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
+                    completionHandler(.newData)
+                } catch {
+                    completionHandler(.failed)
+                    return
+                }
+            }
+            
             return
             
         } else {
@@ -455,6 +475,16 @@ extension AppMainManager {
 // MARK: AppCoreDataStackInitialization utils
 
 extension AppMainManager {
+
+    private func migrationToV1_4() {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
+        userDefaults.removeObject(forKey: "settings.voip.isCallKitEnabled")
+    }
+    
+    private func migrationToV0_12_12() {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
+        userDefaults.removeObject(forKey: "settings.interface.useOldDiscussionInterface")
+    }
     
     private func migrationToV0_12_8() {
         guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
@@ -709,6 +739,12 @@ extension AppMainManager {
     var appBackupDelegate: AppBackupDelegate? {
         get async {
             await appManagersHolder?.appBackupDelegate
+        }
+    }
+
+    var storeKitDelegate: StoreKitDelegate? {
+        get async {
+            await appManagersHolder?.storeKitDelegate
         }
     }
 
@@ -994,23 +1030,20 @@ final actor NewAppStateManager {
     // MARK: Handling Olvid URLs
     
     
-    func setOlvidURLHandler(to olvidURLHandler: OlvidURLHandler) {
+    func setOlvidURLHandler(to olvidURLHandler: OlvidURLHandler) async {
         assert(self.olvidURLHandler == nil)
         self.olvidURLHandler = olvidURLHandler
-        olvidURLsOnHold.forEach {
-            _ = olvidURLHandler.handleOlvidURL($0)
+        while let olvidURLOnHold = olvidURLsOnHold.popLast() {
+            _ = await olvidURLHandler.handleOlvidURL(olvidURLOnHold)
         }
-        olvidURLsOnHold.removeAll()
     }
     
     
     /// Can be called from anywhere within the app. This methods forwards the `OlvidURL` to the appropriate handler,
     /// at the appropriate time (i.e., when a handler is available).
-    func handleOlvidURL(_ olvidURL: OlvidURL) {
+    func handleOlvidURL(_ olvidURL: OlvidURL) async {
         if let olvidURLHandler = self.olvidURLHandler {
-            DispatchQueue.main.async {
-                olvidURLHandler.handleOlvidURL(olvidURL)
-            }
+            await olvidURLHandler.handleOlvidURL(olvidURL)
         } else {
             olvidURLsOnHold.append(olvidURL)
         }
@@ -1023,5 +1056,5 @@ final actor NewAppStateManager {
 // MARK: - OlvidURLHandler protocol
 
 protocol OlvidURLHandler: AnyObject {
-    func handleOlvidURL(_ olvidURL: OlvidURL)
+    func handleOlvidURL(_ olvidURL: OlvidURL) async
 }

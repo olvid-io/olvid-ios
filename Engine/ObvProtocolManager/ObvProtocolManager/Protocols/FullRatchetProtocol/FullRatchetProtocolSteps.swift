@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,27 +30,27 @@ import OlvidUtils
 
 extension FullRatchetProtocol {
     
-    enum StepId: Int, ConcreteProtocolStepId {
+    enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
-        case AliceSendEphemeralKey = 0 // Normal path
-        case AliceResendEphemeralKeyFromAliceWaitingForK1State = 1
-        case AliceResendEphemeralKeyFromAliceWaitingForAckState = 2
-        case BobSendEphemeralKeyAndK1FromInitialState = 3 // Normal path
-        case BobSendEphemeralKeyAndK1BobWaitingForK2State = 4
-        case AliceRecoverK1AndSendK2 = 5 // Normal path
-        case BobRecoverK2ToUpdateReceiveSeedAndSendAck = 6
-        case AliceUpdateSendSeed = 7
+        case aliceSendEphemeralKey = 0 // Normal path
+        case aliceResendEphemeralKeyFromAliceWaitingForK1State = 1
+        case aliceResendEphemeralKeyFromAliceWaitingForAckState = 2
+        case bobSendEphemeralKeyAndK1FromInitialState = 3 // Normal path
+        case bobSendEphemeralKeyAndK1BobWaitingForK2State = 4
+        case aliceRecoverK1AndSendK2 = 5 // Normal path
+        case bobRecoverK2ToUpdateReceiveSeedAndSendAck = 6
+        case aliceUpdateSendSeed = 7
         
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             switch self {
-            case .AliceSendEphemeralKey: return AliceSendEphemeralKeyStep(from: concreteProtocol, and: receivedMessage)
-            case .AliceResendEphemeralKeyFromAliceWaitingForK1State: return AliceResendEphemeralKeyFromAliceWaitingForK1StateStep(from: concreteProtocol, and: receivedMessage)
-            case .AliceResendEphemeralKeyFromAliceWaitingForAckState: return AliceResendEphemeralKeyFromAliceWaitingForAckStateStep(from: concreteProtocol, and: receivedMessage)
-            case .BobSendEphemeralKeyAndK1FromInitialState: return BobSendEphemeralKeyAndK1FromInitialStateStep(from: concreteProtocol, and: receivedMessage)
-            case .BobSendEphemeralKeyAndK1BobWaitingForK2State: return BobSendEphemeralKeyAndK1BobWaitingForK2StateStep(from: concreteProtocol, and: receivedMessage)
-            case .AliceRecoverK1AndSendK2: return AliceRecoverK1AndSendK2Step(from: concreteProtocol, and: receivedMessage)
-            case .BobRecoverK2ToUpdateReceiveSeedAndSendAck: return BobRecoverK2ToUpdateReceiveSeedAndSendAckStep(from: concreteProtocol, and: receivedMessage)
-            case .AliceUpdateSendSeed: return AliceUpdateSendSeedStep(from: concreteProtocol, and: receivedMessage)
+            case .aliceSendEphemeralKey: return AliceSendEphemeralKeyStep(from: concreteProtocol, and: receivedMessage)
+            case .aliceResendEphemeralKeyFromAliceWaitingForK1State: return AliceResendEphemeralKeyFromAliceWaitingForK1StateStep(from: concreteProtocol, and: receivedMessage)
+            case .aliceResendEphemeralKeyFromAliceWaitingForAckState: return AliceResendEphemeralKeyFromAliceWaitingForAckStateStep(from: concreteProtocol, and: receivedMessage)
+            case .bobSendEphemeralKeyAndK1FromInitialState: return BobSendEphemeralKeyAndK1FromInitialStateStep(from: concreteProtocol, and: receivedMessage)
+            case .bobSendEphemeralKeyAndK1BobWaitingForK2State: return BobSendEphemeralKeyAndK1BobWaitingForK2StateStep(from: concreteProtocol, and: receivedMessage)
+            case .aliceRecoverK1AndSendK2: return AliceRecoverK1AndSendK2Step(from: concreteProtocol, and: receivedMessage)
+            case .bobRecoverK2ToUpdateReceiveSeedAndSendAck: return BobRecoverK2ToUpdateReceiveSeedAndSendAckStep(from: concreteProtocol, and: receivedMessage)
+            case .aliceUpdateSendSeed: return AliceUpdateSendSeedStep(from: concreteProtocol, and: receivedMessage)
             }
         }
         
@@ -100,7 +100,7 @@ extension FullRatchetProtocol {
                                                                        contactEphemeralPublicKey: ephemeralPublicKey,
                                                                        restartCounter: restartCounter)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not post AliceEphemeralKey message", log: log, type: .fault)
                 return CancelledState()
@@ -172,7 +172,7 @@ extension FullRatchetProtocol {
                                                                        contactEphemeralPublicKey: ephemeralPublicKey,
                                                                        restartCounter: restartCounter)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not post AliceEphemeralKey message", log: log, type: .fault)
                 return CancelledState()
@@ -244,7 +244,7 @@ extension FullRatchetProtocol {
                                                                        contactEphemeralPublicKey: ephemeralPublicKey,
                                                                        restartCounter: restartCounter)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not post AliceEphemeralKey message", log: log, type: .fault)
                 return CancelledState()
@@ -307,7 +307,7 @@ extension FullRatchetProtocol {
                                                                           c1: c1,
                                                                           restartCounter: restartCounter)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not post BobEphemeralKeyAndK1Message message", log: log, type: .fault)
                 return CancelledState()
@@ -377,7 +377,7 @@ extension FullRatchetProtocol {
                                                                           c1: c1,
                                                                           restartCounter: restartCounter)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not post BobEphemeralKeyAndK1Message message", log: log, type: .fault)
                 return CancelledState()
@@ -468,7 +468,7 @@ extension FullRatchetProtocol {
                 let coreMessage = getCoreMessage(for: .ObliviousChannel(to: remoteIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true), partOfFullRatchetProtocolOfTheSendSeed: true)
                 let concreteProtocolMessage = AliceK2Message(coreProtocolMessage: coreMessage, c2: c2, restartCounter: localRestartCounter)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not post BobEphemeralKeyAndK1Message message", log: log, type: .fault)
                 return CancelledState()
@@ -566,7 +566,7 @@ extension FullRatchetProtocol {
                 let coreMessage = getCoreMessage(for: .ObliviousChannel(to: remoteIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true), partOfFullRatchetProtocolOfTheSendSeed: false)
                 let concreteProtocolMessage = BobAckMessage(coreProtocolMessage: coreMessage, restartCounter: localRestartCounter)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             } catch {
                 os_log("Could not post BobAckMessage message", log: log, type: .fault)
                 return CancelledState()

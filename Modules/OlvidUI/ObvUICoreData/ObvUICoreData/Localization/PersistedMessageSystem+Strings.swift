@@ -32,6 +32,19 @@ extension PersistedMessageSystem {
     
     struct Strings {
         
+        static let contactWasIntroducedToAnotherContact = { (discussionContactDisplayName: String?, otherContactDisplayName: String?) in
+            switch (discussionContactDisplayName, otherContactDisplayName) {
+            case (.some(let discussionContactDisplayName), .some(let otherContactDisplayName)):
+                return String.localizedStringWithFormat(NSLocalizedString("YOU_INTRODUCED_%@_TO_%@", bundle: Bundle(for: PersistedMessageSystem.self), comment: ""), discussionContactDisplayName, otherContactDisplayName)
+            case (.some(let discussionContactDisplayName), .none):
+                return String.localizedStringWithFormat(NSLocalizedString("YOU_INTRODUCED_%@_TO_ANOTHER_CONTACT", bundle: Bundle(for: PersistedMessageSystem.self), comment: ""), discussionContactDisplayName)
+            case (.none, .some(let otherContactDisplayName)):
+                return String.localizedStringWithFormat(NSLocalizedString("YOU_INTRODUCED_THIS_CONTACT_TO_%@", bundle: Bundle(for: PersistedMessageSystem.self), comment: ""), otherContactDisplayName)
+            case (.none, .none):
+                return NSLocalizedString("YOU_INTRODUCED_THIS_CONTACT_TO_ANOTHER_ONE", bundle: Bundle(for: PersistedMessageSystem.self), comment: "")
+            }
+        }
+        
         static let ownedIdentityDidCaptureSensitiveMessages = NSLocalizedString("YOU_CAPTURED_SENSITIVE_CONTENT_WARNING_MESSAGE", comment: "")
         static let contactIdentityDidCaptureSensitiveMessages: (String?) -> String = { (contactDisplayName: String?) in
             if let contactDisplayName {
@@ -89,7 +102,7 @@ extension PersistedMessageSystem {
                 }
             } else if let otherCount = content.othersCount, otherCount >= 1 {
                 result += " "
-                result += String.localizedStringWithFormat(NSLocalizedString("WITH_N_PARTICIPANTS", comment: ""), otherCount)
+                result += String(format: "WITH_N_PARTICIPANTS", otherCount)
             }
             if let dateString = content.dateString {
                 result += " - "
@@ -106,6 +119,21 @@ extension PersistedMessageSystem {
         static let filteredIncomingCall = { (content: CallMessageContent) in
             callMessageContent(content: content,
                                title: NSLocalizedString("MISSED_CALL_FILTERED", comment: ""))
+        }
+        
+        static let answeredOnOtherDevice = { (content: CallMessageContent) in
+            callMessageContent(content: content,
+                               title: NSLocalizedString("ANSWERED_ON_OTHER_DEVICE", comment: ""))
+        }
+
+        static let rejectedOnOtherDevice = { (content: CallMessageContent) in
+            callMessageContent(content: content,
+                               title: NSLocalizedString("REJECTED_ON_OTHER_DEVICE", comment: ""))
+        }
+        
+        static let rejectedIncomingCallAsTheReceiveCallsOnThisDeviceSettingIsFalse = { (content: CallMessageContent) in
+            callMessageContent(content: content,
+                               title: NSLocalizedString("REJECTED_INCOMING_CALL_AS_RECEIVE_CALL_SETTINGS_IS_FALSE", comment: ""))
         }
 
         static let acceptedOutgoingCall = { (content: CallMessageContent) in

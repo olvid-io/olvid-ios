@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -58,7 +58,9 @@ public class PersistedInvitation: NSManagedObject {
     // MARK: Computed properties
     
     public var status: Status {
-        return Status(rawValue: self.rawStatus)!
+        let status = Status(rawValue: self.rawStatus)
+        assert(status != nil)
+        return status ?? .old
     }
 
     public enum Status: Int {
@@ -206,19 +208,19 @@ extension PersistedInvitation {
     }
     
     
-    public static func markAllAsOld(for ownedIdentity: PersistedObvOwnedIdentity) throws {
-        guard let context = ownedIdentity.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
+    public static func markAllAsOld(for ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws {
         let request: NSFetchRequest<PersistedInvitation> = PersistedInvitation.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withPersistedObvOwnedIdentity(ownedIdentity),
+            Predicate.withOwnedIdentity(ownedCryptoId),
             Predicate.withStatusDistinctFrom(.old),
         ])
+        request.propertiesToFetch = []
         let results = try context.fetch(request)
         results.forEach {
             $0.setStatus(to: Status.old)
         }
     }
-    
+
 
     static func computeBadgeCountForInvitationsTab(of ownedIdentity: PersistedObvOwnedIdentity) throws -> Int {
         guard let context = ownedIdentity.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }

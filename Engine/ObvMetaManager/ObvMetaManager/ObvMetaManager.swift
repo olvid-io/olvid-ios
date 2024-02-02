@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,6 +34,12 @@ public final class ObvMetaManager: ObvErrorMaker {
     public private(set) var backupDelegate: ObvBackupDelegate? {
         didSet {
             fulfillPreviouslyRegisteredManagersRequirements(ofType: .ObvBackupDelegate, with: backupDelegate)
+        }
+    }
+    
+    public private(set) var syncSnapshotDelegate: ObvSyncSnapshotDelegate? {
+        didSet {
+            fulfillPreviouslyRegisteredManagersRequirements(ofType: .ObvSyncSnapshotDelegate, with: syncSnapshotDelegate)
         }
     }
 
@@ -167,6 +173,15 @@ public final class ObvMetaManager: ObvErrorMaker {
             
             switch possibleDelegateType {
                 
+            case .ObvSyncSnapshotDelegate:
+                if let manager = manager as? (any ObvSyncSnapshotDelegate) {
+                    guard syncSnapshotDelegate == nil else {
+                        throw Self.makeError(message: "Failed to instantiate delegate (ObvSyncSnapshotDelegate)")
+                    }
+                    syncSnapshotDelegate = manager
+                    delegateRequirementsProvidedByTheRegisteredDelegates.insert(.ObvSyncSnapshotDelegate)
+                }
+
             case .ObvBackupDelegate:
                 if let manager = manager as? ObvBackupDelegate {
                     guard backupDelegate == nil else {
@@ -302,6 +317,15 @@ public final class ObvMetaManager: ObvErrorMaker {
         for requiredDelegate in internalManager.requiredDelegates {
             switch requiredDelegate {
                 
+            case .ObvSyncSnapshotDelegate:
+                let delegateType = ObvEngineDelegateType.ObvSyncSnapshotDelegate
+                if let delegate = syncSnapshotDelegate {
+                    try internalManager.fulfill(requiredDelegate: delegate, forDelegateType: delegateType)
+                } else {
+                    let otherManagers = managersWithUnfulfilledRequirements[delegateType] ?? [ObvManager]()
+                    managersWithUnfulfilledRequirements[delegateType] = otherManagers + [internalManager]
+                }
+
             case .ObvBackupDelegate:
                 let delegateType = ObvEngineDelegateType.ObvBackupDelegate
                 if let delegate = backupDelegate {
@@ -439,6 +463,10 @@ public final class ObvMetaManager: ObvErrorMaker {
         // We register all the backupable managers within the backup delegate
         let allBackupableManagers = registeredManagers.compactMap { $0 as? ObvBackupableManager }
         backupDelegate?.registerAllBackupableManagers(allBackupableManagers)
+        // We register the identity delegate as a snapshotable
+        if let identityDelegate {
+            syncSnapshotDelegate?.registerIdentitySnapshotableObject(identityDelegate)
+        }
         // We give a chance to all managers to finalize their own initialization
         guard let contextDelegate = registeredManagers.filter({$0 is ObvCreateContextDelegate}).first else {
             throw ObvMetaManager.makeError(message: "Could not find create context delegate")

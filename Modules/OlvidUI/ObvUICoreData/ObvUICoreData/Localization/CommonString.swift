@@ -21,17 +21,21 @@ import Foundation
 
 public struct CommonString {
     
-    public struct Word {
-        public static let Choose = NSLocalizedString("Choose", comment: "Choose word, capitalized")
-        public static let Edited = NSLocalizedString("Edited", comment: "Edited word, capitalized")
-        public static let Forward = NSLocalizedString("Forward", comment: "Forward word, capitalized")
-        public static let Read = NSLocalizedString("Read", comment: "Read word, capitalized")
-        public static let Wiped = NSLocalizedString("Wiped", comment: "Wiped word, capitalized")
-    }
+    private static let bundle = Bundle(for: LocalizableClassForObvUICoreDataBundle.self)
     
+    public struct Word {
+        public static let Choose = NSLocalizedString("Choose", bundle: CommonString.bundle, comment: "Choose word, capitalized")
+        public static let Edited = NSLocalizedString("Edited", bundle: CommonString.bundle, comment: "Edited word, capitalized")
+        public static let Forward = NSLocalizedString("Forward", bundle: CommonString.bundle, comment: "Forward word, capitalized")
+        public static let Read = NSLocalizedString("Read", bundle: CommonString.bundle, comment: "Read word, capitalized")
+        public static let Wiped = NSLocalizedString("Wiped", bundle: CommonString.bundle, comment: "Wiped word, capitalized")
+        public static let You = NSLocalizedString("You", bundle: CommonString.bundle, comment: "You word, capitalized")
+        public static let Close = NSLocalizedString("Close", bundle: CommonString.bundle, comment: "Close word, capitalized")
+    }
+
     public struct Title {
     }
     
-    public static let deletedContact = NSLocalizedString("A (now deleted) contact", comment: "Can serve as a name in the sentence %@ accepted to join this group")
+    public static let deletedContact = String(format: "A (now deleted) contact")
 }
 

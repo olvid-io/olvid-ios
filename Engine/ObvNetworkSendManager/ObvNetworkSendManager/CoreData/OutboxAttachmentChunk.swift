@@ -85,13 +85,13 @@ final class OutboxAttachmentChunk: NSManagedObject, ObvManagedObject {
         }
     }
 
-    private(set) var messageId: MessageIdentifier {
-        get { return MessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
+    private(set) var messageId: ObvMessageIdentifier {
+        get { return ObvMessageIdentifier(rawOwnedCryptoIdentity: self.rawMessageIdOwnedIdentity, rawUid: self.rawMessageIdUid)! }
         set { self.rawMessageIdOwnedIdentity = newValue.ownedCryptoIdentity.getIdentity(); self.rawMessageIdUid = newValue.uid.raw }
     }
 
-    private(set) var attachmentId: AttachmentIdentifier {
-        get { return AttachmentIdentifier(messageId: self.messageId, attachmentNumber: self.attachmentNumber) }
+    private(set) var attachmentId: ObvAttachmentIdentifier {
+        get { return ObvAttachmentIdentifier(messageId: self.messageId, attachmentNumber: self.attachmentNumber) }
         set { self.messageId = newValue.messageId; self.attachmentNumber = newValue.attachmentNumber }
     }
     

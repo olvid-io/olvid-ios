@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,10 @@ import Foundation
 import os.log
 import ObvEngine
 import ObvUICoreData
+import OlvidUtils
+import ObvTypes
+import ObvSettings
+
 
 actor ObvPushNotificationManager {
     
@@ -62,8 +66,6 @@ actor ObvPushNotificationManager {
     }
 
 
-    private var kickOtherDevicesOnNextRegister = false
-
     // Private variables
     
     private var notificationTokens = [NSObjectProtocol]()
@@ -76,33 +78,30 @@ actor ObvPushNotificationManager {
     private func observeNotifications() {
         let log = self.log
         notificationTokens.append(contentsOf: [
-            ObvEngineNotificationNew.observeServerRequiresThisDeviceToRegisterToPushNotifications(within: NotificationCenter.default) { ownedCryptoId in
+            ObvEngineNotificationNew.observeServerRequiresAllActiveOwnedIdentitiesToRegisterToPushNotifications(within: NotificationCenter.default) {
                 os_log("Since the server reported that we need to register to push notification, we do so now", log: log, type: .info)
-                Task { [weak self] in await self?.tryToRegisterToPushNotifications() }
+                Task { [weak self] in await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities() }
             },
-            ObvMessengerSettingsNotifications.observeIsCallKitEnabledSettingDidChange { [weak self] in
-                Task { [weak self] in await self?.tryToRegisterToPushNotifications() }
+            ObvMessengerSettingsNotifications.observeReceiveCallsOnThisDeviceSettingDidChange { [weak self] in
+                Task { [weak self] in await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities() }
             },
+            ObvEngineNotificationNew.observeEngineRequiresOwnedIdentityToRegisterToPushNotifications(within: NotificationCenter.default) { _ in
+                Task { [weak self] in await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities() }
+            }
         ])
     }
     
 
-    func doKickOtherDevicesOnNextRegister() {
-        kickOtherDevicesOnNextRegister = true
-    }
-    
-    
-    func tryToRegisterToPushNotifications() async {
+    func requestRegisterToPushNotificationsForAllActiveOwnedIdentities() async {
+        
         let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitialized()
-        tryToRegisterToPushNotifications(obvEngine: obvEngine)
-    }
-    
-    
-    private func tryToRegisterToPushNotifications(obvEngine: ObvEngine) {
+        
+        let defaultDeviceNameForFirstRegistration = await UIDevice.current.preciseModel
+        
         let tokens: (pushToken: Data, voipToken: Data?)?
         if ObvMessengerConstants.areRemoteNotificationsAvailable {
             if let _currentDeviceToken = currentDeviceToken {
-                let voipToken = ObvMessengerSettings.VoIP.isCallKitEnabled ? currentVoipToken : nil
+                let voipToken = ObvMessengerSettings.VoIP.receiveCallsOnThisDevice ? currentVoipToken : nil
                 tokens = (_currentDeviceToken, voipToken)
             } else {
                 tokens = nil
@@ -113,20 +112,72 @@ actor ObvPushNotificationManager {
         
         do {
             os_log("🍎 Will call registerToPushNotificationFor (tokens is %{public}@, voipToken is %{public}@)", log: log, type: .info, tokens == nil ? "nil" : "set", tokens?.voipToken == nil ? "nil" : "set")
-            let log = self.log
-            try obvEngine.registerToPushNotificationFor(deviceTokens: tokens, kickOtherDevices: kickOtherDevicesOnNextRegister, useMultiDevice: false) { result in
-                switch result {
-                case .failure(let error):
-                    os_log("🍎 We Could not register to push notifications: %{public}@", log: log, type: .fault, error.localizedDescription)
-                case .success:
-                    os_log("🍎 Youpi, we successfully subscribed to remote push notifications", log: log, type: .info)
-                }
-            }
-            kickOtherDevicesOnNextRegister = false
+            try await obvEngine.requestRegisterToPushNotificationsForAllActiveOwnedIdentities(deviceTokens: tokens, defaultDeviceNameForFirstRegistration: defaultDeviceNameForFirstRegistration)
+            os_log("🍎 Youpi, we successfully requested to register to remote push notifications", log: log, type: .info)
         } catch {
             os_log("🍎 We Could not register to push notifications", log: log, type: .fault)
             return
         }
+
     }
     
+    
+    func userRequestedReactivationOf(ownedCryptoId: ObvCryptoId, replacedDeviceIdentifier: Data?) async throws {
+        
+        let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitialized()
+        
+        let deviceNameForFirstRegistration = await UIDevice.current.preciseModel
+        
+        let tokens: (pushToken: Data, voipToken: Data?)?
+        if ObvMessengerConstants.areRemoteNotificationsAvailable {
+            if let _currentDeviceToken = currentDeviceToken {
+                let voipToken = ObvMessengerSettings.VoIP.receiveCallsOnThisDevice ? currentVoipToken : nil
+                tokens = (_currentDeviceToken, voipToken)
+            } else {
+                tokens = nil
+            }
+        } else {
+            tokens = nil
+        }
+
+        do {
+            try await obvEngine.reactivateOwnedIdentity(ownedCryptoId: ownedCryptoId, deviceTokens: tokens, deviceNameForFirstRegistration: deviceNameForFirstRegistration, replacedDeviceIdentifier: replacedDeviceIdentifier)
+        } catch {
+            os_log("🍎 We could not reactivate owned identity", log: log, type: .fault)
+            throw error
+        }
+        
+        os_log("🍎 Youpi, we successfully reactivated the owned identity", log: log, type: .info)
+
+    }
+    
+    
+    func updateKeycloakPushTopicsIfNeeded(ownedCryptoId: ObvCryptoId, pushTopics: Set<String>) async throws {
+        
+        let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitialized()
+
+        let deviceNameForFirstRegistration = await UIDevice.current.preciseModel
+
+        let tokens: (pushToken: Data, voipToken: Data?)?
+        if ObvMessengerConstants.areRemoteNotificationsAvailable {
+            if let _currentDeviceToken = currentDeviceToken {
+                let voipToken = ObvMessengerSettings.VoIP.receiveCallsOnThisDevice ? currentVoipToken : nil
+                tokens = (_currentDeviceToken, voipToken)
+            } else {
+                tokens = nil
+            }
+        } else {
+            tokens = nil
+        }
+
+        do {
+            try await obvEngine.updateKeycloakPushTopicsIfNeeded(ownedCryptoId: ownedCryptoId, deviceTokens: tokens, deviceNameForFirstRegistration: deviceNameForFirstRegistration, pushTopics: pushTopics)
+            os_log("🍎 Youpi, we successfully requested the reactivation of the owned identity", log: log, type: .info)
+        } catch {
+            os_log("🍎 We could not reactivate owned identity", log: log, type: .fault)
+            return
+        }
+
+    }
+        
 }

@@ -25,7 +25,7 @@ import Combine
 import OlvidUtils
 import ObvUI
 import ObvUICoreData
-import UI_CircledInitialsView_CircledInitialsConfiguration
+import UI_ObvCircledInitials
 
 
 class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityChooserViewControllerDelegate {
@@ -182,12 +182,10 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
         let ownedIdentityChooserVC = OwnedIdentityChooserViewController(currentOwnedCryptoId: currentOwnedCryptoId, ownedIdentities: ownedIdentities, delegate: self)
         ownedIdentityChooserVC.modalPresentationStyle = .popover
         if let popover = ownedIdentityChooserVC.popoverPresentationController {
-            if #available(iOS 15, *) {
-                let sheet = popover.adaptiveSheetPresentationController
-                sheet.detents = [.medium(), .large()]
-                sheet.prefersGrabberVisible = true
-                sheet.preferredCornerRadius = 16.0
-            }
+            let sheet = popover.adaptiveSheetPresentationController
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 16.0
             assert(profilePictureBarButtonItem != nil)
             if #available(iOS 16, *) {
                 popover.sourceItem = profilePictureBarButtonItem
@@ -244,7 +242,7 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
                                       preferredStyle: .alert)
         alert.addTextField { textField in
             textField.passwordRules = UITextInputPasswordRules(descriptor: "minlength: \(ObvMessengerConstants.minimumLengthOfPasswordForHiddenProfiles);")
-            textField.text = NSLocalizedString("", comment: "")
+            textField.text = ""
             textField.isSecureTextEntry = true
             textField.addTarget(self, action: #selector(self.textFieldForUnlockingHiddenProfileDidChange(textField:)), for: .editingChanged)
         }

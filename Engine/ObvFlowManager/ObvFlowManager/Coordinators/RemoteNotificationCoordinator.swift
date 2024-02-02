@@ -389,7 +389,7 @@ extension RemoteNotificationCoordinator {
         try self.startFlow(ownedCryptoIds: ownedCryptoIds, completionHandler: completionHandler)
     }
     
-    public func attachmentDownloadDecisionHasBeenTaken(attachmentId: AttachmentIdentifier, flowId: FlowIdentifier) {
+    public func attachmentDownloadDecisionHasBeenTaken(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else { return }
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: RemoteNotificationCoordinator.logCategory)

@@ -16,7 +16,6 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with Olvid.  If not, see <https://www.gnu.org/licenses/>.
  */
-  
 
 import Foundation
 import CoreData
@@ -25,6 +24,7 @@ import os.log
 import ObvUI
 import UIKit
 import ObvUICoreData
+import ObvSettings
 
 
 protocol IntentDelegate: AnyObject {

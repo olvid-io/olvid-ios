@@ -22,6 +22,8 @@ import ObvTypes
 import ObvUI
 import SwiftUI
 import ObvUICoreData
+import ObvSettings
+import ObvDesignSystem
 
 
 struct BetaConfigurationActivationView: View {

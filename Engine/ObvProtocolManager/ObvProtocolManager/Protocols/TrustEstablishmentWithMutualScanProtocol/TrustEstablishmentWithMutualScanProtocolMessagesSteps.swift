@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,36 +25,36 @@ import ObvMetaManager
 
 extension TrustEstablishmentWithMutualScanProtocol {
     
-    enum StepId: Int, ConcreteProtocolStepId {
+    enum StepId: Int, ConcreteProtocolStepId, CaseIterable {
         
         // Alice's side
-        case AliceSend = 0
-        case AliceHandlesPropagatedQRCode = 1
-        case AliceAddsContact = 2
+        case aliceSend = 0
+        case aliceHandlesPropagatedQRCode = 1
+        case aliceAddsContact = 2
         
         // Bob's side
-        case BobAddsContactAndConfirms = 3
-        case BobHandlesPropagatedSignature = 4
+        case bobAddsContactAndConfirms = 3
+        case bobHandlesPropagatedSignature = 4
         
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             switch self {
                 
             // Alice's side
-            case .AliceSend:
+            case .aliceSend:
                 let step = AliceSendStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .AliceHandlesPropagatedQRCode:
+            case .aliceHandlesPropagatedQRCode:
                 let step = AliceHandlesPropagatedQRCodeStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .AliceAddsContact:
+            case .aliceAddsContact:
                 let step = AliceAddsContactStep(from: concreteProtocol, and: receivedMessage)
                 return step
                 
             // Bob's side
-            case .BobAddsContactAndConfirms:
+            case .bobAddsContactAndConfirms:
                 let step = BobAddsContactAndConfirmsStep(from: concreteProtocol, and: receivedMessage)
                 return step
-            case .BobHandlesPropagatedSignature:
+            case .bobHandlesPropagatedSignature:
                 let step = BobHandlesPropagatedSignatureStep(from: concreteProtocol, and: receivedMessage)
                 return step
             }
@@ -108,7 +108,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
                                                                           aliceCoreDetails: aliceCoreDetails,
                                                                           aliceDeviceUids: Array(aliceDeviceUids))
             guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw TrustEstablishmentWithMutualScanProtocol.makeError(message: "Could not generate ObvChannelProtocolMessageToSend for AliceSendsSignatureToBobMessage") }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
 
             // Send propagate messages
             
@@ -119,7 +119,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
                                                                            bobIdentity: contactIdentity,
                                                                            signature: signature)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { throw TrustEstablishmentWithMutualScanProtocol.makeError(message: "Could not generate ObvChannelProtocolMessageToSend for AlicePropagatesQRCodeMessage") }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
 
             // Return the new state
@@ -226,26 +226,26 @@ extension TrustEstablishmentWithMutualScanProtocol {
                     os_log("Contact is not active", log: log, type: .error)
                     return CancelledState()
                 }
-                try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
             } else {
                 try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             }
             for uid in aliceDeviceUids {
-                try identityDelegate.addDeviceForContactIdentity(aliceIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addDeviceForContactIdentity(aliceIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
             }
 
             // Notify Alice she was added and send her our details
 
             let bobDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
             let bobCoreDetails = try identityDelegate.getIdentityDetailsOfOwnedIdentity(ownedIdentity, within: obvContext).publishedIdentityDetails.coreDetails
-            let coreMessage = getCoreMessage(for: .AsymmetricChannelBroadcast(to: aliceIdentity, fromOwnedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: aliceIdentity, remoteDeviceUids: aliceDeviceUids, fromOwnedIdentity: ownedIdentity))
             let concreteProtocolMessage = BobSendsConfirmationAndDetailsToAliceMessage(coreProtocolMessage: coreMessage,
                                                                                        bobCoreDetails: bobCoreDetails,
                                                                                        bobDeviceUids: Array(bobDeviceUids))
             guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                 throw TrustEstablishmentWithMutualScanProtocol.makeError(message: "Could not generate ObvChannelProtocolMessageToSend for BobSendsConfirmationAndDetailsToAliceMessage")
             }
-            _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             
             // Propagate the message to other devices
             
@@ -260,7 +260,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw TrustEstablishmentWithMutualScanProtocol.makeError(message: "Could not generate ObvChannelProtocolMessageToSend for BobPropagatesSignatureMessage")
                 }
-                _ = try channelDelegate.post(messageToSend, randomizedWith: prng, within: obvContext)
+                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
             
             // Send a notification so the app can automatically open the contact discussion
@@ -335,12 +335,12 @@ extension TrustEstablishmentWithMutualScanProtocol {
             // Signature is valid and is fresh --> create the contact (if it does not already exists)
 
             if (try? identityDelegate.isIdentity(aliceIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
             } else {
                 try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             }
             for uid in aliceDeviceUids {
-                try identityDelegate.addDeviceForContactIdentity(aliceIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addDeviceForContactIdentity(aliceIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
             }
 
             // Send a notification so the app can automatically open the contact discussion
@@ -396,12 +396,12 @@ extension TrustEstablishmentWithMutualScanProtocol {
                     os_log("The identity is not active", log: log, type: .fault)
                     return CancelledState()
                 }
-                try identityDelegate.addTrustOriginIfTrustWouldBeIncreased(.direct(timestamp: Date()), toContactIdentity: bobIdentity, ofOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(.direct(timestamp: Date()), toContactIdentity: bobIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
             } else {
                 try identityDelegate.addContactIdentity(bobIdentity, with: bobCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
             }
             for uid in bobDeviceUids {
-                try identityDelegate.addDeviceForContactIdentity(bobIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                try identityDelegate.addDeviceForContactIdentity(bobIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
             }
 
             // Return the new state
