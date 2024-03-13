@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -143,7 +143,8 @@ protocol ProtocolStarterDelegate {
     
     func appIsShowingSasAndExpectingEndOfProtocol(protocolInstanceUID: UID, onSyncSnapshotReception: @escaping () -> Void, onSuccessfulTransfer: @escaping (ObvCryptoId, Error?) -> Void) async
 
-    func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID) async throws
+    
+    func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, snapshotSentToTargetDevice: @escaping () -> Void) async throws
 
     func cancelAllOwnedIdentityTransferProtocols(flowId: FlowIdentifier) async throws
 

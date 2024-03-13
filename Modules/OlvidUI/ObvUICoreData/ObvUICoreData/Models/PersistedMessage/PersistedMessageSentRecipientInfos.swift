@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -71,8 +71,17 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject, ObvError
     }
         
     public var recipientName: String {
-        guard let recipient = try? getRecipient() else { return "-" }
-        return recipient.customDisplayName ?? recipient.fullDisplayName
+        if let recipient = try? getRecipient() {
+            return recipient.customDisplayName ?? recipient.fullDisplayName
+        } else {
+            // This happens when the message is sent in a group v2, with a pending member (who did not accept the group invitation yet),
+            // and who is not part of our contacts yet.
+            if let recipient = (messageSent.discussion as? PersistedGroupV2Discussion)?.group?.otherMembers.first(where: { $0.identity == recipientIdentity }) {
+                return recipient.displayedCustomDisplayNameOrFirstNameOrLastName ?? "-"
+            } else {
+                return "-"
+            }
+        }
     }
     
     public var returnReceiptElements: (nonce: Data, key: Data)? {

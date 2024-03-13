@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,16 +35,18 @@ final class CreatePeerConnectionOperation: AsyncOperationWithSpecificReasonForCa
     private let obvPeerConnectionDelegate: ObvPeerConnectionDelegate
     private let obvDataChannelDelegate: ObvDataChannelDelegate
     private let isAudioTrackEnabled: Bool
+    private let factory: ObvPeerConnectionFactory
     
     // If this operation finishes without cancelling, this is set
     private(set) var peerConnection: ObvPeerConnection?
 
-    init(turnCredentials: TurnCredentials, gatheringPolicy: OlvidCallGatheringPolicy, isAudioTrackEnabled: Bool, obvPeerConnectionDelegate: ObvPeerConnectionDelegate, obvDataChannelDelegate: ObvDataChannelDelegate) {
+    init(turnCredentials: TurnCredentials, gatheringPolicy: OlvidCallGatheringPolicy, isAudioTrackEnabled: Bool, factory: ObvPeerConnectionFactory, obvPeerConnectionDelegate: ObvPeerConnectionDelegate, obvDataChannelDelegate: ObvDataChannelDelegate) {
         self.turnCredentials = turnCredentials
         self.gatheringPolicy = gatheringPolicy
         self.obvPeerConnectionDelegate = obvPeerConnectionDelegate
         self.obvDataChannelDelegate = obvDataChannelDelegate
         self.isAudioTrackEnabled = isAudioTrackEnabled
+        self.factory = factory
     }
     
     
@@ -58,7 +60,7 @@ final class CreatePeerConnectionOperation: AsyncOperationWithSpecificReasonForCa
         os_log("☎️ Create Peer Connection with %{public}@ policy", log: Self.log, type: .info, gatheringPolicy.localizedDescription)
 
         do {
-            peerConnection = try await ObvPeerConnection(with: rtcConfiguration, constraints: constraints, delegate: obvPeerConnectionDelegate)
+            peerConnection = try await ObvPeerConnection(with: rtcConfiguration, constraints: constraints, factory: factory, delegate: obvPeerConnectionDelegate)
         } catch {
             return cancel(withReason: .peerConnectionCreationFailed)
         }
@@ -68,15 +70,10 @@ final class CreatePeerConnectionOperation: AsyncOperationWithSpecificReasonForCa
             return cancel(withReason: .peerConnectionCreationFailed)
         }
 
-        os_log("☎️ Add Olvid audio tracks", log: Self.log, type: .info)
-        do {
-            try await peerConnection.addAudioTrack(isEnabled: isAudioTrackEnabled)
-        } catch {
-            assertionFailure()
-            return cancel(withReason: .audiotrackCreationFailed)
-        }
+        os_log("☎️ Add Olvid audio track", log: Self.log, type: .info)
+        await peerConnection.createAndAddAudioTrack(isEnabled: isAudioTrackEnabled)
         
-        os_log("☎️ Create Data Channel", log: Self.log, type: .info)
+        os_log("☎️ Add Data Channel", log: Self.log, type: .info)
         do {
             try await peerConnection.addDataChannel(dataChannelDelegate: obvDataChannelDelegate)
         } catch {
@@ -112,7 +109,6 @@ final class CreatePeerConnectionOperation: AsyncOperationWithSpecificReasonForCa
         
         case peerConnectionCreationFailed
         case dataChannelCreationFailed
-        case audiotrackCreationFailed
         
         var logType: OSLogType {
             return .fault

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -62,7 +62,7 @@ extension HorizontalListOfSelectedDiscussionsViewController.Cell.ViewModel {
                 
             case .groupV2(withGroup: let group):
                 if let group {
-                    subtitle = String(format: "WITH_N_PARTICIPANTS", group.otherMembers.count)
+                    subtitle = String(localized: "WITH_\(group.otherMembers.count)_PARTICIPANTS")
                 } else {
                     subtitle = nil
                 }
@@ -70,7 +70,7 @@ extension HorizontalListOfSelectedDiscussionsViewController.Cell.ViewModel {
                 
             case .groupV1(withContactGroup: let group):
                 if let group {
-                    subtitle = String(format: "WITH_N_PARTICIPANTS", group.contactIdentities.count)
+                    subtitle = String(localized: "WITH_\(group.contactIdentities.count)_PARTICIPANTS")
                 } else {
                     subtitle = nil
                 }

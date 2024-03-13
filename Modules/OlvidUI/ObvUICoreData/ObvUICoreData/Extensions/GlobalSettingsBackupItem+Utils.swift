@@ -51,8 +51,11 @@ public extension GlobalSettingsBackupItem {
         if let value = self.sendReadReceipt {
             ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: value, changeMadeFromAnotherOwnedDevice: false, ownedCryptoId: nil)
         }
-        if let value = self.doFetchContentRichURLsMetadata {
-            ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata = value
+        if let value = self.attachLinkPreviewToMessageSent {
+            ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent = value
+        }
+        if let value = self.fetchMissingLinkPreviewFromMessageReceived {
+            ObvMessengerSettings.Discussions.fetchMissingLinkPreviewFromMessageReceived = value
         }
         if let value = self.readOnce {
             ObvMessengerSettings.Discussions.readOnce = value

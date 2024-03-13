@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,7 +38,7 @@ final class ResumeOrSuspendAllTasksOfURLSessionOperation: Operation {
     private let urlSession: URLSession
     private let logSubsystem: String
     private let log: OSLog
-    private let logCategory = String(describing: CleanExistingInboxAttachmentSessions.self)
+    private let logCategory = String(describing: ResumeOrSuspendAllTasksOfURLSessionOperation.self)
     private let resumeOrSuspend: ResumeOrSuspend
     
     private(set) var reasonForCancel: ReasonForCancel?

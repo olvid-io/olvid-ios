@@ -80,7 +80,7 @@ extension BackgroundTaskCoordinator {
         
         let flowId = FlowIdentifier()
         
-        let backgroundTaskId = backgroundTaskManager.beginBackgroundTask { [weak self] in
+        let backgroundTaskId = backgroundTaskManager.beginBackgroundTask(withName: "startFlowForBackgroundTask with expectations \(expectations.map({ $0.debugDescription }).joined(separator: ","))") { [weak self] in
             // End the activity if time expires.
             os_log("Ending background activity associated with flow %{public}@ because time expired", log: log, type: .error, flowId.debugDescription)
             self?.endBackgroundActivityAssociatedWithFlow(withId: flowId)
@@ -265,7 +265,7 @@ extension BackgroundTaskCoordinator {
     
     func simpleBackgroundTask(withReason reason: String, using block: @escaping (Bool) -> Void) {
         let log = OSLog(subsystem: "io.olvid.protocol", category: BackgroundTaskCoordinator.logCategory)
-        let backgroundTaskId = backgroundTaskManager.beginBackgroundTask(expirationHandler: nil)
+        let backgroundTaskId = backgroundTaskManager.beginBackgroundTask(withName: "simpleBackgroundTask with reason \(reason)", expirationHandler: nil)
         os_log("Starting simple background task %d with reason %{public}@", log: log, type: .debug, backgroundTaskId.rawValue, reason)
         block(false)
         os_log("Ending simple background task %d with reason %{public}@", log: log, type: .debug, backgroundTaskId.rawValue, reason)
@@ -350,19 +350,41 @@ extension BackgroundTaskCoordinator {
     
     // Downloading messages, downloading/pausing attachment
     
-    func startBackgroundActivityForDownloadingMessages(ownedIdentity: ObvCryptoIdentity) -> FlowIdentifier? {
-        return FlowIdentifier()
+    /// Since the downloading of messages is performed using an async/await method of the network fetch manager, we do not need to set any expectations. Instead, we return
+    /// a completion handler (togthether with the flow identifier) that the caller of this method is responsible for calling after when the download method returns.
+    func startBackgroundActivityForDownloadingMessages(ownedIdentity: ObvCryptoIdentity) -> (flowId: FlowIdentifier, completionHandler: () -> Void) {
+        let backgroundTaskIdentifier = backgroundTaskManager.beginBackgroundTask(withName: "startBackgroundActivityForDownloadingMessages", expirationHandler: nil)
+        let completionHander: () -> Void = { [weak self] in
+            self?.backgroundTaskManager.endBackgroundTask(backgroundTaskIdentifier, completionHandler: nil)
+        }
+        let flowId = FlowIdentifier()
+        return (flowId, completionHander)
     }
     
 
     // Deleting a message or an attachment
     
-    func startBackgroundActivityForDeletingAMessage(messageId: ObvMessageIdentifier) -> FlowIdentifier? {
-        return FlowIdentifier()
+    /// Since the marking a message for deletion is performed using an async/await method of the network fetch manager, we do not need to set any expectations. Instead, we return
+    /// a completion handler (togthether with the flow identifier) that the caller of this method is responsible for calling after when the fetch manager's method returns.
+    func startBackgroundActivityForMarkingMessageForDeletionAndProcessingAttachments(messageId: ObvMessageIdentifier) -> (flowId: FlowIdentifier, completionHandler: () -> Void) {
+        let backgroundTaskIdentifier = backgroundTaskManager.beginBackgroundTask(withName: "startBackgroundActivityForMarkingMessageForDeletionAndProcessingAttachments", expirationHandler: nil)
+        let completionHander: () -> Void = { [weak self] in
+            self?.backgroundTaskManager.endBackgroundTask(backgroundTaskIdentifier, completionHandler: nil)
+        }
+        let flowId = FlowIdentifier()
+        return (flowId, completionHander)
     }
     
-    func startBackgroundActivityForDeletingAnAttachment(attachmentId: ObvAttachmentIdentifier) -> FlowIdentifier? {
-        return FlowIdentifier()
+
+    /// Since the marking an attachment for deletion is performed using an async/await method of the network fetch manager, we do not need to set any expectations. Instead, we return
+    /// a completion handler (togthether with the flow identifier) that the caller of this method is responsible for calling after when the fetch manager's method returns.
+    func startBackgroundActivityForMarkingAttachmentForDeletion(attachmentId: ObvAttachmentIdentifier) -> (flowId: FlowIdentifier, completionHandler: () -> Void) {
+        let backgroundTaskIdentifier = backgroundTaskManager.beginBackgroundTask(withName: "startBackgroundActivityForMarkingAttachmentForDeletion", expirationHandler: nil)
+        let completionHander: () -> Void = { [weak self] in
+            self?.backgroundTaskManager.endBackgroundTask(backgroundTaskIdentifier, completionHandler: nil)
+        }
+        let flowId = FlowIdentifier()
+        return (flowId, completionHander)
     }
     
 }

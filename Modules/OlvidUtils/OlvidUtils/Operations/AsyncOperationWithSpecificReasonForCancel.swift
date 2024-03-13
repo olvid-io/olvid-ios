@@ -46,6 +46,11 @@ open class AsyncOperationWithSpecificReasonForCancel<ReasonForCancelType: Locali
     final public override func main() {
         Task {
             await main()
+            // Prevent a deadlock if the call forgot to call ``finish()``.
+            if !isFinished {
+                assertionFailure("Your operationimplementation did not call finish() as it should")
+                return finish()
+            }
         }
     }
     

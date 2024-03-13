@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -125,9 +125,13 @@ public extension NSPredicate {
     }
 
     convenience init<T: RawRepresentable>(_ key: T, laterThan date: Date) where T.RawValue == String {
-        self.init(format: "%K > %@", key.rawValue, date as NSDate)
+        self.init(key.rawValue, laterThan: date)
     }
-    
+
+    convenience init(_ rawKey: String, laterThan date: Date) {
+        self.init(format: "%K > %@", rawKey, date as NSDate)
+    }
+
     convenience init<T: RawRepresentable>(_ key: T, equalToDate date: Date) where T.RawValue == String {
         self.init(format: "%K == %@", key.rawValue, date as NSDate)
     }
@@ -176,4 +180,10 @@ public extension NSPredicate {
         // [cd]: case and diacritic insensitive 
         self.init(format: "%K contains[cd] %@", key.rawValue, text)
     }
+    
+    convenience init<T: RawRepresentable>(beginsWithText text: String, forKey key: T) where T.RawValue == String {
+        // [cd]: case and diacritic insensitive
+        self.init(format: "%K beginswith[cd] %@", key.rawValue, text)
+    }
+
 }

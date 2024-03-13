@@ -50,15 +50,15 @@ final class FyleJoinImpl: FyleJoin {
 final class CreateUnprocessedPersistedMessageSentFromFylesAndStrings: ContextualOperationWithSpecificReasonForCancel<CreateUnprocessedPersistedMessageSentFromPersistedDraftOperationReasonForCancel>, UnprocessedPersistedMessageSentProvider {
 
     private let body: String?
-    private let fyleJoinsProvider: FyleJoinsProvider
+    private let fyleJoins: [FyleJoin]?
     private let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
     private let log: OSLog
 
-    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
+    private(set) var messageSentPermanentID: MessageSentPermanentID?
 
-    init(body: String?, fyleJoinsProvider: FyleJoinsProvider, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, log: OSLog) {
+    init(body: String?, fyleJoins: [FyleJoin]?, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, log: OSLog) {
         self.body = body
-        self.fyleJoinsProvider = fyleJoinsProvider
+        self.fyleJoins = fyleJoins
         self.discussionObjectID = discussionObjectID
         self.log = log
         super.init()
@@ -66,11 +66,9 @@ final class CreateUnprocessedPersistedMessageSentFromFylesAndStrings: Contextual
 
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        assert(fyleJoinsProvider.isFinished)
-        
         let body = body ?? ""
         
-        guard let fyleJoins = fyleJoinsProvider.fyleJoins else { return }
+        guard let fyleJoins else { return }
         
         do {
             guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: obvContext.context) else {

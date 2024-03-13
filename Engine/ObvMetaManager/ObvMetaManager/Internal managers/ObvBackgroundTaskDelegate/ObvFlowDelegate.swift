@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import Foundation
 import ObvTypes
 import ObvCrypto
 import OlvidUtils
+
 
 public protocol ObvFlowDelegate: ObvSimpleFlowDelegate {
     
@@ -43,17 +44,11 @@ public protocol ObvFlowDelegate: ObvSimpleFlowDelegate {
 
     // Downloading messages, downloading/pausing attachment
     
-    func startBackgroundActivityForDownloadingMessages(ownedIdentity: ObvCryptoIdentity) -> FlowIdentifier?
-    
-    func attachmentDownloadDecisionHasBeenTaken(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+    func startBackgroundActivityForDownloadingMessages(ownedIdentity: ObvCryptoIdentity) throws -> (flowId: FlowIdentifier, completionHandler: () -> Void)
     
     // Deleting a message or an attachment
     
-    func startBackgroundActivityForDeletingAMessage(messageId: ObvMessageIdentifier) -> FlowIdentifier?
-    func startBackgroundActivityForDeletingAnAttachment(attachmentId: ObvAttachmentIdentifier) -> FlowIdentifier?
-
-    // Handling the completion handler received together with a remote push notification
-    
-    func startBackgroundActivityForHandlingRemoteNotification(ownedCryptoIds: Set<ObvCryptoIdentity>, withCompletionHandler handler: @escaping (UIBackgroundFetchResult) -> Void) throws -> FlowIdentifier
+    func startBackgroundActivityForMarkingMessageForDeletionAndProcessingAttachments(messageId: ObvMessageIdentifier) throws -> (flowId: FlowIdentifier, completionHandler: () -> Void)
+    func startBackgroundActivityForMarkingAttachmentForDeletion(attachmentId: ObvAttachmentIdentifier) throws -> (flowId: FlowIdentifier, completionHandler: () -> Void)
 
 }

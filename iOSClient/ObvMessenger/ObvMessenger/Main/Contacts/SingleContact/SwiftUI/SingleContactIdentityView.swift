@@ -358,7 +358,7 @@ fileprivate struct TrustOriginsCardView: View {
 
 fileprivate struct ContactDevicesCardView: View {
     
-    let contact: PersistedObvContactIdentity
+    @ObservedObject var contact: PersistedObvContactIdentity
     let userWantsToNavigateToListOfContactDevicesView: () -> Void
     @State private var selected = false
     

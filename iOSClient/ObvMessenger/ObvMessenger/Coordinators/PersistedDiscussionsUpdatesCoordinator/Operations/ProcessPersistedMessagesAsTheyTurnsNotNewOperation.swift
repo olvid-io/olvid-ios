@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,6 +39,7 @@ final class ProcessPersistedMessagesAsTheyTurnsNotNewOperation: ContextualOperat
     }
     
     var ownedCryptoId: ObvCryptoId? { _ownedCryptoId }
+    private(set) var ownedIdentityHasAnotherDeviceWithChannel = false
     private(set) var discussionReadJSONToSend: DiscussionReadJSON?
 
     
@@ -49,6 +50,8 @@ final class ProcessPersistedMessagesAsTheyTurnsNotNewOperation: ContextualOperat
             guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: _ownedCryptoId, within: obvContext.context) else {
                 return cancel(withReason: .couldNotFindOwnedIdentity)
             }
+            
+            self.ownedIdentityHasAnotherDeviceWithChannel = ownedIdentity.hasAnotherDeviceWithChannel
             
             let dateWhenMessageTurnedNotNew = Date()
 

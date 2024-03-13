@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -242,7 +242,7 @@ public class PersistedDiscussion: NSManagedObject {
     
     // MARK: - Initializer
 
-    convenience init(title: String, ownedIdentity: PersistedObvOwnedIdentity, forEntityName entityName: String, status: Status, shouldApplySharedConfigurationFromGlobalSettings: Bool) throws {
+    convenience init(title: String, ownedIdentity: PersistedObvOwnedIdentity, forEntityName entityName: String, status: Status, shouldApplySharedConfigurationFromGlobalSettings: Bool, isRestoringSyncSnapshotOrBackup: Bool) throws {
         
         guard let context = ownedIdentity.managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
@@ -250,6 +250,8 @@ public class PersistedDiscussion: NSManagedObject {
         
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
+        
+        self.isInsertedWhileRestoringSyncSnapshot = isRestoringSyncSnapshotOrBackup
         
         self.isArchived = false
         self.lastOutboundMessageSequenceNumber = 0
@@ -272,7 +274,7 @@ public class PersistedDiscussion: NSManagedObject {
         }
         self.sharedConfiguration = sharedConfiguration
         
-        let localConfiguration = try PersistedDiscussionLocalConfiguration(discussion: self)
+        let localConfiguration = try PersistedDiscussionLocalConfiguration(discussion: self, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
         self.localConfiguration = localConfiguration
         self.sharedConfiguration = sharedConfiguration
         self.draft = try PersistedDraft(within: self)
@@ -383,6 +385,11 @@ public class PersistedDiscussion: NSManagedObject {
         self.setLastSystemMessageSequenceNumber(to: lastSystemMessageSequenceNumber + 1)
         return lastSystemMessageSequenceNumber
     }
+    
+    
+    /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
+    private var isInsertedWhileRestoringSyncSnapshot = false
+
     
     // MARK: - Status management
 
@@ -746,7 +753,7 @@ public class PersistedDiscussion: NSManagedObject {
     
     // MARK: - Receiving messages and attachments from a contact or another owned device
 
-    func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, attachmentFullyReceivedOrCancelledByServer: [ObvAttachment]) {
+    func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?) {
 
         // Try to insert a EndToEndEncryptedSystemMessage if the discussion is empty.
 
@@ -756,14 +763,13 @@ public class PersistedDiscussion: NSManagedObject {
         // If overridePreviousPersistedMessage is false, we make sure that no existing PersistedMessageReceived exists in DB. If this is the case, we create the message.
         // Note that processing attachments requires overridePreviousPersistedMessage to be true
 
-        let attachmentsFullyReceivedOrCancelledByServer: [ObvAttachment]
         let createdOrUpdatedMessage: PersistedMessageReceived
 
         if overridePreviousPersistedMessage {
 
             os_log("Creating or updating a persisted message (overridePreviousPersistedMessage: %{public}@)", log: Self.log, type: .debug, overridePreviousPersistedMessage.description)
 
-            (createdOrUpdatedMessage, attachmentsFullyReceivedOrCancelledByServer) = try PersistedMessageReceived.createOrUpdatePersistedMessageReceived(
+            createdOrUpdatedMessage = try PersistedMessageReceived.createOrUpdatePersistedMessageReceived(
                 obvMessage: obvMessage,
                 messageJSON: messageJSON,
                 returnReceiptJSON: returnReceiptJSON,
@@ -774,21 +780,22 @@ public class PersistedDiscussion: NSManagedObject {
 
             // Make sure the message does not already exists in DB
 
-            guard try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: contact) == nil else {
-                return (self.discussionPermanentID, [])
+            if let messageReceived = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: contact) {
+                messageReceived.processObvAttachments(of: obvMessage)
+                return (self.discussionPermanentID, messageReceived.objectPermanentID)
             }
-
+            
             // We make sure that message has a body (for now, this message comes from the notification extension, and there is no point in creating a `PersistedMessageReceived` if there is no body.
 
             guard messageJSON.body?.isEmpty == false else {
-                return (self.discussionPermanentID, [])
+                return (self.discussionPermanentID, nil)
             }
 
             // Create the PersistedMessageReceived
 
             os_log("Creating a persisted message (overridePreviousPersistedMessage: %{public}@)", log: Self.log, type: .debug, overridePreviousPersistedMessage.description)
 
-            (createdOrUpdatedMessage, attachmentsFullyReceivedOrCancelledByServer) = try PersistedMessageReceived.createPersistedMessageReceived(
+            createdOrUpdatedMessage = try PersistedMessageReceived.createPersistedMessageReceived(
                 obvMessage: obvMessage,
                 messageJSON: messageJSON,
                 returnReceiptJSON: returnReceiptJSON,
@@ -803,18 +810,20 @@ public class PersistedDiscussion: NSManagedObject {
             assertionFailure(error.localizedDescription) // Continue anyway
         }
 
-        return (self.discussionPermanentID, attachmentsFullyReceivedOrCancelledByServer)
+        let messageReceivedPermanentId = createdOrUpdatedMessage.objectPermanentID
+        
+        return (self.discussionPermanentID, messageReceivedPermanentId)
 
     }
     
     
-    func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> [ObvOwnedAttachment] {
+    func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> MessageSentPermanentID? {
         
         // Make sure the received message is not a read once message. If this is the case, we don't want to show the message on this (other) owned device
         
         if let expiration = messageJSON.expiration {
             guard !expiration.readOnce else {
-                return obvOwnedMessage.attachments
+                return nil
             }
         }
 
@@ -828,13 +837,14 @@ public class PersistedDiscussion: NSManagedObject {
 
         // Make sure the message does not already exists in DB
         
-        guard try PersistedMessageSent.getPersistedMessageSentFromOtherOwnedDevice(messageIdentifierFromEngine: obvOwnedMessage.messageIdentifierFromEngine, in: self) == nil else {
-            return []
+        if let messageSent = try PersistedMessageSent.getPersistedMessageSentFromOtherOwnedDevice(messageIdentifierFromEngine: obvOwnedMessage.messageIdentifierFromEngine, in: self) {
+            messageSent.processObvOwnedAttachmentsFromOtherOwnedDevice(of: obvOwnedMessage)
+            return messageSent.objectPermanentID
         }
-
+        
         // Create the PersistedMessageSent
 
-        let (createdMessage, attachmentFullyReceivedOrCancelledByServer) = try PersistedMessageSent.createPersistedMessageSentFromOtherOwnedDevice(
+        let createdMessage = try PersistedMessageSent.createPersistedMessageSentFromOtherOwnedDevice(
             obvOwnedMessage: obvOwnedMessage,
             messageJSON: messageJSON,
             returnReceiptJSON: returnReceiptJSON,
@@ -846,7 +856,9 @@ public class PersistedDiscussion: NSManagedObject {
             assertionFailure(error.localizedDescription) // Continue anyway
         }
 
-        return attachmentFullyReceivedOrCancelledByServer
+        let messageSentPermanentId = createdMessage.objectPermanentID
+        
+        return messageSentPermanentId
 
     }
     
@@ -1375,9 +1387,11 @@ extension PersistedDiscussion {
 
     /// Refreshes the counter of new messages within this discussion.
     ///
-    /// This method is called during bootstrap, each time a message is inserted, each time a message's status changes, or when the discussion mute setting changes.
+    /// This method is called each time a message is inserted, each time a message's status changes, or when the discussion mute setting changes.
+    /// It is **not** called during bootstrap for efficiency reasons, see ``static PersistedDiscussion.refreshNumberOfNewMessagesOfAllDiscussions(ownedIdentity:)``.
     public func refreshNumberOfNewMessages() throws {
         guard self.managedObjectContext != nil else { assertionFailure(); throw Self.makeError(message: "Cannot find context") }
+        
         let newNumberOfNewMessages: Int
         if isDeleted || localConfiguration.hasValidMuteNotificationsEndDate {
             newNumberOfNewMessages = 0
@@ -1391,8 +1405,79 @@ extension PersistedDiscussion {
             incrementForOwnedIdentity = newNumberOfNewMessages - self.numberOfNewMessages
             self.numberOfNewMessages = newNumberOfNewMessages
         }
+
+        setNumberOfNewMessages(to: newNumberOfNewMessages)
+        
         ownedIdentity?.incrementBadgeCountForDiscussionsTab(by: incrementForOwnedIdentity)
     }
+    
+    
+    private func setNumberOfNewMessages(to newValue: Int) {
+        guard newValue >= 0 else { assertionFailure(); return }
+        if self.numberOfNewMessages != newValue {
+            self.numberOfNewMessages = newValue
+        }
+    }
+    
+    
+    /// Refreshes the counter of new messages within all discussions of the given owned identity.
+    ///
+    /// Called during bootstrap.
+    public static func refreshNumberOfNewMessagesOfAllDiscussions(ownedIdentity: PersistedObvOwnedIdentity) throws {
+        
+        let allDiscussions = try Self.getAllDiscussionsOfOwnedIdentity(ownedIdentity)
+
+        let objectIDsOfDiscussionsWithValidMuteNotificationsEndDate = try getObjectIDsOfDiscussionsWithValidMuteNotificationsEndDate(ownedIdentity: ownedIdentity)
+
+        let numberOfNewReceivedMessagesForDiscussionWithObjectID = try PersistedMessageReceived.getAllDiscussionsWithNewPersistedMessageReceived(ownedIdentity: ownedIdentity)
+        let numberOfNewSystemMessagesForDiscussionWithObjectID = try PersistedMessageSystem.getAllDiscussionsWithNewAndRelevantPersistedMessageSystem(ownedIdentity: ownedIdentity)
+
+        var newBadgeCountForDiscussionTabOfOwnedIdentity = 0
+        
+        for discussion in allDiscussions {
+            
+            if objectIDsOfDiscussionsWithValidMuteNotificationsEndDate.contains(discussion.typedObjectID) {
+
+                // The discussion is muted, the number of new messages to show in the list of recent discussions is 0
+                discussion.setNumberOfNewMessages(to: 0)
+
+            } else {
+
+                let numberOfNewReceivedMessages = numberOfNewReceivedMessagesForDiscussionWithObjectID[discussion.typedObjectID] ?? 0
+                let numberOfNewSystemMessages = numberOfNewSystemMessagesForDiscussionWithObjectID[discussion.typedObjectID] ?? 0
+                let newNumberOfNewMessages = numberOfNewReceivedMessages + numberOfNewSystemMessages
+                
+                if newNumberOfNewMessages > 0 {
+                    discussion.setNumberOfNewMessages(to: newNumberOfNewMessages)
+                    newBadgeCountForDiscussionTabOfOwnedIdentity += newNumberOfNewMessages
+                } else {
+                    discussion.setNumberOfNewMessages(to: 0)
+                }
+
+            }
+                        
+        }
+        
+        ownedIdentity.setBadgeCountForDiscussionsTab(to: newBadgeCountForDiscussionTabOfOwnedIdentity)
+        
+    }
+    
+    
+    private static func getObjectIDsOfDiscussionsWithValidMuteNotificationsEndDate(ownedIdentity: PersistedObvOwnedIdentity) throws -> Set<TypeSafeManagedObjectID<PersistedDiscussion>> {
+        
+        guard let context = ownedIdentity.managedObjectContext else { throw ObvError.noContext }
+        
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        request.resultType = .managedObjectIDResultType
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedIdentity(ownedIdentity),
+            Predicate.withValidMuteNotificationsEndDate,
+        ])
+        let result = try context.fetch(request) as? [NSManagedObjectID] ?? []
+        return Set(result.map { TypeSafeManagedObjectID<PersistedDiscussion>(objectID: $0) })
+
+    }
+        
 }
 
 
@@ -2033,6 +2118,12 @@ extension PersistedDiscussion {
                 NSPredicate(Key.muteNotificationsEndDate, earlierThan: Date()),
             ])
         }
+        static var withValidMuteNotificationsEndDate: NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForRawKey: Key.muteNotificationsEndDate),
+                NSPredicate(Key.muteNotificationsEndDate, laterThan: Date()),
+            ])
+        }
         static func whereANewReceivedMessageDoesMentionOwnedIdentity(is bool: Bool) -> NSPredicate {
             NSPredicate(Key.aNewReceivedMessageDoesMentionOwnedIdentity, is: bool)
         }
@@ -2069,6 +2160,19 @@ extension PersistedDiscussion {
         return try context.fetch(request)
     }
 
+    
+    private static func getAllDiscussionsOfOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) throws -> [PersistedDiscussion] {
+        guard let context = ownedIdentity.managedObjectContext else {
+            assertionFailure()
+            throw ObvError.noContext
+        }
+        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+        request.fetchBatchSize = 1_000
+        request.predicate = Predicate.withOwnedIdentity(ownedIdentity)
+        request.propertiesToFetch = [Predicate.Key.numberOfNewMessages.rawValue]
+        return try context.fetch(request)
+    }
+    
     
     public static func getAllDiscussionsForAllOwnedIdentities(within context: NSManagedObjectContext) throws -> [PersistedDiscussion] {
         let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
@@ -2108,44 +2212,44 @@ extension PersistedDiscussion {
     /// This method uses aggregate functions to return the sum of the number of new messages for all discussions corresponding to a specific owned identity.
     /// This is used when computing the new value of the badge for the discussions tab.
     /// See also ``static PersistedDiscussion.countNumberOfMutedDiscussionsWithNewMessageMentioningOwnedIdentity(_:)``.
-    static func countSumOfNewMessagesWithinUnmutedDiscussionsForOwnedIdentity(_ persistedOwnedIdentity: PersistedObvOwnedIdentity) throws -> Int {
-        guard let context = persistedOwnedIdentity.managedObjectContext else { throw Self.makeError(message: "Context is not set") }
-        // Create an expression description that will allow to aggregate the values of the numberOfNewMessages column
-        let expressionDescription = NSExpressionDescription()
-        expressionDescription.name = "sumOfNumberOfNewMessages"
-        expressionDescription.expression = NSExpression(format: "@sum.\(Predicate.Key.numberOfNewMessages.rawValue)")
-        expressionDescription.expressionResultType = .integer64AttributeType
-        // Create a predicate that will restrict to the discussions of the owned identity, and that restrict to unmuted discussions
-        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withOwnCryptoId(persistedOwnedIdentity.cryptoId),
-            Predicate.isUnmuted,
-        ])
-        // Create the fetch request
-        let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
-        request.resultType = .dictionaryResultType
-        request.predicate = predicate
-        request.propertiesToFetch = [expressionDescription]
-        request.includesPendingChanges = true
-        guard let results = try context.fetch(request).first as? [String: Int] else { throw makeError(message: "Could cast fetched result") }
-        guard let sumOfNumberOfNewMessages = results["sumOfNumberOfNewMessages"] else { throw makeError(message: "Could not get uploadedByteCount") }
-        return sumOfNumberOfNewMessages
-    }
+//    static func countSumOfNewMessagesWithinUnmutedDiscussionsForOwnedIdentity(_ persistedOwnedIdentity: PersistedObvOwnedIdentity) throws -> Int {
+//        guard let context = persistedOwnedIdentity.managedObjectContext else { throw Self.makeError(message: "Context is not set") }
+//        // Create an expression description that will allow to aggregate the values of the numberOfNewMessages column
+//        let expressionDescription = NSExpressionDescription()
+//        expressionDescription.name = "sumOfNumberOfNewMessages"
+//        expressionDescription.expression = NSExpression(format: "@sum.\(Predicate.Key.numberOfNewMessages.rawValue)")
+//        expressionDescription.expressionResultType = .integer64AttributeType
+//        // Create a predicate that will restrict to the discussions of the owned identity, and that restrict to unmuted discussions
+//        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+//            Predicate.withOwnCryptoId(persistedOwnedIdentity.cryptoId),
+//            Predicate.isUnmuted,
+//        ])
+//        // Create the fetch request
+//        let request = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+//        request.resultType = .dictionaryResultType
+//        request.predicate = predicate
+//        request.propertiesToFetch = [expressionDescription]
+//        request.includesPendingChanges = true
+//        guard let results = try context.fetch(request).first as? [String: Int] else { throw makeError(message: "Could cast fetched result") }
+//        guard let sumOfNumberOfNewMessages = results["sumOfNumberOfNewMessages"] else { throw makeError(message: "Could not get uploadedByteCount") }
+//        return sumOfNumberOfNewMessages
+//    }
     
     
     /// This method returns the number of muted discussions that contain at least one new message that mentions the owned identity.
     /// This is used when computing the new value of the badge for the discussions tab.
     /// See also ``static PersistedDiscussion.countSumOfNewMessagesWithinUnmutedDiscussionsForOwnedIdentity(_:)``.
-    static func countNumberOfMutedDiscussionsWithNewMessageMentioningOwnedIdentity(_ persistedOwnedIdentity: PersistedObvOwnedIdentity) throws -> Int {
-        guard let context = persistedOwnedIdentity.managedObjectContext else { throw Self.makeError(message: "Context is not set") }
-        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withOwnCryptoId(persistedOwnedIdentity.cryptoId),
-            NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.isUnmuted),
-            Predicate.whereANewReceivedMessageDoesMentionOwnedIdentity(is: true),
-        ])
-        request.includesPendingChanges = true
-        return try context.count(for: request)
-    }
+//    static func countNumberOfMutedDiscussionsWithNewMessageMentioningOwnedIdentity(_ persistedOwnedIdentity: PersistedObvOwnedIdentity) throws -> Int {
+//        guard let context = persistedOwnedIdentity.managedObjectContext else { throw Self.makeError(message: "Context is not set") }
+//        let request: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
+//        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+//            Predicate.withOwnCryptoId(persistedOwnedIdentity.cryptoId),
+//            NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.isUnmuted),
+//            Predicate.whereANewReceivedMessageDoesMentionOwnedIdentity(is: true),
+//        ])
+//        request.includesPendingChanges = true
+//        return try context.count(for: request)
+//    }
     
     
     private static func removePinnedFromPinnedDiscussionsForOwnedIdentity(_ ownedIdentity: ObvCryptoId, within context: NSManagedObjectContext) throws {
@@ -2311,10 +2415,14 @@ extension PersistedDiscussion {
     }
     
     /// Returns a `NSFetchRequest` for the non-empty discussions of the owned identity, sorted by the timestamp of the last message of each discussion.
-    public static func getFetchRequestForSearchTermForDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId, searchTerm: String?) -> FetchRequestControllerModel<PersistedDiscussion> {
+    public static func getFetchRequestForSearchTermForDiscussionsForOwnedIdentity(with ownedCryptoId: ObvCryptoId, restrictToActiveDiscussions: Bool, searchTerm: String?) -> FetchRequestControllerModel<PersistedDiscussion> {
         let fetchRequest: NSFetchRequest<PersistedDiscussion> = PersistedDiscussion.fetchRequest()
         
         var subPredicates = [Predicate.withOwnCryptoId(ownedCryptoId)]
+        
+        if restrictToActiveDiscussions {
+            subPredicates.append(Predicate.withStatus(.active))
+        }
         
         if let searchTerm {
             let searchTerms = searchTerm.trimmingWhitespacesAndNewlines().split(separator: " ").map({ String($0) })
@@ -2394,8 +2502,16 @@ extension PersistedDiscussion {
         defer {
             changedKeys.removeAll()
             discussionPermanentIDOnDeletion = nil
+            isInsertedWhileRestoringSyncSnapshot = false
         }
         
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: Self.self))
+            os_log("Insertion of a PersistedDiscussion during a snapshot restore --> we don't send any notification", log: log, type: .info)
+            return
+        }
+
         if changedKeys.contains(Predicate.Key.title.rawValue) {
             ObvMessengerCoreDataNotification.persistedDiscussionHasNewTitle(objectID: typedObjectID, title: title)
                 .postOnDispatchQueue()

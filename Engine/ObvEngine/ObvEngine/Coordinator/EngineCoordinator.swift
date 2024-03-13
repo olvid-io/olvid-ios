@@ -70,7 +70,7 @@ final class EngineCoordinator {
                 self?.deleteObliviousChannelBetweenThisDeviceAndRemoteDevice(ownedIdentity: ownedIdentity, remoteDeviceUid: contactDeviceUid, remoteIdentity: contactIdentity, flowId: flowId) // ok
             },
             ObvIdentityNotificationNew.observeNewOwnedIdentityWithinIdentityManager(within: notificationDelegate) { [weak self] cryptoIdentity in
-                self?.processNewOwnedIdentityWithinIdentityManager(ownedCryptoIdentity: cryptoIdentity) // ok
+                Task { [weak self] in await self?.processNewOwnedIdentityWithinIdentityManager(ownedCryptoIdentity: cryptoIdentity) }
             },
             ObvIdentityNotificationNew.observeContactIsCertifiedByOwnKeycloakStatusChanged(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, newIsCertifiedByOwnKeycloak in
                 Task { [weak self] in await self?.processContactIsCertifiedByOwnKeycloakStatusChanged(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, newIsCertifiedByOwnKeycloak: newIsCertifiedByOwnKeycloak) }
@@ -209,7 +209,7 @@ extension EngineCoordinator {
     }
     
     
-    private func processNewOwnedIdentityWithinIdentityManager(ownedCryptoIdentity: ObvCryptoIdentity) {
+    private func processNewOwnedIdentityWithinIdentityManager(ownedCryptoIdentity: ObvCryptoIdentity) async {
         guard let obvEngine else { assertionFailure(); return }
         do {
             try obvEngine.downloadAllUserData()
@@ -217,7 +217,7 @@ extension EngineCoordinator {
             os_log("Could not download all user data after restoring backup: %{public}@", log: log, type: .fault, error.localizedDescription)
             assertionFailure()
         }
-        informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
+        await informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
     }
     
     
@@ -829,7 +829,7 @@ extension EngineCoordinator {
     }
 
     
-    private func informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities() {
+    private func informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities() async {
         
         guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
         guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
@@ -845,7 +845,11 @@ extension EngineCoordinator {
             assertionFailure()
             return
         }
-        networkFetchDelegate.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
+        do {
+            try await networkFetchDelegate.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
     }
     
     

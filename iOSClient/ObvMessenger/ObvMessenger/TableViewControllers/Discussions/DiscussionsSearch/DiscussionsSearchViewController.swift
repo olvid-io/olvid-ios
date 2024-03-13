@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -45,6 +45,8 @@ final class DiscussionsSearchViewController: UIViewController, NSFetchedResultsC
     private weak var collectionView: UICollectionView!
     private weak var delegate: NewDiscussionsViewControllerDelegate?
     
+    private var searchReturnedNoResults = false
+    
     private var viewContext: NSManagedObjectContext {
         searchStore.viewContext
     }
@@ -56,7 +58,7 @@ final class DiscussionsSearchViewController: UIViewController, NSFetchedResultsC
 
     
     init(ownedCryptoId: ObvCryptoId, viewContext: NSManagedObjectContext, delegate: NewDiscussionsViewControllerDelegate?) {
-        self.searchStore = DiscussionsSearchStore(ownedCryptoId: ownedCryptoId, viewContext: viewContext)
+        self.searchStore = DiscussionsSearchStore(ownedCryptoId: ownedCryptoId, restrictToActiveDiscussions: false, viewContext: viewContext)
         self.delegate = delegate
         super.init(nibName: nil, bundle: nil)
         self.searchStore.setDelegate(self)
@@ -305,10 +307,16 @@ extension DiscussionsSearchViewController {
 extension DiscussionsSearchViewController {
     
     func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChangeContentWith snapshot: NSDiffableDataSourceSnapshotReference) {
-
         let newSnapshot = Self.convert(snapshot)
         dataSource.apply(newSnapshot, animatingDifferences: true, completion: nil)
+        
+        if #available(iOS 17.0, *) {
+            searchReturnedNoResults = controller.fetchedObjects?.isEmpty ?? true
+            setNeedsUpdateContentUnavailableConfiguration()
+        }
+        
     }
+
     
     /// Converts the given snapshot reference to this definition's snapshot
     /// - Parameter snapshot: The snapshot reference to convert
@@ -345,4 +353,22 @@ extension DiscussionsSearchViewController {
     private static func convertToPersistedDiscussionListItemID(using id: NSManagedObjectID) -> Item {
         return Item.persistedDiscussion(TypeSafeManagedObjectID<PersistedDiscussion>(objectID: id))
     }
+}
+
+
+// MARK: - Managing the empty state
+
+@available(iOS 17.0, *)
+extension DiscussionsSearchViewController {
+    
+    override func updateContentUnavailableConfiguration(using state: UIContentUnavailableConfigurationState) {
+        
+        var config: UIContentUnavailableConfiguration?
+        if searchReturnedNoResults {
+            config = .search()
+        }
+        self.contentUnavailableConfiguration = config
+        
+    }
+    
 }

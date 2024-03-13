@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -75,8 +75,8 @@ public final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManage
 
     // MARK: Computed variables
 
-    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent> {
-        ObvManagedObjectPermanentID<PersistedMessageSent>(uuid: self.permanentUUID)
+    public var objectPermanentID: MessageSentPermanentID {
+        MessageSentPermanentID(uuid: self.permanentUUID)
     }
 
     public override var kind: PersistedMessageKind { .sent }
@@ -597,8 +597,7 @@ extension PersistedMessageSent {
 extension PersistedMessageSent {
     
     /// This method shall be called exclusively from ``PersistedObvOwnedIdentity.createPersistedMessageSentFromOtherOwnedDevice(obvOwnedMessage:messageJSON:returnReceiptJSON:)``.
-    /// Returns all the `ObvOwnedAttachment` that are fully received, i.e., such that the `SentFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
-    static func createPersistedMessageSentFromOtherOwnedDevice(obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?,in discussion: PersistedDiscussion) throws -> (createdMessage: PersistedMessageSent, attachmentFullyReceivedOrCancelledByServer: [ObvOwnedAttachment]) {
+    static func createPersistedMessageSentFromOtherOwnedDevice(obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?,in discussion: PersistedDiscussion) throws -> PersistedMessageSent {
         
         guard try PersistedMessageSent.getPersistedMessageSentFromOtherOwnedDevice(messageIdentifierFromEngine: obvOwnedMessage.messageIdentifierFromEngine, in: discussion) == nil else {
             throw ObvError.persistedMessageSentAlreadyExist
@@ -653,37 +652,28 @@ extension PersistedMessageSent {
 
         // Process the attachments within the message
 
-        let attachmentFullyReceivedOrCancelledByServer = message.processObvOwnedAttachmentsFromOtherOwnedDevice(of: obvOwnedMessage)
+        message.processObvOwnedAttachmentsFromOtherOwnedDevice(of: obvOwnedMessage)
 
-        return (message, attachmentFullyReceivedOrCancelledByServer)
+        return message
 
     }
 
     
-    /// Returns all the `ObvOwnedAttachment` that are fully received, i.e., such that the `SentFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
-    private func processObvOwnedAttachmentsFromOtherOwnedDevice(of obvOwnedMessage: ObvOwnedMessage) -> [ObvOwnedAttachment] {
-        var attachmentsFullyReceivedOrCancelledByServer = [ObvOwnedAttachment]()
+    func processObvOwnedAttachmentsFromOtherOwnedDevice(of obvOwnedMessage: ObvOwnedMessage) {
         for obvOwnedAttachment in obvOwnedMessage.attachments {
             do {
-                let attachmentFullyReceivedOrCancelledByServer = try processObvOwnedAttachmentFromOtherOwnedDevice(obvOwnedAttachment)
-                if attachmentFullyReceivedOrCancelledByServer {
-                    attachmentsFullyReceivedOrCancelledByServer.append(obvOwnedAttachment)
-                }
+                try processObvOwnedAttachmentFromOtherOwnedDevice(obvOwnedAttachment)
             } catch {
                 os_log("Could not process one of the message's attachments: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 // We continue anyway
             }
         }
-        return attachmentsFullyReceivedOrCancelledByServer
     }
 
     
-    /// Returns `true` iff the attachment is cancelled or fully received (i.e., if the `SentFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk).
-    func processObvOwnedAttachmentFromOtherOwnedDevice(_ obvOwnedAttachment: ObvOwnedAttachment) throws -> Bool {
+    func processObvOwnedAttachmentFromOtherOwnedDevice(_ obvOwnedAttachment: ObvOwnedAttachment) throws {
         
-        let attachmentFullyReceivedOrCancelledByServer = try SentFyleMessageJoinWithStatus.createOrUpdateSentFyleMessageJoinWithStatusFromOtherOwnedDevice(with: obvOwnedAttachment, messageSent: self)
-
-        return attachmentFullyReceivedOrCancelledByServer
+        try SentFyleMessageJoinWithStatus.createOrUpdateSentFyleMessageJoinWithStatusFromOtherOwnedDevice(with: obvOwnedAttachment, messageSent: self)
 
     }
 
@@ -1042,7 +1032,7 @@ extension PersistedMessageSent {
         static func withStatus(_ status: MessageStatus) -> NSPredicate {
             NSPredicate(PersistedMessage.Predicate.Key.rawStatus, EqualToInt: status.rawValue)
         }
-        static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<PersistedMessageSent>) -> NSPredicate {
+        static func withPermanentID(_ permanentID: MessageSentPermanentID) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(withEntity: PersistedMessageSent.entity()),
                 PersistedMessage.Predicate.withPermanentID(permanentID.downcast),
@@ -1154,6 +1144,17 @@ extension PersistedMessageSent {
     }
 
     
+    public static func get(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws -> PersistedMessageSent? {
+        let request: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withMessageIdentifierFromEngine(messageId.uid.raw),
+            Predicate.fromOwnedCryptoId(ObvCryptoId(cryptoIdentity: messageId.ownedCryptoIdentity)),
+        ])
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+    
+    
     public static func getPersistedMessageSent(objectID: TypeSafeManagedObjectID<PersistedMessageSent>, within context: NSManagedObjectContext) throws -> PersistedMessageSent? {
         let request: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
         request.predicate = PersistedMessage.Predicate.withObjectID(objectID.objectID)
@@ -1162,7 +1163,7 @@ extension PersistedMessageSent {
     }
 
     
-    public static func getManagedObject(withPermanentID permanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, within context: NSManagedObjectContext) throws -> PersistedMessageSent? {
+    public static func getManagedObject(withPermanentID permanentID: MessageSentPermanentID, within context: NSManagedObjectContext) throws -> PersistedMessageSent? {
         let request: NSFetchRequest<PersistedMessageSent> = PersistedMessageSent.fetchRequest()
         request.predicate = Predicate.withPermanentID(permanentID)
         request.fetchLimit = 1
@@ -1299,6 +1300,44 @@ extension PersistedMessageSent {
         fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .audio) })
     }
 
+    /**
+     * Get attachments of type `olvidLinkPreview` that are used to display preview links within a message
+     *  - Returns fyleMessageJoinWithStatusesOfPreviewType: [ReceivedFyleMessageJoinWithStatus]
+     */
+    public var fyleMessageJoinWithStatusesOfPreviewType: [SentFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses.filter({ $0.isPreviewType })
+    }
+    
+    public var sharableFyleMessageJoinWithStatuses: [SentFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses.filter({ !$0.isPreviewType })
+    }
+    
+    /**
+     * Get attachments that can be downloaded now.
+     * An attachment is downloadable if there is no size limit set by the user *OR* if the attachment's size is less than the value set by the user as a threshold *OR* if it is a preview (which should always be downloaded)
+     *  - Returns fyleMessageJoinWithStatusesToDownload: [ReceivedFyleMessageJoinWithStatus]
+     */
+    public var fyleMessageJoinWithStatusesToDownload: [SentFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses
+            .filter { join in
+                // A negative maxAttachmentSizeForAutomaticDownload means "unlimited"
+                return ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload < 0
+                || join.totalByteCount < ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload
+                || join.isPreviewType
+            }
+            .filter {
+                $0.status == .downloadable
+            }
+    }
+    
+    
+    public var fyleMessageJoinWithStatusesFromOtherOwnedDeviceToDeleteFromServer: [SentFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses
+            .filter { $0.messageIdentifierFromEngine != nil }
+            .filter { $0.status == .cancelledByServer || $0.status == .complete }
+    }
+
+    
     public var fyleMessageJoinWithStatusesOfOtherTypes: [SentFyleMessageJoinWithStatus] {
         var result = fyleMessageJoinWithStatuses
         result.removeAll(where: { fyleMessageJoinWithStatusesOfImageType.contains($0)})
@@ -1372,3 +1411,10 @@ public extension TypeSafeManagedObjectID where T == PersistedMessageSent {
         TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
     }
 }
+
+
+/**
+ * typealias `MessageSentPermanentID`
+ */
+
+public typealias MessageSentPermanentID = ObvManagedObjectPermanentID<PersistedMessageSent>

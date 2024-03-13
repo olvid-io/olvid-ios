@@ -69,7 +69,6 @@ class AllSettingsTableViewController: UITableViewController {
 
         var isAvailable: Bool {
             switch self {
-            case .voip: return ObvMessengerConstants.showExperimentalFeature
             case .advanced: return true
             default: return true
             }

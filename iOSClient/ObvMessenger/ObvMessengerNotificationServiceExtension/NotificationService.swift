@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -40,8 +40,6 @@ final class NotificationService: UNNotificationServiceExtension {
     private let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier)
     private let internalQueue = DispatchQueue(label: "NotificationService internal queue")
     
-    private let contactThumbnailFileManager = ContactThumbnailFileManager()
-
     private static var obvEngine: ObvEngine?
     
     private static func makeError(message: String) -> Error {
@@ -51,8 +49,6 @@ final class NotificationService: UNNotificationServiceExtension {
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
         
         os_log("Entering didReceive method", log: log, type: .debug)
-        
-        contactThumbnailFileManager.deleteOldFiles()
         
         // Store the request and content handler, and create a minimal notification to instantiate the full attempt content.
         // This minimal attempt content allows to make sure we display a notification in all situations (even in bad cases where
@@ -205,10 +201,7 @@ final class NotificationService: UNNotificationServiceExtension {
             self.fullAttemptContent = nil
         } else {
             let badge = getBadge(afterIncrementingIt: false)
-            let urlForStoringPNGThumbnail = contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail()
-            let infos = UserNotificationCreator.NewMessageNotificationInfos(messageReceived: messageReceivedStructure,
-                                                                            attachmentLocation: .custom(request.identifier),
-                                                                            urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            let infos = UserNotificationCreator.NewMessageNotificationInfos(messageReceived: messageReceivedStructure, attachmentLocation: .custom(request.identifier))
             let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: badge, addNotificationSilently: false)
             self.fullAttemptContent = notificationContent
         }
@@ -453,8 +446,7 @@ final class NotificationService: UNNotificationServiceExtension {
                     isEphemeralMessageWithUserAction: isEphemeralMessageWithUserAction,
                     attachmentsCount: obvMessage.expectedAttachmentsCount,
                     attachementImages: attachementImages,
-                    attachmentLocation: .custom(request.identifier),
-                    urlForStoringPNGThumbnail: contactThumbnailFileManager.getFreshRandomURLForStoringNewPNGThumbnail())
+                    attachmentLocation: .custom(request.identifier))
                 let (_, notificationContent) = UserNotificationCreator.createNewMessageNotification(infos: infos, badge: badge, addNotificationSilently: false)
                 self.fullAttemptContent = notificationContent
                 
@@ -474,7 +466,7 @@ final class NotificationService: UNNotificationServiceExtension {
                 guard let messageSentStructure = messageSentStructure else { return true }
                 
                 if let emoji = reactionJSON.emoji {
-                    let infos = UserNotificationCreator.ReactionNotificationInfos(messageSent: messageSentStructure, contact: contactStructure, urlForStoringPNGThumbnail: nil)
+                    let infos = UserNotificationCreator.ReactionNotificationInfos(messageSent: messageSentStructure, contact: contactStructure)
                     let (_, notificationContent) = UserNotificationCreator.createReactionNotification(
                         infos: infos,
                         emoji: emoji,
@@ -625,68 +617,6 @@ fileprivate extension ObvEncryptedPushNotification {
                   messageUploadTimestampFromServer: messageUploadTimestampFromServer,
                   localDownloadTimestamp: Date())
         
-    }
-    
-}
-
-
-fileprivate final class ContactThumbnailFileManager {
-
-    private let ttlOfThumbnailFile = TimeInterval(60) // In seconds
-    private let maxNumberOfFilesToKeep = 200
-    
-    private var directoryForThumnails: URL? {
-        let temporaryDirectory = FileManager.default.temporaryDirectory
-        let directory = temporaryDirectory.appendingPathComponent("ContactThumbnailFileManager", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: directory.path) {
-            do {
-                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
-            } catch {
-                return nil
-            }
-        }
-        return directory
-    }
-
-    fileprivate func getFreshRandomURLForStoringNewPNGThumbnail() -> URL? {
-        guard let directory = directoryForThumnails else { assertionFailure(); return nil }
-        let filename = [UUID().uuidString, "png"].joined(separator: ".")
-        let url = URL(fileURLWithPath: directory.path).appendingPathComponent(filename)
-        return url
-    }
-    
-    
-    /// Deletes all thumbnail files older than the TTL. If required, delete more files to make sure we do not keep more than a certain amount of files.
-    fileprivate func deleteOldFiles() {
-        let dateLimit = Date(timeIntervalSinceNow: -ttlOfThumbnailFile)
-        guard let directory = directoryForThumnails else { assertionFailure(); return }
-        // First pass: delete old files
-        do {
-            guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.creationDateKey]) else { return }
-            for fileURL in fileURLs {
-                guard let attributes = try? fileURL.resourceValues(forKeys: Set([.creationDateKey])) else { continue }
-                guard let creationDate = attributes.creationDate, creationDate < dateLimit else { debugPrint("Keep"); return }
-                // If we reach this point, we should delete the archive
-                try? FileManager.default.removeItem(at: fileURL)
-            }
-        }
-        // Second pass: keep no more than `maxNumberOfFilesToKeep` files
-        do {
-            guard let fileURLs = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.creationDateKey]) else { return }
-            guard fileURLs.count > maxNumberOfFilesToKeep else { return }
-            let fileURLsAndCreationDates: [(url: URL, creationDate: Date)] = fileURLs
-                .compactMap({
-                    guard let attributes = try? $0.resourceValues(forKeys: Set([.creationDateKey])) else { return nil }
-                    guard let creationDate = attributes.creationDate else { return nil }
-                    return ($0, creationDate)
-                })
-            var sortedURLs = fileURLsAndCreationDates.sorted(by: { $0.creationDate < $1.creationDate }).map({ $0.url })
-            guard sortedURLs.count > maxNumberOfFilesToKeep else { return }
-            sortedURLs.removeLast(sortedURLs.count - maxNumberOfFilesToKeep)
-            for fileURL in sortedURLs {
-                try? FileManager.default.removeItem(at: fileURL)
-            }
-        }
     }
     
 }

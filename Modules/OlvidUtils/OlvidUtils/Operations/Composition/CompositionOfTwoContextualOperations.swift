@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,6 +30,7 @@ public final class CompositionOfTwoContextualOperations<ReasonForCancelType1: Lo
     let op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>
     let op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>
     let queueForComposedOperations: OperationQueue
+    public private(set) var executionStartDate: Date?
 
     public init(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>,
                 op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>, contextCreator: ObvContextCreator, queueForComposedOperations: OperationQueue, log: OSLog, flowId: FlowIdentifier) {
@@ -47,13 +48,40 @@ public final class CompositionOfTwoContextualOperations<ReasonForCancelType1: Lo
         let thisOperationName = "CompositionOfTwoContextualOperations"
         return "\(thisOperationName)[\(concatanatedOpsNames)]"
     }
+    
+    
+    /// This override allows to make sure that, if we cancel, then we also cancel and finish all  internal operations. This prevents a potential deadlock if the caller creates another operation and makes it depend on, e.g., op2.
+    /// In that case, if op2 never gets a chance to execute (e.g., because op1 cancels), then this other (external) operation may never execute.
+    /// Note that executing a *cancelled* OperationWithSpecificReasonForCancel returns immediately, see ``ContextualOperationWithSpecificReasonForCancel.main()``.
+    public override func cancel(withReason reason: CompositionOfTwoContextualOperationsReasonForCancel<ReasonForCancelType1, ReasonForCancelType2>) {
+        for op in [op1, op2] {
+            if !op.isFinished {
+                op.cancel()
+                queueForComposedOperations.addOperations([op], waitUntilFinished: true)
+            }
+        }
+        super.cancel(withReason: reason)
+    }
+    
 
     public override func main() {
 
-        let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
-        defer { obvContext.performAllEndOfScopeCompletionHAndlers() }
+        assert(executionStartDate == nil)
+        executionStartDate = Date.now
 
-        assert(queueForComposedOperations.operationCount == 0)
+        let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
+        defer {
+            logExecutionDurationToDisplayableLog()
+            obvContext.performAllEndOfScopeCompletionHAndlers()
+        }
+
+        assert(queueForComposedOperations.operationCount < 5)
+
+        // See ``CompositionOfOneContextualOperation``
+        guard op1.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op1HasUnfinishedDependency(op1: op1))
+        }
 
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext
@@ -63,6 +91,12 @@ public final class CompositionOfTwoContextualOperations<ReasonForCancelType1: Lo
         guard !op1.isCancelled else {
             guard let reason = op1.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op1Cancelled(reason: reason))
+        }
+
+        // See ``CompositionOfOneContextualOperation``
+        guard op2.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op2HasUnfinishedDependency(op2: op2))
         }
 
         op2.obvContext = obvContext
@@ -89,6 +123,13 @@ public final class CompositionOfTwoContextualOperations<ReasonForCancelType1: Lo
         
     }
     
+    
+    private func logExecutionDurationToDisplayableLog() {
+        guard let executionStartDate else { assertionFailure(); return }
+        let duration = Date.now.timeIntervalSince(executionStartDate)
+        ObvDisplayableLogs.shared.log("[⏱️] [\(duration) seconds] [CompositionOfTwoContextualOperations<\(op1.description)->\(op2.description)>]")
+    }
+
 }
 
 
@@ -99,10 +140,12 @@ public enum CompositionOfTwoContextualOperationsReasonForCancel<ReasonForCancelT
     case coreDataError(error: Error)
     case op1Cancelled(reason: ReasonForCancelType1)
     case op2Cancelled(reason: ReasonForCancelType2)
+    case op1HasUnfinishedDependency(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>)
+    case op2HasUnfinishedDependency(op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>)
 
     public var logType: OSLogType {
         switch self {
-        case .unknownReason, .coreDataError:
+        case .unknownReason, .coreDataError, .op1HasUnfinishedDependency, .op2HasUnfinishedDependency:
             return .fault
         case .op1Cancelled(reason: let reason):
             return reason.logType
@@ -121,6 +164,10 @@ public enum CompositionOfTwoContextualOperationsReasonForCancel<ReasonForCancelT
             return reason.errorDescription
         case .op2Cancelled(reason: let reason):
             return reason.errorDescription
+        case .op1HasUnfinishedDependency(op1: let op1):
+            return "\(op1.debugDescription) has an unfinished dependency"
+        case .op2HasUnfinishedDependency(op2: let op2):
+            return "\(op2.debugDescription) has an unfinished dependency"
         }
     }
     

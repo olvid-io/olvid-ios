@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.1 (757)] - 2024-03-11
+
+### macOS
+
+- Voici, aventuriers du royaume numérique ! Nous vous présentons un trésor tant attendu : les appels vidéo sécurisés sont désormais disponibles sur macOS !
+- Notre vue d'appel a subi une transformation spectaculaire pour accueillir ces splendides appels vidéo. Préparez-vous à être éblouis !
+- En quête de sagesse au sein des fils de conversation ? Ne craignez rien ! Vous pouvez désormais utiliser le pouvoir de la recherche à travers tous les messages d'une discussion.
+- Voici les puissants raccourcis clavier, maîtres de l'efficacité ! Avec l'invincible Cmd+F, vous pouvez invoquer la recherche au sein des discussions, tandis que Cmd+G vous guide vers le prochain joyau caché.
+- Le légendaire Cmd+Home sert désormais de pourfendeur des discussions empilées. Appuyez dessus et regardez-les se disperser comme des feuilles au vent !
+- Le temps s'écoule, mais ne vous inquiétez pas, braves voyageurs ! Sous chaque message, vous trouverez non seulement la date mais aussi le jour de la semaine (s'il est plus ancien qu'un jour). Que les sables du temps n'obscurcissent pas votre chemin !
+- Mettez à jour votre voyage et savourez la gloire de ces nouvelles fonctionnalités ! L'aventure vous attend !
+- Et on a aussi corrigé quelques bogues ;-)
+
+### iOS
+
+- Voici, aventuriers du royaume numérique ! Nous vous présentons un trésor tant attendu : les appels vidéo sécurisés sont désormais disponibles sur iOS et iPadOS !
+- Notre vue d'appel a subi une transformation spectaculaire pour accueillir ces splendides appels vidéo. Préparez-vous à être éblouis !
+- En quête de sagesse au sein des fils de conversation ? Ne craignez rien ! Vous pouvez désormais utiliser le pouvoir de la recherche à travers tous les messages d'une discussion.
+- Voici les puissants raccourcis clavier, maîtres de l'efficacité ! Avec l'invincible Cmd+F, vous pouvez invoquer la recherche au sein des discussions, tandis que Cmd+G vous guide vers le prochain joyau caché.
+- Le légendaire Cmd+Home sert désormais de pourfendeur des discussions empilées. Appuyez dessus et regardez-les se disperser comme des feuilles au vent !
+- Le temps s'écoule, mais ne vous inquiétez pas, braves voyageurs ! Sous chaque message, vous trouverez non seulement la date mais aussi le jour de la semaine (s'il est plus ancien qu'un jour). Que les sables du temps n'obscurcissent pas votre chemin !
+- Mettez à jour votre voyage et savourez la gloire de ces nouvelles fonctionnalités ! L'aventure vous attend !
+- Et on a aussi corrigé quelques bogues ;-)
+
 ## [1.3.1 (719)] - 2023-12-11
 
 - Bugfix

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -65,12 +65,13 @@ public final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker,
 
     // MARK: - Initializer
     
-    public convenience init(contactGroup: PersistedContactGroup, groupName: String, ownedIdentity: PersistedObvOwnedIdentity, status: Status) throws {
+    public convenience init(contactGroup: PersistedContactGroup, groupName: String, ownedIdentity: PersistedObvOwnedIdentity, status: Status, isRestoringSyncSnapshotOrBackup: Bool) throws {
         try self.init(title: groupName,
                       ownedIdentity: ownedIdentity,
                       forEntityName: PersistedGroupDiscussion.entityName,
                       status: status,
-                      shouldApplySharedConfigurationFromGlobalSettings: contactGroup.category == .owned)
+                      shouldApplySharedConfigurationFromGlobalSettings: contactGroup.category == .owned,
+                      isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
         self.contactGroup = contactGroup
         if contactGroup.category == .owned {
             self.sharedConfiguration.setValuesUsingSettings()

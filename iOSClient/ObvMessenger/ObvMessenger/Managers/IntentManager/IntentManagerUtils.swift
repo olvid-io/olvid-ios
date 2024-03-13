@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,12 +30,9 @@ import ObvDesignSystem
 
 
 /// IntentManager utilities that can be used by all extentions.
-@available(iOS 14.0, *)
 final class IntentManagerUtils {
 
     fileprivate static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: IntentManagerUtils.self))
-
-    static let thumbnailPhotoSide = CGFloat(300)
 
     /// One-stop method called when this manager needs to donate an `INSendMessageIntent` object to the system.
     ///
@@ -64,44 +61,44 @@ final class IntentManagerUtils {
 
 // MARK: INImage Utils
 
-@available(iOS 14.0, *)
 extension IntentManagerUtils {
 
-    fileprivate static func createINImage(photoURL: URL?, fallbackImage: UIImage?, storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
-
-        let pngData: Data?
-        if let url = photoURL,
-           let cgImage = UIImage(contentsOfFile: url.path)?.cgImage?.downsizeToSize(CGSize(width: thumbnailSide, height: thumbnailSide)),
-           let _pngData = UIImage(cgImage: cgImage).pngData() {
-            pngData = _pngData
-        } else {
-            pngData = fallbackImage?.pngData()
+    fileprivate static func createINImage(photoURL: URL?, fallbackImage: UIImage?) -> INImage? {
+        
+        guard photoURL != nil || fallbackImage != nil else { return nil }
+        
+        let imageSideSize = CGFloat(300)
+        
+        // We do not use the INImage.init(url:) intializer. We experienced issues with this API (in particular, images would
+        // not always show in the standard share sheet API). Instead, we always use the INImage.init(imageData:) API
+        // using a downsized image. Note that this downsizing is "dangerous" as this method is also used in the notification
+        // extension, which must have a limited memory footprint. For this reason, we make sure that we only create one
+        // INImage for each notification.
+        
+        if let photoURL,
+           FileManager.default.fileExists(atPath: photoURL.path),
+           let image = UIImage(contentsOfFile: photoURL.path),
+           let downSizedImage = image.downsizeIfRequired(maxWidth: imageSideSize, maxHeight: imageSideSize),
+           let imageData = downSizedImage.pngData() {
+            return INImage(imageData: imageData)
         }
-
-        let image: INImage?
-        if let pngData = pngData {
-            if let thumbnailURL = thumbnailURL {
-                do {
-                    try pngData.write(to: thumbnailURL)
-                    image = INImage(url: thumbnailURL)
-                } catch {
-                    os_log("Could not create PNG thumbnail file for contact", log: Self.log, type: .fault)
-                    image = INImage(imageData: pngData)
-                }
-            } else {
-                image = INImage(imageData: pngData)
-            }
-        } else {
-            image = nil
+        
+        if let fallbackImage,
+           let downSizedImage = fallbackImage.downsizeIfRequired(maxWidth: imageSideSize, maxHeight: imageSideSize),
+           let imageData = downSizedImage.pngData() {
+            return INImage(imageData: imageData)
         }
-        return image
+        
+        assertionFailure("Since at least one image source was provided, we expect to be able to return an INImage")
+        
+        return nil
+        
     }
 
 }
 
 // MARK: INSendMessageIntent creation
 
-@available(iOS 14.0, *)
 extension IntentManagerUtils {
 
     static func getSendMessageIntentForMessageSent(infos: SentMessageIntentInfos) -> INSendMessageIntent {
@@ -133,7 +130,8 @@ extension IntentManagerUtils {
             serviceName: nil,
             sender: sender,
             attachments: nil)
-        if let groupINImage {
+        if let groupINImage, speakableGroupName != nil {
+            // Note the previous test: if speakableGroupName is nil, the following line does nothing, even if there is an image.
             intent.setImage(groupINImage, forParameterNamed: \.speakableGroupName)
         }
         return intent
@@ -150,34 +148,30 @@ struct GroupInfos {
     let speakableGroupName: INSpeakableString
     let groupINImage: INImage?
 
-    @available(iOS 14.0, *)
-    init(groupDiscussion: PersistedGroupDiscussion.Structure, urlForStoringPNGThumbnail: URL?, thumbnailPhotoSide: CGFloat) {
+    init(groupDiscussion: PersistedGroupDiscussion.Structure, withINImage: Bool) {
         let contactGroup = groupDiscussion.contactGroup
         let contactIdentities = contactGroup.contactIdentities
         var groupRecipients = [INPerson]()
         for contactIdentity in contactIdentities {
-            let inPerson = contactIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)
+            let inPerson = contactIdentity.createINPerson(withINImage: false) // The only INImage we need is the one of the group
             groupRecipients.append(inPerson)
         }
         self.groupRecipients = groupRecipients
         self.speakableGroupName = INSpeakableString(spokenPhrase: groupDiscussion.title)
-        self.groupINImage = contactGroup.createINImage(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                       thumbnailSide: thumbnailPhotoSide)
+        self.groupINImage = withINImage ? contactGroup.createINImage() : nil
     }
 
-    @available(iOS 14.0, *)
-    init(groupDiscussion: PersistedGroupV2Discussion.Structure, urlForStoringPNGThumbnail: URL?, thumbnailPhotoSide: CGFloat) {
+    init(groupDiscussion: PersistedGroupV2Discussion.Structure, withINImage: Bool) {
         let group = groupDiscussion.group
         let contactIdentities = group.contactIdentities
         var groupRecipients = [INPerson]()
         for contactIdentity in contactIdentities {
-            let inPerson = contactIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)
+            let inPerson = contactIdentity.createINPerson(withINImage: false) // The only INImage we need is the one of the group
             groupRecipients.append(inPerson)
         }
         self.groupRecipients = groupRecipients
         self.speakableGroupName = INSpeakableString(spokenPhrase: groupDiscussion.title)
-        self.groupINImage = group.createINImage(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                thumbnailSide: thumbnailPhotoSide)
+        self.groupINImage = withINImage ? group.createINImage() : nil
     }
 
 }
@@ -215,50 +209,52 @@ struct SentMessageIntentInfos {
 
     var conversationIdentifier: String { discussionPermanentID.description }
 
-    @available(iOS 14.0, *)
-    init(messageSent: PersistedMessageSent.Structure, urlForStoringPNGThumbnail: URL?, thumbnailPhotoSide: CGFloat) {
+    init(messageSent: PersistedMessageSent.Structure) {
         self.discussionPermanentID = messageSent.discussionPermanentID
         let discussionKind = messageSent.discussionKind
-        self.ownedINPerson = discussionKind.ownedIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)
+        self.ownedINPerson = discussionKind.ownedIdentity.createINPerson(withINImage: false)
 
         switch discussionKind {
         case .oneToOneDiscussion(let structure):
-            let contactINPerson = structure.contactIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail, thumbnailSide: thumbnailPhotoSide)
+            let contactINPerson = structure.contactIdentity.createINPerson(withINImage: true)
             self.recipients = .oneToOne(contactINPerson)
         case .groupDiscussion(let structure):
-            let groupInfos = GroupInfos(groupDiscussion: structure,
-                                        urlForStoringPNGThumbnail: urlForStoringPNGThumbnail,
-                                        thumbnailPhotoSide: thumbnailPhotoSide)
+            let groupInfos = GroupInfos(groupDiscussion: structure, withINImage: true)
             self.recipients = .group(groupInfos)
         case .groupV2Discussion(let structure):
-            let groupInfos = GroupInfos(groupDiscussion: structure,
-                                        urlForStoringPNGThumbnail: urlForStoringPNGThumbnail,
-                                        thumbnailPhotoSide: thumbnailPhotoSide)
+            let groupInfos = GroupInfos(
+                groupDiscussion: structure, withINImage: true)
             self.recipients = .group(groupInfos)
         }
     }
 }
 
 
-@available(iOS 14.0, *)
 extension PersistedObvContactIdentity.Structure {
 
+    static let circleDiameter = CGFloat(192)
+    
     var personHandle: INPersonHandle {
         INPersonHandle(value: self.objectPermanentID.description, type: .unknown, label: .other)
     }
 
-    func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
+    func createINPerson(withINImage: Bool) -> INPerson {
 
         let fillColor = cryptoId.colors.background
         let characterColor = cryptoId.colors.text
-        let circledCharacter = UIImage.makeCircledCharacter(fromString: fullDisplayName,
-                                                            circleDiameter: thumbnailSide,
-                                                            fillColor: fillColor,
-                                                            characterColor: characterColor)
-        let image = IntentManagerUtils.createINImage(photoURL: displayPhotoURL,
-                                                     fallbackImage: circledCharacter,
-                                                     storingPNGPhotoThumbnailAtURL: thumbnailURL,
-                                                     thumbnailSide: thumbnailSide)
+        let image: INImage?
+        if withINImage {
+            let circledCharacter = UIImage.makeCircledCharacter(
+                fromString: fullDisplayName,
+                circleDiameter: Self.circleDiameter,
+                fillColor: fillColor,
+                characterColor: characterColor)
+            image = IntentManagerUtils.createINImage(
+                photoURL: displayPhotoURL,
+                fallbackImage: circledCharacter)
+        } else {
+            image = nil
+        }
 
         return INPerson(personHandle: personHandle,
                         nameComponents: personNameComponents,
@@ -272,25 +268,31 @@ extension PersistedObvContactIdentity.Structure {
 
 // MARK: - Structures to INPerson helper
 
-@available(iOS 14.0, *)
 extension PersistedObvOwnedIdentity.Structure {
+
+    static let circleDiameter = PersistedObvContactIdentity.Structure.circleDiameter
 
     var personHandle: INPersonHandle {
         INPersonHandle(value: self.objectPermanentID.description, type: .unknown, label: .other)
     }
 
-    func createINPerson(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INPerson {
+    func createINPerson(withINImage: Bool) -> INPerson {
 
         let fillColor = cryptoId.colors.background
         let characterColor = cryptoId.colors.text
-        let circledCharacter = UIImage.makeCircledCharacter(fromString: fullDisplayName,
-                                                            circleDiameter: thumbnailSide,
-                                                            fillColor: fillColor,
-                                                            characterColor: characterColor)
-        let image = IntentManagerUtils.createINImage(photoURL: photoURL,
-                                                     fallbackImage: circledCharacter,
-                                                     storingPNGPhotoThumbnailAtURL: thumbnailURL,
-                                                     thumbnailSide: thumbnailSide)
+        let image: INImage?
+        if withINImage {
+            let circledCharacter = UIImage.makeCircledCharacter(
+                fromString: fullDisplayName,
+                circleDiameter: Self.circleDiameter,
+                fillColor: fillColor,
+                characterColor: characterColor)
+            image = IntentManagerUtils.createINImage(
+                photoURL: photoURL,
+                fallbackImage: circledCharacter)
+        } else {
+            image = nil
+        }
 
         return INPerson(personHandle: personHandle,
                         nameComponents: identityCoreDetails.personNameComponents,
@@ -302,35 +304,37 @@ extension PersistedObvOwnedIdentity.Structure {
     }
 }
 
-@available(iOS 14.0, *)
 fileprivate extension PersistedContactGroup.Structure {
 
-    func createINImage(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
+    static let circleDiameter = PersistedObvContactIdentity.Structure.circleDiameter
+
+    func createINImage() -> INImage? {
         let groupColor = AppTheme.shared.groupColors(forGroupUid: groupUid, using: ObvMessengerSettings.Interface.identityColorStyle)
-        let circledSymbol = UIImage.makeCircledSymbol(from: SystemIcon.person3Fill.systemName,
-                                                      circleDiameter: thumbnailSide,
-                                                      fillColor: groupColor.background,
-                                                      symbolColor: groupColor.text)
-        return IntentManagerUtils.createINImage(photoURL: displayPhotoURL,
-                                                fallbackImage: circledSymbol,
-                                                storingPNGPhotoThumbnailAtURL: thumbnailURL,
-                                                thumbnailSide: thumbnailSide)
+        let circledSymbol = UIImage.makeCircledSymbol(
+            from: SystemIcon.person3Fill.systemName,
+            circleDiameter: Self.circleDiameter,
+            fillColor: groupColor.background,
+            symbolColor: groupColor.text)
+        return IntentManagerUtils.createINImage(
+            photoURL: displayPhotoURL,
+            fallbackImage: circledSymbol)
     }
 }
 
-@available(iOS 14.0, *)
 fileprivate extension PersistedGroupV2.Structure {
 
-    func createINImage(storingPNGPhotoThumbnailAtURL thumbnailURL: URL?, thumbnailSide: CGFloat) -> INImage? {
+    static let circleDiameter = PersistedObvContactIdentity.Structure.circleDiameter
+
+    func createINImage() -> INImage? {
         let groupColor = AppTheme.shared.groupV2Colors(forGroupIdentifier: groupIdentifier)
-        let circledSymbol = UIImage.makeCircledSymbol(from: SystemIcon.person3Fill.systemName,
-                                                      circleDiameter: thumbnailSide,
-                                                      fillColor: groupColor.background,
-                                                      symbolColor: groupColor.text)
-        return IntentManagerUtils.createINImage(photoURL: displayPhotoURL,
-                                                fallbackImage: circledSymbol,
-                                                storingPNGPhotoThumbnailAtURL: thumbnailURL,
-                                                thumbnailSide: thumbnailSide)
+        let circledSymbol = UIImage.makeCircledSymbol(
+            from: SystemIcon.person3Fill.systemName,
+            circleDiameter: Self.circleDiameter,
+            fillColor: groupColor.background,
+            symbolColor: groupColor.text)
+        return IntentManagerUtils.createINImage(
+            photoURL: displayPhotoURL,
+            fallbackImage: circledSymbol)
     }
 }
 

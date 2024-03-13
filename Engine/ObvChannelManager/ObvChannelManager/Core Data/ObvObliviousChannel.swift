@@ -707,6 +707,10 @@ extension ObvObliviousChannel {
             notificationRelatedChanges = [] // Ensure the notifications are set only once
         }
         
+        if isDeleted {
+            //assertionFailure("This assertion shall be deleted. We are just trying to understand when a channel can be deleted")
+        }
+        
         let log = OSLog(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: ObvObliviousChannel.entityName)
         
         guard let notificationDelegate = ObvObliviousChannel.delegateManager.notificationDelegate else {

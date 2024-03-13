@@ -213,7 +213,7 @@ extension ContactDevice {
                                                         contactDeviceUid: uid,
                                                         createdDuringChannelCreation: createdDuringChannelCreation,
                                                         flowId: flowId)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             
         } else if isDeleted {
             
@@ -227,12 +227,12 @@ extension ContactDevice {
                 return
             }
 
-            let notification = ObvIdentityNotificationNew.deletedContactDevice(ownedIdentity: ownedCryptoIdentityOnDeletion,
-                                                                               contactIdentity: contactCryptoIdentityOnDeletion,
-                                                                               contactDeviceUid: uid,
-                                                                               flowId: flowId)
-            notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
-            
+            ObvIdentityNotificationNew.deletedContactDevice(ownedIdentity: ownedCryptoIdentityOnDeletion,
+                                                            contactIdentity: contactCryptoIdentityOnDeletion,
+                                                            contactDeviceUid: uid,
+                                                            flowId: flowId)
+            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+
         } else if let ownedIdentity = contactIdentity?.ownedIdentity {
             
             guard let contactIdentity = self.contactIdentity else { assertionFailure(); return }
@@ -241,7 +241,7 @@ extension ContactDevice {
                     ownedIdentity: ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(),
                     contactIdentity: contactIdentity,
                     flowId: flowId)
-                    .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
             
         }

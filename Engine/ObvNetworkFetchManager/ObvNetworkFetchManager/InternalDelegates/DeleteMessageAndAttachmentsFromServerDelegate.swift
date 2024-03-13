@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,9 +22,11 @@ import ObvTypes
 import ObvMetaManager
 import ObvCrypto
 import OlvidUtils
+import ObvServerInterface
 
 protocol DeleteMessageAndAttachmentsFromServerDelegate {
     
-    func processPendingDeleteFromServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws
+    func deleteMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws
+    func markMessageAsListedOnServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws
     
 }

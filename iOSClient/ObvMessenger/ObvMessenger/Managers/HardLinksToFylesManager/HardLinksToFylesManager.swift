@@ -339,14 +339,14 @@ final class HardLinkToFyle: NSObject, QLPreviewItem {
     
 
     private static func determineAppropriateFilename(originalFilename: String, contentType: UTType) -> String {
-        let escapedFilename = originalFilename.replacingOccurrences(of: "/", with: "_")
+        let escapedFilename = originalFilename.escapedStringForFyleElementDirectoryOrFilename()
         // We have a specific case of .m4a files to fix the issue where Android sends audio/mpeg as a MIME type of .m4a files
         if let contentTypeFromFilename = UTType(filenameExtension: (originalFilename as NSString).pathExtension), (contentTypeFromFilename == contentType || contentTypeFromFilename.conforms(to: .mpeg4Audio)) {
             return escapedFilename
         } else if let preferredFilenameExtension = contentType.preferredFilenameExtension {
-            return [escapedFilename, preferredFilenameExtension].joined(separator: ".")
+            return [String(escapedFilename.prefix(ObvMessengerConstants.maxCountForFilename-preferredFilenameExtension.count-1)), preferredFilenameExtension].joined(separator: ".")
         } else {
-            return escapedFilename
+            return String(escapedFilename.prefix(ObvMessengerConstants.maxCountForFilename))
         }
     }
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,7 @@ import OlvidUtils
 
 
 public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDelegate, ObvErrorMaker {
-
+    
     public static var errorDomain = "ObvNetworkFetchManagerImplementationDummy"
     static let defaultLogSubsystem = "io.olvid.network.fetch.dummy"
     lazy public var logSubsystem: String = {
@@ -111,8 +111,8 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("disconnectWebsockets does nothing in this dummy implementation", log: log, type: .error)
     }
 
-    public func downloadMessages(for ownedIdentity: ObvCryptoIdentity, andDeviceUid deviceUid: UID, flowId: FlowIdentifier) {
-        os_log("downloadMessages(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier) does nothing in this dummy implementation", log: log, type: .error)
+    public func downloadMessages(for ownedIdentity: ObvCrypto.ObvCryptoIdentity, flowId: OlvidUtils.FlowIdentifier) async {
+        os_log("downloadMessages(for:flowId:) does nothing in this dummy implementation", log: log, type: .error)
     }
     
     public func getEncryptedMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) -> ObvNetworkReceivedMessageEncrypted? {
@@ -139,12 +139,7 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("attachment(withId: AttachmentIdentifier, canBeDownloadedwithin: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "attachment(withId: AttachmentIdentifier, canBeDownloadedwithin: ObvContext) does nothing in this dummy implementation")
     }
-    
-    public func setRemoteCryptoIdentity(_ remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithmessageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
-        os_log("set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithMessageId: MessageIdentifier, within obvContext: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
-        throw Self.makeError(message: "set(remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, andAttachmentsInfos: [ObvNetworkFetchAttachmentInfos], forApplicationMessageWithMessageId: MessageIdentifier, within obvContext: ObvContext) does nothing in this dummy implementation")
-    }
-    
+  
     public func getAttachment(withId attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) -> ObvNetworkFetchReceivedAttachment? {
         os_log("getAttachment(withId: AttachmentIdentifier) does nothing in this dummy implementation", log: log, type: .error)
         return nil
@@ -159,20 +154,24 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("storeCompletionHandler(_: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier: String, withinFlowId: FlowIdentifier) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func deleteMessageAndAttachments(messageId: ObvMessageIdentifier, within: ObvContext) {
-        os_log("deleteMessageAndAttachments(messageId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
+    public func deleteApplicationMessageAndAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws {
+        os_log("deleteMessageAndAttachments does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func markMessageForDeletion(messageId: ObvMessageIdentifier, within: ObvContext) {
+    public func markApplicationMessageForDeletionAndProcessAttachments(messageId: ObvMessageIdentifier, attachmentsProcessingRequest: ObvAttachmentsProcessingRequest, flowId: FlowIdentifier) async throws {
         os_log("markMessageForDeletion(messageId: MessageIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func markAttachmentForDeletion(attachmentId: ObvAttachmentIdentifier, within: ObvContext) {
+    public func markAttachmentForDeletion(attachmentId: ObvTypes.ObvAttachmentIdentifier, flowId: OlvidUtils.FlowIdentifier) async throws {
         os_log("markAttachmentForDeletion(attachmentId: AttachmentIdentifier, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func resumeDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, forceResume: Bool, flowId: FlowIdentifier) {
+    public func resumeDownloadOfAttachment(attachmentId: ObvTypes.ObvAttachmentIdentifier, flowId: OlvidUtils.FlowIdentifier) async throws {
         os_log("resumeDownloadOfAttachment does nothing in this dummy implementation", log: log, type: .error)
+    }
+
+    public func appCouldNotFindFileOfDownloadedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
+        os_log("appCouldNotFindFileOfDownloadedAttachment does nothing in this dummy implementation", log: log, type: .error)
     }
     
     public func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
@@ -200,7 +199,7 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("postServerQuery(_: ServerQuery, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws {
         os_log("prepareForOwnedIdentityDeletion does nothing in this dummy implementation", log: log, type: .error)
     }
 

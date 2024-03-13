@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -105,9 +105,54 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus,
     }
     
     
-    /// Returns `true` if the attachment is fully received, i.e., if the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
-    /// Also returns `true` if the attachment was cancelled by the server.
-    static func createOrUpdateReceivedFyleMessageJoinWithStatus(with obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws -> Bool {
+    /// Initializer called exclusively to create transient `ReceivedFyleMessageJoinWithStatus` instances in the view context. 
+    public convenience init(forPreviewWithSha256 sha256: Data, fromURL: URL, filename: String, uti: String, messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>, within viewContext: NSManagedObjectContext) throws {
+
+        guard viewContext.concurrencyType == .mainQueueConcurrencyType else {
+            assertionFailure()
+            throw Self.makeError(message: "Unpexpected context concurrency type")
+        }
+        
+        guard Thread.isMainThread else {
+            assertionFailure()
+            throw Self.makeError(message: "Call must be performed on the main thread")
+        }
+        
+        guard let receivedMessage = try PersistedMessageReceived.get(with: messageObjectID, within: viewContext) else  {
+            throw Self.makeError(message: "Could not find PersistedMessageReceived")
+        }
+        
+        try self.init(sha256: sha256,
+                      totalByteCount: 0, // Reset bellow
+                      fileName: filename,
+                      uti: uti,
+                      rawStatus: FyleStatus.complete.rawValue, // Reset later
+                      messageSortIndex: receivedMessage.sortIndex,
+                      index: (receivedMessage.fyleMessageJoinWithStatus?.count ?? 0),
+                      forEntityName: ReceivedFyleMessageJoinWithStatus.entityName,
+                      within: viewContext)
+
+        guard let fyle else {
+            assertionFailure()
+            throw Self.makeError(message: "The fyle should have been created by the superclass initializer")
+        }
+        
+        fyle.transientURL = fromURL
+        
+        if let fileSize = fyle.getFileSize() {
+            self.rawStatus = FyleStatus.complete.rawValue
+            self.setTotalByteCount(to: fileSize)
+        } else {
+            self.rawStatus = FyleStatus.downloadable.rawValue
+            self.setTotalByteCount(to: 0)
+        }
+
+        // Set the remaining properties and relationships
+        self.receivedMessage = receivedMessage
+    }
+    
+    
+    static func createOrUpdateReceivedFyleMessageJoinWithStatus(with obvAttachment: ObvAttachment, within context: NSManagedObjectContext) throws {
         
         let join: ReceivedFyleMessageJoinWithStatus
         if let previousJoin = try ReceivedFyleMessageJoinWithStatus.get(obvAttachment: obvAttachment, within: context) {
@@ -124,22 +169,15 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus,
             assert(join.fyle != nil, "The fyle should have been created by the init of the superclass")
         }
         
-        let attachmentFullyReceivedOrCancelledByServer = try join.updateReceivedFyleMessageJoinWithStatus(with: obvAttachment)
+        try join.updateReceivedFyleMessageJoinWithStatus(with: obvAttachment)
             
-        return attachmentFullyReceivedOrCancelledByServer
-        
     }
 
     
-    /// Returns `true` if the attachment is fully received, i.e., if the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
-    /// Also returns `true` if the attachment was cancelled by the server.
-    private func updateReceivedFyleMessageJoinWithStatus(with obvAttachment: ObvAttachment) throws -> Bool {
+    private func updateReceivedFyleMessageJoinWithStatus(with obvAttachment: ObvAttachment) throws {
         
         // Update the status of the ReceivedFyleMessageJoinWithStatus depending on the status of the ObvAttachment
 
-        var attachmentCancelledByServer = false
-        var attachmentFullyReceived = false
-        
         switch obvAttachment.status {
 
         case .paused:
@@ -154,7 +192,7 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus,
                 throw Self.makeError(message: "Could not find fyle")
             }
             try fyle.updateFyle(with: obvAttachment)
-            attachmentFullyReceived = (fyle.getFileSize() == totalByteCount)
+            let attachmentFullyReceived = (fyle.getFileSize() == totalByteCount)
             if attachmentFullyReceived {
                 tryToSetStatusTo(.complete)
                 deleteDownsizedThumbnail()
@@ -162,14 +200,11 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus,
 
         case .cancelledByServer:
             tryToSetStatusTo(.cancelledByServer)
-            attachmentCancelledByServer = true
 
         case .markedForDeletion:
             break
 
         }
-
-        return attachmentFullyReceived || attachmentCancelledByServer
         
     }
     
@@ -265,7 +300,7 @@ extension ReceivedFyleMessageJoinWithStatus {
     }
     
     var shareActionCanBeMadeAvailableForReceivedJoin: Bool {
-        guard status == .complete else { return false }
+        guard status == .complete, !isPreviewType else { return false }
         return receivedMessage.shareActionCanBeMadeAvailableForReceivedMessage
     }
     

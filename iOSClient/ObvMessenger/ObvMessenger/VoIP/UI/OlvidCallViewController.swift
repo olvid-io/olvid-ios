@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,10 +34,10 @@ final class OlvidCallViewController: UIHostingController<OlvidCallView<OlvidCall
     }
     
     init(model: Model) {
-        let navigationActions = OlvidCallViewNavigationActions()
-        let view = OlvidCallView(model: model.call, actions: model.manager, navigationActions: navigationActions)
+        let chooseParticipantsToAddAction = OlvidCallViewAddParticipantsActions()
+        let view = OlvidCallView(model: model.call, actions: model.manager, chooseParticipantsToAddAction: chooseParticipantsToAddAction)
         super.init(rootView: view)
-        navigationActions.delegate = self
+        chooseParticipantsToAddAction.delegate = self
     }
     
     deinit {
@@ -48,12 +48,17 @@ final class OlvidCallViewController: UIHostingController<OlvidCallView<OlvidCall
         fatalError("init(coder:) has not been implemented")
     }
     
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        //overrideUserInterfaceStyle = .dark
+    }
+    
 }
 
 
-// MARK: - Implementing OlvidCallViewNavigationActionsProtocol
+// MARK: - Implementing OlvidCallAddParticipantActionsProtocol
 
-extension OlvidCallViewController: OlvidCallViewNavigationActionsProtocol {
+extension OlvidCallViewController: OlvidCallAddParticipantsActionsProtocol {
     
     @MainActor
     func userWantsToAddParticipantToCall(ownedCryptoId: ObvCryptoId, currentOtherParticipants: Set<ObvCryptoId>) async -> Set<ObvCryptoId> {
@@ -84,7 +89,7 @@ extension OlvidCallViewController: OlvidCallViewNavigationActionsProtocol {
             
             nav.presentationController?.delegate = self
             
-            self.present(nav, animated: true)
+            (self.presentedViewController ?? self).present(nav, animated: true)
 
         }
         
@@ -106,11 +111,11 @@ extension OlvidCallViewController: UIAdaptivePresentationControllerDelegate {
     
 }
 
-// MARK: - OlvidCallViewNavigationActions
+// MARK: - OlvidCallViewAddParticipantsActions
 
-private final class OlvidCallViewNavigationActions: OlvidCallViewNavigationActionsProtocol {
+private final class OlvidCallViewAddParticipantsActions: OlvidCallAddParticipantsActionsProtocol {
     
-    weak var delegate: OlvidCallViewNavigationActionsProtocol?
+    weak var delegate: OlvidCallAddParticipantsActionsProtocol?
     
     func userWantsToAddParticipantToCall(ownedCryptoId: ObvCryptoId, currentOtherParticipants: Set<ObvCryptoId>) async -> Set<ObvCryptoId> {
         guard let delegate else { assertionFailure(); return Set([])}

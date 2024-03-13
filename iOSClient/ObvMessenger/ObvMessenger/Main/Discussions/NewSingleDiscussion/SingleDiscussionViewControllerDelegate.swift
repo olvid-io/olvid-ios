@@ -24,7 +24,6 @@ import ObvUICoreData
 protocol SingleDiscussionViewControllerDelegate: AnyObject {
     
     func userTappedTitleOfDiscussion(_ discussion: PersistedDiscussion)
-    func userSelectedURL(_: URL, within: UIViewController)
     func userDidTapOnContactImage(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 
     /// Delegation method called whenever a user taps on a user mention within the text

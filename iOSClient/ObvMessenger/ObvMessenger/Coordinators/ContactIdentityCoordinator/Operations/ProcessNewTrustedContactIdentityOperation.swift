@@ -42,11 +42,11 @@ final class ProcessNewTrustedContactIdentityOperation: ContextualOperationWithSp
 
             if let existingPersistedObvContactIdentity {
                 
-                try existingPersistedObvContactIdentity.updateContact(with: obvContactIdentity)
+                _ = try existingPersistedObvContactIdentity.updateContact(with: obvContactIdentity, isRestoringSyncSnapshotOrBackup: false)
                 
             } else {
                 
-                let contact = try PersistedObvContactIdentity.createPersistedObvContactIdentity(contactIdentity: obvContactIdentity, within: obvContext.context)
+                let contact = try PersistedObvContactIdentity.createPersistedObvContactIdentity(contactIdentity: obvContactIdentity, isRestoringSyncSnapshotOrBackup: false, within: obvContext.context)
                                 
                 requestSendingOneToOneDiscussionSharedConfiguration(with: contact, within: obvContext)
                 

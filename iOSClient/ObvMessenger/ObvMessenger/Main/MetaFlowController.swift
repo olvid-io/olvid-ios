@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -259,28 +259,28 @@ final class MetaFlowController: UIViewController, OlvidURLHandler, MainFlowViewC
     }
     
     private func observeOutgoingCallFailedBecauseUserDeniedRecordPermissionNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeOutgoingCallFailedBecauseUserDeniedRecordPermission(queue: OperationQueue.main) { [weak self] in
-            self?.presentUserDeniedRecordPermissionAlert(message: Strings.AlertOutgoingCallFailedBecauseUserDeniedRecordPermission.message)
+        observationTokens.append(ObvMessengerInternalNotification.observeOutgoingCallFailedBecauseUserDeniedRecordPermission { [weak self] in
+            Task { [weak self] in await  self?.presentUserDeniedRecordPermissionAlert(message: Strings.AlertOutgoingCallFailedBecauseUserDeniedRecordPermission.message) }
         })
     }
 
     private func observeVoiceMessageFailedBecauseUserDeniedRecordPermissionNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeVoiceMessageFailedBecauseUserDeniedRecordPermission(queue: OperationQueue.main) { [weak self] in
-            self?.presentUserDeniedRecordPermissionAlert(message: Strings.AlertVoiceMessageFailedBecauseUserDeniedRecordPermission.message)
+        observationTokens.append(ObvMessengerInternalNotification.observeVoiceMessageFailedBecauseUserDeniedRecordPermission { [weak self] in
+            Task { [weak self] in await self?.presentUserDeniedRecordPermissionAlert(message: Strings.AlertVoiceMessageFailedBecauseUserDeniedRecordPermission.message) }
         })
     }
 
     
     private func observeRejectedIncomingCallBecauseUserDeniedRecordPermissionNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeRejectedIncomingCallBecauseUserDeniedRecordPermission(queue: OperationQueue.main) { [weak self] in
-            self?.presentUserDeniedRecordPermissionAlert(message: Strings.AlertRejectedIncomingCallBecauseUserDeniedRecordPermission.message)
+        observationTokens.append(ObvMessengerInternalNotification.observeRejectedIncomingCallBecauseUserDeniedRecordPermission { [weak self] in
+            Task { [weak self] in await self?.presentUserDeniedRecordPermissionAlert(message: Strings.AlertRejectedIncomingCallBecauseUserDeniedRecordPermission.message) }
         })
     }
     
     
     private func observeRequestUserDeniedRecordPermissionAlertNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeRequestUserDeniedRecordPermissionAlert(queue: OperationQueue.main) { [weak self] in
-            self?.presentUserDeniedRecordPermissionAlert(message: Strings.AlertRejectedIncomingCallBecauseUserDeniedRecordPermission.message)
+        observationTokens.append(ObvMessengerInternalNotification.observeRequestUserDeniedRecordPermissionAlert { [weak self] in
+            Task { [weak self] in await self?.presentUserDeniedRecordPermissionAlert(message: Strings.AlertRejectedIncomingCallBecauseUserDeniedRecordPermission.message) }
         })
     }
     
@@ -325,17 +325,22 @@ final class MetaFlowController: UIViewController, OlvidURLHandler, MainFlowViewC
     }
 
     
-    private func presentUserDeniedRecordPermissionAlert(message: String) {
+    @MainActor
+    private func presentUserDeniedRecordPermissionAlert(message: String) async {
         assert(Thread.isMainThread)
         guard AVAudioSession.sharedInstance().recordPermission != .granted else { return }
         let alert = UIAlertController(title: nil,
                                       message: message,
                                       preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel, handler: nil))
-        if let appSettings = URL(string: UIApplication.openSettingsURLString) {
-            alert.addAction(UIAlertAction(title: Strings.goToSettingsButtonTitle, style: .default, handler: { (_) in
-                UIApplication.shared.open(appSettings, options: [:])
-            }))
+        if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+            alert.addAction(UIAlertAction(title: CommonString.Word.Ok, style: .default, handler: nil))
+        } else {
+            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel, handler: nil))
+            if let appSettings = URL(string: UIApplication.openSettingsURLString) {
+                alert.addAction(UIAlertAction(title: Strings.goToSettingsButtonTitle, style: .default, handler: { (_) in
+                    UIApplication.shared.open(appSettings, options: [:])
+                }))
+            }
         }
         if let presentedViewController = presentedViewController {
             presentedViewController.present(alert, animated: true)
@@ -928,8 +933,12 @@ extension MetaFlowController {
             enteredSAS: enteredSAS,
             deviceToKeepActive: deviceToKeepActive,
             ownedCryptoId: ownedCryptoId,
-            protocolInstanceUID: protocolInstanceUID)
-        onboardingFlow.dismiss(animated: true)
+            protocolInstanceUID: protocolInstanceUID,
+            snapshotSentToTargetDevice: {
+                // Callback called when the snapshot was successfully sent to the target device
+                // and thus, the protocol is finished on this source device. We can end the flow
+                DispatchQueue.main.async { onboardingFlow.dismiss(animated: true) }
+            })
     }
     
     
@@ -1109,7 +1118,7 @@ extension MetaFlowController {
     @MainActor
     private func requestSyncAppDatabasesWithEngine() async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine(queuePriority: .veryHigh) { result in
+            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine(queuePriority: .veryHigh, isRestoringSyncSnapshotOrBackup: false) { result in
                 switch result {
                 case .failure(let error):
                     continuation.resume(throwing: error)
@@ -1415,22 +1424,38 @@ extension MetaFlowController {
     
     private func observeUserWantsToRefreshDiscussionsNotifications() {
         observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToRefreshDiscussions { [weak self] completionHandler in
-            // Request the download of all messages to the engine
-            self?.obvEngine.downloadAllMessagesForOwnedIdentities()
-            // If one of the owned identities is keycloak managed, resync
+            Task { [weak self] in
+                guard let self else { return }
+                // Request the download of all messages to the engine
+                try await obvEngine.downloadAllMessagesForOwnedIdentities()
+                // If one of the owned identities is keycloak managed, resync
+                do {
+                    if try await atLeastOneOwnedIdentityIsKeycloakManaged() {
+                        try await KeycloakManagerSingleton.shared.syncAllManagedIdentities()
+                    }
+                } catch {
+                    assertionFailure(error.localizedDescription)
+                }
+                // Call the completion
+                completionHandler()
+            }
+        })
+    }
+    
+    
+    private func atLeastOneOwnedIdentityIsKeycloakManaged() async throws -> Bool {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
             ObvStack.shared.performBackgroundTask { context in
                 do {
-                    guard let ownedIdentities = try? PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context) else { return }
-                    let keycloakManagedOwnedIdentities = ownedIdentities.filter { $0.isKeycloakManaged }
-                    guard !keycloakManagedOwnedIdentities.isEmpty else { return }
-                    Task {
-                        try? await KeycloakManagerSingleton.shared.syncAllManagedIdentities()
-                    }
+                    let ownedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context)
+                    let result = ownedIdentities.first(where: { $0.isKeycloakManaged }) != nil
+                    return continuation.resume(returning: result)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
                 }
             }
-            // Call the completion (yes, even if the other tasks are not over yet. This shall be improved)
-            completionHandler()
-        })
+        }
     }
     
 }

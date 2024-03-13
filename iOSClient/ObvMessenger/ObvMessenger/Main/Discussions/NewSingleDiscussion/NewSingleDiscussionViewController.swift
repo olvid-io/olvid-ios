@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import QuickLook
 import MobileCoreServices
 import AVFoundation
 import Combine
+import TipKit
 import ObvTypes
 import OlvidUtils
 import ObvUI
@@ -34,10 +35,11 @@ import _Discussions_Mentions_Builders_Shared
 import Discussions_ScrollToBottomButton
 import UniformTypeIdentifiers
 import ObvDesignSystem
+import ObvSettings
+import LinkPresentation
 
 
-@available(iOS 15.0, *)
-final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, ObvErrorMaker, TextBubbleDelegate, NewComposeMessageViewDatasource, UICollectionViewDropDelegate, UICollectionViewDragDelegate {
+final class NewSingleDiscussionViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, ViewShowingHardLinksDelegate, CustomQLPreviewControllerDelegate, UICollectionViewDataSourcePrefetching, NewComposeMessageViewDelegate, CellReconfigurator, SomeSingleDiscussionViewController, UIGestureRecognizerDelegate, ObvErrorMaker, TextBubbleDelegate, NewComposeMessageViewDatasource, UICollectionViewDropDelegate, UICollectionViewDragDelegate, UISearchControllerDelegate {
     
     static let errorDomain = "NewSingleDiscussionViewController"
     let currentOwnedCryptoId: ObvCryptoId
@@ -62,7 +64,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var initialScrollWasPerformed = false
     private var currentKbdSize = CGRect.zero
     private let queueForApplyingSnapshots = DispatchQueue(label: "NewSingleDiscussionViewController queue for snapshots")
-    private let cacheDelegate = DiscussionCacheManager()
+    private let cacheDelegate = DiscussionCacheManager(previewFetcherDelegate: MissingReceivedLinkPreviewFetcher())
     private var messagesToMarkAsNotNewWhenScrollingEnds = [MessageIdentifier]()
     private var atLeastOneSnapshotWasApplied = false
     private var isRegisteredToKeyboardNotifications = false
@@ -70,6 +72,20 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private lazy var scrollToBottomButton = ScrollToBottomButton(observing: collectionView, initialVerticalVisibilityThreshold: 0)
     private let viewDidLayoutSubviewsSubject = PassthroughSubject<Void, Never>()
     private var isDragSessionInProgress = false
+
+    // Search related variables
+    private var isUserPerformingSearch = false
+    private let singleDiscussionSearchView = SingleDiscussionSearchView()
+    private let searchController = UISearchController(searchResultsController: nil)
+    private let searchControllerDelegate: SingleDiscussionSearchControllerDelegate
+    private var messagesContainingSearchedText: [TypeSafeManagedObjectID<PersistedMessage>]?
+
+    /// Defines the kind of view shown above the keyboard. In general, it's the composition view. But it can be the search view during a search.
+    private var accessoryViewKindShown: AccessoryViewKind = .none
+    
+    // MARK: attribute - private - ObvLinkMedata
+    private var previewMetadataInComposeView: ObvLinkMetadata?
+    
 
     /// We must adapt the collection view's insets when the frame of the main content view of the composition view changes, when the keyboard shows/hides, but only when we are not scrolling.
     /// To do so, we three values representing those states, and adapt the insets when appropriate. We use the ``NewComposeMessageView`` published main content view frame, the published ``currentScrolling`` value, and the following ``toggledWhenKeyboardDidHideOrShow`` variable, toggled whenever the keyboard changes state.
@@ -84,12 +100,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var singleTapOnCell: UITapGestureRecognizer!
     private var doubleTapOnCell: UITapGestureRecognizer!
     
-    /// Apple introduced a keyboardLayoutGuide in iOS 15. Yet, this guide does not work with the emoji keyboard in iOS 15.0.2.
-    /// The bug is fixed in iOS 15.5.
-    /// So we simulate this guide with a custom UILayoutGuide for iOS up to 15.5 (excluded) and use the built-in keyboardLayoutGuide for iOS 15.5 and up.
-    private let myKeyboardLayoutGuide = UILayoutGuide()
-    private var myKeyboardLayoutGuideHeightConstraint: NSLayoutConstraint? // Set later
-
     /// The following variables are used to determine whether we should automatically scroll when the collection
     /// view is updated.
     private var lastScrollWasManual = false
@@ -105,6 +115,18 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var timerForRefreshingCellCountdowns: Timer?
 
     private var filesViewer: FilesViewer?
+    
+    /// Tip related variables
+    private weak var viewSavedToDisplayTip: NSObjectProtocol? // A UIPopoverPresentationControllerSourceItem, either the ellipsis button (iOS) or the search bar (macOS)
+    private weak var tipPopoverController: AnyObject? // In practice, this is a TipUIPopoverViewController
+    private var tipObservationTask: Task<Void, Never>?
+    private var searchWithinDiscussionTip: Any? = {
+        if #available(iOS 17, *) {
+            return OlvidTip.SearchWithinDiscussion()
+        } else {
+            return nil
+        }
+    }()
 
     /// Allows to keep track of the message the user wants to forward until she chose the appropriate discussions.
     private var messageToForward: PersistedMessage?
@@ -188,6 +210,7 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         self.discussionPermanentID = discussion.discussionPermanentID
         self.initialScroll = initialScroll
         self.visibilityTrackerForSensitiveMessages = VisibilityTrackerForSensitiveMessages(discussionPermanentID: discussion.discussionPermanentID)
+        self.searchControllerDelegate = SingleDiscussionSearchControllerDelegate(discussionObjectID: discussion.typedObjectID)
         super.init(nibName: nil, bundle: nil)
         self.composeMessageView = NewComposeMessageView(
             draft: discussion.draft,
@@ -247,6 +270,8 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         configureScrollToBottomButton()
         
         observeKeyboardAndCompositionViewChangesToAdaptCollectionViewsInsets()
+        
+        configureSearchController()
     }
     
     
@@ -304,13 +329,14 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
 
         // This constraint was *not* set in viewDidLoad. We want to reset it every time the main view will appear
         // Otherwise, it seems that the constraint "disappears" each time another VC is presented over this one.
-        if #available(iOS 15.5, *) {
-            view.keyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView.mainContentView.bottomAnchor).isActive = true
-        } else {
-            myKeyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView.mainContentView.bottomAnchor).isActive = true
-        }
+        // This constrain pins the mainContentView of the composition view at the top of the keyboard. Note that the composition
+        // view itself is pinned at the bottom, allowing to ensure that its effect view extends to the bottom, avoiding a "gap"
+        // on iPhones with rounded screen cordners.
+        view.keyboardLayoutGuide.topAnchor.constraint(equalTo: composeMessageView.mainContentView.bottomAnchor).isActive = true
+        
+        view.keyboardLayoutGuide.topAnchor.constraint(equalTo: singleDiscussionSearchView.mainContentView.bottomAnchor).isActive = true
 
-        configureNewComposeMessageViewVisibility(animate: false)
+        configureAcessoryViewVisibility(animate: false)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -332,6 +358,35 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                 self?.composeMessageView.preventTextViewFromEditing = false
             }
         }
+        
+        configureTipsOnViewDidAppear(animated: animated)
+        
+    }
+    
+    
+    private func configureTipsOnViewDidAppear(animated: Bool) {
+        
+        // Add a tip on the ellipsisButton
+        
+        if #available(iOS 17.0, *) {
+            guard let searchWithinDiscussionTip = searchWithinDiscussionTip as? OlvidTip.SearchWithinDiscussion else { assertionFailure(); return }
+            tipObservationTask = tipObservationTask ?? Task { @MainActor in
+                for await shouldDisplay in searchWithinDiscussionTip.shouldDisplayUpdates {
+                    if shouldDisplay {
+                        guard let sourceItem = viewSavedToDisplayTip as? UIPopoverPresentationControllerSourceItem else { assertionFailure(); return }
+                        let popoverController = TipUIPopoverViewController(searchWithinDiscussionTip, sourceItem: sourceItem)
+                        present(popoverController, animated: true)
+                        tipPopoverController = popoverController
+                    } else {
+                        if presentedViewController is TipUIPopoverViewController {
+                            dismiss(animated: animated)
+                            tipPopoverController = nil
+                        }
+                    }
+                }
+            }
+        }
+        
     }
     
     
@@ -391,7 +446,15 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
             composeMessageView.animatedEndEditing(completion: { _ in })
             composeMessageView.preventTextViewFromEditing = true
         }
+        removeTipsOnViewWillDisappear(animated: animated)
     }
+    
+    
+    private func removeTipsOnViewWillDisappear(animated: Bool) {
+        tipObservationTask?.cancel()
+        tipObservationTask = nil
+    }
+    
 
     private func registerForNotification() {
         guard !isRegisteredToNotifications else { return }
@@ -412,14 +475,14 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
             },
             ObvMessengerCoreDataNotification.observePersistedContactGroupHasUpdatedContactIdentities { [weak self] _,_,_ in
                 OperationQueue.main.addOperation {
-                    self?.configureNewComposeMessageViewVisibility(animate: true)
+                    self?.configureAcessoryViewVisibility(animate: true)
                 }
             },
             ObvMessengerCoreDataNotification.observePersistedGroupV2UpdateIsFinished { [weak self] groupV2ObjectID, _, _ in
                 OperationQueue.main.addOperation {
                     guard let group = try? PersistedGroupV2.get(objectID: groupV2ObjectID, within: ObvStack.shared.viewContext) else { return }
                     guard group.discussion?.typedObjectID.downcast == discussionObjectID else { return }
-                    self?.configureNewComposeMessageViewVisibility(animate: true)
+                    self?.configureAcessoryViewVisibility(animate: true)
                 }
             },
             ObvMessengerInternalNotification.observeCurrentUserActivityDidChange {[weak self] (previousUserActivity, currentUserActivity) in
@@ -431,12 +494,12 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
             },
             ObvMessengerCoreDataNotification.observePersistedContactIsActiveChanged { [weak self] _ in
                 OperationQueue.main.addOperation {
-                    self?.configureNewComposeMessageViewVisibility(animate: true)
+                    self?.configureAcessoryViewVisibility(animate: true)
                 }
             },
             ObvMessengerCoreDataNotification.observePersistedDiscussionStatusChanged { [weak self] _, _ in
                 OperationQueue.main.addOperation {
-                    self?.configureNewComposeMessageViewVisibility(animate: true)
+                    self?.configureAcessoryViewVisibility(animate: true)
                 }
             },
             NotificationCenter.default.addObserver(forName: sceneDidActivateNotification, object: nil, queue: nil) { [weak self] _ in
@@ -472,11 +535,12 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
 
 // MARK: - Initial setup and cell configuration
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     func configureNavigationTitle() {
+        
         assert(Thread.isMainThread)
+        
         guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { return }
         navigationItem.titleView = nil
         switch discussion.status {
@@ -504,14 +568,13 @@ extension NewSingleDiscussionViewController {
             navigationItem.titleView = SingleDiscussionTitleView(title: discussion.title, subtitle: discussion.subtitle)
         }
         
-        if discussion.status == .active {
+        
+        var menuElements = [UIMenuElement]()
+        
+        do {
             
-            var items: [UIBarButtonItem] = []
-            
-            // Configure the menu for the right bar button item
-
-            do {
-                var menuElements: [UIMenuElement] = [
+            if discussion.status == .active {
+                menuElements += [
                     UIAction(
                         title: Strings.discussionSettings,
                         image: UIImage(systemIcon: .gearshapeFill),
@@ -522,48 +585,75 @@ extension NewSingleDiscussionViewController {
                         image: UIImage(systemIcon: .photoOnRectangleAngled),
                         handler: { [weak self] _ in self?.galleryButtonTapped() })
                 ]
-                if discussion.isCallAvailable {
-                    menuElements += [
-                        UIAction(
-                            title: CommonString.Word.Call,
-                            image: UIImage(systemIcon: .phoneFill),
-                            handler: { [weak self] _ in self?.callButtonTapped() }
-                        )
-                    ]
-                }
-                let menu = UIMenu(title: "", children: menuElements)
-                let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-                let ellipsisImage = UIImage(systemIcon: .ellipsisCircle, withConfiguration: symbolConfiguration)
-                let ellipsisButton = UIBarButtonItem(
-                    title: nil,
-                    image: ellipsisImage,
-                    primaryAction: nil,
-                    menu: menu)
-                items += [ellipsisButton]
             }
-
-            // Configure the unmute button if necessary (as a menu, with a primary action)
-
-            if let muteNotificationEndDate = discussion.localConfiguration.currentMuteNotificationsEndDate {
-                let unmuteDateFormatted = PersistedDiscussionLocalConfiguration.formatDateForMutedNotification(muteNotificationEndDate)
-                let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
-                let unmuteImage = UIImage(systemIcon: .moonZzzFill, withConfiguration: symbolConfiguration)
-                let unmuteAction = UIAction.init(title: Strings.unmuteNotifications, image: UIImage(systemIcon: .moonZzzFill)) { _ in
-                    ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsEndDate(nil), localConfigurationObjectID: discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
-                }
-                let menuElements: [UIMenuElement] = [unmuteAction]
-                let menu = UIMenu(title: Strings.mutedNotificationsConfirmation(unmuteDateFormatted), children: menuElements)
-                let unmuteButton = UIBarButtonItem(
-                    title: nil,
-                    image: unmuteImage,
-                    primaryAction: nil,
-                    menu: menu)
-                items += [unmuteButton]
+            
+            if discussion.status == .active && discussion.isCallAvailable {
+                menuElements += [
+                    UIAction(
+                        title: CommonString.Word.Call,
+                        image: UIImage(systemIcon: .phoneFill),
+                        handler: { [weak self] _ in self?.callButtonTapped() }
+                    )
+                ]
             }
-
-            navigationItem.rightBarButtonItems = items
+            
+            // Add a search element (not under macOS, where the search bar is always shown)
+            if addSearchItemInMenu {
+                menuElements += [
+                    UIAction(
+                        title: CommonString.Word.Search,
+                        image: UIImage(systemIcon: .magnifyingglass),
+                        handler: { [weak self] _ in self?.searchButtonTapped() }
+                    )
+                ]
+            }
+            
         }
         
+        var items: [UIBarButtonItem] = []
+
+        // Create a menu if appropriate
+
+        if !menuElements.isEmpty {
+            
+            let menu = UIMenu(title: "", children: menuElements)
+            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+            let ellipsisImage = UIImage(systemIcon: .ellipsisCircle, withConfiguration: symbolConfiguration)
+            let ellipsisButton = UIBarButtonItem(
+                title: nil,
+                image: ellipsisImage,
+                primaryAction: nil,
+                menu: menu)
+            items += [ellipsisButton]
+            
+            // If we added the search menu item, we want to use the ellipsis button a source for the tip allowing to discover the search
+            if addSearchItemInMenu {
+                viewSavedToDisplayTip = ellipsisButton
+            }
+
+        }
+        
+        // Configure the unmute button if necessary (as a menu, with a primary action)
+
+        if let muteNotificationEndDate = discussion.localConfiguration.currentMuteNotificationsEndDate {
+            let unmuteDateFormatted = PersistedDiscussionLocalConfiguration.formatDateForMutedNotification(muteNotificationEndDate)
+            let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
+            let unmuteImage = UIImage(systemIcon: .moonZzzFill, withConfiguration: symbolConfiguration)
+            let unmuteAction = UIAction.init(title: Strings.unmuteNotifications, image: UIImage(systemIcon: .moonZzzFill)) { _ in
+                ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsEndDate(nil), localConfigurationObjectID: discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
+            }
+            let menuElements: [UIMenuElement] = [unmuteAction]
+            let menu = UIMenu(title: Strings.mutedNotificationsConfirmation(unmuteDateFormatted), children: menuElements)
+            let unmuteButton = UIBarButtonItem(
+                title: nil,
+                image: unmuteImage,
+                primaryAction: nil,
+                menu: menu)
+            items += [unmuteButton]
+        }
+
+        navigationItem.rightBarButtonItems = items
+
         navigationItem.titleView?.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(titleViewWasTapped)))
 
     }
@@ -619,6 +709,8 @@ extension NewSingleDiscussionViewController {
         view.addLayoutGuide(attachmentsDropViewLayoutGuide)
 
         configureComposeMessageViewHierarchy()
+        
+        configureSearchViewHierarchy()
 
         NSLayoutConstraint.activate([
             scrollToBottomButton.bottomAnchor.constraint(equalTo: composeMessageView!.topAnchor, constant: -24),
@@ -636,24 +728,10 @@ extension NewSingleDiscussionViewController {
     
     private func configureComposeMessageViewHierarchy() {
 
-        if #unavailable(iOS 15.5) {
-            // We configure the in-house layout guide.
-            view.addLayoutGuide(myKeyboardLayoutGuide)
-
-            NSLayoutConstraint.activate([
-                myKeyboardLayoutGuide.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-                myKeyboardLayoutGuide.widthAnchor.constraint(equalTo: view.widthAnchor),
-            ])
-            myKeyboardLayoutGuideHeightConstraint = myKeyboardLayoutGuide.heightAnchor.constraint(equalToConstant: view.safeAreaInsets.bottom)
-            myKeyboardLayoutGuideHeightConstraint?.isActive = true
-
-        }
-
         view.addSubview(composeMessageView!)
         composeMessageView.translatesAutoresizingMaskIntoConstraints = false
 
         composeMessageView!.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
-
 
         // The bottomAnchor of the composeMessageView is pinned to the view's keyboardLayoutGuide in viewWillAppear.
         // In practice, this allows to reset this constraint after a new VC was presented or pushed over this one.
@@ -663,11 +741,24 @@ extension NewSingleDiscussionViewController {
         ])
     }
     
+    
+    /// In production, this method always returns the custom ``DiscussionLayout``. When beta options are available, the user
+    /// can modify the ``discussionLayoutType`` setting so as to try alternative layouts and test their efficiency.
     private func createLayout() -> UICollectionViewLayout {
-        let layout = DiscussionLayout()
-        return layout
+        switch ObvMessengerSettings.Interface.discussionLayoutType {
+        case .productionLayout:
+            let layout = DiscussionLayout()
+            return layout
+        case .listLayout:
+            var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
+            configuration.showsSeparators = false
+            configuration.headerMode = .supplementary
+            let layout = UICollectionViewCompositionalLayout.list(using: configuration)
+            return layout
+        }
+        
+        
     }
-
 
     private func configureDataSource() {
         
@@ -717,6 +808,7 @@ extension NewSingleDiscussionViewController {
         }
 
         try? frc.performFetch()
+        
     }
     
     
@@ -743,12 +835,42 @@ extension NewSingleDiscussionViewController {
                 prvMessageIsFromSameContact = previousMessageIsFromSameContact(message: message)
             }
         }
-        cell.updateWith(message: message, indexPath: indexPath, draftObjectID: draftObjectID, previousMessageIsFromSameContact: prvMessageIsFromSameContact, cacheDelegate: cacheDelegate, cellReconfigurator: self, textBubbleDelegate: self, audioPlayerViewDelegate: self)
+        let searchedTextToHighlight = getSearchedTextToHighlight(for: message)
+        cell.updateWith(message: message,
+                        searchedTextToHighlight: searchedTextToHighlight,
+                        indexPath: indexPath,
+                        draftObjectID: draftObjectID,
+                        previousMessageIsFromSameContact: prvMessageIsFromSameContact,
+                        cacheDelegate: cacheDelegate,
+                        cellReconfigurator: self,
+                        textBubbleDelegate: self,
+                        audioPlayerViewDelegate: self)
     }
 
     
     private func updateSentMessageCell(_ cell: SentMessageCell, at indexPath: IndexPath, with message: PersistedMessageSent) {
-        cell.updateWith(message: message, indexPath: indexPath, draftObjectID: draftObjectID, cacheDelegate: cacheDelegate, cellReconfigurator: self, textBubbleDelegate: self)
+        let searchedTextToHighlight = getSearchedTextToHighlight(for: message)
+        cell.updateWith(message: message,
+                        searchedTextToHighlight: searchedTextToHighlight,
+                        indexPath: indexPath,
+                        draftObjectID: draftObjectID,
+                        cacheDelegate: cacheDelegate,
+                        cellReconfigurator: self,
+                        textBubbleDelegate: self)
+    }
+    
+    
+    /// This helper method is used when configuring the cell of sent or received message.
+    /// The messagesContainingSearchedText is non-nil during a search.
+    /// If the message corresponding to this cell appears in this messagesContainingSearchedText array, the message
+    /// certainly contains the searched word, found in the text attribute of the searchBar. In that case, we retrieve the searched
+    /// term and returning, making it possible to pass it to the cell as an indication of what to highlight in, e.g., the text bubble.
+    private func getSearchedTextToHighlight(for message: PersistedMessage) -> String? {
+        if messagesContainingSearchedText?.contains(message.typedObjectID) == true {
+            return self.searchController.searchBar.text
+        } else {
+            return nil
+        }
     }
     
         
@@ -756,6 +878,7 @@ extension NewSingleDiscussionViewController {
         guard let sections = frc.sections else {
             fatalError("No sections in fetchedResultsController")
         }
+        guard indexPath.section < sections.count else { return nil }
         let sectionInfo = sections[indexPath.section]
         let sectionIdentifier = sectionInfo.name
         guard let components = PersistedMessage.getDateComponents(fromSectionIdentifier: sectionIdentifier), let date = components.date else {
@@ -947,11 +1070,149 @@ extension NewSingleDiscussionViewController {
 }
 
 
+// MARK: - Implementing search within this discussion
+
+extension NewSingleDiscussionViewController {
+    
+    private var addSearchItemInMenu: Bool {
+        !ObvMessengerConstants.targetEnvironmentIsMacCatalyst
+    }
+    
+    
+    /// Called in ``viewDidLoad()``, in order to add the `searchController` to the navigation.
+    /// We set the `isActive` property to `false` so that the search bar is initally hidden, and only shown
+    /// when the user taps on the search button (in which case ``searchButtonTapped()`` is called).
+    private func configureSearchController() {
+        self.searchController.delegate = self
+        self.searchController.searchResultsUpdater = searchControllerDelegate
+        self.searchController.searchBar.delegate = searchControllerDelegate
+        self.searchController.searchBar.searchBarStyle = .prominent
+        self.searchController.hidesNavigationBarDuringPresentation = true
+        self.searchController.searchBar.autocapitalizationType = .none
+        self.navigationItem.searchController = self.searchController
+        self.navigationItem.searchController?.isActive = false
+        singleDiscussionSearchView.setResultsPublisher(resultsPublisher: searchControllerDelegate.$searchResults)
+        continuouslyUpdateSearchResults()
+        continuouslyProcessSearchedMessageToScrollTo()
+        
+        // If we don't add a search menu item, we want to use the search bar to display the tip about search
+        if !addSearchItemInMenu {
+            self.viewSavedToDisplayTip = self.searchController.searchBar
+        }
+        
+    }
+
+
+    /// Called when configuring the search controller, this method observes the search results published by the search controller delegate.
+    /// When the results change, we reconfigure the cell corresponding to the previous results (so as to make sure no previously searched word
+    /// is highlighted), we save the results locally (this will be used by the code that reconfigures a cell, to determine if the cell contains the searched word),
+    /// and we reconfigure all the cells displaying a message appearing in the results (so as to highlight the search word).
+    private func continuouslyUpdateSearchResults() {
+        searchControllerDelegate.$searchResults
+            .receive(on: OperationQueue.main)
+            .sink { [weak self] results in
+                guard let self else { return }
+                messagesToReconfigure.formUnion(messagesContainingSearchedText ?? [])
+                messagesContainingSearchedText = results
+                messagesToReconfigure.formUnion(messagesContainingSearchedText ?? [])
+            }
+            .store(in: &cancellables)
+    }
+    
+    
+    
+    /// Called when configuring the search controller, this method observes the "search result to scroll to" published by the search controller delegate.
+    /// When a new value is published, we scroll to the message.
+    private func continuouslyProcessSearchedMessageToScrollTo() {
+        singleDiscussionSearchView.$searchResultToScrollTo
+            .receive(on: OperationQueue.main)
+            .sink { [weak self] messageObjectID in
+                guard let messageObjectID else { return }
+                guard let message = try? PersistedMessage.get(with: messageObjectID, within: ObvStack.shared.viewContext) else { return }
+                self?.scrollTo(message: message)
+            }
+            .store(in: &cancellables)
+    }
+    
+
+    private func configureSearchViewHierarchy() {
+        view.addSubview(singleDiscussionSearchView)
+        singleDiscussionSearchView.translatesAutoresizingMaskIntoConstraints = false
+
+        // The bottom anchor of the search view is pinned to the bottom of the screen. Note that its main content
+        // view is pinned to the top of the keyboard.
+        singleDiscussionSearchView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+
+        NSLayoutConstraint.activate([
+            singleDiscussionSearchView.widthAnchor.constraint(equalTo: view.widthAnchor),
+            singleDiscussionSearchView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+        ])
+    }
+
+    
+    @objc private func searchButtonTapped() {
+        userWantsToStartNewSearch()
+    }
+    
+    
+    /// In practice, this is called by our parent `MainFlowViewController` when the user types the keyboard shortcut for search.
+    override func find(_ sender: Any?) {
+        userWantsToStartNewSearch()
+    }
+    
+    
+    /// In practice, this is called by our parent `MainFlowViewController` when the user types the keyboard shortcut for "Find next".
+    ///
+    /// We pass this information to the `SingleDiscussionSearchView` that centralizes the logic allowing to cycle through the search results.
+    override func findNext(_ sender: Any?) {
+        singleDiscussionSearchView.findNext(sender)
+    }
+    
+    
+    /// In practice, this is called by our parent `MainFlowViewController` when the user types the keyboard shortcut for "Find previous".
+    ///
+    /// We pass this information to the `SingleDiscussionSearchView` that centralizes the logic allowing to cycle through the search results.
+    override func findPrevious(_ sender: Any?) {
+        singleDiscussionSearchView.findPrevious(sender)
+    }
+    
+    
+    private func userWantsToStartNewSearch() {
+        if isUserPerformingSearch { return }
+        isUserPerformingSearch = true
+        self.navigationItem.searchController?.isActive = true
+        configureAcessoryViewVisibility(animate: true)
+    }
+    
+    
+    // Part of the UISearchControllerDelegate protocol. Called when the user hits cancel in the search controller.
+    // In that case, we want to hide the search accessory and show the normal compose view if appropriate.
+    func willDismissSearchController(_ searchController: UISearchController) {
+        isUserPerformingSearch = false
+        configureAcessoryViewVisibility(animate: true)
+        messagesToReconfigure.formUnion(messagesContainingSearchedText ?? [])
+        self.messagesContainingSearchedText = nil
+    }
+    
+    
+    // Part of the UISearchControllerDelegate protocol. Called when the search controller is presented.
+    // We use a trick allowing to make the searchBar become the first responder immediately.
+    func didPresentSearchController(_ searchController: UISearchController) {
+        // Under macOS, there is no search entry in the menu.
+        // The user triggers the search by tapping in the search bar, which triggers a call to this method.
+        // For this reason, we need to call the ``userWantsToStartNewSearch()`` method here.
+        // Under iOS, it will be called twice, which is ok.
+        userWantsToStartNewSearch()
+        DispatchQueue.main.async { [weak self] in
+            self?.searchController.searchBar.becomeFirstResponder()
+        }
+    }
+    
+}
 
 
 // MARK: - NSFetchedResultsControllerDelegate
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     /// Shall only be called from
@@ -1035,7 +1296,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - CellReconfigurator
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     /// Called exactly once, from viewDidLoad
@@ -1080,7 +1340,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - Managing the "new messages" system message
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
 
     /// This method is called once, during init, to compute the initial value of the `objectIDsOfMessagesToConsiderInNewMessagesCell` set.
@@ -1244,7 +1503,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - Marking messages as "not new"
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     private func theUserLeftTheDiscussion() {
@@ -1357,7 +1615,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - UIScrollViewDelegate / Managing automatic scroll to bottom
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     func scrollViewDidEndAutomaticScroll() {
@@ -1447,12 +1704,26 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - UICollectionViewDelegate
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
         markAsNotNewTheMessageInCell(cell)
         visibilityTrackerForSensitiveMessages.refreshObjectIDsOfVisibleMessagesWithLimitedVisibility(in: collectionView)
+        
+        // 2023-01-15 : For some reason, it is important to check here that frc.object(at: indexPath) won't crash.
+        // To do so, we check that the frc is aware of the section/item before getting the object.
+        
+        if let frcSections = frc.sections, indexPath.section < frcSections.count {
+            let sectionInfos = frcSections[indexPath.section]
+            if indexPath.item < sectionInfos.numberOfObjects {
+                let message = frc.object(at: indexPath)
+                // We only try to fetch preview for message received.
+                if let messageReceived = message as? PersistedMessageReceived {
+                    cacheDelegate.requestMissingPreviewIfNeededForMessage(with: messageReceived.typedObjectID)
+                }
+            }
+        }
+        
     }
 
     func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
@@ -1465,7 +1736,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - UIContextMenuConfiguration
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
@@ -1615,6 +1885,7 @@ extension NewSingleDiscussionViewController {
                             viewContext: ObvStack.shared.viewContext,
                             preselectedDiscussions: [],
                             ownedCryptoId: ownedCryptoId,
+                            restrictToActiveDiscussions: true,
                             attachSearchControllerToParent: false,
                             buttonTitle: CommonString.Word.Forward,
                             buttonSystemIcon: .arrowshapeTurnUpForwardFill)
@@ -1786,7 +2057,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - Utils
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     private func simpleScrollToBottom() {
@@ -1800,14 +2070,14 @@ extension NewSingleDiscussionViewController {
         let animationValues = defaultAnimationValues
         guard let collectionView = self.collectionView else { return }
 
-        UIView.animate(withDuration: animationValues.duration, delay: 0.0, options: animationValues.options) {
+        UIViewPropertyAnimator.runningPropertyAnimator(withDuration: animationValues.duration, delay: 0.0, options: animationValues.options) {
             collectionView.adjustedScrollToItem(at: indexPath, at: .centeredVertically, completion: {})
         } completion: { _ in
             UIView.animate(withDuration: animationValues.duration, delay: 0.0, options: animationValues.options) {
                 collectionView.adjustedScrollToItem(at: indexPath, at: .centeredVertically, completion: {})
             } completion: { _ in
                 guard let cell = collectionView.cellForItem(at: indexPath) else { return }
-                UIView.animateKeyframes(withDuration: 0.5, delay: 0.2, options: []) {
+                UIView.animateKeyframes(withDuration: 0.3, delay: 0.1, options: []) {
                     cell.transform = .init(scaleX: 1.1, y: 1.1)
                 } completion: { _ in
                     UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0, options: []) {
@@ -1869,40 +2139,41 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - Adapting the collection view's insets
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
-    /// Called in ``func viewDidLoad()``, this method observe significan layput changes in order to update the collection view's insets.
+    /// Called in ``func viewDidLoad()``, this method observe significant layout changes in order to update the collection view's insets.
     ///
-    /// We combines the latest values of the following three variables:
+    /// We combines the latest values of the following variables:
     /// - The published values of the compostion view ``mainContentViewFrame``.
+    /// - The published values of the search view ``mainContentViewFrame``.
     /// - The published values of ``toggledWhenKeyboardDidHideOrShow``, which is toggled each time the keyboard hides or shows.
-    /// - The published values of the ``currentScrolling`` variable, since we want to prevent the modification of the collection view's insets while scrolling, and postpone these modifications to the time the scrolling is finished. In practice, it is also ok to update the insets when ``isTrackin`` is `false`.
+    /// - The published values of the ``currentScrolling`` variable, since we want to prevent the modification of the collection view's insets while scrolling, and postpone these modifications to the time the scrolling is finished. In practice, it is also ok to update the insets when ``isTracking`` is `false`.
     private func observeKeyboardAndCompositionViewChangesToAdaptCollectionViewsInsets() {
-        cancellables.append(Publishers.CombineLatest3(composeMessageView.$mainContentViewFrame, $toggledWhenKeyboardDidHideOrShow, $currentScrolling)
-            .sink(receiveValue: { [weak self] (currentComposeViewMainContentViewFrame, toggledWhenKeyboardDidHideOrShow, currentScrolling) in
-                self?.adaptCollectionViewInsetsToComposeMessageView(mainContentViewFrame: currentComposeViewMainContentViewFrame)
-            })
-        )
+        Publishers.CombineLatest4(composeMessageView.$mainContentViewFrame, singleDiscussionSearchView.$mainContentViewFrame, $toggledWhenKeyboardDidHideOrShow, $currentScrolling)
+            .sink { [weak self] (currentComposeViewMainContentViewFrame, searchViewFrame, toggledWhenKeyboardDidHideOrShow, currentScrolling) in
+                guard let self else { return }
+                let contentViewFrameHeight: CGFloat
+                switch self.accessoryViewKindShown {
+                case .none: contentViewFrameHeight = 0.0
+                case .messageCompose: contentViewFrameHeight = currentComposeViewMainContentViewFrame.height
+                case .searchBrowsing: contentViewFrameHeight = searchViewFrame.height
+                }
+                self.adaptCollectionViewInsetsToComposeMessageView(contentViewFrameHeight: contentViewFrameHeight)
+            }
+            .store(in: &cancellables)
     }
 
-    
-    private func adaptCollectionViewInsetsToComposeMessageView(mainContentViewFrame: CGRect) {
 
-        guard let composeMessageView, let collectionView else { return }
-        guard !composeMessageView.preventTextViewFromEditing else { return }
+    /// In practice, the `contentViewFrameHeight` corresponds either to the frame of the `mainContentViewFrame` of the compose view or of the search view. It is 0 when no view
+    /// should appear above the keyboard (which happens, e.g., when a discussion is locked).
+    private func adaptCollectionViewInsetsToComposeMessageView(contentViewFrameHeight: CGFloat) {
+
+        guard let collectionView else { return }
+        //guard let composeMessageView, let collectionView else { return }
+        //guard !composeMessageView.preventTextViewFromEditing else { return }
         guard currentScrolling != .manually || !collectionView.isTracking else { return }
 
-        let bottom: CGFloat
-        if composeMessageView.isHidden {
-            bottom = view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom
-        } else {
-            if #available(iOS 15.5, *) {
-                bottom = mainContentViewFrame.height + view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom
-            } else {
-                bottom = mainContentViewFrame.height + myKeyboardLayoutGuideHeightConstraint!.constant - view.safeAreaInsets.bottom
-            }
-        }
+        let bottom = contentViewFrameHeight + view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom
         guard collectionView.contentInset.bottom != bottom else { return }
         
         let currentHeightBelowContent = max(0, collectionView.bounds.height - collectionView.adjustedContentInset.bottom - collectionView.adjustedContentInset.top - collectionView.contentSize.height)
@@ -1943,10 +2214,70 @@ extension NewSingleDiscussionViewController {
 
 }
 
+// MARK: - NewComposeMessageViewDelegate for handling preview links
+
+extension NewSingleDiscussionViewController {
+    
+    func newComposeMessageViewWantsToRemovePreview(_ newComposeMessageView: NewComposeMessageView) {
+        sendUserWantsToRemovePreviewAttachmentsToDraft(draftObjectID: discussion.draft.typedObjectID)
+    }
+
+    /// Called by the ``NewComposeMessageView`` whenever a new link is detected or deleted
+    func newComposeMessageViewHasDetectedLink(_ newComposeMessageView: NewComposeMessageView) {
+
+        if let link = newComposeMessageView.currentHttpsURLDetected {
+            guard previewMetadataInComposeView?.url != link else { return }
+            Task {
+                do {
+                    sendUserWantsToRemovePreviewAttachmentsToDraft(draftObjectID: discussion.draft.typedObjectID)
+                    
+                    guard ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent else { return }
+                    
+                    let previewMetadataProvider = LPMetadataProvider()
+                    let linkMetadataFromProvider = try await previewMetadataProvider.startFetchingMetadata(for: link)
+                    
+                    // We check that the link detected is the one get by the provider to avoid a preview to be fetched after another one. We also check that the compose view is still detecting the current url to avoid adding a preview after a message has been sent.
+                    guard linkMetadataFromProvider.originalURL == newComposeMessageView.currentHttpsURLDetected else {
+                        return
+                    }
+                    
+                    let linkMetadata = await ObvLinkMetadata.from(linkMetadata: linkMetadataFromProvider)
+                    
+                    self.previewMetadataInComposeView = linkMetadata
+                    await sendUserWantsToAddAttachmentstoDraft(draftPermanentID: discussion.draft.objectPermanentID, linkMetadata: linkMetadata)
+                } catch {
+                    sendUserWantsToRemovePreviewAttachmentsToDraft(draftObjectID: discussion.draft.typedObjectID)
+                    previewMetadataInComposeView = nil
+                }
+            }
+        } else {
+            Task {
+                do {
+                    sendUserWantsToRemovePreviewAttachmentsToDraft(draftObjectID: discussion.draft.typedObjectID)
+                    previewMetadataInComposeView = nil
+                }
+            }
+        }
+    }
+    
+    @discardableResult
+    private func sendUserWantsToAddAttachmentstoDraft(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, linkMetadata: ObvLinkMetadata) async -> Bool {
+        await withCheckedContinuation { continuation in
+            let itemProvider = NSItemProvider(item: linkMetadata, typeIdentifier: UTType.olvidLinkPreview.identifier)
+            NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraft(draftPermanentID: draftPermanentID,
+                                                                             itemProviders: [itemProvider]) { success in
+                continuation.resume(returning: success)
+            }.postOnDispatchQueue(self.internalQueue)
+        }
+    }
+    
+    private func sendUserWantsToRemovePreviewAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
+        NewSingleDiscussionNotification.userWantsToDeletePreviewAttachmentsToDraft(draftObjectID: draftObjectID).postOnDispatchQueue(self.internalQueue)
+    }
+}
 
 // MARK: - NewComposeMessageViewDelegate for handling the scroll
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
         
     func newComposeMessageViewShortcutPickerAboveSiblingView(_ newComposeMessageView: NewComposeMessageView) -> UIView {
@@ -1998,7 +2329,6 @@ extension NewSingleDiscussionViewController {
         offset += viewOriginInWindow.y
         
         UIView.animate(withDuration: duration) { [weak self] in
-            self?.myKeyboardLayoutGuideHeightConstraint?.constant = offset
             self?.view.layoutIfNeeded()
         }
     }
@@ -2008,33 +2338,76 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - Compose view visibility
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
 
-    private func configureNewComposeMessageViewVisibility(animate: Bool) {
+    /// Call this method when this view controller changes in a way that potentially requires to change the view that is currently visible above the the keyboard.
+    /// This is for example the case when the user starts a search.
+    private func configureAcessoryViewVisibility(animate: Bool) {
         assert(Thread.isMainThread)
+        
         guard let composeMessageView = self.composeMessageView else { assertionFailure(); return }
-        let shouldHideNewComposeMessageView = self.shouldHideNewComposeMessageView
-        guard composeMessageView.isHidden != shouldHideNewComposeMessageView else { return }
-        composeMessageView.setNeedsLayout()
-        UIView.animate(withDuration: animate ? 0.3 : 0.0) { [weak self] in
-            self?.composeMessageView.isHidden = shouldHideNewComposeMessageView
-        } completion: { [weak self] _ in
-            self?.composeMessageView.layoutIfNeeded()
+
+        let accessoryViewKindToShow = self.accessoryViewKindToShow
+        guard accessoryViewKindShown != accessoryViewKindToShow || !animate else { return }
+        accessoryViewKindShown = accessoryViewKindToShow
+                               
+        if animate {
+            switch accessoryViewKindToShow {
+            case .none:
+                UIViewPropertyAnimator.runningPropertyAnimator(withDuration: 0.3, delay: 0.0) { [weak self] in
+                    self?.composeMessageView.alpha = 0
+                    self?.singleDiscussionSearchView.alpha = 0
+                } completion: { [weak self] _ in
+                    self?.composeMessageView.isHidden = true
+                    self?.singleDiscussionSearchView.isHidden = true
+                }
+            case .messageCompose:
+                composeMessageView.alpha = 0.0
+                composeMessageView.isHidden = false
+                UIViewPropertyAnimator.runningPropertyAnimator(withDuration: 0.3, delay: 0.0) { [weak self] in
+                    self?.composeMessageView.alpha = 1
+                    self?.singleDiscussionSearchView.alpha = 0
+                } completion: { [weak self] _ in
+                    self?.singleDiscussionSearchView.isHidden = true
+                }
+            case .searchBrowsing:
+                singleDiscussionSearchView.alpha = 0.0
+                singleDiscussionSearchView.isHidden = false
+                UIViewPropertyAnimator.runningPropertyAnimator(withDuration: 0.3, delay: 0.0) { [weak self] in
+                    self?.composeMessageView.alpha = 0
+                    self?.singleDiscussionSearchView.alpha = 1
+                } completion: { [weak self] _ in
+                    self?.composeMessageView.isHidden = true
+                }
+            }
+        } else {
+            self.composeMessageView.isHidden = (accessoryViewKindToShow != .messageCompose)
+            self.singleDiscussionSearchView.isHidden = (accessoryViewKindToShow != .searchBrowsing)
         }
+        
     }
  
     
-    private var shouldHideNewComposeMessageView: Bool {
+    private enum AccessoryViewKind {
+        case none
+        case messageCompose
+        case searchBrowsing
+    }
+    
+    
+    private var accessoryViewKindToShow: AccessoryViewKind {
         assert(Thread.isMainThread)
+        if isUserPerformingSearch {
+            return .searchBrowsing
+        }
         do {
             guard let discussion = try PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else {
-                return true
+                return .none
             }
             // We do not show the compose view for locked discussions
             switch discussion.status {
             case .preDiscussion, .locked:
-                return true
+                return .none
             case .active:
                 break
             }
@@ -2042,26 +2415,26 @@ extension NewSingleDiscussionViewController {
             case .oneToOne(withContactIdentity: let contactIdentity):
                 // We do not show the compose view for a one-to-one discussion with a contact s.t. isActive == false
                 if contactIdentity?.isActive != true {
-                    return true
+                    return .none
                 }
             case .groupV1(withContactGroup: let contactGroup):
                 // We do no not show the compose view if we have no one to write to in a group discussion
-                guard let contactGroup = contactGroup else { assertionFailure(); return true }
+                guard let contactGroup = contactGroup else { assertionFailure(); return .none }
                 if !contactGroup.hasAtLeastOneRemoteContactDevice() {
-                    return true
+                    return .none
                 }
             case .groupV2(withGroup: let group):
                 // We allow the owned identity to write in a group v2 even if there is noone to write to.
-                guard let group = group else { assertionFailure(); return true }
-                guard group.ownedIdentityIsAllowedToSendMessage else { return true }
+                guard let group = group else { assertionFailure(); return .none }
+                guard group.ownedIdentityIsAllowedToSendMessage else { return .none }
             case .none:
                 assertionFailure()
             }
         } catch {
             assertionFailure(error.localizedDescription)
-            return true
+            return .none
         }
-        return false
+        return .messageCompose
     }
 
 }
@@ -2070,7 +2443,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - Localization
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     struct Strings {
@@ -2119,7 +2491,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - Tapping on cells, UIGestureRecognizerDelegate and TextBubbleDelegate
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     private func observeTapsOnCollectionView() {
@@ -2172,6 +2543,8 @@ extension NewSingleDiscussionViewController {
         guard let tappedStuff = viewWithTappableStuff.tappedStuff(tapGestureRecognizer: tapGestureRecognizer) else { return }
         switch tappedStuff {
             
+        case let .openLink(url: url):
+            Task { await UIApplication.shared.userSelectedURL(url, within: self) }
         case .behaveAsIfTheDiscussionTitleWasTapped:
             titleViewWasTapped()
             
@@ -2350,7 +2723,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - ViewShowingHardLinksDelegate / CustomQLPreviewControllerDelegate / Previewing attachments
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     func userDidTapOnDraftFyleJoinWithHardLink(at indexPath: IndexPath) {
@@ -2456,25 +2828,30 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - UICollectionViewDataSourcePrefetching
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     func collectionView(_ collectionView: UICollectionView, prefetchItemsAt indexPaths: [IndexPath]) {
         for indexPath in indexPaths {
             let message = frc.object(at: indexPath)
             guard message is PersistedMessageSent || message is PersistedMessageReceived else { continue }
-            cacheDelegate.requestAllHardlinksForMessage(with: message.typedObjectID, completionWhenHardlinksCached: { _ in })
+            cacheDelegate.requestAllRelevantHardlinksForMessage(with: message.typedObjectID, completionWhenHardlinksCached: { _ in })
             if let text = message.textBodyToSend {
                 cacheDelegate.requestDataDetection(text: text, completionWhenDataDetectionCached: { _ in })
             }
+            
+            // We only try to fetch preview for message received.
+            if let messageReceived = message as? PersistedMessageReceived {
+                cacheDelegate.requestMissingPreviewIfNeededForMessage(with: messageReceived.typedObjectID)
+            }
         }
     }
+    
+    
     
 }
 
 // MARK: - AudioPlayerViewDelegate
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController: AudioPlayerViewDelegate {
 
     func audioHasBeenPlayed(_ hardlink: HardLinkToFyle) {
@@ -2498,7 +2875,6 @@ extension NewSingleDiscussionViewController {
 
 // MARK: - Mentions Reconfigure Mention Cells
 
-@available(iOS 15.0, *)
 private extension NewSingleDiscussionViewController {
     func observeNicknameChanges() {
         observationTokens.append(ObvMessengerCoreDataNotification.observePersistedContactHasNewCustomDisplayName { [weak self] _ in
@@ -2520,7 +2896,6 @@ private extension NewSingleDiscussionViewController {
 
 // MARK: - NewComposeMessageViewDatasource
 
-@available(iOS 15.0, *)
 extension NewSingleDiscussionViewController {
     
     func newComposeMessageView(_ newComposeMessageView: NewComposeMessageView, itemsForTextShortcut shortcut: NewComposeMessageViewTypes.TextShortcut, text: String) -> [NewComposeMessageViewTypes.TextShortcutItem] {
@@ -2631,7 +3006,7 @@ extension NewSingleDiscussionViewController: NewDiscussionsSelectionViewControll
 
 
 // MARK: - DiscussionsSelectionViewControllerDelegate
-@available(iOS 15.0, *)
+
 extension NewSingleDiscussionViewController: DiscussionsSelectionViewControllerDelegate {
     
     func userAcceptedlistOfSelectedDiscussions(_ listOfSelectedDiscussions: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>, in discussionsSelectionViewController: UIViewController) {
@@ -2670,7 +3045,7 @@ extension NewSingleDiscussionViewController {
         
         let itemProviders = coordinator.items.map(\.dragItem.itemProvider)
         Task {
-            await composeMessageView.addAttachments(from: itemProviders, attachAllItems: true)
+            await composeMessageView.addAttachments(from: itemProviders, attachTextItems: true)
         }
 
     }

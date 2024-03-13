@@ -113,6 +113,21 @@ extension PersistedDraftFyleJoin {
         static func withPersistedDraft(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSPredicate {
             NSPredicate(Key.draft, equalToObjectWithObjectID: objectID.objectID)
         }
+        
+        static func withPersistedDraftWithoutPreviews(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSPredicate {
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(Key.draft, equalToObjectWithObjectID: objectID.objectID),
+                NSPredicate(Key.uti, NotEqualToString: UTType.olvidPreviewUti)
+            ])
+        }
+        
+        static func withPersistedDraftOnlyPreviews(withObjectID objectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSPredicate {
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(Key.draft, equalToObjectWithObjectID: objectID.objectID),
+                NSPredicate(Key.uti, EqualToString: UTType.olvidPreviewUti)
+            ])
+        }
+        
         static func withFyle(_ fyle: Fyle) -> NSPredicate {
             NSPredicate(Key.fyle, equalTo: fyle)
         }
@@ -182,12 +197,19 @@ extension PersistedDraftFyleJoin {
         try context.execute(deleteRequest)
     }
     
+    public static func getFetchRequestForPreviewAttachments(withObjectID draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) -> NSFetchRequest<PersistedDraftFyleJoin> {
+        let fetchRequest: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.index.rawValue, ascending: false)]
+        fetchRequest.fetchBatchSize = 50
+        fetchRequest.predicate = Predicate.withPersistedDraftOnlyPreviews(withObjectID: draftObjectID)
+        return fetchRequest
+    }
     
     public static func getFetchedResultsControllerForAllDraftFyleJoinsOfDraft(withObjectID draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedDraftFyleJoin> {
         let fetchRequest: NSFetchRequest<PersistedDraftFyleJoin> = PersistedDraftFyleJoin.fetchRequest()
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.index.rawValue, ascending: false)]
         fetchRequest.fetchBatchSize = 50
-        fetchRequest.predicate = Predicate.withPersistedDraft(withObjectID: draftObjectID)
+        fetchRequest.predicate = Predicate.withPersistedDraftWithoutPreviews(withObjectID: draftObjectID)
         let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
                                                                   managedObjectContext: context,
                                                                   sectionNameKeyPath: nil,

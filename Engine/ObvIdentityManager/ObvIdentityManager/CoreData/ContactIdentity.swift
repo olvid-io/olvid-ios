@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -727,8 +727,11 @@ extension ContactIdentity {
 
 extension ContactIdentity {
     
-    func setIsOneToOne(to newIsOneToOne: Bool) {
-        self.isOneToOne = newIsOneToOne
+    func setIsOneToOne(to newIsOneToOne: Bool, reasonToLog: String) {
+        if self.isOneToOne != newIsOneToOne {
+            ObvDisplayableLogs.shared.log("[🫂][ContactIdentity] Setting OneToOne to \(newIsOneToOne): \(reasonToLog)")
+            self.isOneToOne = newIsOneToOne
+        }
     }
     
 }
@@ -929,8 +932,8 @@ extension ContactIdentity {
 
             do {
                 os_log("Sending a ContactIdentityIsNowTrusted notification", log: log, type: .debug)
-                let notification = ObvIdentityNotificationNew.contactIdentityIsNowTrusted(contactIdentity: cryptoIdentity, ownedIdentity: ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
-                notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                ObvIdentityNotificationNew.contactIdentityIsNowTrusted(contactIdentity: cryptoIdentity, ownedIdentity: ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
             
             ObvIdentityNotificationNew.contactTrustLevelWasIncreased(
@@ -939,28 +942,30 @@ extension ContactIdentity {
                 trustLevelOfContactIdentity: self.trustLevel,
                 isOneToOne: self.isOneToOne,
                 flowId: flowId)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
 
             ObvIdentityNotificationNew.contactIdentityOneToOneStatusChanged(
                 ownedIdentity: ownedIdentity.cryptoIdentity,
                 contactIdentity: cryptoIdentity,
                 flowId: flowId)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
 
         } else if isDeleted, let ownedIdentityCryptoIdentityOnDeletion, let rawIdentityOnDeletion, let cryptoIdentity = ObvCryptoIdentity(from: rawIdentityOnDeletion) {
                         
             os_log("Sending a ContactWasDeleted notification", log: log, type: .debug)
             ObvIdentityNotificationNew.contactWasDeleted(ownedCryptoIdentity: ownedIdentityCryptoIdentityOnDeletion,
                                                          contactCryptoIdentity: cryptoIdentity)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
-            
+            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+
         } else if let ownedIdentity, let cryptoIdentity {
                         
             if !changedKeys.isEmpty {
                 
-                ObvIdentityNotificationNew.contactWasUpdatedWithinTheIdentityManager(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: cryptoIdentity, flowId: flowId)
-                    .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                ObvDisplayableLogs.shared.log("[ContactIdentity] Will send contactWasUpdatedWithinTheIdentityManager notification as changedKeys = \(changedKeys)")
                 
+                ObvIdentityNotificationNew.contactWasUpdatedWithinTheIdentityManager(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: cryptoIdentity, flowId: flowId)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+
             }
             
             if changedKeys.contains(Predicate.Key.isForcefullyTrustedByUser.rawValue) || changedKeys.contains(Predicate.Key.isRevokedAsCompromised.rawValue) {
@@ -970,8 +975,8 @@ extension ContactIdentity {
                     contactIdentity: cryptoIdentity,
                     isActive: isActive,
                     flowId: flowId)
-                    .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
-                
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+
             }
             
             if changedKeys.contains(Predicate.Key.isRevokedAsCompromised.rawValue) && self.isRevokedAsCompromised {
@@ -980,8 +985,8 @@ extension ContactIdentity {
                     ownedIdentity: ownedIdentity.cryptoIdentity,
                     contactIdentity: cryptoIdentity,
                     flowId: flowId)
-                    .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
-                
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+
             }
             
             if changedKeys.contains(Predicate.Key.isOneToOne.rawValue) {
@@ -990,7 +995,7 @@ extension ContactIdentity {
                     ownedIdentity: ownedIdentity.cryptoIdentity,
                     contactIdentity: cryptoIdentity,
                     flowId: flowId)
-                    .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
 
             }
             
@@ -1000,7 +1005,7 @@ extension ContactIdentity {
                     ownedIdentity: ownedIdentity.cryptoIdentity,
                     contactIdentity: cryptoIdentity,
                     newIsCertifiedByOwnKeycloak: isCertifiedByOwnKeycloak)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
 
             }
             
@@ -1014,8 +1019,8 @@ extension ContactIdentity {
                 trustLevelOfContactIdentity: self.trustLevel,
                 isOneToOne: self.isOneToOne,
                 flowId: flowId)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
-            
+            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+
             trustLevelWasIncreased = false
             
         }

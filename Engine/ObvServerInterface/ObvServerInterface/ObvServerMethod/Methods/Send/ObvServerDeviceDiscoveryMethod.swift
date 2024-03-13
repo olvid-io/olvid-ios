@@ -45,23 +45,28 @@ public final class ObvServerDeviceDiscoveryMethod: ObvServerDataMethod {
         self.toIdentity = toIdentity
     }
     
-    public enum PossibleReturnStatus: UInt8 {
+    public enum PossibleReturnRawStatus: UInt8 {
         case ok = 0x00
         case generalError = 0xff
     }
-    
+
+    public enum PossibleReturnStatus {
+        case ok(deviceUids: [UID])
+        case generalError
+    }
+
     lazy public var dataToSend: Data? = {
         return [self.toIdentity].obvEncode().rawData
     }()
     
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, [UID]?)? {
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {
         
         guard let (rawServerReturnedStatus, listOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .error)
             return nil
         }
         
-        guard let serverReturnedStatus = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else {
+        guard let serverReturnedStatus = PossibleReturnRawStatus(rawValue: rawServerReturnedStatus) else {
             os_log("The returned server status is invalid", log: log, type: .error)
             return nil
         }
@@ -88,11 +93,11 @@ public final class ObvServerDeviceDiscoveryMethod: ObvServerDataMethod {
                 deviceUids.append(uid)
             }
             os_log("We received a list of %d device uids from the server", log: log, type: .debug, deviceUids.count)
-            return (serverReturnedStatus, deviceUids)
+            return .ok(deviceUids: deviceUids)
             
         case .generalError:
             os_log("The server reported a general error", log: log, type: .error)
-            return (serverReturnedStatus, nil)
+            return .generalError
             
         }
         

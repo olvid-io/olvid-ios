@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -132,6 +132,9 @@ public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identi
         return groupV2.keycloakManaged
     }
     
+    /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
+    private var isInsertedWhileRestoringSyncSnapshot = false
+
     // Initializer
     
     convenience init(groupV1: PersistedContactGroup) throws {
@@ -176,6 +179,7 @@ public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identi
         let newSectionName: String?
         let newPublishedDetailsStatus: PublishedDetailsStatusType
         let newUpdateInProgress: Bool
+        let newIsInsertedWhileRestoringSyncSnapshot: Bool
         if let groupV1 = groupV1 {
             newNormalizedSearchKey = Self.normalizedSearchKeyFromGroupV1(groupV1)
             newNormalizedSortKey = Self.normalizedSortKeyFromGroupV1(groupV1)
@@ -186,6 +190,7 @@ public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identi
             newTitle = Self.titleFromGroupV1(groupV1)
             newPublishedDetailsStatus = Self.publishedDetailsStatusFromGroupV1(groupV1)
             newUpdateInProgress = false
+            newIsInsertedWhileRestoringSyncSnapshot = groupV1.isInsertedWhileRestoringSyncSnapshot
         } else if let groupV2 = groupV2 {
             newNormalizedSearchKey = Self.normalizedSearchKeyFromGroupV2(groupV2)
             newNormalizedSortKey = Self.normalizedSortKeyFromGroupV2(groupV2)
@@ -196,6 +201,7 @@ public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identi
             newTitle = Self.titleFromGroupV2(groupV2)
             newPublishedDetailsStatus = Self.publishedDetailsStatusFromGroupV2(groupV2)
             newUpdateInProgress = groupV2.updateInProgress
+            newIsInsertedWhileRestoringSyncSnapshot = groupV2.isInsertedWhileRestoringSyncSnapshot
         } else {
             assertionFailure()
             return
@@ -233,6 +239,9 @@ public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identi
         }
         if self.updateInProgress != newUpdateInProgress {
             self.updateInProgress = newUpdateInProgress
+        }
+        if self.isInsertedWhileRestoringSyncSnapshot != newIsInsertedWhileRestoringSyncSnapshot {
+            self.isInsertedWhileRestoringSyncSnapshot = newIsInsertedWhileRestoringSyncSnapshot
         }
     }
     
@@ -506,6 +515,17 @@ public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identi
     public override func didSave() {
         super.didSave()
         
+        defer {
+            isInsertedWhileRestoringSyncSnapshot = false
+        }
+        
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: Self.self))
+            os_log("Insertion of a DisplayedContactGroup during a snapshot restore --> we don't send any notification", log: log, type: .info)
+            return
+        }
+
         if isInserted {
             ObvMessengerCoreDataNotification.displayedContactGroupWasJustCreated(permanentID: self.objectPermanentID)
                 .postOnDispatchQueue()

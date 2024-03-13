@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,16 +27,19 @@ import OlvidUtils
 import ObvTypes
 import ObvUICoreData
 import ObvSettings
+import LinkPresentation
 
 
-final class PersistedDiscussionsUpdatesCoordinator {
+final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator {
     
-    private let obvEngine: ObvEngine
-    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: PersistedDiscussionsUpdatesCoordinator.self))
+    let obvEngine: ObvEngine
+    static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: PersistedDiscussionsUpdatesCoordinator.self))
     private var observationTokens = [NSObjectProtocol]()
     private var kvoTokens = [NSKeyValueObservation]()
-    private let coordinatorsQueue: OperationQueue
-    private let queueForComposedOperations: OperationQueue
+    let coordinatorsQueue: OperationQueue
+    let queueForComposedOperations: OperationQueue
+    let queueForSyncHintsComputationOperation: OperationQueue
+    private let queueForOperationsMakingEngineCalls: OperationQueue
     private let queueForDispatchingOffTheMainThread = DispatchQueue(label: "PersistedDiscussionsUpdatesCoordinator internal queue for dispatching off the main thread")
     private let internalQueueForAttachmentsProgresses = OperationQueue.createSerialQueue(name: "Internal queue for progresses", qualityOfService: .default)
     private let queueForLongRunningConcurrentOperations: OperationQueue = {
@@ -51,10 +54,12 @@ final class PersistedDiscussionsUpdatesCoordinator {
     private var screenCaptureDetector: ScreenCaptureDetector?
     weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
 
-    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue, messagesKeptForLaterManager: MessagesKeptForLaterManager) {
+    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue, queueForOperationsMakingEngineCalls: OperationQueue, queueForSyncHintsComputationOperation: OperationQueue, messagesKeptForLaterManager: MessagesKeptForLaterManager) {
         self.obvEngine = obvEngine
         self.coordinatorsQueue = coordinatorsQueue
         self.queueForComposedOperations = queueForComposedOperations
+        self.queueForOperationsMakingEngineCalls = queueForOperationsMakingEngineCalls
+        self.queueForSyncHintsComputationOperation = queueForSyncHintsComputationOperation
         self.messagesKeptForLaterManager = messagesKeptForLaterManager
         listenToNotifications()
         Task {
@@ -185,7 +190,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
         
         observationTokens.append(contentsOf: [
             ObvMessengerCoreDataNotification.observeNewDraftToSend() { [weak self] draftPermanentID in
-                self?.processNewDraftToSendNotification(draftPermanentID: draftPermanentID)
+                Task { [weak self] in await self?.processNewDraftToSendNotification(draftPermanentID: draftPermanentID) }
             },
             ObvMessengerCoreDataNotification.observeASecureChannelWithContactDeviceWasJustCreated { [weak self] contactDeviceObjectID in
                 self?.sendAppropriateDiscussionSharedConfigurationsToContact(input: .contactDevice(contactDeviceObjectID: contactDeviceObjectID), sendSharedConfigOfOneToOneDiscussion: true)
@@ -195,7 +200,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
                 self?.processPersistedContactGroupHasUpdatedContactIdentitiesNotification(persistedContactGroupObjectID: persistedContactGroupObjectID, insertedContacts: insertedContacts, removedContacts: removedContacts)
             },
             ObvMessengerCoreDataNotification.observePersistedMessageReceivedWasDeleted() { [weak self] (_, messageIdentifierFromEngine, ownedCryptoId, _, _) in
-                self?.processPersistedMessageReceivedWasDeletedNotification(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
+                Task { [weak self] in await self?.processPersistedMessageReceivedWasDeletedNotification(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId) }
             },
             ObvMessengerCoreDataNotification.observePersistedMessageReceivedWasRead { (persistedMessageReceivedObjectID) in
                 Task { [weak self] in await self?.processPersistedMessageReceivedWasReadNotification(persistedMessageReceivedObjectID: persistedMessageReceivedObjectID) }
@@ -237,13 +242,13 @@ final class PersistedDiscussionsUpdatesCoordinator {
         
         observationTokens.append(contentsOf: [
             ObvMessengerInternalNotification.observeUserRequestedDeletionOfPersistedMessage() { [weak self] (ownedCryptoId, persistedMessageObjectID, deletionType) in
-                self?.processUserRequestedDeletionOfPersistedMessageNotification(ownedCryptoId: ownedCryptoId, persistedMessageObjectID: persistedMessageObjectID, deletionType: deletionType)
+                Task { [weak self] in await self?.processUserRequestedDeletionOfPersistedMessageNotification(ownedCryptoId: ownedCryptoId, persistedMessageObjectID: persistedMessageObjectID, deletionType: deletionType) }
             },
             ObvMessengerInternalNotification.observeUserRequestedDeletionOfPersistedDiscussion() { [weak self] (ownedCryptoId, discussionObjectID, deletionType, completionHandler) in
                 self?.processUserRequestedDeletionOfPersistedDiscussion(ownedCryptoId: ownedCryptoId, discussionObjectID: discussionObjectID, deletionType: deletionType, completionHandler: completionHandler)
             },
             ObvMessengerInternalNotification.observeUserWantsToReadReceivedMessageThatRequiresUserAction { [weak self] (ownedCryptoId, discussionId, messageId) in
-                self?.processUserWantsToReadReceivedMessageThatRequiresUserActionNotification(ownedCryptoId: ownedCryptoId, discussionId: discussionId, messageId: messageId)
+                Task { [weak self] in await self?.processUserWantsToReadReceivedMessageThatRequiresUserActionNotification(ownedCryptoId: ownedCryptoId, discussionId: discussionId, messageId: messageId) }
             },
             ObvMessengerInternalNotification.observeUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration { [weak self] ownedCryptoId, discussionId, expirationJSON in
                 self?.processUserWantsToSetAndShareNewDiscussionSharedExpirationConfiguration(ownedCryptoId: ownedCryptoId, discussionId: discussionId, expirationJSON: expirationJSON)
@@ -258,7 +263,15 @@ final class PersistedDiscussionsUpdatesCoordinator {
                 self?.processUserWantsToSendEditedVersionOfSentMessage(ownedCryptoId: ownedCryptoId, sentMessageObjectID: sentMessageObjectID, newTextBody: newTextBody)
             },
             ObvMessengerInternalNotification.observeUserWantsToMarkAllMessagesAsNotNewWithinDiscussion { [weak self] (persistedDiscussionObjectID, completionHandler) in
-                self?.processUserWantsToMarkAllMessagesAsNotNewWithinDiscussionNotification(persistedDiscussionObjectID: persistedDiscussionObjectID, completionHandler: completionHandler)
+                Task { [weak self] in
+                    guard let self else { completionHandler(false); return }
+                    do {
+                        try await processUserWantsToMarkAllMessagesAsNotNewWithinDiscussionNotification(persistedDiscussionObjectID: persistedDiscussionObjectID)
+                        DispatchQueue.main.async { completionHandler(true) }
+                    } catch {
+                        DispatchQueue.main.async { completionHandler(false) }
+                    }
+                }
             },
             ObvMessengerInternalNotification.observeUserWantsToRemoveDraftFyleJoin { [weak self] (draftFyleJoinObjectID) in
                 self?.processUserWantsToRemoveDraftFyleJoinNotification(draftFyleJoinObjectID: draftFyleJoinObjectID)
@@ -317,7 +330,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
 
         observationTokens.append(contentsOf: [
             ObvMessengerInternalNotification.observeMessagesAreNotNewAnymore() { [weak self] (ownedCryptoId, discussionId, messageIds) in
-                self?.processMessagesAreNotNewAnymore(ownedCryptoId: ownedCryptoId, discussionId: discussionId, messageIds: messageIds)
+                Task { [weak self] in await self?.processMessagesAreNotNewAnymore(ownedCryptoId: ownedCryptoId, discussionId: discussionId, messageIds: messageIds) }
             },
             ObvMessengerInternalNotification.observeNewCallLogItem() { [weak self] objectID in
                 self?.processNewCallLogItemNotification(objectID: objectID)
@@ -330,7 +343,7 @@ final class PersistedDiscussionsUpdatesCoordinator {
                     self?.userLeftDiscussion(discussionPermanentID: previousDiscussionPermanentID)
                 }
                 if let currentDiscussionPermanentID = currentUserActivity.discussionPermanentID, currentDiscussionPermanentID != previousUserActivity.discussionPermanentID {
-                    self?.userEnteredDiscussion(discussionPermanentID: currentDiscussionPermanentID)
+                    Task { [weak self] in await self?.userEnteredDiscussion(discussionPermanentID: currentDiscussionPermanentID) }
                 }
             },
             ObvMessengerInternalNotification.observeADiscussionSharedConfigurationIsNeededByContact { [weak self] contactIdentifier, discussionId in
@@ -394,6 +407,12 @@ final class PersistedDiscussionsUpdatesCoordinator {
             NewSingleDiscussionNotification.observeUserWantsToDeleteAllAttachmentsToDraft { [weak self] draftObjectID in
                 self?.processUserWantsToDeleteAllAttachmentsToDraft(draftObjectID: draftObjectID)
             },
+            NewSingleDiscussionNotification.observeUserWantsToDeletePreviewAttachmentsToDraft { [weak self] draftObjectID in
+                self?.processUserWantsToDeleteAllAttachmentsToDraft(draftObjectID: draftObjectID, draftTypeToDelete: .preview)
+            },
+            NewSingleDiscussionNotification.observeUserWantsToDeleteNotPreviewAttachmentsToDraft { [weak self] draftObjectID in
+                self?.processUserWantsToDeleteAllAttachmentsToDraft(draftObjectID: draftObjectID, draftTypeToDelete: .notPreview)
+            },
             NewSingleDiscussionNotification.observeUserWantsToSendDraft { [weak self] draftPermanentID, textBody, mentions in
                 self?.processUserWantsToSendDraft(draftPermanentID: draftPermanentID, textBody: textBody, mentions: mentions)
             },
@@ -411,11 +430,11 @@ final class PersistedDiscussionsUpdatesCoordinator {
         // ObvEngineNotificationNew Notifications
         
         observationTokens.append(contentsOf: [
-            ObvEngineNotificationNew.observeNewMessageReceived(within: NotificationCenter.default) { [weak self] (obvMessage, completionHandler) in
-                Task { [weak self] in await self?.processNewMessageReceivedNotification(obvMessage: obvMessage, completionHandler: completionHandler) }
+            ObvEngineNotificationNew.observeNewMessageReceived(within: NotificationCenter.default) { [weak self] obvMessage in
+                Task { [weak self] in await self?.processNewMessageReceivedNotification(obvMessage: obvMessage) }
             },
-            ObvEngineNotificationNew.observeNewOwnedMessageReceived(within: NotificationCenter.default) { [weak self] (obvOwnedMessage, completionHandler) in
-                Task { [weak self] in await self?.processNewOwnedMessageReceivedNotification(obvOwnedMessage: obvOwnedMessage, completionHandler: completionHandler) }
+            ObvEngineNotificationNew.observeNewOwnedMessageReceived(within: NotificationCenter.default) { [weak self] obvOwnedMessage in
+                Task { [weak self] in await self?.processNewOwnedMessageReceivedNotification(obvOwnedMessage: obvOwnedMessage) }
             },
             ObvEngineNotificationNew.observeMessageWasAcknowledged(within: NotificationCenter.default) { [weak self] (ownedIdentity, messageIdentifierFromEngine, timestampFromServer, isAppMessageWithUserContent, isVoipMessage) in
                 self?.processMessageWasAcknowledgedNotification(ownedIdentity: ownedIdentity, messageIdentifierFromEngine: messageIdentifierFromEngine, timestampFromServer: timestampFromServer, isAppMessageWithUserContent: isAppMessageWithUserContent, isVoipMessage: isVoipMessage)
@@ -424,19 +443,20 @@ final class PersistedDiscussionsUpdatesCoordinator {
                 self?.processAttachmentWasAcknowledgedByServerNotification(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
             },
             ObvEngineNotificationNew.observeAttachmentDownloadCancelledByServer(within: NotificationCenter.default) { [weak self] (obvAttachment) in
-                self?.processAttachmentDownloadCancelledByServerNotification(obvAttachment: obvAttachment)
+                Task { [weak self] in await self?.processAttachmentDownloadCancelledByServerNotification(obvAttachment: obvAttachment) }
             },
             ObvEngineNotificationNew.observeOwnedAttachmentDownloadCancelledByServer(within: NotificationCenter.default) { [weak self] obvOwnedAttachment in
-                self?.processOwnedAttachmentDownloadCancelledByServerNotification(obvOwnedAttachment: obvOwnedAttachment)
+                Task { [weak self] in await self?.processOwnedAttachmentDownloadCancelledByServerNotification(obvOwnedAttachment: obvOwnedAttachment) }
             },
             ObvEngineNotificationNew.observeCannotReturnAnyProgressForMessageAttachments(within: NotificationCenter.default) { [weak self] ownedCryptoId, messageIdentifierFromEngine in
                 self?.processCannotReturnAnyProgressForMessageAttachmentsNotification(ownedCryptoId: ownedCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine)
             },
             ObvEngineNotificationNew.observeAttachmentDownloaded(within: NotificationCenter.default) { [weak self] (obvAttachment) in
-                self?.processAttachmentDownloadedNotification(obvAttachment: obvAttachment)
+                Task { [weak self] in await self?.processAttachmentDownloadedNotification(obvAttachment: obvAttachment) }
+                
             },
             ObvEngineNotificationNew.observeOwnedAttachmentDownloaded(within: NotificationCenter.default) { [weak self] (obvOwnedAttachment) in
-                self?.processOwnedAttachmentDownloadedNotification(obvOwnedAttachment: obvOwnedAttachment)
+                Task { [weak self] in await self?.processOwnedAttachmentDownloadedNotification(obvOwnedAttachment: obvOwnedAttachment) }
             },
             ObvEngineNotificationNew.observeAttachmentDownloadWasResumed(within: NotificationCenter.default) { [weak self] ownCryptoId, messageIdentifierFromEngine, attachmentNumber in
                 self?.processAttachmentDownloadWasResumed(ownedCryptoId: ownCryptoId, messageIdentifierFromEngine: messageIdentifierFromEngine, attachmentNumber: attachmentNumber)
@@ -666,12 +686,18 @@ extension PersistedDiscussionsUpdatesCoordinator {
         self.coordinatorsQueue.addOperation(composedOp)
     }
     
-    
+
     private func synchronizeDiscussionsIllustrativeMessageAndRefreshNumberOfNewMessages() {
-        let op1 = SynchronizeDiscussionsIllustrativeMessageOperation()
-        let op2 = RefreshNumberOfNewMessagesForAllDiscussionsOperation()
-        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
-        self.coordinatorsQueue.addOperation(composedOp)
+        do {
+            let op1 = SynchronizeDiscussionsIllustrativeMessageOperation()
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            self.coordinatorsQueue.addOperation(composedOp)
+        }
+        do {
+            let op1 = RefreshNumberOfNewMessagesForAllDiscussionsOperation()
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            self.coordinatorsQueue.addOperation(composedOp)
+        }
     }
     
     
@@ -751,7 +777,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     /// When receiving a `NewDraftToSend` notification, we turn the draft into a `PersistedMessageSent`, reset the draft, and save the context.
     /// If this succeeds, we send the new (unprocessed)  `PersistedMessageSent`.
-    private func processNewDraftToSendNotification(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
+    private func processNewDraftToSendNotification(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) async {
         assert(OperationQueue.current != coordinatorsQueue)
         assert(!Thread.isMainThread)
         let op1 = CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation(draftPermanentID: draftPermanentID)
@@ -762,22 +788,23 @@ extension PersistedDiscussionsUpdatesCoordinator {
                                                                obvEngine: obvEngine)
         let op4 = MarkAllMessagesAsNotNewWithinDiscussionOperation(input: .draftPermanentID(draftPermanentID: draftPermanentID))
         let composedOp1 = createCompositionOfFourContextualOperation(op1: op1, op2: op2, op3: op3, op4: op4)
-        coordinatorsQueue.addOperation(composedOp1)
-        coordinatorsQueue.addOperation {
-            guard !composedOp1.isCancelled else {
-                NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
-                    .postOnDispatchQueue()
-                assertionFailure()
-                return
-            }
+        await coordinatorsQueue.addAndAwaitOperation(composedOp1)
+        
+        guard composedOp1.isFinished && !composedOp1.isCancelled else {
+            assertionFailure()
+            NewSingleDiscussionNotification.draftCouldNotBeSent(draftPermanentID: draftPermanentID)
+                .postOnDispatchQueue()
+            return
         }
+        
         // Notify other owned devices about messages that turned not new
-        do {
+
+        if op4.ownedIdentityHasAnotherDeviceWithChannel {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op4, obvEngine: obvEngine)
-            let composedOp2 = createCompositionOfOneContextualOperation(op1: postOp)
-            composedOp2.addDependency(composedOp1)
-            coordinatorsQueue.addOperation(composedOp2)
+            postOp.addDependency(composedOp1)
+            queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
+        
     }
     
     
@@ -971,9 +998,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     
     /// When notified that a `PersistedMessageReceived` has been deleted, we cancel any potential download within the engine
-    private func processPersistedMessageReceivedWasDeletedNotification(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId) {
+    private func processPersistedMessageReceivedWasDeletedNotification(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId) async {
         do {
-            try obvEngine.cancelDownloadOfMessage(withIdentifier: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId)
+            try await obvEngine.cancelDownloadOfMessage(ownedCryptoId: ownedCryptoId, messageIdentifier: messageIdentifierFromEngine)
         } catch {
             os_log("Could not cancel the download of a message that we just deleted from the app", log: Self.log, type: .fault)
             assertionFailure()
@@ -982,9 +1009,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
 
-    private func processUserRequestedDeletionOfPersistedMessageNotification(ownedCryptoId: ObvCryptoId, persistedMessageObjectID: NSManagedObjectID, deletionType: DeletionType) {
+    /// Called when the user requests the local or global deletion of a message.
+    private func processUserRequestedDeletionOfPersistedMessageNotification(ownedCryptoId: ObvCryptoId, persistedMessageObjectID: NSManagedObjectID, deletionType: DeletionType) async {
         
-        var operationsToQueue = [Operation]()
+        var operationsToQueue = [OperationKind]()
         
         switch deletionType {
         case .local:
@@ -992,16 +1020,23 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case .global:
             let op = SendGlobalDeleteMessagesJSONOperation(persistedMessageObjectIDs: [persistedMessageObjectID], obvEngine: obvEngine)
             op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
-            operationsToQueue.append(op)
+            operationsToQueue.append(.engineCall(op: op))
         }
         
         do {
-            let op1 = CancelUploadOrDownloadOfPersistedMessagesOperation(input: .messages(persistedMessageObjectIDs: [persistedMessageObjectID]), obvEngine: obvEngine)
-            let op2 = DeletePersistedMessagesOperation(persistedMessageObjectIDs: Set([persistedMessageObjectID]), ownedCryptoId: ownedCryptoId, deletionType: deletionType)
-            let op3 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
-            let op4 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
-            let composedOp = createCompositionOfFourContextualOperation(op1: op1, op2: op2, op3: op3, op4: op4)
-            operationsToQueue.append(composedOp)
+            let op1 = DetermineEngineIdentifiersOfMessagesToCancelOperation(input: .messages(persistedMessageObjectIDs: [persistedMessageObjectID]), obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(.contextual(op: composedOp))
+            let op2 = CancelUploadOrDownloadOfPersistedMessagesOperation(op: op1, obvEngine: obvEngine)
+            operationsToQueue.append(.engineCall(op: op2))
+        }
+        
+        do {
+            let op1 = DeletePersistedMessagesOperation(persistedMessageObjectIDs: Set([persistedMessageObjectID]), ownedCryptoId: ownedCryptoId, deletionType: deletionType)
+            let op2 = DeleteAllOrphanedFyleMessageJoinWithStatusOperation()
+            let op3 = DeleteAllOrphanedFylesAndMoveAssociatedFilesToTrashOperation()
+            let composedOp = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
+            operationsToQueue.append(.contextual(op: composedOp))
         }
         
         do {
@@ -1010,11 +1045,19 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 ObvMessengerInternalNotification.trashShouldBeEmptied
                     .postOnDispatchQueue()
             }
-            operationsToQueue.append(op)
+            operationsToQueue.append(.engineCall(op: op))
         }
 
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
-        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+        
+        for op in operationsToQueue {
+            switch op {
+            case .contextual(let op):
+                coordinatorsQueue.addOperation(op)
+            case .engineCall(let op):
+                queueForOperationsMakingEngineCalls.addOperation(op)
+            }
+        }
         
     }
     
@@ -1022,7 +1065,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func processUserRequestedDeletionOfPersistedDiscussion(ownedCryptoId: ObvCryptoId, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, deletionType: DeletionType, completionHandler: @escaping (Bool) -> Void) {
         cleanJsonMessagesSavedByNotificationExtension()
         
-        var operationsToQueue = [Operation]()
+        var operationsToQueue = [OperationKind]()
         
         switch deletionType {
         case .local:
@@ -1030,15 +1073,17 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case .global:
             let op = SendGlobalDeleteDiscussionJSONOperation(persistedDiscussionObjectID: discussionObjectID.objectID, obvEngine: obvEngine)
             op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
-            operationsToQueue.append(op)
+            operationsToQueue.append(.engineCall(op: op))
         }
         
         do {
-            let op1 = CancelUploadOrDownloadOfPersistedMessagesOperation(
+            let op1 = DetermineEngineIdentifiersOfMessagesToCancelOperation(
                 input: .discussion(persistedDiscussionObjectID: discussionObjectID.objectID),
                 obvEngine: obvEngine)
             let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-            coordinatorsQueue.addOperation(composedOp)
+            operationsToQueue.append(.contextual(op: composedOp))
+            let op2 = CancelUploadOrDownloadOfPersistedMessagesOperation(op: op1, obvEngine: obvEngine)
+            operationsToQueue.append(.engineCall(op: op2))
         }
 
         do {
@@ -1047,7 +1092,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 discussionObjectID: discussionObjectID,
                 deletionType: deletionType)
             let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-            operationsToQueue.append(composedOp)
+            operationsToQueue.append(.contextual(op: composedOp))
         }
         
         do {
@@ -1056,12 +1101,19 @@ extension PersistedDiscussionsUpdatesCoordinator {
                     completionHandler(success)
                 }
             }
-            operationsToQueue.append(contentsOf: operations)
+            operationsToQueue.append(contentsOf: operations.map({ .contextual(op: $0) }) )
         }
                 
         guard !operationsToQueue.isEmpty else { return }
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
-        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+        for op in operationsToQueue {
+            switch op {
+            case .contextual(let op):
+                coordinatorsQueue.addOperation(op)
+            case .engineCall(let op):
+                queueForOperationsMakingEngineCalls.addOperation(op)
+            }
+        }
 
 //        ObvStack.shared.performBackgroundTask { [weak self] context in
 //            guard let discussion = try? PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: context) else {
@@ -1118,22 +1170,24 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
 
-    private func processMessagesAreNotNewAnymore(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) {
+    private func processMessagesAreNotNewAnymore(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async {
         assert(OperationQueue.current != coordinatorsQueue)
 
         let op1 = ProcessPersistedMessagesAsTheyTurnsNotNewOperation(
             ownedCryptoId: ownedCryptoId,
             discussionId: discussionId,
             messageIds: messageIds)
-        let composedOp1 = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp1)
+        await queueAndAwaitCompositionOfOneContextualOperation(op1: op1)
+
+        guard op1.isFinished && !op1.isCancelled else {
+            assertionFailure()
+            return
+        }
         
         // Notify other owned devices about messages that turned not new
-        do {
+        if op1.ownedIdentityHasAnotherDeviceWithChannel {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op1, obvEngine: obvEngine)
-            let composedOp2 = createCompositionOfOneContextualOperation(op1: postOp)
-            composedOp2.addDependency(composedOp1)
-            coordinatorsQueue.addOperation(composedOp2)
+            queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
 
     }
@@ -1217,23 +1271,29 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    private func userEnteredDiscussion(discussionPermanentID: DiscussionPermanentID) {
+    private func userEnteredDiscussion(discussionPermanentID: DiscussionPermanentID) async {
         let op1 = TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperation(input: .discussionPermanentID(discussionPermanentID: discussionPermanentID))
-        let composedOp1 = createCompositionOfOneContextualOperation(op1: op1)
-        let op2 = PostLimitedVisibilityMessageOpenedJSONEngineOperation(op: op1, obvEngine: obvEngine)
-        let composedOp2 = createCompositionOfOneContextualOperation(op1: op2)
-        composedOp2.addDependency(composedOp1)
-        self.coordinatorsQueue.addOperations([composedOp1, composedOp2], waitUntilFinished: false)
+        await queueAndAwaitCompositionOfOneContextualOperation(op1: op1)
+        guard op1.isFinished && !op1.isCancelled else {
+            assertionFailure()
+            return
+        }
+        let postOp = PostLimitedVisibilityMessageOpenedJSONEngineOperation(op: op1, obvEngine: obvEngine)
+        postOp.addDependency(op1)
+        queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
     }
     
     
-    private func processUserWantsToReadReceivedMessageThatRequiresUserActionNotification(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier) {
+    private func processUserWantsToReadReceivedMessageThatRequiresUserActionNotification(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier) async {
         let op1 = AllowReadingOfMessagesReceivedThatRequireUserActionOperation(.requestedOnCurrentDevice(ownedCryptoId: ownedCryptoId, discussionId: discussionId, messageId: messageId))
-        let composedOp1 = createCompositionOfOneContextualOperation(op1: op1)
-        let op2 = PostLimitedVisibilityMessageOpenedJSONEngineOperation(op: op1, obvEngine: obvEngine)
-        let composedOp2 = createCompositionOfOneContextualOperation(op1: op2)
-        composedOp2.addDependency(composedOp1)
-        self.coordinatorsQueue.addOperations([composedOp1, composedOp2], waitUntilFinished: false)
+        await queueAndAwaitCompositionOfOneContextualOperation(op1: op1)
+        guard op1.isFinished && !op1.isCancelled else {
+            assertionFailure()
+            return
+        }
+        let postOp = PostLimitedVisibilityMessageOpenedJSONEngineOperation(op: op1, obvEngine: obvEngine)
+        postOp.addDependency(op1)
+        queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
     }
     
     
@@ -1258,7 +1318,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    private func processAReadOncePersistedMessageSentWasSentNotification(persistedMessageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, persistedDiscussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
+    private func processAReadOncePersistedMessageSentWasSentNotification(persistedMessageSentPermanentID: MessageSentPermanentID, persistedDiscussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
         // When a readOnce sent message status becomes "sent", we check whether the user is still within the discussion corresponding to this message.
         // If this is the case, we do nothing. Otherwise, we should delete or wipe the message as it is readOnce, has already been seen, and was properly sent.
         guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID != persistedDiscussionPermanentID else {
@@ -1306,9 +1366,6 @@ extension PersistedDiscussionsUpdatesCoordinator {
             operationsToQueue.append(op)
             if launchedByBackgroundTask {
                 let logOp = BlockOperation()
-                op.completionBlock = {
-                    ObvDisplayableLogs.shared.log("DeleteMessagesWithExpiredTimeBasedRetentionOperation deleted \(op.numberOfDeletedMessages) messages")
-                }
                 operationsToQueue.append(logOp)
             }
         }
@@ -1370,35 +1427,29 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    private func processUserWantsToMarkAllMessagesAsNotNewWithinDiscussionNotification(persistedDiscussionObjectID: NSManagedObjectID, completionHandler: @escaping (Bool) -> Void) {
+    private func processUserWantsToMarkAllMessagesAsNotNewWithinDiscussionNotification(persistedDiscussionObjectID: NSManagedObjectID) async throws {
         os_log("Call to processUserWantsToMarkAllMessagesAsNotNewWithinDiscussionNotification for discussion %{public}@", log: Self.log, type: .debug, persistedDiscussionObjectID.debugDescription)
-        var operationsToQueue = [Operation]()
         
-        os_log("Creating a MarkAllMessagesAsNotNewWithinDiscussionOperation for discussion %{public}@", log: Self.log, type: .debug, persistedDiscussionObjectID.debugDescription)
+        let localIdentifier = String(UUID().debugDescription.prefix(4))
+        
+        os_log("[%{public}@] Executing a MarkAllMessagesAsNotNewWithinDiscussionOperation for discussion %{public}@", log: Self.log, type: .debug, localIdentifier, persistedDiscussionObjectID.debugDescription)
         let op1 = MarkAllMessagesAsNotNewWithinDiscussionOperation(input: .persistedDiscussionObjectID(persistedDiscussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>(objectID: persistedDiscussionObjectID)))
-        let composedOp1 = createCompositionOfOneContextualOperation(op1: op1)
-        operationsToQueue.append(composedOp1)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        composedOp.queuePriority = .veryHigh
+        composedOp.qualityOfService = .userInitiated
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+        os_log("[%{public}@] Did execute MarkAllMessagesAsNotNewWithinDiscussionOperation for discussion %{public}@", log: Self.log, type: .debug, localIdentifier, persistedDiscussionObjectID.debugDescription)
         
-        do {
-            let op = BlockOperation()
-            op.completionBlock = {
-                DispatchQueue.main.async { completionHandler(true) }
-            }
-            operationsToQueue.append(op)
+        guard op1.isFinished && !op1.isCancelled else {
+            assertionFailure()
+            throw Self.makeError(message: "MarkAllMessagesAsNotNewWithinDiscussionOperation cancelled")
         }
         
-        // Since the operation were user initiated, we increase their priority and quality of service
-        operationsToQueue.forEach { $0.queuePriority = .veryHigh }
-        operationsToQueue.forEach { $0.qualityOfService = .userInteractive }
-        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
-        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
-        
         // Notify other owned devices about messages that turned not new
-        do {
+        
+        if op1.ownedIdentityHasAnotherDeviceWithChannel {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op1, obvEngine: obvEngine)
-            let composedOp2 = createCompositionOfOneContextualOperation(op1: postOp)
-            composedOp2.addDependency(composedOp1)
-            coordinatorsQueue.addOperation(composedOp2)
+            queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
 
     }
@@ -1468,7 +1519,6 @@ extension PersistedDiscussionsUpdatesCoordinator {
         coordinatorsQueue.addOperation(composedOp)
     }
     
-    
     private func newProgressToAddForTrackingFreeze(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, progress: Progress) {
         CompositionViewFreezeManager.shared.newProgressToAddForTrackingFreeze(draftPermanentID: draftPermanentID, progress: progress)
     }
@@ -1503,12 +1553,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
     }
 
-    private func processUserWantsToDeleteAllAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
+    private func processUserWantsToDeleteAllAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType = .all) {
         
         var operationsToQueue = [Operation]()
 
         do {
-            let op1 = DeleteAllDraftFyleJoinOfDraftOperation(draftObjectID: draftObjectID)
+            let op1 = DeleteAllDraftFyleJoinOfDraftOperation(draftObjectID: draftObjectID, draftTypeToDelete: draftTypeToDelete)
             let composedOp = createCompositionOfOneContextualOperation(op1: op1)
             operationsToQueue.append(composedOp)
         }
@@ -1631,19 +1681,22 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
 extension PersistedDiscussionsUpdatesCoordinator {
     
-    private func processNewMessageReceivedNotification(obvMessage: ObvMessage, completionHandler: @escaping (Set<ObvAttachment>) -> Void) async {
+    private func processNewMessageReceivedNotification(obvMessage: ObvMessage) async {
         os_log("🧦 We received a NewMessageReceived notification", log: Self.log, type: .debug)
+        
+        ObvDisplayableLogs.shared.log("[🧦][\(obvMessage.messageUID.debugDescription)] Call to processNewMessageReceivedNotification")
 
         let result = await processReceivedObvMessage(obvMessage, overridePreviousPersistedMessage: true)
         
+        let notifyEngine: EngineNotificationOnMessageProcessing
+
         switch result {
             
-        case .done:
-            let attachmentsToDownloadAsap = Set(obvMessage.attachments.filter {
-                // A negative maxAttachmentSizeForAutomaticDownload means "unlimited"
-                ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload < 0 || $0.totalUnitCount < ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload
-            })
-            completionHandler(attachmentsToDownloadAsap)
+        case .definitiveFailure:
+            notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
+            
+        case .done(attachmentsProcessingRequest: let attachmentsProcessingRequest):
+            notifyEngine = .notify(attachmentsProcessingRequest: attachmentsProcessingRequest)
             
         case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
             
@@ -1652,12 +1705,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 await messagesKeptForLaterManager.keepForLater(
                     .obvMessageForGroupV2(
                         groupIdentifier: groupIdentifier,
-                        obvMessage: obvMessage,
-                        completionHandler: completionHandler))
-                
+                        obvMessage: obvMessage))
+                notifyEngine = .doNotNotify
+
             } else {
                 
-                completionHandler(Set())
+                notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
 
             }
 
@@ -1667,35 +1720,65 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 
                 await messagesKeptForLaterManager.keepForLater(.obvMessageExpectingContact(
                     contactCryptoId: contactCryptoId,
-                    obvMessage: obvMessage,
-                    completionHandler: completionHandler))
-                
+                    obvMessage: obvMessage))
+                notifyEngine = .doNotNotify
+
             } else {
                 
-                completionHandler(Set())
+                notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
 
             }
 
         }
         
+        // If notifyEngine == true, the received message was processed at the app level.
+        // We can inform the engine so that it will mark the message (but not the attachments) for deletion.
+        
+        switch notifyEngine {
+        case .notify(let attachmentsProcessingRequest):
+            do {
+                ObvDisplayableLogs.shared.log("[🧦][\(obvMessage.messageUID.debugDescription)] Calling engine as ObvMessage was processed")
+                try await obvEngine.messageWasProcessed(messageId: obvMessage.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+                ObvDisplayableLogs.shared.log("[🧦][\(obvMessage.messageUID.debugDescription)] Did call engine as ObvMessage was processed")
+            } catch {
+                assertionFailure(error.localizedDescription)
+                return
+            }
+        case .doNotNotify:
+            ObvDisplayableLogs.shared.log("[🧦][\(obvMessage.messageUID.debugDescription)] Not calling engine for ObvMessage")
+            return
+        }
+
     }
     
     
-    private func processNewOwnedMessageReceivedNotification(obvOwnedMessage: ObvOwnedMessage, completionHandler: @escaping (Set<ObvOwnedAttachment>) -> Void) async {
+    /// Enum of actions to take after processing a message received from the engine.
+    ///
+    /// After an engine message is received and processed by this coordinator, we must either
+    /// - notify the engine that we processed the message (so that is can mark the message for deletion) and indicate what should be done with the attachments,
+    /// - or wait until it is appropriate to notify the engine (e.g., when receiving a message for a group that does not yet exist because we did not receive the group creation message yet).
+    private enum EngineNotificationOnMessageProcessing {
+        case notify(attachmentsProcessingRequest: ObvAttachmentsProcessingRequest)
+        case doNotNotify
+    }
+    
+    
+    private func processNewOwnedMessageReceivedNotification(obvOwnedMessage: ObvOwnedMessage) async {
         os_log("🧦 We received a NewOwnedMessageReceived notification", log: Self.log, type: .debug)
+
+        ObvDisplayableLogs.shared.log("[🧦][\(obvOwnedMessage.messageUID.debugDescription)] Call to processNewOwnedMessageReceivedNotification")
 
         let result = await processReceivedObvOwnedMessage(obvOwnedMessage)
         
+        let notifyEngine: EngineNotificationOnMessageProcessing
+
         switch result {
-
-        case .done:
             
-            let attachmentsToDownloadAsap = Set(obvOwnedMessage.attachments.filter {
-                // A negative maxAttachmentSizeForAutomaticDownload means "unlimited"
-                ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload < 0 || $0.totalUnitCount < ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload
-            })
+        case .definitiveFailure:
+            notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
 
-            completionHandler(attachmentsToDownloadAsap)
+        case .done(attachmentsProcessingRequest: let attachmentsProcessingRequest):
+            notifyEngine = .notify(attachmentsProcessingRequest: attachmentsProcessingRequest)
 
         case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
             
@@ -1703,12 +1786,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 
                 await messagesKeptForLaterManager.keepForLater(.obvOwnedMessageForGroupV2(
                     groupIdentifier: groupIdentifier,
-                    obvOwnedMessage: obvOwnedMessage,
-                    completionHandler: completionHandler))
-                
+                    obvOwnedMessage: obvOwnedMessage))
+                notifyEngine = .doNotNotify
+
             } else {
                 
-                completionHandler(Set())
+                notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
 
             }
             
@@ -1718,16 +1801,35 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 
                 await messagesKeptForLaterManager.keepForLater(.obvOwnedMessageExpectingContact(
                     contactCryptoId: contactCryptoId,
-                    obvOwnedMessage: obvOwnedMessage,
-                    completionHandler: completionHandler))
-                
+                    obvOwnedMessage: obvOwnedMessage))
+                notifyEngine = .doNotNotify
+
             } else {
                 
-                completionHandler(Set())
+                notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
 
             }
 
         }
+
+        // If notifyEngine == true, the received message was processed at the app level.
+        // We can inform the engine that will mark the message (not the attachments) for deletion.
+        
+        switch notifyEngine {
+        case .notify(let attachmentsProcessingRequest):
+            do {
+                ObvDisplayableLogs.shared.log("[🧦][\(obvOwnedMessage.messageUID.debugDescription)] Calling engine as ObvOwnedMessage was processed")
+                try await obvEngine.messageWasProcessed(messageId: obvOwnedMessage.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+                ObvDisplayableLogs.shared.log("[🧦][\(obvOwnedMessage.messageUID.debugDescription)] Did call engine as ObvOwnedMessage was processed")
+            } catch {
+                assertionFailure(error.localizedDescription)
+                return
+            }
+        case .doNotNotify:
+            ObvDisplayableLogs.shared.log("[🧦][\(obvOwnedMessage.messageUID.debugDescription)] Do not call engine for ObvOwnedMessage")
+            return
+        }
+        
 
     }
 
@@ -1738,10 +1840,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         for messageKeptForLater in messagesKeptForLater {
             switch messageKeptForLater {
-            case .obvMessageForGroupV2(_, let obvMessage, let completionHandler):
-                await processNewMessageReceivedNotification(obvMessage: obvMessage, completionHandler: completionHandler)
-            case .obvOwnedMessageForGroupV2(_, let obvOwnedMessage, let completionHandler):
-                await processNewOwnedMessageReceivedNotification(obvOwnedMessage: obvOwnedMessage, completionHandler: completionHandler)
+            case .obvMessageForGroupV2(_, let obvMessage):
+                await processNewMessageReceivedNotification(obvMessage: obvMessage)
+            case .obvOwnedMessageForGroupV2(_, let obvOwnedMessage):
+                await processNewOwnedMessageReceivedNotification(obvOwnedMessage: obvOwnedMessage)
             case .obvMessageExpectingContact, .obvOwnedMessageExpectingContact:
                 assertionFailure("Those messages are not expected to be part of the returned results")
             }
@@ -1756,10 +1858,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         for messageKeptForLater in messagesKeptForLater {
             switch messageKeptForLater {
-            case .obvMessageExpectingContact(contactCryptoId: _, obvMessage: let obvMessage, completionHandler: let completionHandler):
-                await processNewMessageReceivedNotification(obvMessage: obvMessage, completionHandler: completionHandler)
-            case .obvOwnedMessageExpectingContact(contactCryptoId: _, obvOwnedMessage: let obvOwnedMessage, completionHandler: let completionHandler):
-                await processNewOwnedMessageReceivedNotification(obvOwnedMessage: obvOwnedMessage, completionHandler: completionHandler)
+            case .obvMessageExpectingContact(contactCryptoId: _, obvMessage: let obvMessage):
+                await processNewMessageReceivedNotification(obvMessage: obvMessage)
+            case .obvOwnedMessageExpectingContact(contactCryptoId: _, obvOwnedMessage: let obvOwnedMessage):
+                await processNewOwnedMessageReceivedNotification(obvOwnedMessage: obvOwnedMessage)
             case .obvMessageForGroupV2, .obvOwnedMessageForGroupV2:
                 assertionFailure("Those messages are not expected to be part of the returned results")
             }
@@ -1809,7 +1911,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
 
     
-    private func processAttachmentDownloadCancelledByServerNotification(obvAttachment: ObvAttachment) {
+    private func processAttachmentDownloadCancelledByServerNotification(obvAttachment: ObvAttachment) async {
         os_log("We received an AttachmentDownloadCancelledByServer notification", log: Self.log, type: .debug)
         let obvEngine = self.obvEngine
         var operationsToQueue = [Operation]()
@@ -1819,8 +1921,20 @@ extension PersistedDiscussionsUpdatesCoordinator {
             composedOp = createCompositionOfOneContextualOperation(op1: op1)
             operationsToQueue.append(composedOp)
         }
+        let downloadOp = DetermineAttachmentsProcessingRequestForMessageReceivedOperation(kind: .specificAttachment(attachmentId: obvAttachment.attachmentId))
+        do {
+            let composedOpForDownload = createCompositionOfOneContextualOperation(op1: downloadOp)
+            operationsToQueue.append(composedOpForDownload)
+        }
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
-        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+        await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
+        if let attachmentsProcessingRequest = downloadOp.attachmentsProcessingRequest {
+            do {
+                try await obvEngine.messageWasProcessed(messageId: obvAttachment.attachmentId.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+            } catch {
+                assertionFailure()
+            }
+        }
     }
     
     
@@ -1833,7 +1947,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
 
-    private func processOwnedAttachmentDownloadCancelledByServerNotification(obvOwnedAttachment: ObvOwnedAttachment) {
+    private func processOwnedAttachmentDownloadCancelledByServerNotification(obvOwnedAttachment: ObvOwnedAttachment) async {
         os_log("We received an OwnedAttachmentDownloadCancelledByServer notification", log: Self.log, type: .debug)
         let obvEngine = self.obvEngine
         var operationsToQueue = [Operation]()
@@ -1843,12 +1957,24 @@ extension PersistedDiscussionsUpdatesCoordinator {
             composedOp = createCompositionOfOneContextualOperation(op1: op1)
             operationsToQueue.append(composedOp)
         }
+        let downloadOp = DetermineAttachmentsProcessingRequestForMessageSentOperation(kind: .specificAttachment(attachmentId: obvOwnedAttachment.attachmentId))
+        do {
+            let composedOpForDownload = createCompositionOfOneContextualOperation(op1: downloadOp)
+            operationsToQueue.append(composedOpForDownload)
+        }
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
-        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+        await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
+        if let attachmentsProcessingRequest = downloadOp.attachmentsProcessingRequest {
+            do {
+                try await obvEngine.messageWasProcessed(messageId: obvOwnedAttachment.attachmentId.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+            } catch {
+                assertionFailure()
+            }
+        }
     }
 
     
-    private func processAttachmentDownloadedNotification(obvAttachment: ObvAttachment) {
+    private func processAttachmentDownloadedNotification(obvAttachment: ObvAttachment) async {
         let obvEngine = self.obvEngine
         var operationsToQueue = [Operation]()
         let composedOp: CompositionOfOneContextualOperation<UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation.ReasonForCancel>
@@ -1857,16 +1983,45 @@ extension PersistedDiscussionsUpdatesCoordinator {
             composedOp = createCompositionOfOneContextualOperation(op1: op1)
             operationsToQueue.append(composedOp)
         }
+        let downloadOp = DetermineAttachmentsProcessingRequestForMessageReceivedOperation(kind: .specificAttachment(attachmentId: obvAttachment.attachmentId))
+        do {
+            let composedOpForDownload = createCompositionOfOneContextualOperation(op1: downloadOp)
+            operationsToQueue.append(composedOpForDownload)
+        }
         operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
-        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+        await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
+        if let attachmentsProcessingRequest = downloadOp.attachmentsProcessingRequest {
+            do {
+                try await obvEngine.messageWasProcessed(messageId: obvAttachment.attachmentId.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+            } catch {
+                assertionFailure()
+            }
+        }
     }
     
     
-    private func processOwnedAttachmentDownloadedNotification(obvOwnedAttachment: ObvOwnedAttachment) {
+    private func processOwnedAttachmentDownloadedNotification(obvOwnedAttachment: ObvOwnedAttachment) async {
         let obvEngine = self.obvEngine
-        let op1 = UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation(obvOwnedAttachment: obvOwnedAttachment, obvEngine: obvEngine)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
+        var operationsToQueue = [Operation]()
+        do {
+            let op1 = UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation(obvOwnedAttachment: obvOwnedAttachment, obvEngine: obvEngine)
+            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOp)
+        }
+        let op1 = DetermineAttachmentsProcessingRequestForMessageSentOperation(kind: .specificAttachment(attachmentId: obvOwnedAttachment.attachmentId))
+        do {
+            let composedOpForDownload = createCompositionOfOneContextualOperation(op1: op1)
+            operationsToQueue.append(composedOpForDownload)
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
+        if let attachmentsProcessingRequest = op1.attachmentsProcessingRequest {
+            do {
+                try await obvEngine.messageWasProcessed(messageId: obvOwnedAttachment.attachmentId.messageId, attachmentsProcessingRequest: attachmentsProcessingRequest)
+            } catch {
+                assertionFailure()
+            }
+        }
     }
 
     
@@ -1900,18 +2055,19 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
     private func processNewObvReturnReceiptToProcessNotification(obvReturnReceipt: ObvReturnReceipt, retryNumber: Int = 0) {
         
+        let obvEngine = self.obvEngine
+
         guard retryNumber < 10 else {
             assertionFailure()
+            Task { await obvEngine.deleteObvReturnReceipt(obvReturnReceipt) }
             return
         }
-        
-        let obvEngine = self.obvEngine
-        
+                
         var operationsToQueue = [Operation]()
         
         let op1 = ProcessObvReturnReceiptOperation(obvReturnReceipt: obvReturnReceipt, obvEngine: obvEngine)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        composedOp.assertionFailureInCaseOfFault = false // This operation often fails in the simulator, when switch from the share extension back to the app. We have a retry feature just for that reason.
+        composedOp.assertionFailureInCaseOfFault = false // This operation often fails in the simulator, when switching from the share extension back to the app. We have a retry feature just for that reason.
         operationsToQueue.append(composedOp)
         
         let op = BlockOperation()
@@ -1933,7 +2089,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                         Task { await obvEngine.deleteObvReturnReceipt(obvReturnReceipt) }
                         return
                     }
-                case .unknownReason:
+                case .unknownReason, .op1HasUnfinishedDependency:
                     assertionFailure()
                     os_log("Could not process return receipt for an unknwoen reason", log: Self.log, type: .fault)
                 }
@@ -2119,29 +2275,23 @@ extension PersistedDiscussionsUpdatesCoordinator {
         let op1 = CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine, textBody: textBody)
         let op2 = MarkAsReadReceivedMessageOperation(contactPermanentID: contactPermanentID, messageIdentifierFromEngine: messageIdentifierFromEngine)
         let op3 = SendUnprocessedPersistedMessageSentOperation(unprocessedPersistedMessageSentProvider: op1, alsoPostToOtherOwnedDevices: true, extendedPayloadProvider: nil, obvEngine: obvEngine) {
-            DispatchQueue.main.async {
-                completionHandler()
-            }
+            DispatchQueue.main.async { completionHandler() }
         }
-        let composedOp1 = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
-        let currentCompletion = composedOp1.completionBlock
-        composedOp1.completionBlock = {
+        let composedOp = createCompositionOfThreeContextualOperation(op1: op1, op2: op2, op3: op3)
+        let currentCompletion = composedOp.completionBlock
+        composedOp.completionBlock = {
             currentCompletion?()
-            if composedOp1.isCancelled {
+            if composedOp.isCancelled {
                 // One of op1, op2 or op3 cancelled. We call the completion handler
-                DispatchQueue.main.async {
-                    completionHandler()
-                }
+                DispatchQueue.main.async { completionHandler() }
             }
         }
-        coordinatorsQueue.addOperation(composedOp1)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
         
         // Notify other owned devices about messages that turned not new
-        do {
+        if op2.ownedIdentityHasAnotherDeviceWithChannel {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op2, obvEngine: obvEngine)
-            let composedOp2 = createCompositionOfOneContextualOperation(op1: postOp)
-            composedOp2.addDependency(composedOp1)
-            coordinatorsQueue.addOperation(composedOp2)
+            queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
 
     }
@@ -2206,25 +2356,16 @@ extension PersistedDiscussionsUpdatesCoordinator {
                     }
                 }
                 
-                // Recompute all badges
-                
-                ObvMessengerInternalNotification.needToRecomputeAllBadges { _ in
-                    DispatchQueue.main.async {
-                        completionHandler()
-                    }
-                }.postOnDispatchQueue()
-                
             }
         }
         
         coordinatorsQueue.addOperation(composedOp1)
         
         // Notify other owned devices about messages that turned not new
-        do {
+        if op1.ownedIdentityHasAnotherDeviceWithChannel {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op1, obvEngine: obvEngine)
-            let composedOp2 = createCompositionOfOneContextualOperation(op1: postOp)
-            composedOp2.addDependency(composedOp1)
-            coordinatorsQueue.addOperation(composedOp2)
+            postOp.addDependency(composedOp1)
+            queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
 
     }
@@ -2442,7 +2583,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     
     enum ProcessReceivedObvOwnedMessageResult {
-        case done
+        case done(attachmentsProcessingRequest: ObvAttachmentsProcessingRequest)
+        case definitiveFailure
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
         case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
     }
@@ -2460,7 +2602,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         } catch {
             os_log("Could not decode the message payload", log: Self.log, type: .error)
             assertionFailure()
-            return .done
+            return .definitiveFailure
         }
 
         // Case #1: The ObvOwnedMessage contains a WebRTC signaling message
@@ -2468,7 +2610,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         if let webrtcMessage = persistedItemJSON.webrtcMessage {
             os_log("☎️ The owned message is a WebRTC signaling message", log: Self.log, type: .debug)
             await self.processReceivedWebRTCMessageJSON(webrtcMessage, obvOwnedMessage: obvOwnedMessage)
-            return .done
+            return .done(attachmentsProcessingRequest: .deleteAll)
         }
 
         // Case #2: The ObvOwnedMessage contains a message
@@ -2481,12 +2623,13 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 messageJSON: messageJSON,
                 returnReceiptJSON: returnReceiptJSON)
             switch result {
-            case .sentMessageCreated:
-                return .done
+            case .sentMessageCreated(attachmentsProcessingRequest: let attachmentsProcessingRequest):
+                return .done(attachmentsProcessingRequest: attachmentsProcessingRequest)
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .sentMessageCreationFailure:
-                return .done
+                assertionFailure()
+                return .definitiveFailure
             }
         }
 
@@ -2500,8 +2643,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 messageUploadTimestampFromServer: obvOwnedMessage.messageUploadTimestampFromServer,
                 messageLocalDownloadTimestamp: obvOwnedMessage.localDownloadTimestamp)
             switch result {
-            case .done, .failed:
-                return .done
+            case .done:
+                return .done(attachmentsProcessingRequest: .deleteAll)
+            case .failed:
+                return .definitiveFailure
             case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .couldNotFindContactInDatabase(contactCryptoId: let contactCryptoId):
@@ -2524,10 +2669,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
 
@@ -2538,11 +2683,13 @@ extension PersistedDiscussionsUpdatesCoordinator {
             cleanJsonMessagesSavedByNotificationExtension()
             var operationsToQueue = [Operation]()
             do {
-                let op1 = CancelUploadOrDownloadOfPersistedMessagesOperation(
+                let op1 = DetermineEngineIdentifiersOfMessagesToCancelOperation(
                     input: .remoteDiscussionDeletionRequestFromOtherOwnedDevice(deleteDiscussionJSON: deleteDiscussionJSON, obvOwnedMessage: obvOwnedMessage),
                     obvEngine: obvEngine)
                 let composedOp = createCompositionOfOneContextualOperation(op1: op1)
                 await coordinatorsQueue.addAndAwaitOperation(composedOp)
+                let op2 = CancelUploadOrDownloadOfPersistedMessagesOperation(op: op1, obvEngine: obvEngine)
+                await queueForOperationsMakingEngineCalls.addAndAwaitOperation(op2)
             }
             let op1: ProcessRemoteWipeDiscussionRequestOperation
             do {
@@ -2562,7 +2709,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 let operations = getOperationsForDeletingOrphanedDatabaseItems()
                 operationsToQueue.append(contentsOf: operations)
             }
-            guard !operationsToQueue.isEmpty else { assertionFailure(); return .done }
+            guard !operationsToQueue.isEmpty else { assertionFailure(); return .definitiveFailure }
             operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
             await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
             assert(op1.isFinished)
@@ -2571,10 +2718,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
 
@@ -2594,10 +2741,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
 
@@ -2617,10 +2764,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
         
@@ -2633,7 +2780,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 requester: .ownedIdentity(ownedCryptoId: obvOwnedMessage.ownedCryptoId))
             let composedOp = createCompositionOfOneContextualOperation(op1: op1)
             await coordinatorsQueue.addAndAwaitOperation(composedOp)
-            return .done
+            return .done(attachmentsProcessingRequest: .deleteAll)
         }
         
         // Case #9: The ObvOwnedMessage contains a JSON message indicating that a contact did take a screen capture of sensitive content
@@ -2652,10 +2799,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
         
@@ -2665,11 +2812,11 @@ extension PersistedDiscussionsUpdatesCoordinator {
             os_log("The owned message indicates that a received message with limited visibility was read on another owned device", log: Self.log, type: .debug)
             guard let discussionId = try? limitedVisibilityMessageOpenedJSON.getDiscussionId(ownedCryptoId: obvOwnedMessage.ownedCryptoId) else {
                 assertionFailure()
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             }
             guard let messageId = try? limitedVisibilityMessageOpenedJSON.getMessageId(ownedCryptoId: obvOwnedMessage.ownedCryptoId) else {
                 assertionFailure()
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             }
             let op1 = AllowReadingOfMessagesReceivedThatRequireUserActionOperation(
                 .requestedOnAnotherOwnedDevice(
@@ -2685,10 +2832,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
         
@@ -2705,17 +2852,17 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
         
         // Unknow case, we mark the message for deletion
         
         assertionFailure()
-        return .done
+        return .definitiveFailure
 
     }
     
@@ -2768,7 +2915,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
     
     enum ProcessReceivedObvMessageResult {
-        case done
+        case done(attachmentsProcessingRequest: ObvAttachmentsProcessingRequest)
+        case definitiveFailure
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
         case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
     }
@@ -2786,7 +2934,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         } catch {
             os_log("Could not decode the message payload", log: Self.log, type: .error)
             assertionFailure()
-            return .done
+            return .definitiveFailure
         }
         
         // Case #1: The ObvMessage contains a WebRTC signaling message
@@ -2794,7 +2942,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         if let webrtcMessage = persistedItemJSON.webrtcMessage {
             os_log("☎️ The message is a WebRTC signaling message", log: Self.log, type: .debug)
             await self.processReceivedWebRTCMessageJSON(webrtcMessage, obvMessage: obvMessage)
-            return .done
+            return .done(attachmentsProcessingRequest: .deleteAll)
         }
         
         // Case #2: The ObvMessage contains a message
@@ -2808,12 +2956,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 overridePreviousPersistedMessage: overridePreviousPersistedMessage,
                 returnReceiptJSON: returnReceiptJSON)
             switch result {
-            case .receivedMessageCreated:
-                return .done
+            case .receivedMessageCreated(attachmentsProcessingRequest: let attachmentsProcessingRequest):
+                return .done(attachmentsProcessingRequest: attachmentsProcessingRequest)
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .receivedMessageCreationFailure:
-                return .done
+                return .definitiveFailure
             }
         }
         
@@ -2827,8 +2975,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 messageUploadTimestampFromServer: obvMessage.messageUploadTimestampFromServer,
                 messageLocalDownloadTimestamp: obvMessage.localDownloadTimestamp)
             switch result {
-            case .done, .failed:
-                return .done
+            case .done:
+                return .done(attachmentsProcessingRequest: .deleteAll)
+            case .failed:
+                return .definitiveFailure
             case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .couldNotFindContactInDatabase(contactCryptoId: let contactCryptoId):
@@ -2851,10 +3001,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
         
@@ -2865,11 +3015,13 @@ extension PersistedDiscussionsUpdatesCoordinator {
             cleanJsonMessagesSavedByNotificationExtension()
             var operationsToQueue = [Operation]()
             do {
-                let op1 = CancelUploadOrDownloadOfPersistedMessagesOperation(
+                let op1 = DetermineEngineIdentifiersOfMessagesToCancelOperation(
                     input: .remoteDiscussionDeletionRequestFromContact(deleteDiscussionJSON: deleteDiscussionJSON, obvMessage: obvMessage),
                     obvEngine: obvEngine)
                 let composedOp = createCompositionOfOneContextualOperation(op1: op1)
                 await coordinatorsQueue.addAndAwaitOperation(composedOp)
+                let op2 = CancelUploadOrDownloadOfPersistedMessagesOperation(op: op1, obvEngine: obvEngine)
+                await queueForOperationsMakingEngineCalls.addAndAwaitOperation(op2)
             }
             let op1: ProcessRemoteWipeDiscussionRequestOperation
             do {
@@ -2889,7 +3041,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 let operations = getOperationsForDeletingOrphanedDatabaseItems()
                 operationsToQueue.append(contentsOf: operations)
             }
-            guard !operationsToQueue.isEmpty else { assertionFailure(); return .done }
+            guard !operationsToQueue.isEmpty else { assertionFailure(); return .definitiveFailure }
             operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
             await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
             assert(op1.isFinished)
@@ -2898,10 +3050,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
         
@@ -2921,10 +3073,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
 
@@ -2943,10 +3095,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
         
@@ -2958,7 +3110,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 requester: .contact(contactIdentifier: obvMessage.fromContactIdentity))
             let composedOp = createCompositionOfOneContextualOperation(op1: op1)
             await coordinatorsQueue.addAndAwaitOperation(composedOp)
-            return .done
+            return .done(attachmentsProcessingRequest: .deleteAll)
         }
         
         // Case #9: The ObvMessage contains a JSON message indicating that a contact did take a screen capture of sensitive content
@@ -2976,17 +3128,17 @@ extension PersistedDiscussionsUpdatesCoordinator {
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .processed:
-                return .done
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
-                return .done
+                return .definitiveFailure
             }
         }
         
         // Unknow case, we decide to mark the message for deletion
         
         assertionFailure()
-        return .done
+        return .definitiveFailure
 
     }
     
@@ -3086,7 +3238,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
 
     enum CreatePersistedMessageReceivedFromReceivedObvMessageResult {
-        case receivedMessageCreated
+        case receivedMessageCreated(attachmentsProcessingRequest: ObvAttachmentsProcessingRequest)
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
         case receivedMessageCreationFailure
     }
@@ -3100,44 +3252,56 @@ extension PersistedDiscussionsUpdatesCoordinator {
     /// comming from the engine always superseed messages comming from  the notification extension.
     private func createPersistedMessageReceivedFromReceivedObvMessage(_ obvMessage: ObvMessage, messageJSON: MessageJSON, overridePreviousPersistedMessage: Bool, returnReceiptJSON: ReturnReceiptJSON?) async -> CreatePersistedMessageReceivedFromReceivedObvMessageResult {
 
-        ObvDisplayableLogs.shared.log("🍤 Starting createPersistedMessageReceivedFromReceivedObvMessage")
-        defer { ObvDisplayableLogs.shared.log("🍤 Ending createPersistedMessageReceivedFromReceivedObvMessage") }
-
         os_log("Call to createPersistedMessageReceivedFromReceivedObvMessage for obvMessage %{public}@", log: Self.log, type: .debug, obvMessage.messageIdentifierFromEngine.debugDescription)
 
         // Create a persisted message received
+        
         let op1 = CreatePersistedMessageReceivedFromReceivedObvMessageOperation(obvMessage: obvMessage,
                                                                                 messageJSON: messageJSON,
                                                                                 overridePreviousPersistedMessage: overridePreviousPersistedMessage,
-                                                                                returnReceiptJSON: returnReceiptJSON,
-                                                                                obvEngine: obvEngine)
-        do {
-            let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-            await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
-        }
+                                                                                returnReceiptJSON: returnReceiptJSON)
+        let op2 = TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperation(input: .operationProvidingDiscussionPermanentID(op: op1))
+        let composedOp1 = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp1)
 
-        assert(op1.isFinished)
-        if !op1.isCancelled {
-            let op1 = TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperation(input: .operationProvidingDiscussionPermanentID(op: op1))
-            let op2 = PostLimitedVisibilityMessageOpenedJSONEngineOperation(op: op1, obvEngine: obvEngine)
-            let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
-            await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
-        }
-        
         switch op1.result {
         case .couldNotFindGroupV2InDatabase(let groupIdentifier):
             return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
-        case .messageCreated:
-            return .receivedMessageCreated
         case nil:
             return .receivedMessageCreationFailure
+        case .messageCreated:
+            break
         }
+
+        guard composedOp1.isFinished && !composedOp1.isCancelled else {
+            assertionFailure()
+            return .receivedMessageCreationFailure
+        }
+
+        // If we reach this point, the received message was properly created and some messages may have been auto-read
+        // We asynchronously post this information to our other owned devices
         
+        if op2.ownedIdentityHasAnotherDeviceWithChannel {
+            let postOp = PostLimitedVisibilityMessageOpenedJSONEngineOperation(op: op2, obvEngine: obvEngine)
+            postOp.addDependency(op2)
+            queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
+        }
+
+        // Determine the attachments that should be downloaded now
+        
+        assert(op1.isFinished)
+        let downloadOp = DetermineAttachmentsProcessingRequestForMessageReceivedOperation(kind: .allAttachmentsOfMessage(op: op1))
+        await queueAndAwaitCompositionOfOneContextualOperation(op1: downloadOp)
+        
+        assert(downloadOp.isFinished && !downloadOp.isCancelled)
+        
+        return .receivedMessageCreated(attachmentsProcessingRequest: downloadOp.attachmentsProcessingRequest ?? .doNothing)
+
     }
 
     
     enum CreatePersistedMessageSentFromReceivedObvOwnedMessageResult {
-        case sentMessageCreated
+        case sentMessageCreated(attachmentsProcessingRequest: ObvAttachmentsProcessingRequest)
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
         case sentMessageCreationFailure
     }
@@ -3151,32 +3315,39 @@ extension PersistedDiscussionsUpdatesCoordinator {
     /// comming from the engine always superseed messages comming from  the notification extension.
     private func createPersistedMessageSentFromReceivedObvOwnedMessage(_ obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) async -> CreatePersistedMessageSentFromReceivedObvOwnedMessageResult {
 
-        ObvDisplayableLogs.shared.log("🍤 Starting createPersistedMessageSentFromReceivedObvOwnedMessage")
-        defer { ObvDisplayableLogs.shared.log("🍤 Ending createPersistedMessageSentFromReceivedObvOwnedMessage") }
-
-        assert(OperationQueue.current != coordinatorsQueue)
-
         os_log("Call to createPersistedMessageSentFromReceivedObvOwnedMessage for obvOwnedMessage %{public}@", log: Self.log, type: .debug, obvOwnedMessage.messageIdentifierFromEngine.debugDescription)
 
         // Create a persisted message sent
+        
         let op1 = CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation(obvOwnedMessage: obvOwnedMessage,
                                                                                  messageJSON: messageJSON,
-                                                                                 returnReceiptJSON: returnReceiptJSON,
-                                                                                 obvEngine: obvEngine)
-
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
-        assert(op1.isFinished)
+                                                                                 returnReceiptJSON: returnReceiptJSON)
+        await queueAndAwaitCompositionOfOneContextualOperation(op1: op1)
+        
+        guard op1.isFinished && !op1.isCancelled else {
+            assertionFailure()
+            return .sentMessageCreationFailure
+        }
         
         switch op1.result {
         case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
             return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
-        case .sentMessageCreated:
-            return .sentMessageCreated
         case nil:
             assertionFailure()
             return .sentMessageCreationFailure
+        case .sentMessageCreated:
+            break
         }
+
+        // If we reach this point, the message was properly created. We can determine the attachments to download now.
+
+        let downloadOp = DetermineAttachmentsProcessingRequestForMessageSentOperation(kind: .allAttachmentsOfMessage(op: op1))
+        await queueAndAwaitCompositionOfOneContextualOperation(op1: downloadOp)
+
+        assert(downloadOp.isFinished && !downloadOp.isCancelled)
+
+        return .sentMessageCreated(attachmentsProcessingRequest: downloadOp.attachmentsProcessingRequest ?? .doNothing)
+
     }
 
     
@@ -3224,11 +3395,35 @@ extension PersistedDiscussionsUpdatesCoordinator: ScreenCaptureDetectorDelegate 
 
 // MARK: - Internal utils
 
+enum OperationKind {
+    case contextual(op: Operation)
+    case engineCall(op: Operation)
+    var operation: Operation {
+        switch self {
+        case .contextual(let op):
+            return op
+        case .engineCall(let op):
+            return op
+        }
+    }
+}
+
+
+extension [OperationKind] {
+    
+    /// Calls `self[n+1].addDependency(self[n])` for all operations in `self`. The first operation is not made dependent of any operation.
+    func makeEachOperationDependentOnThePreceedingOne() {
+        let operations = self.map { $0.operation }
+        operations.makeEachOperationDependentOnThePreceedingOne()
+    }
+
+}
+
+
 extension [Operation] {
     
     /// Calls `self[n+1].addDependency(self[n])` for all operations in `self`. The first operation is not made dependent of any operation.
     func makeEachOperationDependentOnThePreceedingOne() {
-        guard self.count > 0 else { assertionFailure(); return }
         guard self.count > 1 else { return } // Only one operation, no need to create a dependency
         for opIndex in 0..<self.count-1 {
             self[opIndex+1].addDependency(self[opIndex])
@@ -3240,45 +3435,45 @@ extension [Operation] {
 
 // MARK: - Helpers
 
-extension PersistedDiscussionsUpdatesCoordinator {
-    
-    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-    
-    private func createCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>) -> CompositionOfTwoContextualOperations<T1, T2> {
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-
-    private func createCompositionOfThreeContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType, T3: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, op3: ContextualOperationWithSpecificReasonForCancel<T3>) -> CompositionOfThreeContextualOperations<T1, T2, T3> {
-        let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-
-    private func createCompositionOfFourContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType, T3: LocalizedErrorWithLogType, T4: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, op3: ContextualOperationWithSpecificReasonForCancel<T3>, op4: ContextualOperationWithSpecificReasonForCancel<T4>) -> CompositionOfFourContextualOperations<T1, T2, T3, T4> {
-        let composedOp = CompositionOfFourContextualOperations(op1: op1, op2: op2, op3: op3, op4: op4, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-
-}
+//extension PersistedDiscussionsUpdatesCoordinator {
+//    
+//    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
+//        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+//        composedOp.completionBlock = { [weak composedOp] in
+//            assert(composedOp != nil)
+//            composedOp?.logReasonIfCancelled(log: Self.log)
+//        }
+//        return composedOp
+//    }
+//    
+//    private func createCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>) -> CompositionOfTwoContextualOperations<T1, T2> {
+//        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+//        composedOp.completionBlock = { [weak composedOp] in
+//            assert(composedOp != nil)
+//            composedOp?.logReasonIfCancelled(log: Self.log)
+//        }
+//        return composedOp
+//    }
+//
+//    private func createCompositionOfThreeContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType, T3: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, op3: ContextualOperationWithSpecificReasonForCancel<T3>) -> CompositionOfThreeContextualOperations<T1, T2, T3> {
+//        let composedOp = CompositionOfThreeContextualOperations(op1: op1, op2: op2, op3: op3, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+//        composedOp.completionBlock = { [weak composedOp] in
+//            assert(composedOp != nil)
+//            composedOp?.logReasonIfCancelled(log: Self.log)
+//        }
+//        return composedOp
+//    }
+//
+//    private func createCompositionOfFourContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType, T3: LocalizedErrorWithLogType, T4: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, op3: ContextualOperationWithSpecificReasonForCancel<T3>, op4: ContextualOperationWithSpecificReasonForCancel<T4>) -> CompositionOfFourContextualOperations<T1, T2, T3, T4> {
+//        let composedOp = CompositionOfFourContextualOperations(op1: op1, op2: op2, op3: op3, op4: op4, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+//        composedOp.completionBlock = { [weak composedOp] in
+//            assert(composedOp != nil)
+//            composedOp?.logReasonIfCancelled(log: Self.log)
+//        }
+//        return composedOp
+//    }
+//
+//}
 
 
 // MARK: - NSManagedObjectContext utils

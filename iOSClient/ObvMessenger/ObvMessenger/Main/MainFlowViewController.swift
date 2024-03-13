@@ -347,6 +347,10 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
                 await KeycloakManagerSingleton.shared.registerKeycloakManagedOwnedIdentity(ownedCryptoId: currentOwnedCryptoId, firstKeycloakBinding: false)
             }
         }
+        
+        // This is required for the MainFlowViewController.find(_:) and other methods to be called when the user types the default key command for search.
+        becomeFirstResponder()
+        
     }
     
     
@@ -439,6 +443,67 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler, ObvF
         }
     }
 
+}
+
+
+// MARK: - Keyboard shortcuts
+
+extension MainFlowViewController {
+    
+    override var canBecomeFirstResponder: Bool {
+        // This is required for the MainFlowViewController.find(_:) and other methods to be called when the user types the default key command for search.
+        return true
+    }
+    
+    
+    override var keyCommands: [UIKeyCommand]? {
+        return [
+            UIKeyCommand(title: String(localized: "Home"), action: #selector(processUIKeyCommandForHome), input: UIKeyCommand.inputHome, modifierFlags: .command),
+        ]
+    }
+    
+
+    /// When the user types Cmd+Home, we want to pop all the discussions shown on the navigation of the details view controller, back to the first view controller (that shows the Olvid logo).
+    @objc private func processUIKeyCommandForHome() {
+        navForDetailsView.popToRootViewController(animated: true)
+    }
+    
+    
+    /// Overriding this method allows to be called when the user types the standard keyboard shortcut (Cmd+F) for search.
+    ///
+    /// We pass this information to the most appropriate `NewSingleDiscussionViewController`.
+    override func find(_ sender: Any?) {
+        if let discussionVC = navForDetailsView.topViewController as? NewSingleDiscussionViewController {
+            return discussionVC.find(sender)
+        } else if let discussionVC = currentFlow?.topViewController as? NewSingleDiscussionViewController {
+            return discussionVC.find(sender)
+        }
+    }
+    
+    
+    /// Overriding this method allows to be called when the user types the standard keyboard shortcut (Cmd+G) for "Find next".
+    ///
+    /// We pass this information to the most appropriate `NewSingleDiscussionViewController`.
+    override func findNext(_ sender: Any?) {
+        if let discussionVC = navForDetailsView.topViewController as? NewSingleDiscussionViewController {
+            return discussionVC.findNext(sender)
+        } else if let discussionVC = currentFlow?.topViewController as? NewSingleDiscussionViewController {
+            return discussionVC.findNext(sender)
+        }
+    }
+    
+    
+    /// Overriding this method allows to be called when the user types the standard keyboard shortcut (Shift+Cmd+G) for "Find previous".
+    ///
+    /// We pass this information to the most appropriate `NewSingleDiscussionViewController`.
+    override func findPrevious(_ sender: Any?) {
+        if let discussionVC = navForDetailsView.topViewController as? NewSingleDiscussionViewController {
+            return discussionVC.findPrevious(sender)
+        } else if let discussionVC = currentFlow?.topViewController as? NewSingleDiscussionViewController {
+            return discussionVC.findPrevious(sender)
+        }
+    }
+    
 }
 
 
@@ -749,38 +814,6 @@ extension MainFlowViewController {
 // MARK: - ObvFlowControllerDelegate
 
 extension MainFlowViewController {
-
-    
-    func userSelectedURL(_ url: URL, within viewController: UIViewController) {
-        userSelectedURL(url, within: viewController, confirmed: false)
-    }
-    
-    
-    @MainActor
-    private func userSelectedURL(_ url: URL, within viewController: UIViewController, confirmed: Bool) {
-
-        if confirmed {
-
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
-
-        } else {
-
-            let alert = UIAlertController(title: Strings.AlertOpenURL.title,
-                                          message: Strings.AlertOpenURL.message(url),
-                                          preferredStyleForTraitCollection: viewController.traitCollection)
-
-            alert.addAction(UIAlertAction(title: Strings.AlertOpenURL.openButton, style: .default, handler: { [weak self] (action) in
-                self?.userSelectedURL(url, within: viewController, confirmed: true)
-            }))
-
-            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-            DispatchQueue.main.async {
-                viewController.present(alert, animated: true, completion: nil)
-            }
-
-        }
-
-    }
 
     
     func performTrustEstablishmentProtocolOfRemoteIdentity(remoteCryptoId: ObvCryptoId, remoteFullDisplayName: String) {
@@ -1155,7 +1188,7 @@ extension MainFlowViewController {
                         await self?.processUserWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId)
                     }
                 } else {
-                    ObvMessengerInternalNotification.requestUserDeniedRecordPermissionAlert.postOnDispatchQueue()
+                    ObvMessengerInternalNotification.outgoingCallFailedBecauseUserDeniedRecordPermission.postOnDispatchQueue()
                 }
             }
             return
@@ -2041,14 +2074,6 @@ extension MainFlowViewController {
         
         static let contactsTVCTitle = { (groupDiscussionTitle: String) in
             String.localizedStringWithFormat(NSLocalizedString("Members of %@", comment: "Title of the table listing all members of a discussion group."), groupDiscussionTitle)
-        }
-        
-        struct AlertOpenURL {
-            static let title = NSLocalizedString("Open in Safari?", comment: "Alert title")
-            static let message = { (url: URL) in
-                String.localizedStringWithFormat(NSLocalizedString("Do you wish to open %@ in Safari?", comment: "Alert message"), url.absoluteString)
-            }
-            static let openButton = NSLocalizedString("Open", comment: "Aloert button title")
         }
         
         struct BadScannedQRCodeAlert {

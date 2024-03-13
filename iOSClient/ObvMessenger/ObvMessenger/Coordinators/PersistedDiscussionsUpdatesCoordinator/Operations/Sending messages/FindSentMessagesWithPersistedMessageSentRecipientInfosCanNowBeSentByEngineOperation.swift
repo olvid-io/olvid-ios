@@ -37,7 +37,7 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
 
     /// If this operation finishes without cancelling, this is guaranteed to be set.
     /// It will contain the object IDs of all the sent messages that can now be sent.
-    private(set) var messageSentPermanentIDs = Set<ObvManagedObjectPermanentID<PersistedMessageSent>>()
+    private(set) var messageSentPermanentIDs = Set<MessageSentPermanentID>()
     
     override func main() {
         

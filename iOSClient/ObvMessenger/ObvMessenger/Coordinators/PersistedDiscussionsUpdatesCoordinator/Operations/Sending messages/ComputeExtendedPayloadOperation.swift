@@ -28,7 +28,7 @@ import ObvUICoreData
 
 
 private enum ComputeExtendedPayloadOperationInput {
-    case message(messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>)
+    case message(messageSentPermanentID: MessageSentPermanentID)
     case unprocessedPersistedMessageSentProvider(_: UnprocessedPersistedMessageSentProvider)
 }
 
@@ -42,7 +42,7 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
         super.init()
     }
 
-    init(messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>) {
+    init(messageSentPermanentID: MessageSentPermanentID) {
         self.input = .message(messageSentPermanentID: messageSentPermanentID)
         super.init()
     }
@@ -51,7 +51,7 @@ final class ComputeExtendedPayloadOperation: ContextualOperationWithSpecificReas
 
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        let messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>
+        let messageSentPermanentID: MessageSentPermanentID
         switch input {
         case .message(let _messageSentPermanentID):
             messageSentPermanentID = _messageSentPermanentID

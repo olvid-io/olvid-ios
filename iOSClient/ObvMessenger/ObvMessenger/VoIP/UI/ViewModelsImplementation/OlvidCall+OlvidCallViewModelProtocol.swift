@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,12 +18,20 @@
  */
 
 import Foundation
+import UI_ObvCircledInitials
+import ObvUICoreData
 
 
 extension OlvidCall: OlvidCallViewModelProtocol {
     
+    typealias InitialCircleViewNewModel = PersistedObvOwnedIdentity
+
+    var ownedInitialCircle: ObvUICoreData.PersistedObvOwnedIdentity {
+        self.persistedObvOwnedIdentity
+    }
+    
     var localUserStillNeedsToAcceptOrRejectIncomingCall: Bool {
-        switch direction {
+        switch self.direction {
         case .outgoing:
             return false
         case .incoming:
@@ -45,7 +53,22 @@ extension OlvidCall: OlvidCallViewModelProtocol {
                 return false
             }
         }
-
     }
+
     
+    /// We mirror the self video view when using the front camera, not the back.
+    var doMirrorViewSelfVideoView: Bool {
+        guard let currentCameraPosition = self.currentCameraPosition else { return false }
+        switch currentCameraPosition {
+        case .unspecified:
+            return true
+        case .back:
+            return false
+        case .front:
+            return true
+        @unknown default:
+            return true
+        }
+    }
+
 }

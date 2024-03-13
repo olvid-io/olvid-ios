@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,8 +35,8 @@ struct NewDiscussionsListView: UIViewControllerRepresentable, ObvErrorMaker {
 
     private let viewModel: NewDiscussionsListViewModel
     
-    init(ownedCryptoId: ObvCryptoId, discussionsViewModel: DiscussionsViewModel) {
-        self.viewModel = NewDiscussionsListViewModel(ownedCryptoId: ownedCryptoId, discussionsViewModel: discussionsViewModel)
+    init(ownedCryptoId: ObvCryptoId, restrictToActiveDiscussions: Bool, discussionsViewModel: DiscussionsViewModel) {
+        self.viewModel = NewDiscussionsListViewModel(ownedCryptoId: ownedCryptoId, restrictToActiveDiscussions: restrictToActiveDiscussions, discussionsViewModel: discussionsViewModel)
     }
     
     func makeUIViewController(context: Context) -> UIViewControllerType {
@@ -44,7 +44,8 @@ struct NewDiscussionsListView: UIViewControllerRepresentable, ObvErrorMaker {
         let vcViewModel = NewDiscussionsSelectionViewController.ViewModel(
             viewContext: ObvStack.shared.viewContext,
             preselectedDiscussions: viewModel.selectedObjectIds,
-            ownedCryptoId: viewModel.ownedCryptoId,
+            ownedCryptoId: viewModel.ownedCryptoId, 
+            restrictToActiveDiscussions: viewModel.restrictToActiveDiscussions,
             attachSearchControllerToParent: true,
             buttonTitle: CommonString.Word.Choose,
             buttonSystemIcon: .checkmarkCircleFill)

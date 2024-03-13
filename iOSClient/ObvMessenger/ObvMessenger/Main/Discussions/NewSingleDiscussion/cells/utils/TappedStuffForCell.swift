@@ -24,6 +24,7 @@ import ObvUICoreData
 
 enum TappedStuffForCell {
     case hardlink(hardLink: HardLinkToFyle)
+    case openLink(url: URL)
     case messageThatRequiresUserAction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>)
     case receivedFyleMessageJoinWithStatusToResumeDownload(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)
     case receivedFyleMessageJoinWithStatusToPauseDownload(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>)

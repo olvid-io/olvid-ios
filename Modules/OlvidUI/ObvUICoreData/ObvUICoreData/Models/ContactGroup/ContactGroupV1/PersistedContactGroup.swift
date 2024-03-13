@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -142,11 +142,87 @@ public class PersistedContactGroup: NSManagedObject {
     }
 
     
-    public func getGroupV1Identifier() throws -> GroupV1Identifier? {
-        let groupId = try self.getGroupId()
-        return .init(groupUid: groupId.groupUid, groupOwner: groupId.groupOwner)
+    public func getGroupV1Identifier() throws -> GroupV1Identifier {
+        return try self.getGroupId()
+    }
+    
+    
+    public var obvGroupIdentifier: ObvGroupV1Identifier {
+        get throws {
+            let groupV1Identifier = try self.getGroupId()
+            guard let ownedCryptoId = ownedIdentity?.cryptoId else {
+                assertionFailure()
+                throw ObvError.unexpectedOwnedIdentity
+            }
+            return .init(ownedCryptoId: ownedCryptoId, groupV1Identifier: groupV1Identifier)
+        }
     }
 
+    
+    // MARK: - Updating a group from an ObvContactGroup from engine
+    
+    /// Returns `true` iff the group has updates
+    func updateContactGroup(with obvContactGroupFromEngine: ObvContactGroup) throws -> Bool {
+        
+        guard self.rawOwnedIdentityIdentity == obvContactGroupFromEngine.ownedIdentity.cryptoId.getIdentity() else {
+            assertionFailure()
+            throw ObvError.unexpectedOwnedIdentity
+        }
+        
+        guard self.groupUidRaw == obvContactGroupFromEngine.groupUid.raw else {
+            assertionFailure()
+            throw ObvError.unexpectedGroupUID
+        }
+        
+        guard self.ownerIdentity == obvContactGroupFromEngine.groupOwner.cryptoId.getIdentity() else {
+            assertionFailure()
+            throw ObvError.unexpectedGroupOwner
+        }
+        
+        try setContactIdentities(to: obvContactGroupFromEngine.groupMembers)
+        try setPendingMembers(to: obvContactGroupFromEngine.pendingGroupMembers)
+        updatePhoto(with: obvContactGroupFromEngine.trustedOrLatestPhotoURL)
+        
+        if let groupJoined = self as? PersistedContactGroupJoined {
+            
+            try groupJoined.resetGroupName(to: obvContactGroupFromEngine.trustedOrLatestCoreDetails.name)
+            if obvContactGroupFromEngine.publishedDetailsAndTrustedOrLatestDetailsAreEquivalentForTheUser() {
+                groupJoined.setStatus(to: .noNewPublishedDetails)
+            } else {
+                switch groupJoined.status {
+                case .noNewPublishedDetails:
+                    groupJoined.setStatus(to: .unseenPublishedDetails)
+                case .unseenPublishedDetails, .seenPublishedDetails:
+                    break // Don't change the status
+                }
+            }
+            
+        } else if let groupOwned = self as? PersistedContactGroupOwned {
+            
+            try groupOwned.resetGroupName(to: obvContactGroupFromEngine.publishedCoreDetails.name)
+            
+            let declinedMemberIdentites = Set(obvContactGroupFromEngine.declinedPendingGroupMembers
+                .map { $0.cryptoId }
+            )
+            for pendingMember in groupOwned.pendingMembers {
+                let newDeclined = declinedMemberIdentites.contains(pendingMember.cryptoId)
+                if pendingMember.declined != newDeclined {
+                    pendingMember.declined = newDeclined
+                }
+            }
+
+        }
+        
+        let groupHasUpdates = !self.changedValues().isEmpty
+        
+        if groupHasUpdates {
+            try createOrUpdateTheAssociatedDisplayedContactGroup()
+        }
+        
+        return groupHasUpdates
+
+    }
+    
     
     // MARK: - Receiving discussion shared configurations
 
@@ -265,7 +341,7 @@ public class PersistedContactGroup: NSManagedObject {
     
     // MARK: - Receiving messages and attachments from a contact or another owned device
 
-    func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, attachmentFullyReceivedOrCancelledByServer: [ObvAttachment]) {
+    func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?) {
         
         guard self.contactIdentities.contains(contact) else {
             throw ObvError.unexpectedContact
@@ -281,20 +357,17 @@ public class PersistedContactGroup: NSManagedObject {
     }
     
     
-    func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> [ObvOwnedAttachment] {
+    func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> MessageSentPermanentID? {
         
         guard self.ownedIdentity == ownedIdentity else {
             throw ObvError.unexpectedOwnedIdentity
         }
         
-        let attachmentFullyReceivedOrCancelledByServer = try discussion.createPersistedMessageSentFromOtherOwnedDevice(
+        return try discussion.createPersistedMessageSentFromOtherOwnedDevice(
             from: ownedIdentity,
             obvOwnedMessage: obvOwnedMessage,
             messageJSON: messageJSON,
             returnReceiptJSON: returnReceiptJSON)
-        
-        return attachmentFullyReceivedOrCancelledByServer
-
     }
     
     
@@ -439,6 +512,9 @@ public class PersistedContactGroup: NSManagedObject {
     }
 
 
+    /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
+    private(set) var isInsertedWhileRestoringSyncSnapshot = false
+
 }
 
 
@@ -452,6 +528,8 @@ extension PersistedContactGroup {
         case initiatorOfTheChangeIsNotTheGroupOwner
         case unexpectedContact
         case unexpectedOwnedIdentity
+        case unexpectedGroupUID
+        case unexpectedGroupOwner
 
         var errorDescription: String? {
             switch self {
@@ -463,6 +541,10 @@ extension PersistedContactGroup {
                 return "Unexpected contact"
             case .unexpectedOwnedIdentity:
                 return "Unexpected owned identity"
+            case .unexpectedGroupUID:
+                return "Unexpected group UID"
+            case .unexpectedGroupOwner:
+                return "Unexpected group owner"
             }
         }
         
@@ -474,7 +556,7 @@ extension PersistedContactGroup {
 
 extension PersistedContactGroup {
     
-    convenience init(contactGroup: ObvContactGroup, groupName: String, category: Category, forEntityName entityName: String, within context: NSManagedObjectContext) throws {
+    convenience init(contactGroup: ObvContactGroup, groupName: String, category: Category, isRestoringSyncSnapshotOrBackup: Bool, forEntityName entityName: String, within context: NSManagedObjectContext) throws {
 
         guard let ownedIdentity = try PersistedObvOwnedIdentity.get(persisted: contactGroup.ownedIdentity, within: context) else {
             throw Self.makeError(message: "Could not find owned identity")
@@ -482,6 +564,8 @@ extension PersistedContactGroup {
         
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
+
+        self.isInsertedWhileRestoringSyncSnapshot = isRestoringSyncSnapshotOrBackup
 
         self.rawCategory = category.rawValue
         self.groupName = groupName
@@ -502,7 +586,8 @@ extension PersistedContactGroup {
             self.discussion = try PersistedGroupDiscussion(contactGroup: self,
                                                            groupName: groupName,
                                                            ownedIdentity: ownedIdentity,
-                                                           status: .active)
+                                                           status: .active,
+                                                           isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
         }
         self.rawOwnedIdentityIdentity = ownedIdentity.cryptoId.getIdentity()
         self.ownedIdentity = ownedIdentity
@@ -516,8 +601,8 @@ extension PersistedContactGroup {
     }
     
     
-    public func createOrUpdateTheAssociatedDisplayedContactGroup() throws {
-        if let displayedContactGroup = self.displayedContactGroup {
+    func createOrUpdateTheAssociatedDisplayedContactGroup() throws {
+        if let displayedContactGroup {
             displayedContactGroup.updateUsingUnderlyingGroup()
         } else {
             self.displayedContactGroup = try DisplayedContactGroup(groupV1: self)
@@ -525,8 +610,9 @@ extension PersistedContactGroup {
     }
     
     
-    public func delete() throws {
+    func delete() throws {
         guard let context = self.managedObjectContext else { throw PersistedContactGroup.makeError(message: "Could not find context") }
+        try discussion.setStatus(to: .locked)
         context.delete(self)
     }
     
@@ -535,24 +621,22 @@ extension PersistedContactGroup {
         try self.discussion.resetTitle(to: displayName)
     }
     
-    
-    // Shall only be called from a subclass
-    public func resetGroupName(to groupName: String) throws {
+
+    private func resetGroupName(to groupName: String) throws {
         let newGroupName = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !newGroupName.isEmpty else { throw Self.makeError(message: "Trying to reset group name with an empty string") }
         if self.groupName != groupName {
             self.groupName = groupName
         }
         try resetDiscussionTitle()
-        displayedContactGroup?.updateUsingUnderlyingGroup()
     }
 
-    public func updatePhoto(with photo: URL?) {
+
+    private func updatePhoto(with photo: URL?) {
         if self.photoURL != photo {
             self.photoURL = photo
             self.discussion.setHasUpdates()
         }
-        displayedContactGroup?.updateUsingUnderlyingGroup()
     }
 }
 
@@ -561,23 +645,24 @@ extension PersistedContactGroup {
 
 extension PersistedContactGroup {
     
+    
     private func insert(_ contactIdentity: PersistedObvContactIdentity) {
         if !self.contactIdentities.contains(contactIdentity) {
             self.contactIdentities.insert(contactIdentity)
             self.insertedContacts.insert(contactIdentity)
         }
-        displayedContactGroup?.updateUsingUnderlyingGroup()
     }
+    
     
     private func remove(_ contactIdentity: PersistedObvContactIdentity) {
         if self.contactIdentities.contains(contactIdentity) {
             self.contactIdentities.remove(contactIdentity)
             self.removedContacts.insert(contactIdentity)
         }
-        displayedContactGroup?.updateUsingUnderlyingGroup()
     }
     
-    public func set(_ contactIdentities: Set<PersistedObvContactIdentity>) {
+    
+    private func set(_ contactIdentities: Set<PersistedObvContactIdentity>) {
         let contactsToAdd = contactIdentities.subtracting(self.contactIdentities)
         let contactsToRemove = self.contactIdentities.subtracting(contactIdentities)
         for contact in contactsToAdd {
@@ -586,12 +671,15 @@ extension PersistedContactGroup {
         for contact in contactsToRemove {
             self.remove(contact)
         }
-        displayedContactGroup?.updateUsingUnderlyingGroup()
     }
     
-    public func setContactIdentities(to contactIdentities: Set<ObvContactIdentity>) throws {
+
+    private func setContactIdentities(to contactIdentities: Set<ObvContactIdentity>) throws {
         guard let context = managedObjectContext else { return }
-        guard !contactIdentities.isEmpty else { return }
+        guard !contactIdentities.isEmpty else {
+            set(Set())
+            return
+        }
         // We make sure all contact identities concern the same owned identity
         let ownedIdentities = Set(contactIdentities.map { $0.ownedIdentity })
         guard ownedIdentities.count == 1 else {
@@ -611,7 +699,7 @@ extension PersistedContactGroup {
 
 extension PersistedContactGroup {
     
-    public func setPendingMembers(to pendingIdentities: Set<ObvGenericIdentity>) throws {
+    private func setPendingMembers(to pendingIdentities: Set<ObvGenericIdentity>) throws {
         guard let context = managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
         }
@@ -628,7 +716,6 @@ extension PersistedContactGroup {
         for pendingMember in pendingMembersToRemove {
             context.delete(pendingMember)
         }
-        displayedContactGroup?.updateUsingUnderlyingGroup()
     }
 
 }
@@ -700,11 +787,20 @@ extension PersistedContactGroup {
     }
 
 
-    public static func getAllContactGroups(ownedIdentity: PersistedObvOwnedIdentity, within context: NSManagedObjectContext) throws -> Set<PersistedContactGroup> {
+    public static func getAllContactGroupIdentifiers(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Set<GroupV1Identifier> {
         let request: NSFetchRequest<PersistedContactGroup> = PersistedContactGroup.fetchRequest()
-        request.predicate = Predicate.withPersistedObvOwnedIdentity(ownedIdentity)
-        request.fetchBatchSize = 100
-        return Set(try context.fetch(request))
+        request.predicate = Predicate.withOwnCryptoId(ownedCryptoId)
+        request.fetchBatchSize = 1_000
+        request.propertiesToFetch = [
+            Predicate.Key.groupUidRaw.rawValue,
+            Predicate.Key.ownerIdentity.rawValue,
+        ]
+        let groups = try context.fetch(request)
+        let groupIdentifiers: [GroupV1Identifier] = groups.compactMap { group in
+            guard let groupOwner = try? ObvCryptoId(identity: group.ownerIdentity) else { assertionFailure(); return nil }
+            return GroupV1Identifier(groupUid: group.groupUid, groupOwner: groupOwner)
+        }
+        return Set(groupIdentifiers)
     }
     
     
@@ -774,8 +870,16 @@ extension PersistedContactGroup {
             insertedContacts.removeAll()
             removedContacts.removeAll()
             insertedPendingMembers.removeAll()
+            isInsertedWhileRestoringSyncSnapshot = false
         }
         
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: Self.self))
+            os_log("Insertion of a PersistedContactGroup during a snapshot restore --> we don't send any notification", log: log, type: .info)
+            return
+        }
+
         if changedKeys.contains(Predicate.Key.contactIdentities.rawValue) {
             ObvMessengerCoreDataNotification.persistedContactGroupHasUpdatedContactIdentities(
                 persistedContactGroupObjectID: objectID,

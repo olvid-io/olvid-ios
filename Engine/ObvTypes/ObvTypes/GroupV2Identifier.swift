@@ -19,6 +19,18 @@
 
 import Foundation
 
+public struct ObvGroupV2Identifier: Hashable {
+    
+    public let ownedCryptoId: ObvCryptoId
+    public let identifier: ObvGroupV2.Identifier
+ 
+    
+    public init(ownedCryptoId: ObvCryptoId, identifier: ObvGroupV2.Identifier) {
+        self.ownedCryptoId = ownedCryptoId
+        self.identifier = identifier
+    }
+}
+
 
 /// 2023-09-23 Type introduced for sync snapshots. It should have been introduced earlier...
 public typealias GroupV2Identifier = Data

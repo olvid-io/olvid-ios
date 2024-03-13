@@ -80,21 +80,21 @@ public struct FyleElementForFyleMessageJoinWithStatus: FyleElement {
     public static func makeError(message: String) -> Error { NSError(domain: "FyleElementForFyleMessageJoinWithStatus", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
     public static func discussionDirectory(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, in currentSessionDirectoryForHardlinks: URL) -> URL {
-        let directory = discussionPermanentID.description.replacingOccurrences(of: "/", with: "_")
+        let directory = discussionPermanentID.description.escapedStringForFyleElementDirectoryOrFilename()
         return currentSessionDirectoryForHardlinks
             .appendingPathComponent(directory, isDirectory: true)
     }
 
 
     public static func messageDirectory(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, in currentSessionDirectoryForHardlinks: URL) -> URL {
-        let directory = messagePermanentID.description.replacingOccurrences(of: "/", with: "_")
+        let directory = messagePermanentID.description.escapedStringForFyleElementDirectoryOrFilename()
         return discussionDirectory(discussionPermanentID: discussionPermanentID, in: currentSessionDirectoryForHardlinks)
             .appendingPathComponent(directory, isDirectory: true)
     }
 
 
     public static func fyleMessageJoinWithStatusDirectory(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, fyleMessageJoinPermanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>, in currentSessionDirectoryForHardlinks: URL) -> URL {
-        let directory = fyleMessageJoinPermanentID.description.replacingOccurrences(of: "/", with: "_")
+        let directory = fyleMessageJoinPermanentID.description.escapedStringForFyleElementDirectoryOrFilename()
         return messageDirectory(discussionPermanentID: discussionPermanentID, messagePermanentID: messagePermanentID, in: currentSessionDirectoryForHardlinks)
             .appendingPathComponent(directory, isDirectory: true)
     }

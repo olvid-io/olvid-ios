@@ -51,6 +51,7 @@ final class TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperati
     /// This array stores all the `LimitedVisibilityMessageOpenedJSON` that should be sent after this operation finishes.
     private(set) var limitedVisibilityMessageOpenedJSONsToSend = [ObvUICoreData.LimitedVisibilityMessageOpenedJSON]()
     private(set) var ownedCryptoId: ObvCryptoId?
+    private(set) var ownedIdentityHasAnotherDeviceWithChannel = false
     
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
@@ -73,6 +74,8 @@ final class TryToAutoReadDiscussionsReceivedMessagesThatRequireUserActionOperati
                 return cancel(withReason: .couldNotFindOwnedIdentity)
             }
 
+            self.ownedIdentityHasAnotherDeviceWithChannel = ownedIdentity.hasAnotherDeviceWithChannel
+            
             guard ObvUserActivitySingleton.shared.currentDiscussionPermanentID == discussionPermanentID else { return }
 
             let dateWhenMessageWasRead = Date()

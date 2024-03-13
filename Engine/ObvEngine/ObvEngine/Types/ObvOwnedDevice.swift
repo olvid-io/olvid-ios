@@ -41,6 +41,14 @@ public struct ObvOwnedDevice: Hashable, CustomStringConvertible {
         secureChannelStatus == .currentDevice
     }
     
+    public var ownedDeviceIdentifier: ObvOwnedDeviceIdentifier? {
+        guard let deviceUID = UID(uid: identifier) else {
+            assertionFailure()
+            return nil
+        }
+        return ObvOwnedDeviceIdentifier(ownedCryptoId: ownedCryptoId, deviceUID: deviceUID)
+    }
+    
     init(identifier: Data, ownedCryptoIdentity: ObvCryptoIdentity, secureChannelStatus: SecureChannelStatus, name: String?, expirationDate: Date?, latestRegistrationDate: Date?) {
         self.identifier = identifier
         self.ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)

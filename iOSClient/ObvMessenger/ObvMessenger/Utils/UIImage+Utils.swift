@@ -68,4 +68,36 @@ extension UIImage {
         UIGraphicsEndImageContext()
         return resizedImage
     }
+    
+    
+    func downsizeIfRequired(maxWidth: CGFloat, maxHeight: CGFloat) -> UIImage? {
+        
+        let ratio = min(maxWidth / self.size.width, maxHeight / self.size.height)
+
+        // If the current image is small enough, return it
+        
+        guard ratio < 1 else {
+            return self
+        }
+        
+        // If we reach this point, at least one side of the image is too big.
+        // We need to resize down the image
+        
+        let newSize = CGSize(
+            width: self.size.width * ratio,
+            height: self.size.height * ratio)
+        
+        // Create the downsized image
+        
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0)
+        draw(in: CGRect(origin: CGPoint.zero, size: newSize))
+        let downsizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+
+        // Return it
+        
+        return downsizedImage
+                        
+    }
+    
 }

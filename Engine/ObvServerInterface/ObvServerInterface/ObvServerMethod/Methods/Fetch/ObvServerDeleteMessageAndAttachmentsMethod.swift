@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,6 +37,7 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
     private let deviceUid: UID
     public let flowId: FlowIdentifier
     public let isActiveOwnedIdentityRequired = false
+    private let category: Category
     
     public var ownedIdentity: ObvCryptoIdentity {
         return messageId.ownedCryptoIdentity
@@ -44,24 +45,53 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
     
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public init(token: Data, messageId: ObvMessageIdentifier, deviceUid: UID, flowId: FlowIdentifier) {
+    public enum Category: CustomDebugStringConvertible {
+        case requestDeletion
+        case markAsListed
+        public var debugDescription: String {
+            switch self {
+            case .requestDeletion: return "requestDeletion"
+            case .markAsListed: return "markAsListed"
+            }
+        }
+    }
+    
+    public init(token: Data, messageId: ObvMessageIdentifier, deviceUid: UID, category: Category, flowId: FlowIdentifier) {
         self.flowId = flowId
         self.token = token
         self.messageId = messageId
         self.deviceUid = deviceUid
+        self.category = category
     }
     
-    public enum PossibleReturnStatus: UInt8 {
+    public enum PossibleReturnStatus: UInt8, CustomDebugStringConvertible {
         case ok = 0x00
         case invalidSession = 0x04
         case generalError = 0xff
+        public var debugDescription: String {
+            switch self {
+            case .ok: return "ok"
+            case .invalidSession: return "invalidSession"
+            case .generalError: return "generalError"
+            }
+        }
     }
 
     lazy public var dataToSend: Data? = {
-        return [messageId.ownedCryptoIdentity.getIdentity(),
-                token,
-                messageId.uid.raw,
-                deviceUid].obvEncode().rawData
+        let markAsListed: Bool
+        switch category {
+        case .requestDeletion:
+            markAsListed = false
+        case .markAsListed:
+            markAsListed = true
+        }
+        return [
+            messageId.ownedCryptoIdentity.getIdentity(),
+            token,
+            messageId.uid.raw,
+            deviceUid,
+            markAsListed,
+        ].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {

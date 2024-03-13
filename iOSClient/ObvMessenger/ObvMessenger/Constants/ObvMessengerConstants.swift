@@ -170,5 +170,38 @@ enum ObvMessengerConstants {
     // Other
     
     public static let maximumTimeIntervalForKeptForLaterMessages = TimeInterval(days: 2)
+    
+    public static let maxCountForFilename = Int(NAME_MAX)
+
+    // Link previews
+    
+    struct LinkPreview {
+        
+        static let numberOfLinesForDescriptions = 5
+        
+        static let domainsWithLongDescription: Set<String> = Set([
+            "x.com",
+            "twitter.com",
+            "fxtwitter.com",
+            "vxtwitter.com",
+            "mastodon.social",
+        ])
+
+        
+    }
+    
+    // VoIP
+    
+    public static let maxOtherParticipantCountForVideoCalls = 2
+    public struct StreamId {
+        static let olvid = "OlvidStreamId"
+        static let video = "video"
+        static let screencast = "screencast"
+    }
+    public struct TrackId {
+        static let video = "video0"
+        static let screencast = "screencast0"
+        static let audio = "audio0"
+    }
 
 }

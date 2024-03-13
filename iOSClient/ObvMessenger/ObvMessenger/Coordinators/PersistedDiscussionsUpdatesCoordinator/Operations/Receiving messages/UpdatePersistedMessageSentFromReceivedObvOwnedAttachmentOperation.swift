@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,28 +51,7 @@ final class UpdatePersistedMessageSentFromReceivedObvOwnedAttachmentOperation: C
             
             // Update the attachment sent by this owned identity on another of her owned devices
             
-            let attachmentFullyReceivedOrCancelledByServer = try persistedObvOwnedIdentity.processObvOwnedAttachmentFromOtherOwnedDevice(obvOwnedAttachment: obvOwnedAttachment)
-            
-            // If the attachment was fully received, we ask the engine to delete the attachment
-            
-            if attachmentFullyReceivedOrCancelledByServer {
-                let obvEngine = self.obvEngine
-                let obvOwnedAttachment = self.obvOwnedAttachment
-                let log = self.log
-                do {
-                    try obvContext.addContextDidSaveCompletionHandler { error in
-                        do {
-                            try obvEngine.deleteObvAttachment(attachmentNumber: obvOwnedAttachment.number, ofMessageWithIdentifier: obvOwnedAttachment.messageIdentifier, ownedCryptoId: obvOwnedAttachment.ownedCryptoId)
-                        } catch {
-                            os_log("Call to the engine method deleteObvAttachment did fail", log: log, type: .fault)
-                            assertionFailure()
-                        }
-                    }
-                } catch {
-                    assertionFailure(error.localizedDescription)
-                }
-                
-            }
+            try persistedObvOwnedIdentity.processObvOwnedAttachmentFromOtherOwnedDevice(obvOwnedAttachment: obvOwnedAttachment)
             
         } catch {
             assertionFailure(error.localizedDescription)

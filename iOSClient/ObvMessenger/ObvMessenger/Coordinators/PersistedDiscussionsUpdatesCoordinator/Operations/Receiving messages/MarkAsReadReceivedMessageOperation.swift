@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -42,6 +42,7 @@ final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificR
     }
 
     private(set) var ownedCryptoId: ObvCryptoId?
+    private(set) var ownedIdentityHasAnotherDeviceWithChannel = false
     private(set) var discussionReadJSONToSend: DiscussionReadJSON?
 
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
@@ -64,6 +65,7 @@ final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificR
             }
             
             self.ownedCryptoId = ownedIdentity.cryptoId
+            self.ownedIdentityHasAnotherDeviceWithChannel = ownedIdentity.hasAnotherDeviceWithChannel
             
             let dateWhenMessageTurnedNotNew = Date()
             let lastReadMessageServerTimestamp = try ownedIdentity.markReceivedMessageAsNotNew(discussionId: discussionId, receivedMessageId: receivedMessageId, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)

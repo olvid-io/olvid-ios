@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -99,7 +99,7 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Ide
 
         guard let fyle = self.fyle else { return nil }
         
-        let contentType = UTType(filenameExtension: (self.fileName as NSString).pathExtension) ?? .data
+        let contentType = isPreviewType ? .olvidLinkPreview : (UTType(filenameExtension: (self.fileName as NSString).pathExtension) ?? .data)
 
         return FyleMetadata(fileName: self.fileName,
                             sha256: fyle.sha256,
@@ -194,8 +194,7 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Ide
     }
     
     
-    /// Returns `true` iff the attachment is cancelled or fully received (i.e., if the `SentFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk).
-    static func createOrUpdateSentFyleMessageJoinWithStatusFromOtherOwnedDevice(with obvOwnedAttachment: ObvOwnedAttachment, messageSent: PersistedMessageSent) throws -> Bool {
+    static func createOrUpdateSentFyleMessageJoinWithStatusFromOtherOwnedDevice(with obvOwnedAttachment: ObvOwnedAttachment, messageSent: PersistedMessageSent) throws {
         
         let join: SentFyleMessageJoinWithStatus
         if obvOwnedAttachment.number < messageSent.fyleMessageJoinWithStatuses.count {
@@ -212,19 +211,14 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Ide
             assert(join.fyle != nil, "The fyle should have been created by the init of the superclass")
         }
 
-        let attachmentFullyReceivedOrCancelledByServer = try join.updateSentFyleMessageJoinWithStatusFromOtherOwnedDevice(with: obvOwnedAttachment)
+        try join.updateSentFyleMessageJoinWithStatusFromOtherOwnedDevice(with: obvOwnedAttachment)
             
-        return attachmentFullyReceivedOrCancelledByServer
-
     }
     
     
-    /// Returns `true` iff the attachment is cancelled or fully received (i.e., if the `SentFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk).
-    private func updateSentFyleMessageJoinWithStatusFromOtherOwnedDevice(with obvOwnedAttachment: ObvOwnedAttachment) throws -> Bool {
+    private func updateSentFyleMessageJoinWithStatusFromOtherOwnedDevice(with obvOwnedAttachment: ObvOwnedAttachment) throws {
         
         // Update the status of the ReceivedFyleMessageJoinWithStatus depending on the status of the ObvAttachment
-
-        var attachmentCancelledByServer = false
 
         switch obvOwnedAttachment.status {
         case .paused:
@@ -235,7 +229,6 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Ide
             tryToSetStatusTo(.complete)
         case .cancelledByServer:
             tryToSetStatusTo(.cancelledByServer)
-            attachmentCancelledByServer = true
         case .markedForDeletion:
             break
         }
@@ -254,8 +247,6 @@ public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Ide
         if attachmentFullyReceived {
             deleteDownsizedThumbnail()
         }
-
-        return attachmentFullyReceived || attachmentCancelledByServer
         
     }
     
@@ -318,6 +309,7 @@ extension SentFyleMessageJoinWithStatus {
     }
     
     var shareActionCanBeMadeAvailableForSentJoin: Bool {
+        guard !isPreviewType else { return false }
         return sentMessage.shareActionCanBeMadeAvailableForSentMessage
     }
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -70,6 +70,7 @@ final class SetRemoteDescriptionOperation: AsyncOperationWithSpecificReasonForCa
         }
         
         do {
+            debugPrint(remoteSessionDescription.sdp)
             try await peerConnection.setRemoteDescription(remoteSessionDescription)
         } catch {
             return cancel(withReason: .setRemoteDescriptionFailed(error: error))

@@ -152,10 +152,10 @@ final class ProcessObvDialogOperation: ContextualOperationWithSpecificReasonForC
             switch obvDialog.category {
             case .oneToOneInvitationSent:
                 if try PersistedInvitationOneToOneInvitationSent.getPersistedInvitation(uuid: obvDialog.uuid, ownedCryptoId: obvDialog.ownedCryptoId, within: obvContext.context) == nil {
-                    _ = try PersistedInvitationOneToOneInvitationSent(obvDialog: obvDialog, within: obvContext.context)
+                    _ = try PersistedInvitationOneToOneInvitationSent(obvDialog: obvDialog, isRestoringSyncSnapshotOrBackup: false, within: obvContext.context)
                 }
             default:
-                try PersistedInvitation.insertOrUpdate(obvDialog, within: obvContext.context)
+                try PersistedInvitation.insertOrUpdate(obvDialog, isRestoringSyncSnapshotOrBackup: false, within: obvContext.context)
             }
         } catch {
             return cancel(withReason: .coreDataError(error: error))

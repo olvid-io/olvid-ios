@@ -193,8 +193,6 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
                 popover.barButtonItem = profilePictureBarButtonItem
             }
         }
-        ObvMessengerInternalNotification.recomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities
-            .postOnDispatchQueue()
         present(ownedIdentityChooserVC, animated: true)
     }
     

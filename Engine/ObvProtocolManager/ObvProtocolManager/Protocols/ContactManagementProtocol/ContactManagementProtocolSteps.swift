@@ -397,9 +397,11 @@ extension ContactManagementProtocol {
             
             // We downgrade the contact
             
+            let reasonToLog = "ContactManagementProtocol.DowngradeContactStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: contactIdentity,
-                                                            newIsOneToOneStatus: false,
+                                                            newIsOneToOneStatus: false, 
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
             
             // Notify the contact that she has been downgraded
@@ -477,9 +479,11 @@ extension ContactManagementProtocol {
             
             // We can downgrade the contact too
             
+            let reasonToLog = "ContactManagementProtocol.ProcessDowngradeStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: contactIdentity,
                                                             newIsOneToOneStatus: false,
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
             
             // We finish the protocol
@@ -525,9 +529,11 @@ extension ContactManagementProtocol {
             
             // We downgrade the contact
             
+            let reasonToLog = "ContactManagementProtocol.ProcessPropagatedDowngradeStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: contactIdentity,
                                                             newIsOneToOneStatus: false,
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
 
             return FinalState()

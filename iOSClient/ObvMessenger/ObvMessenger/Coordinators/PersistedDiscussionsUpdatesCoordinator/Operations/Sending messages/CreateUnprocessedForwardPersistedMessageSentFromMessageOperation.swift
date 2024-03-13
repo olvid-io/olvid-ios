@@ -32,7 +32,7 @@ final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: Co
     let messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>
     let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
 
-    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
+    private(set) var messageSentPermanentID: MessageSentPermanentID?
 
     init(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>) {
         self.messagePermanentID = messagePermanentID

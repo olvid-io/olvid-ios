@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -701,6 +701,21 @@ extension CallProviderDelegate: CallProviderHolderDelegate {
         os_log("☎️ [CXAnswerCallAction] Call to provider(CXAnswerCallAction) for call with uuidForCallKit %{public}@", log: Self.log, type: .info, action.callUUID.debugDescription)
         do {
             
+            // Make sure the user gave access to the microphone
+            
+            guard AVAudioSession.sharedInstance().recordPermission == .granted else {
+                let (incomingCall, report, rejectedOnOtherDeviceMessageJSON) = try await callManager.incomingCallCannotBeAnsweredBecauseOfDeniedRecordPermission(uuidForCallKit: action.callUUID)
+                if let incomingCall, let report {
+                    Self.report(call: incomingCall, report: report)
+                }
+                if let incomingCall, let rejectedOnOtherDeviceMessageJSON {
+                    VoIPNotification.newOwnedWebRTCMessageToSend(ownedCryptoId: incomingCall.ownedCryptoId, webrtcMessage: rejectedOnOtherDeviceMessageJSON)
+                        .postOnDispatchQueue()
+                }
+                action.fail()
+                return
+            }
+
             // Configure the audio session but do not start call audio here.
             // When using CallKit, call audio should not be started until the audio session is activated by the system,
             // after having its priority elevated.

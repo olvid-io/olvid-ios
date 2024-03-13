@@ -34,7 +34,7 @@ public struct DeviceDiscoveryForRemoteIdentityProtocol: ConcreteCryptoProtocol {
     
     static let id = CryptoProtocolId.deviceDiscoveryForRemoteIdentity
     
-    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.deviceUidsReceived]
+    static let finalStateIds: [ConcreteProtocolStateId] = [StateId.deviceUidsReceived, StateId.cancelled]
     
     let ownedIdentity: ObvCryptoIdentity
     let currentState: ConcreteProtocolState

@@ -461,16 +461,6 @@ extension ContactGroupJoined {
             return
         }
         
-        if isInserted, let groupOwnerCryptoIdentity = groupOwner.cryptoIdentity {
-            
-            let NotificationType = ObvIdentityNotification.NewContactGroupJoined.self
-            let userInfo = [NotificationType.Key.groupUid: self.groupUid,
-                            NotificationType.Key.groupOwner: groupOwnerCryptoIdentity,
-                            NotificationType.Key.ownedIdentity: self.ownedIdentity.cryptoIdentity] as [String: Any]
-            delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-            
-        }
-
         if notificationRelatedChanges.contains(.updatedTrustedDetails), let groupOwnerCryptoIdentity = groupOwner.cryptoIdentity {
             
             let NotificationType = ObvIdentityNotification.ContactGroupJoinedHasUpdatedTrustedDetails.self

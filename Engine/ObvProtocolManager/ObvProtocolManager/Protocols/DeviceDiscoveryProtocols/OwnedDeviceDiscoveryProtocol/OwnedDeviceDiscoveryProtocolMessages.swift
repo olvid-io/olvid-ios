@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,7 @@
 import Foundation
 import ObvEncoder
 import ObvCrypto
+import ObvMetaManager
 
 // MARK: - Protocol Messages
 
@@ -73,7 +74,7 @@ extension OwnedDeviceDiscoveryProtocol {
         
         // Properties specific to this concrete protocol message
 
-        let encryptedOwnedDeviceDiscoveryResult: EncryptedData? // Only set when the message is sent to this protocol, not when sending this message to the server
+        let ownedDeviceDiscoveryResult: ServerResponseOwnedDeviceDiscoveryResult? // Only set when the message is sent to this protocol, not when sending this message to the server
         
         var encodedInputs: [ObvEncoded] { return [] }
         
@@ -83,17 +84,23 @@ extension OwnedDeviceDiscoveryProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
-            let encodedEncryptedOwnedDeviceDiscoveryResult = encodedElements[0]
-            guard let encryptedOwnedDeviceDiscoveryResult = EncryptedData(encodedEncryptedOwnedDeviceDiscoveryResult) else {
-                assertionFailure()
-                throw Self.makeError(message: "Failed to decode the encrypted result of the owned device discovery")
+            
+            if let result = ServerResponseOwnedDeviceDiscoveryResult(encodedElements[0]) {
+                self.ownedDeviceDiscoveryResult = result
+            } else {
+                // Try the legacy decoding
+                let encodedEncryptedOwnedDeviceDiscoveryResult = encodedElements[0]
+                guard let encryptedOwnedDeviceDiscoveryResult = EncryptedData(encodedEncryptedOwnedDeviceDiscoveryResult) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Failed to decode the encrypted result of the owned device discovery")
+                }
+                ownedDeviceDiscoveryResult = .success(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult)
             }
-            self.encryptedOwnedDeviceDiscoveryResult = encryptedOwnedDeviceDiscoveryResult
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {
             self.coreProtocolMessage = coreProtocolMessage
-            self.encryptedOwnedDeviceDiscoveryResult = nil
+            self.ownedDeviceDiscoveryResult = nil
         }
     }
     

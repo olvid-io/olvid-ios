@@ -38,12 +38,14 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         case initialState = 0
         case waitingForDeviceUids = 1
         case deviceUidsReceived = 2 // Final
+        case cancelled = 3 // Final
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
             case .initialState         : return ConcreteProtocolInitialState.self
             case .waitingForDeviceUids : return WaitingForDeviceUidsState.self
             case .deviceUidsReceived   : return DeviceUidsReceivedState.self
+            case .cancelled            : return CancelledState.self
             }
         }
     }
@@ -95,6 +97,19 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             let encodedRemoteIdentity = remoteIdentity.obvEncode()
             return [encodedRemoteIdentity, encodedDeviceUids].obvEncode()
         }
+    }
+
+    // MARK: - CancelledState
+    
+    struct CancelledState: TypeConcreteProtocolState {
+        
+        let id: ConcreteProtocolStateId = StateId.cancelled
+        
+        init(_: ObvEncoded) {}
+        
+        init() {}
+        
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
     }
 
 }

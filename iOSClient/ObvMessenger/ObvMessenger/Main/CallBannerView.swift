@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,6 +49,7 @@ final class CallBannerView: UIView {
         label.font = fontForLabel
         label.numberOfLines = 1
         label.adjustsFontSizeToFitWidth = true
+        label.adjustsFontForContentSizeCategory = true
         label.textColor = .white
         
         let tap = UITapGestureRecognizer(target: self, action: #selector(tapPerformed))
@@ -66,10 +67,11 @@ final class CallBannerView: UIView {
     private func setupConstraints() {
         
         NSLayoutConstraint.activate([
-            label.topAnchor.constraint(equalTo: self.topAnchor, constant: verticalPadding),
-            label.trailingAnchor.constraint(equalTo: self.trailingAnchor),
-            label.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -verticalPadding),
-            label.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            self.heightAnchor.constraint(equalToConstant: 44), // iOS guidelines for a button size
+            label.centerXAnchor.constraint(equalTo: self.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: self.centerYAnchor),
+            label.widthAnchor.constraint(lessThanOrEqualTo: self.widthAnchor, multiplier: 1.0, constant: verticalPadding),
+            label.heightAnchor.constraint(lessThanOrEqualTo: self.heightAnchor, multiplier: 1.0, constant: verticalPadding),
         ])
         
     }

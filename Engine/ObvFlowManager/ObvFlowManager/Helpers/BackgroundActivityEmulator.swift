@@ -29,7 +29,7 @@ final class BackgroundActivityEmulator: ObvBackgroundTaskManager {
     private var _semaphoreForTaskIdentifier = [UIBackgroundTaskIdentifier: DispatchSemaphore]()
         
     
-    func beginBackgroundTask(expirationHandler handler: (() -> Void)? = nil) -> UIBackgroundTaskIdentifier {
+    func beginBackgroundTask(withName: String?, expirationHandler handler: (() -> Void)? = nil) -> UIBackgroundTaskIdentifier {
         
         let taskIdentifier = UIBackgroundTaskIdentifier.random()
         

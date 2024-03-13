@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,7 @@ import ObvUICoreData
 
 
 protocol UnprocessedPersistedMessageSentProvider: Operation {
-    var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>? { get }
+    var messageSentPermanentID: MessageSentPermanentID? { get }
 }
 
 protocol ExtendedPayloadProvider: Operation {
@@ -38,7 +38,7 @@ protocol ExtendedPayloadProvider: Operation {
 final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWithSpecificReasonForCancel<SendUnprocessedPersistedMessageSentOperationReasonForCancel> {
 
     private enum Input {
-        case messagePermanentID(_: ObvManagedObjectPermanentID<PersistedMessageSent>)
+        case messagePermanentID(_: MessageSentPermanentID)
         case provider(_: UnprocessedPersistedMessageSentProvider)
     }
     
@@ -49,7 +49,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
     private let obvEngine: ObvEngine
     private let completionHandler: (() -> Void)?
 
-    init(messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, alsoPostToOtherOwnedDevices: Bool, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
+    init(messageSentPermanentID: MessageSentPermanentID, alsoPostToOtherOwnedDevices: Bool, extendedPayloadProvider: ExtendedPayloadProvider?, obvEngine: ObvEngine, completionHandler: (() -> Void)? = nil) {
         self.input = .messagePermanentID(messageSentPermanentID)
         self.obvEngine = obvEngine
         self.completionHandler = completionHandler
@@ -72,7 +72,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
     
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        let messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>
+        let messageSentPermanentID: MessageSentPermanentID
         
         switch input {
         case .messagePermanentID(let _messageSentPermanentID):
@@ -109,7 +109,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
                 .filter({ $0.messageIdentifierFromEngine == nil })
                 .map({ $0.recipientCryptoId }))
             
-            guard let ownedCryptoId = persistedMessageSent.discussion?.ownedIdentity?.cryptoId else {
+            guard let ownedCryptoId = persistedMessageSent.discussion?.ownedIdentity?.cryptoId, let ownedIdentityHasAnotherDeviceWithChannel = persistedMessageSent.discussion?.ownedIdentity?.hasAnotherDeviceWithChannel else {
                 return cancel(withReason: .couldNotDetermineOwnedCryptoId)
             }
             
@@ -302,7 +302,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
             
             let messageIdentifierForContactToWhichTheMessageWasSent: [ObvCryptoId: Data]
             // We do not propagate a read once message to our other owned devices
-            let finalAlsoPostToOtherOwnedDevices = alsoPostToOtherOwnedDevices && !isPersistedMessageSentReadOnce
+            let finalAlsoPostToOtherOwnedDevices = alsoPostToOtherOwnedDevices && !isPersistedMessageSentReadOnce && ownedIdentityHasAnotherDeviceWithChannel
             if !contactCryptoIds.isEmpty || finalAlsoPostToOtherOwnedDevices {
                 do {
                     messageIdentifierForContactToWhichTheMessageWasSent =
@@ -337,9 +337,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
             
             do {
                 let persistedMessageSentStruct = try persistedMessageSent.toStruct()
-                let infos = SentMessageIntentInfos(messageSent: persistedMessageSentStruct,
-                                                   urlForStoringPNGThumbnail: nil,
-                                                   thumbnailPhotoSide: IntentManagerUtils.thumbnailPhotoSide)
+                let infos = SentMessageIntentInfos(messageSent: persistedMessageSentStruct)
                 let intent = IntentManagerUtils.getSendMessageIntentForMessageSent(infos: infos)
                 try obvContext.addContextDidSaveCompletionHandler { error in
                     if let error { assertionFailure(error.localizedDescription); return }

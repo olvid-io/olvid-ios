@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -57,12 +57,28 @@ final class PendingDeleteFromServer: NSManagedObject, ObvManagedObject {
 
     // MARK: - Initializer
     
+    /// This initializer shall be called when a message (and its attachments) are marked for deletion.
     convenience init(messageId: ObvMessageIdentifier, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: PendingDeleteFromServer.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.messageId = messageId
     }
 
+    
+    private func deletePendingDeleteFromServer() throws {
+        guard let managedObjectContext else {
+            assertionFailure()
+            throw ObvError.contextIsNil
+        }
+        managedObjectContext.delete(self)
+    }
+    
+    
+    enum ObvError: Error {
+        case contextIsNil
+        case cannotDetermineMessageId
+    }
+    
 }
 
 
@@ -101,6 +117,18 @@ extension PendingDeleteFromServer {
         return item
     }
     
+    static func exists(for inboxMessage: InboxMessage) throws -> Bool {
+        guard let context = inboxMessage.managedObjectContext else {
+            throw ObvError.contextIsNil
+        }
+        guard let messageId = inboxMessage.messageId else {
+            throw ObvError.cannotDetermineMessageId
+        }
+        let request: NSFetchRequest<PendingDeleteFromServer> = PendingDeleteFromServer.fetchRequest()
+        request.predicate = Predicate.withMessageId(messageId)
+        return try context.count(for: request) > 0
+    }
+    
     static func getAll(within obvContext: ObvContext) throws -> [PendingDeleteFromServer] {
         let request: NSFetchRequest<PendingDeleteFromServer> = PendingDeleteFromServer.fetchRequest()
         let items = try obvContext.fetch(request)
@@ -111,4 +139,14 @@ extension PendingDeleteFromServer {
         let request: NSFetchRequest<PendingDeleteFromServer> = PendingDeleteFromServer.fetchRequest()
         request.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
     }
+    
+    static func deletePendingDeleteFromServer(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<PendingDeleteFromServer> = PendingDeleteFromServer.fetchRequest()
+        request.predicate = Predicate.withMessageId(messageId)
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        guard let item = (try obvContext.fetch(request)).first else { return }
+        try item.deletePendingDeleteFromServer()
+    }
+    
 }

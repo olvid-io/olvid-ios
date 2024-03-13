@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,10 +18,13 @@
  */
 
 import Foundation
+import os.log
 import CoreData
 import ObvTypes
 import ObvEngine
 import OlvidUtils
+import ObvCrypto
+import ObvSettings
 
 
 @objc(PersistedObvContactDevice)
@@ -64,6 +67,7 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable, Obv
     
     public var contactIdentifier: ObvContactIdentifier {
         get throws {
+            assert(rawOwnedIdentityIdentity != rawIdentityIdentity)
             let ownedCryptoId = try ObvCryptoId(identity: rawOwnedIdentityIdentity)
             let contactCryptoId = try ObvCryptoId(identity: rawIdentityIdentity)
             return ObvContactIdentifier(
@@ -72,6 +76,17 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable, Obv
         }
     }
 
+    
+    public var contactDeviceIdentifier: ObvContactDeviceIdentifier {
+        get throws {
+            let contactIdentifier = try self.contactIdentifier
+            guard let deviceUID = UID(uid: self.identifier) else {
+                assertionFailure()
+                throw ObvError.couldNotComputeDeviceUID
+            }
+            return .init(contactIdentifier: contactIdentifier, deviceUID: deviceUID)
+        }
+    }
     
     public enum SecureChannelStatus: Int {
         case creationInProgress = 0
@@ -99,11 +114,15 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable, Obv
         }
     }
 
+
+    /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
+    private var isInsertedWhileRestoringSyncSnapshot = false
+
     
     // MARK: - Initializer
     
     /// Shall **only** be called from the ``func insert(_ device: ObvContactDevice) throws`` method of a `PersistedObvContactIdentity`.
-    convenience init(obvContactDevice device: ObvContactDevice, persistedContact: PersistedObvContactIdentity) throws {
+    convenience init(obvContactDevice device: ObvContactDevice, persistedContact: PersistedObvContactIdentity, isRestoringSyncSnapshotOrBackup: Bool) throws {
         
         guard let context = persistedContact.managedObjectContext else {
             throw ObvError.couldNotFindContext
@@ -112,6 +131,8 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable, Obv
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedObvContactDevice.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
         
+        self.isInsertedWhileRestoringSyncSnapshot = isRestoringSyncSnapshotOrBackup
+
         self.identifier = device.identifier
         self.rawIdentityIdentity = device.contactIdentifier.contactCryptoId.getIdentity()
         self.rawOwnedIdentityIdentity = device.contactIdentifier.ownedCryptoId.getIdentity()
@@ -141,7 +162,7 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable, Obv
         }
         context.delete(self)
     }
-    
+        
 }
 
 
@@ -168,6 +189,12 @@ extension PersistedObvContactDevice {
         static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.rawOwnedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
         }
+        static func withContactIdentifier(_ contactIdentifier: ObvContactIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withOwnedCryptoId(contactIdentifier.ownedCryptoId),
+                withContactCryptoId(contactIdentifier.contactCryptoId),
+            ])
+        }
     }
     
 
@@ -180,6 +207,41 @@ extension PersistedObvContactDevice {
         return try context.existingObject(with: contactDeviceObjectID) as? PersistedObvContactDevice
     }
     
+    public static func getAllContactDeviceIdentifiersOfContactsOfOwnedIdentity(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Set<ObvContactDeviceIdentifier> {
+        
+        let request: NSFetchRequest<PersistedObvContactDevice> = self.fetchRequest()
+        request.fetchBatchSize = 1_000
+        request.propertiesToFetch = [
+            Predicate.Key.identifier.rawValue,
+            Predicate.Key.rawOwnedIdentityIdentity.rawValue,
+            Predicate.Key.rawIdentityIdentity.rawValue
+        ]
+        request.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
+        let results = try context.fetch(request)
+        return try Set(results.compactMap { device in
+            return try device.contactDeviceIdentifier
+        })
+        
+    }
+
+    
+    public static func getAllContactDeviceIdentifiersOfContact(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> Set<ObvContactDeviceIdentifier> {
+        
+        let request: NSFetchRequest<PersistedObvContactDevice> = self.fetchRequest()
+        request.fetchBatchSize = 50
+        request.propertiesToFetch = [
+            Predicate.Key.identifier.rawValue,
+            Predicate.Key.rawOwnedIdentityIdentity.rawValue,
+            Predicate.Key.rawIdentityIdentity.rawValue
+        ]
+        request.predicate = Predicate.withContactIdentifier(contactIdentifier)
+        let results = try context.fetch(request)
+        return try Set(results.compactMap { device in
+            return try device.contactDeviceIdentifier
+        })
+        
+    }
+
 }
 
 
@@ -205,8 +267,16 @@ extension PersistedObvContactDevice {
         
         defer {
             changedKeys.removeAll()
+            isInsertedWhileRestoringSyncSnapshot = false
         }
         
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: Self.self))
+            os_log("Insertion of a PersistedObvContactDevice during a snapshot restore --> we don't send any notification", log: log, type: .info)
+            return
+        }
+
         if isInserted, let contactCryptoId = self.identity?.cryptoId {
             
             ObvMessengerCoreDataNotification.newPersistedObvContactDevice(contactDeviceObjectID: self.objectID, contactCryptoId: contactCryptoId)
@@ -239,11 +309,14 @@ extension PersistedObvContactDevice {
     
     enum ObvError: Error {
         case couldNotFindContext
+        case couldNotComputeDeviceUID
         
         var localizedDescription: String {
             switch self {
             case .couldNotFindContext:
                 return "Could not find context"
+            case .couldNotComputeDeviceUID:
+                return "Could not compute device UID"
             }
         }
     }

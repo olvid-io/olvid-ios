@@ -1089,6 +1089,7 @@ struct SingleGroupMemberView: View {
             }
             if !editMode {
                 ObvChevron(selected: selected)
+                    .opacity(otherMember.contact != nil ? 1.0 : 0.0)
             }
         }
         .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped

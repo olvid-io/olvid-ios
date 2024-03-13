@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,15 +30,18 @@ import UIKit
 import UniformTypeIdentifiers
 import UI_SystemIcon
 import ObvDesignSystem
+import ObvEncoder
 
 
 fileprivate enum JoinKind: Int, CaseIterable {
     case medias = 0
+    case links
     case documents
 
     var title: String {
         switch self {
         case .medias: return CommonString.Word.Medias
+        case .links: return CommonString.Word.Links
         case .documents: return CommonString.Word.Documents
         }
     }
@@ -52,15 +55,15 @@ protocol DiscussionGalleryViewControllerDelegate: AnyObject {
 
 // MARK: - DiscussionGalleryViewController
 
-/// This view controller is a container view controller. It displays a `UISegmentedControl` allowing to switch between two galleries: one for the medias (images, movies,...) and one for the other types of files.
-/// The two children view controllers are instances of the `JoinGalleryViewController` defined bellow.
-@available(iOS 15.0, *)
+/// This view controller is a container view controller. It displays a `UISegmentedControl` allowing to switch between two galleries: one for the medias (images, movies,...) , one for the links and one for the other types of files.
+/// The three children view controllers are instances of the `JoinGalleryViewController` defined bellow.
 final class DiscussionGalleryViewController: UIViewController, DiscussionGalleryViewControllerDelegate {
 
     private let segmentedControl = UISegmentedControl(items: JoinKind.allCases.map({ $0.title }))
     private let toolbarLabel = UILabel()
 
     private let mediasCollectionView: JoinGalleryViewController
+    private let linksCollectionView: JoinGalleryViewController
     private let documentsCollectionView: JoinGalleryViewController
 
     private var currentKind: JoinKind = .medias
@@ -69,15 +72,19 @@ final class DiscussionGalleryViewController: UIViewController, DiscussionGallery
         childViewControllerOfKind(self.currentKind)
     }
     
+    private var selectBarButtonItem: UIBarButtonItem?
+    
     private func childViewControllerOfKind(_ kind: JoinKind) -> JoinGalleryViewController {
         switch kind {
         case .medias: return mediasCollectionView
+        case .links: return linksCollectionView
         case .documents: return documentsCollectionView
         }
     }
 
     init(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) {
         self.mediasCollectionView = JoinGalleryViewController(discussionObjectID: discussionObjectID, kind: .medias)
+        self.linksCollectionView = JoinGalleryViewController(discussionObjectID: discussionObjectID, kind: .links)
         self.documentsCollectionView = JoinGalleryViewController(discussionObjectID: discussionObjectID, kind: .documents)
         super.init(nibName: nil, bundle: nil)
     }
@@ -85,12 +92,17 @@ final class DiscussionGalleryViewController: UIViewController, DiscussionGallery
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    deinit {
+        debugPrint("DiscussionGalleryViewController deinit")
+    }
 
     private func configureBarButtonItems() {
         let closeBarButtonItem = UIBarButtonItem(barButtonSystemItem: .close, target: self, action: #selector(closeButtonTapped))
         navigationItem.leftBarButtonItem = closeBarButtonItem
         let selectBarButtonItem = UIBarButtonItem(title: CommonString.Word.Select, style: .plain, target: self, action: #selector(rightBarButtonItemButtonItemTapped))
         navigationItem.rightBarButtonItem = selectBarButtonItem
+        self.selectBarButtonItem = selectBarButtonItem
     }
 
     @objc func closeButtonTapped() {
@@ -183,6 +195,13 @@ final class DiscussionGalleryViewController: UIViewController, DiscussionGallery
         guard let kind = JoinKind(rawValue: segmentedControl.selectedSegmentIndex) else {
             assertionFailure(); return
         }
+        
+        if kind == .links {
+            navigationItem.rightBarButtonItem = nil
+        } else {
+            navigationItem.rightBarButtonItem = selectBarButtonItem
+        }
+        
         setEditing(false, animated: true)
         transitionToViewControllerOfKind(kind)
         refreshToolbar()
@@ -211,7 +230,6 @@ final class DiscussionGalleryViewController: UIViewController, DiscussionGallery
 
 // MARK: Localization
 
-@available(iOS 15.0, *)
 extension DiscussionGalleryViewController {
 
     private struct Strings {
@@ -225,7 +243,6 @@ extension DiscussionGalleryViewController {
 
 // MARK: - JoinGalleryViewController
 
-@available(iOS 15.0, *)
 final class JoinGalleryViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDataSourcePrefetching, UICollectionViewDelegate, ObvErrorMaker, CustomQLPreviewControllerDelegate {
 
     let discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>
@@ -243,6 +260,7 @@ final class JoinGalleryViewController: UIViewController, NSFetchedResultsControl
     // See UTCoreTypes.h
     fileprivate static let acceptableImageUTIs: [String] = [UTType.jpeg.description, UTType.gif.description, UTType.png.description, UTType.image.description, UTType.tiff.description, UTType.rawImage.description, UTType.svg.description, UTType.heic.description, UTType.heif.description]
     fileprivate static let acceptableVideoUTIs: [String] = [UTType.movie.description, UTType.quickTimeMovie.description, UTType.mpeg4Movie.description, UTType.mpeg.description, UTType.avi.description]
+    fileprivate static let acceptablePreviewUTIs: [String] = [UTType.olvidLinkPreview.description]
     fileprivate static let acceptableMediaUTIs: [String] = acceptableImageUTIs + acceptableVideoUTIs
 
     fileprivate init(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, kind: JoinKind) {
@@ -306,7 +324,6 @@ final class JoinGalleryViewController: UIViewController, NSFetchedResultsControl
 
 // MARK: Selecting multiple images
 
-@available(iOS 15.0, *)
 extension JoinGalleryViewController {
     
     func shareSelectedItems() {
@@ -317,7 +334,8 @@ extension JoinGalleryViewController {
         let fyleElements = joins.compactMap({ $0.fyleElement })
         assert(fyleElements.count == joins.count)
         guard !fyleElements.isEmpty else { return }
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             let hardlinks: [HardLinkToFyle]
             do {
                 hardlinks = try await Self.requestHardLinkToFyleForFyleElements(fyleElements)
@@ -377,8 +395,8 @@ extension JoinGalleryViewController {
     }
     
     private func wipeFyleMessageJoinWithStatus(joinObjectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>, confirmed: Bool, completionHandler: @escaping (Bool) -> Void) {
+        assert(Thread.isMainThread)
         if confirmed {
-            assert(Thread.isMainThread)
             guard let discussion = try? PersistedDiscussion.get(objectID: discussionObjectID, within: ObvStack.shared.viewContext) else { return }
             guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else { return }
             ObvMessengerInternalNotification.userWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ownedCryptoId, objectIDs: joinObjectIDs)
@@ -402,7 +420,6 @@ extension JoinGalleryViewController {
 
 // MARK: - Configuring the view hierarchy
 
-@available(iOS 15.0, *)
 extension JoinGalleryViewController {
     
     private func configureHierarchy() {
@@ -429,9 +446,12 @@ extension JoinGalleryViewController {
 
             let layout = UICollectionViewCompositionalLayout(section: section)
             return layout
+        case .links:
+            let configuration = UICollectionLayoutListConfiguration(appearance: .plain)
+            return UICollectionViewCompositionalLayout.list(using: configuration)
         case .documents:
             var configuration = UICollectionLayoutListConfiguration(appearance: .plain)
-            configuration.trailingSwipeActionsConfigurationProvider = { indexPath in
+            configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
                 var actions = [UIContextualAction]()
                 let deleteAction = UIContextualAction(style: .destructive, title: CommonString.Word.Delete) { [weak self] (action, view, completion) in
                     self?.wipeItems(at: [indexPath], completionHandler: completion)
@@ -448,15 +468,16 @@ extension JoinGalleryViewController {
 
 // MARK: - Configure the data source
 
-@available(iOS 15.0, *)
 extension JoinGalleryViewController {
     
     private func makeFrc() -> NSFetchedResultsController<FyleMessageJoinWithStatus> {
         switch kind {
         case .medias:
             return FyleMessageJoinWithStatus.getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: discussionObjectID, restrictToUTIs: Self.acceptableMediaUTIs, within: ObvStack.shared.viewContext)
+        case .links:
+            return FyleMessageJoinWithStatus.getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: discussionObjectID, restrictToUTIs: Self.acceptablePreviewUTIs, within: ObvStack.shared.viewContext)
         case .documents:
-            return FyleMessageJoinWithStatus.getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: discussionObjectID, excludedUTIs: Self.acceptableMediaUTIs, within: ObvStack.shared.viewContext)
+            return FyleMessageJoinWithStatus.getFetchedResultsControllerForAllJoinsWithinDiscussion(discussionObjectID: discussionObjectID, excludedUTIs: Self.acceptableMediaUTIs + Self.acceptablePreviewUTIs, within: ObvStack.shared.viewContext)
         }
     }
     
@@ -469,16 +490,24 @@ extension JoinGalleryViewController {
             let thumbnailSize = CGSize(width: cell.bounds.size.width, height: cell.bounds.size.height)
             self?.updateGalleryViewCell(cell, with: join, thumbnailSize: thumbnailSize)
         }
-        let documentRegistration = UICollectionView.CellRegistration<DocumentViewCell, FyleMessageJoinWithStatus> { [weak self] (cell, _, join) in
+        let linkRegistration = UICollectionView.CellRegistration<LinkViewCell, FyleMessageJoinWithStatus> { [weak self] (cell, _, join) in
             let thumbnailSize = CGSize(width: cell.bounds.size.height * 1.414, height: cell.bounds.size.height) // A4 ratio
+            self?.updateGalleryViewCellFromLink(cell, with: join, thumbnailSize: thumbnailSize)
+        }
+        
+        let documentRegistration = UICollectionView.CellRegistration<DocumentViewCell, FyleMessageJoinWithStatus> { [weak self] (cell, _, join) in
+            let thumbnailSize = CGSize(width: 40.0, height: 40.0) // A4 ratio
             self?.updateGalleryViewCell(cell, with: join, thumbnailSize: thumbnailSize)
         }
 
-        dataSource = UICollectionViewDiffableDataSource<Section, NSManagedObjectID>(collectionView: collectionView) { (collectionView: UICollectionView, indexPath: IndexPath, objectID: NSManagedObjectID) -> UICollectionViewCell? in
+        dataSource = UICollectionViewDiffableDataSource<Section, NSManagedObjectID>(collectionView: collectionView) { [weak self] (collectionView: UICollectionView, indexPath: IndexPath, objectID: NSManagedObjectID) -> UICollectionViewCell? in
+            guard let self else { return nil }
             guard let join = try? FyleMessageJoinWithStatus.get(objectID: objectID, within: ObvStack.shared.viewContext) else { return nil }
             switch self.kind {
             case .medias:
                 return collectionView.dequeueConfiguredReusableCell(using: mediaRegistration, for: indexPath, item: join)
+            case .links:
+                return collectionView.dequeueConfiguredReusableCell(using: linkRegistration, for: indexPath, item: join)
             case .documents:
                 return collectionView.dequeueConfiguredReusableCell(using: documentRegistration, for: indexPath, item: join)
             }
@@ -504,7 +533,8 @@ extension JoinGalleryViewController {
             cell.updateWith(join: join, thumbnail: .computed(thumbnail))
         } else {
             cell.updateWith(join: join, thumbnail: .computing)
-            Task {
+            Task { [weak self] in
+                guard let self else { return }
                 assert(Thread.isMainThread)
                 do {
                     try await cacheDelegate.requestPreparedImage(objectID: join.typedObjectID, size: thumbnailSize)
@@ -517,12 +547,41 @@ extension JoinGalleryViewController {
         }
     }
     
+    @MainActor
+    private func updateGalleryViewCellFromLink(_ cell: GalleryViewCell, with join: FyleMessageJoinWithStatus, thumbnailSize: CGSize) {
+        Task { [weak self] in
+            guard let self else { return }
+            guard let linkCell = cell as? LinkViewCell else { return }
+            guard let fallbackURL = URL(string: join.fileName), let fyleURL = join.fyle?.url else {
+                linkCell.linkMetadata = nil
+                cell.updateWith(join: join, thumbnail: .error(contentType: UTType.olvidLinkPreview))
+                return
+            }
+            
+            if FileManager.default.fileExists(atPath: fyleURL.path),
+               let data = try? Data(contentsOf: fyleURL),
+               let obvEncoded = ObvEncoded(withRawData: data) {
+                guard let preview = ObvLinkMetadata.decode(obvEncoded, fallbackURL: fallbackURL), let previewImage = preview.image else {
+                    linkCell.linkMetadata = nil
+                    linkCell.updateWith(join: join, thumbnail: .error(contentType: UTType.olvidLinkPreview))
+                    joinNeedsUpdate(objectID: join.typedObjectID)
+                    return
+                }
+                
+                linkCell.linkMetadata = preview
+                linkCell.updateWith(join: join, thumbnail: .computed(previewImage))
+            } else {
+                linkCell.linkMetadata = nil
+                linkCell.updateWith(join: join, thumbnail: .error(contentType: UTType.olvidLinkPreview))
+            }
+        }
+    }
+    
 }
 
 
 // MARK: - Dismissing the files viewer when an attachment expires
 
-@available(iOS 15.0, *)
 extension JoinGalleryViewController {
 
     private func observeDeletedFyleMessageJoinNotifications() {
@@ -574,7 +633,6 @@ extension JoinGalleryViewController {
 
 // MARK: - NSFetchedResultsControllerDelegate
 
-@available(iOS 15.0, *)
 extension JoinGalleryViewController {
     
     func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChangeContentWith snapshot: NSDiffableDataSourceSnapshotReference) {
@@ -597,7 +655,9 @@ extension JoinGalleryViewController {
         guard let dataSource = collectionView.dataSource as? UICollectionViewDiffableDataSource<Section, NSManagedObjectID> else { assertionFailure(); return }
 
         var snapshot = dataSource.snapshot()
-        snapshot.reconfigureItems([objectID.objectID])
+        if snapshot.itemIdentifiers.contains(where: { $0 == objectID.objectID}) {
+            snapshot.reconfigureItems([objectID.objectID])
+        }
         dataSource.apply(snapshot, animatingDifferences: true)
 
     }
@@ -607,7 +667,6 @@ extension JoinGalleryViewController {
 
 // MARK: - UICollectionViewDataSourcePrefetching
 
-@available(iOS 15.0, *)
 extension JoinGalleryViewController {
 
     func collectionView(_ collectionView: UICollectionView, prefetchItemsAt indexPaths: [IndexPath]) {
@@ -617,7 +676,8 @@ extension JoinGalleryViewController {
         for indexPath in indexPaths {
             let objectID = frc.object(at: indexPath).typedObjectID
             if cacheDelegate.getCachedPreparedImage(for: objectID, size: thumbnailSize) == nil {
-                Task {
+                Task { [weak self] in
+                    guard let self else { return }
                     do {
                         try await cacheDelegate.requestPreparedImage(objectID: objectID, size: thumbnailSize)
                     } catch {
@@ -634,13 +694,17 @@ extension JoinGalleryViewController {
 
 // MARK: - UICollectionViewDelegate
 
-@available(iOS 15.0, *)
 extension JoinGalleryViewController {
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         // This gets called when the user selects the cell, i.e., touches then lifts her finger.
         if collectionView.isEditing {
             delegate?.refreshToolbar()
+        } else if let linkCell = collectionView.cellForItem(at: indexPath) as? LinkViewCell {
+            collectionView.deselectItem(at: indexPath, animated: true)
+            guard let url = linkCell.linkMetadata?.url else { return }
+            // the user tapped on a link
+            Task { await UIApplication.shared.userSelectedURL(url, within: self) }
         } else {
             // In that case, we want to show a large preview of the image.
             collectionView.deselectItem(at: indexPath, animated: false)
@@ -674,7 +738,6 @@ extension JoinGalleryViewController {
 
 // MARK: - CustomQLPreviewControllerDelegate
 
-@available(iOS 15.0, *)
 extension JoinGalleryViewController {
     
     func previewControllerDidDismiss(_ controller: QLPreviewController) {
@@ -689,6 +752,13 @@ extension JoinGalleryViewController {
         switch kind {
         case .medias:
             return cell
+        case .links:
+            guard let documentViewCell = cell as? LinkViewCell else { assertionFailure(); return nil }
+            if case .computed = documentViewCell.thumbnail {
+                return (cell as? DocumentViewCell)?.galleryImageView
+            } else {
+                return nil
+            }
         case .documents:
             guard let documentViewCell = cell as? DocumentViewCell else { assertionFailure(); return nil }
             if case .computed = documentViewCell.thumbnail {
@@ -708,7 +778,6 @@ extension JoinGalleryViewController {
 
 // MARK: - UIContextMenuConfiguration
 
-@available(iOS 15.0, *)
 extension JoinGalleryViewController {
     
     func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
@@ -737,7 +806,7 @@ extension JoinGalleryViewController {
                 
                 let action = UIAction(title: CommonString.Word.Share) { (_) in
                     guard let fyleElement = join.fyleElement else { assertionFailure(); return }
-                    Task {
+                    Task { [weak self] in
                         do {
                             let hardlink = try await Self.requestHardLinkToFyleForFyleElement(fyleElement)
                             guard let itemProvider = hardlink.activityItemProvider else { throw Self.makeError(message: "Could not get activity item provider") }
@@ -771,7 +840,7 @@ extension JoinGalleryViewController {
             
             // Delete action
             
-            do {
+            if join.deleteActionCanBeMadeAvailable {
                 let joinObjectID = join.typedObjectID
                 let action = UIAction(title: CommonString.Word.Delete) { [weak self] (_) in
                     self?.wipeFyleMessageJoinWithStatus(joinObjectIDs: [joinObjectID], confirmed: false) { _ in }
@@ -802,7 +871,6 @@ enum ThumbnailValue: Hashable {
     case error(contentType: UTType)
 }
 
-@available(iOS 15.0, *)
 final class MediaViewCell: UICollectionViewCell, GalleryViewCell {
     
     private(set) var join: FyleMessageJoinWithStatus?
@@ -848,7 +916,6 @@ struct DocumentCellConfiguration: ImageCellConfiguration {
     let isMedia = false
 }
 
-@available(iOS 15.0, *)
 final class DocumentViewCell: UICollectionViewListCell, GalleryViewCell {
 
     private func defaultListContentConfiguration() -> UIListContentConfiguration { return .subtitleCell() }
@@ -974,10 +1041,130 @@ final class DocumentViewCell: UICollectionViewListCell, GalleryViewCell {
 }
 
 
+struct LinkCellConfiguration: ImageCellConfiguration {
+    let thumbnail: ThumbnailValue?
+    let readingRequiresUserAction: Bool
+    let isReadOnce: Bool
+    let joinIsPlayable: Bool
+    let isMedia = false
+}
+
+final class LinkViewCell: UICollectionViewListCell, GalleryViewCell {
+
+    private func defaultListContentConfiguration() -> UIListContentConfiguration { return .subtitleCell() }
+    private lazy var listContentView = UIListContentView(configuration: defaultListContentConfiguration())
+
+    private(set) var join: FyleMessageJoinWithStatus?
+    private(set) var thumbnail: ThumbnailValue?
+    private(set) var readingRequiresUserAction = false
+    private(set) var isReadOnce = false
+    private var viewsSetupWasPerformed = false
+    
+    public var linkMetadata: ObvLinkMetadata?
+    
+    let galleryImageView = GalleryImageView()
+
+    func updateWith(join: FyleMessageJoinWithStatus, thumbnail: ThumbnailValue) {
+        self.join = join
+        self.thumbnail = thumbnail
+        self.readingRequiresUserAction = false
+        self.isReadOnce = join.readOnce
+        setNeedsUpdateConfiguration()
+    }
+
+    func updateWhenReadingRequiresUserAction(join: FyleMessageJoinWithStatus) {
+        self.join = join
+        self.thumbnail = nil
+        self.readingRequiresUserAction = true
+        self.isReadOnce = join.readOnce
+    }
+
+    
+    private func setupViewsIfNeeded() {
+
+        // Make sure we setup the views exactly once
+        guard !viewsSetupWasPerformed else { return }
+        defer { viewsSetupWasPerformed = true }
+
+        contentView.addSubview(galleryImageView)
+        galleryImageView.translatesAutoresizingMaskIntoConstraints = false
+        galleryImageView.layer.borderWidth = 1
+        galleryImageView.layer.borderColor = AppTheme.shared.colorScheme.label.withAlphaComponent(0.1).cgColor
+        galleryImageView.layer.cornerRadius = 3.0
+
+        contentView.addSubview(listContentView)
+        listContentView.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            listContentView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: verticalPadding),
+            listContentView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            listContentView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -verticalPadding),
+            listContentView.leadingAnchor.constraint(equalTo: galleryImageView.trailingAnchor),
+
+            galleryImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16.0),
+            galleryImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            galleryImageView.widthAnchor.constraint(equalToConstant: 40),
+            galleryImageView.heightAnchor.constraint(equalToConstant: 40), // a4 paper ratio
+        ])
+        
+    }
+
+    private let verticalPadding: CGFloat = 8.0
+
+    private let dateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.doesRelativeDateFormatting = true
+        df.dateStyle = .short
+        df.timeStyle = .short
+        df.locale = Locale.current
+        return df
+    }()
+
+    override func updateConfiguration(using state: UICellConfigurationState) {
+        setupViewsIfNeeded()
+
+        var content = defaultListContentConfiguration().updated(for: state)
+        guard let join = join else {
+            return
+        }
+
+        if readingRequiresUserAction {
+            content.text = NSLocalizedString("EPHEMERAL_MESSAGE", comment: "")
+            content.secondaryText = nil
+        } else {
+            content.text = join.fileName
+            content.secondaryTextProperties.numberOfLines = 2
+            content.secondaryText = linkMetadata?.desc
+        }
+        let textStyle = UIFont.TextStyle.callout
+        let fontDescriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: textStyle).withDesign(.rounded)?.withSymbolicTraits(.traitBold) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: textStyle)
+        content.textProperties.font = UIFont(descriptor: fontDescriptor, size: 0)
+        content.textProperties.color = AppTheme.shared.colorScheme.label
+
+        let secondaryTextStyle = UIFont.TextStyle.footnote
+        let secondaryFontDescriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: secondaryTextStyle).withDesign(.rounded) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: secondaryTextStyle)
+        content.secondaryTextProperties.font = UIFont(descriptor: secondaryFontDescriptor, size: 0)
+        content.secondaryTextProperties.color = AppTheme.shared.colorScheme.secondaryLabel
+
+        content.textToSecondaryTextVerticalPadding = verticalPadding / 2
+
+        listContentView.configuration = content
+
+        let imageConfiguration = DocumentCellConfiguration(thumbnail: self.thumbnail,
+                                                           readingRequiresUserAction: self.readingRequiresUserAction,
+                                                           isReadOnce: self.isReadOnce,
+                                                           joinIsPlayable: false)
+
+
+        galleryImageView.apply(configuration: imageConfiguration)
+
+        accessories = [.multiselect()]
+    }
+
+}
 
 // MARK: - Configurations
 
-@available(iOS 15.0, *)
 fileprivate struct MediaViewCellContentConfiguration: UIContentConfiguration, Hashable, ImageCellConfiguration {
     
     var joinObjectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>?
@@ -1004,7 +1191,6 @@ fileprivate struct MediaViewCellContentConfiguration: UIContentConfiguration, Ha
 
 // MARK: - Views
 
-@available(iOS 15.0, *)
 final class MediaViewCellContentView: UIView, UIContentView {
 
     fileprivate init(configuration: MediaViewCellContentConfiguration) {
@@ -1086,7 +1272,6 @@ protocol ImageCellConfiguration {
     var isMedia: Bool { get } // or Documents
 }
 
-@available(iOS 15.0, *)
 extension ImageCellConfiguration {
     var showFlameIndicator: Bool {
         if thumbnail == nil { return true }
@@ -1134,7 +1319,6 @@ extension ImageCellConfiguration {
 
 }
 
-@available(iOS 15.0, *)
 final class GalleryImageView: UIView {
 
     fileprivate init() {

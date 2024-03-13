@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,10 +20,9 @@
 
 import Intents
 
-// The extension does nothing for the moment, we don't deal with Siri.
-// We only use the extension to declare INStartCallIntent in IntentsSupported of Info.plist extension.
-// This allow use to receive an interaction with INStartCallIntent in application(_ application: UIApplication, continue userActivity: NSUserActivity when the user tap on a call in iOS Recent Calls view.
-// If we don't do it the entry point receives an INStartAudioCallIntent (that is deprecated in iOS 13.0) instead of INStartCallIntent.
+/// The extension does nothing special for the moment. It is required though, as it allows to declare the `INStartCallIntent` in the `IntentsSupported` property list key of its `Info.plist` file.
+/// By doing so, when the user starts an Olvid call from the list of "Recents" calls of the system "Phone" app,  the ``SceneDelegate.scene(_:continue:)`` method receives an intent of type `INStartCallIntent`.
+/// Without this extension, the app entry point would receive a legacy (deprecated in iOS 13.0) `INStartAudioCallIntent` instead.
 class IntentHandler: INExtension {
 
     override func handler(for intent: INIntent) -> Any {

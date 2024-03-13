@@ -24,6 +24,7 @@ import ObvTypes
 import ObvUICoreData
 import Combine
 import ObvSettings
+import OlvidUtils
 
 final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
     
@@ -48,7 +49,23 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
             queue.qualityOfService = .userInteractive
             return queue
         }()
-        
+        let queueForOperationsMakingEngineCalls = {
+            let queue = OperationQueue()
+            queue.name = "Queue for operations making engine calls"
+            queue.qualityOfService = .userInteractive
+            return queue
+        }()
+
+        // Certain sync operations leverage "hints" operations that determine what should be done to ensure a proper sync between the app and the engine databases.
+        // These operations do not modify the app database and thus don't need to be queued on the queue for composed operations.
+        // Moreover, these hints operation might be time consuming, so we prefer not to dispatch them on the queue for composed operations.
+        // Instead, we dispatch them on this queue, which doesn't have to be serial.
+        let queueForSyncHintsComputationOperation = {
+            let queue = OperationQueue()
+            queue.name = "Queue executing hints operations"
+            return queue
+        }()
+
         self.obvEngine = obvEngine
         
         let messagesKeptForLaterManager = MessagesKeptForLaterManager()
@@ -57,27 +74,34 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
             obvEngine: obvEngine,
             coordinatorsQueue: queueSharedAmongCoordinators,
             queueForComposedOperations: queueForComposedOperations,
+            queueForOperationsMakingEngineCalls: queueForOperationsMakingEngineCalls,
+            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation,
             messagesKeptForLaterManager: messagesKeptForLaterManager)
         self.bootstrapCoordinator = BootstrapCoordinator(
             obvEngine: obvEngine,
             coordinatorsQueue: queueSharedAmongCoordinators,
-            queueForComposedOperations: queueForComposedOperations)
+            queueForComposedOperations: queueForComposedOperations, 
+            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
         self.obvOwnedIdentityCoordinator = ObvOwnedIdentityCoordinator(
             obvEngine: obvEngine,
             coordinatorsQueue: queueSharedAmongCoordinators,
-            queueForComposedOperations: queueForComposedOperations)
+            queueForComposedOperations: queueForComposedOperations,
+            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
         self.contactIdentityCoordinator = ContactIdentityCoordinator(
             obvEngine: obvEngine,
             coordinatorsQueue: queueSharedAmongCoordinators,
-            queueForComposedOperations: queueForComposedOperations)
+            queueForComposedOperations: queueForComposedOperations,
+            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
         self.contactGroupCoordinator = ContactGroupCoordinator(
             obvEngine: obvEngine,
             coordinatorsQueue: queueSharedAmongCoordinators,
-            queueForComposedOperations: queueForComposedOperations)
+            queueForComposedOperations: queueForComposedOperations,
+            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
         self.appSyncSnapshotableCoordinator = AppSyncSnapshotableCoordinator(
             obvEngine: obvEngine,
             coordinatorsQueue: queueSharedAmongCoordinators,
-            queueForComposedOperations: queueForComposedOperations)
+            queueForComposedOperations: queueForComposedOperations,
+            queueForSyncHintsComputationOperation: queueForSyncHintsComputationOperation)
         
         self.persistedDiscussionsUpdatesCoordinator.syncAtomRequestDelegate = self
         self.obvOwnedIdentityCoordinator.syncAtomRequestDelegate = self
@@ -241,8 +265,8 @@ private extension Operation {
     func printObvDisplayableLogsWhenFinished() {
         if let completion = self.completionBlock {
             self.completionBlock = {
-                completion()
                 ObvDisplayableLogs.shared.log("🐷 \(self.debugDescription) is finished")
+                completion()
             }
         } else {
             self.completionBlock = {

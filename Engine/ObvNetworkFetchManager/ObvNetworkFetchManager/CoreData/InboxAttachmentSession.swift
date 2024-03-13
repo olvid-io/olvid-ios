@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -62,6 +62,18 @@ final class InboxAttachmentSession: NSManagedObject, ObvManagedObject {
         self.attachment = attachment
     }
 
+    
+    func deleteInboxAttachmentSession() throws {
+        guard let managedObjectContext else {
+            throw ObvError.contextIsNil
+        }
+        managedObjectContext.delete(self)
+    }
+    
+    
+    enum ObvError: Error {
+        case contextIsNil
+    }
 }
 
 

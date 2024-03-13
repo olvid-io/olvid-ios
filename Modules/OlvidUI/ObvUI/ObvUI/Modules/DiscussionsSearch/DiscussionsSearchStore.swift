@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,10 +34,12 @@ public final class DiscussionsSearchStore: NSObject, UISearchResultsUpdating {
     public let viewContext: NSManagedObjectContext
     private weak var delegate: NSFetchedResultsControllerDelegate?
     private var currentSearchTerm: String? = nil
+    private let restrictToActiveDiscussions: Bool
     
     
-    public init(ownedCryptoId: ObvCryptoId, viewContext: NSManagedObjectContext) {
+    public init(ownedCryptoId: ObvCryptoId, restrictToActiveDiscussions: Bool, viewContext: NSManagedObjectContext) {
         self.ownedCryptoId = ownedCryptoId
+        self.restrictToActiveDiscussions = restrictToActiveDiscussions
         self.viewContext = viewContext
         super.init()
     }
@@ -85,7 +87,7 @@ extension DiscussionsSearchStore {
     /// - Parameter searchTerm: The search term to search for
     private func refreshFetchRequest() {
         
-        let frcModel = PersistedDiscussion.getFetchRequestForSearchTermForDiscussionsForOwnedIdentity(with: ownedCryptoId, searchTerm: currentSearchTerm)
+        let frcModel = PersistedDiscussion.getFetchRequestForSearchTermForDiscussionsForOwnedIdentity(with: ownedCryptoId, restrictToActiveDiscussions: restrictToActiveDiscussions, searchTerm: currentSearchTerm)
 
         let fetchRequest = frcModel.fetchRequest
         

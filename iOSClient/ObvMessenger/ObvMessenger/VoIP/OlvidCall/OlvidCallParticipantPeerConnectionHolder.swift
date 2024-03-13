@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,6 +28,8 @@ protocol OlvidCallParticipantPeerConnectionHolderDelegate: AnyObject {
     func peerConnectionStateDidChange(newState: RTCIceConnectionState) async
     func dataChannel(of peerConnectionHolder: OlvidCallParticipantPeerConnectionHolder, didReceiveMessage message: WebRTCDataChannelMessageJSON) async
     func dataChannel(of peerConnectionHolder: OlvidCallParticipantPeerConnectionHolder, didChangeState state: RTCDataChannelState) async
+    func peerConnectionHolder(_ peerConnectionHolder: OlvidCallParticipantPeerConnectionHolder, didAddLocalVideoTrack videoTrack: RTCVideoTrack) async
+    func peerConnectionHolder(_ peerConnectionHolder: OlvidCallParticipantPeerConnectionHolder, didAdd rtpReceiver: RTCRtpReceiver, streams mediaStreams: [RTCMediaStream]) async
 
     func sendNewIceCandidateMessage(candidate: RTCIceCandidate) async throws
     func sendRemoveIceCandidatesMessages(candidates: [RTCIceCandidate]) async throws
@@ -43,6 +45,8 @@ actor OlvidCallParticipantPeerConnectionHolder {
 
     /// Serial queue shared among all `OlvidCallParticipantPeerConnectionHolder`, among all calls.
     private let rtcPeerConnectionQueue: OperationQueue
+    
+    private let factory: ObvPeerConnectionFactory
     
     private(set) var turnCredentials: TurnCredentials?
     private(set) var gatheringPolicy: OlvidCallGatheringPolicy
@@ -73,15 +77,6 @@ actor OlvidCallParticipantPeerConnectionHolder {
     private var audioTrackIsEnabledOnCreation = true
 
     
-    private static var factory: RTCPeerConnectionFactory = {
-        RTCInitializeSSL()
-        let videoEncoderFactory = RTCDefaultVideoEncoderFactory()
-        let videoDecoderFactory = RTCDefaultVideoDecoderFactory()
-        let factory = RTCPeerConnectionFactory(encoderFactory: videoEncoderFactory, decoderFactory: videoDecoderFactory)
-        return factory
-    }()
-
-    
     // Remark: we do not test whether self.rtcPeerConnection == peerConnection as it happens that self.rtcPeerConnection == nil
     // at this point. This happens as the rtcPeerConnection is created in an operation and only set after the operation finishes.
     // This callback is typically called because of the creation of the peer connection in the operation, reason why
@@ -99,25 +94,28 @@ actor OlvidCallParticipantPeerConnectionHolder {
         }
     }
 
+
     /// Used when receiving an incoming call (the delegate shall be set immediately)
-    init(startCallMessage: StartCallMessageJSON, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue) {
+    init(startCallMessage: StartCallMessageJSON, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory) {
         self.turnCredentials = startCallMessage.turnCredentials
         self.shouldISendTheOfferToCallParticipant = shouldISendTheOfferToCallParticipant
         self.remoteSessionDescription = RTCSessionDescription(type: startCallMessage.sessionDescriptionType,
                                                               sdp: startCallMessage.sessionDescription)
         self.gatheringPolicy = startCallMessage.gatheringPolicy ?? .gatherOnce
         self.rtcPeerConnectionQueue = rtcPeerConnectionQueue
+        self.factory = factory
         // We do *not* create the peer connection now, we wait until the user explicitely accepts the incoming call
     }
 
     
     /// Used during the init of an outgoing call. Also used during a multi-call, when we are a recipient and need to create a peer connection holder with another participant.
     /// When calling this initalizer, one should immediately call ``setDelegate(to:)``.
-    init(gatheringPolicy: OlvidCallGatheringPolicy, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue) {
+    init(gatheringPolicy: OlvidCallGatheringPolicy, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory) {
         self.gatheringPolicy = gatheringPolicy
         self.shouldISendTheOfferToCallParticipant = shouldISendTheOfferToCallParticipant
         self.remoteSessionDescription = nil
         self.rtcPeerConnectionQueue = rtcPeerConnectionQueue
+        self.factory = factory
     }
     
     
@@ -244,6 +242,7 @@ extension OlvidCallParticipantPeerConnectionHolder {
             turnCredentials: turnCredentials,
             gatheringPolicy: gatheringPolicy, 
             isAudioTrackEnabled: audioTrackIsEnabledOnCreation,
+            factory: factory,
             obvPeerConnectionDelegate: self,
             obvDataChannelDelegate: self)
         
@@ -370,22 +369,11 @@ extension OlvidCallParticipantPeerConnectionHolder {
     }
 
     
-    func restartIce(shouldISendTheOfferToCallParticipant: Bool) async throws {
-        
-        guard let peerConnection else { assertionFailure(); return }
-
-        let op = RestartIceIfRequiredOperation(peerConnection: peerConnection, shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant)
-        os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
-        await rtcPeerConnectionQueue.addAndAwaitOperation(op)
-        guard !op.isCancelled else {
-            throw ObvError.restartIceFailed(error: op.reasonForCancel)
-        }
-        
-    }
-
-    
+    /// Only used in the (rare) case where the gathering policy is `.gatherOnce`.
     private func iceGatheringCompleted() async throws {
 
+        guard gatheringPolicy == .gatherOnce else { assertionFailure(); return }
+        
         guard !iceGatheringCompletedWasCalled else { return }
         iceGatheringCompletedWasCalled = true
 
@@ -443,10 +431,6 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvDataChannelDelegate {
         // Do not await the end of this operation, as it might take a long time
         os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
         rtcPeerConnectionQueue.addOperation(op)
-        //await rtcPeerConnectionQueue.addAndAwaitOperation(op)
-        //guard !op.isCancelled else {
-        //    throw ObvError.sendDataChannelMessage(error: op.reasonForCancel)
-        //}
     }
 
 }
@@ -457,46 +441,51 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvDataChannelDelegate {
 extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
         
     /// According to https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Perfect_negotiation,
-    /// This is the best place to get a local description and send it using the signaling channel to the remote peer.
+    /// This is the best place to get and set a local description and send it using the signaling channel to the remote peer.
     func peerConnectionShouldNegotiate(_ peerConnection: ObvPeerConnection) async {
         
         os_log("☎️ Peer Connection should negociate was called", log: Self.log, type: .info)
         setRTCPeerConnectionIfRequired(peerConnection)
         
-        let reconnectOfferCounterBeforeOp = self.reconnectOfferCounter
+        do {
+            try await createAndSetLocalDescriptionIfAppropriate(peerConnection: peerConnection)
+        } catch  {
+            assertionFailure()
+        }
+        
+    }
+    
+    
+    /// Called in two situations:
+    /// - When the peer connection should negociate
+    /// - In certain cases, when handling a restart SDP
+    private func createAndSetLocalDescriptionIfAppropriate(peerConnection: ObvPeerConnection) async throws {
         
         let op = CreateAndSetLocalDescriptionIfAppropriateOperation(
             peerConnection: peerConnection,
             gatheringPolicy: gatheringPolicy,
-            reconnectOfferCounter: reconnectOfferCounter,
-            reconnectAnswerCounter: reconnectAnswerCounter,
-            maxaveragebitrate: ObvMessengerSettings.VoIP.maxaveragebitrate)
+            maxaveragebitrate: ObvMessengerSettings.VoIP.maxaveragebitrate,
+            delegate: self)
+
         os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
+
         await rtcPeerConnectionQueue.addAndAwaitOperation(op)
-        guard !op.isCancelled else {
-            os_log("☎️🛑Could not negotiate: %{public}@", log: Self.log, type: .fault, op.reasonForCancel?.localizedDescription ?? "None")
+
+        guard op.isFinished && !op.isCancelled else {
             assertionFailure()
-            return
+            throw ObvError.createAndSetLocalDescriptionIfAppropriateFailed(error: op.reasonForCancel)
         }
-        
-        // Make sure we have no race condition (occuring if this method was called back-to-back)
-        
-        guard self.reconnectOfferCounter == reconnectOfferCounterBeforeOp else {
-            await peerConnectionShouldNegotiate(peerConnection)
-            return
-        }
-        
-        self.reconnectOfferCounter = op.reconnectOfferCounter
-        
+
         if op.gaetheringStateNeedsToBeReset {
             resetGatheringState()
         }
         
         if let toSend = op.toSend {
-            guard let delegate else { assertionFailure(); return }
+            guard let delegate else { return }
+            os_log("☎️ Sending the local description (%{public}@) we just created and set", log: Self.log, type: .info, toSend.filteredSessionDescription.type.debugDescription)
             await delegate.sendLocalDescription(sessionDescription: toSend.filteredSessionDescription, reconnectCounter: toSend.reconnectCounter, peerReconnectCounterToOverride: toSend.peerReconnectCounterToOverride)
         }
-
+        
     }
 
     
@@ -603,6 +592,18 @@ extension OlvidCallParticipantPeerConnectionHolder: ObvPeerConnectionDelegate {
         setRTCPeerConnectionIfRequired(peerConnection)
     }
     
+    
+    func peerConnection(_ peerConnection: ObvPeerConnection, didAddLocalVideoTrack videoTrack: RTCVideoTrack) async {
+        guard let delegate else { return }
+        await delegate.peerConnectionHolder(self, didAddLocalVideoTrack: videoTrack)
+    }
+ 
+    
+    func peerConnection(_ peerConnection: ObvPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams mediaStreams: [RTCMediaStream]) async {
+        guard let delegate else { return }
+        await delegate.peerConnectionHolder(self, didAdd: rtpReceiver, streams: mediaStreams)
+    }
+    
 }
 
 
@@ -643,23 +644,101 @@ extension OlvidCallParticipantPeerConnectionHolder {
         let op = HandleReceivedRestartSdpOperation(
             peerConnection: peerConnection,
             sessionDescription: sessionDescription,
-            receivedReconnectCounter: reconnectCounter,
-            receivedPeerReconnectCounterToOverride: peerReconnectCounterToOverride,
-            reconnectAnswerCounter: reconnectAnswerCounter,
-            reconnectOfferCounter: reconnectOfferCounter,
-            shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant)
+            receivedReconnectCounter: reconnectCounter, // ok
+            receivedPeerReconnectCounterToOverride: peerReconnectCounterToOverride, //ok
+            shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant,
+            delegate: self)
         
         os_log("☎️ Operations in the queue: %{public}@ before adding %{public}@", log: Self.log, type: .info, rtcPeerConnectionQueue.operations.debugDescription, op.debugDescription)
+
         await rtcPeerConnectionQueue.addAndAwaitOperation(op)
         
-        guard !op.isCancelled else {
+        guard op.isFinished && !op.isCancelled else {
+            assertionFailure()
             throw ObvError.handleReceivedRestartSdpFailed(error: op.reasonForCancel)
         }
         
-        if let newReconnectAnswerCounter = op.newReconnectAnswerCounter {
-            self.reconnectAnswerCounter = newReconnectAnswerCounter
+        if op.shouldCreateAndSetLocalDescription {
+            
+            try await createAndSetLocalDescriptionIfAppropriate(peerConnection: peerConnection)
+
         }
 
+    }
+
+}
+
+
+// MARK: - HandleReceivedRestartSdpOperationDelegate
+
+extension OlvidCallParticipantPeerConnectionHolder: HandleReceivedRestartSdpOperationDelegate {
+    
+    /// This gets called during the execution of a ``HandleReceivedRestartSdpOperation``
+    func setReconnectAnswerCounter(op: HandleReceivedRestartSdpOperation, newReconnectAnswerCounter: Int) async {
+        os_log("☎️ Setting the reconnectAnswerCounter to %d", log: Self.log, type: .info, newReconnectAnswerCounter)
+        self.reconnectAnswerCounter = newReconnectAnswerCounter
+    }
+ 
+    /// This gets called during the execution of a ``HandleReceivedRestartSdpOperation``
+    func getReconnectOfferCounter(op: HandleReceivedRestartSdpOperation) async -> Int {
+        return self.reconnectOfferCounter
+    }
+    
+    /// This gets called during the execution of a ``HandleReceivedRestartSdpOperation``
+    func getReconnectAnswerCounter(op: HandleReceivedRestartSdpOperation) async -> Int {
+        return self.reconnectAnswerCounter
+    }
+    
+}
+
+
+// MARK: - CreateAndSetLocalDescriptionIfAppropriateOperationDelegate
+
+extension OlvidCallParticipantPeerConnectionHolder: CreateAndSetLocalDescriptionIfAppropriateOperationDelegate {
+    
+    /// This gets called during the execution of a ``CreateAndSetLocalDescriptionIfAppropriateOperation``
+    func getReconnectAnswerCounter(op: CreateAndSetLocalDescriptionIfAppropriateOperation) async -> Int {
+        return self.reconnectAnswerCounter
+    }
+    
+    /// This gets called during the execution of a ``CreateAndSetLocalDescriptionIfAppropriateOperation``
+    func getReconnectOfferCounter(op: CreateAndSetLocalDescriptionIfAppropriateOperation) async -> Int {
+        return self.reconnectOfferCounter
+    }
+    
+    /// This gets called during the execution of a ``CreateAndSetLocalDescriptionIfAppropriateOperation``
+    func incrementReconnectOfferCounter(op: CreateAndSetLocalDescriptionIfAppropriateOperation) async {
+        self.reconnectOfferCounter += 1
+    }
+    
+}
+
+
+// MARK: - Video
+
+extension OlvidCallParticipantPeerConnectionHolder {
+    
+    func createAndAddLocalVideoAndScreencastTracks() async throws {
+        
+        guard let peerConnection else {
+            assertionFailure()
+            throw ObvError.noPeerConnectionAvailable
+        }
+        
+        await peerConnection.createAndAddLocalVideoAndScreencastTracks()
+
+    }
+
+    
+    func setLocalVideoTrack(isEnabled: Bool) async throws {
+        
+        guard let peerConnection else {
+            assertionFailure()
+            throw ObvError.noPeerConnectionAvailable
+        }
+
+        await peerConnection.setLocalVideoTrack(isEnabled: isEnabled)
+        
     }
 
 }
@@ -703,11 +782,12 @@ extension OlvidCallParticipantPeerConnectionHolder {
         case peerConnectionCreationFailed
         case setRemoteDescriptionFailed(error: SetRemoteDescriptionOperation.ReasonForCancel?)
         case addIceCandidateFailed(error: AddIceCandidateOperation.ReasonForCancel?)
-        case restartIceFailed(error: RestartIceIfRequiredOperation.ReasonForCancel?)
         case dataChannelIsNil
         case sendDataChannelMessage(error: SendDataThroughPeerConnectionOperation.ReasonForCancel?)
         case handleReceivedRestartSdpFailed(error: HandleReceivedRestartSdpOperation.ReasonForCancel?)
-                
+        case handleReceivedRestartSdpFailedAsLocalDescriptionCouldNotBeSet(error: CreateAndSetLocalDescriptionIfAppropriateOperation.ReasonForCancel?)
+        case createAndSetLocalDescriptionIfAppropriateFailed(error: CreateAndSetLocalDescriptionIfAppropriateOperation.ReasonForCancel?)
+        
         var description: String {
             switch self {
             case .noTurnCredentialsAvailable:
@@ -728,14 +808,16 @@ extension OlvidCallParticipantPeerConnectionHolder {
                 return "Set remote description failed: \(error?.localizedDescription ?? "No reason specified")"
             case .addIceCandidateFailed(error: let error):
                 return "Add ICE candidate failed: \(error?.localizedDescription ?? "No reason specified")"
-            case .restartIceFailed(error: let error):
-                return "Restart ICE failed: \(error?.localizedDescription ?? "No reason specified")"
             case .dataChannelIsNil:
                 return "Data channel is nil"
             case .sendDataChannelMessage(error: let error):
                 return "Send data channel message failed: \(error?.localizedDescription ?? "No reason specified")"
             case .handleReceivedRestartSdpFailed(error: let error):
                 return "Handle received restart SDP failed: \(error?.localizedDescription ?? "No reason specified")"
+            case .handleReceivedRestartSdpFailedAsLocalDescriptionCouldNotBeSet(error: let error):
+                return "Handle received restart SDP failed (local description could not be set): \(error?.localizedDescription ?? "No reason specified")"
+            case .createAndSetLocalDescriptionIfAppropriateFailed(error: let error):
+                return "Create and set local description if appropriate failed: \(error?.localizedDescription ?? "No reason specified")"
             }
         }
         

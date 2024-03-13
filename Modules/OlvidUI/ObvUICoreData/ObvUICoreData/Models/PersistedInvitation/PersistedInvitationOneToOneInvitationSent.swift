@@ -54,7 +54,7 @@ public final class PersistedInvitationOneToOneInvitationSent: PersistedInvitatio
 
 public extension PersistedInvitationOneToOneInvitationSent {
     
-    convenience init(obvDialog: ObvDialog, within context: NSManagedObjectContext) throws {
+    convenience init(obvDialog: ObvDialog, isRestoringSyncSnapshotOrBackup: Bool, within context: NSManagedObjectContext) throws {
         let contactIdentity: ObvCryptoId
         switch obvDialog.category {
         case .oneToOneInvitationSent(contactIdentity: let identity):
@@ -65,7 +65,7 @@ public extension PersistedInvitationOneToOneInvitationSent {
         if let existingInvitation = try PersistedInvitation.getPersistedInvitation(uuid: obvDialog.uuid, ownedCryptoId: obvDialog.ownedCryptoId, within: context) {
             try existingInvitation.delete()
         }
-        try self.init(obvDialog: obvDialog, forEntityName: PersistedInvitationOneToOneInvitationSent.entityName, within: context)
+        try self.init(obvDialog: obvDialog, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup, forEntityName: PersistedInvitationOneToOneInvitationSent.entityName, within: context)
         self.contactIdentity = contactIdentity
     }
     

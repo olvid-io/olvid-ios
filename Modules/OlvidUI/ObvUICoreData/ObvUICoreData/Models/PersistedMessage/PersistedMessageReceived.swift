@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -61,8 +61,12 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
     private var userInfoForDeletion: [String: Any]?
     private var changedKeys = Set<String>()
 
-    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedMessageReceived> {
-        ObvManagedObjectPermanentID<PersistedMessageReceived>(uuid: self.permanentUUID)
+    /**
+     * get object permanent Id
+     - Returns objectPermanentID
+     */
+    public var objectPermanentID: MessageReceivedPermanentID {
+        MessageReceivedPermanentID(uuid: self.permanentUUID)
     }
 
     public override var kind: PersistedMessageKind { .received }
@@ -116,7 +120,7 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
             return nonWipedUnsortedFyleMessageJoinWithStatus.sorted(by: { $0.index < $1.index })
         }
     }
-
+    
     public var returnReceipt: ReturnReceiptJSON? {
         guard let serializedReturnReceipt = self.serializedReturnReceipt else { return nil }
         do {
@@ -294,8 +298,8 @@ extension PersistedMessageReceived {
     
     
     /// This method shall be called exclusively from ``PersistedObvContactIdentity.createOrOverridePersistedMessageReceived(obvMessage:messageJSON:returnReceiptJSON:overridePreviousPersistedMessage:)`` or from ``static PersistedMessageReceived.createOrUpdatePersistedMessageReceived(obvMessage:messageJSON:returnReceiptJSON:from:in:)``.
-    /// Returns all the `ObvAttachment` that are fully received, i.e., such that the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
-    static func createPersistedMessageReceived(obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, from persistedContact: PersistedObvContactIdentity, in discussion: PersistedDiscussion) throws -> (createdMessage: PersistedMessageReceived, attachmentsFullyReceivedOrCancelledByServer: [ObvAttachment]) {
+    /// Returns the created message.
+    static func createPersistedMessageReceived(obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, from persistedContact: PersistedObvContactIdentity, in discussion: PersistedDiscussion) throws -> PersistedMessageReceived {
         
         guard try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContact) == nil else {
             throw ObvError.persistedMessageReceivedAlreadyExist
@@ -332,58 +336,47 @@ extension PersistedMessageReceived {
         
         // Process the attachments within the message
 
-        let attachmentsFullyReceivedOrCancelledByServer = message.processObvAttachments(of: obvMessage)
+        message.processObvAttachments(of: obvMessage)
         
-        return (message, attachmentsFullyReceivedOrCancelledByServer)
+        return message
         
     }
     
     
-    /// Returns all the `ObvAttachment` that are fully received, i.e., such that the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
-    private func processObvAttachments(of obvMessage: ObvMessage) -> [ObvAttachment] {
-        var attachmentsFullyReceivedOrCancelledByServer = [ObvAttachment]()
+    func processObvAttachments(of obvMessage: ObvMessage) {
         for obvAttachment in obvMessage.attachments {
             do {
-                let attachmentFullyReceivedOrCancelledByServer = try processObvAttachment(obvAttachment)
-                if attachmentFullyReceivedOrCancelledByServer {
-                    attachmentsFullyReceivedOrCancelledByServer.append(obvAttachment)
-                }
+                try processObvAttachment(obvAttachment)
             } catch {
                 os_log("Could not process one of the message's attachments: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 // We continue anyway
             }
         }
-        return attachmentsFullyReceivedOrCancelledByServer
     }
     
     
-    /// Returns `true` if the attachment is fully received, i.e., if the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
-    /// Also returns `true` if the attachment was cancelled by the server.
-    func processObvAttachment(_ obvAttachment: ObvAttachment) throws -> Bool {
+    func processObvAttachment(_ obvAttachment: ObvAttachment) throws {
         
         guard let context = self.managedObjectContext else {
             throw ObvError.noContext
         }
         
-        let attachmentFullyReceivedOrCancelledByServer = try ReceivedFyleMessageJoinWithStatus.createOrUpdateReceivedFyleMessageJoinWithStatus(with: obvAttachment, within: context)
+        try ReceivedFyleMessageJoinWithStatus.createOrUpdateReceivedFyleMessageJoinWithStatus(with: obvAttachment, within: context)
 
-        return attachmentFullyReceivedOrCancelledByServer
-        
     }
     
     
     /// This method shall be called exclusively from ``PersistedObvContactIdentity.createOrOverridePersistedMessageReceived(obvMessage:messageJSON:returnReceiptJSON:overridePreviousPersistedMessage:)``.
-    /// Returns all the `ObvAttachment` that are fully received, i.e., such that the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
-    static func createOrUpdatePersistedMessageReceived(obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, from persistedContact: PersistedObvContactIdentity, in discussion: PersistedDiscussion) throws -> (createdOrUpdatedMessage: PersistedMessageReceived, attachmentsFullyReceived: [ObvAttachment]) {
+    /// Returns the created or updated message.
+    static func createOrUpdatePersistedMessageReceived(obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, from persistedContact: PersistedObvContactIdentity, in discussion: PersistedDiscussion) throws -> PersistedMessageReceived {
         
-        let attachmentsFullyReceivedOrCancelledByServer: [ObvAttachment]
         let createdOrUpdatedMessage: PersistedMessageReceived
         
         if let previousMessage = try PersistedMessageReceived.get(messageIdentifierFromEngine: obvMessage.messageIdentifierFromEngine, from: persistedContact) {
             
             os_log("Updating a previous received message...", log: log, type: .info)
             
-            attachmentsFullyReceivedOrCancelledByServer = try previousMessage.updatePersistedMessageReceived(
+            try previousMessage.updatePersistedMessageReceived(
                 withMessageJSON: messageJSON,
                 obvMessage: obvMessage,
                 returnReceiptJSON: returnReceiptJSON,
@@ -395,7 +388,7 @@ extension PersistedMessageReceived {
 
             os_log("Creating a persisted message...", log: log, type: .debug)
 
-            (createdOrUpdatedMessage, attachmentsFullyReceivedOrCancelledByServer) = try PersistedMessageReceived.createPersistedMessageReceived(
+            createdOrUpdatedMessage = try PersistedMessageReceived.createPersistedMessageReceived(
                 obvMessage: obvMessage,
                 messageJSON: messageJSON,
                 returnReceiptJSON: returnReceiptJSON,
@@ -404,7 +397,7 @@ extension PersistedMessageReceived {
             
         }
         
-        return (createdOrUpdatedMessage, attachmentsFullyReceivedOrCancelledByServer)
+        return createdOrUpdatedMessage
         
     }
 
@@ -454,8 +447,7 @@ extension PersistedMessageReceived {
 
     
     
-    /// Returns all the `ObvAttachment` that are fully received, i.e., such that the `ReceivedFyleMessageJoinWithStatus` status is `.complete` and if the `Fyle` has a full file on disk.
-    private func updatePersistedMessageReceived(withMessageJSON json: MessageJSON, obvMessage: ObvMessage, returnReceiptJSON: ReturnReceiptJSON?, discussion: PersistedDiscussion) throws -> [ObvAttachment] {
+    private func updatePersistedMessageReceived(withMessageJSON json: MessageJSON, obvMessage: ObvMessage, returnReceiptJSON: ReturnReceiptJSON?, discussion: PersistedDiscussion) throws {
         
         guard self.messageIdentifierFromEngine == messageIdentifierFromEngine else {
             throw Self.makeError(message: "Invalid message identifier from engine")
@@ -463,7 +455,7 @@ extension PersistedMessageReceived {
         
         guard !isWiped else {
             os_log("Trying to update a wiped received message. We don't do that an return immediately.", log: Self.log, type: .info)
-            return obvMessage.attachments
+            return
         }
         
         let replyTo: PersistedMessage?
@@ -510,10 +502,8 @@ extension PersistedMessageReceived {
         
         // Process the attachments within the message
 
-        let attachmentsFullyReceivedOrCancelledByServer = processObvAttachments(of: obvMessage)
+        processObvAttachments(of: obvMessage)
         
-        return attachmentsFullyReceivedOrCancelledByServer
-
     }
     
 
@@ -798,6 +788,9 @@ extension PersistedMessageReceived {
         static func withLargerSortIndex(than message: PersistedMessage) -> NSPredicate {
             NSPredicate(PersistedMessage.Predicate.Key.sortIndex, LargerThanDouble: message.sortIndex)
         }
+        static func withPermanentID(_ permanentID: MessageReceivedPermanentID) -> NSPredicate {
+            NSPredicate(PersistedMessage.Predicate.Key.permanentUUID, EqualToUuid: permanentID.uuid)
+        }
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(withObjectID: objectID)
         }
@@ -841,6 +834,12 @@ extension PersistedMessageReceived {
         return try context.fetch(request).first
     }
     
+    public static func getManagedObject(withPermanentID permanentID: MessageReceivedPermanentID, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
+        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+        request.predicate = Predicate.withPermanentID(permanentID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
     
     public static func get(with objectID: TypeSafeManagedObjectID<PersistedMessageReceived>, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
@@ -961,6 +960,48 @@ extension PersistedMessageReceived {
             Predicate.withinDiscussion(discussion)])
         return try context.count(for: request)
     }
+    
+    
+    /// Returns a dictionary where each key is the objectID of a `PersistedDiscussion` having at least one `PersistedMessageReceived` with status `.new`, and the value is the number of such new messages.
+    /// Note that if a discussion has no relevant message, it does *not* appear in the returned dictionary.
+    ///
+    /// This is used during bootstrap, to refresh the number of new messages of each discussion.
+    ///
+    /// See also ``static PersistedMessageSystem.getAllDiscussionsWithNewAndRelevantPersistedMessageSystem(ownedIdentity:)``.
+    static func getAllDiscussionsWithNewPersistedMessageReceived(ownedIdentity: PersistedObvOwnedIdentity) throws -> [TypeSafeManagedObjectID<PersistedDiscussion>: Int] {
+        
+        guard let context = ownedIdentity.managedObjectContext else {
+            assertionFailure()
+            throw ObvError.noContext
+        }
+        
+        let expressionDescription = NSExpressionDescription()
+        expressionDescription.name = "numberOfNewMessages"
+        expressionDescription.expression = NSExpression(forFunction: "count:", arguments: [NSExpression(forKeyPath: "rawStatus")])
+        expressionDescription.expressionResultType = .integer64AttributeType
+
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        request.resultType = .dictionaryResultType
+        request.propertiesToFetch = [expressionDescription, PersistedMessage.Predicate.Key.discussion.rawValue]
+        request.includesPendingChanges = true
+        request.propertiesToGroupBy = [PersistedMessage.Predicate.Key.discussion.rawValue]
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withStatus(.new),
+            Predicate.forOwnedIdentity(ownedIdentity),
+        ])
+
+        let results = try context.fetch(request) as? [[String: AnyObject]] ?? []
+
+        var numberOfNewMessageForDiscussionWithObjectID = [TypeSafeManagedObjectID<PersistedDiscussion>: Int]()
+        for result in results {
+            guard let discussionObjectID = result["discussion"] as? NSManagedObjectID else { assertionFailure(); continue}
+            guard let numberOfNewMessages = result["numberOfNewMessages"] as? Int else { assertionFailure(); continue}
+            numberOfNewMessageForDiscussionWithObjectID[TypeSafeManagedObjectID<PersistedDiscussion>(objectID: discussionObjectID)] = numberOfNewMessages
+        }
+        
+        return numberOfNewMessageForDiscussionWithObjectID
+        
+    }
 
     static func countNewAndMentionningOwnedIdentity(within discussion: PersistedDiscussion) throws -> Int {
         guard let context = discussion.managedObjectContext else { throw makeError(message: "Could not find context") }
@@ -1006,7 +1047,14 @@ extension PersistedMessageReceived {
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
-
+    
+    
+    public static func get(messageId: ObvMessageIdentifier, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
+        let ownedCryptoId = ObvCryptoId(cryptoIdentity: messageId.ownedCryptoIdentity)
+        let messageIdentifierFromEngine = messageId.uid.raw
+        return try get(messageIdentifierFromEngine: messageIdentifierFromEngine, ownedCryptoId: ownedCryptoId, within: context)
+    }
+    
     
     public static func get(messageIdentifierFromEngine: Data, from contact: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> PersistedMessageReceived? {
         guard let persistedContact = try? PersistedObvContactIdentity.get(persisted: contact, whereOneToOneStatusIs: .any, within: context) else { return nil }
@@ -1179,6 +1227,38 @@ extension PersistedMessageReceived {
         fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .audio) })
     }
 
+    /**
+     * get attachments of type `olvidLinkPreview` that are used to display preview links within a message
+     *  - Returns fyleMessageJoinWithStatusesOfPreviewType: [ReceivedFyleMessageJoinWithStatus]
+     */
+    public var fyleMessageJoinWithStatusesOfPreviewType: [ReceivedFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses.filter({ $0.isPreviewType })
+    }
+
+    public var sharableFyleMessageJoinWithStatuses: [ReceivedFyleMessageJoinWithStatus] {
+            return fyleMessageJoinWithStatuses.filter({ !$0.isPreviewType })
+    }
+    
+    /**
+     * Get attachments that could be downloaded at the moment.
+     * An attachment is downloadable if there is no size limit set by the user *OR* if the attachment's size is less than the value set by the user as a threshold *OR* if it is a preview (which should always be downloaded)
+     *  - Returns fyleMessageJoinWithStatusesToDownload: [ReceivedFyleMessageJoinWithStatus]
+     */
+    public var fyleMessageJoinWithStatusesToDownload: [ReceivedFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses.filter { join in
+            // A negative maxAttachmentSizeForAutomaticDownload means "unlimited"
+            return ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload < 0
+            || join.totalByteCount < ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload
+            || join.isPreviewType
+        }.filter { $0.status == .downloadable }
+    }
+    
+    
+    public var fyleMessageJoinWithStatusesToDeleteFromServer: [ReceivedFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses.filter { $0.status == .cancelledByServer || $0.status == .complete }
+    }
+    
+    
     public var fyleMessageJoinWithStatusesOfOtherTypes: [ReceivedFyleMessageJoinWithStatus] {
         var result = fyleMessageJoinWithStatuses
         result.removeAll(where: { fyleMessageJoinWithStatusesOfImageType.contains($0)})
@@ -1298,3 +1378,10 @@ public extension TypeSafeManagedObjectID where T == PersistedMessageReceived {
         TypeSafeManagedObjectID<PersistedMessage>(objectID: objectID)
     }
 }
+
+
+/**
+ * typealias `MessageReceivedPermanentId`
+ */
+
+public typealias MessageReceivedPermanentID = ObvManagedObjectPermanentID<PersistedMessageReceived>

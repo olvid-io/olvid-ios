@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -88,9 +88,9 @@ extension PersistedMessageSystem {
             if let participant = content.participant {
                 result += " "
                 if content.isIncoming {
-                    result += String.localizedStringWithFormat(NSLocalizedString("FROM_%@", comment: ""), participant)
+                    result += String(localized: "FROM_\(participant)")
                 } else {
-                    result += String.localizedStringWithFormat(NSLocalizedString("WITH_%@", comment: ""), participant)
+                    result += String(localized: "WITH_\(participant)")
                 }
                 if let otherCount = content.othersCount, otherCount >= 1 {
                     result += " "
@@ -102,7 +102,7 @@ extension PersistedMessageSystem {
                 }
             } else if let otherCount = content.othersCount, otherCount >= 1 {
                 result += " "
-                result += String(format: "WITH_N_PARTICIPANTS", otherCount)
+                result += String(localized: "WITH_\(otherCount)_PARTICIPANTS")
             }
             if let dateString = content.dateString {
                 result += " - "

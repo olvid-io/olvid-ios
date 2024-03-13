@@ -21,18 +21,18 @@
     },
     "CFBundleName" : {
       "comment" : "Bundle name",
-      "extractionState" : "extracted_with_value",
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Olvid"
           }
         },
         "fr" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Olvid_dev"
+            "state" : "translated",
+            "value" : "Olvid"
           }
         }
       }
@@ -120,13 +120,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Copyright © 2019-2023 Olvid SAS"
+            "value" : "Copyright © 2019-2024 Olvid SAS"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Copyright © 2019-2023 Olvid SAS"
+            "value" : "Copyright © 2019-2024 Olvid SAS"
           }
         }
       }
@@ -173,6 +173,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sauvegarde Olvid"
+          }
+        }
+      }
+    },
+    "Olvid Link Preview" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid Link Preview"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prévisualisation de lien Olvid"
           }
         }
       }

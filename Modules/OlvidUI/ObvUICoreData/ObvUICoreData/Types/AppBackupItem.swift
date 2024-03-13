@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -209,7 +209,6 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
     let countBasedRetentionIsActive: Bool?
     let countBasedRetention: Int?
     let timeBasedRetention: TimeInterval?
-    let doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice?
     let performInteractionDonation: Bool?
     
     // Shared configuration
@@ -230,7 +229,6 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         countBasedRetentionIsActive == nil &&
         timeBasedRetention == nil &&
         (sharedSettingsVersion == nil || existenceDuration == nil && visibilityDuration == nil && readOnce == nil) &&
-        doFetchContentRichURLsMetadata == nil &&
         performInteractionDonation == nil &&
         mentionNotificationMode == .globalDefault
     }
@@ -251,7 +249,6 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         case existenceDuration = "settings_existence_duration"
         case visibilityDuration = "settings_visibility_duration"
         case readOnce = "settings_read_once"
-        case doFetchContentRichURLsMetadata = "do_fetch_content_rich_urls_metadata"
         case backupSourcePlatform = "backup_source_platform"
         case performInteractionDonation = "perform_interaction_donation"
     }
@@ -275,7 +272,6 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         default:
             self.timeBasedRetention = local.timeBasedRetention.timeInterval
         }
-        self.doFetchContentRichURLsMetadata = local.doFetchContentRichURLsMetadata
         self.performInteractionDonation = local.performInteractionDonation
 
         self.sharedSettingsVersion = shared.version == 0 ? nil : shared.version
@@ -312,7 +308,6 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         try container.encodeIfPresent(countBasedRetentionAndroid, forKey: .countBasedRetentionAndroid)
         
         try container.encodeIfPresent(timeBasedRetention?.toSeconds, forKey: .timeBasedRetention)
-        try container.encodeIfPresent(doFetchContentRichURLsMetadata?.rawValue, forKey: .doFetchContentRichURLsMetadata)
         try container.encodeIfPresent(performInteractionDonation, forKey: .performInteractionDonation)
 
         try container.encodeIfPresent(sharedSettingsVersion, forKey: .sharedSettingsVersion)
@@ -347,6 +342,7 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         }
 
         self.autoRead = try values.decodeIfPresent(Bool.self, forKey: .autoRead)
+
         self.retainWipedOutboundMessages = try values.decodeIfPresent(Bool.self, forKey: .retainWipedOutboundMessages)
 
         // Complex part concerning countBasedRetention and countBasedRetentionIsActive
@@ -372,11 +368,6 @@ struct PersistedDiscussionConfigurationBackupItem: Codable, Hashable {
         }
         
         self.timeBasedRetention = (try values.decodeIfPresent(Int.self, forKey: .timeBasedRetention))?.secondsToTimeInterval
-        if let raw = try values.decodeIfPresent(Int.self, forKey: .doFetchContentRichURLsMetadata) {
-            self.doFetchContentRichURLsMetadata = ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice(rawValue: raw)
-        } else {
-            self.doFetchContentRichURLsMetadata = nil
-        }
         self.performInteractionDonation = try values.decodeIfPresent(Bool.self, forKey: .performInteractionDonation)
 
         self.sharedSettingsVersion = try values.decodeIfPresent(Int.self, forKey: .sharedSettingsVersion)
@@ -407,8 +398,9 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
     // Discussions
     
     let sendReadReceipt: Bool?
-    let doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice?
     let readOnce: Bool?
+    let attachLinkPreviewToMessageSent: Bool?
+    let fetchMissingLinkPreviewFromMessageReceived: Bool?
     let visibilityDuration: DurationOption?
     let existenceDuration: DurationOption?
     let countBasedRetentionPolicy: Int?
@@ -445,8 +437,9 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         case identityColorStyle = "identity_color_style_ios"
         case contactsSortOrder = "contact_sort_last_name"
         case sendReadReceipt = "send_read_receipt"
-        case doFetchContentRichURLsMetadata = "do_fetch_content_rich_urls_metadata_ios"
         case readOnce = "default_read_once"
+        case fetchMissingLinkPreviewFromMessageReceived = "link_preview_inbound"
+        case attachLinkPreviewToMessageSent = "link_preview_outbound"
         case visibilityDuration = "default_visibility_duration"
         case existenceDuration = "default_existence_duration"
         case countBasedRetentionPolicy = "default_retention_count"
@@ -481,8 +474,9 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         self.identityColorStyle = ObvMessengerSettings.Interface.identityColorStyle
         self.contactsSortOrder = ObvMessengerSettings.Interface.contactsSortOrder
         self.sendReadReceipt = ObvMessengerSettings.Discussions.doSendReadReceipt
-        self.doFetchContentRichURLsMetadata = ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata
         self.readOnce = ObvMessengerSettings.Discussions.readOnce
+        self.attachLinkPreviewToMessageSent = ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent
+        self.fetchMissingLinkPreviewFromMessageReceived = ObvMessengerSettings.Discussions.fetchMissingLinkPreviewFromMessageReceived
         self.visibilityDuration = ObvMessengerSettings.Discussions.visibilityDuration
         self.existenceDuration = ObvMessengerSettings.Discussions.existenceDuration
         self.countBasedRetentionPolicy = ObvMessengerSettings.Discussions.countBasedRetentionPolicyIsActive ? ObvMessengerSettings.Discussions.countBasedRetentionPolicy : nil
@@ -508,8 +502,9 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         try container.encodeIfPresent(identityColorStyle?.rawValue, forKey: .identityColorStyle)
         try container.encodeIfPresent(contactsSortOrder == .byLastName, forKey: .contactsSortOrder)
         try container.encodeIfPresent(sendReadReceipt, forKey: .sendReadReceipt)
-        try container.encodeIfPresent(doFetchContentRichURLsMetadata?.rawValue, forKey: .doFetchContentRichURLsMetadata)
         try container.encodeIfPresent(readOnce, forKey: .readOnce)
+        try container.encodeIfPresent(attachLinkPreviewToMessageSent, forKey: .attachLinkPreviewToMessageSent)
+        try container.encodeIfPresent(fetchMissingLinkPreviewFromMessageReceived, forKey: .fetchMissingLinkPreviewFromMessageReceived)
         try container.encodeIfPresent(visibilityDuration?.timeInterval?.toSeconds ?? 0, forKey: .visibilityDuration)
         try container.encodeIfPresent(existenceDuration?.timeInterval?.toSeconds ?? 0, forKey: .existenceDuration)
         try container.encodeIfPresent(countBasedRetentionPolicy, forKey: .countBasedRetentionPolicy)
@@ -545,12 +540,9 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
             self.contactsSortOrder = nil
         }
         self.sendReadReceipt = try values.decodeIfPresent(Bool.self, forKey: .sendReadReceipt)
-        if let raw = try values.decodeIfPresent(Int.self, forKey: .doFetchContentRichURLsMetadata) {
-            self.doFetchContentRichURLsMetadata = ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice(rawValue: raw)
-        } else {
-            self.doFetchContentRichURLsMetadata = nil
-        }
         self.readOnce = try values.decodeIfPresent(Bool.self, forKey: .readOnce)
+        self.attachLinkPreviewToMessageSent = try values.decodeIfPresent(Bool.self, forKey: .attachLinkPreviewToMessageSent)
+        self.fetchMissingLinkPreviewFromMessageReceived = try values.decodeIfPresent(Bool.self, forKey: .fetchMissingLinkPreviewFromMessageReceived)
         if let raw = try values.decodeIfPresent(Int.self, forKey: .visibilityDuration) {
             self.visibilityDuration = DurationOption(rawValue: raw)
         } else {

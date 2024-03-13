@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,14 +36,10 @@ fileprivate struct OptionalWrapper<T> {
 public enum ObvChannelNotification {
 	case newConfirmedObliviousChannel(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)
 	case deletedConfirmedObliviousChannel(currentDeviceUid: UID, remoteCryptoIdentity: ObvCryptoIdentity, remoteDeviceUid: UID)
-	case networkReceivedMessageWasProcessed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
-	case protocolMessageDecrypted(protocolMessageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 
 	private enum Name {
 		case newConfirmedObliviousChannel
 		case deletedConfirmedObliviousChannel
-		case networkReceivedMessageWasProcessed
-		case protocolMessageDecrypted
 
 		private var namePrefix: String { String(describing: ObvChannelNotification.self) }
 
@@ -58,8 +54,6 @@ public enum ObvChannelNotification {
 			switch notification {
 			case .newConfirmedObliviousChannel: return Name.newConfirmedObliviousChannel.name
 			case .deletedConfirmedObliviousChannel: return Name.deletedConfirmedObliviousChannel.name
-			case .networkReceivedMessageWasProcessed: return Name.networkReceivedMessageWasProcessed.name
-			case .protocolMessageDecrypted: return Name.protocolMessageDecrypted.name
 			}
 		}
 	}
@@ -77,16 +71,6 @@ public enum ObvChannelNotification {
 				"currentDeviceUid": currentDeviceUid,
 				"remoteCryptoIdentity": remoteCryptoIdentity,
 				"remoteDeviceUid": remoteDeviceUid,
-			]
-		case .networkReceivedMessageWasProcessed(messageId: let messageId, flowId: let flowId):
-			info = [
-				"messageId": messageId,
-				"flowId": flowId,
-			]
-		case .protocolMessageDecrypted(protocolMessageId: let protocolMessageId, flowId: let flowId):
-			info = [
-				"protocolMessageId": protocolMessageId,
-				"flowId": flowId,
 			]
 		}
 		return info
@@ -118,24 +102,6 @@ public enum ObvChannelNotification {
 			let remoteCryptoIdentity = notification.userInfo!["remoteCryptoIdentity"] as! ObvCryptoIdentity
 			let remoteDeviceUid = notification.userInfo!["remoteDeviceUid"] as! UID
 			block(currentDeviceUid, remoteCryptoIdentity, remoteDeviceUid)
-		}
-	}
-
-	public static func observeNetworkReceivedMessageWasProcessed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.networkReceivedMessageWasProcessed.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(messageId, flowId)
-		}
-	}
-
-	public static func observeProtocolMessageDecrypted(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.protocolMessageDecrypted.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let protocolMessageId = notification.userInfo!["protocolMessageId"] as! ObvMessageIdentifier
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(protocolMessageId, flowId)
 		}
 	}
 

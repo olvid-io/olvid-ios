@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -248,7 +248,7 @@ extension AppBackupManager {
         defer {
             try? backupFile.deleteData()
         }
-
+        
         os_log("Will upload backup to CloudKit", log: Self.log, type: .info)
 
         guard let identifierForVendor = await UIDevice.current.identifierForVendor else {
@@ -685,108 +685,100 @@ extension AppBackupManager: ObvBackupable {
         
         // This is called when all the engine data have been restored. We can thus start the restore of app backuped data.
         
-        // We first request a sync of all the engine database to make sure the app database is in sync
+        // We first sync of all the engine database to make sure the app database is in sync
+        
+        let queues = try await syncAppDatabasesWithEngine()
+        
+        // If internalJson is nil, we are restoring a very old backup, that does not contain backuped data for the app.
+        // In general, we expect it to be non-nil.
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-         
-            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine(queuePriority: .veryHigh) { result in
-
-                switch result {
-                    
-                case .failure(let error):
-                    continuation.resume(throwing: error)
-                    return
-                    
-                case .success:
-                    
-                    // If internalJson is nil, we are restoring a very old backup, that does not contain backuped data for the app.
-                    // In general, we expect it to be non-nil.
-                    
-                    if let internalJson {
+        if let internalJson {
+            
+            // The app database is in sync with the engine database.
+            // We can use the backuped data so as to "update" certain app database objects.
                         
-                        // The app database is in sync with the engine database.
-                        // We can use the backuped data so as to "update" certain app database objects.
-                        // We first need to parse the internal json
+            do {
+                try await processAppInternalJson(internalJson, queues: queues)
+            } catch {
+                // Although we did not succeed to restore the app backup, for now, we consider the restore is complete
+                assertionFailure()
+                return
+            }
                         
-                        let internalJsonData = internalJson.data(using: .utf8)!
-                        let jsonDecoder = JSONDecoder()
-                        let appBackupItem: AppBackupItem
-                        do {
-                            appBackupItem = try jsonDecoder.decode(AppBackupItem.self, from: internalJsonData)
-                        } catch {
-                            // Although we did not succeed to restore the app backup, for now, we consider the restore is complete
-                            assertionFailure()
-                            continuation.resume()
-                            return
-                        }
-                        
-                        // Step 1: update all owned identities, contacts, and groups
-                        
-                        if let ownedIdentityBackupItems = appBackupItem.ownedIdentities {
-                            ObvStack.shared.performBackgroundTaskAndWait { context in
-                                
-                                ownedIdentityBackupItems.forEach { ownedIdentityBackupItem in
-                                    do {
-                                        try ownedIdentityBackupItem.updateExistingInstance(within: context)
-                                    } catch {
-                                        os_log("One of the app backup item could not be fully restored: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                                        assertionFailure()
-                                        // Continue anyway
-                                    }
-                                }
-                                
-                                do {
-                                    try context.save(logOnFailure: Self.log)
-                                } catch {
-                                    // Although we did not succeed to restore the app backup, we consider its ok (for now)
-                                    assertionFailure(error.localizedDescription)
-                                    return
-                                }
-                                
-                            }
-                        }
-                        
-                        // Step 2: Update the app global configuration
-                        
-                        appBackupItem.globalSettings.updateExistingObvMessengerSettings()
-                        
-                    }
-
-                    // Step 3: Perform additional step after backup restoration
-
-                    ObvStack.shared.performBackgroundTaskAndWait { context in
-                        do {
-                            let discussions = try PersistedDiscussion.getAllActiveDiscussionsForAllOwnedIdentities(within: context)
-
-                            for discussion in discussions {
-                                discussion.insertUpdatedDiscussionSharedSettingsSystemMessageIfRequired(markAsRead: true)
-                            }
-                        } catch {
-                            os_log("Cannot insert current discussion shared configuration system message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                            assertionFailure()
-                            // Continue anyway
-                        }
-
-                        do {
-                            try context.save(logOnFailure: Self.log)
-                        } catch {
-                            // Although we did not succeed to restore the app backup, we consider its ok (for now)
-                            assertionFailure(error.localizedDescription)
-                            return
-                        }
-
-                    }
-
-                    // We restored the app data, we can call the completion handler
-                    
-                    continuation.resume()
-                    
-                }
-                
-            }.postOnDispatchQueue(DispatchQueue(label: "Queue for posting a requestSyncAppDatabasesWithEngine notification"))
-
         }
         
-    }
+        // Perform additional step after backup restoration
 
+        await performAdditionalStepsAfterBackupRestoration(queues: queues)
+        
+    }
+    
+    
+    /// Helper method for ``restoreBackup(backupRequestIdentifier:internalJson:)``.
+    /// Simple wrapper around the ``ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine`` notification.
+    /// The returned queue is the coordinator queue (on which we can exectue Core Data operations).
+    private func syncAppDatabasesWithEngine() async throws -> (coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue), Error>) in
+            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine(queuePriority: .veryHigh, isRestoringSyncSnapshotOrBackup: true) { result in
+                switch result {
+                case .failure(let error):
+                    return continuation.resume(throwing: error)
+                case .success(let coordinatorsQueue):
+                    return continuation.resume(returning: coordinatorsQueue)
+                }
+            }.postOnDispatchQueue(DispatchQueue(label: "Queue for posting a requestSyncAppDatabasesWithEngine notification"))
+        }
+    }
+    
+    
+    /// Helper method for ``restoreBackup(backupRequestIdentifier:internalJson:)``.
+    private func processAppInternalJson(_ internalJson: String, queues: (coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue)) async throws {
+        
+        let internalJsonData = internalJson.data(using: .utf8)!
+        let jsonDecoder = JSONDecoder()
+        let appBackupItem: AppBackupItem
+        do {
+            appBackupItem = try jsonDecoder.decode(AppBackupItem.self, from: internalJsonData)
+        } catch {
+            // Although we did not succeed to restore the app backup, for now, we consider the restore is complete
+            assertionFailure()
+            return
+        }
+        
+        // Step 1: update all owned identities, contacts, and groups
+        
+        if let ownedIdentityBackupItems = appBackupItem.ownedIdentities {
+            
+            let op1 = RestoreOwnedIdentityBackupItemsOperation(ownedIdentityBackupItems: ownedIdentityBackupItems, log: Self.log)
+            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queues.queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+            composedOp.queuePriority = .veryHigh
+            await queues.coordinatorsQueue.addAndAwaitOperation(composedOp)
+            
+            guard composedOp.isFinished && !composedOp.isCancelled else {
+                assertionFailure()
+                throw Self.makeError(message: "Could not restore app internal JSON")
+            }
+            
+        }
+        
+        // Step 2: Update the app global configuration
+        
+        appBackupItem.globalSettings.updateExistingObvMessengerSettings()
+
+        
+    }
+    
+    
+    /// Helper method for ``restoreBackup(backupRequestIdentifier:internalJson:)``.
+    private func performAdditionalStepsAfterBackupRestoration(queues: (coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue)) async {
+        
+        let op1 = PerformAdditionalStepsAfterBackupRestorationOperation(log: Self.log)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queues.queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
+        composedOp.queuePriority = .veryHigh
+        await queues.coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+        assert(composedOp.isFinished && !composedOp.isCancelled)
+        
+    }
+    
 }

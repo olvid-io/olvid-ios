@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,9 +39,6 @@ public enum ObvNetworkFetchNotificationNew {
 	case inboxAttachmentDownloadCancelledByServer(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
 	case inboxAttachmentDownloadWasResumed(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
 	case inboxAttachmentDownloadWasPaused(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
-	case inboxAttachmentWasTakenCareOf(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
-	case noInboxMessageToProcess(flowId: FlowIdentifier, ownedCryptoIdentity: ObvCryptoIdentity)
-	case newInboxMessageToProcess(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], flowId: FlowIdentifier)
 	case cannotReturnAnyProgressForMessageAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 	case newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, apiKeyStatus: APIKeyStatus, apiPermissions: APIPermissions, apiKeyExpirationDate: Date?)
 	case wellKnownHasBeenUpdated(serverURL: URL, appInfo: [String: AppInfo], flowId: FlowIdentifier)
@@ -49,10 +46,10 @@ public enum ObvNetworkFetchNotificationNew {
 	case wellKnownDownloadFailure(serverURL: URL, flowId: FlowIdentifier)
 	case applicationMessageDecrypted(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier)
 	case downloadingMessageExtendedPayloadWasPerformed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
-	case downloadingMessageExtendedPayloadFailed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 	case pushTopicReceivedViaWebsocket(pushTopic: String)
 	case keycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: ObvCryptoIdentity)
 	case ownedDevicesMessageReceivedViaWebsocket(ownedIdentity: ObvCryptoIdentity)
+	case newReturnReceiptToProcess(returnReceipt: ReturnReceipt)
 
 	private enum Name {
 		case fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive
@@ -61,9 +58,6 @@ public enum ObvNetworkFetchNotificationNew {
 		case inboxAttachmentDownloadCancelledByServer
 		case inboxAttachmentDownloadWasResumed
 		case inboxAttachmentDownloadWasPaused
-		case inboxAttachmentWasTakenCareOf
-		case noInboxMessageToProcess
-		case newInboxMessageToProcess
 		case cannotReturnAnyProgressForMessageAttachments
 		case newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity
 		case wellKnownHasBeenUpdated
@@ -71,10 +65,10 @@ public enum ObvNetworkFetchNotificationNew {
 		case wellKnownDownloadFailure
 		case applicationMessageDecrypted
 		case downloadingMessageExtendedPayloadWasPerformed
-		case downloadingMessageExtendedPayloadFailed
 		case pushTopicReceivedViaWebsocket
 		case keycloakTargetedPushNotificationReceivedViaWebsocket
 		case ownedDevicesMessageReceivedViaWebsocket
+		case newReturnReceiptToProcess
 
 		private var namePrefix: String { String(describing: ObvNetworkFetchNotificationNew.self) }
 
@@ -93,9 +87,6 @@ public enum ObvNetworkFetchNotificationNew {
 			case .inboxAttachmentDownloadCancelledByServer: return Name.inboxAttachmentDownloadCancelledByServer.name
 			case .inboxAttachmentDownloadWasResumed: return Name.inboxAttachmentDownloadWasResumed.name
 			case .inboxAttachmentDownloadWasPaused: return Name.inboxAttachmentDownloadWasPaused.name
-			case .inboxAttachmentWasTakenCareOf: return Name.inboxAttachmentWasTakenCareOf.name
-			case .noInboxMessageToProcess: return Name.noInboxMessageToProcess.name
-			case .newInboxMessageToProcess: return Name.newInboxMessageToProcess.name
 			case .cannotReturnAnyProgressForMessageAttachments: return Name.cannotReturnAnyProgressForMessageAttachments.name
 			case .newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity: return Name.newAPIKeyElementsForCurrentAPIKeyOfOwnedIdentity.name
 			case .wellKnownHasBeenUpdated: return Name.wellKnownHasBeenUpdated.name
@@ -103,10 +94,10 @@ public enum ObvNetworkFetchNotificationNew {
 			case .wellKnownDownloadFailure: return Name.wellKnownDownloadFailure.name
 			case .applicationMessageDecrypted: return Name.applicationMessageDecrypted.name
 			case .downloadingMessageExtendedPayloadWasPerformed: return Name.downloadingMessageExtendedPayloadWasPerformed.name
-			case .downloadingMessageExtendedPayloadFailed: return Name.downloadingMessageExtendedPayloadFailed.name
 			case .pushTopicReceivedViaWebsocket: return Name.pushTopicReceivedViaWebsocket.name
 			case .keycloakTargetedPushNotificationReceivedViaWebsocket: return Name.keycloakTargetedPushNotificationReceivedViaWebsocket.name
 			case .ownedDevicesMessageReceivedViaWebsocket: return Name.ownedDevicesMessageReceivedViaWebsocket.name
+			case .newReturnReceiptToProcess: return Name.newReturnReceiptToProcess.name
 			}
 		}
 	}
@@ -141,22 +132,6 @@ public enum ObvNetworkFetchNotificationNew {
 		case .inboxAttachmentDownloadWasPaused(attachmentId: let attachmentId, flowId: let flowId):
 			info = [
 				"attachmentId": attachmentId,
-				"flowId": flowId,
-			]
-		case .inboxAttachmentWasTakenCareOf(attachmentId: let attachmentId, flowId: let flowId):
-			info = [
-				"attachmentId": attachmentId,
-				"flowId": flowId,
-			]
-		case .noInboxMessageToProcess(flowId: let flowId, ownedCryptoIdentity: let ownedCryptoIdentity):
-			info = [
-				"flowId": flowId,
-				"ownedCryptoIdentity": ownedCryptoIdentity,
-			]
-		case .newInboxMessageToProcess(messageId: let messageId, attachmentIds: let attachmentIds, flowId: let flowId):
-			info = [
-				"messageId": messageId,
-				"attachmentIds": attachmentIds,
 				"flowId": flowId,
 			]
 		case .cannotReturnAnyProgressForMessageAttachments(messageId: let messageId, flowId: let flowId):
@@ -200,11 +175,6 @@ public enum ObvNetworkFetchNotificationNew {
 				"messageId": messageId,
 				"flowId": flowId,
 			]
-		case .downloadingMessageExtendedPayloadFailed(messageId: let messageId, flowId: let flowId):
-			info = [
-				"messageId": messageId,
-				"flowId": flowId,
-			]
 		case .pushTopicReceivedViaWebsocket(pushTopic: let pushTopic):
 			info = [
 				"pushTopic": pushTopic,
@@ -216,6 +186,10 @@ public enum ObvNetworkFetchNotificationNew {
 		case .ownedDevicesMessageReceivedViaWebsocket(ownedIdentity: let ownedIdentity):
 			info = [
 				"ownedIdentity": ownedIdentity,
+			]
+		case .newReturnReceiptToProcess(returnReceipt: let returnReceipt):
+			info = [
+				"returnReceipt": returnReceipt,
 			]
 		}
 		return info
@@ -281,34 +255,6 @@ public enum ObvNetworkFetchNotificationNew {
 			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(attachmentId, flowId)
-		}
-	}
-
-	public static func observeInboxAttachmentWasTakenCareOf(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvAttachmentIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.inboxAttachmentWasTakenCareOf.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let attachmentId = notification.userInfo!["attachmentId"] as! ObvAttachmentIdentifier
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(attachmentId, flowId)
-		}
-	}
-
-	public static func observeNoInboxMessageToProcess(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (FlowIdentifier, ObvCryptoIdentity) -> Void) -> NSObjectProtocol {
-		let name = Name.noInboxMessageToProcess.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			let ownedCryptoIdentity = notification.userInfo!["ownedCryptoIdentity"] as! ObvCryptoIdentity
-			block(flowId, ownedCryptoIdentity)
-		}
-	}
-
-	public static func observeNewInboxMessageToProcess(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, [ObvAttachmentIdentifier], FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.newInboxMessageToProcess.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
-			let attachmentIds = notification.userInfo!["attachmentIds"] as! [ObvAttachmentIdentifier]
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(messageId, attachmentIds, flowId)
 		}
 	}
 
@@ -382,15 +328,6 @@ public enum ObvNetworkFetchNotificationNew {
 		}
 	}
 
-	public static func observeDownloadingMessageExtendedPayloadFailed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvMessageIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.downloadingMessageExtendedPayloadFailed.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let messageId = notification.userInfo!["messageId"] as! ObvMessageIdentifier
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(messageId, flowId)
-		}
-	}
-
 	public static func observePushTopicReceivedViaWebsocket(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (String) -> Void) -> NSObjectProtocol {
 		let name = Name.pushTopicReceivedViaWebsocket.name
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
@@ -412,6 +349,14 @@ public enum ObvNetworkFetchNotificationNew {
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
 			block(ownedIdentity)
+		}
+	}
+
+	public static func observeNewReturnReceiptToProcess(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ReturnReceipt) -> Void) -> NSObjectProtocol {
+		let name = Name.newReturnReceiptToProcess.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let returnReceipt = notification.userInfo!["returnReceipt"] as! ReturnReceipt
+			block(returnReceipt)
 		}
 	}
 

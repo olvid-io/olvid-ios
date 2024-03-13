@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -63,6 +63,15 @@ final class OlvidCall: ObservableObject {
     @Published private(set) var otherParticipants: [OlvidCallParticipant]
     @Published private(set) var state = State.initial
     @Published private(set) var dateWhenCallSwitchedToInProgress: Date?
+    @Published private(set) var persistedObvOwnedIdentity: PersistedObvOwnedIdentity
+    
+    @Published private(set) var localPreviewVideoTrack: RTCVideoTrack?
+    @Published private(set) var currentCameraPosition: AVCaptureDevice.Position?
+    @Published private(set) var selfVideoSize: CGSize?
+    @Published private(set) var atLeastOneOtherParticipantHasCameraEnabled = false
+    private var userWantsToStreamSelfVideo = false
+
+    private let factory: ObvPeerConnectionFactory
     
     /* Variables used for audio */
 
@@ -73,6 +82,7 @@ final class OlvidCall: ObservableObject {
     private var isSpeakerEnabledValueChosenByUser: Bool? // Nil unless the user manually decided to activate/deactivate the speaker. This allows to reflect the user choice even if the audio choices are not yet available.
     private let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect() // Allows to keep availableAudioOptions up-to-date
     private var cancellables = Set<AnyCancellable>()
+    private var cancellablesForWatchingOtherParticipants = Set<AnyCancellable>()
 
     /// When receiving an incoming call, we let some time to the user to answer the call. After that, we end it automatically.
     private static let ringingTimeoutInterval: TimeInterval = 60 // 60 seconds
@@ -94,7 +104,7 @@ final class OlvidCall: ObservableObject {
     private weak var delegate: OlvidCallDelegate?
     
 
-    private init(ownedCryptoId: ObvCryptoId, callIdentifierForCallKit: UUID, otherParticipants: [OlvidCallParticipant], ownedIdentityForRequestingTurnCredentials: ObvCryptoId?, direction: Direction, uuidForWebRTC: UUID, initialParticipantCount: Int, groupId: GroupIdentifier?, turnCredentialsReceivedFromCaller: TurnCredentials?, rtcPeerConnectionQueue: OperationQueue, delegate: OlvidCallDelegate) {
+    private init(ownedCryptoId: ObvCryptoId, persistedObvOwnedIdentity: PersistedObvOwnedIdentity, callIdentifierForCallKit: UUID, otherParticipants: [OlvidCallParticipant], ownedIdentityForRequestingTurnCredentials: ObvCryptoId?, direction: Direction, uuidForWebRTC: UUID, initialParticipantCount: Int, groupId: GroupIdentifier?, turnCredentialsReceivedFromCaller: TurnCredentials?, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory, delegate: OlvidCallDelegate) {
         self.ownedCryptoId = ownedCryptoId
         self.uuidForCallKit = callIdentifierForCallKit
         self.otherParticipants = otherParticipants
@@ -105,21 +115,71 @@ final class OlvidCall: ObservableObject {
         self.groupId = groupId
         self.turnCredentialsReceivedFromCaller = turnCredentialsReceivedFromCaller
         self.rtcPeerConnectionQueue = rtcPeerConnectionQueue
+        self.factory = factory
         self.delegate = delegate
         self.availableAudioOptions = Self.getAvailableOlvidCallAudioOption()
         self.currentAudioOptions = RTCAudioSession.sharedInstance().session.currentRoute.inputs.map({ .init(portDescription: $0) })
         self.isSpeakerEnabled = false // The currentRoute.outputs always contain the builtInSpeaker speaker at this point, although we know it won't be activated. We set this value to false by default.
+        self.persistedObvOwnedIdentity = persistedObvOwnedIdentity
         regularlyUpdatePublishedAudioInformations()
+        reactToAppLifecycleNotifications()
+        continuouslyWatchOtherParticipantsVideoEnabled()
+    }
+    
+    
+    /// Called during the initialization, and each time the set of identities of the other participants changes.
+    /// This allows to watch the enabling/disabling of the other participants camera, so as to update the `atLeastOneOtherParticipantHasCameraEnabled` published property.
+    /// If this method is called twice, is first cancels the result of the previous call, and re-watches all participants.
+    private func continuouslyWatchOtherParticipantsVideoEnabled() {
+        
+        cancellablesForWatchingOtherParticipants.forEach({ $0.cancel() })
+        
+        let currentOtherParticipantsIdentities = Set(self.otherParticipants.map({ $0.cryptoId }))
+        
+        for participant in self.otherParticipants {
+            Publishers.CombineLatest(participant.$remoteCameraVideoTrackIsEnabled, participant.$remoteScreenCastVideoTrackIsEnabled)
+                .receive(on: OperationQueue.main)
+                .sink { [weak self] _, _ in
+                    guard let self else { return }
+                    let newAtLeastOneOtherParticipantHasCameraEnabled = evaluateIfAtLeastOneOtherParticipantHasCameraEnabled()
+                    if self.atLeastOneOtherParticipantHasCameraEnabled != newAtLeastOneOtherParticipantHasCameraEnabled {
+                        self.atLeastOneOtherParticipantHasCameraEnabled = newAtLeastOneOtherParticipantHasCameraEnabled
+                    }
+                }
+                .store(in: &cancellablesForWatchingOtherParticipants)
+        }
+        
+        // If the list of other participants is updated, we need to call this method again to make sure we watch the current participants
+        $otherParticipants
+            .map({ Set($0.map({ $0.cryptoId })) })
+            .removeDuplicates()
+            .receive(on: OperationQueue.main)
+            .sink { [weak self] newOtherParticipantsIdentities in
+                guard currentOtherParticipantsIdentities != newOtherParticipantsIdentities else { return }
+                self?.continuouslyWatchOtherParticipantsVideoEnabled()
+            }
+            .store(in: &cancellablesForWatchingOtherParticipants)
+        
+    }
+    
+    
+    /// Helper method for the ``continuouslyWatchOtherParticipantsVideoEnabled()`` method.
+    private func evaluateIfAtLeastOneOtherParticipantHasCameraEnabled() -> Bool {
+        return self.otherParticipants.first(where: { $0.remoteCameraVideoTrackIsEnabled || $0.remoteScreenCastVideoTrackIsEnabled }) != nil
     }
     
     
     deinit {
+        DispatchQueue.main.async {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
         cancellables.forEach { $0.cancel() }
+        cancellablesForWatchingOtherParticipants.forEach { $0.cancel() }
         os_log("☎️ OlvidCall deinit", log: Self.log, type: .fault)
     }
     
     
-    static func createIncomingCall(callIdentifierForCallKit: UUID, uuidForWebRTC: UUID, callerId: ObvContactIdentifier, startCallMessage: StartCallMessageJSON, rtcPeerConnectionQueue: OperationQueue, delegate: OlvidCallDelegate) async throws -> OlvidCall {
+    static func createIncomingCall(callIdentifierForCallKit: UUID, uuidForWebRTC: UUID, callerId: ObvContactIdentifier, startCallMessage: StartCallMessageJSON, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory, delegate: OlvidCallDelegate) async throws -> OlvidCall {
         
         let shouldISendTheOfferToCallParticipant = Self.shouldISendTheOfferToCallParticipant(ownedCryptoId: callerId.ownedCryptoId, cryptoId: callerId.contactCryptoId)
         
@@ -127,10 +187,14 @@ final class OlvidCall: ObservableObject {
             callerId: callerId,
             startCallMessage: startCallMessage,
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant,
-            rtcPeerConnectionQueue: rtcPeerConnectionQueue)
+            rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+            factory: factory)
+        
+        let persistedObvOwnedIdentity = try await fetchPersistedObvOwnedIdentity(ownedCryptoId: callerId.ownedCryptoId)
         
         let incomingCall = OlvidCall(
             ownedCryptoId: callerId.ownedCryptoId,
+            persistedObvOwnedIdentity: persistedObvOwnedIdentity,
             callIdentifierForCallKit: callIdentifierForCallKit,
             otherParticipants: [caller],
             ownedIdentityForRequestingTurnCredentials: nil,
@@ -140,6 +204,7 @@ final class OlvidCall: ObservableObject {
             groupId: startCallMessage.groupIdentifier,
             turnCredentialsReceivedFromCaller: startCallMessage.turnCredentials, 
             rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+            factory: factory,
             delegate: delegate)
         
         await caller.setDelegate(to: incomingCall)
@@ -150,9 +215,18 @@ final class OlvidCall: ObservableObject {
         
     }
     
+
+    @MainActor
+    static func fetchPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId) async throws -> PersistedObvOwnedIdentity {
+        guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: ObvStack.shared.viewContext) else {
+            throw ObvError.couldNotFindOwnedIdentity
+        }
+        return persistedObvOwnedIdentity
+    }
+    
     
     @MainActor
-    static func createOutgoingCall(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?, rtcPeerConnectionQueue: OperationQueue, delegate: OlvidCallDelegate) async throws -> OlvidCall {
+    static func createOutgoingCall(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory, delegate: OlvidCallDelegate) async throws -> OlvidCall {
         
         let callIdentifierForCallKitAndWebRTC = UUID()
 
@@ -163,14 +237,18 @@ final class OlvidCall: ObservableObject {
             let callee = try await OlvidCallParticipant.createCalleeOfOutgoingCall(
                 calleeId: contactId,
                 shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant,
-                rtcPeerConnectionQueue: rtcPeerConnectionQueue)
+                rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+                factory: factory)
             callees.append(callee)
         }
         
         callees.sort(by: \.displayName)
         
+        let persistedObvOwnedIdentity = try await fetchPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId)
+
         let outgoingCall = OlvidCall(
             ownedCryptoId: ownedCryptoId,
+            persistedObvOwnedIdentity: persistedObvOwnedIdentity,
             callIdentifierForCallKit: callIdentifierForCallKitAndWebRTC,
             otherParticipants: callees,
             ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials, 
@@ -180,6 +258,7 @@ final class OlvidCall: ObservableObject {
             groupId: groupId, 
             turnCredentialsReceivedFromCaller: nil, 
             rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+            factory: factory,
             delegate: delegate)
         
         for otherParticipant in outgoingCall.otherParticipants {
@@ -237,6 +316,116 @@ final class OlvidCall: ObservableObject {
 }
 
 
+// MARK: - Video
+
+extension OlvidCall {
+    
+    @MainActor
+    func userWantsToStartOrStopVideoCamera(start: Bool, preferredPosition: AVCaptureDevice.Position) async throws {
+        if start {
+            userWantsToStreamSelfVideo = true
+            try await startVideoCamera(preferredPosition: preferredPosition)
+        } else {
+            userWantsToStreamSelfVideo = false
+            await stopVideoCamera()
+        }
+    }
+    
+    
+    @MainActor
+    private func startVideoCamera(preferredPosition: AVCaptureDevice.Position) async throws {
+        
+        // Make sure the number of other participants is acceptable
+        
+        guard otherParticipants.count <= ObvMessengerConstants.maxOtherParticipantCountForVideoCalls else {
+            throw ObvError.maxOtherParticipantCountForVideoCallsExceeded
+        }
+
+        let (newLocalPreviewVideoTrack, newCurrentCameraPosition, newSelfVideoSize) = try await factory.startCaptureLocalVideo(preferredPosition: preferredPosition)
+        if self.localPreviewVideoTrack != newLocalPreviewVideoTrack {
+            // If we are just starting the video (not changing position), start the speaker if appropriate
+            if self.localPreviewVideoTrack == nil {
+                Task { [weak self] in await self?.startSpeakerOnCameraStartIfAppropriate() }
+            }
+            // For some reason, the following code is required if we want the camera position change to work properly at the UI level
+            self.localPreviewVideoTrack = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(300)) { [weak self] in
+                guard let self else { return }
+                self.localPreviewVideoTrack = newLocalPreviewVideoTrack
+                Task { [weak self] in await self?.reevalutateScreenDimming() } // Prevent the screen for dimming
+            }
+        }
+        if self.currentCameraPosition != newCurrentCameraPosition {
+            self.currentCameraPosition = newCurrentCameraPosition
+        }
+        if self.selfVideoSize != newSelfVideoSize {
+            self.selfVideoSize = newSelfVideoSize
+        }
+        for otherParticipant in self.otherParticipants {
+            try? await otherParticipant.setLocalVideoTrack(isEnabled: true)
+        }
+        
+    }
+    
+    
+    func callViewDidDisappear() async {
+        await stopVideoCamera()
+    }
+    
+    
+    func callViewDidAppear() async {
+        os_log("☎️ callViewDidDisappear", log: Self.log, type: .info)
+        try? await Task.sleep(milliseconds: 500) // Required to make things work when entering foreground
+        guard userWantsToStreamSelfVideo else { return }
+        do {
+            try await startVideoCamera(preferredPosition: currentCameraPosition ?? .front)
+        } catch {
+            assertionFailure()
+        }
+    }
+    
+    
+    @MainActor
+    private func stopVideoCamera() async {
+        
+        withAnimation {
+            self.localPreviewVideoTrack = nil
+            self.currentCameraPosition = nil
+        }
+        await reevalutateScreenDimming() // Stop preventing the screen for dimming
+        await factory.stopCaptureLocalVideo()
+        for otherParticipant in self.otherParticipants {
+            try? await otherParticipant.setLocalVideoTrack(isEnabled: false)
+        }
+
+    }
+    
+    
+    @MainActor
+    private func startSpeakerOnCameraStartIfAppropriate() async {
+        guard !isSpeakerEnabled else { return }
+        if currentAudioOptions.count == 1, let currentAudioOption = currentAudioOptions.first, currentAudioOption.portType == .builtInMic {
+            try? await userWantsToChangeSpeaker(to: true)
+        }
+    }
+    
+    
+    /// Each time we start/stop streaming our own video, or when another participant starts/stop her video, we check if it is appropriate for the system to dim the screen.
+    @MainActor
+    func reevalutateScreenDimming() async {
+        if self.localPreviewVideoTrack != nil {
+            UIApplication.shared.isIdleTimerDisabled = true
+        } else if otherParticipants.first(where: { $0.remoteCameraVideoTrackIsEnabled || $0.remoteScreenCastVideoTrackIsEnabled }) != nil {
+            UIApplication.shared.isIdleTimerDisabled = true
+        } else {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+    }
+    
+    
+}
+
+
 // MARK: - Audio
 
 extension OlvidCall {
@@ -288,7 +477,7 @@ extension OlvidCall {
             throw error
         }
         rtcAudioSession.unlockForConfiguration()
-        await updatePublishedAudioInformations()
+        updatePublishedAudioInformations()
     }
     
 
@@ -306,25 +495,46 @@ extension OlvidCall {
     private func regularlyUpdatePublishedAudioInformations() {
         timer
             .sink { [weak self] _ in
-                Task { [weak self] in await self?.updatePublishedAudioInformations() }
+                self?.updatePublishedAudioInformations()
+            }
+            .store(in: &cancellables)
+    }
+    
+    
+    private func reactToAppLifecycleNotifications() {
+        NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
+            .sink { [weak self] _ in
+                Task { [weak self] in await self?.stopVideoCamera() }
             }
             .store(in: &cancellables)
     }
     
 
-    @MainActor
-    private func updatePublishedAudioInformations() async {
-        let rtcAudioSession = RTCAudioSession.sharedInstance()
-        self.availableAudioOptions = Self.getAvailableOlvidCallAudioOption()
-        self.currentAudioOptions = rtcAudioSession.currentRoute.inputs.map({ .init(portDescription: $0) })
-        if currentAudioOptions.isEmpty {
-            // The available audio options are not yet available (typicall at the very begining of an outgoing call)
-            // We set the isSpeakerEnabled to the value manually chosen by the user (if any) or to false otherwise
-            self.isSpeakerEnabled = isSpeakerEnabledValueChosenByUser ?? false
-        } else {
-            // Typical case during a call. We don't use the value chosen by the user as we want the UI to reflect the "true"
-            // state of the speaker, now that we are able to determine it.
-            self.isSpeakerEnabled = rtcAudioSession.currentRoute.outputs.contains(where: { $0.portType == .builtInSpeaker })
+    private func updatePublishedAudioInformations() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let rtcAudioSession = RTCAudioSession.sharedInstance()
+            let newAvailableAudioOptions = Self.getAvailableOlvidCallAudioOption()
+            if self.availableAudioOptions != newAvailableAudioOptions {
+                self.availableAudioOptions = newAvailableAudioOptions
+            }
+            let newCurrentAudioOptions = rtcAudioSession.currentRoute.inputs.map({ OlvidCallAudioOption(portDescription: $0) })
+            if self.currentAudioOptions != newCurrentAudioOptions {
+                self.currentAudioOptions = newCurrentAudioOptions
+            }
+            let newIsSpeakerEnabled: Bool
+            if currentAudioOptions.isEmpty {
+                // The available audio options are not yet available (typicall at the very begining of an outgoing call)
+                // We set the isSpeakerEnabled to the value manually chosen by the user (if any) or to false otherwise
+                newIsSpeakerEnabled = isSpeakerEnabledValueChosenByUser ?? false
+            } else {
+                // Typical case during a call. We don't use the value chosen by the user as we want the UI to reflect the "true"
+                // state of the speaker, now that we are able to determine it.
+                newIsSpeakerEnabled = rtcAudioSession.currentRoute.outputs.contains(where: { $0.portType == .builtInSpeaker })
+            }
+            if self.isSpeakerEnabled != newIsSpeakerEnabled {
+                self.isSpeakerEnabled = newIsSpeakerEnabled
+            }
         }
     }
 
@@ -358,6 +568,10 @@ extension OlvidCall {
         return callerOfIncomingCall.info
     }
     
+    
+    func endBecauseOfDeniedRecordPermission() async throws -> (callReport: CallReport?, cxCallEndedReason: CXCallEndedReason?) {
+        return await endWebRTCCall(reason: .deniedRecordPermission)
+    }
     
     
     /// This called from the ``OlvidCallManager`` when the user ends an incoming call (either on the CallKit interface or on the Olvid UI).
@@ -520,7 +734,8 @@ extension OlvidCall {
             let callee = try await OlvidCallParticipant.createCalleeOfOutgoingCall(
                 calleeId: contactId,
                 shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant,
-                rtcPeerConnectionQueue: rtcPeerConnectionQueue)
+                rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+                factory: factory)
             callees.append(callee)
         }
 
@@ -528,9 +743,22 @@ extension OlvidCall {
         
         var newOtherParticipants = callees + self.otherParticipants
         newOtherParticipants.sort(by: \.displayName)
+        
+        // Before setting the new list of participants, we stop our own video stream if the number of participants is too large
+        
+        if newOtherParticipants.count > ObvMessengerConstants.maxOtherParticipantCountForVideoCalls {
+            try? await userWantsToStartOrStopVideoCamera(start: false, preferredPosition: .front)
+        }
+        
+        // We can now set the new list of participants
+        
         withAnimation {
             self.otherParticipants = newOtherParticipants
         }
+        
+        // If we were muted, we must make sure we stay muted for all participant, including the new ones
+        
+        try await setMuteSelfForOtherParticipants(muted: selfIsMuted)
 
         for newParticipant in callees {
             try? await Task.sleep(milliseconds: 300) // 300 ms, dirty trick, required to prevent a deadlock of the WebRTC library
@@ -569,6 +797,15 @@ extension OlvidCall {
             // Continue anyway
         }
 
+    }
+    
+    
+    func userWantsToChatWithParticipant(participant: ObvCryptoId) async throws {
+        
+        guard let participant = otherParticipants.first(where: { $0.cryptoId == participant }) else { return }
+        
+        try await participant.userWantsToChatWithThisParticipant(ownedCryptoId: self.ownedCryptoId)
+        
     }
     
 }
@@ -711,6 +948,9 @@ extension OlvidCall {
             assert(direction == .incoming)
             return .answeredOnAnotherDevice
             
+        case .deniedRecordPermission:
+            return .unanswered
+            
         }
 
     }
@@ -735,6 +975,8 @@ extension OlvidCall {
         case .answeredOrRejectedOnOtherDevice(answered: let answered):
             assert(direction == .incoming)
             return answered ? .answeredElsewhere : .declinedElsewhere
+        case .deniedRecordPermission:
+            return .failed
         }
     }
 
@@ -775,6 +1017,8 @@ extension OlvidCall {
         case .answeredOrRejectedOnOtherDevice(answered: _):
             assert(direction == .incoming) // No need to send reject/hangup message
 
+        case .deniedRecordPermission:
+            await sendRejectIncomingCallToCaller()
         }
         
     }
@@ -815,6 +1059,8 @@ extension OlvidCall {
             assert(direction == .incoming)
             assert(callerOfIncomingCall?.info != nil)
             return .answeredOrRejectedOnOtherDevice(caller: callerOfIncomingCall?.info, answered: answered)
+        case .deniedRecordPermission:
+            return .rejectedIncomingCallBecauseOfDeniedRecordPermission(caller: callerOfIncomingCall?.info, participantCount: initialParticipantCount)
         }
         
     }
@@ -873,6 +1119,7 @@ extension OlvidCall {
         case kicked // incoming call only
         case allOtherParticipantsLeft
         case answeredOrRejectedOnOtherDevice(answered: Bool)
+        case deniedRecordPermission
     }
 
     
@@ -925,6 +1172,28 @@ extension OlvidCall {
 // MARK: - Implementing CallParticipantDelegate
 
 extension OlvidCall: OlvidCallParticipantDelegate {
+    
+    func localVideoTrackWasAdded(for callParticipant: OlvidCallParticipant, videoTrack: RTCVideoTrack) async {
+        if self.localPreviewVideoTrack != nil {
+            let forScreenCast: Bool
+            switch videoTrack.trackId {
+            case ObvMessengerConstants.TrackId.video:
+                forScreenCast = false
+            case ObvMessengerConstants.TrackId.screencast:
+                forScreenCast = true
+            default:
+                assertionFailure()
+                return
+            }
+            assert(!forScreenCast, "We do not expect a local screencast track")
+            do {
+                try await callParticipant.setLocalVideoTrack(isEnabled: true)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        }
+    }
+    
     
     func participantWasUpdated(callParticipant: OlvidCallParticipant, updateKind: OlvidCallParticipant.UpdateKind) async {
         
@@ -1084,7 +1353,8 @@ extension OlvidCall: OlvidCallParticipantDelegate {
                 gatheringPolicy: gatheringPolicy,
                 displayName: displayName,
                 shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant, 
-                rtcPeerConnectionQueue: rtcPeerConnectionQueue)
+                rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+                factory: factory)
                         
             await addParticipant(callParticipant: callParticipant)
             await delegate?.newParticipantWasAdded(call: self, callParticipant: callParticipant)
@@ -1486,6 +1756,8 @@ extension OlvidCall {
         case notOutgoingCall
         case couldNotFindParticipant
         case ownedIdentityForRequestingTurnCredentialsIsNil
+        case maxOtherParticipantCountForVideoCallsExceeded
+        case couldNotFindOwnedIdentity
     }
         
 }

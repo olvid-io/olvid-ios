@@ -51,7 +51,7 @@ struct FailedFetchAttemptsCounterManager {
             }
             
         }
-        return min(ObvConstants.standardDelay<<localCounter, ObvConstants.maximumDelay)
+        return min(ObvConstants.standardDelay<<min(localCounter,20), ObvConstants.maximumDelay)
     }
     
     mutating func reset(counter: Counter) {

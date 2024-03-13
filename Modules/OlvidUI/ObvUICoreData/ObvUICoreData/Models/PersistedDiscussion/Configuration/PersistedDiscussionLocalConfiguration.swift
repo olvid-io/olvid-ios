@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,7 +39,6 @@ public final class PersistedDiscussionLocalConfiguration: NSManagedObject, ObvEr
     @NSManaged private var rawAutoRead: NSNumber?
     @NSManaged private var rawCountBasedRetention: NSNumber?
     @NSManaged private var rawCountBasedRetentionIsActive: NSNumber?
-    @NSManaged private var rawDoFetchContentRichURLsMetadata: NSNumber?
     @NSManaged private var rawDoNotifyWhenMentionnedInMutedDiscussion: NSNumber?
     @NSManaged private var rawDoSendReadReceipt: NSNumber?
     @NSManaged private var rawNotificationSound: String?
@@ -116,17 +115,6 @@ public final class PersistedDiscussionLocalConfiguration: NSManagedObject, ObvEr
     }
 
     
-    public var doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice? {
-        get {
-            guard let raw = rawDoFetchContentRichURLsMetadata else { return nil }
-            return ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice(rawValue: raw.intValue)
-        }
-        set {
-            guard newValue != doFetchContentRichURLsMetadata else { return }
-            rawDoFetchContentRichURLsMetadata = (newValue == nil ? nil : newValue!.rawValue as NSNumber)
-        }
-    }
-
     public var retainWipedOutboundMessages: Bool? {
         get {
             rawRetainWipedOutboundMessages?.boolValue
@@ -187,6 +175,9 @@ public final class PersistedDiscussionLocalConfiguration: NSManagedObject, ObvEr
     
     private var updatedLocalConfigurationValueTypes = Set<PersistedDiscussionLocalConfigurationValueType>()
     
+    /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
+    private var isInsertedWhileRestoringSyncSnapshot = false
+
 }
 
 private enum PersistedDiscussionLocalConfigurationValueType: CaseIterable, Hashable {
@@ -196,7 +187,6 @@ private enum PersistedDiscussionLocalConfigurationValueType: CaseIterable, Hasha
     case mentionNotificationMode
     case countBasedRetentionIsActive
     case countBasedRetention
-    case doFetchContentRichURLsMetadata
     case timeBasedRetention
     case muteNotificationsEndDate
     case defaultEmoji
@@ -211,7 +201,6 @@ public enum PersistedDiscussionLocalConfigurationValue {
     case mentionNotificationMode(_ mode: DiscussionMentionNotificationMode)
     case countBasedRetentionIsActive(_ countBasedRetentionIsActive: Bool?)
     case countBasedRetention(_ countBasedRetention: Int?)
-    case doFetchContentRichURLsMetadata(_ doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice?)
     case timeBasedRetention(_ timeBasedRetention: DurationOptionAltOverride)
     case muteNotificationsEndDate(_ muteNotificationsEndDate: Date?)
     case defaultEmoji(_ emoji: String?)
@@ -226,7 +215,6 @@ public enum PersistedDiscussionLocalConfigurationValue {
         case .mentionNotificationMode: return .mentionNotificationMode
         case .countBasedRetentionIsActive: return .countBasedRetentionIsActive
         case .countBasedRetention: return .countBasedRetention
-        case .doFetchContentRichURLsMetadata: return .doFetchContentRichURLsMetadata
         case .timeBasedRetention: return .timeBasedRetention
         case .muteNotificationsEndDate: return .muteNotificationsEndDate
         case .defaultEmoji: return .defaultEmoji
@@ -306,11 +294,6 @@ extension PersistedDiscussionLocalConfiguration {
                 self.countBasedRetention = countBasedRetention
                 updatedLocalConfigurationValueTypes.insert(.countBasedRetention)
             }
-        case .doFetchContentRichURLsMetadata(doFetchContentRichURLsMetadata: let doFetchContentRichURLsMetadata):
-            if self.doFetchContentRichURLsMetadata != doFetchContentRichURLsMetadata {
-                self.doFetchContentRichURLsMetadata = doFetchContentRichURLsMetadata
-                updatedLocalConfigurationValueTypes.insert(.doFetchContentRichURLsMetadata)
-            }
         case .timeBasedRetention(timeBasedRetention: let timeBasedRetention):
             if self.timeBasedRetention != timeBasedRetention {
                 self.timeBasedRetention = timeBasedRetention
@@ -346,12 +329,13 @@ extension PersistedDiscussionLocalConfiguration {
 
 extension PersistedDiscussionLocalConfiguration {
     
-    convenience init(discussion: PersistedDiscussion) throws {
+    convenience init(discussion: PersistedDiscussion, isRestoringSyncSnapshotOrBackup: Bool) throws {
         guard let context = discussion.managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
         }
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedDiscussionLocalConfiguration.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
+        self.isInsertedWhileRestoringSyncSnapshot = isRestoringSyncSnapshotOrBackup
         self.discussion = discussion
         self.rawAutoRead = nil
         self.countBasedRetentionIsActive = nil
@@ -359,7 +343,6 @@ extension PersistedDiscussionLocalConfiguration {
         self.timeBasedRetention = .useAppDefault
         self.rawRetainWipedOutboundMessages = nil
         self.doSendReadReceipt = nil
-        self.doFetchContentRichURLsMetadata = nil
         self.muteNotificationsEndDate = nil
         self.mentionNotificationMode = .globalDefault
     }
@@ -441,6 +424,14 @@ extension PersistedDiscussionLocalConfiguration {
         
         defer {
             updatedLocalConfigurationValueTypes.removeAll()
+            isInsertedWhileRestoringSyncSnapshot = false
+        }
+        
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: Self.self))
+            os_log("Insertion of a PersistedDiscussionLocalConfiguration during a snapshot restore --> we don't send any notification", log: log, type: .info)
+            return
         }
 
         if !isDeleted {
@@ -463,8 +454,6 @@ extension PersistedDiscussionLocalConfiguration {
                     value = .countBasedRetentionIsActive(self.countBasedRetentionIsActive) // ok
                 case .countBasedRetention:
                     value = .countBasedRetention(self.countBasedRetention) // ok
-                case .doFetchContentRichURLsMetadata:
-                    value = .doFetchContentRichURLsMetadata(self.doFetchContentRichURLsMetadata) // ok
                 case .timeBasedRetention:
                     value = .timeBasedRetention(self.timeBasedRetention) // ok
                 case .muteNotificationsEndDate:

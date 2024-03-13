@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -72,7 +72,7 @@ final class CallProviderHolder: NSObject {
         providerConfiguration.maximumCallGroups = 1
         providerConfiguration.maximumCallsPerCallGroup = 1
         providerConfiguration.supportedHandleTypes = [.generic]
-        providerConfiguration.supportsVideo = false
+        providerConfiguration.supportsVideo = true
         providerConfiguration.includesCallsInRecents = ObvMessengerSettings.VoIP.isIncludesCallsInRecentsEnabled
         return providerConfiguration
     }()

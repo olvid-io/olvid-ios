@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -79,6 +79,7 @@ public struct ObvMessengerSettings {
             case identityColorStyle = "identityColorStyle"
             case contactsSortOrder = "contactsSortOrder"
             case preferredComposeMessageViewActions = "preferredComposeMessageViewActions"
+            case discussionLayoutType = "discussionLayoutType"
             
             private var kInterface: String { "interface" }
             
@@ -88,6 +89,24 @@ public struct ObvMessengerSettings {
             
         }
         
+        
+        public enum DiscussionLayoutType: Int, CaseIterable {
+            case productionLayout
+            case listLayout
+        }
+        
+        
+        /// This setting, available when beta options are activated, allows to test different layouts of the collection view used for the single discussion view.
+        public static var discussionLayoutType: DiscussionLayoutType {
+            get {
+                let raw = userDefaults.integerOrNil(forKey: Key.discussionLayoutType.path) ?? 0
+                return DiscussionLayoutType(rawValue: raw) ?? DiscussionLayoutType.productionLayout
+            }
+            set {
+                userDefaults.set(newValue.rawValue, forKey: Key.discussionLayoutType.path)
+            }
+        }
+
         
         public static var identityColorStyle: IdentityColorStyle {
             get {
@@ -136,7 +155,6 @@ public struct ObvMessengerSettings {
         private enum Key: String {
             
             case doSendReadReceipt = "doSendReadReceipt"
-            case doFetchContentRichURLsMetadata = "doFetchContentRichURLsMetadata"
             case visibilityDuration = "visibilityDuration"
             case existenceDuration = "existenceDuration"
             case countBasedRetentionPolicyIsActive = "countBasedRetentionPolicyIsActive"
@@ -144,6 +162,8 @@ public struct ObvMessengerSettings {
             case timeBasedRetentionPolicy = "timeBasedRetentionPolicy"
             case autoRead = "autoRead"
             case readOnce = "readOnce"
+            case attachLinkPreviewToMessageSent = "attachLinkPreviewToMessageSent"
+            case fetchMissingLinkPreviewFromMessageReceived = "fetchMissingLinkPreviewFromMessageReceived"
             case retainWipedOutboundMessages = "retainWipedOutboundMessages"
             case notificationSound = "notificationSound"
             case performInteractionDonation = "performInteractionDonation"
@@ -175,8 +195,9 @@ public struct ObvMessengerSettings {
             ObvMessengerSettingsObservableObject.shared.doSendReadReceipt = (doSendReadReceipt, changeMadeFromAnotherOwnedDevice, ownedCryptoId)
         }
         
+        
         // MARK: Rich link previews
-
+        
         public enum FetchContentRichURLsMetadataChoice: Int, CaseIterable, Identifiable {
             case never = 0
             case withinSentMessagesOnly = 1
@@ -184,13 +205,22 @@ public struct ObvMessengerSettings {
             public var id: Int { rawValue }
         }
 
-        public static var doFetchContentRichURLsMetadata: FetchContentRichURLsMetadataChoice {
+        // MARK: Attach link preview
+        public static var attachLinkPreviewToMessageSent: Bool {
             get {
-                let raw = userDefaults.integerOrNil(forKey: Key.doFetchContentRichURLsMetadata.path) ?? FetchContentRichURLsMetadataChoice.always.rawValue
-                return FetchContentRichURLsMetadataChoice(rawValue: raw) ?? FetchContentRichURLsMetadataChoice.always
+                return userDefaults.boolOrNil(forKey: Key.attachLinkPreviewToMessageSent.path) ?? true
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: Key.doFetchContentRichURLsMetadata.path)
+                userDefaults.set(newValue, forKey: Key.attachLinkPreviewToMessageSent.path)
+            }
+        }
+        
+        public static var fetchMissingLinkPreviewFromMessageReceived: Bool {
+            get {
+                return userDefaults.boolOrNil(forKey: Key.fetchMissingLinkPreviewFromMessageReceived.path) ?? false
+            }
+            set {
+                userDefaults.set(newValue, forKey: Key.fetchMissingLinkPreviewFromMessageReceived.path)
             }
         }
         
@@ -601,6 +631,7 @@ public struct ObvMessengerSettings {
         
         enum Key: String {
             case receiveCallsOnThisDevice = "receiveCallsOnThisDevice"
+            case videoSendResolution = "videoSendResolution"
             
             private var kVoIP: String { "voip" }
             
@@ -652,6 +683,27 @@ public struct ObvMessengerSettings {
                 userDefaults.set(newValue, forKey: "settings.voip.maxaveragebitrate")
             }
         }
+        
+        
+        public enum VideoSendResolution: Int, CaseIterable {
+            case fullHigh1080 = 1080
+            case high720 = 720
+            case standard480 = 480
+            case low360 = 360
+        }
+        
+        
+        public static var videoSendResolution: VideoSendResolution {
+            get {
+                let rawValue = userDefaults.integerOrNil(forKey: Key.videoSendResolution.path) ?? VideoSendResolution.fullHigh1080.rawValue
+                    return VideoSendResolution(rawValue: rawValue) ?? .fullHigh1080
+            }
+            set {
+                guard newValue != videoSendResolution else { return }
+                userDefaults.set(newValue.rawValue, forKey: Key.videoSendResolution.path)
+            }
+        }
+
         
     }
     

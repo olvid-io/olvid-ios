@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,14 +30,16 @@ final class NewDiscussionsListViewModel: NewDiscussionsSelectionViewControllerDe
 
     let discussionsViewModel: DiscussionsViewModel
     let ownedCryptoId: ObvCryptoId
+    let restrictToActiveDiscussions: Bool
     
     var selectedObjectIds: [ObvUICoreData.TypeSafeManagedObjectID<PersistedDiscussion>] {
         return discussionsViewModel.selectedDiscussions.map({ ObvUICoreData.TypeSafeManagedObjectID(objectID: $0.persistedDiscussion.objectID) })
     }
     
-    init(ownedCryptoId: ObvCryptoId, discussionsViewModel: DiscussionsViewModel) {
+    init(ownedCryptoId: ObvCryptoId, restrictToActiveDiscussions: Bool, discussionsViewModel: DiscussionsViewModel) {
         self.ownedCryptoId = ownedCryptoId
         self.discussionsViewModel = discussionsViewModel
+        self.restrictToActiveDiscussions = restrictToActiveDiscussions
     }
     
     // MARK: - NewDiscussionsSelectionViewControllerDelegate

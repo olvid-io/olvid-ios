@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -140,9 +140,14 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         return .groupV2(photo: .url(url: self.displayPhotoURLPublished), groupIdentifier: groupIdentifier, showGreenShield: keycloakManaged)
     }
 
+    
+    /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
+    private(set) var isInsertedWhileRestoringSyncSnapshot = false
+
+    
     // Initializer
     
-    private convenience init(obvGroupV2: ObvGroupV2, shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: Bool, within context: NSManagedObjectContext) throws {
+    private convenience init(obvGroupV2: ObvGroupV2, shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: Bool, isRestoringSyncSnapshotOrBackup: Bool, within context: NSManagedObjectContext) throws {
         
         guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: obvGroupV2.ownIdentity, within: context) else {
             assertionFailure()
@@ -157,24 +162,33 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         let entityDescription = NSEntityDescription.entity(forEntityName: PersistedGroupV2.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
 
+        self.isInsertedWhileRestoringSyncSnapshot = isRestoringSyncSnapshotOrBackup
+
         self.rawOwnedIdentity = ownedIdentity
         updateAttributes(obvGroupV2: obvGroupV2)
         try updateRelationships(obvGroupV2: obvGroupV2,
-                                shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion)
+                                shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion,
+                                isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
         updateNamesOfOtherMembers()
         
     }
     
     
     private func updateAttributes(obvGroupV2: ObvGroupV2) {
-        self.groupIdentifier = obvGroupV2.appGroupIdentifier
-        self.keycloakManaged = obvGroupV2.keycloakManaged
-        self.namesOfOtherMembers = nil // Updated later
+        if self.groupIdentifier != obvGroupV2.appGroupIdentifier {
+            self.groupIdentifier = obvGroupV2.appGroupIdentifier
+        }
+        if self.keycloakManaged != obvGroupV2.keycloakManaged {
+            self.keycloakManaged = obvGroupV2.keycloakManaged
+        }
+        // namesOfOtherMembers is updated later
         if obvGroupV2.keycloakManaged {
-            self.ownPermissionAdmin = false
+            if self.ownPermissionAdmin {
+                self.ownPermissionAdmin = false
+            }
         } else {
             let newOwnPermissionAdmin = obvGroupV2.ownPermissions.contains(.groupAdmin)
-            if newOwnPermissionAdmin != self.ownPermissionAdmin {
+            if self.ownPermissionAdmin != newOwnPermissionAdmin {
                 if newOwnPermissionAdmin {
                     try? discussion?.ownedIdentityBecameAnAdmin()
                 } else {
@@ -183,13 +197,25 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
                 self.ownPermissionAdmin = newOwnPermissionAdmin
             }
         }
-        self.ownPermissionChangeSettings = obvGroupV2.ownPermissions.contains(.changeSettings)
-        self.ownPermissionEditOrRemoteDeleteOwnMessages = obvGroupV2.ownPermissions.contains(.editOrRemoteDeleteOwnMessages)
-        self.ownPermissionRemoteDeleteAnything = obvGroupV2.ownPermissions.contains(.remoteDeleteAnything)
-        self.ownPermissionSendMessage = obvGroupV2.ownPermissions.contains(.sendMessage)
-        self.rawOwnedIdentityIdentity = obvGroupV2.ownIdentity.getIdentity()
-        self.updateInProgress = obvGroupV2.updateInProgress
-        displayedContactGroup?.updateUsingUnderlyingGroup()
+        if self.ownPermissionChangeSettings != obvGroupV2.ownPermissions.contains(.changeSettings) {
+            self.ownPermissionChangeSettings = obvGroupV2.ownPermissions.contains(.changeSettings)
+        }
+        if self.ownPermissionEditOrRemoteDeleteOwnMessages != obvGroupV2.ownPermissions.contains(.editOrRemoteDeleteOwnMessages) {
+            self.ownPermissionEditOrRemoteDeleteOwnMessages = obvGroupV2.ownPermissions.contains(.editOrRemoteDeleteOwnMessages)
+        }
+        if self.ownPermissionRemoteDeleteAnything != obvGroupV2.ownPermissions.contains(.remoteDeleteAnything) {
+            self.ownPermissionRemoteDeleteAnything = obvGroupV2.ownPermissions.contains(.remoteDeleteAnything)
+        }
+        if self.ownPermissionSendMessage != obvGroupV2.ownPermissions.contains(.sendMessage) {
+            self.ownPermissionSendMessage = obvGroupV2.ownPermissions.contains(.sendMessage)
+        }
+        if self.rawOwnedIdentityIdentity != obvGroupV2.ownIdentity.getIdentity() {
+            self.rawOwnedIdentityIdentity = obvGroupV2.ownIdentity.getIdentity()
+        }
+        if self.updateInProgress != obvGroupV2.updateInProgress {
+            self.updateInProgress = obvGroupV2.updateInProgress
+        }
+        try? createOrUpdateTheAssociatedDisplayedContactGroup()
         try? discussion?.resetTitle(to: self.displayName)
     }
     
@@ -209,8 +235,11 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     /// This method allows to update this attribute.
     private func updateNamesOfOtherMembers() {
         let names = otherMembers.map({ $0.displayedCustomDisplayNameOrFirstNameOrLastName ?? "" }).sorted()
-        self.namesOfOtherMembers = names.formatted(.list(type: .and, width: .short))
-        displayedContactGroup?.updateUsingUnderlyingGroup()
+        let newNamesOfOtherMembers = names.formatted(.list(type: .and, width: .short))
+        if self.namesOfOtherMembers != newNamesOfOtherMembers {
+            self.namesOfOtherMembers = newNamesOfOtherMembers
+        }
+        try? createOrUpdateTheAssociatedDisplayedContactGroup()
         try? discussion?.resetTitle(to: self.displayName)
     }
     
@@ -219,7 +248,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     func updateCustomPhotoWithPhoto(_ newPhoto: UIImage?, within obvContext: ObvContext) throws {
         
         defer {
-            displayedContactGroup?.updateUsingUnderlyingGroup()
+            try? createOrUpdateTheAssociatedDisplayedContactGroup()
             // No need to reset the discussion title
             discussion?.setHasUpdates() // Makes sure the photo is updated in the discussion list
         }
@@ -282,13 +311,13 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             return false
         }
         self.customName = newCustomName
-        displayedContactGroup?.updateUsingUnderlyingGroup()
+        try createOrUpdateTheAssociatedDisplayedContactGroup()
         try discussion?.resetTitle(to: self.displayName)
         return true
     }
     
 
-    private func updateRelationships(obvGroupV2: ObvGroupV2, shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: Bool) throws {
+    private func updateRelationships(obvGroupV2: ObvGroupV2, shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: Bool, isRestoringSyncSnapshotOrBackup: Bool) throws {
         
         guard let context = managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
@@ -297,7 +326,9 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         if let publishedDetailsAndPhoto = obvGroupV2.publishedDetailsAndPhoto {
             if let detailsPublished = self.detailsPublished {
                 if try detailsPublished.updateWithDetailsAndPhoto(publishedDetailsAndPhoto) {
-                    self.publishedDetailsStatus = .unseenPublishedDetails
+                    if self.publishedDetailsStatus != .unseenPublishedDetails {
+                        self.publishedDetailsStatus = .unseenPublishedDetails
+                    }
                 }
             } else {
                 // Before creating new published details, we make sure that the details sent by the engine are indeed different from a "visual" point of view for the user.
@@ -326,13 +357,19 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
                     // Do not create new published details
                 } else {
                     self.detailsPublished = try PersistedGroupV2Details(publishedDetailsAndPhoto: publishedDetailsAndPhoto, persistedGroupV2: self)
-                    self.publishedDetailsStatus = .unseenPublishedDetails
+                    if self.publishedDetailsStatus != .unseenPublishedDetails {
+                        self.publishedDetailsStatus = .unseenPublishedDetails
+                    }
                 }
                 
             }
         } else {
-            self.detailsPublished = nil
-            self.publishedDetailsStatus = .noNewPublishedDetails
+            if self.detailsPublished != nil {
+                self.detailsPublished = nil
+            }
+            if self.publishedDetailsStatus != .noNewPublishedDetails {
+                self.publishedDetailsStatus = .noNewPublishedDetails
+            }
         }
         if let detailsTrusted = self.detailsTrusted {
             _ = try detailsTrusted.updateWithDetailsAndPhoto(obvGroupV2.trustedDetailsAndPhoto)
@@ -352,8 +389,12 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
            detailsTrusted.photoURLFromEngine == nil,
            detailsPublished.photoURLFromEngine != nil,
            detailsTrusted.coreDetails == detailsPublished.coreDetails {
-            self.detailsPublished = nil
-            self.publishedDetailsStatus = .noNewPublishedDetails
+            if self.detailsPublished != nil {
+                self.detailsPublished = nil
+            }
+            if self.publishedDetailsStatus != .noNewPublishedDetails {
+                self.publishedDetailsStatus = .noNewPublishedDetails
+            }
             try trustedDetailsShouldBeReplacedByPublishedDetails()
         }
 
@@ -380,7 +421,8 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             _ = try PersistedGroupV2Member(identityAndPermissionsAndDetails: memberToInsert,
                                            groupIdentifier: obvGroupV2.appGroupIdentifier,
                                            ownCryptoId: obvGroupV2.ownIdentity,
-                                           persistedGroupV2: self)
+                                           persistedGroupV2: self, 
+                                           isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
         }
         
         // Update existing members
@@ -419,7 +461,8 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             } else {
                 rawDiscussion = try PersistedGroupV2Discussion(
                     persistedGroupV2: self,
-                    shouldApplySharedConfigurationFromGlobalSettings: shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion)
+                    shouldApplySharedConfigurationFromGlobalSettings: shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion,
+                    isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
             }
         } else {
             // If a discussion already existed, display a message indicating that the group members did change
@@ -450,11 +493,13 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
 
         // Make sure the photo is updated in the list of discussions
         
-        discussion?.setHasUpdates()
+        if context.hasChanges {
+            discussion?.setHasUpdates()
+        }
 
         // Update the associated displayed group
         
-        displayedContactGroup?.updateUsingUnderlyingGroup()
+        try createOrUpdateTheAssociatedDisplayedContactGroup()
 
     }
     
@@ -464,8 +509,8 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             .postOnDispatchQueue()
     }
     
-    
-    public func createOrUpdateTheAssociatedDisplayedContactGroup() throws {
+
+    private func createOrUpdateTheAssociatedDisplayedContactGroup() throws {
         if let displayedContactGroup = self.displayedContactGroup {
             displayedContactGroup.updateUsingUnderlyingGroup()
         } else {
@@ -474,21 +519,37 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
     
     
-    static func createOrUpdate(obvGroupV2: ObvGroupV2, createdByMe: Bool, within context: NSManagedObjectContext) throws -> PersistedGroupV2 {
-        if let persistedGroup = try PersistedGroupV2.getWithObvGroupV2(obvGroupV2, within: context) {
-            persistedGroup.updateAttributes(obvGroupV2: obvGroupV2)
-            try persistedGroup.updateRelationships(obvGroupV2: obvGroupV2,
-                                                   shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: createdByMe)
-            persistedGroup.updateNamesOfOtherMembers()
-            return persistedGroup
-        } else {
-            return try PersistedGroupV2(obvGroupV2: obvGroupV2,
-                                        shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: createdByMe,
-                                        within: context)
-        }
-    }
+    static func createOrUpdate(obvGroupV2: ObvGroupV2, createdByMe: Bool, isRestoringSyncSnapshotOrBackup: Bool, within context: NSManagedObjectContext) throws -> PersistedGroupV2 {
 
+        let persistedGroup: PersistedGroupV2
+
+        if let _persistedGroup = try PersistedGroupV2.getWithObvGroupV2(obvGroupV2, within: context) {
+            
+            persistedGroup = _persistedGroup
+            persistedGroup.updateAttributes(obvGroupV2: obvGroupV2)
+            try persistedGroup.updateRelationships(
+                obvGroupV2: obvGroupV2,
+                shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: createdByMe,
+                isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
+            persistedGroup.updateNamesOfOtherMembers()
+            
+        } else {
+            
+            persistedGroup = try PersistedGroupV2(
+                obvGroupV2: obvGroupV2,
+                shouldApplySharedConfigurationFromGlobalSettingsWhenCreatingTheDiscussion: createdByMe, 
+                isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup,
+                within: context)
+            // Note that updateAttributes, updateRelationships, and updateNamesOfOtherMembers are called in the constructor of PersistedGroupV2
+            
+        }
+
+        try persistedGroup.createOrUpdateTheAssociatedDisplayedContactGroup()
+        
+        return persistedGroup
+    }
     
+
     public func delete() throws {
         guard let context = self.managedObjectContext else {
             assertionFailure()
@@ -516,7 +577,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     
     
     fileprivate func updateWhenPersistedGroupV2MemberIsUpdated() {
-        displayedContactGroup?.updateUsingUnderlyingGroup()
+        try? createOrUpdateTheAssociatedDisplayedContactGroup()
         try? discussion?.resetTitle(to: self.displayName)
     }
     
@@ -543,7 +604,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             publishedDetailsStatus = .seenPublishedDetails
         }
         // Update the associated displayed group
-        displayedContactGroup?.updateUsingUnderlyingGroup()
+        try? createOrUpdateTheAssociatedDisplayedContactGroup()
     }
 
     
@@ -559,6 +620,9 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         }
         static func withOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
             NSPredicate(Key.rawOwnedIdentityIdentity, EqualToData: ownedIdentity.identity)
+        }
+        static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.rawOwnedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
         }
         static func withPrimaryKey(ownCryptoId: ObvCryptoId, groupIdentifier: Data) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -648,6 +712,23 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         return Set(try context.fetch(request))
     }
 
+    
+    public static func getAllGroupV2Identifiers(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Set<ObvGroupV2Identifier> {
+        let request: NSFetchRequest<PersistedGroupV2> = PersistedGroupV2.fetchRequest()
+        request.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
+        request.fetchBatchSize = 1_000
+        let results = try context.fetch(request)
+        let groupIds: [ObvGroupV2Identifier] = results
+            .compactMap { group in
+                guard let groupV2Identifier = ObvGroupV2.Identifier(appGroupIdentifier: group.groupIdentifier) else {
+                    assertionFailure()
+                    return nil
+                }
+                return ObvGroupV2Identifier(ownedCryptoId: ownedCryptoId, identifier: groupV2Identifier)
+            }
+        return Set(groupIds)
+    }
+    
     
     // MARK: Displaying group information
     
@@ -837,8 +918,19 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     
     public override func didSave() {
         super.didSave()
-        defer { changedKeys.removeAll() }
+
+        defer {
+            changedKeys.removeAll()
+            isInsertedWhileRestoringSyncSnapshot = false
+        }
         
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: Self.self))
+            os_log("Insertion of a PersistedGroupV2 during a snapshot restore --> we don't send any notification", log: log, type: .info)
+            return
+        }
+
         if isDeleted {
             ObvMessengerCoreDataNotification.persistedGroupV2WasDeleted(objectID: self.typedObjectID)
                 .postOnDispatchQueue()
@@ -1026,7 +1118,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     
     // MARK: - Receiving messages and attachments from a contact or another owned device
 
-    func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, attachmentFullyReceivedOrCancelledByServer: [ObvAttachment]) {
+    func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?) {
         
         guard self.ownedIdentityIdentity == contact.ownedIdentity?.identity else {
             throw ObvError.ownedIdentityIsNotPartOfThisGroup
@@ -1054,7 +1146,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
     
     
-    func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> [ObvOwnedAttachment] {
+    func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> MessageSentPermanentID? {
         
         guard self.ownedIdentityIdentity == ownedIdentity.identity else {
             throw ObvError.ownedIdentityIsNotPartOfThisGroup
@@ -1068,14 +1160,11 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             throw ObvError.couldNotFindGroupDiscussion
         }
 
-        let attachmentFullyReceivedOrCancelledByServer = try discussion.createPersistedMessageSentFromOtherOwnedDevice(
+        return try discussion.createPersistedMessageSentFromOtherOwnedDevice(
             from: ownedIdentity,
             obvOwnedMessage: obvOwnedMessage,
             messageJSON: messageJSON,
             returnReceiptJSON: returnReceiptJSON)
-        
-        return attachmentFullyReceivedOrCancelledByServer
-        
     }
     
     
@@ -1584,9 +1673,12 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErr
     
     fileprivate var cryptoIdWhenDeleted: ObvCryptoId?
 
+    /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
+    private var isInsertedWhileRestoringSyncSnapshot = false
+
     // Initializer
     
-    fileprivate convenience init(identityAndPermissionsAndDetails: ObvGroupV2.IdentityAndPermissionsAndDetails, groupIdentifier: Data, ownCryptoId: ObvCryptoId, persistedGroupV2: PersistedGroupV2) throws {
+    fileprivate convenience init(identityAndPermissionsAndDetails: ObvGroupV2.IdentityAndPermissionsAndDetails, groupIdentifier: Data, ownCryptoId: ObvCryptoId, persistedGroupV2: PersistedGroupV2, isRestoringSyncSnapshotOrBackup: Bool) throws {
         
         guard let context = persistedGroupV2.managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
@@ -1604,6 +1696,8 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErr
 
         let entityDescription = NSEntityDescription.entity(forEntityName: Self.entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
+
+        self.isInsertedWhileRestoringSyncSnapshot = isRestoringSyncSnapshotOrBackup
 
         self.rawContact = contact
         self.rawGroup = persistedGroupV2
@@ -1650,18 +1744,40 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErr
     
 
     fileprivate func updateWith(identityAndPermissionsAndDetails: ObvGroupV2.IdentityAndPermissionsAndDetails) throws {
-        self.identity = identityAndPermissionsAndDetails.identity.getIdentity()
-        self.isPending = identityAndPermissionsAndDetails.isPending
-        self.permissionAdmin = identityAndPermissionsAndDetails.permissions.contains(.groupAdmin)
-        self.permissionChangeSettings = identityAndPermissionsAndDetails.permissions.contains(.changeSettings)
-        self.permissionEditOrRemoteDeleteOwnMessages = identityAndPermissionsAndDetails.permissions.contains(.editOrRemoteDeleteOwnMessages)
-        self.permissionRemoteDeleteAnything = identityAndPermissionsAndDetails.permissions.contains(.remoteDeleteAnything)
-        self.permissionSendMessage = identityAndPermissionsAndDetails.permissions.contains(.sendMessage)
+        if self.identity != identityAndPermissionsAndDetails.identity.getIdentity() {
+            self.identity = identityAndPermissionsAndDetails.identity.getIdentity()
+        }
+        if self.isPending != identityAndPermissionsAndDetails.isPending {
+            self.isPending = identityAndPermissionsAndDetails.isPending
+        }
+        if self.permissionAdmin != identityAndPermissionsAndDetails.permissions.contains(.groupAdmin) {
+            self.permissionAdmin = identityAndPermissionsAndDetails.permissions.contains(.groupAdmin)
+        }
+        if self.permissionChangeSettings != identityAndPermissionsAndDetails.permissions.contains(.changeSettings) {
+            self.permissionChangeSettings = identityAndPermissionsAndDetails.permissions.contains(.changeSettings)
+        }
+        if self.permissionEditOrRemoteDeleteOwnMessages != identityAndPermissionsAndDetails.permissions.contains(.editOrRemoteDeleteOwnMessages) {
+            self.permissionEditOrRemoteDeleteOwnMessages = identityAndPermissionsAndDetails.permissions.contains(.editOrRemoteDeleteOwnMessages)
+        }
+        if self.permissionRemoteDeleteAnything != identityAndPermissionsAndDetails.permissions.contains(.remoteDeleteAnything) {
+            self.permissionRemoteDeleteAnything = identityAndPermissionsAndDetails.permissions.contains(.remoteDeleteAnything)
+        }
+        if self.permissionSendMessage != identityAndPermissionsAndDetails.permissions.contains(.sendMessage) {
+            self.permissionSendMessage = identityAndPermissionsAndDetails.permissions.contains(.sendMessage)
+        }
         let coreDetails = try ObvIdentityCoreDetails.jsonDecode(identityAndPermissionsAndDetails.serializedIdentityCoreDetails)
-        self.firstName = coreDetails.firstName
-        self.lastName = coreDetails.lastName
-        self.position = coreDetails.position
-        self.company = coreDetails.company
+        if self.firstName != coreDetails.firstName {
+            self.firstName = coreDetails.firstName
+        }
+        if self.lastName != coreDetails.lastName {
+            self.lastName = coreDetails.lastName
+        }
+        if self.position != coreDetails.position {
+            self.position = coreDetails.position
+        }
+        if self.company != coreDetails.company {
+            self.company = coreDetails.company
+        }
         self.updateNormalizedSortAndSearchKeys(with: ObvMessengerSettings.Interface.contactsSortOrder)
     }
     
@@ -1864,6 +1980,7 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErr
         }
     }
     
+    
     // MARK: Reacting to changes
     
     private var changedKeys = Set<String>()
@@ -1880,8 +1997,18 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErr
     public override func didSave() {
         super.didSave()
         
-        defer { changedKeys.removeAll() }
+        defer {
+            changedKeys.removeAll()
+            isInsertedWhileRestoringSyncSnapshot = false
+        }
         
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: Self.self))
+            os_log("Insertion of a PersistedGroupV2 during a snapshot restore --> we don't send any notification", log: log, type: .info)
+            return
+        }
+
         if changedKeys.contains(Predicate.Key.isPending.rawValue), !self.isPending, let contactObjectID = contact?.typedObjectID {
             ObvMessengerCoreDataNotification.aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: contactObjectID)
                 .postOnDispatchQueue()

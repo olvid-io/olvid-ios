@@ -335,7 +335,7 @@ actor KeycloakManager: NSObject {
                 throw UploadOwnedIdentityError.ownedIdentityWasRevoked
             case .authenticationRequired:
                 do {
-                    ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][2]")
+                    //ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][2]")
                     try await openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState: iks, ownedCryptoId: ownedCryptoId)
                     return try await uploadOwnIdentity(ownedCryptoId: ownedCryptoId)
                 } catch let error as KeycloakDialogError {
@@ -849,7 +849,7 @@ actor KeycloakManager: NSObject {
             switch error {
             case .authenticationRequired:
                 do {
-                    ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][3]")
+                    //ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][3]")
                     try await openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState: iks, ownedCryptoId: ownedCryptoId)
                     return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
                 } catch let error as KeycloakDialogError {
@@ -1008,7 +1008,7 @@ actor KeycloakManager: NSObject {
                     break // Do nothing
                 case .authenticationRequired:
                     do {
-                        ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][4]")
+                        //ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][4]")
                         try await openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState: iks, ownedCryptoId: ownedCryptoId)
                         return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
                     } catch let error as KeycloakDialogError {
@@ -1175,7 +1175,7 @@ actor KeycloakManager: NSObject {
             switch error {
             case .authenticationRequired:
                 do {
-                    ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][5]")
+                    //ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][5]")
                     try await openKeycloakAuthenticationRequiredTokenExpired(internalKeycloakState: iks, ownedCryptoId: ownedCryptoId)
                     return await retrySynchronizeOwnedIdentityWithKeycloakServerOnError(error: error, ownedCryptoId: ownedCryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval, currentFailedAttempts: failedAttempts)
                 } catch let error as KeycloakDialogError {
@@ -1310,51 +1310,61 @@ actor KeycloakManager: NSObject {
             return try await getInternalKeycloakState(for: ownedCryptoId, failedAttempts: failedAttempts + 1)
         }
 
-        guard let rawAuthState = obvKeycloakState.rawAuthState,
-              let authState = OIDAuthState.deserialize(from: rawAuthState),
-              authState.isAuthorized,
-              let (accessToken, _) = try? await authState.performAction(),
-              let accessToken = accessToken else {
+        do {
             
-            do {
-                ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][1] \(String(describing: obvKeycloakState.rawAuthState))")
-                try await openKeycloakAuthenticationRequiredTokenExpired(obvKeycloakState: obvKeycloakState, ownedCryptoId: ownedCryptoId)
-            } catch let error as KeycloakDialogError {
-                switch error {
-                case .userHasCancelled:
-                    throw GetObvKeycloakStateError.userHasCancelled
-                case .keycloakManagerError(let error):
+            guard let rawAuthState = obvKeycloakState.rawAuthState,
+                  let authState = OIDAuthState.deserialize(from: rawAuthState),
+                  let accessToken = try await authState.performAction().accessToken else {
+                
+                do {
+                    //ObvDisplayableLogs.shared.log("🧥[OpenKeycloakAuthentication][1] \(String(describing: obvKeycloakState.rawAuthState))")
+                    try await openKeycloakAuthenticationRequiredTokenExpired(obvKeycloakState: obvKeycloakState, ownedCryptoId: ownedCryptoId)
+                } catch let error as KeycloakDialogError {
+                    switch error {
+                    case .userHasCancelled:
+                        throw GetObvKeycloakStateError.userHasCancelled
+                    case .keycloakManagerError(let error):
+                        throw GetObvKeycloakStateError.unkownError(error)
+                    }
+                    
+                } catch {
+                    
+                    //assertionFailure("Unexpected error. This also happens when the keycloak cannot be reached. When testing this scenario, this line can be commented out.")
                     throw GetObvKeycloakStateError.unkownError(error)
+                    
                 }
                 
-            } catch {
+                guard failedAttempts < maxFailCount else {
+                    assertionFailure()
+                    throw GetObvKeycloakStateError.unkownError(Self.makeError(message: "Too many requests"))
+                }
+                try await Task.sleep(failedAttemps: failedAttempts)
                 
-                //assertionFailure("Unexpected error. This also happens when the keycloak cannot be reached. When testing this scenario, this line can be commented out.")
+                return try await getInternalKeycloakState(for: ownedCryptoId, failedAttempts: failedAttempts + 1)
+            }
+            
+            let internalKeycloakState = InternalKeycloakState(keycloakServer: obvKeycloakState.keycloakServer,
+                                                              clientId: obvKeycloakState.clientId,
+                                                              clientSecret: obvKeycloakState.clientSecret,
+                                                              jwks: obvKeycloakState.jwks,
+                                                              authState: authState,
+                                                              signatureVerificationKey: obvKeycloakState.signatureVerificationKey,
+                                                              accessToken: accessToken,
+                                                              latestGroupUpdateTimestamp: obvKeycloakState.latestGroupUpdateTimestamp,
+                                                              latestRevocationListTimestamp: obvKeycloakState.latestLocalRevocationListTimestamp,
+                                                              signedOwnedDetails: signedOwnedDetails)
+            
+            return internalKeycloakState
+            
+        } catch {
+            
+            if error is GetObvKeycloakStateError {
+                throw error
+            } else {
                 throw GetObvKeycloakStateError.unkownError(error)
-                
             }
             
-            guard failedAttempts < maxFailCount else {
-                assertionFailure()
-                throw GetObvKeycloakStateError.unkownError(Self.makeError(message: "Too many requests"))
-            }
-            try await Task.sleep(failedAttemps: failedAttempts)
-            
-            return try await getInternalKeycloakState(for: ownedCryptoId, failedAttempts: failedAttempts + 1)
         }
-
-        let internalKeycloakState = InternalKeycloakState(keycloakServer: obvKeycloakState.keycloakServer,
-                                                          clientId: obvKeycloakState.clientId,
-                                                          clientSecret: obvKeycloakState.clientSecret,
-                                                          jwks: obvKeycloakState.jwks,
-                                                          authState: authState,
-                                                          signatureVerificationKey: obvKeycloakState.signatureVerificationKey,
-                                                          accessToken: accessToken,
-                                                          latestGroupUpdateTimestamp: obvKeycloakState.latestGroupUpdateTimestamp,
-                                                          latestRevocationListTimestamp: obvKeycloakState.latestLocalRevocationListTimestamp,
-                                                          signedOwnedDetails: signedOwnedDetails)
-
-        return internalKeycloakState
         
     }
 
@@ -2080,10 +2090,16 @@ extension OIDAuthState: ObvErrorMaker {
     func performAction() async throws -> (accessToken: String?, idToken: String?) {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(accessToken: String?, idToken: String?), Error>) in
             self.performAction { (accessToken, idToken, error) in
-                if let error = error {
-                    continuation.resume(throwing: error)
+                if let error {
+                    let nsError = error as NSError
+                    if nsError.domain == OIDGeneralErrorDomain {   //, nsError.code == OIDErrorCode.networkError.rawValue {
+                        // If the error is a network error, we throw, so as to make sure we don't prompt the user to authenticate
+                        return continuation.resume(throwing: error)
+                    } else {
+                        return continuation.resume(returning: (nil, nil))
+                    }
                 } else {
-                    continuation.resume(returning: (accessToken, idToken))
+                    return continuation.resume(returning: (accessToken, idToken))
                 }
             }
         }

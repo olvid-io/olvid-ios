@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,11 +22,13 @@ import CoreData
 import os.log
 import OlvidUtils
 import ObvTypes
+import ObvSettings
 
 @objc(RemoteRequestSavedForLater)
 final class RemoteRequestSavedForLater: NSManagedObject {
 
     private static let entityName = "RemoteRequestSavedForLater"
+    private static let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "FullSyncOperation")
 
     public enum RequestType: Int {
         case delete = 0
@@ -467,12 +469,20 @@ final class RemoteRequestSavedForLater: NSManagedObject {
 
     
     static func deleteRemoteRequestsSavedForLaterEarlierThan(_ deletionDate: Date, within context: NSManagedObjectContext) throws {
-        let request: NSFetchRequest<NSFetchRequestResult> = RemoteRequestSavedForLater.fetchRequest()
+        let request: NSFetchRequest<RemoteRequestSavedForLater> = RemoteRequestSavedForLater.fetchRequest()
         request.predicate = Predicate.withServerTimestamp(earlierThan: deletionDate)
-        let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        _ = try context.execute(batchDeleteRequest)
+        request.propertiesToFetch = []
+        let items = try context.fetch(request)
+        items.forEach {
+            do {
+                try $0.delete()
+            } catch {
+                assertionFailure()
+                os_log("Could not delete an old RemoteRequestSavedForLater: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            }
+        }
     }
-    
+
     
     // MARK: - ObvError
     

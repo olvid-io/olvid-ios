@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import CoreData
 import CoreDataStack
 import Foundation
 import Intents
+import UniformTypeIdentifiers
 import ObvEngine
 import ObvTypes
 import OlvidUtils
@@ -327,6 +328,9 @@ protocol ShareViewHostingControllerDelegate: AnyObject {
 }
 
 
+
+// MARK: - ShareViewHostingController
+
 final class ShareViewHostingController: UIHostingController<ShareView>, ShareViewModelDelegate {
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: "ShareViewHostingController"))
@@ -343,6 +347,8 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
     private var fyleJoinsProvider: FyleJoinsProvider?
     private var hardLinksToFylesManager: HardLinksToFylesManager!
 
+    private var cacheOfLinkMetadata = [URL: ObvLinkMetadata]()
+    
     weak var delegate: ShareViewHostingControllerDelegate?
 
     init(obvEngine: ObvEngine, model: ShareViewModel, internalQueue: OperationQueue, userDefaults: UserDefaults?) {
@@ -414,8 +420,8 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         }
     }
 
-    /// This method queue operations that can be done to prepare message sending independently of selected discussion, the result of these operations will be used by operations later queued in ``func userWantsToSendMessages(to discussions: [PersistedDiscussion])``
-    /// The last operation RequestHardLinksToFylesOperation is not required to send messages, but it used to show previews of attachments in ShareView.
+    /// This method queues operations that can be executed independently of the discussion that will be selected by the user. The result of these operations will be used by operations later queued in ``func userWantsToSendMessages(to discussions: [PersistedDiscussion])``
+    /// The last operation RequestHardLinksToFylesOperation is not required to send messages, but it is used to show previews of attachments in ShareView.
     private func initializeOperations() {
 
         guard let content = delegate?.firstInputItems else { return }
@@ -452,27 +458,67 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         }
 
         internalQueue.addOperations([op1, op2, op3], waitUntilFinished: false)
-        
-        // Note that the (global) obvContext is *not* save at this point. We will do it later, in ``func userWantsToSendMessages(to discussions: [PersistedDiscussion])``
+
+        // If there is a link among the [LoadedItemProvider], this operation fetches a "link preview" for it so that we can add it to the message once the message is sent.
+        if ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent {
+            let op4 = FetchAndCacheObvLinkMetadataForFirstURLInLoadedItemProvidersOperation(loadedItemProviderProvider: op1, currentURLsInCache: Set(cacheOfLinkMetadata.keys))
+            op4.addDependency(op1)
+            op4.completionBlock = {
+                guard let (url, linkMetadata) = op4.fetchedMetadata else { return }
+                DispatchQueue.main.async { [weak self] in
+                    self?.cacheOfLinkMetadata[url] = linkMetadata
+                }
+            }
+            internalQueue.addOperations([op4], waitUntilFinished: false)
+        }
+                
+        // Note that the (global) obvContext is *not* saved at this point. We will do it later, in ``func userWantsToSendMessages(to discussions: [PersistedDiscussion])``
         
     }
     
     
-    /// This method creates all the `PersistedMessageSent` that we will have to send.
+    /// This method creates all the `PersistedMessageSent` that we will have to send. It is called after the user taps on the "send" button.
     /// Note that the pre-processing made in `initializeOperations` did create the `fyleJoinsProvider` global variable that are required here.
     /// This method saves the global `obvContext` that was *not* saved in the `initializeOperations()` method: this makes it possible to have atomicity.
-    private func createAllMessagesToSend(discussions: [PersistedDiscussion]) async throws -> [ObvManagedObjectPermanentID<PersistedMessageSent>] {
+    private func createAllMessagesToSend(discussions: [PersistedDiscussion]) async throws -> [MessageSentPermanentID] {
         
         assert(Thread.isMainThread)
         
         let body: String? = model.text.trimmingWhitespacesAndNewlinesAndMapToNilIfZeroLength()
         guard let fyleJoinsProvider = self.fyleJoinsProvider else { assertionFailure(); return [] }
         
+        // The operations executed in the initializeOperations() may provide attachments (i.e., FyleJoins) that we want to send with the message.
+        // We get those attachments now
+
+        assert(fyleJoinsProvider.isFinished)
+        var fyleJoins = fyleJoinsProvider.fyleJoins
+        
+        // If the body contains an https URL, we might have a link preview available for in our local cache.
+        // If this is the case, we add that "link preview" to the attachments (i.e., to the fyleJoins)
+        // The operations executed to load and add the attachment are the same than those used in initializeOperations().
+        
+        if ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent {
+            if let urlInBody = body?.extractURLs().filter({ $0.scheme?.lowercased() == "https" }).first, let linkMetadata = cacheOfLinkMetadata[urlInBody] {
+                let itemProvider = NSItemProvider(item: linkMetadata, typeIdentifier: UTType.olvidLinkPreview.identifier)
+                let op1 = LoadFileRepresentationsOperation(itemProviders: [itemProvider])
+                let op2 = CreateFylesFromLoadedFileRepresentationsOperation(loadedItemProviderProvider: op1, log: Self.log)
+                op2.addDependency(op1)
+                op2.viewContext = ObvStack.shared.viewContext
+                op2.obvContext = obvContext
+                await internalQueue.addAndAwaitOperations([op1, op2])
+                if let linkPreviewFyleJoins = op2.fyleJoins {
+                    fyleJoins?.append(contentsOf: linkPreviewFyleJoins)
+                }
+            }
+        }
+        
+        cacheOfLinkMetadata.removeAll()
+        
         // Create and queue the operations allowing to create all the PersistedMessageSent
         
         var createMsgOps = [CreateUnprocessedPersistedMessageSentFromFylesAndStrings]()
         for discussion in discussions {
-            let op = CreateUnprocessedPersistedMessageSentFromFylesAndStrings(body: body, fyleJoinsProvider: fyleJoinsProvider, discussionObjectID: discussion.typedObjectID, log: Self.log)
+            let op = CreateUnprocessedPersistedMessageSentFromFylesAndStrings(body: body, fyleJoins: fyleJoins, discussionObjectID: discussion.typedObjectID, log: Self.log)
             op.viewContext = ObvStack.shared.viewContext
             op.obvContext = obvContext
             op.completionBlock = {
@@ -491,7 +537,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         
         // Queue the save operation and wait until it is finished (and all ops are successfull) before returning the ObjectIDs of the create persisted messages to send.
         
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvManagedObjectPermanentID<PersistedMessageSent>], Error>) in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[MessageSentPermanentID], Error>) in
             internalQueue.addOperations([saveOp], waitUntilFinished: true)
             // Since we wait on a serial queue for the saveOp to be finished, we know that when reaching this point, all previous operations are also finished
             guard createMsgOps.allSatisfy({ !$0.isCancelled }) && !saveOp.isCancelled else {
@@ -507,7 +553,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
 
     /// This method performs an engine request allowing to send the message referenced by the `messageObjectID` parameter. It returns *after* the PersistedMessageSent is modified in DB using the identifier returned by the engine.
     /// The `dispatchGroupForEngine` parameter will allow to wait until all the engine completion handler are called before dismissing the share extension view.
-    private func sendUnprocessedMessageToSend(_ messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, dispatchGroupForEngine: DispatchGroup, progress: Progress) async throws {
+    private func sendUnprocessedMessageToSend(_ messageSentPermanentID: MessageSentPermanentID, dispatchGroupForEngine: DispatchGroup, progress: Progress) async throws {
 
         let obvContext = ObvStack.shared.newBackgroundContext(flowId: flowId)
         
@@ -557,7 +603,7 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
         progress.isCancellable = false
         delegate?.showProgress(progress: progress)
         
-        let messageSentPermanentIDs: [ObvManagedObjectPermanentID<PersistedMessageSent>]
+        let messageSentPermanentIDs: [MessageSentPermanentID]
         do {
             messageSentPermanentIDs = try await createAllMessagesToSend(discussions: discussions)
         } catch {

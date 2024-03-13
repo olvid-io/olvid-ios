@@ -33,6 +33,8 @@ NS_EXTENSION_UNAVAILABLE_IOS("Camera not available in app extensions.")
 // Returns the most efficient supported output pixel format for this capturer.
 - (FourCharCode)preferredOutputPixelFormat;
 
+- (void)setRotationDependsOnDeviceOrientation:(BOOL)value;
+
 // Starts the capture session asynchronously and notifies callback on completion.
 // The device will capture video in the format given in the `format` parameter. If the pixel format
 // in `format` is supported by the WebRTC pipeline, the same pixel format will be used for the

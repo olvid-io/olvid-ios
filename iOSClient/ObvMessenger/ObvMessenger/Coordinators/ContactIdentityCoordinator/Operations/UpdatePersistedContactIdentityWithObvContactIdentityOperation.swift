@@ -43,7 +43,7 @@ final class UpdatePersistedContactIdentityWithObvContactIdentityOperation: Conte
             }
             
             do {
-                try persistedContactIdentity.updateContact(with: obvContactIdentity)
+                _ = try persistedContactIdentity.updateContact(with: obvContactIdentity, isRestoringSyncSnapshotOrBackup: false)
             } catch {
                 return cancel(withReason: .failedToUpdatePersistedObvContactIdentity(error: error))
             }

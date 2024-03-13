@@ -373,11 +373,6 @@ extension ObvFlowController {
 
     }
     
-    @MainActor
-    func userSelectedURL(_ url: URL, within vc: UIViewController) {
-        flowDelegate?.userSelectedURL(url, within: vc)
-    }
-
 
     func singleDiscussionViewController(_ viewController: SomeSingleDiscussionViewController, userDidTapOn mentionableIdentity: MentionableIdentity) {
         let viewControllerToPresent: UIViewController
@@ -750,7 +745,6 @@ enum ObvFlowControllerError: Error {
 protocol ObvFlowControllerDelegate: AnyObject, SingleOwnedIdentityFlowViewControllerDelegate {
 
     func getAndRemoveAirDroppedFileURLs() -> [URL]
-    @MainActor func userSelectedURL(_ url: URL, within viewController: UIViewController)
     func performTrustEstablishmentProtocolOfRemoteIdentity(remoteCryptoId: ObvCryptoId, remoteFullDisplayName: String)
     func rePerformTrustEstablishmentProtocolOfContactIdentity(contactCryptoId: ObvCryptoId, contactFullDisplayName: String)
     func userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(with: ObvCryptoId, using: ObvIdentityDetails)

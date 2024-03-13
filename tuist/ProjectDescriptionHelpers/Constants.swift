@@ -25,21 +25,21 @@ public enum Constants {
 
     static let developmentTeam = ""
 
-    static let marketingVersion = "1.3.1"
+    static let marketingVersion = "2.1"
 
     static var buildNumber: String {
         get throws {
-            return "719"
+            return "757"
         }
     }
     
-    public static let nsHumanReadableCopyrightValue = "Copyright © 2019-2023 Olvid SAS"
+    public static let nsHumanReadableCopyrightValue = "Copyright © 2019-2024 Olvid SAS"
 
 
     static let fileHeader = """
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *

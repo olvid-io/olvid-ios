@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,6 @@ import ObvTypes
 import ObvCrypto
 import ObvUICoreData
 
-
 final class ProcessContactGroupDeletedOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
 
     let obvOwnedIdentity: ObvOwnedIdentity
@@ -50,16 +49,8 @@ final class ProcessContactGroupDeletedOperation: ContextualOperationWithSpecific
             }
             
             let groupIdentifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
-            
-            guard let group = try PersistedContactGroup.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) else {
-                return
-            }
-            
-            let persistedGroupDiscussion = group.discussion
-            
-            try persistedGroupDiscussion.setStatus(to: .locked)
-            
-            try group.delete()
+
+            try persistedObvOwnedIdentity.deleteContactGroup(with: groupIdentifier)
             
         } catch {
             assertionFailure()

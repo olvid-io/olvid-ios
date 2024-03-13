@@ -18,8 +18,10 @@
  */
 
 import Foundation
+import os.log
 import CoreData
 import ObvMetaManager
+import OlvidUtils
 
 final class ObvNetworkFetchDelegateManager {
     
@@ -42,6 +44,10 @@ final class ObvNetworkFetchDelegateManager {
         queue.qualityOfService = .default
         return queue
     }()
+
+    let queueForDecryptingChunks = OperationQueue.createSerialQueue(name: "Queue for decrypting chunks", qualityOfService: .default)
+
+    let queueForPostingNotifications = DispatchQueue(label: "ObvNetworkFetchDelegateManager queue for posting notifications")
 
     // MARK: Instance variables (internal delegates)
     
@@ -95,4 +101,89 @@ final class ObvNetworkFetchDelegateManager {
         self.wellKnownCacheDelegate = wellKnownCacheDelegate
         self.freeTrialQueryDelegate = freeTrialQueryDelegate
     }
+}
+
+
+// MARK: - Errors
+
+extension ObvNetworkFetchDelegateManager {
+    
+    enum ObvError: Error {
+        case contextCreatorIsNil
+        case composedOperationCancelled
+    }
+    
+}
+
+
+// MARK: - Helpers
+
+extension ObvNetworkFetchDelegateManager {
+    
+    func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>, log: OSLog, flowId: FlowIdentifier) throws -> CompositionOfOneContextualOperation<T> {
+        
+        guard let contextCreator else {
+            assertionFailure("The context creator manager is not set")
+            throw ObvError.contextCreatorIsNil
+        }
+        
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
+        
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: log)
+        }
+        return composedOp
+        
+    }
+    
+    func createCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, log: OSLog, flowId: FlowIdentifier) throws -> CompositionOfTwoContextualOperations<T1, T2> {
+        
+        guard let contextCreator else {
+            assertionFailure("The context creator manager is not set")
+            throw ObvError.contextCreatorIsNil
+        }
+
+        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
+        
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: log)
+        }
+        return composedOp
+    }
+    
+    func queueAndAwaitCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>, log: OSLog, flowId: FlowIdentifier) async throws {
+        
+        let composedOp = try createCompositionOfOneContextualOperation(op1: op1, log: log, flowId: flowId)
+        await queueSharedAmongCoordinators.addAndAwaitOperation(composedOp)
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            if let reasonForCancel = op1.reasonForCancel as? ObvNetworkFetchManager.GetPendingServerQueryTypeOperation.ReasonForCancel {
+                switch reasonForCancel {
+                case .ownedIdentityIsNotActive:
+                    break
+                case .pendingServerQueryNotFound:
+                    break
+                default:
+                    assertionFailure()
+                }
+            } else {
+                assertionFailure()
+            }
+            throw ObvError.composedOperationCancelled
+        }
+
+    }
+    
+    func queueAndAwaitCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, log: OSLog, flowId: FlowIdentifier) async throws {
+     
+        let composedOp = try createCompositionOfTwoContextualOperation(op1: op1, op2: op2, log: log, flowId: flowId)
+        await queueSharedAmongCoordinators.addAndAwaitOperation(composedOp)
+        guard composedOp.isFinished && !composedOp.isCancelled else {
+            assertionFailure()
+            throw ObvError.composedOperationCancelled
+        }
+
+    }
+    
 }

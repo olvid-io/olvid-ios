@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,29 +20,26 @@
 import Foundation
 import CoreData
 import os.log
-import ObvEngine
 import ObvCrypto
 import OlvidUtils
 import ObvUICoreData
 import ObvTypes
 
 
-final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreatePersistedMessageReceivedFromReceivedObvMessageOperation.ReasonForCancel>, OperationProvidingDiscussionPermanentID {
-    
+final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreatePersistedMessageReceivedFromReceivedObvMessageOperation.ReasonForCancel>, OperationProvidingDiscussionPermanentID, OperationProvidingMessageReceivedPermanentID {
+
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "CreatePersistedMessageReceivedFromReceivedObvMessageOperation")
 
     private let obvMessage: ObvMessage
     private let messageJSON: MessageJSON
     private let returnReceiptJSON: ReturnReceiptJSON?
     private let overridePreviousPersistedMessage: Bool
-    private let obvEngine: ObvEngine
 
-    init(obvMessage: ObvMessage, messageJSON: MessageJSON, overridePreviousPersistedMessage: Bool, returnReceiptJSON: ReturnReceiptJSON?, obvEngine: ObvEngine) {
+    init(obvMessage: ObvMessage, messageJSON: MessageJSON, overridePreviousPersistedMessage: Bool, returnReceiptJSON: ReturnReceiptJSON?) {
         self.obvMessage = obvMessage
         self.messageJSON = messageJSON
         self.returnReceiptJSON = returnReceiptJSON
         self.overridePreviousPersistedMessage = overridePreviousPersistedMessage
-        self.obvEngine = obvEngine
         super.init()
     }
 
@@ -64,6 +61,8 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
     }
 
     
+    private(set) var messageReceivedPermanentId: MessageReceivedPermanentID?
+    
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         os_log("Executing a CreatePersistedMessageReceivedFromReceivedObvMessageOperation for obvMessage %{public}@", log: log, type: .debug, obvMessage.messageIdentifierFromEngine.debugDescription)
@@ -76,17 +75,17 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
             
             // Create or update the PersistedMessageReceived from that contact
             
-            let attachmentsFullyReceivedOrCancelledByServer:  [ObvAttachment]
-            
             do {
+                let _discussionPermanentID: DiscussionPermanentID
+                let _messageReceivedPermanentId: MessageReceivedPermanentID?
                 
-                let (discussionPermanentID, _attachmentsFullyReceivedOrCancelledByServer) = try ownedIdentity.createOrOverridePersistedMessageReceived(
+                (_discussionPermanentID, _messageReceivedPermanentId) = try ownedIdentity.createOrOverridePersistedMessageReceived(
                     obvMessage: obvMessage,
                     messageJSON: messageJSON,
                     returnReceiptJSON: returnReceiptJSON,
                     overridePreviousPersistedMessage: overridePreviousPersistedMessage)
-                self.result = .messageCreated(discussionPermanentID: discussionPermanentID)
-                attachmentsFullyReceivedOrCancelledByServer = _attachmentsFullyReceivedOrCancelledByServer
+                self.messageReceivedPermanentId = _messageReceivedPermanentId
+                self.result = .messageCreated(discussionPermanentID: _discussionPermanentID)
 
             } catch {
                 if let error = error as? ObvUICoreDataError {
@@ -104,28 +103,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                     return cancel(withReason: .coreDataError(error: error))
                 }
             }
-
-            // We ask the engine to delete all the attachments that were fully received
             
-            if !attachmentsFullyReceivedOrCancelledByServer.isEmpty {
-                let obvEngine = self.obvEngine
-                let log = self.log
-                do {
-                    try obvContext.addContextDidSaveCompletionHandler { error in
-                        for obvAttachment in attachmentsFullyReceivedOrCancelledByServer {
-                            do {
-                                try obvEngine.deleteObvAttachment(attachmentNumber: obvAttachment.number, ofMessageWithIdentifier: obvAttachment.messageIdentifier, ownedCryptoId: obvAttachment.fromContactIdentity.ownedCryptoId)
-                            } catch {
-                                os_log("Call to the engine method deleteObvAttachment did fail", log: log, type: .fault)
-                                assertionFailure() // Continue anyway
-                            }
-                        }
-                    }
-                } catch {
-                    assertionFailure(error.localizedDescription)
-                }
-            }
-
         } catch {
             return cancel(withReason: .coreDataError(error: error))
         }

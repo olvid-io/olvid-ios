@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,6 +38,7 @@ struct OwnedIdentityTransferProtocolNotification {
         case processingReceivedSnapshotOntargetDevice(payload: (ProcessingReceivedSnapshotOntargetDevice.Payload) -> Void)
         case successfulTransferOnTargetDevice(payload: (SuccessfulTransferOnTargetDevice.Payload) -> Void)
         case waitingForSASOnSourceDevice(payload: (WaitingForSASOnSourceDevice.Payload) -> Void)
+        case protocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent(payload: (ProtocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent.Payload) -> Void)
     }
     
     enum KindForPosting {
@@ -48,6 +49,7 @@ struct OwnedIdentityTransferProtocolNotification {
         case processingReceivedSnapshotOntargetDevice(payload: ProcessingReceivedSnapshotOntargetDevice.Payload)
         case successfulTransferOnTargetDevice(payload: SuccessfulTransferOnTargetDevice.Payload)
         case waitingForSASOnSourceDevice(payload: WaitingForSASOnSourceDevice.Payload)
+        case protocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent(payload: ProtocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent.Payload)
     }
 
         
@@ -178,6 +180,22 @@ struct OwnedIdentityTransferProtocolNotification {
 
     }
 
+    
+    struct ProtocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent {
+        
+        fileprivate static let name: Notification.Name = .init("io.olvid.protocolmanager.OwnedIdentityTransferProtocolNotification.ProtocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent")
+        
+        struct Payload {
+            let protocolInstanceUID: UID
+            enum Key: String {
+                case protocolInstanceUID = "protocolInstanceUID"
+            }
+        }
+        
+        let payload: Payload
+
+    }
+
 }
 
 
@@ -259,6 +277,16 @@ fileprivate extension OwnedIdentityTransferProtocolNotification.WaitingForSASOnS
 }
 
 
+fileprivate extension OwnedIdentityTransferProtocolNotification.ProtocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent.Payload {
+    
+    init(notification: Notification) {
+        let Key = OwnedIdentityTransferProtocolNotification.ProtocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent.Payload.Key.self
+        self.protocolInstanceUID = notification.userInfo![Key.protocolInstanceUID.rawValue] as! UID
+    }
+    
+}
+
+
 fileprivate extension Notification {
     
     init(payload: OwnedIdentityTransferProtocolNotification.SourceDisplaySessionNumber.Payload) {
@@ -331,6 +359,15 @@ fileprivate extension Notification {
         self.init(name: Type.name, object: nil, userInfo: userInfo)
     }
 
+    
+    init(payload: OwnedIdentityTransferProtocolNotification.ProtocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent.Payload) {
+        let Type = OwnedIdentityTransferProtocolNotification.ProtocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent.self
+        let userInfo: [String : Any] = [
+            Type.Payload.Key.protocolInstanceUID.rawValue: payload.protocolInstanceUID,
+        ]
+        self.init(name: Type.name, object: nil, userInfo: userInfo)
+    }
+
 }
 
 
@@ -377,6 +414,10 @@ extension ObvNotificationDelegate {
             let Type = OwnedIdentityTransferProtocolNotification.WaitingForSASOnSourceDevice.self
             let notificationDescriptor: OwnedIdentityTransferProtocolNotification.NotificationDescriptor = .init(name: Type.name, convert: Type.Payload.init)
             return addObserverOfOwnedIdentityTransferProtocolNotification(descriptor: notificationDescriptor, using: payload)
+        case .protocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent(payload: let payload):
+            let Type = OwnedIdentityTransferProtocolNotification.ProtocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent.self
+            let notificationDescriptor: OwnedIdentityTransferProtocolNotification.NotificationDescriptor = .init(name: Type.name, convert: Type.Payload.init)
+            return addObserverOfOwnedIdentityTransferProtocolNotification(descriptor: notificationDescriptor, using: payload)
         }
     }
 
@@ -399,46 +440,11 @@ extension ObvNotificationDelegate {
                 notification = .init(payload: payload)
             case .waitingForSASOnSourceDevice(payload: let payload):
                 notification = .init(payload: payload)
+            case .protocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent(payload: let payload):
+                notification = .init(payload: payload)
             }
             post(name: notification.name, userInfo: notification.userInfo)
         }
     }
 
 }
-
-
-//extension NotificationCenter {
-//    
-//    private func addObserverOfOwnedIdentityTransferProtocolNotification<Payload>(descriptor: OwnedIdentityTransferProtocolNotification.NotificationDescriptor<Payload>, using block: @escaping (Payload) -> Void) -> NSObjectProtocol {
-//        let token = addObserver(forName: descriptor.name, object: nil, queue: nil) { notification in
-//            let payload = descriptor.convert(notification)
-//            Task {
-//                block(payload)
-//            }
-//        }
-//        return token
-//    }
-//    
-//    
-//    func addObserverOfOwnedIdentityTransferProtocolNotification(_ kind: OwnedIdentityTransferProtocolNotification.KindForObserving) -> NSObjectProtocol {
-//        switch kind {
-//        case .cancelOwnedIdentityTransferProtocol(using: let block):
-//            let Type = OwnedIdentityTransferProtocolNotification.CancelOwnedIdentityTransferProtocol.self
-//            let notificationDescriptor: OwnedIdentityTransferProtocolNotification.NotificationDescriptor = .init(name: Type.name, convert: Type.Payload.init)
-//            return addObserverOfOwnedIdentityTransferProtocolNotification(descriptor: notificationDescriptor, using: block)
-//        }
-//    }
-//    
-//    
-//    func postOwnedIdentityTransferProtocolNotification(_ kind: OwnedIdentityTransferProtocolNotification.KindForPosting) {
-//        Task {
-//            let notification: Notification
-//            switch kind {
-//            case .cancelOwnedIdentityTransferProtocol(payload: let payload):
-//                notification = .init(payload: payload)
-//            }
-//            post(notification)
-//        }
-//    }
-//    
-//}

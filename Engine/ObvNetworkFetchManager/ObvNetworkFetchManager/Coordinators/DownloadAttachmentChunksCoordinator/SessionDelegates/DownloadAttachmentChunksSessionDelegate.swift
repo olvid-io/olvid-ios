@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,26 +18,44 @@
  */
 
 import Foundation
+import CoreData
 import os.log
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
+import ObvCrypto
 
+
+// MARK: - Tracker
+
+protocol AttachmentChunkDownloadProgressTracker: AnyObject {
+    func downloadAttachmentChunksSessionDidBecomeInvalid(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate, error: DownloadAttachmentChunksSessionDelegate.ErrorForTracker?) async // called
+    func urlSessionDidFinishEventsForSessionWithIdentifier(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate, urlSessionIdentifier: String) async // called
+    func attachmentChunkDidProgress(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate, chunkProgress: (chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)) async // called
+    func attachmentChunkWasDecryptedAndWrittenToAttachmentFile(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate, chunkNumber: Int) async // called
+    func attachmentDownloadIsComplete(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate) async //called
+}
+
+
+/// An instance of this class servers as a delegate for an URLSession allowing to download an attachment chunk. As a consequence, this class cannot have any strong reference to other classes, like the delegate manager for example.
+/// This is also the reason why we receive a context in the initializer.
 final class DownloadAttachmentChunksSessionDelegate: NSObject {
-    
+
+    private static let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
+    private static let logCategory = "DownloadAttachmentChunksSessionDelegate"
+    private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
+
     let uuid = UUID()
-    private let logCategory = String(describing: DownloadAttachmentChunksSessionDelegate.self)
-    private let log: OSLog
-    private let attachmentId: ObvAttachmentIdentifier
-    private let obvContext: ObvContext
-    private let inbox: URL
-    private let queueSynchronizingCallsToTracker = DispatchQueue(label: "Queue for sync tracker calls within DownloadAttachmentChunksSessionDelegate")
-
+    let attachmentId: ObvAttachmentIdentifier
+    let flowId: FlowIdentifier
+    private let decryptedAttachmentURL: URL
+    private let cleartextChunkLengths: [Int]
+    private let decryptionKey: AuthenticatedEncryptionKey
+    private let queueForDecryptingChunks: OperationQueue
+    private let queueForComposedOperations: OperationQueue
+    private let queueSharedAmongCoordinators: OperationQueue
+    private let contextProvider: ContextProviderForDownloadAttachmentChunksSessionDelegate
     weak var tracker: AttachmentChunkDownloadProgressTracker?
-
-    private var flowId: FlowIdentifier {
-        return obvContext.flowId
-    }
 
     enum ErrorForTracker: Error {
         case couldNotRecoverAttachmentIdFromTask
@@ -49,6 +67,8 @@ final class DownloadAttachmentChunksSessionDelegate: NSObject {
         case couldNotSaveContext
         case atLeastOneChunkIsNotYetAvailableOnServer
         case couldNotOpenEncryptedChunkFile
+        case failedToDecryptChunkOrWriteToFile
+        case markChunkAsWrittenToAttachmentFileOperationFailed
     }
 
     // First error "wins"
@@ -61,31 +81,23 @@ final class DownloadAttachmentChunksSessionDelegate: NSObject {
         }
     }
 
-    init(attachmentId: ObvAttachmentIdentifier, obvContext: ObvContext, logSubsystem: String, inbox: URL) {
-        self.log = OSLog(subsystem: logSubsystem, category: logCategory)
+    init(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, decryptedAttachmentURL: URL, tracker: AttachmentChunkDownloadProgressTracker, flowId: FlowIdentifier, cleartextChunkLengths: [Int], decryptionKey: AuthenticatedEncryptionKey, queueForDecryptingChunks: OperationQueue, queueForComposedOperations: OperationQueue, queueSharedAmongCoordinators: OperationQueue, obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         self.attachmentId = attachmentId
-        self.obvContext = obvContext
-        self.inbox = inbox
+        self.tracker = tracker
+        self.flowId = flowId
+        self.decryptedAttachmentURL = decryptedAttachmentURL
+        self.cleartextChunkLengths = cleartextChunkLengths
+        self.decryptionKey = decryptionKey
+        self.queueForDecryptingChunks = queueForDecryptingChunks
+        self.queueForComposedOperations = queueForComposedOperations
+        self.queueSharedAmongCoordinators = queueSharedAmongCoordinators
+        self.contextProvider = .init(obvContext: obvContext, viewContext: viewContext)
         super.init()
-        os_log("Initialized DownloadAttachmentChunksSessionDelegate %{public}@ for attachment %{public}@", log: log, type: .info, self.uuid.description, attachmentId.debugDescription)
+        Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
     }
     
-    deinit {
-        os_log("Within the deinit of DownloadAttachmentChunksSessionDelegate %{public}@ for attachment %{public}@", log: log, type: .info, self.uuid.description, attachmentId.debugDescription)
-    }
-
 }
 
-
-// MARK: - Tracker
-
-protocol AttachmentChunkDownloadProgressTracker: AnyObject {
-    func downloadAttachmentChunksSessionDidBecomeInvalid(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: DownloadAttachmentChunksSessionDelegate.ErrorForTracker?)
-    func urlSessionDidFinishEventsForSessionWithIdentifier(_ identifier: String)
-    func attachmentChunkDidProgress(attachmentId: ObvAttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64), flowId: FlowIdentifier)
-    func attachmentChunkWasDecryptedAndWrittenToAttachmentFile(attachmentId: ObvAttachmentIdentifier, chunkNumber: Int, flowId: FlowIdentifier)
-    func attachmentDownloadIsComplete(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
-}
 
 // MARK: - URLSessionDelegate
 
@@ -97,20 +109,18 @@ extension DownloadAttachmentChunksSessionDelegate: URLSessionDelegate {
         // It does not seem to be called when the tasks were completed while the app was in the background. In that case,
         // `func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession)` is called.
 
-        let tracker = self.tracker
-        let attachmentId = self.attachmentId
-        let flowId = self.flowId
+        guard let tracker = self.tracker else { return }
 
         if let error = error {
-            os_log("The session with identifier %{public}@ did Become Invalid with error: %{debug}@", log: log, type: .error, session.configuration.identifier ?? "NO IDENTIFIER", error.localizedDescription)
+            os_log("📄 The session with identifier %{public}@ did Become Invalid with error: %{debug}@", log: Self.log, type: .error, session.configuration.identifier ?? "NO IDENTIFIER", error.localizedDescription)
             errorForTracker = .sessionInvalidationError(error: error)
         } else {
-            os_log("The session with identifier %{public}@ did Become Invalid without error", log: log, type: .info, session.configuration.identifier ?? "NO IDENTIFIER")
+            os_log("📄 The session with identifier %{public}@ did Become Invalid without error", log: Self.log, type: .info, session.configuration.identifier ?? "NO IDENTIFIER")
         }
         
         let errorForTracker = self.errorForTracker
-        queueSynchronizingCallsToTracker.async {
-            tracker?.downloadAttachmentChunksSessionDidBecomeInvalid(attachmentId: attachmentId, flowId: flowId, error: errorForTracker)
+        Task {
+            await tracker.downloadAttachmentChunksSessionDidBecomeInvalid(downloadAttachmentChunksSessionDelegate: self, error: errorForTracker)
         }
         
     }
@@ -122,20 +132,18 @@ extension DownloadAttachmentChunksSessionDelegate: URLSessionDelegate {
         // It does not seem to be called when the tasks were completed while the app was in the foreground. In that case,
         // `func urlSession(_ session: URLSession, didBecomeInvalidWithError error: Error?)` is called.
 
-        let tracker = self.tracker
+        guard let tracker = self.tracker else { return }
         let attachmentId = self.attachmentId
-        let flowId = self.flowId
-        let log = self.log
 
-        os_log("urlSession Did Finish Events for attachment %{public}@ within the delegate with UID %{public}@", log: log, type: .info, attachmentId.debugDescription, self.uuid.uuidString)
+        os_log("📄 urlSession Did Finish Events for attachment %{public}@ within the delegate with UID %{public}@", log: Self.log, type: .info, attachmentId.debugDescription, self.uuid.uuidString)
                 
-        queueSynchronizingCallsToTracker.async {
-            tracker?.downloadAttachmentChunksSessionDidBecomeInvalid(attachmentId: attachmentId, flowId: flowId, error: nil)
+        Task {
+            await tracker.downloadAttachmentChunksSessionDidBecomeInvalid(downloadAttachmentChunksSessionDelegate: self, error: errorForTracker)
             if let sessionIdentifier = session.configuration.identifier {
-                tracker?.urlSessionDidFinishEventsForSessionWithIdentifier(sessionIdentifier)
+                await tracker.urlSessionDidFinishEventsForSessionWithIdentifier(downloadAttachmentChunksSessionDelegate: self, urlSessionIdentifier: sessionIdentifier)
             } else {
                 assertionFailure()
-                os_log("No session identifier could be found for attachment %{public}@", log: log, type: .error, attachmentId.debugDescription)
+                os_log("No session identifier could be found for attachment %{public}@", log: Self.log, type: .error, attachmentId.debugDescription)
             }
         }
 
@@ -148,144 +156,107 @@ extension DownloadAttachmentChunksSessionDelegate: URLSessionDelegate {
 
 extension DownloadAttachmentChunksSessionDelegate: URLSessionDownloadDelegate {
     
+    /// ``URLSessionDownloadDelegate`` method called each time some progress is made for a chunk. This method only calls the tracker so that it can update its in-memory progress.
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        guard let tracker = self.tracker else { return }
         guard let chunkNumber = downloadTask.getAssociatedChunkNumber() else { return }
-        os_log("🚀 Chunk %d of attachment %{public}@ did progress", log: log, type: .info, chunkNumber, attachmentId.debugDescription)
         let chunkProgress = (chunkNumber, totalBytesWritten, totalBytesExpectedToWrite)
-        let tracker = self.tracker
-        let attachmentId = self.attachmentId
-        let flowId = self.flowId
-        queueSynchronizingCallsToTracker.async {
-            tracker?.attachmentChunkDidProgress(attachmentId: attachmentId, chunkProgress: chunkProgress, flowId: flowId)
+        Task {
+            await tracker.attachmentChunkDidProgress(downloadAttachmentChunksSessionDelegate: self, chunkProgress: chunkProgress)
         }
     }
 
     
+    /// Called each time an encrypted chunk download task is finished. After a few checks, we decrypt the chunk, write it to the attachment file, and update the associated ``InboxAttachment``.
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        
+        os_log("📄 Call to urlSession(_:downloadTask:didFinishDownloadingTo:)", log: Self.log, type: .info)
 
         guard let chunkNumber = downloadTask.getAssociatedChunkNumber() else {
-            os_log("Could not recover attachmentId from the task", log: log, type: .fault)
+            os_log("Could not recover attachmentId from the task", log: Self.log, type: .fault)
             self.errorForTracker = .couldNotRecoverAttachmentIdFromTask
             return
         }
 
-        os_log("The upload task %d for the chunk %{public}@/%d did complete with no error within flow %{public}@", log: log, type: .info, downloadTask.taskIdentifier, attachmentId.debugDescription, chunkNumber, flowId.debugDescription)
+        os_log("The upload task %d for the chunk %{public}@/%d did complete with no error within flow %{public}@", log: Self.log, type: .info, downloadTask.taskIdentifier, attachmentId.debugDescription, chunkNumber, flowId.debugDescription)
 
         guard let httpURLResponse = downloadTask.response as? HTTPURLResponse else {
-            os_log("Could not retrieve the HTTP response for chunk %{public}@/%d", log: log, type: .fault, attachmentId.debugDescription, chunkNumber)
+            os_log("Could not retrieve the HTTP response for chunk %{public}@/%d", log: Self.log, type: .fault, attachmentId.debugDescription, chunkNumber)
             self.errorForTracker = .couldNotRetrieveAnHTTPResponse
             return
         }
         
-        os_log("The http status code is %{public}d", log: log, type: .info, httpURLResponse.statusCode)
+        os_log("The http status code is %{public}d", log: Self.log, type: .info, httpURLResponse.statusCode)
 
         guard httpURLResponse.statusCode == 200 else {
             // An error occured
             switch httpURLResponse.statusCode {
             case 400:
-                os_log("The server reported an error %{public}d for the private URL for a chunk of attachment %{public}@. We ask for new private URLs", log: log, type: .info, httpURLResponse.statusCode, attachmentId.debugDescription)
+                os_log("The server reported an error %{public}d for the private URL for a chunk of attachment %{public}@. We ask for new private URLs", log: Self.log, type: .info, httpURLResponse.statusCode, attachmentId.debugDescription)
                 self.errorForTracker = .atLeastOneChunkDownloadPrivateURLHasExpired
             case 403:
-                os_log("The server reported that the private URL for a chunk of attachment %{public}@ has expired. We should ask for new private URLs", log: log, type: .info, attachmentId.debugDescription)
+                os_log("The server reported that the private URL for a chunk of attachment %{public}@ has expired. We should ask for new private URLs", log: Self.log, type: .info, attachmentId.debugDescription)
                 self.errorForTracker = .atLeastOneChunkDownloadPrivateURLHasExpired
             case 404:
-                os_log("The server reported that the chunk is not yet available on server.", log: log, type: .info)
+                os_log("The server reported that the chunk is not yet available on server.", log: Self.log, type: .info)
                 self.errorForTracker = .atLeastOneChunkIsNotYetAvailableOnServer
             default:
-                os_log("The error status code is not supported. Error code is %{public}d", log: log, type: .fault, httpURLResponse.statusCode)
-                logRequestURLInTask(downloadTask, to: log)
+                os_log("The error status code is not supported. Error code is %{public}d", log: Self.log, type: .fault, httpURLResponse.statusCode)
+                logRequestURLInTask(downloadTask, to: Self.log)
                 self.errorForTracker = .unsupportedHTTPErrorStatusCode
             }
             return
         }
 
-        // If we reach this point, the task successsfully downloaded its associated chunk
+        // If we reach this point, the download task successsfully downloaded its associated encrypted chunk
         
-        // We open the file for reading synchronously on the delegate queue. The actual reading will happen on another thread.
+        let cleartextChunkLengths = self.cleartextChunkLengths
+        let cleartextAttachmentURL = self.decryptedAttachmentURL
+        let decryptionKey = self.decryptionKey
         
-        let fh: FileHandle
-        do {
-            fh = try FileHandle(forReadingFrom: location)
-        } catch {
-            self.errorForTracker = .couldNotOpenEncryptedChunkFile
-            return
-        }
+        let decryptAndWriteOp = DecryptChunkAndWriteToFileOperation(
+            chunkNumber: chunkNumber,
+            encryptedChunkURL: location,
+            cleartextChunkLengths: cleartextChunkLengths,
+            cleartextAttachmentURL: cleartextAttachmentURL,
+            decryptionKey: decryptionKey)
+        queueForDecryptingChunks.addOperations([decryptAndWriteOp], waitUntilFinished: true)
 
-        let obvContext = self.obvContext
-        let attachmentId = self.attachmentId
-        let log = self.log
-        let inbox = self.inbox
-        let flowId = self.flowId
-        let tracker = self.tracker
-        
-        queueSynchronizingCallsToTracker.async {
-            // The following wait is important: without it, the session might invalidate before saving the following context, leading to the simultaneous deletion of the InboxAttachmentSession together with the modifications made here, leading to a merge conflict).
-            obvContext.performAndWait {
-                
-                defer {
-                    do {
-                        try fh.close()
-                    } catch {
-                        os_log("Could not close file handler: %{public}@", log: log, type: .fault)
-                        assertionFailure()
-                    }
-                }
-                
-                let attachment: InboxAttachment
-                do {
-                    guard let _attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
-                        return
-                    }
-                    attachment = _attachment
-                } catch {
-                    os_log("Failed to get inbox attachment: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    return
-                }
-
-                do {
-                    try attachment.decryptEncryptedChunk(number: chunkNumber, atFileHandle: fh, andWriteCleartextToAttachmentFileWithinInbox: inbox)
-                } catch {
-                    os_log("Could not decrypt/write downloaded encrypted chunk to attachment file", log: log, type: .fault)
-                    assertionFailure()
-                    return
-                }
-                            
-                do {
-                    try obvContext.save(logOnFailure: log)
-                } catch {
-                    os_log("Could not save the fact that chunk %d was downloaded for attachment %{public}@", log: log, type: .error, chunkNumber, attachmentId.debugDescription)
-                    self.errorForTracker = .couldNotSaveContext
-                    return
-                }
-
-                os_log("⛑ Saved to DB: Chunk %{public}@/%d was downloaded and decrypted within flow %{public}@", log: log, type: .info, attachmentId.debugDescription, chunkNumber, flowId.debugDescription)
-
-                tracker?.attachmentChunkWasDecryptedAndWrittenToAttachmentFile(attachmentId: attachmentId, chunkNumber: chunkNumber, flowId: flowId)
-                if attachment.status == .downloaded {
-                    os_log("⛑ Attachment %{public}@ is now fully downoalded within flow %{public}@", log: log, type: .info, attachmentId.debugDescription, flowId.debugDescription)
-                    tracker?.attachmentDownloadIsComplete(attachmentId: attachmentId, flowId: flowId)
-                } else {
-                    os_log("⛑ Attachment %{public}@ is not fully downoalded within flow %{public}@. Still waiting for more chunks.", log: log, type: .info, attachmentId.debugDescription, flowId.debugDescription)
-                }
+        Task {
+                        
+            guard decryptAndWriteOp.isFinished && !decryptAndWriteOp.isCancelled else {
+                assertionFailure()
+                self.errorForTracker = .failedToDecryptChunkOrWriteToFile
+                return
             }
+            
+            let op1 = MarkChunkAsWrittenToAttachmentFileOperation(attachmentId: attachmentId, chunkNumber: chunkNumber)
+            let composedOp = try createCompositionOfOneContextualOperation(op1: op1, flowId: flowId)
+            await queueSharedAmongCoordinators.addAndAwaitOperation(composedOp)
+         
+            guard composedOp.isFinished && !composedOp.isCancelled else {
+                assertionFailure()
+                self.errorForTracker = .markChunkAsWrittenToAttachmentFileOperationFailed
+                return
+            }
+
+            await tracker?.attachmentChunkWasDecryptedAndWrittenToAttachmentFile(downloadAttachmentChunksSessionDelegate: self, chunkNumber: chunkNumber)
+            if op1.attachmentIsDownloaded {
+                os_log("⛑ Attachment %{public}@ is now fully downoalded within flow %{public}@", log: Self.log, type: .info, attachmentId.debugDescription, flowId.debugDescription)
+                await tracker?.attachmentDownloadIsComplete(downloadAttachmentChunksSessionDelegate: self)
+            } else {
+                os_log("⛑ Attachment %{public}@ is not fully downoalded within flow %{public}@. Still waiting for more chunks.", log: Self.log, type: .info, attachmentId.debugDescription, flowId.debugDescription)
+            }
+
         }
     }
+
     
-}
-
-
-// MARK: - Extending URLSessionTask for storing chunk numbers within the description
-
-extension URLSessionDownloadTask {
-    
-    func getAssociatedChunkNumber() -> Int? {
-        guard let taskDescription = self.taskDescription else { return nil }
-        return Int(taskDescription)
+    enum ObvError: Error {
+        case unexpectedChunkNumber
+        case contextCreatorIsNil
     }
     
-    func setAssociatedChunkNumber(_ chunkNumber: Int) {
-        self.taskDescription = "\(chunkNumber)"
-    }
 }
 
 
@@ -307,4 +278,54 @@ extension DownloadAttachmentChunksSessionDelegate {
         }
     }
     
+}
+
+
+// MARK: - Helpers
+
+extension DownloadAttachmentChunksSessionDelegate {
+    
+    /// This struct simulates an ObvContextCreator, which is usually implemented using a Core Data context creator. In our very particular case, we are implementing an URLSessionDelegate and we cannot have strong pointers to other instances (since the URLSession keeps a strong pointer to this delegate).
+    /// The strategy is to create a context in advance and pass it to this class during initialization. We embed this context in this struct, so as to make it possible to call a ``createCompositionOfOneContextualOperation`` method as usual.
+    private struct ContextProviderForDownloadAttachmentChunksSessionDelegate: ObvContextCreator {
+        
+        let obvContext: ObvContext
+        let viewContext: NSManagedObjectContext
+
+        func newBackgroundContext(flowId: FlowIdentifier, file: StaticString, line: Int, function: StaticString) -> ObvContext {
+            obvContext.performAndWait {
+                obvContext.refreshAllObjects()
+            }
+            return obvContext
+        }
+        
+    }
+
+    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>, flowId: FlowIdentifier) throws -> CompositionOfOneContextualOperation<T> {
+
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextProvider, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: flowId)
+
+        composedOp.completionBlock = { [weak composedOp] in
+            assert(composedOp != nil)
+            composedOp?.logReasonIfCancelled(log: Self.log)
+        }
+        return composedOp
+
+    }
+    
+}
+
+
+// MARK: - Extending URLSessionTask for storing chunk numbers within the description
+
+extension URLSessionDownloadTask {
+    
+    func getAssociatedChunkNumber() -> Int? {
+        guard let taskDescription = self.taskDescription else { return nil }
+        return Int(taskDescription)
+    }
+    
+    func setAssociatedChunkNumber(_ chunkNumber: Int) {
+        self.taskDescription = "\(chunkNumber)"
+    }
 }

@@ -64,7 +64,8 @@ public enum MentionsTextBubbleAttributedStringBuilder {
         }
 
         attributedString.endEditing()
+        
+        return attributedString
 
-        return attributedString.copy() as! NSAttributedString
     }
 }

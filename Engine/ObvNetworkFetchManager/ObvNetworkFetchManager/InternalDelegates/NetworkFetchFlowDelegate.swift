@@ -26,7 +26,7 @@ import OlvidUtils
 
 protocol NetworkFetchFlowDelegate {
     
-    func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier)
+    func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws
 
     // MARK: - Session's Challenge/Response/Token related methods
     
@@ -39,30 +39,23 @@ protocol NetworkFetchFlowDelegate {
 
     // MARK: - Downloading message and listing attachments
     
-    func downloadingMessagesAndListingAttachmentFailed(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier) async
-    func downloadingMessagesAndListingAttachmentWasNotNeeded(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
-    func downloadingMessagesAndListingAttachmentWasPerformed(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
-    func aMessageReceivedThroughTheWebsocketWasSavedByTheMessageDelegate(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-    func messagePayloadAndFromIdentityWereSet(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier)
+    func markMessageAsListedOnServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     
     // MARK: - Downloading encrypted extended message payload
     
-    func downloadingMessageExtendedPayloadFailed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     func downloadingMessageExtendedPayloadWasPerformed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     
     // MARK: - Attachment's related methods
     
-    func resumeDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, forceResume: Bool, flowId: FlowIdentifier)
-    func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
+    func resumeDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws
+    func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws
     func attachmentWasDownloaded(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
     func attachmentWasCancelledByServer(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
     func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float]
 
     // MARK: - Deletion related methods
     
-    func newPendingDeleteToProcessForMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
-    func failedToProcessPendingDeleteFromServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async
-    func messageAndAttachmentsWereDeletedFromServerAndInboxes(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+    func processPendingDeleteIfItExistsForMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws
     
     // MARK: - Push notification's related methods
     
@@ -73,17 +66,7 @@ protocol NetworkFetchFlowDelegate {
 
     func post(_: ServerQuery, within: ObvContext)
     func newPendingServerQueryToProcessWithObjectId(_: NSManagedObjectID, isWebSocket: Bool, flowId: FlowIdentifier) async
-    func failedToProcessServerQuery(withObjectId: NSManagedObjectID, flowId: FlowIdentifier) async
-    func successfullProcessOfServerQuery(withObjectId: NSManagedObjectID, flowId: FlowIdentifier)
 
-    // MARK: - Handling user data
-
-    func failedToProcessServerUserData(input: ServerUserDataInput, flowId: FlowIdentifier) async
-
-    // MARK: - Finalizing the initialization and handling events
-    
-    func resetAllFailedFetchAttempsCountersAndRetryFetching() async
-    
     // MARK: - Forwarding urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) and notifying successfull/failed listing (for performing fetchCompletionHandlers within the engine)
 
     func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession)
@@ -93,10 +76,10 @@ protocol NetworkFetchFlowDelegate {
     func newWellKnownWasCached(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
     func cachedWellKnownWasUpdated(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
     func currentCachedWellKnownCorrespondToThatOnServer(server: URL, wellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
-    func failedToQueryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) async
+    //func failedToQueryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) async
     
     // MARK: - Reacting to web socket changes
     
-    func successfulWebSocketRegistration(identity: ObvCryptoIdentity, deviceUid: UID)
+    func successfulWebSocketRegistration(identity: ObvCryptoIdentity, deviceUid: UID) async
 
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -78,11 +78,8 @@ extension MuteDiscussionManager: ScheduleNextTimerOperationDelegate {
             let now = Date()
             ObvMessengerInternalNotification.cleanExpiredMuteNotficationsThatExpiredEarlierThanNow
                 .postOnDispatchQueue()
-            ObvMessengerInternalNotification.needToRecomputeAllBadges(completionHandler: { [weak self] _ in
-                guard let _self = self else { return }
-                let op = ScheduleNextTimerOperation(now: now, currentTimer: _self.nextTimer, log: log, delegate: _self)
-                _self.internalQueue.addOperation(op)
-            }).postOnDispatchQueue()
+            let op = ScheduleNextTimerOperation(now: now, currentTimer: nextTimer, log: log, delegate: self)
+            internalQueue.addOperation(op)
         }
     }
 

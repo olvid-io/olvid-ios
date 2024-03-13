@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,11 +27,19 @@ import ObvUICoreData
 final class DeleteAllDraftFyleJoinOfDraftOperation: ContextualOperationWithSpecificReasonForCancel<DeleteAllDraftFyleJoinOfDraftOperationReasonForCancel> {
     
     private let draftObjectID: TypeSafeManagedObjectID<PersistedDraft>
-
+    private let draftTypeToDelete: DraftType
+    
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: DeleteAllDraftFyleJoinOfDraftOperation.self))
 
-    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
+    enum DraftType {
+        case all
+        case preview
+        case notPreview
+    }
+    
+    init(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DraftType = .all) {
         self.draftObjectID = draftObjectID
+        self.draftTypeToDelete = draftTypeToDelete
         super.init()
     }
 
@@ -41,8 +49,16 @@ final class DeleteAllDraftFyleJoinOfDraftOperation: ContextualOperationWithSpeci
             guard let draft = try PersistedDraft.get(objectID: draftObjectID, within: obvContext.context) else {
                 return cancel(withReason: .couldNotFindDraftInDatabase)
             }
-            draft.removeAllDraftFyleJoin()
+            switch draftTypeToDelete {
+            case .all:
+                draft.removeAllDraftFyleJoin()
+            case .preview:
+                draft.removePreviewDraftFyleJoin()
+            case .notPreview:
+                draft.removeAllDraftFyleJoinNotPreviews()
+            }
         } catch {
+            assertionFailure()
             return cancel(withReason: .coreDataError(error: error))
         }
         

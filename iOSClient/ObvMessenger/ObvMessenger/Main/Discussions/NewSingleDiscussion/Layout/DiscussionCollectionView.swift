@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import UIKit
 import ObvFlowManager
+import ObvSettings
 
 
 final class DiscussionCollectionView: UICollectionView {
@@ -30,21 +31,32 @@ final class DiscussionCollectionView: UICollectionView {
     
     private func adjustedScrollToItem(at indexPath: IndexPath, at scrollPosition: UICollectionView.ScrollPosition, limit: Int, completion: @escaping () -> Void) {
 
-        guard let layout = collectionViewLayout as? DiscussionLayout else { assertionFailure(); completion(); return }
-        guard let itemLayoutInfos = layout.getCurrentLayoutInfosOfItem(at: indexPath) else { assertionFailure(); completion(); return }
-        guard limit > 0 else { completion(); return }
-        
-        guard indexPath.section < numberOfSections && indexPath.item < numberOfItems(inSection: indexPath.section) else { completion(); return  }
-        UIView.performWithoutAnimation {
-            scrollToItem(at: indexPath, at: scrollPosition, animated: false)
-        }
-        DispatchQueue.main.async { [weak self] in
-            if itemLayoutInfos.usesPreferredAttributes && self?.indexPathsForVisibleItems.contains(indexPath) == true {
-                completion()
-            } else {
-                let newLimit = limit - 1
-                self?.adjustedScrollToItem(at: indexPath, at: scrollPosition, limit: newLimit, completion: completion)
+        switch ObvMessengerSettings.Interface.discussionLayoutType {
+        case .productionLayout:
+
+            guard let layout = collectionViewLayout as? DiscussionLayout else { completion(); return }
+            guard let itemLayoutInfos = layout.getCurrentLayoutInfosOfItem(at: indexPath) else { assertionFailure(); completion(); return }
+            guard limit > 0 else { completion(); return }
+            
+            guard indexPath.section < numberOfSections && indexPath.item < numberOfItems(inSection: indexPath.section) else { completion(); return  }
+            // 2024-02-28 Commenting out the following test. It prevents the animation of the scroll during search
+            //UIView.performWithoutAnimation {
+                scrollToItem(at: indexPath, at: scrollPosition, animated: false)
+            //}
+            DispatchQueue.main.async { [weak self] in
+                if itemLayoutInfos.usesPreferredAttributes && self?.indexPathsForVisibleItems.contains(indexPath) == true {
+                    completion()
+                } else {
+                    let newLimit = limit - 1
+                    self?.adjustedScrollToItem(at: indexPath, at: scrollPosition, limit: newLimit, completion: completion)
+                }
             }
+
+        case .listLayout:
+            
+            self.scrollToItem(at: indexPath, at: scrollPosition, animated: false)
+            completion()
+            
         }
         
     }

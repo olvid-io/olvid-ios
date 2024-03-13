@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -54,7 +54,7 @@ public final class PersistedContactGroupOwned: PersistedContactGroup, ObvErrorMa
 
 extension PersistedContactGroupOwned {
     
-    public convenience init(contactGroup: ObvContactGroup, within context: NSManagedObjectContext) throws {
+    convenience init(contactGroup: ObvContactGroup, isRestoringSyncSnapshotOrBackup: Bool, within context: NSManagedObjectContext) throws {
         
         guard contactGroup.groupType == .owned else {
             assertionFailure()
@@ -69,6 +69,7 @@ extension PersistedContactGroupOwned {
         try self.init(contactGroup: contactGroup,
                       groupName: contactGroup.publishedCoreDetails.name,
                       category: .owned,
+                      isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup,
                       forEntityName: PersistedContactGroupOwned.entityName,
                       within: context)
         

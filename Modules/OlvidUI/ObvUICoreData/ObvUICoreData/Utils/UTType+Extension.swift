@@ -30,6 +30,10 @@ extension UTType {
     /// See https://developer.apple.com/videos/play/tech-talks/10696
     public static let olvidBackup = UTType(exportedAs: "io.olvid.type.olvidbackup")
     
+    /// The type for Olvid's link previews files sent as attachments to the messages containing the link.
+    public static let olvidLinkPreview = UTType(mimeType:"olvid/link-preview") ?? UTType(exportedAs: "io.olvid.type.olvidlinkpreview")
+    public static let olvidPreviewUti = "olvid.link-preview"
+    
     public struct OpenXML {
         public static let docx = UTType("org.openxmlformats.wordprocessingml.document") ?? .utf8PlainText
         public static let pptx = UTType("org.openxmlformats.presentationml.presentation") ?? .presentation

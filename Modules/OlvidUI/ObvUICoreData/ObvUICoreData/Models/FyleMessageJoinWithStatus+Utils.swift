@@ -20,6 +20,7 @@
 
 import Foundation
 import CoreData
+import UniformTypeIdentifiers
 
 
 extension FyleMessageJoinWithStatus.Predicate {
@@ -163,6 +164,15 @@ extension FyleMessageJoinWithStatus {
         } else {
             assertionFailure("Unexpected FyleMessageJoinWithStatus subclass")
             return false
+        }
+    }
+    
+    
+    public var deleteActionCanBeMadeAvailable: Bool {
+        if isPreviewType {
+            return false
+        } else {
+            return true
         }
     }
     

@@ -49,18 +49,25 @@ public final class ObvServerDownloadMessageExtendedPayloadMethod: ObvServerDataM
         self.token = token
     }
     
-    public enum PossibleReturnStatus: UInt8 {
+    private enum PossibleReturnRawStatus: UInt8 {
         case ok = 0x00
         case invalidSession = 0x04
         case extendedContentUnavailable = 0x11
         case generalError = 0xff
     }
-    
+
+    public enum PossibleReturnStatus {
+        case ok(encryptedExtendedMessagePayload: EncryptedData)
+        case invalidSession
+        case extendedContentUnavailable
+        case generalError
+    }
+
     lazy public var dataToSend: Data? = {
         return [messageId.ownedCryptoIdentity.getIdentity(), token, messageId.uid].obvEncode().rawData
     }()
     
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, encryptedExtendedMessagePayload: EncryptedData?)? {
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {
         
         guard let (rawServerReturnedStatus, listOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .error)
@@ -68,7 +75,7 @@ public final class ObvServerDownloadMessageExtendedPayloadMethod: ObvServerDataM
             return nil
         }
         
-        guard let serverReturnedStatus = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else {
+        guard let serverReturnedStatus = PossibleReturnRawStatus(rawValue: rawServerReturnedStatus) else {
             os_log("The returned server status is invalid", log: log, type: .error)
             return nil
         }
@@ -86,19 +93,19 @@ public final class ObvServerDownloadMessageExtendedPayloadMethod: ObvServerDataM
                 return nil
             }
             os_log("We succesfully parsed the encrypted extended payload returned by the server", log: log, type: .debug)
-            return (serverReturnedStatus, encryptedExtendedMessagePayload)
+            return .ok(encryptedExtendedMessagePayload: encryptedExtendedMessagePayload)
             
         case .extendedContentUnavailable:
             os_log("The server reported that the requested extended message payload is unavailable", log: log, type: .error)
-            return (serverReturnedStatus, nil)
+            return .extendedContentUnavailable
 
         case .invalidSession:
             os_log("The server reported that the session is invalid", log: log, type: .error)
-            return (serverReturnedStatus, nil)
+            return .invalidSession
             
         case .generalError:
             os_log("The server reported a general error", log: log, type: .error)
-            return (serverReturnedStatus, nil)
+            return .generalError
             
         }
     }

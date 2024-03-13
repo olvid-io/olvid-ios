@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,6 +38,7 @@ struct FailedAttemptsCounterManager {
         case serverUserData(input: ServerUserDataInput)
         case queryServerWellKnown(serverURL: URL)
         case freeTrialQuery(ownedIdentity: ObvCryptoIdentity)
+        case downloadOfExtendedMessagePayload(messageId: ObvMessageIdentifier)
     }
     
     private var _downloadMessagesAndListAttachments = [ObvCryptoIdentity: Int]()
@@ -49,6 +50,7 @@ struct FailedAttemptsCounterManager {
     private var _serverUserData = [ServerUserDataInput: Int]()
     private var _queryServerWellKnown = [URL: Int]()
     private var _freeTrialQuery = [ObvCryptoIdentity: Int]()
+    private var _downloadOfExtendedMessagePayload = [ObvMessageIdentifier: Int]()
 
     private var count: Int = 0
     
@@ -92,11 +94,15 @@ struct FailedAttemptsCounterManager {
             case .queryServerWellKnown(serverURL: let serverURL):
                 _queryServerWellKnown[serverURL] = (_queryServerWellKnown[serverURL] ?? 0) + increment
                 localCounter = _queryServerWellKnown[serverURL] ?? 0
+                
+            case .downloadOfExtendedMessagePayload(messageId: let messageId):
+                _downloadOfExtendedMessagePayload[messageId] = (_downloadOfExtendedMessagePayload[messageId] ?? 0) + increment
+                localCounter = _downloadOfExtendedMessagePayload[messageId] ?? 0
 
             }
 
         }
-        return min(ObvConstants.standardDelay<<localCounter, ObvConstants.maximumDelay)
+        return min(ObvConstants.standardDelay<<min(localCounter, 20), ObvConstants.maximumDelay)
     }
     
     mutating func reset(counter: Counter) {
@@ -128,6 +134,10 @@ struct FailedAttemptsCounterManager {
                 
             case .queryServerWellKnown(serverURL: let serverURL):
                 _queryServerWellKnown.removeValue(forKey: serverURL)
+                
+            case .downloadOfExtendedMessagePayload(messageId: let messageId):
+                _downloadOfExtendedMessagePayload.removeValue(forKey: messageId)
+                
             }
         }
     }
@@ -144,6 +154,7 @@ struct FailedAttemptsCounterManager {
             _serverQuery.removeAll()
             _serverUserData.removeAll()
             _queryServerWellKnown.removeAll()
+            _downloadOfExtendedMessagePayload.removeAll()
         }
     }
 

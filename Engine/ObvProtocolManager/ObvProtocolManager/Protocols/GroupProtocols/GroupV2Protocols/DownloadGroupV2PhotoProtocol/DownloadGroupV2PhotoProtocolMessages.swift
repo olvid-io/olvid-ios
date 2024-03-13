@@ -87,14 +87,14 @@ extension DownloadGroupV2PhotoProtocol {
         // Properties specific to this concrete protocol message
 
         let encryptedPhoto: EncryptedData?
-        let photoPathToDelete: String?
+        let photoFilenameToDelete: String?
 
         // Init when sending this message (not used in this specific case)
 
         init(coreProtocolMessage: CoreProtocolMessage) {
             self.coreProtocolMessage = coreProtocolMessage
             self.encryptedPhoto = nil
-            self.photoPathToDelete = nil
+            self.photoFilenameToDelete = nil
         }
 
         var encodedInputs: [ObvEncoded] { return [] }
@@ -105,18 +105,18 @@ extension DownloadGroupV2PhotoProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
 
-            if let photoPathToDelete = String(encodedElements[0]) {
+            if let photoFilenameToDelete = String(encodedElements[0]) {
 
                 // Legacy decoding (changed on 2022-08-05)
 
-                self.photoPathToDelete = photoPathToDelete
+                self.photoFilenameToDelete = photoFilenameToDelete
                 guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
                     assertionFailure()
                     throw Self.makeError(message: "Could not get downloaded user data")
                 }
                 
-                if let photoPathToDelete = self.photoPathToDelete, !photoPathToDelete.isEmpty {
-                    let url = downloadedUserData.appendingPathComponent(photoPathToDelete)
+                if let photoFilenameToDelete = self.photoFilenameToDelete, !photoFilenameToDelete.isEmpty {
+                    let url = downloadedUserData.appendingPathComponent(photoFilenameToDelete)
                     self.encryptedPhoto = EncryptedData(data: try Data(contentsOf: url))
                 } else {
                     // If the photo was deleted from the server, the GetUserDataServerMethod return an empty String
@@ -130,16 +130,16 @@ extension DownloadGroupV2PhotoProtocol {
                 switch result {
                 case .deletedFromServer:
                     self.encryptedPhoto = nil
-                    self.photoPathToDelete = nil
-                case .downloaded(let userDataPath):
-                    self.photoPathToDelete = userDataPath
+                    self.photoFilenameToDelete = nil
+                case .downloaded(userDataFilename: let userDataFilename):
+                    self.photoFilenameToDelete = userDataFilename
                     guard let downloadedUserData = message.delegateManager?.downloadedUserData else {
                         assertionFailure()
                         throw Self.makeError(message: "Could not get downloaded user data")
                     }
                     
-                    if let photoPathToDelete = self.photoPathToDelete, !photoPathToDelete.isEmpty {
-                        let url = downloadedUserData.appendingPathComponent(photoPathToDelete)
+                    if let photoFilenameToDelete = self.photoFilenameToDelete, !photoFilenameToDelete.isEmpty {
+                        let url = downloadedUserData.appendingPathComponent(photoFilenameToDelete)
                         self.encryptedPhoto = EncryptedData(data: try Data(contentsOf: url))
                     } else {
                         // If the photo was deleted from the server, the GetUserDataServerMethod return an empty String
@@ -151,7 +151,7 @@ extension DownloadGroupV2PhotoProtocol {
                 
                 assertionFailure()
                 self.encryptedPhoto = nil
-                self.photoPathToDelete = nil
+                self.photoFilenameToDelete = nil
 
             }
         }

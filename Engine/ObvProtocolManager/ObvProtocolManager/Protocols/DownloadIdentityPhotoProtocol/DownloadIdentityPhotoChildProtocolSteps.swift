@@ -75,7 +75,7 @@ extension DownloadIdentityPhotoChildProtocol {
                 os_log("The server label is not set", log: log, type: .fault)
                 return nil
             }
-
+            
             // Get the encrypted photo
 
             let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ServerQuery(ownedIdentity: ownedIdentity))
@@ -138,8 +138,8 @@ extension DownloadIdentityPhotoChildProtocol {
             }
 
             let downloadedUserData = delegateManager.downloadedUserData
-            if let photoPathToDelete = receivedMessage.photoPathToDelete {
-                let url = downloadedUserData.appendingPathComponent(photoPathToDelete)
+            if let photoFilenameToDelete = receivedMessage.photoFilenameToDelete {
+                let url = downloadedUserData.appendingPathComponent(photoFilenameToDelete)
                 try? FileManager.default.removeItem(at: url)
             }
 

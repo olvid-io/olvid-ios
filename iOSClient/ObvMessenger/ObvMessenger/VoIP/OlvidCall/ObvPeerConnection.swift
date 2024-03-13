@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,14 +27,15 @@ import OlvidUtils
 /// An instance of this class is a wrapper around a WebRTC `RTCPeerConnection` object. It ensures all the calls made to this wrapped object are made on the same internal serial queue.
 final class ObvPeerConnection: NSObject {
 
-    private static let internalQueue = DispatchQueue(label: "ObvPeerConnection internal queue")
-    private static let factory = ObvPeerConnectionFactory(internalQueue: internalQueue)
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ObvPeerConnection.self))
     
-    private var peerConnection: RTCPeerConnection!
+    private let factory: ObvPeerConnectionFactory
+    private let peerConnection: RTCPeerConnection
     private var dataChannel: RTCDataChannel?
-    private var audioTrack: RTCAudioTrack?
+    private var localAudioTrack: RTCAudioTrack?
+    private var localVideoTrack: RTCVideoTrack?
+    private var localScreencastTrack: RTCVideoTrack?
 
     private(set) var connectionState: RTCPeerConnectionState = .new
     private(set) var signalingState: RTCSignalingState = .stable
@@ -44,32 +45,20 @@ final class ObvPeerConnection: NSObject {
     private weak var dataChannelDelegate: ObvDataChannelDelegate?
 
     
-    init(with configuration: RTCConfiguration, constraints: RTCMediaConstraints, delegate: ObvPeerConnectionDelegate) async throws {
+    init(with configuration: RTCConfiguration, constraints: RTCMediaConstraints, factory: ObvPeerConnectionFactory, delegate: ObvPeerConnectionDelegate) async throws {
         self.delegate = delegate
+        self.peerConnection = try await factory.createPeerConnection(with: configuration, constraints: constraints)
+        self.factory = factory
         super.init()
-        guard let pc = await ObvPeerConnection.factory.make(with: configuration, constraints: constraints, delegate: self) else {
-            throw ObvError.rtcPeerConnectionCreationFailed
-        }
-        self.peerConnection = pc
+        self.peerConnection.delegate = self
     }
 
 
     func close() async {
         return await withCheckedContinuation { cont in
-            Self.internalQueue.async {
+            factory.webRTCQueue.async {
                 os_log("☎️🔌 peerConnection.close()", log: Self.log, type: .info)
                 self.peerConnection.close()
-                cont.resume()
-            }
-        }
-    }
-
-    
-    func restartIce() async {
-        return await withCheckedContinuation { cont in
-            Self.internalQueue.async {
-                os_log("☎️🔌 peerConnection.restartIce()", log: Self.log, type: .info)
-                self.peerConnection.restartIce()
                 cont.resume()
             }
         }
@@ -79,7 +68,7 @@ final class ObvPeerConnection: NSObject {
     var localDescription: RTCSessionDescription? {
         get async {
             return await withCheckedContinuation { cont in
-                Self.internalQueue.async {
+                factory.webRTCQueue.async {
                     cont.resume(returning: self.peerConnection.localDescription)
                 }
             }
@@ -90,7 +79,7 @@ final class ObvPeerConnection: NSObject {
 
     func offer(for mediaConstraints: RTCMediaConstraints) async throws -> RTCSessionDescription {
         return try await withCheckedThrowingContinuation({ cont in
-            Self.internalQueue.async {
+            factory.webRTCQueue.async {
                 os_log("☎️🔌 peerConnection.peerConnection.offer", log: Self.log, type: .info)
                 self.peerConnection.offer(for: mediaConstraints) { rtcSessionDescription, error in
                     if let error = error {
@@ -108,7 +97,7 @@ final class ObvPeerConnection: NSObject {
     
     func answer(for mediaConstraints: RTCMediaConstraints) async throws -> RTCSessionDescription {
         return try await withCheckedThrowingContinuation({ cont in
-            Self.internalQueue.async {
+            factory.webRTCQueue.async {
                 os_log("☎️🔌 peerConnection.peerConnection.answer", log: Self.log, type: .info)
                 self.peerConnection.answer(for: mediaConstraints) { localRTCSessionDescription, error in
                     if let error = error {
@@ -126,10 +115,10 @@ final class ObvPeerConnection: NSObject {
     
     func setLocalDescription(_ sessionDescription: RTCSessionDescription) async throws {
         return try await withCheckedThrowingContinuation { cont in
-            Self.internalQueue.async {
+            factory.webRTCQueue.async {
                 //os_log("☎️ Setting the local description with sdp: %{public}@", log: Self.log, type: .info, sessionDescription.sdp)
                 os_log("☎️ Setting the local description", log: Self.log, type: .info)
-                os_log("☎️🔌 peerConnection.peerConnection.setLocalDescription", log: Self.log, type: .info)
+                os_log("☎️🔌 [Description][Local] peerConnection.peerConnection.setLocalDescription", log: Self.log, type: .info)
                 self.peerConnection.setLocalDescription(sessionDescription) { error in
                     if let error = error {
                         cont.resume(throwing: error)
@@ -144,10 +133,10 @@ final class ObvPeerConnection: NSObject {
     
     func setRemoteDescription(_ sessionDescription: RTCSessionDescription) async throws {
         return try await withCheckedThrowingContinuation { cont in
-            Self.internalQueue.async {
+            factory.webRTCQueue.async {
                 //os_log("☎️ Setting the remote description with sdp: %{public}@", log: Self.log, type: .info, sessionDescription.sdp)
                 os_log("☎️ Setting the remote description", log: Self.log, type: .info)
-                os_log("☎️🔌 peerConnection.peerConnection.setRemoteDescription", log: Self.log, type: .info)
+                os_log("☎️🔌 [Description][Remote] peerConnection.peerConnection.setRemoteDescription", log: Self.log, type: .info)
                 self.peerConnection.setRemoteDescription(sessionDescription) { error in
                     if let error = error {
                         cont.resume(throwing: error)
@@ -168,7 +157,7 @@ final class ObvPeerConnection: NSObject {
     
     func addIceCandidate(_ iceCandidate: RTCIceCandidate) async throws {
         return try await withCheckedThrowingContinuation { cont in
-            Self.internalQueue.async {
+            factory.webRTCQueue.async {
                 os_log("☎️🔌 peerConnection.peerConnection.add(iceCandidate)", log: Self.log, type: .info)
                 self.peerConnection.add(iceCandidate) { error in
                     if let error = error {
@@ -184,7 +173,7 @@ final class ObvPeerConnection: NSObject {
     
     func removeIceCandidates(_ iceCandidates: [RTCIceCandidate]) async {
         return await withCheckedContinuation { cont in
-            Self.internalQueue.async {
+            factory.webRTCQueue.async {
                 os_log("☎️🔌 peerConnection.peerConnection.remove(iceCandidate)", log: Self.log, type: .info)
                 self.peerConnection.remove(iceCandidates)
                 cont.resume()
@@ -197,16 +186,15 @@ final class ObvPeerConnection: NSObject {
         let label = "data0"
         let configuration = Self.createRTCDataChannelConfiguration()
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, any Error>) in
-            Self.internalQueue.async {
+            factory.webRTCQueue.async {
                 os_log("☎️🔌 peerConnection.peerConnection.dataChannel", log: Self.log, type: .info)
                 guard let dataChannel = self.peerConnection.dataChannel(forLabel: label, configuration: configuration) else {
-                    cont.resume(throwing: ObvError.dataChannelCreationFailed)
-                    return
+                    return cont.resume(throwing: ObvError.dataChannelCreationFailed)
                 }
                 self.dataChannel = dataChannel
                 self.dataChannelDelegate = dataChannelDelegate
                 self.dataChannel?.delegate = self
-                cont.resume()
+                return cont.resume()
             }
         }
     }
@@ -223,7 +211,7 @@ final class ObvPeerConnection: NSObject {
     
     func sendData(buffer: RTCDataBuffer) async -> Bool {
         return await withCheckedContinuation { cont in
-            Self.internalQueue.async { [weak self] in
+            factory.webRTCQueue.async { [weak self] in
                 guard let _self = self else { cont.resume(returning: false); return }
                 assert(_self.dataChannel != nil)
                 let result = _self.dataChannel?.sendData(buffer) ?? false
@@ -233,31 +221,95 @@ final class ObvPeerConnection: NSObject {
     }
 
     
-    func addAudioTrack(isEnabled: Bool) async throws {
-        let streamId = "audioStreamId"
-        let audioConstrains = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
-        let audioSource = try await Self.factory.audioSource(with: audioConstrains)
-        let audioTrack = try await Self.factory.audioTrack(with: audioSource, trackId: "audio0")
-        await withCheckedContinuation { cont in
-            Self.internalQueue.async {
-                audioTrack.isEnabled = isEnabled
-                os_log("☎️🔌 peerConnection.peerConnection.add(audioTrack)", log: Self.log, type: .info)
-                self.peerConnection.add(audioTrack, streamIds: [streamId])
-                self.audioTrack = audioTrack
+    func createAndAddAudioTrack(isEnabled: Bool) async {
+        
+        os_log("☎️🔌 ObvPeerConnection.createAndAddAudioTrack()", log: Self.log, type: .info)
+        
+        await withCheckedContinuation { [weak self] cont in
+            
+            guard let self else { return cont.resume() }
+            
+            factory.webRTCQueue.async { [weak self] in
+                
+                guard let self else { return cont.resume() }
+
+                if self.localAudioTrack == nil {
+                    let audioTrack = factory.createAudioTrack(trackId: ObvMessengerConstants.TrackId.audio)
+                    audioTrack.isEnabled = isEnabled
+                    os_log("☎️🔌 peerConnection.peerConnection.add(audioTrack)", log: Self.log, type: .info)
+                    self.peerConnection.add(audioTrack, streamIds: [ObvMessengerConstants.StreamId.olvid])
+                    self.localAudioTrack = audioTrack
+                }
                 cont.resume()
+                
             }
+            
+        }
+    }
+    
+    
+    func createAndAddLocalVideoAndScreencastTracks() async {
+        os_log("☎️🔌 ObvPeerConnection.createAndAddLocalVideoAndScreencastTracks()", log: Self.log, type: .info)
+        
+        await withCheckedContinuation { [weak self] (cont: CheckedContinuation<Void, Never>) in
+            
+            guard let self else { return cont.resume() }
+            
+            factory.webRTCQueue.async { [weak self] in
+                
+                guard let self else { return cont.resume() }
+                
+                // Although the iOS/macOS versions of Olvid do not support sharing a local screencast yet, we create a screencast track to match the tracks of the Android version of the app.
+                if self.localScreencastTrack == nil {
+                    let screencastTrack = factory.createScreencastTrack(trackId: ObvMessengerConstants.TrackId.screencast)
+                    screencastTrack.isEnabled = false
+                    os_log("☎️🔌 peerConnection.peerConnection.add(screencastTrack)", log: Self.log, type: .info)
+                    self.peerConnection.add(screencastTrack, streamIds: [ObvMessengerConstants.StreamId.olvid, ObvMessengerConstants.StreamId.screencast])
+                    self.localScreencastTrack = screencastTrack
+                }
+
+                if self.localVideoTrack == nil {
+                    let videoTrack = factory.createVideoTrack(trackId: ObvMessengerConstants.TrackId.video)
+                    videoTrack.isEnabled = false
+                    os_log("☎️🔌 peerConnection.peerConnection.add(videoTrack)", log: Self.log, type: .info)
+                    self.peerConnection.add(videoTrack, streamIds: [ObvMessengerConstants.StreamId.olvid, ObvMessengerConstants.StreamId.video])
+                    self.localVideoTrack = videoTrack
+                    Task { [weak self] in
+                        guard let self else { return }
+                        guard let delegate else { return }
+                        await delegate.peerConnection(self, didAddLocalVideoTrack: videoTrack)
+                    }
+                }
+                
+                cont.resume()
+                
+            }
+            
         }
     }
 
     
+    func setLocalVideoTrack(isEnabled: Bool) async {
+        await withCheckedContinuation { [weak self] (cont: CheckedContinuation<Void, Never>) in
+            guard let self else { return cont.resume() }
+            factory.webRTCQueue.async { [weak self] in
+                guard let self else { return cont.resume() }
+                assert(self.localVideoTrack != nil)
+                self.localVideoTrack?.isEnabled = isEnabled
+                cont.resume()
+            }
+        }
+    }
+    
+    
     func setAudioTrack(isEnabled: Bool) async throws {
-        guard let audioTrack else {
+        guard let localAudioTrack else {
             assertionFailure()
             throw ObvError.audioTrackIsNil
         }
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            Self.internalQueue.async {
-                audioTrack.isEnabled = isEnabled
+            factory.webRTCQueue.async {
+                localAudioTrack.isEnabled = isEnabled
                 cont.resume()
             }
         }
@@ -266,10 +318,10 @@ final class ObvPeerConnection: NSObject {
     
     var isAudioTrackEnabled: Bool {
         get throws {
-            guard let audioTrack else {
+            guard let localAudioTrack else {
                 throw ObvError.audioTrackIsNil
             }
-            return audioTrack.isEnabled
+            return localAudioTrack.isEnabled
         }
     }
     
@@ -283,70 +335,11 @@ extension ObvPeerConnection {
     enum ObvError: Error {
         case sdpOfferGenerationFailed
         case sdpAnswerGenerationFailed
-        case rtcPeerConnectionCreationFailed
         case dataChannelCreationFailed
         case audioTrackIsNil
+        case videoTrackIsNil
     }
     
-}
-
-
-// MARK: - ObvPeerConnectionFactory
-
-private final class ObvPeerConnectionFactory {
-
-    private let internalQueue: DispatchQueue
-    private var factory: RTCPeerConnectionFactory?
-
-    private static let errorDomain = "ObvPeerConnectionFactory"
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: ObvPeerConnectionFactory.errorDomain, code: 0, userInfo: userInfo)
-    }
-
-    init(internalQueue: DispatchQueue) {
-        self.internalQueue = internalQueue
-    }
-
-    func make(with configuration: RTCConfiguration, constraints: RTCMediaConstraints, delegate: RTCPeerConnectionDelegate?) async -> RTCPeerConnection? {
-        return await withCheckedContinuation { cont in
-            self.internalQueue.async {
-                if self.factory == nil {
-                    RTCInitializeSSL()
-                    let videoEncoderFactory = RTCDefaultVideoEncoderFactory()
-                    let videoDecoderFactory = RTCDefaultVideoDecoderFactory()
-                    self.factory = RTCPeerConnectionFactory(encoderFactory: videoEncoderFactory, decoderFactory: videoDecoderFactory)
-                }
-                let pc = self.factory?.peerConnection(with: configuration, constraints: constraints, delegate: delegate)
-                cont.resume(returning: pc)
-            }
-        }
-    }
-
-    func audioSource(with constraints: RTCMediaConstraints) async throws -> RTCAudioSource {
-        return try await withCheckedThrowingContinuation { cont in
-            self.internalQueue.async {
-                guard let factory = self.factory else {
-                    cont.resume(throwing: Self.makeError(message: "Factory is not instantiated"))
-                    return
-                }
-                cont.resume(returning: factory.audioSource(with: constraints))
-            }
-        }
-    }
-
-    func audioTrack(with audioSource: RTCAudioSource, trackId: String) async throws -> RTCAudioTrack {
-        return try await withCheckedThrowingContinuation { cont in
-            self.internalQueue.async {
-                guard let factory = self.factory else {
-                    cont.resume(throwing: Self.makeError(message: "Factory is not instantiated"))
-                    return
-                }
-                cont.resume(returning: factory.audioTrack(with: audioSource, trackId: trackId))
-            }
-        }
-    }
-
 }
 
 
@@ -389,7 +382,7 @@ extension ObvPeerConnection: RTCPeerConnectionDelegate {
         self.iceConnectionState = newState
         Task { [weak self] in
             guard let _self = self else { return }
-            guard let delegate = _self.delegate else { assertionFailure(); return }
+            guard let delegate = _self.delegate else { return }
             await delegate.peerConnection(_self, didChange: newState)
         }
     }
@@ -434,11 +427,28 @@ extension ObvPeerConnection: RTCPeerConnectionDelegate {
     
     func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {
         // Not used, but required by the protocol
+        os_log("☎️🔌🥰 ObvPeerConnection.peerConnection(_:didRemove:RTCMediaStream)", log: Self.log, type: .info)
     }
 
     
     func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {
         // Not used, but required by the protocol
+        os_log("☎️🔌🥰 ObvPeerConnection.peerConnection(_:didAdd:RTCPeerConnection)", log: Self.log, type: .info)
+    }
+    
+    
+    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams mediaStreams: [RTCMediaStream]) {
+        os_log("☎️🔌🥰 ObvPeerConnection.peerConnection(_:didAdd:RTCRtpReceiver)", log: Self.log, type: .info)
+        guard peerConnection == self.peerConnection else { assertionFailure(); return }
+        Task { [weak self] in
+            guard let self else { return }
+            await delegate?.peerConnection(self, didAdd: rtpReceiver, streams: mediaStreams)
+        }
+    }
+    
+    
+    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove rtpReceiver: RTCRtpReceiver) {
+        os_log("☎️🔌🥰 ObvPeerConnection.peerConnection(_:didRemove:RTCRtpReceiver)", log: Self.log, type: .info)
     }
     
 }
@@ -480,6 +490,10 @@ protocol ObvPeerConnectionDelegate: AnyObject {
     func peerConnection(_ peerConnection: ObvPeerConnection, didGenerate candidate: RTCIceCandidate) async
     func peerConnection(_ peerConnection: ObvPeerConnection, didRemove candidates: [RTCIceCandidate]) async
     func peerConnection(_ peerConnection: ObvPeerConnection, didOpen dataChannel: RTCDataChannel) async
+    func peerConnection(_ peerConnection: ObvPeerConnection, didAdd rtpReceiver: RTCRtpReceiver, streams mediaStreams: [RTCMediaStream]) async
+
+    // The following delegate method does not have a WebRTC equivalent, we call it ourselves when adding a local video track to the peer connection.
+    func peerConnection(_ peerConnection: ObvPeerConnection, didAddLocalVideoTrack videoTrack: RTCVideoTrack) async
 
 }
 

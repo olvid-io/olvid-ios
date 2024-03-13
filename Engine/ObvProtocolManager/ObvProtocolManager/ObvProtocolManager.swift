@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -645,12 +645,13 @@ extension ObvProtocolManager {
     }
     
     
-    public func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID) async throws {
+    public func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, snapshotSentToTargetDevice: @escaping () -> Void) async throws {
         try await delegateManager.protocolStarterDelegate.continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(
             enteredSAS: enteredSAS,
             deviceToKeepActive: deviceToKeepActive,
             ownedCryptoId: ownedCryptoId,
-            protocolInstanceUID: protocolInstanceUID)
+            protocolInstanceUID: protocolInstanceUID,
+            snapshotSentToTargetDevice: snapshotSentToTargetDevice)
     }
  
     

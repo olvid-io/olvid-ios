@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,4 +31,13 @@ func NSLocalizedString(_ key: String, comment: String) -> String {
 
 func NSLocalizedString(_ key: String) -> String {
     return NSLocalizedString(key, tableName: "Localizable", bundle: Bundle(for: LocalizableClassForObvUICoreDataBundle.self), comment: "Within ObvUICoreData")
+}
+
+
+extension String {
+    
+    init(localized keyAndValue: String.LocalizationValue) {
+        self.init(localized: keyAndValue, table: "Localizable", bundle: Bundle(for: LocalizableClassForObvUICoreDataBundle.self))
+    }
+    
 }

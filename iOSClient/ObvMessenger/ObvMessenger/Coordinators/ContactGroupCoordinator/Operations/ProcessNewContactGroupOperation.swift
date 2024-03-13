@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,14 +38,12 @@ final class ProcessNewContactGroupOperation: ContextualOperationWithSpecificReas
         
         do {
             
-            // We create a new persisted contact group associated to this engine's contact group
-            
-            switch obvContactGroup.groupType {
-            case .owned:
-                _ = try PersistedContactGroupOwned(contactGroup: obvContactGroup, within: obvContext.context)
-            case .joined:
-                _ = try PersistedContactGroupJoined(contactGroup: obvContactGroup, within: obvContext.context)
+            guard let persistedOwnedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: obvContactGroup.ownedIdentity.cryptoId, within: obvContext.context) else {
+                assertionFailure()
+                return
             }
+
+            try persistedOwnedIdentity.addOrUpdateContactGroup(with: obvContactGroup, isRestoringSyncSnapshotOrBackup: false)
             
         } catch {
             assertionFailure()

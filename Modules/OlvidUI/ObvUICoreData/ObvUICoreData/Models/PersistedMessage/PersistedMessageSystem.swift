@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -1019,6 +1019,50 @@ extension PersistedMessageSystem {
         ])
         return try context.count(for: request)
     }
+    
+    
+    /// Returns a dictionary where each key is the objectID of a `PersistedDiscussion` having at least one `PersistedMessageSystem` with status `.new` and which is relevant for counting "unread" messages, and the value is the number of such new messages.
+    /// Note that if a discussion has no relevant message, it does *not* appear in the returned dictionary.
+    ///
+    /// This is used during bootstrap, to refresh the number of new messages of each discussion.
+    ///
+    /// See also ``static PersistedMessageReceived.getAllDiscussionsWithNewPersistedMessageReceived(ownedIdentity:)``.
+    static func getAllDiscussionsWithNewAndRelevantPersistedMessageSystem(ownedIdentity: PersistedObvOwnedIdentity) throws -> [TypeSafeManagedObjectID<PersistedDiscussion>: Int] {
+        
+        guard let context = ownedIdentity.managedObjectContext else {
+            assertionFailure()
+            throw ObvError.managedContextIsNil
+        }
+        
+        let expressionDescription = NSExpressionDescription()
+        expressionDescription.name = "numberOfNewMessages"
+        expressionDescription.expression = NSExpression(forFunction: "count:", arguments: [NSExpression(forKeyPath: "rawStatus")])
+        expressionDescription.expressionResultType = .integer64AttributeType
+
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+        request.resultType = .dictionaryResultType
+        request.propertiesToFetch = [expressionDescription, PersistedMessage.Predicate.Key.discussion.rawValue]
+        request.includesPendingChanges = true
+        request.propertiesToGroupBy = [PersistedMessage.Predicate.Key.discussion.rawValue]
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withStatus(.new),
+            Predicate.isRelevantForCountingUnread,
+            Predicate.withOwnedIdentity(for: ownedIdentity),
+        ])
+
+        let results = try context.fetch(request) as? [[String: AnyObject]] ?? []
+
+        var numberOfNewMessageForDiscussionWithObjectID = [TypeSafeManagedObjectID<PersistedDiscussion>: Int]()
+        for result in results {
+            guard let discussionObjectID = result["discussion"] as? NSManagedObjectID else { assertionFailure(); continue}
+            guard let numberOfNewMessages = result["numberOfNewMessages"] as? Int else { assertionFailure(); continue}
+            numberOfNewMessageForDiscussionWithObjectID[TypeSafeManagedObjectID<PersistedDiscussion>(objectID: discussionObjectID)] = numberOfNewMessages
+        }
+        
+        return numberOfNewMessageForDiscussionWithObjectID
+        
+    }
+
     
     
     public static func countNewForAllNonHiddenOwnedIdentities(within context: NSManagedObjectContext) throws -> Int {

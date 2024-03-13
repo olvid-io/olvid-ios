@@ -129,17 +129,12 @@ final class NewCreateDraftFyleJoinsFromLoadedFileRepresentationsOperation: Conte
                 
             case .text(content: let textContent):
                 
-                let qBegin = Locale.current.quotationBeginDelimiter ?? "\""
-                let qEnd = Locale.current.quotationEndDelimiter ?? "\""
-                
-                let textToAppend = [qBegin, textContent, qEnd].joined(separator: "")
-                
                 guard let draft = try? PersistedDraft.getManagedObject(withPermanentID: draftPermanentID, within: obvContext.context) else {
                     cancelAndContinue(withReason: .couldNotGetDraft)
                     continue
                 }
                 
-                draft.appendContentToBody(textToAppend)
+                draft.appendContentToBody(textContent)
                 
             case .url(content: let url):
                 

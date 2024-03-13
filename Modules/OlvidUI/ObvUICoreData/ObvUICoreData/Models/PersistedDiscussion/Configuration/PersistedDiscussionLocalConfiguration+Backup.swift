@@ -40,7 +40,6 @@ extension PersistedDiscussionConfigurationBackupItem {
                 configuration.timeBasedRetention = DurationOptionAltOverride(rawValue: rawValue) ?? .useAppDefault
             }
         }
-        configuration.doFetchContentRichURLsMetadata = self.doFetchContentRichURLsMetadata
         configuration.performInteractionDonation = self.performInteractionDonation
         configuration.update(with: .mentionNotificationMode(mentionNotificationMode))
     }

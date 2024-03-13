@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import CoreData
 import OlvidUtils
 import ObvMetaManager
 import ObvCrypto
@@ -25,48 +26,33 @@ import ObvTypes
 import os.log
 
 
-final class DeleteObsoleteCachedWellKnownOperation: OperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
+final class DeleteObsoleteCachedWellKnownOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
     let ownedIdentities: Set<ObvCryptoIdentity>
-    weak var contextCreator: ObvCreateContextDelegate?
-    let log: OSLog
-    let flowId: FlowIdentifier
     
-    init(ownedIdentities: Set<ObvCryptoIdentity>, log: OSLog, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate) {
+    init(ownedIdentities: Set<ObvCryptoIdentity>) {
         self.ownedIdentities = ownedIdentities
-        self.contextCreator = contextCreator
-        self.log = log
-        self.flowId = flowId
         super.init()
     }
-    
-    override func main() {
+
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        contextCreator?.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+        do {
             
-            let cachedWellKnowns: [CachedWellKnown]
-            do {
-                cachedWellKnowns = try CachedWellKnown.getAllCachedWellKnown(within: obvContext)
-            } catch {
-                return self.cancel(withReason: .coreDataError(error: error))
-            }
-            
+            let cachedWellKnowns = try CachedWellKnown.getAllCachedWellKnown(within: obvContext)
+
             let currentServers = Set(ownedIdentities.map({ $0.serverURL }))
 
             for cachedWellKnown in cachedWellKnowns {
                 if !currentServers.contains(cachedWellKnown.serverURL) {
-                    obvContext.delete(cachedWellKnown)
+                    try cachedWellKnown.deleteCachedWellKnown()
                 }
             }
-            
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch {
-                return cancel(withReason: .coreDataError(error: error))
-            }
-                        
+
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }
-
+    
 }

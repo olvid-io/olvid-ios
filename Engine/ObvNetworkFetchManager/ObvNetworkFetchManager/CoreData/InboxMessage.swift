@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -59,6 +59,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     @NSManaged private(set) var hasEncryptedExtendedMessagePayload: Bool
     @NSManaged private(set) var localDownloadTimestamp: Date
     @NSManaged private(set) var markedForDeletion: Bool // If true, a message will be deleted asap (i.e., when all its attachments are also marked for deletion)
+    @NSManaged private(set) var markedAsListedOnServer: Bool // Set to true after having notified the server that we are aware of a message. Once this Boolean is true, this message won't appear again when listing messages.
     @NSManaged private(set) var messagePayload: Data? // Not set at download time, but at the same time than the attachments' infos
     @NSManaged private var rawMessageIdOwnedIdentity: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
     @NSManaged private var rawMessageIdUid: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
@@ -72,13 +73,8 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     @NSManaged private var dbAttachments: [InboxAttachment]?
     
     var attachments: [InboxAttachment] {
-        get {
-            let values = dbAttachments
-            return values?.map { $0.obvContext = self.obvContext; return $0 } ?? []
-        }
-        set {
-            dbAttachments = newValue
-        }
+        let values = dbAttachments
+        return values?.map { $0.obvContext = self.obvContext; return $0 } ?? []
     }
     
     var attachmentIds: [ObvAttachmentIdentifier] {
@@ -102,6 +98,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     /// This identifier is expected to be non nil, unless this `InboxMessage` was deleted on another thread.
     private(set) var messageId: ObvMessageIdentifier? {
         get {
+            guard !self.isDeleted else { return nil }
             guard let rawMessageIdOwnedIdentity = self.rawMessageIdOwnedIdentity else { return nil }
             guard let rawMessageIdUid = self.rawMessageIdUid else { return nil }
             return ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
@@ -116,15 +113,15 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     var obvContext: ObvContext?
     
     var canBeDeleted: Bool {
-        guard markedForDeletion else {
-            return false
+        return markedForDeletion && attachments.allSatisfy({ $0.markedForDeletion })
+    }
+
+    func deleteInboxMessage() throws {
+        guard let context = self.managedObjectContext else {
+            assertionFailure()
+            throw ObvError.contextIsNil
         }
-        for attachment in attachments {
-            guard attachment.markedForDeletion else {
-                return false
-            }
-        }
-        return true
+        context.delete(self)
     }
     
     /// We expect to return a non-nil URL, unless this `InboxMessage` was deleted on another thread.
@@ -162,6 +159,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         os_log("🔑 Creating InboxMessage with id %{public}@", log: Self.log, type: .info, messageId.debugDescription)
         
         guard try InboxMessage.get(messageId: messageId, within: obvContext) == nil else {
+            os_log("🔑 An InboxMessage with id %{public}@ already exists", log: Self.log, type: .info, messageId.debugDescription)
             throw InternalError.aMessageWithTheSameMessageIdAlreadyExists
         }
         let entityDescription = NSEntityDescription.entity(forEntityName: InboxMessage.entityName, in: obvContext)!
@@ -247,7 +245,8 @@ extension InboxMessage {
         try FileManager.default.removeItem(at: attachmentsDirectory)
     }
     
-    func setFromCryptoIdentity(_ fromCryptoIdentity: ObvCryptoIdentity, andMessagePayload messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, flowId: FlowIdentifier, delegateManager: ObvNetworkFetchDelegateManager) throws {
+    
+    func setFromCryptoIdentity(_ fromCryptoIdentity: ObvCryptoIdentity, andMessagePayload messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?) throws {
         os_log("🔑 Setting fromCryptoIdentity and messagePayload of message %{public}@", log: Self.log, type: .info, messageId.debugDescription)
         if self.fromCryptoIdentity == nil {
            self.fromCryptoIdentity = fromCryptoIdentity
@@ -266,23 +265,45 @@ extension InboxMessage {
             }
         }
         self.extendedMessagePayloadKey = extendedMessagePayloadKey
-        let messageId = self.messageId
-        let attachmentIds = self.attachmentIds
-        let hasEncryptedExtendedMessagePayload = self.hasEncryptedExtendedMessagePayload && (extendedMessagePayloadKey != nil)
-        try obvContext?.addContextDidSaveCompletionHandler({ (error) in
-            guard error == nil else { return }
-            guard let messageId else { return }
-            delegateManager.networkFetchFlowDelegate.messagePayloadAndFromIdentityWereSet(messageId: messageId, attachmentIds: attachmentIds, hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload, flowId: flowId)
-        })
     }
+    
     
     var isProcessed: Bool { self.fromCryptoIdentity != nil && self.messagePayload != nil }
     
     // MARK: - Setters
     
-    func markForDeletion() {
-        markedForDeletion = true
+    func markMessageAndAttachmentsForDeletionAndCreatePendingDeleteFromServerIfAppropriate(attachmentToMarkForDeletion: InboxAttachmentsSet, within obvContext: ObvContext) throws {
+        guard !isDeleted else { return }
+        guard let messageId else {
+            assertionFailure()
+            throw ObvError.cannotDetermineMessageId
+        }
+        if !markedForDeletion {
+            markedForDeletion = true
+        }
+        switch attachmentToMarkForDeletion {
+        case .none:
+            break
+        case .all:
+            attachments.forEach { $0.markForDeletion() }
+        case .subset(attachmentNumbers: let attachmentNumbers):
+            attachments
+                .filter { attachmentNumbers.contains($0.attachmentNumber) }
+                .forEach { $0.markForDeletion() }
+        }
+        if try self.canBeDeleted && !PendingDeleteFromServer.exists(for: self) {
+            _ = PendingDeleteFromServer(messageId: messageId, within: obvContext)
+        }
     }
+    
+    
+    private func markAsListedOnServer() {
+        assert(fromCryptoIdentity != nil, "We should be marking a message as 'listed' until whe determined who is the sender.")
+        assert(!attachments.isEmpty, "There is no need to mark a message wo attachment as listed. It will be deleted soon anyway and marking it as 'listed' would perform unnecessary calls to the server API.")
+        guard !markedAsListedOnServer else { return }
+        markedAsListedOnServer = true
+    }
+    
     
     var receivedByteCount: Int {
         return encryptedContent.count
@@ -322,6 +343,7 @@ extension InboxMessage {
             case downloadTimestampFromServer = "downloadTimestampFromServer"
             case messageUploadTimestampFromServer = "messageUploadTimestampFromServer"
             case markedForDeletion = "markedForDeletion"
+            case markedAsListedOnServer = "markedAsListedOnServer"
         }
         static func withMessageIdOwnedCryptoId(_ ownedCryptoId: ObvCryptoIdentity) -> NSPredicate {
             NSPredicate(Key.rawMessageIdOwnedIdentityKey, EqualToData: ownedCryptoId.getIdentity())
@@ -346,6 +368,9 @@ extension InboxMessage {
         }
         static var isNotMarkedForDeletion: NSPredicate {
             NSPredicate(Key.markedForDeletion, is: false)
+        }
+        static func markedAsListedOnServerIs(_ bool: Bool) -> NSPredicate {
+            NSPredicate(Key.markedAsListedOnServer, is: bool)
         }
     }
     
@@ -392,6 +417,38 @@ extension InboxMessage {
         return (try obvContext.fetch(request)).first
     }
 
+    
+    static func existsAndIsNotMarkedAsListedOnServer(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws -> Bool {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.predicate = Predicate.withMessageIdentifier(messageId)
+        request.fetchLimit = 1
+        request.propertiesToFetch = [Predicate.Key.markedAsListedOnServer.rawValue]
+        guard let message = (try obvContext.fetch(request)).first else { return false }
+        return !message.markedAsListedOnServer
+    }
+    
+    
+    static func markAsListedOnServer(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.predicate = Predicate.withMessageIdentifier(messageId)
+        request.fetchLimit = 1
+        request.propertiesToFetch = [Predicate.Key.markedAsListedOnServer.rawValue]
+        guard let message = (try obvContext.fetch(request)).first else { return }
+        message.markAsListedOnServer()
+    }
+    
+    
+    /// Marks the message and all this attachments for deletion. Since they are all marked for deletion, this will also create a `PendingDeleteFromServer`
+    static func markMessageAndAttachmentsForDeletionAndCreatePendingDeleteFromServer(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.predicate = Predicate.withMessageIdentifier(messageId)
+        request.fetchLimit = 1
+        request.propertiesToFetch = [Predicate.Key.markedForDeletion.rawValue]
+        guard let message = (try obvContext.fetch(request)).first else { return }
+        try message.markMessageAndAttachmentsForDeletionAndCreatePendingDeleteFromServerIfAppropriate(attachmentToMarkForDeletion: .all, within: obvContext)
+        assert(message.canBeDeleted)
+    }
+    
 }
 
 
@@ -414,6 +471,18 @@ extension InboxMessage {
             Self.trackRecentlyDeletedMessage(messageId: messageId)
         }
 
+    }
+    
+}
+
+
+// MARK: - Errors
+
+extension InboxMessage {
+    
+    enum ObvError: Error {
+        case contextIsNil
+        case cannotDetermineMessageId
     }
     
 }

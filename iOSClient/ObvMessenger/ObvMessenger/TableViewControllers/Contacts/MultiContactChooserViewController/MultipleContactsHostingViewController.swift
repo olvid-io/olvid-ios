@@ -422,6 +422,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
     @Published var scrollToTop: Bool = false
     @Published var showSortingSpinner: Bool
     @Published var floatingButtonModel: FloatingButtonModel?
+    @Published var searchInProgress: Bool = false
     let textAboveContactList: String?
     let selectionStyle: SelectionStyle
 
@@ -548,6 +549,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
         } else {
             refreshFetchRequest(searchText: nil)
         }
+        self.searchInProgress = searchController.isActive
     }
 }
 
@@ -581,7 +583,13 @@ struct ContactsScrollingViewOrExplanationView: View {
         if store.showSortingSpinner {
             ProgressView()
         } else if store.showExplanation && fetchRequest.wrappedValue.isEmpty {
-            ExplanationView()
+            if store.searchInProgress {
+                if #available(iOS 17.0, *) {
+                    ContentUnavailableView.search
+                }
+            } else {
+                ObvContentUnavailableView("CONTENT_UNAVAILABLE_CONTACTS_TEXT", systemIcon: .person, description: Text("CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION"))
+            }
         } else {
             ContactsScrollingView(nsFetchRequest: store.fetchRequest,
                                   multipleSelection: store.selectedContacts,
@@ -598,36 +606,6 @@ struct ContactsScrollingViewOrExplanationView: View {
         }
     }
 
-}
-
-
-
-fileprivate struct ExplanationView: View {
-    
-    var body: some View {
-        VStack(alignment: .center) {
-            Spacer()
-
-            Group {
-                Text("START_HERE")
-                    .multilineTextAlignment(.center)
-                    .font(Font.system(size: 26, weight: .bold, design: .rounded))
-                    .frame(maxWidth: 200)
-                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                    .padding(10)
-                    .offset(CGSize(width: 0, height: -20))
-                    .background(
-                        Image(systemName: "bubble.middle.bottom.fill")
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .foregroundColor(Color(AppTheme.shared.colorScheme.systemFill))
-                    )
-            }
-            .offset(CGSize(width: 0, height: -100))
-
-       }
-    }
-    
 }
 
 
@@ -855,27 +833,6 @@ fileprivate struct SelectableContactCellView: View {
                 selection.remove(contact)
             } else {
                 selection.insert(contact)
-            }
-        }
-    }
-    
-}
-
-
-struct ExplanationView_Previews: PreviewProvider {
-    
-    static var previews: some View {
-        Group {
-            ZStack {
-                Color(AppTheme.shared.colorScheme.systemBackground)
-                    .edgesIgnoringSafeArea(.all)
-                ExplanationView()
-            }
-            ZStack {
-                Color(AppTheme.shared.colorScheme.systemBackground)
-                    .edgesIgnoringSafeArea(.all)
-                ExplanationView()
-                    .environment(\.locale, .init(identifier: "fr"))
             }
         }
     }

@@ -41,6 +41,11 @@ open class ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType: L
     }
     
     final public override func main() {
+        // If we are cancelled, we return immediately. This is important so as to make sure that the mechanism implemented in, e.g., CompositionOfTwoContextualOperations.cancel(withReason:)
+        // works properly.
+        guard !isCancelled else {
+            return
+        }
         guard let obvContext else {
             assertionFailure()
             self.cancel()

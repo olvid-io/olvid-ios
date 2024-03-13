@@ -35,10 +35,14 @@ protocol DiscussionCacheDelegate: AnyObject {
     // Cached URL
     func getFirstHttpsURL(text: String) -> URL?
     
+    // Request missing preview for a message if needed
+    func requestMissingPreviewIfNeededForMessage(with objectID: TypeSafeManagedObjectID<PersistedMessageReceived>)
+    
     // Cached hardlinks
     func getCachedHardlinkForFyleMessageJoinWithStatus(with objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) -> HardLinkToFyle?
     /// The completion returns `true` iff a new hardlink is cached. This gives a chance to the cell to set `cellNeedsToUpdateItsConfiguration` to `true`
-    func requestAllHardlinksForMessage(with objectID: TypeSafeManagedObjectID<PersistedMessage>, completionWhenHardlinksCached: @escaping ((Bool) -> Void))
+    /// Note that "link previews" are excluded and not considered as "relevant" when computing hardlinks.
+    func requestAllRelevantHardlinksForMessage(with objectID: TypeSafeManagedObjectID<PersistedMessage>, completionWhenHardlinksCached: @escaping ((Bool) -> Void))
     
     // Reply-to
     func requestReplyToBubbleViewConfiguration(message: PersistedMessage, completionWhenCellNeedsUpdateConfiguration: @escaping () -> Void) -> ReplyToBubbleView.Configuration?

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import CoreData
 import ObvTypes
 import ObvEngine
 import OlvidUtils
+import ObvCrypto
 
 
 @objc(PersistedObvOwnedDevice)
@@ -123,24 +124,27 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
     
     
     /// Shall **only** be called from ``PersistedObvOwnedIdentity.updateOrCreateOwnedDevice(identifier:secureChannelStatus:)``
-    static func createIfRequired(obvOwnedDevice: ObvOwnedDevice, ownedIdentity: PersistedObvOwnedIdentity) throws {
+    static func createIfRequired(obvOwnedDevice: ObvOwnedDevice, ownedIdentity: PersistedObvOwnedIdentity) throws -> PersistedObvOwnedDevice {
         
         guard let context = ownedIdentity.managedObjectContext else { assertionFailure(); throw ObvError.noContextProvided }
         guard obvOwnedDevice.ownedCryptoId == ownedIdentity.cryptoId else { assertionFailure(); throw ObvError.unexpectedOwnedCryptoId }
         
-        guard try Self.fetchPersistedObvOwnedDevice(obvOwnedDevice: obvOwnedDevice, within: context) == nil else { return }
-        
-        _ = try self.init(
-            identifier: obvOwnedDevice.identifier,
-            secureChannelStatus: SecureChannelStatus(obvOwnedDevice.secureChannelStatus),
-            name: obvOwnedDevice.name,
-            expirationDate: obvOwnedDevice.expirationDate,
-            latestRegistrationDate: obvOwnedDevice.latestRegistrationDate,
-            ownedIdentity: ownedIdentity)
+        if let ownedDevice = try Self.fetchPersistedObvOwnedDevice(obvOwnedDevice: obvOwnedDevice, within: context) {
+            return ownedDevice
+        } else {
+            return try self.init(
+                identifier: obvOwnedDevice.identifier,
+                secureChannelStatus: SecureChannelStatus(obvOwnedDevice.secureChannelStatus),
+                name: obvOwnedDevice.name,
+                expirationDate: obvOwnedDevice.expirationDate,
+                latestRegistrationDate: obvOwnedDevice.latestRegistrationDate,
+                ownedIdentity: ownedIdentity)
+        }
+
     }
 
     
-    func updatePersistedObvOwnedDevice(with obvOwnedDevice: ObvOwnedDevice) throws {
+    public func updatePersistedObvOwnedDevice(with obvOwnedDevice: ObvOwnedDevice) throws {
         
         guard let ownedIdentity else { assertionFailure(); throw ObvError.ownedIdentityIsNil }
         guard obvOwnedDevice.ownedCryptoId == ownedIdentity.cryptoId else { assertionFailure(); throw ObvError.unexpectedOwnedCryptoId }
@@ -213,6 +217,12 @@ extension PersistedObvOwnedDevice {
         static func withSecureChannelStatus(_ secureChannelStatus: SecureChannelStatus) -> NSPredicate {
             NSPredicate(Key.rawSecureChannelStatus, EqualToInt: secureChannelStatus.rawValue)
         }
+        static func withObvOwnedDeviceIdentifier(_ obvOwnedDeviceIdentifier: ObvOwnedDeviceIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                withIdentifier(obvOwnedDeviceIdentifier.deviceUID.raw),
+                withOwnedCryptoId(obvOwnedDeviceIdentifier.ownedCryptoId),
+            ])
+        }
     }
     
 
@@ -226,6 +236,51 @@ extension PersistedObvOwnedDevice {
         try ownedDevice.deletePersistedObvOwnedDevice()
     }
 
+    
+    public static func getAllOwnedDeviceIdentifiers(within context: NSManagedObjectContext) throws -> Set<ObvOwnedDeviceIdentifier> {
+        
+        let request: NSFetchRequest<PersistedObvOwnedDevice> = self.fetchRequest()
+        request.fetchBatchSize = 500
+        request.propertiesToFetch = [
+            Predicate.Key.identifier.rawValue,
+            Predicate.Key.rawOwnedIdentityIdentity.rawValue,
+        ]
+        let results = try context.fetch(request)
+        return Set(results.compactMap { device in
+            guard let deviceUID = UID(uid: device.identifier) else { assertionFailure(); return nil }
+            guard let ownedCryptoId = try? ObvCryptoId(identity: device.rawOwnedIdentityIdentity) else { assertionFailure(); return nil }
+            return ObvOwnedDeviceIdentifier(ownedCryptoId: ownedCryptoId, deviceUID: deviceUID)
+        })
+        
+    }
+
+    
+    public static func getAllOwnedDeviceIdentifiersOfOwnedCryptoId(_ ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Set<ObvOwnedDeviceIdentifier> {
+        
+        let request: NSFetchRequest<PersistedObvOwnedDevice> = self.fetchRequest()
+        request.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
+        request.fetchBatchSize = 500
+        request.propertiesToFetch = [
+            Predicate.Key.identifier.rawValue,
+            Predicate.Key.rawOwnedIdentityIdentity.rawValue,
+        ]
+        let results = try context.fetch(request)
+        return Set(results.compactMap { device in
+            guard let deviceUID = UID(uid: device.identifier) else { assertionFailure(); return nil }
+            guard let ownedCryptoId = try? ObvCryptoId(identity: device.rawOwnedIdentityIdentity) else { assertionFailure(); return nil }
+            return ObvOwnedDeviceIdentifier(ownedCryptoId: ownedCryptoId, deviceUID: deviceUID)
+        })
+        
+    }
+
+    
+    public static func getPersistedObvOwnedDevice(with obvOwnedDeviceIdentifier: ObvOwnedDeviceIdentifier, within context: NSManagedObjectContext) throws -> PersistedObvOwnedDevice? {
+        let request: NSFetchRequest<PersistedObvOwnedDevice> = self.fetchRequest()
+        request.fetchLimit = 1
+        request.predicate = Predicate.withObvOwnedDeviceIdentifier(obvOwnedDeviceIdentifier)
+        return try context.fetch(request).first
+    }
+    
     
     public static func fetchPersistedObvOwnedDevice(identifier: Data, ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> PersistedObvOwnedDevice? {
         let request: NSFetchRequest<PersistedObvOwnedDevice> = self.fetchRequest()

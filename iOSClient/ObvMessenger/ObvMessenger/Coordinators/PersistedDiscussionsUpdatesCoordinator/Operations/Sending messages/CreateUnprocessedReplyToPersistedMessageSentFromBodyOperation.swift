@@ -34,7 +34,7 @@ final class CreateUnprocessedReplyToPersistedMessageSentFromBodyOperation: Conte
     let contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>
     let messageIdentifierFromEngine: Data
 
-    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
+    private(set) var messageSentPermanentID: MessageSentPermanentID?
 
     init(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, messageIdentifierFromEngine: Data, textBody: String) {
         self.textBody = textBody

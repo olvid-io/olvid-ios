@@ -73,19 +73,24 @@ public final class ObvServerCheckKeycloakRevocationMethod: ObvServerDataMethod {
         return try? encoder.encode(checkKeycloakRevocationJSON)
     }()
 
-    public enum PossibleReturnStatus: UInt8 {
+    private enum PossibleReturnRawStatus: UInt8 {
         case ok = 0x00
         case generalError = 0xff
     }
 
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, verificationSuccessful: Bool?)? {
+    public enum PossibleReturnStatus {
+        case ok(verificationSuccessful: Bool)
+        case generalError
+    }
+
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {
 
         guard let (rawServerReturnedStatus, listOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .error)
             return nil
         }
 
-        guard let serverReturnedStatus = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else {
+        guard let serverReturnedStatus = PossibleReturnRawStatus(rawValue: rawServerReturnedStatus) else {
             os_log("The returned server status is invalid", log: log, type: .error)
             return nil
         }
@@ -100,10 +105,10 @@ public final class ObvServerCheckKeycloakRevocationMethod: ObvServerDataMethod {
                 os_log("We could not decode the data returned by the server", log: log, type: .error)
                 return nil
             }
-            return (serverReturnedStatus, verificationSuccessful)
+            return .ok(verificationSuccessful: verificationSuccessful)
         case .generalError:
             os_log("The server reported a general error", log: log, type: .error)
-            return (serverReturnedStatus, nil)
+            return .generalError
         }
     }
 

@@ -28,7 +28,7 @@ import ObvUICoreData
 
 final class UpdateAppDatabaseWithAppSyncSnapshotNodeOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
-    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SyncPersistedObvContactDevicesWithEngineOperation.self))
+    private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UpdateAppDatabaseWithAppSyncSnapshotNodeOperation.self))
 
     let appSyncSnapshotNode: AppSyncSnapshotNode
     

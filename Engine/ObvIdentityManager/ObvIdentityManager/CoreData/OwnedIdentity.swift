@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -149,8 +149,9 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
                                                               andPublicKeyEncryptionImplementationByteId: pkEncryptionImplemByteId,
                                                               using: prng)
         self.contactIdentities = Set<ContactIdentity>()
-        guard let device = OwnedDevice(ownedIdentity: self, name: nameForCurrentDevice, with: prng, delegateManager: delegateManager) else {
+        guard let device = OwnedDevice.createCurrentOwnedDevice(ownedIdentity: self, name: nameForCurrentDevice, with: prng, delegateManager: delegateManager) else {
             os_log("Could not create a current device for the new owned identity", log: log, type: .fault)
+            assertionFailure()
             return nil
         }
         self.currentDevice = device
@@ -173,13 +174,13 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         try? obvContext.addContextDidSaveCompletionHandler { error in
             guard error == nil else { assertionFailure(); return }
             ObvIdentityNotificationNew.newOwnedIdentityWithinIdentityManager(cryptoIdentity: cryptoIdentity)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
     }
     
     
     /// Used *exclusively* during a backup restore for creating an instance, relatioships are recreater in a second step
-    convenience init(backupItem: OwnedIdentityBackupItem, notificationDelegate: ObvNotificationDelegate, within obvContext: ObvContext) throws {
+    convenience init(backupItem: OwnedIdentityBackupItem, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
         let entityDescription = NSEntityDescription.entity(forEntityName: OwnedIdentity.entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.isActive = backupItem.isActive
@@ -193,7 +194,7 @@ final class OwnedIdentity: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         try obvContext.addContextDidSaveCompletionHandler { error in
             guard error == nil else { assertionFailure(); return }
             ObvIdentityNotificationNew.newOwnedIdentityWithinIdentityManager(cryptoIdentity: backupItem.cryptoIdentity)
-                .postOnBackgroundQueue(within: notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
     }
 
@@ -879,12 +880,6 @@ extension OwnedIdentity {
             return
         }
         
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: OwnedIdentity.entityName)
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            return
-        }
-        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: OwnedIdentity.entityName)
         
         if isInserted {
@@ -892,33 +887,33 @@ extension OwnedIdentity {
             if self.isActive {
                 guard let flowId = obvContext?.flowId else { assertionFailure(); return }
                 ObvIdentityNotificationNew.newActiveOwnedIdentity(ownedCryptoIdentity: self.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
         } else if isDeleted {
             assert(ownedIdentityOnDeletion != nil)
             if let ownedIdentityOnDeletion {
                 os_log("An owned identity was deleted", log: log, type: .debug)
                 ObvIdentityNotificationNew.ownedIdentityWasDeleted(ownedIdentity: ownedIdentityOnDeletion)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
         }
         
         if changedKeys.contains(Predicate.Key.isActive.rawValue) && !isDeleted {
             if self.isActive {
                 guard let flowId = obvContext?.flowId else { assertionFailure(); return }
-                let notification = ObvIdentityNotificationNew.ownedIdentityWasReactivated(ownedCryptoIdentity: self.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
-                notification.postOnBackgroundQueue(within: notificationDelegate)
+                ObvIdentityNotificationNew.ownedIdentityWasReactivated(ownedCryptoIdentity: self.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             } else {
                 guard let flowId = obvContext?.flowId else { assertionFailure(); return }
-                let notification = ObvIdentityNotificationNew.ownedIdentityWasDeactivated(ownedCryptoIdentity: self.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
-                notification.postOnBackgroundQueue(within: notificationDelegate)
+                ObvIdentityNotificationNew.ownedIdentityWasDeactivated(ownedCryptoIdentity: self.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
         }
         
         if changedKeys.contains(Predicate.Key.keycloakServer.rawValue) && !isDeleted {
             guard let flowId = obvContext?.flowId else { assertionFailure(); return }
             ObvIdentityNotificationNew.ownedIdentityKeycloakServerChanged(ownedCryptoIdentity: self.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
-                .postOnBackgroundQueue(within: notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
         // Send a backupableManagerDatabaseContentChanged notification
@@ -929,7 +924,7 @@ extension OwnedIdentity {
                 return
             }
             ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
 
     }
@@ -1035,8 +1030,8 @@ struct OwnedIdentityBackupItem: Codable, Hashable, ObvErrorMaker {
         self.isActive = try values.decodeIfPresent(Bool.self, forKey: .isActive) ?? true
     }
     
-    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations, notificationDelegate: ObvNotificationDelegate) throws {
-        let ownedIdentity = try OwnedIdentity(backupItem: self, notificationDelegate: notificationDelegate, within: obvContext)
+    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations, delegateManager: ObvIdentityDelegateManager) throws {
+        let ownedIdentity = try OwnedIdentity(backupItem: self, delegateManager: delegateManager, within: obvContext)
         try associations.associate(ownedIdentity, to: self)
         let ownedIdentityIdentity = ownedIdentity.cryptoIdentity.getIdentity()
         _ = try contactIdentities.map { try $0.restoreInstance(within: obvContext, ownedIdentityIdentity: ownedIdentityIdentity, associations: &associations) }

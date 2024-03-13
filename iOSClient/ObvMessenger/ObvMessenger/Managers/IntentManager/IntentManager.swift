@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -90,9 +90,7 @@ extension IntentManager {
                     try? $0.toStruct()
                 })
             for messageSent in newMessagesSent {
-                let infos = SentMessageIntentInfos(messageSent: messageSent,
-                                                   urlForStoringPNGThumbnail: nil,
-                                                   thumbnailPhotoSide: IntentManagerUtils.thumbnailPhotoSide)
+                let infos = SentMessageIntentInfos(messageSent: messageSent)
                 let intent = IntentManagerUtils.getSendMessageIntentForMessageSent(infos: infos)
                 Task {
                     await IntentManagerUtils.makeDonation(discussionKind: messageSent.discussionKind,
@@ -107,7 +105,7 @@ extension IntentManager {
                 .compactMap({ $0 as? PersistedMessageReceived })
                 .compactMap({ try? $0.toStruct() })
             for messageReceived in newMessagesReceived {
-                let infos = ReceivedMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: nil)
+                let infos = ReceivedMessageIntentInfos(messageReceived: messageReceived)
                 let intent = Self.getSendMessageIntentForMessageReceived(infos: infos, showGroupName: true)
                 Task {
                     await IntentManagerUtils.makeDonation(discussionKind: messageReceived.discussionKind,
@@ -196,7 +194,7 @@ extension IntentManager: IntentDelegate {
                                                        showGroupName: Bool) -> INSendMessageIntent {
         var recipients = [infos.ownedINPerson]
         var speakableGroupName: INSpeakableString?
-        if let groupInfos = infos.groupInfos, showGroupName {
+        if let groupInfos = infos.groupInfos {
             speakableGroupName = groupInfos.speakableGroupName
             recipients += groupInfos.groupRecipients
         }
@@ -224,30 +222,26 @@ struct ReceivedMessageIntentInfos {
     var conversationIdentifier: String { discussionPermanentID.description }
     
     @available(iOS 14.0, *)
-    init(messageReceived: PersistedMessageReceived.Structure, urlForStoringPNGThumbnail: URL?) {
+    init(messageReceived: PersistedMessageReceived.Structure) {
         let contact = messageReceived.contact
         let discussionKind = messageReceived.discussionKind
-        self.init(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+        self.init(contact: contact, discussionKind: discussionKind)
     }
 
     @available(iOS 14.0, *)
-    init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind, urlForStoringPNGThumbnail: URL?) {
+    init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind) {
         self.discussionPermanentID = discussionKind.discussionPermanentID
         let ownedIdentity = contact.ownedIdentity
-        self.ownedINPerson = ownedIdentity.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                          thumbnailSide: IntentManagerUtils.thumbnailPhotoSide)
-        self.contactINPerson = contact.createINPerson(storingPNGPhotoThumbnailAtURL: urlForStoringPNGThumbnail,
-                                                      thumbnailSide: IntentManagerUtils.thumbnailPhotoSide)
+        self.ownedINPerson = ownedIdentity.createINPerson(withINImage: false)
         switch discussionKind {
         case .groupDiscussion(structure: let structure):
-            self.groupInfos = GroupInfos(groupDiscussion: structure,
-                                         urlForStoringPNGThumbnail: urlForStoringPNGThumbnail,
-                                         thumbnailPhotoSide: IntentManagerUtils.thumbnailPhotoSide)
+            self.contactINPerson = contact.createINPerson(withINImage: false)
+            self.groupInfos = GroupInfos(groupDiscussion: structure, withINImage: true)
         case .groupV2Discussion(structure: let structure):
-            self.groupInfos = GroupInfos(groupDiscussion: structure,
-                                         urlForStoringPNGThumbnail: urlForStoringPNGThumbnail,
-                                         thumbnailPhotoSide: IntentManagerUtils.thumbnailPhotoSide)
+            self.contactINPerson = contact.createINPerson(withINImage: false)
+            self.groupInfos = GroupInfos(groupDiscussion: structure, withINImage: true)
         case .oneToOneDiscussion:
+            self.contactINPerson = contact.createINPerson(withINImage: true)
             self.groupInfos = nil
         }
     }

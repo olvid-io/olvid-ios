@@ -36,14 +36,12 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
 
-    /// Keys are nonces, values are server session tokens
+    /// Keys are owned crypto identites, values are server session tokens
     private var cache = [ObvCryptoIdentity: ServerSessionCreationTask]()
-    
     private enum ServerSessionCreationTask {
         case inProgress(Task<(serverSessionToken: Data, apiKeyElements: APIKeyElements), Error>)
         case ready((serverSessionToken: Data, apiKeyElements: APIKeyElements))
     }
-    
     
     init(prng: PRNGService, logPrefix: String) {
         self.prng = prng
@@ -233,7 +231,7 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
                 }
                 
                 switch reasonForCancel {
-                case .unknownReason:
+                case .unknownReason, .op1HasUnfinishedDependency:
                     assertionFailure()
                     continuation.resume(throwing: ObvError.operationFailedWithoutSpecifyingReason)
                     return
@@ -290,7 +288,7 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
                 }
                 
                 switch reasonForCancel {
-                case .unknownReason:
+                case .unknownReason, .op1HasUnfinishedDependency:
                     assertionFailure()
                     continuation.resume(throwing: ObvError.operationFailedWithoutSpecifyingReason)
                     return
@@ -463,7 +461,7 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
                 }
                 
                 switch reasonForCancel {
-                case .unknownReason:
+                case .unknownReason, .op1HasUnfinishedDependency:
                     assertionFailure()
                     continuation.resume(throwing: ObvError.operationFailedWithoutSpecifyingReason)
                     return
@@ -518,7 +516,7 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
                 }
                 
                 switch reasonForCancel {
-                case .unknownReason:
+                case .unknownReason, .op1HasUnfinishedDependency:
                     assertionFailure()
                     continuation.resume(throwing: ObvError.operationFailedWithoutSpecifyingReason)
                     return

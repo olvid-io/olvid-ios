@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -124,7 +124,7 @@ struct DiscussionsView: View {
     
     private var subView: some View {
         if #available(iOSApplicationExtension 16.0, *) {
-            return AnyView(NewDiscussionsListView(ownedCryptoId: ownedCryptoId, discussionsViewModel: model))
+            return AnyView(NewDiscussionsListView(ownedCryptoId: ownedCryptoId, restrictToActiveDiscussions: true, discussionsViewModel: model))
         } else {
             return AnyView(DiscussionsListView(ownedCryptoId: ownedCryptoId, discussionsViewModel: model))
         }

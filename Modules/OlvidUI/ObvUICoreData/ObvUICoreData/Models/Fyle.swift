@@ -24,6 +24,7 @@ import ObvTypes
 import OlvidUtils
 import ObvCrypto
 import ObvSettings
+import UniformTypeIdentifiers
 
 
 @objc(Fyle)
@@ -42,6 +43,9 @@ public final class Fyle: NSManagedObject {
     @NSManaged private(set) var allDraftFyleJoins: Set<PersistedDraftFyleJoin>
     @NSManaged public private(set) var allFyleMessageJoinWithStatus: Set<FyleMessageJoinWithStatus>
 
+    
+    // MARK: - Transient URL - url to set if the fyle is not cached at the usual place (used mainly for previews generated on the fly)
+    var transientURL: URL?
     
     // MARK: - Initializer
 
@@ -130,8 +134,16 @@ extension Fyle {
         sha256.hexString()
     }
     
+    private var isAttachedToPreview: Bool {
+        !allFyleMessageJoinWithStatus.filter { $0.uti == UTType.olvidPreviewUti }.isEmpty
+    }
+    
     public var url: URL {
-        Fyle.getFileURL(lastPathComponent: filenameOnDisk)
+        if let transientURL {
+            return transientURL
+        } else {
+            return Fyle.getFileURL(lastPathComponent: filenameOnDisk)
+        }
     }
 
     public static func getFileURL(lastPathComponent: String) -> URL {

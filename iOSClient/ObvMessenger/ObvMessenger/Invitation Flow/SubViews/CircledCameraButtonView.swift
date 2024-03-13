@@ -148,7 +148,7 @@ struct CircledCameraButtonView: View {
                 if let pictureState {
                     ObvImageEditorViewControllerRepresentable(
                         originalImage: pictureState,
-                        showZoomButtons: false,
+                        showZoomButtons: ObvMessengerConstants.targetEnvironmentIsMacCatalyst,
                         maxReturnedImageSize: (1080, 1080))
                     { editedImage in
                         Task { await userAcceptedOrRejectedEditedImage(editedImage) }
@@ -161,7 +161,7 @@ struct CircledCameraButtonView: View {
         }
         .fileImporter(
             isPresented: $isFileImporterPresented,
-            allowedContentTypes: [.jpeg],
+            allowedContentTypes: [.jpeg, .png],
             allowsMultipleSelection: false) { result in
                 Task { await processFileImporterResult(result) }
             }

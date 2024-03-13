@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -42,12 +42,39 @@ extension FyleMessageJoinWithStatus {
     
     
     @MainActor
-    private static func updateTransientProgressAttributes(of joinObject: FyleMessageJoinWithStatus, using progressObject: ObvProgress) async {
+    fileprivate static func updateTransientProgressAttributes(of joinObject: FyleMessageJoinWithStatus, using progressObject: ObvProgress) async {
         assert(Thread.isMainThread)
         assert(joinObject.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType)
-        joinObject.fractionCompleted = progressObject.fractionCompleted
-        joinObject.estimatedTimeRemaining = progressObject.estimatedTimeRemaining ?? 0
-        joinObject.throughput = progressObject.throughput ?? 0
+        if let sentJoin = joinObject as? SentFyleMessageJoinWithStatus {
+            switch sentJoin.status {
+            case .uploadable, .complete, .downloadable, .cancelledByServer:
+                // No need to perform an update of the progress in this case
+                return
+            case .uploading, .downloading:
+                break
+            }
+        }
+        if let receivedJoin = joinObject as? ReceivedFyleMessageJoinWithStatus {
+            switch receivedJoin.status {
+            case .downloadable, .complete, .cancelledByServer:
+                // No need to perform an update of the progress in this case
+                return
+            case .downloading:
+                break
+            }
+        }
+        let newFractionCompleted = progressObject.fractionCompleted
+        if joinObject.fractionCompleted != newFractionCompleted {
+            joinObject.fractionCompleted = newFractionCompleted
+        }
+        let newEstimatedTimeRemaining = progressObject.estimatedTimeRemaining ?? 0
+        if joinObject.estimatedTimeRemaining != newEstimatedTimeRemaining {
+            joinObject.estimatedTimeRemaining = newEstimatedTimeRemaining
+        }
+        let newThroughput = progressObject.throughput ?? 0
+        if joinObject.throughput != newThroughput {
+            joinObject.throughput = newThroughput
+        }
     }
 
 
@@ -73,8 +100,10 @@ extension FyleMessageJoinWithStatus {
     /// This is used, in particular, when the download/upload of an attachment is stalled. In that case, we use this method to update the `ObvProgress` of the attachment, allowing to reflect the decrease of the throughput and the increase of the estimated remaining time.
     @MainActor
     static func refreshAllProgresses() async {
+        let registeredFyleMessageJoinWithStatus = Set(ObvStack.shared.viewContext.registeredObjects
+            .compactMap({ $0 as? FyleMessageJoinWithStatus }))
         for (joinObjectID, progressObject) in progressForJoinWithObjectID {
-            guard let joinObject = ObvStack.shared.viewContext.registeredObjects.first(where: { $0.objectID == joinObjectID.objectID }) as? FyleMessageJoinWithStatus else { continue }
+            guard let joinObject = registeredFyleMessageJoinWithStatus.first(where: { $0.objectID == joinObjectID.objectID }) else { continue }
             await progressObject.refreshThroughputAndEstimatedTimeRemaining()
             await updateTransientProgressAttributes(of: joinObject, using: progressObject)
         }

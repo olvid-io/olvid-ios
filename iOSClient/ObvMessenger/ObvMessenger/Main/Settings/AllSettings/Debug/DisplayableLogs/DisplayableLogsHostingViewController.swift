@@ -18,7 +18,7 @@
  */
 
 import SwiftUI
-
+import OlvidUtils
 
 
 final class DisplayableLogsHostingViewController: UIHostingController<DisplayableLogsListView>, DisplayableLogsViewStoreDelegate {

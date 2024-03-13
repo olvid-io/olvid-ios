@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.1 (757)] - 2024-03-11
+
+### macOS
+
+- Behold, adventurers of the digital realm! We present to you a long-awaited treasure: Secure video calls now grace the lands of macOS!
+- Our call view has undergone a dramatic makeover to accommodate these splendid video calls. Prepare to be dazzled!
+- Seeking wisdom within the scrolls of conversation? Fear not! You can now wield the power of search across all messages in a discussion.
+- Behold the mighty keyboard shortcuts, wielder of efficiency! With the almighty Cmd+F, you can summon the search within discussions, while Cmd+G guides you to the next hidden gem.
+- The legendary Cmd+Home now serves as the vanquisher of stacked discussions. Press it, and watch them scatter like leaves in the wind!
+- Time marches on, but fear not, weary travelers! Under each message, you shall find not only the date but also the day of the week (if it be older than a day). Let not the sands of time obscure your path!
+- Update your journey and bask in the glory of these newfound features! Adventure awaits!
+- We also fixed a few bugs ;-)
+
+### iOS
+
+- Behold, adventurers of the digital realm! We present to you a long-awaited treasure: Secure video calls now grace the lands of iOS and iPadOS!
+- Our call view has undergone a dramatic makeover to accommodate these splendid video calls. Prepare to be dazzled!
+- Seeking wisdom within the scrolls of conversation? Fear not! You can now wield the power of search across all messages in a discussion.
+- Behold the mighty keyboard shortcuts, wielder of efficiency! With the almighty Cmd+F, you can summon the search within discussions, while Cmd+G guides you to the next hidden gem.
+- The legendary Cmd+Home now serves as the vanquisher of stacked discussions. Press it, and watch them scatter like leaves in the wind!
+- Time marches on, but fear not, weary travelers! Under each message, you shall find not only the date but also the day of the week (if it be older than a day). Let not the sands of time obscure your path!
+- Update your journey and bask in the glory of these newfound features! Adventure awaits!
+- We also fixed a few bugs ;-)
+
 ## [1.3.1 (719)] - 2023-12-11
 
 - Bugfix release

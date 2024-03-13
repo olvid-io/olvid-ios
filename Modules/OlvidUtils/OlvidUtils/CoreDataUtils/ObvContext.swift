@@ -21,8 +21,10 @@ import Foundation
 import CoreData
 import os.log
 
-public final class ObvContext: Hashable {
+public final class ObvContext: Hashable, CustomDebugStringConvertible {
     
+    private static let log = OSLog(subsystem: "io.olvid", category: "ObvContext")
+
     public let context: NSManagedObjectContext
     public let flowId: FlowIdentifier
     private var token: NSObjectProtocol?
@@ -32,6 +34,11 @@ public final class ObvContext: Hashable {
     private let file: StaticString
     private let line: Int
     private let function: StaticString
+    private let timestamp = Date.timeIntervalSinceReferenceDate
+    
+    public var debugDescription: String {
+        return "ObvContext<\(self.context.description)|\(timestamp)|\(file)|\(line)|\(function)>"
+    }
 
     // We distinguish two types of completion handlers:
     // - contextWillSaveCompletionHandlers are called when saving the context, just before the save() method is called

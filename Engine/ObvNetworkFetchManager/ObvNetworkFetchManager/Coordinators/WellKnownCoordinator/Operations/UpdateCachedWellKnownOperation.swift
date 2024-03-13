@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,134 +18,90 @@
  */
 
 import Foundation
+import CoreData
 import OlvidUtils
 import ObvMetaManager
 import ObvTypes
 import os.log
 
-protocol UpdateCachedWellKnownOperationDelegate: AnyObject {
-    func newWellKnownWasCached(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
-    func cachedWellKnownWasUpdated(server: URL, newWellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
-    func currentCachedWellKnownCorrespondToThatOnServer(server: URL, wellKnownJSON: WellKnownJSON, flowId: FlowIdentifier)
-}
 
-final class UpdateCachedWellKnownOperation: OperationWithSpecificReasonForCancel<UpdateCachedWellKnownOperationReasonForCancel> {
+final class UpdateCachedWellKnownOperation: ContextualOperationWithSpecificReasonForCancel<UpdateCachedWellKnownOperation.ReasonForCancel> {
+    
+    private let server: URL
+    private let newWellKnownData: Data
+    private let flowId: FlowIdentifier
 
-    let newWellKnownData: Data
-    let server: URL
-    let flowId: FlowIdentifier
-    let log: OSLog
-    weak var contextCreator: ObvCreateContextDelegate?
-    weak var delegate: UpdateCachedWellKnownOperationDelegate?
-
-    init(newWellKnownData: Data, server: URL, log: OSLog, flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, delegate: UpdateCachedWellKnownOperationDelegate) {
-        self.newWellKnownData = newWellKnownData
+    
+    init(server: URL, newWellKnownData: Data, flowId: FlowIdentifier) {
         self.server = server
-        self.contextCreator = contextCreator
-        self.delegate = delegate
+        self.newWellKnownData = newWellKnownData
         self.flowId = flowId
-        self.log = log
         super.init()
     }
     
-    override func main() {
+    private(set) var cachedWellKnownJSON: (json: WellKnownJSON, isUpdated: Bool)?
+    
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        guard let contextCreator = self.contextCreator, let delegate = self.delegate else {
-            assertionFailure()
-            return cancel(withReason: .delegateIsNotSet)
-        }
-        
-        let flowId = self.flowId
-        let server = self.server
-        let log = self.log
-        
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
-
+        do {
+            
             var isUpdated = false
 
-            let _newWellKnownJSON: WellKnownJSON?
-            if let currentWellKnown = try? CachedWellKnown.getCachedWellKnown(for: server, within: obvContext) {
+            let newWellKnownJSON: WellKnownJSON?
+            if let currentWellKnown = try CachedWellKnown.getCachedWellKnown(for: server, within: obvContext) {
                 if newWellKnownData == currentWellKnown.wellKnownData {
-                    // Nothing to do
                     if let wellKnownJSON = currentWellKnown.wellKnownJSON {
-                        delegate.currentCachedWellKnownCorrespondToThatOnServer(server: server, wellKnownJSON: wellKnownJSON, flowId: flowId)
+                        self.cachedWellKnownJSON = (wellKnownJSON, false)
+                        // Nothing left to do
+                        return
                     } else {
                         assertionFailure()
+                        currentWellKnown.update(with: newWellKnownData)
+                        isUpdated = true
                     }
-                    return
                 } else {
                     currentWellKnown.update(with: newWellKnownData)
                     isUpdated = true
                 }
-                _newWellKnownJSON = currentWellKnown.wellKnownJSON
+                newWellKnownJSON = currentWellKnown.wellKnownJSON
             } else {
                 guard let cachedWellKnown = CachedWellKnown(serverURL: server, wellKnownData: newWellKnownData, downloadTimestamp: Date(), within: obvContext) else {
                     return cancel(withReason: .couldNotCreateCachedWellKnownObject)
                 }
-                _newWellKnownJSON = cachedWellKnown.wellKnownJSON
+                newWellKnownJSON = cachedWellKnown.wellKnownJSON
             }
 
-            guard let newWellKnownJSON = _newWellKnownJSON else {
+            guard let newWellKnownJSON else {
                 return
             }
             
-            try? obvContext.addContextDidSaveCompletionHandler { error in
-                guard error == nil else { return }
-
-                // This will trigger a `wellKnownHasBeenDownloaded` notification. On Android, this notification is not sent when `wellKnownHasBeenUpdated` is sent. But we agreed with Matthieu that this is better ;-)
-                delegate.newWellKnownWasCached(server: server, newWellKnownJSON: newWellKnownJSON, flowId: flowId)
-
-                if isUpdated {
-                    delegate.cachedWellKnownWasUpdated(server: server, newWellKnownJSON: newWellKnownJSON, flowId: flowId)
-                }
-            }
-
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch {
-                os_log("Could not save context", log: log, type: .error)
-                return
-            }
-
+            self.cachedWellKnownJSON = (newWellKnownJSON, isUpdated)
             
+        } catch {
+            return cancel(withReason: .coreDataError(error: error))
         }
         
-
     }
     
     
-}
+    enum ReasonForCancel: LocalizedErrorWithLogType {
+        
+        case coreDataError(error: Error)
+        case couldNotCreateCachedWellKnownObject
 
-
-public enum UpdateCachedWellKnownOperationReasonForCancel: LocalizedErrorWithLogType {
-    
-    case coreDataError(error: Error)
-    case delegateIsNotSet
-    case couldNotCreateCachedWellKnownObject
-    case couldNotDecodeNewWellKnown
-
-    public var logType: OSLogType {
-        switch self {
-        case .coreDataError,
-             .delegateIsNotSet,
-             .couldNotDecodeNewWellKnown:
+        public var logType: OSLogType {
             return .fault
-        case .couldNotCreateCachedWellKnownObject:
-            return .error
         }
-    }
 
-    public var errorDescription: String? {
-        switch self {
-        case .coreDataError(error: let error):
-            return "Core Data error: \(error.localizedDescription)"
-        case .delegateIsNotSet:
-            return "Delegate is not set"
-        case .couldNotCreateCachedWellKnownObject:
-            return "Could not create CachedWellKnown object"
-        case .couldNotDecodeNewWellKnown:
-            return "Could not decode new well known"
+        public var errorDescription: String? {
+            switch self {
+            case .coreDataError(error: let error):
+                return "Core Data error: \(error.localizedDescription)"
+            case .couldNotCreateCachedWellKnownObject:
+                return "Could not create CachedWellKnown object"
+            }
         }
+
     }
 
 }

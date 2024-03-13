@@ -465,15 +465,6 @@ extension ContactGroupOwned {
             return
         }
 
-        if isInserted {
-            
-            let NotificationType = ObvIdentityNotification.NewContactGroupOwned.self
-            let userInfo = [NotificationType.Key.groupUid: self.groupUid,
-                            NotificationType.Key.ownedIdentity: self.ownedIdentity.cryptoIdentity] as [String: Any]
-            delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-            
-        }
-        
         if notificationRelatedChanges.contains(.updatedLatestDetails) {
             
             let NotificationType = ObvIdentityNotification.ContactGroupOwnedHasUpdatedLatestDetails.self

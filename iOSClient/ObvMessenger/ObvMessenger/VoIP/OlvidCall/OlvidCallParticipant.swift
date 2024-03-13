@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,6 +39,9 @@ protocol OlvidCallParticipantDelegate: AnyObject {
     func relay(from: ObvCryptoId, to: ObvCryptoId, messageType: WebRTCMessageJSON.MessageType, messagePayload: String) async
     func receivedRelayedMessage(from: ObvCryptoId, messageType: WebRTCMessageJSON.MessageType, messagePayload: String) async
     func receivedHangedUpMessage(from callParticipant: OlvidCallParticipant, messagePayload: String) async
+    
+    func localVideoTrackWasAdded(for callParticipant: OlvidCallParticipant, videoTrack: RTCVideoTrack) async
+    func reevalutateScreenDimming() async
 
     func sendStartCallMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription, turnCredentials: TurnCredentials) async throws
     func sendAnswerCallMessage(to callParticipant: OlvidCallParticipant, sessionDescription: RTCSessionDescription) async throws
@@ -59,39 +62,48 @@ final class OlvidCallParticipant: ObservableObject {
     private let peerConnectionHolder: OlvidCallParticipantPeerConnectionHolder
     let cryptoId: ObvCryptoId
     let displayName: String
+    let isOneToOne: Bool
     @Published private(set) var state = State.initial
-    private var connectingTimeoutTimer: Timer?
     private static let connectingTimeoutInterval: TimeInterval = 15.0 // 15 seconds
     private var turnCredentials: TurnCredentials?
     let shouldISendTheOfferToCallParticipant: Bool
     @Published private(set) var contactIsMuted = false
 
+    private(set) var supportsVideo = false // Set to true if we receive a VideoSupportedJSON from this participant on the data channel
+    @Published private(set) var remoteCameraVideoTrackIsEnabled = false
+    @Published private(set) var remoteScreenCastVideoTrackIsEnabled = false
+    @Published private(set) var remoteCameraVideoTrack: RTCVideoTrack?
+    @Published private(set) var remoteScreenCastVideoTrack: RTCVideoTrack?
+
     private weak var delegate: OlvidCallParticipantDelegate?
 
 
-    private init(kind: Kind, peerConnectionHolder: OlvidCallParticipantPeerConnectionHolder, cryptoId: ObvCryptoId, displayName: String, shouldISendTheOfferToCallParticipant: Bool) {
+    private init(kind: Kind, peerConnectionHolder: OlvidCallParticipantPeerConnectionHolder, cryptoId: ObvCryptoId, displayName: String, isOneToOne: Bool, shouldISendTheOfferToCallParticipant: Bool) {
         self.kind = kind
         self.peerConnectionHolder = peerConnectionHolder
         self.cryptoId = cryptoId
         self.displayName = displayName
         self.shouldISendTheOfferToCallParticipant = shouldISendTheOfferToCallParticipant
+        self.isOneToOne = isOneToOne
     }
     
 
     @MainActor
-    static func createCallerOfIncomingCall(callerId: ObvContactIdentifier, startCallMessage: StartCallMessageJSON, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue) async throws -> OlvidCallParticipant {
+    static func createCallerOfIncomingCall(callerId: ObvContactIdentifier, startCallMessage: StartCallMessageJSON, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory) async throws -> OlvidCallParticipant {
         guard let persistedContact = try PersistedObvContactIdentity.get(persisted: callerId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) else {
             throw ObvError.couldNotFindContact
         }
         let peerConnectionHolder = OlvidCallParticipantPeerConnectionHolder(
             startCallMessage: startCallMessage,
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant,
-            rtcPeerConnectionQueue: rtcPeerConnectionQueue)
+            rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+            factory: factory)
         let caller = OlvidCallParticipant(
             kind: .callerOfIncomingCall(contactObjectID: persistedContact.typedObjectID),
             peerConnectionHolder: peerConnectionHolder,
             cryptoId: persistedContact.cryptoId, 
-            displayName: persistedContact.customOrNormalDisplayName, 
+            displayName: persistedContact.customOrNormalDisplayName,
+            isOneToOne: persistedContact.isOneToOne,
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant)
         return caller
     }
@@ -99,7 +111,7 @@ final class OlvidCallParticipant: ObservableObject {
     
     /// After calling this method, we should immediately call ``setDelegate(to:)``.
     @MainActor
-    static func createCalleeOfOutgoingCall(calleeId: ObvContactIdentifier, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue) async throws -> OlvidCallParticipant {
+    static func createCalleeOfOutgoingCall(calleeId: ObvContactIdentifier, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory) async throws -> OlvidCallParticipant {
         guard let persistedContact = try PersistedObvContactIdentity.get(persisted: calleeId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) else {
             throw ObvError.couldNotFindContact
         }
@@ -107,12 +119,14 @@ final class OlvidCallParticipant: ObservableObject {
         let peerConnectionHolder = OlvidCallParticipantPeerConnectionHolder(
             gatheringPolicy: gatheringPolicy,
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant,
-            rtcPeerConnectionQueue: rtcPeerConnectionQueue)
+            rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+            factory: factory)
         let callee = OlvidCallParticipant(
             kind: .calleeOfOutgoingCall(contactObjectID: persistedContact.typedObjectID),
             peerConnectionHolder: peerConnectionHolder,
             cryptoId: persistedContact.cryptoId, 
             displayName: persistedContact.customOrNormalDisplayName, 
+            isOneToOne: persistedContact.isOneToOne,
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant)
         await callee.peerConnectionHolder.setDelegate(to: callee)
         return callee
@@ -120,25 +134,30 @@ final class OlvidCallParticipant: ObservableObject {
     
     
     @MainActor
-    static func createOtherParticipantOfIncomingCall(ownedCryptoId: ObvCryptoId, remoteCryptoId: ObvCryptoId, gatheringPolicy: OlvidCallGatheringPolicy, displayName: String, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue) async throws -> OlvidCallParticipant {
+    static func createOtherParticipantOfIncomingCall(ownedCryptoId: ObvCryptoId, remoteCryptoId: ObvCryptoId, gatheringPolicy: OlvidCallGatheringPolicy, displayName: String, shouldISendTheOfferToCallParticipant: Bool, rtcPeerConnectionQueue: OperationQueue, factory: ObvPeerConnectionFactory) async throws -> OlvidCallParticipant {
         let knownOrUnknown: KnownOrUnknown
         let usedDisplayName: String
+        let isOneToOne: Bool
         if let persistedContact = try PersistedObvContactIdentity.get(contactCryptoId: remoteCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
             knownOrUnknown = .known(contactObjectID: persistedContact.typedObjectID)
             usedDisplayName = persistedContact.customOrNormalDisplayName
+            isOneToOne = persistedContact.isOneToOne
         } else {
             knownOrUnknown = .unknown(remoteCryptoId: remoteCryptoId)
             usedDisplayName = displayName
+            isOneToOne = false
         }
         let peerConnectionHolder = OlvidCallParticipantPeerConnectionHolder(
             gatheringPolicy: gatheringPolicy,
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant,
-            rtcPeerConnectionQueue: rtcPeerConnectionQueue)
+            rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+            factory: factory)
         let otherParticipant = OlvidCallParticipant(
             kind: .otherParticipantOfIncomingCall(knownOrUnknown: knownOrUnknown),
             peerConnectionHolder: peerConnectionHolder,
             cryptoId: remoteCryptoId,
             displayName: usedDisplayName, 
+            isOneToOne: isOneToOne,
             shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant)
         await peerConnectionHolder.setDelegate(to: otherParticipant)
         return otherParticipant
@@ -148,6 +167,46 @@ final class OlvidCallParticipant: ObservableObject {
     @MainActor
     func setDelegate(to delegate: OlvidCallParticipantDelegate) async {
         self.delegate = delegate
+    }
+
+    
+    func userWantsToChatWithThisParticipant(ownedCryptoId: ObvCryptoId) async throws {
+        
+        let contactCryptoId = self.cryptoId
+        
+        ObvStack.shared.performBackgroundTask { context in
+            do {
+                guard let contact = try PersistedObvContactIdentity.get(contactCryptoId: contactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .oneToOne, within: context),
+                      let oneToOneDiscussion = contact.oneToOneDiscussion else { return }
+                let discussionPermanentID = oneToOneDiscussion.discussionPermanentID
+                let deepLink = ObvDeepLink.singleDiscussion(ownedCryptoId: ownedCryptoId, objectPermanentID: discussionPermanentID)
+                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                    .postOnDispatchQueue()
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        }
+        
+    }
+    
+}
+
+// MARK: - Video
+
+extension OlvidCallParticipant {
+    
+    func setLocalVideoTrack(isEnabled: Bool) async throws {
+        
+        guard self.supportsVideo else { return }
+        
+        os_log("☎️🎥 Will set isEnable=%{public}@ for a video track", log: Self.log, type: .info, isEnabled.description)
+
+        try await peerConnectionHolder.setLocalVideoTrack(isEnabled: isEnabled)
+
+        os_log("☎️🎥 Will send a VideoCameraEnabledJSON", log: Self.log, type: .info, isEnabled.description)
+
+        await sendVideoEnabledJSON(isEnabled: isEnabled, forScreenCast: false)
+        
     }
 
 }
@@ -228,6 +287,23 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
                 // So we don't process the this message here, and report to our delegate
                 let messagePayload = message.serializedMessage
                 await delegate?.receivedHangedUpMessage(from: self, messagePayload: messagePayload)
+                
+            case .videoSupported:
+                let videoSupportedMessage = try VideoSupportedJSON.jsonDecode(serializedMessage: message.serializedMessage)
+                os_log("☎️ videoSupported received on data channel", log: Self.log, type: .info)
+                try await processVideoSupportedJSON(message: videoSupportedMessage)
+                
+            case .videoCameraEnabled:
+                let videoCameraEnabledMessage = try VideoCameraEnabledJSON.jsonDecode(serializedMessage: message.serializedMessage)
+                os_log("☎️ videoCameraEnabledMessage received on data channel", log: Self.log, type: .info)
+                self.remoteCameraVideoTrackIsEnabled = videoCameraEnabledMessage.isVideoCameraEnabled
+                await delegate?.reevalutateScreenDimming()
+
+            case .videoScreencastEnabled:
+                let videoScreencastEnabledMessage = try VideoScreencastEnabledJSON.jsonDecode(serializedMessage: message.serializedMessage)
+                os_log("☎️ videoScreencastEnabledMessage received on data channel", log: Self.log, type: .info)
+                self.remoteScreenCastVideoTrackIsEnabled = videoScreencastEnabledMessage.isVideoScreencastEnabled
+                await delegate?.reevalutateScreenDimming()
 
             }
         } catch {
@@ -279,7 +355,16 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
         }
         try await delegate?.updateParticipants(with: message.callParticipants)
     }
-
+    
+    
+    private func processVideoSupportedJSON(message: VideoSupportedJSON) async throws {
+        guard supportsVideo != message.isVideoSupported else { return }
+        supportsVideo = message.isVideoSupported
+        if supportsVideo && shouldISendTheOfferToCallParticipant {
+            try await peerConnectionHolder.createAndAddLocalVideoAndScreencastTracks()
+        }
+    }
+    
     
     /// Dispatching on the main actor as we are setting a published variable, used at the UI level
     @MainActor
@@ -296,6 +381,7 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
         case .open:
             await delegate?.dataChannelIsOpened(for: self)
             await sendMutedMessageJSON()
+            await sendVideoSupportedMessageJSON()
         case .connecting, .closing, .closed:
             break
         @unknown default:
@@ -304,19 +390,61 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
     }
     
     
-    func sendMutedMessageJSON() async {
+    func sendVideoSupportedMessageJSON() async {
         let message: WebRTCDataChannelMessageJSON
         do {
-            message = try await MutedMessageJSON(muted: selfIsMuted).embedInWebRTCDataChannelMessageJSON()
+            message = try VideoSupportedJSON(isVideoSupported: true).embedInWebRTCDataChannelMessageJSON()
         } catch {
-            os_log("☎️ Could not send MutedMessageJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            os_log("☎️ Could not create VideoSupportedJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             assertionFailure()
             return
         }
         do {
             try await peerConnectionHolder.sendDataChannelMessage(message)
         } catch {
-            os_log("☎️ Could not send data channel message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            os_log("☎️ Could not send WebRTCDataChannelMessageJSON data channel message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            return
+        }
+    }
+    
+    
+    /// This message is sent to the participant when the local user activates her local video stream (screencast or camera). Thanks to this information, the participant will decide to activate a remote video track.
+    func sendVideoEnabledJSON(isEnabled: Bool, forScreenCast: Bool) async {
+        assert(!forScreenCast, "At this time, this implementation does not support sending a screencast")
+        let message: WebRTCDataChannelMessageJSON
+        do {
+            if forScreenCast {
+                message = try VideoScreencastEnabledJSON(isVideoScreencastEnabled: isEnabled).embedInWebRTCDataChannelMessageJSON()
+            } else {
+                message = try VideoCameraEnabledJSON(isVideoCameraEnabled: isEnabled).embedInWebRTCDataChannelMessageJSON()
+            }
+        } catch {
+            os_log("☎️ Could not create WebRTCDataChannelMessageJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return
+        }
+        do {
+            try await peerConnectionHolder.sendDataChannelMessage(message)
+        } catch {
+            os_log("☎️ Could not send WebRTCDataChannelMessageJSON data channel message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            return
+        }
+    }
+
+    
+    func sendMutedMessageJSON() async {
+        let message: WebRTCDataChannelMessageJSON
+        do {
+            message = try await MutedMessageJSON(muted: selfIsMuted).embedInWebRTCDataChannelMessageJSON()
+        } catch {
+            os_log("☎️ Could not create MutedMessageJSON: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+            assertionFailure()
+            return
+        }
+        do {
+            try await peerConnectionHolder.sendDataChannelMessage(message)
+        } catch {
+            os_log("☎️ Could not send WebRTCDataChannelMessageJSON data channel message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             return
         }
     }
@@ -349,7 +477,6 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
         do {
             switch self.state {
             case .initial:
-                os_log("☎️ Sending peer the following SDP: %{public}@", log: Self.log, type: .info, sessionDescription.sdp)
                 if isCallOutgoing {
                     guard let turnCredentials else { assertionFailure(); throw ObvError.turnCredentialsRequired }
                     try await delegate.sendStartCallMessage(to: self, sessionDescription: sessionDescription, turnCredentials: turnCredentials)
@@ -369,7 +496,7 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
                     }
                 }
             case .connected, .reconnecting:
-                os_log("☎️ Sending peer the following restart SDP: %{public}@", log: Self.log, type: .info, sessionDescription.sdp)
+                os_log("☎️ Sending peer a restart SDP", log: Self.log, type: .info)
                 try await delegate.sendReconnectCallMessage(to: self, sessionDescription: sessionDescription, reconnectCounter: reconnectCounter, peerReconnectCounterToOverride: peerReconnectCounterToOverride)
             case .startCallMessageSent, .ringing, .busy, .callRejected, .connectingToPeer, .hangedUp, .kicked, .failed, .connectionTimeout:
                 os_log("☎️ Not sending peer the restart SDP as we are in state %{public}@", log: Self.log, type: .info, self.state.debugDescription)
@@ -382,7 +509,31 @@ extension OlvidCallParticipant: OlvidCallParticipantPeerConnectionHolderDelegate
         }
 
     }
-
+    
+    
+    @MainActor
+    func peerConnectionHolder(_ peerConnectionHolder: OlvidCallParticipantPeerConnectionHolder, didAdd rtpReceiver: RTCRtpReceiver, streams mediaStreams: [RTCMediaStream]) async {
+        
+        guard let newRemoteVideoTrack = rtpReceiver.track as? RTCVideoTrack else {
+            return
+        }
+        
+        if mediaStreams.contains(where: { $0.streamId == ObvMessengerConstants.StreamId.video }) {
+            self.remoteCameraVideoTrack = newRemoteVideoTrack
+        } else if mediaStreams.contains(where: { $0.streamId == ObvMessengerConstants.StreamId.screencast }) {
+            self.remoteScreenCastVideoTrack = newRemoteVideoTrack
+        } else {
+            assertionFailure()
+        }
+        
+    }
+    
+    
+    func peerConnectionHolder(_ peerConnectionHolder: OlvidCallParticipantPeerConnectionHolder, didAddLocalVideoTrack videoTrack: RTCVideoTrack) async {
+        assert(self.supportsVideo, "We shouldn't have added a local video track since this participant does not appear to support video calls")
+        Task { await delegate?.localVideoTrackWasAdded(for: self, videoTrack: videoTrack) }
+    }
+    
 }
 
 
@@ -554,42 +705,6 @@ extension OlvidCallParticipant {
 }
 
 
-// MARK: - Timers
-
-extension OlvidCallParticipant {
-    
-    private func scheduleConnectingTimeout() {
-        invalidateConnectingTimeout()
-        os_log("☎️ Schedule connecting timeout timer", log: Self.log, type: .info)
-        let nextConnectingTimeoutInterval = Self.connectingTimeoutInterval * Double.random(in: 1.0..<1.3) // Approx. between 15 and 20 seconds
-        let timer = Timer.init(timeInterval: nextConnectingTimeoutInterval, repeats: false) { timer in
-            guard timer.isValid else { return }
-            Task { [weak self] in await self?.connectingTimeoutTimerFired() }
-        }
-        self.connectingTimeoutTimer = timer
-        RunLoop.main.add(timer, forMode: .default)
-    }
-
-    
-    private func invalidateConnectingTimeout() {
-        guard let timer = self.connectingTimeoutTimer else { return }
-        os_log("☎️ Invalidating connecting timeout timer", log: Self.log, type: .info)
-        timer.invalidate()
-        self.connectingTimeoutTimer = nil
-    }
-
-    
-    @MainActor
-    private func connectingTimeoutTimerFired() async {
-        guard [State.connectingToPeer, .connected, .reconnecting].contains(self.state) else { return }
-        os_log("☎️ Reconnection timer fired -> trying to reconnect after connection loss", log: Self.log, type: .info)
-        setPeerState(to: .connectionTimeout)
-        setPeerState(to: .reconnecting)
-    }
-
-}
-
-
 // MARK: - Peer connection
 
 extension OlvidCallParticipant {
@@ -645,29 +760,6 @@ extension OlvidCallParticipant {
         
         os_log("☎️ WebRTCCall participant will change state: %{public}@ --> %{public}@", log: Self.log, type: .info, self.state.debugDescription, newState.debugDescription)
         self.state = newState
-        
-        invalidateConnectingTimeout()
-
-        switch self.state {
-        case .startCallMessageSent:
-            break
-        case .ringing:
-            break
-        case .connectingToPeer:
-            scheduleConnectingTimeout()
-        case .reconnecting:
-            scheduleConnectingTimeout()
-            Task { [weak self] in
-                guard let self else { return }
-                try await peerConnectionHolder.restartIce(shouldISendTheOfferToCallParticipant: shouldISendTheOfferToCallParticipant)
-            }
-        case .connectionTimeout:
-            break
-        case .connected:
-            break
-        case .busy, .callRejected, .hangedUp, .kicked, .failed, .initial:
-            break
-        }
         
         if self.state.isFinalState {
             Task {

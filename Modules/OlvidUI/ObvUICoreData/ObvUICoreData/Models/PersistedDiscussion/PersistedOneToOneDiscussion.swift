@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -77,7 +77,7 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
 
     // MARK: - Initializer
     
-    private convenience init(contactIdentity: PersistedObvContactIdentity, status: Status) throws {
+    private convenience init(contactIdentity: PersistedObvContactIdentity, status: Status, isRestoringSyncSnapshotOrBackup: Bool) throws {
         guard let ownedIdentity = contactIdentity.ownedIdentity else {
             os_log("Could not find owned identity. This is ok if it was just deleted.", log: PersistedOneToOneDiscussion.log, type: .error)
             throw Self.makeError(message: "Could not find owned identity. This is ok if it was just deleted.")
@@ -86,7 +86,8 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
                       ownedIdentity: ownedIdentity,
                       forEntityName: PersistedOneToOneDiscussion.entityName,
                       status: status,
-                      shouldApplySharedConfigurationFromGlobalSettings: true)
+                      shouldApplySharedConfigurationFromGlobalSettings: true,
+                      isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
 
         self.contactIdentity = contactIdentity
 
@@ -95,8 +96,8 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
     }
     
     
-    static func createPersistedOneToOneDiscussion(for contactIdentity: PersistedObvContactIdentity, status: Status) throws -> PersistedOneToOneDiscussion  {
-        let oneToOneDiscussion = try self.init(contactIdentity: contactIdentity, status: status)
+    static func createPersistedOneToOneDiscussion(for contactIdentity: PersistedObvContactIdentity, status: Status, isRestoringSyncSnapshotOrBackup: Bool) throws -> PersistedOneToOneDiscussion  {
+        let oneToOneDiscussion = try self.init(contactIdentity: contactIdentity, status: status, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
         return oneToOneDiscussion
     }
     
@@ -272,7 +273,7 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
     
     // MARK: - Receiving messages and attachments from a contact or another owned device
 
-    override func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, attachmentFullyReceivedOrCancelledByServer: [ObvAttachment]) {
+    override func createOrOverridePersistedMessageReceived(from contact: PersistedObvContactIdentity, obvMessage: ObvMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, overridePreviousPersistedMessage: Bool) throws -> (discussionPermanentID: DiscussionPermanentID, messagePermanentId: MessageReceivedPermanentID?) {
         
         guard self.contactIdentity == contact else {
             throw ObvError.unexpectedContact
@@ -288,21 +289,17 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
     }
     
     
-    override func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> [ObvOwnedAttachment] {
+    override func createPersistedMessageSentFromOtherOwnedDevice(from ownedIdentity: PersistedObvOwnedIdentity, obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) throws -> MessageSentPermanentID? {
         
         guard self.ownedIdentity == ownedIdentity else {
             throw ObvError.unexpectedContact
         }
 
-        let attachmentFullyReceivedOrCancelledByServer = try super.createPersistedMessageSentFromOtherOwnedDevice(
+        return try super.createPersistedMessageSentFromOtherOwnedDevice(
             from: ownedIdentity,
             obvOwnedMessage: obvOwnedMessage,
             messageJSON: messageJSON,
             returnReceiptJSON: returnReceiptJSON)
-        
-        return attachmentFullyReceivedOrCancelledByServer
-
-        
     }
     
     

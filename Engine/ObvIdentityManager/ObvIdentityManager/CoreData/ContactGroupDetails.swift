@@ -99,14 +99,13 @@ class ContactGroupDetails: NSManagedObject, ObvManagedObject {
 extension ContactGroupDetails {
     
     convenience init(groupDetailsElementsWithPhoto: GroupDetailsElementsWithPhoto, delegateManager: ObvIdentityDelegateManager, forEntityName entityName: String, within obvContext: ObvContext) throws {
-        guard let notificationDelegate = delegateManager.notificationDelegate else { throw ContactGroupDetails.makeError(message: "The notification delegate is not set") }
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
         self.photoServerKeyAndLabel = groupDetailsElementsWithPhoto.photoServerKeyAndLabel
         try setGroupPhoto(with: groupDetailsElementsWithPhoto.photoURL, delegateManager: delegateManager)
         self.serializedCoreDetails = try groupDetailsElementsWithPhoto.coreDetails.jsonEncode()
         self.version = groupDetailsElementsWithPhoto.version
-        try notifyThatThePhotoURLDidChange(within: obvContext, notificationDelegate: notificationDelegate)
+        try notifyThatThePhotoURLDidChange(within: obvContext, delegateManager: delegateManager)
     }
 
     
@@ -166,7 +165,6 @@ extension ContactGroupDetails {
 
     func setGroupPhoto(with newPhotoURL: URL?, delegateManager: ObvIdentityDelegateManager) throws {
         
-        guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); throw makeError(message: "The notification delegate is not set") }
         let currentPhotoURL = getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) // Can be nil
         
         guard currentPhotoURL != newPhotoURL else { return }
@@ -204,33 +202,33 @@ extension ContactGroupDetails {
 
         // Notify of the change
         guard let obvContext = self.obvContext else { assertionFailure(); return }
-        try notifyThatThePhotoURLDidChange(within: obvContext, notificationDelegate: notificationDelegate)
+        try notifyThatThePhotoURLDidChange(within: obvContext, delegateManager: delegateManager)
     }
     
     
-    private func notifyThatThePhotoURLDidChange(within obvContext: ObvContext, notificationDelegate: ObvNotificationDelegate) throws {
+    private func notifyThatThePhotoURLDidChange(within obvContext: ObvContext, delegateManager: ObvIdentityDelegateManager) throws {
         
         try obvContext.addContextDidSaveCompletionHandler { error in
             guard error == nil else { return }
             if let latestDetails = self as? ContactGroupDetailsLatest {
                 ObvIdentityNotificationNew.latestPhotoOfContactGroupOwnedHasBeenUpdated(groupUid: latestDetails.contactGroupOwned.groupUid,
                                                                                         ownedIdentity: latestDetails.contactGroupOwned.ownedIdentity.cryptoIdentity)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             } else if let trustedDetails = self as? ContactGroupDetailsTrusted, let groupOwner = trustedDetails.contactGroupJoined.groupOwner.cryptoIdentity {
                 ObvIdentityNotificationNew.trustedPhotoOfContactGroupJoinedHasBeenUpdated(groupUid: trustedDetails.contactGroupJoined.groupUid,
                                                                                           ownedIdentity: trustedDetails.contactGroupJoined.ownedIdentity.cryptoIdentity,
                                                                                           groupOwner: groupOwner)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             } else if let publishedDetails = self as? ContactGroupDetailsPublished {
                 if let ownedGroup = publishedDetails.contactGroup as? ContactGroupOwned {
                     ObvIdentityNotificationNew.publishedPhotoOfContactGroupOwnedHasBeenUpdated(groupUid: ownedGroup.groupUid,
                                                                                                ownedIdentity: ownedGroup.ownedIdentity.cryptoIdentity)
-                        .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
                 } else if let joinedGroup = publishedDetails.contactGroup as? ContactGroupJoined, let groupOwner = joinedGroup.groupOwner.cryptoIdentity {
                     ObvIdentityNotificationNew.publishedPhotoOfContactGroupJoinedHasBeenUpdated(groupUid: joinedGroup.groupUid,
                                                                                                 ownedIdentity: joinedGroup.ownedIdentity.cryptoIdentity,
                                                                                                 groupOwner: groupOwner)
-                        .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
                 } else {
                     assertionFailure()
                 }

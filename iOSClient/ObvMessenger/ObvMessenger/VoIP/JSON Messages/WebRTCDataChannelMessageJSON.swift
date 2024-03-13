@@ -27,6 +27,9 @@ struct WebRTCDataChannelMessageJSON: Codable {
         case relayMessage = 2
         case relayedMessage = 3
         case hangedUpMessage = 4
+        case videoSupported = 5
+        case videoCameraEnabled = 6
+        case videoScreencastEnabled = 7
 
         var description: String {
             switch self {
@@ -35,6 +38,9 @@ struct WebRTCDataChannelMessageJSON: Codable {
             case .relayMessage: return "relayMessage"
             case .relayedMessage: return "relayedMessage"
             case .hangedUpMessage: return "hangedUpMessage"
+            case .videoSupported: return "videoSupported"
+            case .videoCameraEnabled: return "videoCameraEnabled"
+            case .videoScreencastEnabled: return "videoScreencastEnabled"
             }
         }
     }
@@ -102,6 +108,47 @@ struct MutedMessageJSON: WebRTCDataChannelInnerMessageJSON {
     let muted: Bool
 
 }
+
+
+/// Sent to our contact  as soon as the data channel is available, to indicate that we support video calls.
+struct VideoSupportedJSON: WebRTCDataChannelInnerMessageJSON {
+    
+    var messageType: WebRTCDataChannelMessageJSON.MessageType { .videoSupported }
+    
+    enum CodingKeys: String, CodingKey {
+        case isVideoSupported = "videoSupported"
+    }
+    
+    let isVideoSupported: Bool
+    
+}
+
+
+struct VideoCameraEnabledJSON: WebRTCDataChannelInnerMessageJSON {
+    
+    var messageType: WebRTCDataChannelMessageJSON.MessageType { .videoCameraEnabled }
+    
+    enum CodingKeys: String, CodingKey {
+        case isVideoCameraEnabled = "videoSharing"
+    }
+
+    let isVideoCameraEnabled: Bool
+    
+}
+
+
+struct VideoScreencastEnabledJSON: WebRTCDataChannelInnerMessageJSON {
+    
+    var messageType: WebRTCDataChannelMessageJSON.MessageType { .videoScreencastEnabled }
+    
+    enum CodingKeys: String, CodingKey {
+        case isVideoScreencastEnabled = "screenSharing"
+    }
+
+    let isVideoScreencastEnabled: Bool
+    
+}
+
 
 struct ContactBytesAndNameJSON: Codable {
 

@@ -56,7 +56,6 @@ final class MarkReceivedJoinAsResumedOrPausedOperation: ContextualOperationWithS
                                                                  ownedCryptoId: ownedCryptoId,
                                                                  within: obvContext.context)
             else {
-                assertionFailure()
                 return
             }
             

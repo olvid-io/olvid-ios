@@ -317,3 +317,64 @@ extension ServerQuery {
     }
 
 }
+
+
+extension ServerQuery.QueryType: CustomDebugStringConvertible {
+    
+    public var debugDescription: String {
+        switch self {
+        case .deviceDiscovery:
+            return "deviceDiscovery"
+        case .putUserData:
+            return "putUserData"
+        case .getUserData:
+            return "getUserData"
+        case .checkKeycloakRevocation:
+            return "checkKeycloakRevocation"
+        case .createGroupBlob:
+            return "createGroupBlob"
+        case .getGroupBlob:
+            return "getGroupBlob"
+        case .deleteGroupBlob:
+            return "deleteGroupBlob"
+        case .putGroupLog:
+            return "putGroupLog"
+        case .requestGroupBlobLock:
+            return "requestGroupBlobLock"
+        case .updateGroupBlob:
+            return "updateGroupBlob"
+        case .getKeycloakData:
+            return "getKeycloakData"
+        case .ownedDeviceDiscovery:
+            return "ownedDeviceDiscovery"
+        case .setOwnedDeviceName:
+            return "setOwnedDeviceName"
+        case .deactivateOwnedDevice:
+            return "deactivateOwnedDevice"
+        case .setUnexpiringOwnedDevice:
+            return "setUnexpiringOwnedDevice"
+        case .sourceGetSessionNumber:
+            return "sourceGetSessionNumber"
+        case .sourceWaitForTargetConnection:
+            return "sourceWaitForTargetConnection"
+        case .targetSendEphemeralIdentity:
+            return "targetSendEphemeralIdentity"
+        case .transferRelay:
+            return "transferRelay"
+        case .transferWait:
+            return "transferWait"
+        case .closeWebsocketConnection:
+            return "closeWebsocketConnection"
+        }
+    }
+    
+}
+
+
+extension ServerQuery: CustomDebugStringConvertible {
+    
+    public var debugDescription: String {
+        return "ServerQuery<\(ownedIdentity.debugDescription),\(queryType.debugDescription)>"
+    }
+    
+}

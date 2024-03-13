@@ -26,7 +26,7 @@ import ObvEncoder
 public enum GetUserDataResult: ObvCodable {
     
     case deletedFromServer
-    case downloaded(userDataPath: String)
+    case downloaded(userDataFilename: String)
     
     private var rawValue: Int {
         switch self {
@@ -55,8 +55,8 @@ public enum GetUserDataResult: ObvCodable {
             self = .deletedFromServer
         case 1:
             guard listOfEncoded.count == 2 else { assertionFailure(); return nil }
-            guard let userDataPath = String(listOfEncoded[1]) else { return nil }
-            self = .downloaded(userDataPath: userDataPath)
+            guard let userDataFilename = String(listOfEncoded[1]) else { return nil }
+            self = .downloaded(userDataFilename: userDataFilename)
         default:
             assertionFailure()
             return nil

@@ -62,6 +62,10 @@ public class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin
         return UTType(uti) ?? .data
     }
     
+    public var isPreviewType: Bool {
+        return contentType.conforms(to: .olvidLinkPreview)
+    }
+    
     public var message: PersistedMessage? {
         assertionFailure("Must be overriden by subclasses")
         return nil
@@ -97,11 +101,18 @@ public class FyleMessageJoinWithStatus: NSManagedObject, ObvErrorMaker, FyleJoin
         self.isWiped = false
         self.totalByteCount = totalByteCount
 
-        try getOrCreateFyle(sha256: sha256)
-                
-
+        self.fyle = try Fyle.getOrCreate(sha256: sha256, within: context)
     }
 
+    
+    /// This method is only used during the migration to v1.4, when updating the UTI of the joins that corresponds to ObvLinkPreviews.
+    public func migrateDynUtiToOlvidPreviewUti() {
+        guard self.uti.starts(with: "dyn") else { assertionFailure(); return }
+        if self.uti != UTType.olvidPreviewUti {
+            self.uti = UTType.olvidPreviewUti
+        }
+    }
+    
     
     func getOrCreateFyle(sha256: Data) throws {
         guard let context = self.managedObjectContext else {
@@ -184,6 +195,9 @@ extension FyleMessageJoinWithStatus {
                 NSPredicate(format: "%K == %@", discussionKey, discussionObjectID.objectID),
             ])
         }
+        static func forStatus(_ rawStatus: Int) -> NSPredicate {
+            NSPredicate(Key.rawStatus, EqualToInt: rawStatus)
+        }
         static func withUTI(_ uti: String) -> NSPredicate {
             NSPredicate(Key.uti, EqualToString: uti)
         }
@@ -201,6 +215,9 @@ extension FyleMessageJoinWithStatus {
         }
         static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>) -> NSPredicate {
             NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
+        }
+        static func whereUTIBeginsWith(_ text: String) -> NSPredicate {
+            NSPredicate(beginsWithText: text, forKey: Key.uti)
         }
     }
     
@@ -228,6 +245,44 @@ extension FyleMessageJoinWithStatus {
         request.predicate = Predicate.withObjectIDs(objectIDs)
         return Set(try context.fetch(request))
     }
+    
+    /**
+     * Get all `FyleMessageJoinWithStatus` persisted on the local database not downloaded yet and of type `Preview`, regardless of the owned identity
+     *  - Returns [FyleMessageJoinWithStatus]
+     */
+    /// Returns all `FyleMessageJoinWithStatus` not downloaded yet, regardless of the owned identity.
+    public static func getAllPreviewsWithStatusNotDownloaded(within context: NSManagedObjectContext) throws -> [FyleMessageJoinWithStatus] {
+        
+        // Previews Received
+        let receivedRequest: NSFetchRequest<ReceivedFyleMessageJoinWithStatus> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
+        receivedRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.forStatus(ReceivedFyleMessageJoinWithStatus.FyleStatus.downloadable.rawValue),
+            Predicate.withUTI(UTType.olvidPreviewUti),
+        ])
+        let receivedPreviewsNotDownloaded = try context.fetch(receivedRequest)
+        
+        // Previews sent
+        let sentRequest: NSFetchRequest<SentFyleMessageJoinWithStatus> = SentFyleMessageJoinWithStatus.fetchRequest()
+        sentRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.forStatus(SentFyleMessageJoinWithStatus.FyleStatus.downloadable.rawValue),
+            Predicate.withUTI(UTType.olvidPreviewUti),
+        ])
+        let sentPreviewsNotDownloaded = try context.fetch(sentRequest)
+
+        return receivedPreviewsNotDownloaded + sentPreviewsNotDownloaded
+    }
+    
+    
+    /// Returns the ``objectID`` of all ``FyleMessageJoinWithStatus`` objects whose UTI starts with the string "dyn."
+    public static func getIdentifiersOfFyleMessageJoinWithStatusWithDynamicUTI(within context: NSManagedObjectContext) throws -> [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>] {
+        let request = Self.fetchRequest()
+        request.predicate = Predicate.whereUTIBeginsWith("dyn.")
+        request.fetchBatchSize = 500
+        request.propertiesToFetch = []
+        let joins = try context.fetch(request)
+        return joins.map(\.typedObjectID)
+    }
+    
     
     public static var progressForJoinWithObjectID = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: ObvProgress]()
     

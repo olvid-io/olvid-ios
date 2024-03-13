@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,6 @@ import UIKit
 import ObvDesignSystem
 
 
-@available(iOS 15.0, *)
 final class DiscussionCacheManager: DiscussionCacheDelegate {
     
     private struct HardlinkAndSize: Hashable {
@@ -63,7 +62,13 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     
     private let backgroundContext = ObvStack.shared.newBackgroundContext()
     
+    private let previewFetcherDelegate: MissingReceivedLinkPreviewFetcherDelegate?
+    
     private let queueForLaunchingImageGeneration = DispatchQueue(label: "DiscussionCacheManager internal queue for launching image generations")
+    
+    init(previewFetcherDelegate: MissingReceivedLinkPreviewFetcherDelegate? = nil) {
+        self.previewFetcherDelegate = previewFetcherDelegate
+    }
     
     private static func makeError(message: String) -> Error {
         NSError(domain: String(describing: self), code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message])
@@ -77,8 +82,19 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
         return hardlinksCache[objectID]
     }
     
+    func requestMissingPreviewIfNeededForMessage(with objectID: TypeSafeManagedObjectID<PersistedMessageReceived>) {
+        assert(Thread.isMainThread)
+        
+        Task {
+            do {
+                try await previewFetcherDelegate?.fetchMissingPreviewIfNeeded(with: objectID, cacheDelegate: self)
+            } catch {
+                assertionFailure()
+            }
+        }
+    }
     
-    func requestAllHardlinksForMessage(with objectID: TypeSafeManagedObjectID<PersistedMessage>, completionWhenHardlinksCached: @escaping ((Bool) -> Void)) {
+    func requestAllRelevantHardlinksForMessage(with objectID: TypeSafeManagedObjectID<PersistedMessage>, completionWhenHardlinksCached: @escaping ((Bool) -> Void)) {
         
         assert(Thread.isMainThread)
         
@@ -95,16 +111,16 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
         do {
             var joins = [FyleMessageJoinWithStatus]()
             if let sentMessage = message as? PersistedMessageSent {
-                joins.append(contentsOf: sentMessage.fyleMessageJoinWithStatuses as [FyleMessageJoinWithStatus])
+                joins.append(contentsOf: sentMessage.fyleMessageJoinWithStatuses.filter({ !$0.isPreviewType }) as [FyleMessageJoinWithStatus])
             } else if let receivedMessage = message as? PersistedMessageReceived {
-                joins.append(contentsOf: receivedMessage.fyleMessageJoinWithStatuses as [FyleMessageJoinWithStatus])
+                joins.append(contentsOf: receivedMessage.fyleMessageJoinWithStatuses.filter({ !$0.isPreviewType }) as [FyleMessageJoinWithStatus])
             } else {
                 assertionFailure()
             }
 
             switch message.genericRepliesTo {
             case .available(message: let replyTo):
-                let joinsFromReplyTo = replyTo.fyleMessageJoinWithStatus ?? []
+                let joinsFromReplyTo = replyTo.fyleMessageJoinWithStatus?.filter({ !$0.isPreviewType }) ?? []
                 joins.append(contentsOf: joinsFromReplyTo)
             case .none, .notAvailableYet, .deleted:
                 break
@@ -547,7 +563,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
         }
         // If we reach this point, we could not find an appropriate cached hardlink. We request the first one.
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<HardLinkToFyle, Error>) in
-            self.requestAllHardlinksForMessage(with: replyToObjectID) { hardlinkFound in
+            self.requestAllRelevantHardlinksForMessage(with: replyToObjectID) { hardlinkFound in
                 assert(Thread.isMainThread)
                 if hardlinkFound, let joinObjectID = joinObjectIDs.first, let hardlink = self.getCachedHardlinkForFyleMessageJoinWithStatus(with: joinObjectID), hardlink.hardlinkURL != nil {
                     continuation.resume(returning: hardlink)
@@ -644,7 +660,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
 
 // MARK: - Helpers
 
-private extension String {
+public extension String {
     
     func containsDetectableData() -> UIDataDetectorTypes {
         assert(!Thread.isMainThread)

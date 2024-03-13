@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,6 +37,7 @@ public enum PersistedMessageKind {
 @objc(PersistedMessage)
 public class PersistedMessage: NSManagedObject, ObvErrorMaker {
 
+    static let globalEntityName = "PersistedMessage"
     fileprivate static let entityName = "PersistedMessage"
     public static let errorDomain = "PersistedMessageOrSubclass"
     private let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "PersistedMessage")
@@ -985,6 +986,9 @@ extension PersistedMessage {
         }
         static var withNoDiscussion: NSPredicate {
             NSPredicate(withNilValueForKey: Key.discussion)
+        }
+        static func whereBodyContains(searchTerm: String) -> NSPredicate {
+            NSPredicate(containsText: searchTerm, forKey: Predicate.Key.body)
         }
     }
 

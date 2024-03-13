@@ -171,7 +171,7 @@ public final class PersistedMessageReactionReceived: PersistedMessageReaction {
         }
 
         if isDeleted, let userInfoForDeletion = self.userInfoForDeletion {
-            guard let messagePermanentID = userInfoForDeletion[UserInfoForDeletionKeys.messagePermanentID] as? ObvManagedObjectPermanentID<PersistedMessageSent>,
+            guard let messagePermanentID = userInfoForDeletion[UserInfoForDeletionKeys.messagePermanentID] as? MessageSentPermanentID,
                   let contactPermanentID = userInfoForDeletion[UserInfoForDeletionKeys.contactPermanentID] as? ObvManagedObjectPermanentID<PersistedObvContactIdentity>
             else {
                 return

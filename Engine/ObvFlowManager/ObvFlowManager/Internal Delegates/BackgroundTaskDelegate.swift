@@ -39,12 +39,12 @@ protocol BackgroundTaskDelegate {
 
     // Downloading messages, downloading/pausing attachment
     
-    func startBackgroundActivityForDownloadingMessages(ownedIdentity: ObvCryptoIdentity) -> FlowIdentifier?
+    func startBackgroundActivityForDownloadingMessages(ownedIdentity: ObvCryptoIdentity) -> (flowId: FlowIdentifier, completionHandler: () -> Void)
     
     // Deleting a message or an attachment
     
-    func startBackgroundActivityForDeletingAMessage(messageId: ObvMessageIdentifier) -> FlowIdentifier?
-    func startBackgroundActivityForDeletingAnAttachment(attachmentId: ObvAttachmentIdentifier) -> FlowIdentifier?
+    func startBackgroundActivityForMarkingMessageForDeletionAndProcessingAttachments(messageId: ObvMessageIdentifier) -> (flowId: FlowIdentifier, completionHandler: () -> Void)
+    func startBackgroundActivityForMarkingAttachmentForDeletion(attachmentId: ObvAttachmentIdentifier) -> (flowId: FlowIdentifier, completionHandler: () -> Void)
 
     // Posting a return receipt (for message or an attachment)
 

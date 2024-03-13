@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -172,7 +172,8 @@ extension ObvChannelManagerImplementation {
 
 extension ObvChannelManagerImplementation {
     
-    public func processNetworkReceivedEncryptedMessages(_ networkReceivedMessages: Set<ObvNetworkReceivedMessageEncrypted>, within obvContext: ObvContext) {
+    /// This method is exclusively called by the network fetch manager, in the ``ProcessBatchOfUnprocessedMessagesOperation`` when processing a batch of received messages.
+    public func processNetworkReceivedEncryptedMessages(_ networkReceivedMessages: Set<ObvNetworkReceivedMessageEncrypted>, within obvContext: ObvContext) throws -> [ReceivedEncryptedMessageProcessingResult] {
 
         os_log("🌊 Processing %d network received encrypted messages within flow %{public}@", log: log, type: .info, networkReceivedMessages.count, obvContext.flowId.debugDescription)
         do {
@@ -180,37 +181,30 @@ extension ObvChannelManagerImplementation {
         } catch let error {
             os_log("Gate Keeper failed: %{public}@. We return now.", log: log, type: .fault, error.localizedDescription)
             assertionFailure()
-            return
-        }
-
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            assertionFailure()
-            return
+            throw ReceivedEncryptedMessageProcessingError.gateKeeperFailed
         }
 
         let messages = networkReceivedMessages.sorted { return $0.messageUploadTimestampFromServer < $1.messageUploadTimestampFromServer }
         
+        var results = [ReceivedEncryptedMessageProcessingResult]()
+        
         for encryptedMessage in messages {
             
             do {
-                try delegateManager.networkReceivedMessageDecryptorDelegate.decryptAndProcessNetworkReceivedMessageEncrypted(encryptedMessage, within: obvContext)
+                let result = try delegateManager.networkReceivedMessageDecryptorDelegate.decryptAndProcessNetworkReceivedMessageEncrypted(encryptedMessage, within: obvContext)
+                results.append(result)
             } catch {
+                results.append(.couldNotDecryptOrParse(messageId: encryptedMessage.messageId))
                 os_log("Failed to decrypt and process an encrypted message", log: log, type: .fault)
                 assertionFailure()
                 continue
             }
             
-            do {
-                try obvContext.addContextDidSaveCompletionHandler { (_) in
-                    ObvChannelNotification.networkReceivedMessageWasProcessed(messageId: encryptedMessage.messageId, flowId: obvContext.flowId)
-                        .postOnBackgroundQueue(within: notificationDelegate)
-                }
-            } catch {
-                os_log("Could not add completion handler into obvContext", log: log, type: .fault)
-                assertionFailure()
-            }
-
         }
+        
+        assert(results.count == networkReceivedMessages.count)
+        
+        return results
         
     }
 

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -57,12 +57,14 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         let mentionedUsers: MentionableIdentityTypes.MentionableIdentityFromRange
         /// This item exists to provide an abstract container for our `Hashable` conformance since `mentionedUsers` is not directly hashable. As a workaround, `AnyHashable` is used to provide `Hashable` conformance
         private let mappedMentionedUsers: [Range<String.Index>: AnyHashable]
+        fileprivate let searchedTextToHighlight: String?
 
-        init(kind: TextBubble.Configuration.Kind, text: String? = nil, dataDetectorTypes: UIDataDetectorTypes, mentionedUsers: MentionableIdentityTypes.MentionableIdentityFromRange) {
+        init(kind: TextBubble.Configuration.Kind, text: String? = nil, dataDetectorTypes: UIDataDetectorTypes, searchedTextToHighlight: String?, mentionedUsers: MentionableIdentityTypes.MentionableIdentityFromRange) {
             self.kind = kind
             self.text = text
             self.dataDetectorTypes = dataDetectorTypes
             self.mentionedUsers = mentionedUsers
+            self.searchedTextToHighlight = searchedTextToHighlight
 
             mappedMentionedUsers = mentionedUsers.reduce(into: [:]) { accumulator, item in
                 accumulator[item.key] = AnyHashable(item.value)
@@ -70,23 +72,11 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         }
 
         static func == (lhs: TextBubble.Configuration, rhs: TextBubble.Configuration) -> Bool {
-            guard lhs.kind == rhs.kind else {
-                return false
-            }
-
-            guard lhs.text == rhs.text else {
-                return false
-            }
-
-            guard lhs.dataDetectorTypes == rhs.dataDetectorTypes else {
-                return false
-            }
-
-            guard lhs.mappedMentionedUsers == rhs.mappedMentionedUsers else {
-                return false
-            }
-
-            return true
+            lhs.kind == rhs.kind && 
+            lhs.text == rhs.text && 
+            lhs.dataDetectorTypes == rhs.dataDetectorTypes &&
+            lhs.mappedMentionedUsers == rhs.mappedMentionedUsers &&
+            lhs.searchedTextToHighlight == rhs.searchedTextToHighlight
         }
 
         func hash(into hasher: inout Hasher) {
@@ -94,6 +84,7 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
             hasher.combine(text)
             hasher.combine(dataDetectorTypes)
             hasher.combine(mappedMentionedUsers)
+            hasher.combine(searchedTextToHighlight)
         }
     }
     
@@ -107,12 +98,13 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         }
 
         if let text = newConfiguration.text {
-            let attributedString = MentionsTextBubbleAttributedStringBuilder.generateAttributedString(from: text,
-                                                                                                      messageKind: .init(newConfiguration.kind),
-                                                                                                      mentionedUsers: newConfiguration.mentionedUsers,
-                                                                                                      baseAttributes: [.font: font,
-                                                                                                                       .foregroundColor: textColor])
-
+            let attributedString = MentionsTextBubbleAttributedStringBuilder.generateAttributedString(
+                from: text,
+                messageKind: .init(newConfiguration.kind),
+                mentionedUsers: newConfiguration.mentionedUsers,
+                baseAttributes: [.font: font,
+                                 .foregroundColor: textColor])
+                .withHighlightedSearchedText(newConfiguration.searchedTextToHighlight)
             textView.attributedText = attributedString
         }
         
@@ -311,4 +303,24 @@ private extension MentionsTextBubbleAttributedStringBuilder.MessageKind {
             self = .received
         }
     }
+}
+
+
+/// Helpers
+
+private extension NSAttributedString {
+    
+    /// When the user performs a search in the discussion view, we want to highlight the searched term in the `TextBubble`. This helper method allows to do just that.
+    func withHighlightedSearchedText(_ searchedTextToHighlight: String?) -> NSAttributedString {
+        guard let searchedTextToHighlight else { return self }
+        let rangeToHighlight = NSString(string: self.string).localizedStandardRange(of: searchedTextToHighlight)
+        guard rangeToHighlight.length > 0 else { return self }
+        let mutableAttributedString = NSMutableAttributedString(attributedString: self)
+        mutableAttributedString.beginEditing()
+        mutableAttributedString.addAttribute(.backgroundColor, value: UIColor.systemYellow, range: rangeToHighlight)
+        mutableAttributedString.addAttribute(.foregroundColor, value: UIColor.black, range: rangeToHighlight)
+        mutableAttributedString.endEditing()
+        return mutableAttributedString
+    }
+    
 }

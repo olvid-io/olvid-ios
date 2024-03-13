@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -97,7 +97,7 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     // MARK: - Initializers
     
     /// This initializer creates the current device of the owned identity. It should only be called at the time we create an owned identity.
-    convenience init?(ownedIdentity: OwnedIdentity, name: String, with prng: PRNGService, delegateManager: ObvIdentityDelegateManager) {
+    private convenience init?(ownedIdentity: OwnedIdentity, name: String, with prng: PRNGService, delegateManager: ObvIdentityDelegateManager) {
         guard let obvContext = ownedIdentity.obvContext else {
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: "OwnedDevice")
             os_log("Could not get a context", log: log, type: .fault)
@@ -111,7 +111,7 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         self.latestRegistrationDate = nil // Set later
         let trimmedName = name.trimmingWhitespacesAndNewlines()
         self.name = trimmedName.isEmpty ? nil : trimmedName
-        self.rawCapabilities = nil // Set later
+        self.rawCapabilities = nil // Set bellow
         self.uid = UID.gen(with: prng)
         
         self.currentDeviceIdentity = ownedIdentity
@@ -119,6 +119,22 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
 
         self.delegateManager = delegateManager
         self.createdDuringChannelCreation = false // As we are creating the current device
+        
+        let capabilitiesForCurrentDevice: Set<ObvCapability> = Set(ObvCapability.allCases.filter { capability in
+            switch capability {
+            case .webrtcContinuousICE: return true
+            case .groupsV2: return true
+            case .oneToOneContacts: return true
+            }
+        })
+        self.setCapabilities(newCapabilities: capabilitiesForCurrentDevice)
+        
+    }
+    
+    
+    static func createCurrentOwnedDevice(ownedIdentity: OwnedIdentity, name: String, with prng: PRNGService, delegateManager: ObvIdentityDelegateManager) -> OwnedDevice? {
+        let currentOwnedDevice = Self.init(ownedIdentity: ownedIdentity, name: name, with: prng, delegateManager: delegateManager)
+        return currentOwnedDevice
     }
 
     
@@ -154,16 +170,25 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         self.init(entity: entityDescription, insertInto: obvContext)
         
         self.expirationDate = nil // Set later
-        self.latestRegistrationDate = nil // Set later
+        self.latestRegistrationDate = nil // Set bellow
         self.name = nil // Set later by the engine, using `setCurrentDeviceNameAfterBackupRestore(newName:)`, right after backup restore
         self.rawCapabilities = nil // Set later
         self.uid = backupItem.uid
         
         self.createdDuringChannelCreation = false
         
+        let capabilitiesForCurrentDevice: Set<ObvCapability> = Set(ObvCapability.allCases.filter { capability in
+            switch capability {
+            case .webrtcContinuousICE: return true
+            case .groupsV2: return true
+            case .oneToOneContacts: return true
+            }
+        })
+        self.setCapabilities(newCapabilities: capabilitiesForCurrentDevice)
+
     }
     
-    
+
     /// Used *exclusively* during a snapshot restore for creating an instance, relatioships are recreated in a second step
     fileprivate convenience init(snapshotItem: OwnedDeviceSnapshotItem, within obvContext: ObvContext) {
         
@@ -171,7 +196,7 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         self.init(entity: entityDescription, insertInto: obvContext)
                 
         self.expirationDate = nil // Set later
-        self.latestRegistrationDate = nil // Set later
+        self.latestRegistrationDate = nil // Set bellow
         let trimmedName = snapshotItem.customDeviceName.trimmingWhitespacesAndNewlines()
         self.name = trimmedName.isEmpty ? nil : trimmedName
         self.rawCapabilities = nil // Set later
@@ -179,6 +204,15 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         
         self.createdDuringChannelCreation = false
         
+        let capabilitiesForCurrentDevice: Set<ObvCapability> = Set(ObvCapability.allCases.filter { capability in
+            switch capability {
+            case .webrtcContinuousICE: return true
+            case .groupsV2: return true
+            case .oneToOneContacts: return true
+            }
+        })
+        self.setCapabilities(newCapabilities: capabilitiesForCurrentDevice)
+
     }
 
     
@@ -337,12 +371,12 @@ extension OwnedDevice {
         if !isDeleted && changedKeys.contains(Predicate.Key.rawCapabilities.rawValue), let identity = self.identity {
             // We do *not* send the device's capabilities. Eventually, the app will request the capabilities of the owned identity that will compute her capabilities on the basis of the capabilities of all her owned devices.
             ObvIdentityNotificationNew.ownedIdentityCapabilitiesWereUpdated(ownedIdentity: identity.cryptoIdentity, flowId: flowId)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
         if !isDeleted && !changedKeys.isEmpty, let identity = self.identity {
             ObvIdentityNotificationNew.anOwnedDeviceWasUpdated(ownedCryptoId: identity.cryptoIdentity)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
         if isInserted {
@@ -350,13 +384,13 @@ extension OwnedDevice {
                 assert(createdDuringChannelCreation != nil)
                 let createdDuringChannelCreation = self.createdDuringChannelCreation ?? false
                 ObvIdentityNotificationNew.newRemoteOwnedDevice(ownedCryptoId: remoteDeviceIdentity.cryptoIdentity, remoteDeviceUid: uid, createdDuringChannelCreation: createdDuringChannelCreation)
-                    .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
         }
         
         if isDeleted, let ownedCryptoIdentityOnDeletion {
             ObvIdentityNotificationNew.anOwnedDeviceWasDeleted(ownedCryptoId: ownedCryptoIdentityOnDeletion)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
     }

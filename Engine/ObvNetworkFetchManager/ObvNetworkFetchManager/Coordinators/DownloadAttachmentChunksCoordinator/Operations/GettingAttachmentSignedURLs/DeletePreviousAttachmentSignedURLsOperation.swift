@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,62 +25,28 @@ import ObvTypes
 import OlvidUtils
 
 
-final class DeletePreviousAttachmentSignedURLsOperation: Operation {
+final class DeleteAllAttachmentSignedURLsOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
-    enum ReasonForCancel: Hashable {
-        case cannotFindAttachmentInDatabase
-        case couldNotSaveContext
-        case coreDataFailure
-    }
-
-    private let uuid = UUID()
     private let attachmentId: ObvAttachmentIdentifier
-    private let logSubsystem: String
-    private let log: OSLog
-    private let obvContext: ObvContext
-    private let logCategory = String(describing: DeletePreviousAttachmentSignedURLsOperation.self)
 
-    private(set) var reasonForCancel: ReasonForCancel?
-
-    init(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, obvContext: ObvContext) {
+    init(attachmentId: ObvAttachmentIdentifier) {
         self.attachmentId = attachmentId
-        self.logSubsystem = logSubsystem
-        self.log = OSLog(subsystem: logSubsystem, category: logCategory)
-        self.obvContext = obvContext
         super.init()
     }
     
-    private func cancel(withReason reason: ReasonForCancel) {
-        assert(self.reasonForCancel == nil)
-        self.reasonForCancel = reason
-        self.cancel()
-    }
-
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        obvContext.performAndWait {
+        do {
             
-            let attachment: InboxAttachment
-            do {
-                guard let _attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
-                    return cancel(withReason: .cannotFindAttachmentInDatabase)
-                }
-                attachment = _attachment
-            } catch {
-                os_log("Failed to get inbox attachment: %{public}@", log: log, type: .fault, error.localizedDescription)
-                return cancel(withReason: .coreDataFailure)
-            }
-
+            guard let attachment = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
+            
             attachment.chunks.forEach { (chunk) in
                 chunk.signedURL = nil
             }
             
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch {
-                return cancel(withReason: .couldNotSaveContext)
-            }
-            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

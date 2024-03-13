@@ -135,7 +135,7 @@ extension OwnedIdentityDeletionProtocol {
             
             try prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, within: obvContext)
             try networkPostDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, within: obvContext)
-            try networkFetchDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, within: obvContext)
+            Task { try await networkFetchDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, flowId: obvContext.flowId) }
             
             // In case we are performing a *global* deletion, we want our other devices to execute this protocol too
             // Note that in the case we perform a *local* deletion, we want our other owned devices to perform a simple owned device discovery.

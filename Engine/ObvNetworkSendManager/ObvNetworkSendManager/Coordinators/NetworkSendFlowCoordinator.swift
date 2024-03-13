@@ -112,10 +112,11 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
         }
         
         do {
-            try obvContext.addContextDidSaveCompletionHandler { (error) in
+            try obvContext.addContextDidSaveCompletionHandler { [weak self] (error) in
+                guard let self else { return }
                 guard error == nil else { return }
                 ObvNetworkPostNotification.newOutboxMessageAndAttachmentsToUpload(messageId: message.messageId, attachmentIds: attachmentIds, flowId: obvContext.flowId)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
             }
         } catch {
             assertionFailure()
@@ -180,6 +181,8 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
         
         contextCreator.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
             
+            guard let self else { return }
+            
             guard let message = try? OutboxMessage.get(messageId: messageId, delegateManager: delegateManager, within: obvContext) else {
                 os_log("Could not find message %{public}@ in database", log: log, type: .fault, messageId.debugDescription)
                 return
@@ -196,7 +199,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
             guard let timestampFromServer = message.timestampFromServer else {
                 os_log("Although the message is supposed to be uploaded, it has no timestamp from server, which is unexpected", log: log, type: .fault)
                 assert(false)
-                self?.failedUploadAndGetUidOfMessage(messageId: messageId, flowId: flowId)
+                failedUploadAndGetUidOfMessage(messageId: messageId, flowId: flowId)
                 return
             }
             
@@ -210,7 +213,7 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
                                                                 isAppMessageWithUserContent: message.isAppMessageWithUserContent,
                                                                 isVoipMessage: message.isVoipMessage,
                                                                 flowId: flowId)
-            .postOnBackgroundQueue(within: notificationDelegate)
+            .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
             
         }
         

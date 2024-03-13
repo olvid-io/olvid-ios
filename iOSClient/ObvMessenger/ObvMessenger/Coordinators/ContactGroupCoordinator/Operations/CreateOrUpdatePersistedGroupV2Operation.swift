@@ -48,7 +48,7 @@ final class CreateOrUpdatePersistedGroupV2Operation: ContextualOperationWithSpec
                 return cancel(withReason: .couldNotFindPersistedOwnedIdentity)
             }
             
-            let group = try ownedIdentity.createOrUpdateGroupV2(obvGroupV2: obvGroupV2, createdByMe: initiator == .createdByMe)
+            let group = try ownedIdentity.createOrUpdateGroupV2(obvGroupV2: obvGroupV2, createdByMe: initiator == .createdByMe, isRestoringSyncSnapshotOrBackup: false)
             
             /* If we the group was updated by someone else and if the list of users that can change the discussion shared setttings was changed (compared to the one we knew about),
              * we might be in a situation where one of the new members allowed to change these shared settings did change the settings while we were not aware of her rights to do so.

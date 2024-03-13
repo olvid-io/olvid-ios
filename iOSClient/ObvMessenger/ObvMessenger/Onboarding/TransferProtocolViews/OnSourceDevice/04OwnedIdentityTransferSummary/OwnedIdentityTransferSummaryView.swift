@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -111,6 +111,9 @@ struct OwnedIdentityTransferSummaryView: View {
                     ownedCryptoId: model.ownedCryptoId,
                     protocolInstanceUID: model.protocolInstanceUID)
             } catch {
+                // This is unlikely to happen (as this only occurs if we cannot post the protocol message).
+                // If the protocol fails, this is not called, but a failure notification will be catched by the flow manager.
+                // It will show the screen describing the error.
                 errorForAlert = error
                 isAlertShown = true
             }

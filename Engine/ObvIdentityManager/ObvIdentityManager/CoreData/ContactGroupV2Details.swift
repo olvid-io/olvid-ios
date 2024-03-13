@@ -496,7 +496,7 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
             if isInserted || isDeleted || isUpdated {
                 guard let flowId = obvContext?.flowId else { assertionFailure(); return }
                 ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-                    .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
         }
         

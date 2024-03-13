@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -307,7 +307,7 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         throw Self.makeError(message: "initiateOwnedIdentityTransferProtocolOnTargetDevice does nothing in this dummy implementation")
     }
     
-    public func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID) async throws {
+    public func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, snapshotSentToTargetDevice: @escaping () -> Void) async throws {
         os_log("continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice does nothing in this dummy implementation")
     }

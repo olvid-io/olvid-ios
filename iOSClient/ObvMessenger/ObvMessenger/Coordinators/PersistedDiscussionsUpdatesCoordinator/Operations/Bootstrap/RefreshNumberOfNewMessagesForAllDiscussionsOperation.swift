@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,13 +30,12 @@ final class RefreshNumberOfNewMessagesForAllDiscussionsOperation: ContextualOper
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
         do {
-            let discussions = try PersistedDiscussion.getAllActiveDiscussionsForAllOwnedIdentities(within: obvContext.context)
-            for discussion in discussions {
+            let ownedIdentities = try PersistedObvOwnedIdentity.getAll(within: obvContext.context)
+            for ownedIdentity in ownedIdentities {
                 do {
-                    try discussion.refreshNumberOfNewMessages()
+                    try PersistedDiscussion.refreshNumberOfNewMessagesOfAllDiscussions(ownedIdentity: ownedIdentity)
                 } catch {
-                    assertionFailure()
-                    // In production, continue anyway
+                    assertionFailure() // In production, continue anyway
                 }
             }
         } catch {

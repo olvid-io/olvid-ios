@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,6 @@
 import Foundation
 import CoreData
 import os.log
-import ObvEngine
 import ObvCrypto
 import OlvidUtils
 import ObvUICoreData
@@ -28,23 +27,22 @@ import ObvTypes
 
 
 
-final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation.ReasonForCancel> {
+final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation.ReasonForCancel>, OperationProvidingMessageSentPermanentID {
     
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation")
 
     private let obvOwnedMessage: ObvOwnedMessage
     private let messageJSON: MessageJSON
     private let returnReceiptJSON: ReturnReceiptJSON?
-    private let obvEngine: ObvEngine
     
-    init(obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?, obvEngine: ObvEngine) {
+    init(obvOwnedMessage: ObvOwnedMessage, messageJSON: MessageJSON, returnReceiptJSON: ReturnReceiptJSON?) {
         self.obvOwnedMessage = obvOwnedMessage
         self.messageJSON = messageJSON
         self.returnReceiptJSON = returnReceiptJSON
-        self.obvEngine = obvEngine
         super.init()
     }
 
+    private(set) var messageSentPermanentId: MessageSentPermanentID?
     
     enum Result {
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
@@ -68,10 +66,10 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
             
             // Create the PersistedMessageSent from that owned identity
             
-            let attachmentFullyReceivedOrCancelledByServer: [ObvOwnedAttachment]
+            let _messageSentPermanentId: MessageSentPermanentID?
             
             do {
-                attachmentFullyReceivedOrCancelledByServer = try persistedObvOwnedIdentity.createPersistedMessageSentFromOtherOwnedDevice(
+                _messageSentPermanentId = try persistedObvOwnedIdentity.createPersistedMessageSentFromOtherOwnedDevice(
                     obvOwnedMessage: obvOwnedMessage,
                     messageJSON: messageJSON,
                     returnReceiptJSON: returnReceiptJSON)
@@ -95,29 +93,8 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
                 }
             }
             
-            // We ask the engine to delete all the attachments that were fully received
-            
-            if !attachmentFullyReceivedOrCancelledByServer.isEmpty {
-                let obvEngine = self.obvEngine
-                do {
-                    try obvContext.addContextDidSaveCompletionHandler { error in
-                        for obvOwnedAttachment in attachmentFullyReceivedOrCancelledByServer {
-                            do {
-                                try obvEngine.deleteObvAttachment(
-                                    attachmentNumber: obvOwnedAttachment.number,
-                                    ofMessageWithIdentifier: obvOwnedAttachment.messageIdentifier,
-                                    ownedCryptoId: obvOwnedAttachment.ownedCryptoId)
-                            } catch {
-                                os_log("Call to the engine method deleteObvAttachment did fail", log: Self.log, type: .fault)
-                                assertionFailure() // Continue anyway
-                            }
-                        }
-                    }
-                } catch {
-                    assertionFailure(error.localizedDescription)
-                }
-            }
-            
+            messageSentPermanentId = _messageSentPermanentId
+                        
         } catch {
             return cancel(withReason: .coreDataError(error: error))
         }

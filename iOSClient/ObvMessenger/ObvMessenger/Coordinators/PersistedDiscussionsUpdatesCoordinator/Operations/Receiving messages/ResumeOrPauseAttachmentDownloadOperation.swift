@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -50,33 +50,32 @@ final class ResumeOrPauseAttachmentDownloadOperation: ContextualOperationWithSpe
 
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        do {
-            
-            guard let attachment = try? ReceivedFyleMessageJoinWithStatus.getReceivedFyleMessageJoinWithStatus(objectID: receivedJoinObjectID.objectID, within: obvContext.context) else { return }
-            
-            switch attachment.status {
-            case .downloading:
-                guard resumeOrPause == .pause else { return }
-            case .downloadable:
-                guard resumeOrPause == .resume else { return }
-            case .complete, .cancelledByServer:
-                return
+        guard let attachment = try? ReceivedFyleMessageJoinWithStatus.getReceivedFyleMessageJoinWithStatus(objectID: receivedJoinObjectID.objectID, within: obvContext.context) else { return }
+        
+        switch attachment.status {
+        case .downloading:
+            guard resumeOrPause == .pause else { return }
+        case .downloadable:
+            guard resumeOrPause == .resume else { return }
+        case .complete, .cancelledByServer:
+            return
+        }
+        
+        guard let ownedCryptoId = attachment.message?.discussion?.ownedIdentity?.cryptoId else { return }
+        let messageId = attachment.messageIdentifierFromEngine
+        
+        let attachmentIndex = attachment.index
+        Task {
+            do {
+                switch resumeOrPause {
+                case .resume:
+                    try await obvEngine.resumeDownloadOfAttachment(attachmentIndex, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId)
+                case .pause:
+                    try await  obvEngine.pauseDownloadOfAttachment(attachmentIndex, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId)
+                }
+            } catch {
+                assertionFailure(error.localizedDescription)
             }
-            
-            guard let ownedCryptoId = attachment.message?.discussion?.ownedIdentity?.cryptoId else { return }
-            let messageId = attachment.messageIdentifierFromEngine
-            
-            switch resumeOrPause {
-            case .resume:
-                try obvEngine.resumeDownloadOfAttachment(attachment.index, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId, forceResume: false)
-            case .pause:
-                try obvEngine.pauseDownloadOfAttachment(attachment.index, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId)
-            }
-            
-            
-        } catch(let error) {
-            assertionFailure()
-            return cancel(withReason: .coreDataError(error: error))
         }
         
     }

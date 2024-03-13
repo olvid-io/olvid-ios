@@ -58,7 +58,8 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     let ownedCryptoId: ObvCryptoId
     var doSendReadReceipt: Binding<Bool>!
     var alwaysShowNotificationsWhenMentioned: Binding<Bool>!
-    var doFetchContentRichURLsMetadata: Binding<ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice>!
+    var attachLinkPreviewtoMessageSent: Binding<Bool>!
+    var fetchMissingLinkPreviewFromMessagereceived: Binding<Bool>!
     var readOnce: Binding<Bool>!
     var visibilityDuration: Binding<DurationOption>!
     var existenceDuration: Binding<DurationOption>!
@@ -92,8 +93,9 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
                 self.changed.toggle()
             }
         }
-        self.doFetchContentRichURLsMetadata = Binding<ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice>(get: getDoFetchContentRichURLsMetadata, set: setDoFetchContentRichURLsMetadata)
         self.readOnce = Binding<Bool>(get: getReadOnce, set: setReadOnce)
+        self.attachLinkPreviewtoMessageSent = Binding<Bool>(get: getAttachLinkPreviewtoMessageSent, set: setAttachLinkPreviewtoMessageSent)
+        self.fetchMissingLinkPreviewFromMessagereceived = Binding<Bool>(get: getFetchMissingLinkPreviewFromMessagereceived, set: setFetchMissingLinkPreviewFromMessagereceived)
         self.visibilityDuration = Binding<DurationOption>(get: getVisibilityDuration, set: setVisibilityDuration)
         self.existenceDuration = Binding<DurationOption>(get: getExistenceDuration, set: setExistenceDuration)
         self.countBasedRetention = Binding<Int>(get: getCountBasedRetention, set: setCountBasedRetention)
@@ -173,15 +175,6 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
         }
     }
     
-    private func getDoFetchContentRichURLsMetadata() -> ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice {
-        ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata
-    }
-
-    private func setDoFetchContentRichURLsMetadata(_ newValue: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice) {
-        ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata = newValue
-        self.changed.toggle() // No animation
-    }
-    
     private func getReadOnce() -> Bool {
         ObvMessengerSettings.Discussions.readOnce
     }
@@ -193,6 +186,28 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
         }
     }
 
+    private func getAttachLinkPreviewtoMessageSent() -> Bool {
+        ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent
+    }
+    
+    private func setAttachLinkPreviewtoMessageSent(_ newValue: Bool) {
+        ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent = newValue
+        withAnimation {
+            self.changed.toggle()
+        }
+    }
+    
+    private func getFetchMissingLinkPreviewFromMessagereceived() -> Bool {
+        ObvMessengerSettings.Discussions.fetchMissingLinkPreviewFromMessageReceived
+    }
+    
+    private func setFetchMissingLinkPreviewFromMessagereceived(_ newValue: Bool) {
+        ObvMessengerSettings.Discussions.fetchMissingLinkPreviewFromMessageReceived = newValue
+        withAnimation {
+            self.changed.toggle()
+        }
+    }
+    
     private func getVisibilityDuration() -> DurationOption {
         ObvMessengerSettings.Discussions.visibilityDuration
     }
@@ -274,8 +289,9 @@ struct DiscussionsDefaultSettingsWrapperView: View {
     var body: some View {
         DiscussionsDefaultSettingsView(doSendReadReceipt: model.doSendReadReceipt,
                                        alwaysShowNotificationsWhenMentioned: model.alwaysShowNotificationsWhenMentioned,
-                                       doFetchContentRichURLsMetadata: model.doFetchContentRichURLsMetadata,
                                        readOnce: model.readOnce,
+                                       attachLinkPreviewtoMessageSent: model.attachLinkPreviewtoMessageSent,
+                                       fetchMissingLinkPreviewFromMessagereceived: model.fetchMissingLinkPreviewFromMessagereceived,
                                        visibilityDuration: model.visibilityDuration,
                                        existenceDuration: model.existenceDuration,
                                        countBasedRetentionIsActive: model.countBasedRetentionIsActive,
@@ -294,8 +310,9 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
     
     @Binding var doSendReadReceipt: Bool
     @Binding var alwaysShowNotificationsWhenMentioned: Bool
-    @Binding var doFetchContentRichURLsMetadata: ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice
     @Binding var readOnce: Bool
+    @Binding var attachLinkPreviewtoMessageSent: Bool
+    @Binding var fetchMissingLinkPreviewFromMessagereceived: Bool
     @Binding var visibilityDuration: DurationOption
     @Binding var existenceDuration: DurationOption
     @Binding var countBasedRetentionIsActive: Bool
@@ -347,19 +364,14 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                         .tag(false)
                 }
             }
-            Section {
-                Picker(selection: $doFetchContentRichURLsMetadata, label:
-                        Label("SHOW_RICH_LINK_PREVIEW_LABEL", systemImage: "text.below.photo.fill")) {
-                    ForEach(ObvMessengerSettings.Discussions.FetchContentRichURLsMetadataChoice.allCases) { value in
-                        switch value {
-                        case .never:
-                            Text(CommonString.Word.Never).tag(value)
-                        case .withinSentMessagesOnly:
-                            Text("Sent messages only").tag(value)
-                        case .always:
-                            Text(CommonString.Word.Always).tag(value)
-                        }
-                    }
+            Section(footer: Text("ATTACH_PREVIEW_SECTION_FOOTER")) {
+                Toggle(isOn: $attachLinkPreviewtoMessageSent) {
+                    Label("ATTACH_PREVIEW_LABEL", systemImage: "text.below.photo.fill")
+                }
+            }
+            Section(footer: Text("FETCH_MISSING_PREVIEW_SECTION_FOOTER")) {
+                Toggle(isOn: $fetchMissingLinkPreviewFromMessagereceived) {
+                    Label("FETCH_MISSING_PREVIEW_LABEL", systemImage: "photo.fill.on.rectangle.fill")
                 }
             }
             Section {
@@ -479,8 +491,9 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
         Group {
             DiscussionsDefaultSettingsView(doSendReadReceipt: .constant(false),
                                            alwaysShowNotificationsWhenMentioned: .constant(true),
-                                           doFetchContentRichURLsMetadata: .constant(.never),
                                            readOnce: .constant(false),
+                                           attachLinkPreviewtoMessageSent: .constant(false),
+                                           fetchMissingLinkPreviewFromMessagereceived: .constant(false),
                                            visibilityDuration: .constant(.none),
                                            existenceDuration: .constant(.none),
                                            countBasedRetentionIsActive: .constant(false),
@@ -493,8 +506,9 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            changed: .constant(false))
             DiscussionsDefaultSettingsView(doSendReadReceipt: .constant(true),
                                            alwaysShowNotificationsWhenMentioned: .constant(false),
-                                           doFetchContentRichURLsMetadata: .constant(.always),
                                            readOnce: .constant(false),
+                                           attachLinkPreviewtoMessageSent: .constant(false),
+                                           fetchMissingLinkPreviewFromMessagereceived: .constant(false),
                                            visibilityDuration: .constant(.oneHour),
                                            existenceDuration: .constant(.oneDay),
                                            countBasedRetentionIsActive: .constant(true),

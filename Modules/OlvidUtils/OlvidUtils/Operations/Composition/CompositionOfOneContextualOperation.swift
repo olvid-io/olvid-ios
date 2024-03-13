@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,10 +51,24 @@ public final class CompositionOfOneContextualOperation<ReasonForCancelType1: Loc
         executionStartDate = Date.now
         
         let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
-        defer { obvContext.performAllEndOfScopeCompletionHAndlers() }
+        defer {
+            logExecutionDurationToDisplayableLog()
+            obvContext.performAllEndOfScopeCompletionHAndlers()
+        }
         
         assert(queueForComposedOperations.operationCount < 5)
 
+        // Make sure op1 does not depend on an unfinished operation.
+        // If this is the case, we might be in a deadlock situation. For example, assume:
+        // - Some composed with 2 operations fails because the first operation fails
+        // - Assume that op1 (the one we have here) depends on the second operation, that never got a chance to execute
+        // then, in that case, we have a potential deadlock on the serial queue that executes this CompositionOfOneContextualOperation
+        
+        guard op1.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op1HasUnfinishedDependency(op1: op1))
+        }
+        
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext
         assert(op1.isReady)
@@ -71,14 +85,22 @@ public final class CompositionOfOneContextualOperation<ReasonForCancelType1: Loc
                     debugPrint("🙃 No need to save completion handler for op1: \(op1.debugDescription)")
                     return
                 }
+                debugPrint("🙂 Saving the context for op1: \(op1.debugDescription)")
                 try obvContext.save(logOnFailure: log)
             } catch {
                 return cancel(withReason: .coreDataError(error: error))
             }
         }
-
+        
     }
-         
+    
+    
+    private func logExecutionDurationToDisplayableLog() {
+        guard let executionStartDate else { assertionFailure(); return }
+        let duration = Date.now.timeIntervalSince(executionStartDate)
+        ObvDisplayableLogs.shared.log("[⏱️] [\(duration) seconds] [CompositionOfOneContextualOperation<\(op1.description)>]")
+    }
+    
     
     public func logExecutionDuration(log: OSLog) {
         let op1Description = op1.description
@@ -97,10 +119,11 @@ public enum CompositionOfOneContextualOperationReasonForCancel<ReasonForCancelTy
     case unknownReason
     case coreDataError(error: Error)
     case op1Cancelled(reason: ReasonForCancelType1)
+    case op1HasUnfinishedDependency(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>)
 
     public var logType: OSLogType {
         switch self {
-        case .unknownReason, .coreDataError:
+        case .unknownReason, .coreDataError, .op1HasUnfinishedDependency:
             return .fault
         case .op1Cancelled(reason: let reason):
             return reason.logType
@@ -115,6 +138,8 @@ public enum CompositionOfOneContextualOperationReasonForCancel<ReasonForCancelTy
             return "Core Data error: \(error.localizedDescription)"
         case .op1Cancelled(reason: let reason):
             return reason.errorDescription
+        case .op1HasUnfinishedDependency(op1: let op1):
+            return "\(op1.debugDescription) has an unfinished dependency"
         }
     }
     

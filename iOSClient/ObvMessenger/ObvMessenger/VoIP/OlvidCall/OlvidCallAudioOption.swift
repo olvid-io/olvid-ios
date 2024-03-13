@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,7 +23,7 @@ import UI_SystemIcon
 
 
 /// Represents an audio option made available to the user when tapping the audio button in the in-house user interface.
-struct OlvidCallAudioOption: Identifiable {
+struct OlvidCallAudioOption: Identifiable, Equatable {
     
     enum Identifier: Hashable {
         case builtInSpeaker
@@ -44,7 +44,7 @@ struct OlvidCallAudioOption: Identifiable {
     var icon: IconKind {
         switch portType {
         case .builtInMic:
-            return .sf(.mic)
+            return .sf(.speakerWave3Fill)
         case .headsetMic:
             return .sf(.headphones)
         case .airPlay:

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,9 +26,7 @@ import ObvServerInterface
 
 protocol MessagesDelegate {
     
-    func downloadMessagesAndListAttachments(for: ObvCryptoIdentity, andDeviceUid: UID, flowId: FlowIdentifier)
-    func processMarkForDeletionForMessageAndAttachmentsAndCreatePendingDeleteFromServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) throws
-    func saveMessageReceivedOnWebsocket(message: ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer, downloadTimestampFromServer: Date, ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws
+    func downloadMessagesAndListAttachments(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async
+    func saveMessageReceivedOnWebsocket(message: ObvServerDownloadMessagesAndListAttachmentsMethod.MessageAndAttachmentsOnServer, downloadTimestampFromServer: Date, ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws
     
-    func downloadExtendedMessagePayload(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
 }

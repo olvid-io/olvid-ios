@@ -28,7 +28,7 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
     
     private let draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>
     
-    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
+    private(set) var messageSentPermanentID: MessageSentPermanentID?
 
     init(draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>) {
         self.draftPermanentID = draftPermanentID
@@ -94,7 +94,7 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
     
     
     private func tryToResetDraftOnHardFailure(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) {
-        ObvStack.shared.performBackgroundTaskAndWait { context in
+        ObvStack.shared.performBackgroundTaskAndWait { context in 
             guard let draftToReset = try? PersistedDraft.get(objectID: draftObjectID, within: context) else { return }
             draftToReset.reset()
             try? context.save()

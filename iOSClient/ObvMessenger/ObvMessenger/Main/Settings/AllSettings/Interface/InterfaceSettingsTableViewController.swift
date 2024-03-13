@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,13 +51,19 @@ class InterfaceSettingsTableViewController: UITableViewController {
     private enum Section: CaseIterable {
         case customizeMessageComposeArea
         case identityColorStyle
+        case singleDiscussionLayoutTests
         static var shown: [Section] {
-            Section.allCases
+            if ObvMessengerConstants.showExperimentalFeature {
+                return Self.allCases
+            } else {
+                return [.customizeMessageComposeArea, .identityColorStyle]
+            }
         }
         var numberOfItems: Int {
             switch self {
             case .customizeMessageComposeArea: return CustomizeMessageComposeAreaItem.shown.count
             case .identityColorStyle: return IdentityColorStyleItem.shown.count
+            case .singleDiscussionLayoutTests: return SingleDiscussionLayoutTestsItem.shown.count
             }
         }
         static func shownSectionAt(section: Int) -> Section? {
@@ -99,6 +105,22 @@ class InterfaceSettingsTableViewController: UITableViewController {
         }
     }
 
+    
+    private enum SingleDiscussionLayoutTestsItem: CaseIterable {
+        case chooseLayoutType
+        static var shown: [SingleDiscussionLayoutTestsItem] {
+            return Self.allCases
+        }
+        static func shownItemAt(item: Int) -> SingleDiscussionLayoutTestsItem? {
+            return shown[safe: item]
+        }
+        var cellIdentifier: String {
+            switch self {
+            case .chooseLayoutType: return "chooseLayoutType"
+            }
+        }
+    }
+    
 }
 
 // MARK: - UITableViewDataSource
@@ -149,6 +171,18 @@ extension InterfaceSettingsTableViewController {
                 cell.accessoryType = .disclosureIndicator
                 return cell
             }
+        case .singleDiscussionLayoutTests:
+            guard let item = SingleDiscussionLayoutTestsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            switch item {
+            case .chooseLayoutType:
+                let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = Strings.discussionLayoutType
+                configuration.secondaryText = ObvMessengerSettings.Interface.discussionLayoutType.description
+                cell.contentConfiguration = configuration
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
         }
     }
 
@@ -168,6 +202,13 @@ extension InterfaceSettingsTableViewController {
             switch item {
             case .identityColorStyle:
                 let vc = IdentityColorStyleChooserTableViewController()
+                navigationController?.pushViewController(vc, animated: true)
+            }
+        case .singleDiscussionLayoutTests:
+            guard let item = SingleDiscussionLayoutTestsItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            switch item {
+            case .chooseLayoutType:
+                let vc = SingleDiscussionLayoutTestsChooserViewController()
                 navigationController?.pushViewController(vc, animated: true)
             }
         }
@@ -194,6 +235,21 @@ private extension InterfaceSettingsTableViewController {
         static let firstNameThenLastName = NSLocalizedString("FIRST_NAME_LAST_NAME", comment: "")
         static let lastNameThenFirstName = NSLocalizedString("LAST_NAME_FIRST_NAME", comment: "")
         static let useOldDiscussionInterface = NSLocalizedString("USE_OLD_DISCUSSION_INTERFACE", comment: "")
+        static let discussionLayoutType = NSLocalizedString("DISCUSSION_LAYOUT_TYPE", comment: "")
+    }
+    
+}
+
+
+extension ObvMessengerSettings.Interface.DiscussionLayoutType {
+    
+    var description: String {
+        switch self {
+        case .productionLayout:
+            return NSLocalizedString("PRODUCTION_LAYOUT", comment: "")
+        case .listLayout:
+            return NSLocalizedString("LIST_LAYOUT", comment: "")
+        }
     }
     
 }

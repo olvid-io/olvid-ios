@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,6 +37,7 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
     let op3: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType3>
     let op4: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType4>
     let queueForComposedOperations: OperationQueue
+    public private(set) var executionStartDate: Date?
 
     public init(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>,
                 op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>,
@@ -62,13 +63,38 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
         let thisOperationName = "CompositionOfFourContextualOperations"
         return "\(thisOperationName)[\(concatanatedOpsNames)]"
     }
+    
+    
+    /// See ``CompositionOfTwoContextualOperations.cancel(withReason:)``.
+    public override func cancel(withReason reason: CompositionOfFourContextualOperationsReasonForCancel<ReasonForCancelType1, ReasonForCancelType2, ReasonForCancelType3, ReasonForCancelType4>) {
+        for op in [op1, op2, op3, op4] {
+            if !op.isFinished {
+                op.cancel()
+                queueForComposedOperations.addOperations([op], waitUntilFinished: true)
+            }
+        }
+        super.cancel(withReason: reason)
+    }
+
 
     public override func main() {
         
-        let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
-        defer { obvContext.performAllEndOfScopeCompletionHAndlers() }
+        assert(executionStartDate == nil)
+        executionStartDate = Date.now
 
-        assert(queueForComposedOperations.operationCount == 0)
+        let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
+        defer {
+            logExecutionDurationToDisplayableLog()
+            obvContext.performAllEndOfScopeCompletionHAndlers()
+        }
+
+        assert(queueForComposedOperations.operationCount < 5)
+
+        // See ``CompositionOfOneContextualOperation``
+        guard op1.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op1HasUnfinishedDependency(op1: op1))
+        }
 
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext
@@ -76,6 +102,12 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
         guard !op1.isCancelled else {
             guard let reason = op1.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op1Cancelled(reason: reason))
+        }
+
+        // See ``CompositionOfOneContextualOperation``
+        guard op2.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op2HasUnfinishedDependency(op2: op2))
         }
 
         op2.obvContext = obvContext
@@ -86,12 +118,24 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
             return cancel(withReason: .op2Cancelled(reason: reason))
         }
         
+        // See ``CompositionOfOneContextualOperation``
+        guard op3.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op3HasUnfinishedDependency(op3: op3))
+        }
+
         op3.obvContext = obvContext
         op3.viewContext = contextCreator.viewContext
         queueForComposedOperations.addOperations([op3], waitUntilFinished: true)
         guard !op3.isCancelled else {
             guard let reason = op3.reasonForCancel else { return cancel(withReason: .unknownReason) }
             return cancel(withReason: .op3Cancelled(reason: reason))
+        }
+
+        // See ``CompositionOfOneContextualOperation``
+        guard op4.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op4HasUnfinishedDependency(op4: op4))
         }
 
         op4.obvContext = obvContext
@@ -113,9 +157,15 @@ public final class CompositionOfFourContextualOperations<ReasonForCancelType1: L
                 return cancel(withReason: .coreDataError(error: error))
             }
         }
-        
+                
     }
     
+    private func logExecutionDurationToDisplayableLog() {
+        guard let executionStartDate else { assertionFailure(); return }
+        let duration = Date.now.timeIntervalSince(executionStartDate)
+        ObvDisplayableLogs.shared.log("[⏱️] [\(duration) seconds] [CompositionOfFourContextualOperations<\(op1.description)->\(op2.description)->\(op3.description)->\(op4.description)>]")
+    }
+
 }
 
 
@@ -130,10 +180,14 @@ public enum CompositionOfFourContextualOperationsReasonForCancel<ReasonForCancel
     case op2Cancelled(reason: ReasonForCancelType2)
     case op3Cancelled(reason: ReasonForCancelType3)
     case op4Cancelled(reason: ReasonForCancelType4)
+    case op1HasUnfinishedDependency(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>)
+    case op2HasUnfinishedDependency(op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>)
+    case op3HasUnfinishedDependency(op3: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType3>)
+    case op4HasUnfinishedDependency(op4: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType4>)
 
     public var logType: OSLogType {
         switch self {
-        case .unknownReason, .coreDataError:
+        case .unknownReason, .coreDataError, .op1HasUnfinishedDependency, .op2HasUnfinishedDependency, .op3HasUnfinishedDependency, .op4HasUnfinishedDependency:
             return .fault
         case .op1Cancelled(reason: let reason):
             return reason.logType
@@ -160,6 +214,14 @@ public enum CompositionOfFourContextualOperationsReasonForCancel<ReasonForCancel
             return reason.errorDescription
         case .op4Cancelled(reason: let reason):
             return reason.errorDescription
+        case .op1HasUnfinishedDependency(op1: let op1):
+            return "\(op1.debugDescription) has an unfinished dependency"
+        case .op2HasUnfinishedDependency(op2: let op2):
+            return "\(op2.debugDescription) has an unfinished dependency"
+        case .op3HasUnfinishedDependency(op3: let op3):
+            return "\(op3.debugDescription) has an unfinished dependency"
+        case .op4HasUnfinishedDependency(op4: let op4):
+            return "\(op4.debugDescription) has an unfinished dependency"
         }
     }
     

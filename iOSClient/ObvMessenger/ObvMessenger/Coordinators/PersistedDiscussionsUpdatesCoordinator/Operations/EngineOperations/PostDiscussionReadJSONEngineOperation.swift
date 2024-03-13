@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,8 @@ import ObvTypes
 import CoreData
 
 
-final class PostDiscussionReadJSONEngineOperation: ContextualOperationWithSpecificReasonForCancel<PostDiscussionReadJSONEngineOperation.ReasonForCancel> {
+/// This operation should not be executed if `hasAnotherDeviceWithChannel` is false for the owned identity
+final class PostDiscussionReadJSONEngineOperation: AsyncOperationWithSpecificReasonForCancel<PostDiscussionReadJSONEngineOperation.ReasonForCancel> {
     
     let obvEngine: ObvEngine
     let op: OperationProvidingDiscussionReadJSON
@@ -37,26 +38,15 @@ final class PostDiscussionReadJSONEngineOperation: ContextualOperationWithSpecif
         super.init()
     }
     
-
-    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+    override func main() async {
         
         assert(op.isFinished)
         
-        guard !op.isCancelled else { return }
-        guard let discussionReadJSONToSend = op.discussionReadJSONToSend else { return }
-        guard let ownedCryptoId = op.ownedCryptoId else { assertionFailure(); return }
+        guard let discussionReadJSONToSend = op.discussionReadJSONToSend else { return finish() }
+        guard let ownedCryptoId = op.ownedCryptoId else { assertionFailure(); return finish() }
 
         do {
             
-            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
-                return cancel(withReason: .couldNotFindOwnedIdentity)
-            }
-            
-            guard ownedIdentity.hasAnotherDeviceWithChannel else {
-                // No need to propagate the fact that we opened a message with limited visibility since we don't have any other owned device with a secure channel
-                return
-            }
-                
             let persistedItemsJSON = PersistedItemJSON(discussionRead: discussionReadJSONToSend)
             let payload = try persistedItemsJSON.jsonEncode()
             
@@ -68,18 +58,18 @@ final class PostDiscussionReadJSONEngineOperation: ContextualOperationWithSpecif
                                    toContactIdentitiesWithCryptoId: Set(),
                                    ofOwnedIdentityWithCryptoId: ownedCryptoId,
                                    alsoPostToOtherOwnedDevices: true)
+            
+            return finish()
                 
             
         } catch {
             return cancel(withReason: .someError(error: error))
         }
-        
+
     }
-    
-    
+        
     enum ReasonForCancel: LocalizedErrorWithLogType {
         
-        case couldNotFindOwnedIdentity
         case someError(error: Error)
         
         var logType: OSLogType {
@@ -90,8 +80,6 @@ final class PostDiscussionReadJSONEngineOperation: ContextualOperationWithSpecif
             switch self {
             case .someError(error: let error):
                 return "Error: \(error.localizedDescription)"
-            case .couldNotFindOwnedIdentity:
-                return "Could not find owned identity"
             }
         }
         

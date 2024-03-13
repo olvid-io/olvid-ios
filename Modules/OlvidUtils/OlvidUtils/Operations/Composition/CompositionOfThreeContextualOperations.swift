@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,6 +30,7 @@ public final class CompositionOfThreeContextualOperations<ReasonForCancelType1: 
     let op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>
     let op3: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType3>
     let queueForComposedOperations: OperationQueue
+    public private(set) var executionStartDate: Date?
 
     public init(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>,
                 op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>,
@@ -53,13 +54,38 @@ public final class CompositionOfThreeContextualOperations<ReasonForCancelType1: 
         let thisOperationName = "CompositionOfThreeContextualOperations"
         return "\(thisOperationName)[\(concatanatedOpsNames)]"
     }
+    
+
+    /// See ``CompositionOfTwoContextualOperations.cancel(withReason:)``.
+    public override func cancel(withReason reason: CompositionOfThreeContextualOperationsReasonForCancel<ReasonForCancelType1, ReasonForCancelType2, ReasonForCancelType3>) {
+        for op in [op1, op2, op3] {
+            if !op.isFinished {
+                op.cancel()
+                queueForComposedOperations.addOperations([op], waitUntilFinished: true)
+            }
+        }
+        super.cancel(withReason: reason)
+    }
+
 
     public override func main() {
         
-        let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
-        defer { obvContext.performAllEndOfScopeCompletionHAndlers() }
+        assert(executionStartDate == nil)
+        executionStartDate = Date.now
 
-        assert(queueForComposedOperations.operationCount == 0)
+        let obvContext = contextCreator.newBackgroundContext(flowId: flowId)
+        defer {
+            logExecutionDurationToDisplayableLog()
+            obvContext.performAllEndOfScopeCompletionHAndlers()
+        }
+
+        assert(queueForComposedOperations.operationCount < 5)
+
+        // See ``CompositionOfOneContextualOperation``
+        guard op1.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op1HasUnfinishedDependency(op1: op1))
+        }
 
         op1.obvContext = obvContext
         op1.viewContext = contextCreator.viewContext
@@ -71,6 +97,12 @@ public final class CompositionOfThreeContextualOperations<ReasonForCancelType1: 
             return cancel(withReason: .op1Cancelled(reason: reason))
         }
 
+        // See ``CompositionOfOneContextualOperation``
+        guard op2.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op2HasUnfinishedDependency(op2: op2))
+        }
+
         op2.obvContext = obvContext
         op2.viewContext = contextCreator.viewContext
         assert(op2.isReady)
@@ -80,6 +112,12 @@ public final class CompositionOfThreeContextualOperations<ReasonForCancelType1: 
             return cancel(withReason: .op2Cancelled(reason: reason))
         }
         
+        // See ``CompositionOfOneContextualOperation``
+        guard op3.dependencies.allSatisfy({ $0.isFinished }) else {
+            assertionFailure()
+            return cancel(withReason: .op3HasUnfinishedDependency(op3: op3))
+        }
+
         op3.obvContext = obvContext
         op3.viewContext = contextCreator.viewContext
         assert(op3.isReady)
@@ -101,9 +139,15 @@ public final class CompositionOfThreeContextualOperations<ReasonForCancelType1: 
                 return cancel(withReason: .coreDataError(error: error))
             }
         }
-        
+                
     }
     
+    private func logExecutionDurationToDisplayableLog() {
+        guard let executionStartDate else { assertionFailure(); return }
+        let duration = Date.now.timeIntervalSince(executionStartDate)
+        ObvDisplayableLogs.shared.log("[⏱️] [\(duration) seconds] [CompositionOfThreeContextualOperations<\(op1.description)->\(op2.description)->\(op3.description)>]")
+    }
+
 }
 
 
@@ -116,10 +160,13 @@ public enum CompositionOfThreeContextualOperationsReasonForCancel<ReasonForCance
     case op1Cancelled(reason: ReasonForCancelType1)
     case op2Cancelled(reason: ReasonForCancelType2)
     case op3Cancelled(reason: ReasonForCancelType3)
+    case op1HasUnfinishedDependency(op1: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType1>)
+    case op2HasUnfinishedDependency(op2: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType2>)
+    case op3HasUnfinishedDependency(op3: ContextualOperationWithSpecificReasonForCancel<ReasonForCancelType3>)
 
     public var logType: OSLogType {
         switch self {
-        case .unknownReason, .coreDataError:
+        case .unknownReason, .coreDataError, .op1HasUnfinishedDependency, .op2HasUnfinishedDependency, .op3HasUnfinishedDependency:
             return .fault
         case .op1Cancelled(reason: let reason):
             return reason.logType
@@ -142,6 +189,12 @@ public enum CompositionOfThreeContextualOperationsReasonForCancel<ReasonForCance
             return reason.errorDescription
         case .op3Cancelled(reason: let reason):
             return reason.errorDescription
+        case .op1HasUnfinishedDependency(op1: let op1):
+            return "\(op1.debugDescription) has an unfinished dependency"
+        case .op2HasUnfinishedDependency(op2: let op2):
+            return "\(op2.debugDescription) has an unfinished dependency"
+        case .op3HasUnfinishedDependency(op3: let op3):
+            return "\(op3.debugDescription) has an unfinished dependency"
         }
     }
     

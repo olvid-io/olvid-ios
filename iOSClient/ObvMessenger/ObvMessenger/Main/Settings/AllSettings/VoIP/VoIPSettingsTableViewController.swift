@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,7 +23,7 @@ import ObvUICoreData
 import ObvSettings
 
 
-class VoIPSettingsTableViewController: UITableViewController {
+final class VoIPSettingsTableViewController: UITableViewController {
 
     init() {
         super.init(style: Self.settingsTableStyle)
@@ -50,19 +50,21 @@ class VoIPSettingsTableViewController: UITableViewController {
     private enum Section: CaseIterable {
         
         case normal
+        case video
         case experimental
         
         static var shown: [Section] {
             if ObvMessengerConstants.showExperimentalFeature {
                 return Section.allCases
             } else {
-                return [.normal]
+                return [.normal, .video]
             }
         }
         
         var numberOfItems: Int {
             switch self {
             case .normal: return NormalItem.shown.count
+            case .video: return VideoItem.shown.count
             case .experimental: return ExperimentalItem.shown.count
             }
         }
@@ -100,7 +102,28 @@ class VoIPSettingsTableViewController: UITableViewController {
         }
         
     }
+
     
+    private enum VideoItem: CaseIterable {
+        case sendResolution
+        
+        static var shown: [VideoItem] {
+            Self.allCases
+        }
+
+        static func shownItemAt(item: Int) -> VideoItem? {
+            guard item < shown.count else { assertionFailure(); return nil }
+            return shown[item]
+        }
+
+        var cellIdentifier: String {
+            switch self {
+            case .sendResolution: return "sendResolution"
+            }
+        }
+        
+    }
+
     
     private enum ExperimentalItem: CaseIterable {
         
@@ -182,6 +205,22 @@ extension VoIPSettingsTableViewController {
                 return cell
                 
             }
+            
+        case .video:
+            
+            guard let item = VideoItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            
+            switch item {
+
+            case .sendResolution:
+                let cell = UITableViewCell(style: .default, reuseIdentifier: item.cellIdentifier)
+                var configuration = cell.defaultContentConfiguration()
+                configuration.text = Strings.sendResolution
+                configuration.secondaryText = Strings.localizedString(for: ObvMessengerSettings.VoIP.videoSendResolution)
+                cell.contentConfiguration = configuration
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
 
         case .experimental:
 
@@ -218,6 +257,11 @@ extension VoIPSettingsTableViewController {
 
             return
             
+        case .video:
+            
+            let vc = SendResolutionChooserViewController()
+            navigationController?.pushViewController(vc, animated: true)
+            
         case .experimental:
 
             guard let item = ExperimentalItem.shownItemAt(item: indexPath.item) else { return }
@@ -237,10 +281,23 @@ extension VoIPSettingsTableViewController {
 
 extension VoIPSettingsTableViewController {
     
-    private struct Strings {
+    struct Strings {
         static let receiveCallsOnThisDevice = NSLocalizedString("RECEIVE_CALLS_ON_THIS_DEVICE", comment: "")
         static let includesCallsInRecents = NSLocalizedString("INCLUDE_CALL_IN_RECENTS", comment: "")
         static let maxaveragebitrate = NSLocalizedString("MAX_AVG_BITRATE", comment: "")
+        static let sendResolution = NSLocalizedString("SEND_RESOLUTION", comment: "")
+        static func localizedString(for videoSendResolution: ObvMessengerSettings.VoIP.VideoSendResolution) -> String {
+            switch videoSendResolution {
+            case .fullHigh1080:
+                return NSLocalizedString("VIDEO_SEND_RESOLUTION_FULL_HIGH_1080", comment: "")
+            case .high720:
+                return NSLocalizedString("VIDEO_SEND_RESOLUTION_HIGH_720", comment: "")
+            case .standard480:
+                return NSLocalizedString("VIDEO_SEND_RESOLUTION_STANDARD_480", comment: "")
+            case .low360:
+                return NSLocalizedString("VIDEO_SEND_RESOLUTION_LOW_360", comment: "")
+            }
+        }
     }
     
 }

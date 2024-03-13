@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,6 +34,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
     private(set) var message: PersistedMessageSent?
     private(set) var draftObjectID: TypeSafeManagedObjectID<PersistedDraft>?
     private var indexPath: IndexPath?
+    private var searchedTextToHighlight: String?
 
     var messageSent: PersistedMessageSent? { message }
 
@@ -66,7 +67,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         return newLayoutAttributes
     }
 
-    func updateWith(message: PersistedMessageSent, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate?) {
+    func updateWith(message: PersistedMessageSent, searchedTextToHighlight: String?, indexPath: IndexPath, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, cacheDelegate: DiscussionCacheDelegate?, cellReconfigurator: CellReconfigurator?, textBubbleDelegate: TextBubbleDelegate?) {
         assert(cacheDelegate != nil)
         self.message = message
         self.indexPath = indexPath
@@ -75,6 +76,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         self.cacheDelegate = cacheDelegate
         self.cellReconfigurator = cellReconfigurator
         self.textBubbleDelegate = textBubbleDelegate
+        self.searchedTextToHighlight = searchedTextToHighlight
     }
     
     
@@ -105,7 +107,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
 
         do {
             let messageObjectID = message.typedObjectID.downcast
-            cacheDelegate?.requestAllHardlinksForMessage(with: messageObjectID) { [weak self] needsUpdateConfiguration in
+            cacheDelegate?.requestAllRelevantHardlinksForMessage(with: messageObjectID) { [weak self] needsUpdateConfiguration in
                 guard needsUpdateConfiguration && messageObjectID == self?.message?.typedObjectID.downcast else { return }
                 self?.setNeedsUpdateConfiguration()
             }
@@ -125,39 +127,18 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                 content.textBubbleConfiguration = TextBubble.Configuration(kind: .sent,
                                                                            text: text,
                                                                            dataDetectorTypes: dataDetected,
+                                                                           searchedTextToHighlight: searchedTextToHighlight,
                                                                            mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
             } else {
                 content.textBubbleConfiguration = TextBubble.Configuration(kind: .sent,
                                                                            text: text,
                                                                            dataDetectorTypes: [],
+                                                                           searchedTextToHighlight: searchedTextToHighlight,
                                                                            mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
                 cacheDelegate?.requestDataDetection(text: text) { [weak self] dataDetected in
                     assert(Thread.isMainThread)
                     guard dataDetected else { return }
                     self?.setNeedsUpdateConfiguration()
-                }
-            }
-        }
-        
-        // Look for an https URL within the text
-        
-        content.singleLinkConfiguration = nil
-        let doFetchContentRichURLsMetadataSetting = message.discussion?.localConfiguration.doFetchContentRichURLsMetadata ?? ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata
-        switch doFetchContentRichURLsMetadataSetting {
-        case .never:
-            break
-        case .always, .withinSentMessagesOnly:
-            if let text = message.textBody, !message.isWiped, let linkURL = cacheDelegate?.getFirstHttpsURL(text: text) {
-                switch CachedLPMetadataProvider.shared.getCachedMetada(for: linkURL) {
-                case .metadataCached(metadata: let metadata):
-                    content.singleLinkConfiguration = .metadataAvailable(url: linkURL, metadata: metadata)
-                case .siteDoesNotProvideMetada, .failureOccuredWhenFetchingOrCachingMetadata:
-                    content.singleLinkConfiguration = .metadataRetrievalFailed
-                case .metadaNotCachedYet:
-                    content.singleLinkConfiguration = .metadataNotYetAvailable(url: linkURL)
-                    CachedLPMetadataProvider.shared.fetchAndCacheMetadata(for: linkURL) { [weak self] in
-                        self?.setNeedsUpdateConfiguration()
-                    }
                 }
             }
         }
@@ -218,7 +199,17 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             content.singleGifViewConfiguration = nil
         }
 
+        // configure preview tytpes of attachments
         var otherAttachments = message.fyleMessageJoinWithStatusesOfOtherTypes
+        let previewAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfPreviewType
+        if let previewAttachment = previewAttachments.first {
+            content.singlePreviewConfiguration = singlePreviewViewConfigurationForPreviewAttachment(previewAttachment)
+        } else {
+            content.singlePreviewConfiguration = nil
+        }
+        
+        //We remove the previewAttachments for all cases
+        otherAttachments = otherAttachments.filter { !previewAttachments.contains($0) }
 
         var audioAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfAudioType
         if let firstAudioAttachment = audioAttachments.first {
@@ -433,6 +424,58 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         return config
     }
     
+    private func singlePreviewViewConfigurationForPreviewAttachment(_ previewAttachment: SentFyleMessageJoinWithStatus) -> SinglePreviewView.Configuration? {
+
+        var config: SinglePreviewView.Configuration?
+        let message = previewAttachment.sentMessage
+        let previousConfiguration: SentMessageCellCustomContentConfiguration?
+        
+        // We check that the current cell has a configuration configured for the current message already.
+        if let configuration = self.contentConfiguration as? SentMessageCellCustomContentConfiguration,
+            message.objectID == configuration.messageObjectID?.objectID {
+            previousConfiguration = configuration
+        } else {
+            previousConfiguration = nil
+        }
+        
+        guard let fallbackURL = URL(string: previewAttachment.fileName), let fyleURL = previewAttachment.fyle?.url, FileManager.default.fileExists(atPath: fyleURL.path) else {
+            return nil
+        }
+                
+        switch previewAttachment.status {
+        case .downloading:
+            config = .downloadingOrDecoding
+        case .downloadable:
+            config = .downloadable
+        case .cancelledByServer:
+            config = nil
+        case .complete, .uploadable, .uploading:
+            switch CachedObvLinkMetadataManager.shared.getCachedMetadata(for: fyleURL) {
+            case let .metadataCached(preview):
+                config = .complete(preview: preview)
+                //MARK: UGLY - We should NOT reload the cell if we have a previous Configuration and it was already in a complete state
+                if let singlePreviewConfiguration = previousConfiguration?.singlePreviewConfiguration, singlePreviewConfiguration.isComplete {
+                } else {
+                    Task { [weak self] in
+                        self?.cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: message.typedObjectID.downcast)
+                    }
+                }
+            case .metadaNotCachedYet:
+                config = .downloadingOrDecoding
+                Task {
+                    try? await CachedObvLinkMetadataManager.shared.decodeAndCacheMetadata(for: fyleURL, fallbackURL: fallbackURL)
+                    await MainActor.run { [weak self] in
+                        self?.setNeedsUpdateConfiguration()
+                    }
+                }
+            case .failureOccuredWhenDecodingOrCachingMetadata:
+                config = nil
+            }
+        }
+        
+        return config
+    }
+    
     override func prepareForReuse() {
         super.prepareForReuse()
         (contentView as? SentMessageCellContentView)?.prepareForReuse()
@@ -495,19 +538,19 @@ extension SentMessageCell {
     }
     
     var activityItemProvidersForAllAttachments: [UIActivityItemProvider]? {
-        message?.fyleMessageJoinWithStatuses
+        message?.sharableFyleMessageJoinWithStatuses
             .compactMap({ cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: ($0 as FyleMessageJoinWithStatus).typedObjectID) })
             .compactMap({ $0.activityItemProvider })
     }
     
     var itemProvidersForAllAttachments: [NSItemProvider]? {
-        message?.fyleMessageJoinWithStatuses
+        message?.sharableFyleMessageJoinWithStatuses
             .compactMap({ cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: ($0 as FyleMessageJoinWithStatus).typedObjectID) })
             .compactMap({ $0.itemProvider })
     }
     
     var uiDragItemsForAllAttachments: [UIDragItem]? {
-        message?.fyleMessageJoinWithStatuses
+        message?.sharableFyleMessageJoinWithStatuses
             .compactMap({ cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: ($0 as FyleMessageJoinWithStatus).typedObjectID) })
             .compactMap({ $0 })
             .compactMap({ ($0, $0.uiDragItem) })
@@ -522,7 +565,7 @@ extension SentMessageCell {
     }
 
     var hardlinkURLsForAllAttachments: [URL]? {
-        message?.fyleMessageJoinWithStatuses
+        message?.sharableFyleMessageJoinWithStatuses
             .compactMap({ cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: ($0 as FyleMessageJoinWithStatus).typedObjectID) })
             .compactMap({ $0.hardlinkURL })
     }
@@ -560,7 +603,7 @@ fileprivate struct SentMessageCellCustomContentConfiguration: UIContentConfigura
     var audioPlayerConfiguration: AudioPlayerView.Configuration?
 
     var textBubbleConfiguration: TextBubble.Configuration?
-    var singleLinkConfiguration: SingleLinkView.Configuration?
+    var singlePreviewConfiguration: SinglePreviewView.Configuration?
     var status = PersistedMessageSent.MessageStatus.unprocessed
     var reactionAndCounts = [ReactionAndCount]()
 
@@ -589,7 +632,7 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
                                                    showInStack: true)
     fileprivate let textBubble = TextBubble(expirationIndicatorSide: .leading, bubbleColor: AppTheme.shared.colorScheme.adaptiveOlvidBlue, textColor: .white)
     fileprivate let emojiOnlyBodyView = EmojiOnlyBodyView(expirationIndicatorSide: .leading)
-    private let singleLinkView = SingleLinkView(expirationIndicatorSide: .leading)
+    private let singlePreviewView = SinglePreviewView(expirationIndicatorSide: .leading)
     private let statusAndDateView = SentMessageStatusAndDateView()
     fileprivate let singleImageView = SingleImageView(expirationIndicatorSide: .leading)
     fileprivate let multipleImagesView = MultipleImagesView(expirationIndicatorSide: .leading)
@@ -755,7 +798,7 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
         mainStack.addArrangedSubview(emojiOnlyBodyView)
         
-        mainStack.addArrangedSubview(singleLinkView)
+        mainStack.addArrangedSubview(singlePreviewView)
         
         mainStack.addArrangedSubview(singleGifView)
 
@@ -810,7 +853,7 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
     
     func prepareForReuse() {
-        singleLinkView.prepareForReuse()
+        singlePreviewView.prepareForReuse()
     }
 
     fileprivate func startAnimating() {
@@ -867,15 +910,15 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             wipedView.showInStack = false
         }
         
-        // Single link view
+        // Single preview View
         
-        if let singleLinkConfiguration = newConfig.singleLinkConfiguration {
-            singleLinkView.showInStack = true
-            singleLinkView.setConfiguration(newConfiguration: singleLinkConfiguration)
+        if let singlePreviewConfiguration = newConfig.singlePreviewConfiguration {
+            singlePreviewView.showInStack = true
+            singlePreviewView.currentConfiguration = singlePreviewConfiguration
         } else {
-            singleLinkView.showInStack = false
+            singlePreviewView.showInStack = false
         }
-
+        
         // Images
 
         if let singleImageViewConfiguration = newConfig.singleImageViewConfiguration {

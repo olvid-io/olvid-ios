@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -66,7 +66,7 @@ public final class NewDiscussionsSelectionViewController: UIViewController, NSFe
         self.viewModel = viewModel
         self.horizontalListOfSelectedDiscussionsVC = HorizontalListOfSelectedDiscussionsViewController()
         self.delegate = delegate
-        self.searchStore = DiscussionsSearchStore(ownedCryptoId: viewModel.ownedCryptoId, viewContext: viewModel.viewContext)
+        self.searchStore = DiscussionsSearchStore(ownedCryptoId: viewModel.ownedCryptoId, restrictToActiveDiscussions: viewModel.restrictToActiveDiscussions, viewContext: viewModel.viewContext)
         self.selectedDiscussions = viewModel.preselectedDiscussions
         super.init(nibName: nil, bundle: nil)
         self.horizontalListOfSelectedDiscussionsVC.delegate = self

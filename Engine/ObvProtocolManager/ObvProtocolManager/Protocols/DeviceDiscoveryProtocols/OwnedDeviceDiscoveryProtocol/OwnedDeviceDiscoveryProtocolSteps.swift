@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -174,23 +174,32 @@ extension OwnedDeviceDiscoveryProtocol {
             
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: OwnedDeviceDiscoveryProtocol.logCategory)
             
-            guard let encryptedOwnedDeviceDiscoveryResult = receivedMessage.encryptedOwnedDeviceDiscoveryResult else {
+            guard let ownedDeviceDiscoveryResult = receivedMessage.ownedDeviceDiscoveryResult else {
                 assertionFailure()
-                os_log("The ServerQueryMessage has no encryptedOwnedDeviceDiscoveryResult. This is a bug.", log: log, type: .fault)
+                os_log("The ServerQueryMessage has no ownedDeviceDiscoveryResult. This is a bug.", log: log, type: .fault)
                 return CancelledState()
             }
             
-            let currentDeviceIsPartOfOwnedDeviceDiscoveryResult = try identityDelegate.processEncryptedOwnedDeviceDiscoveryResult(encryptedOwnedDeviceDiscoveryResult, forOwnedCryptoId: ownedIdentity, within: obvContext)
-            
-            if !currentDeviceIsPartOfOwnedDeviceDiscoveryResult {
-                ObvProtocolNotification.theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults(ownedIdentity: ownedIdentity)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+            switch ownedDeviceDiscoveryResult {
+                
+            case .failure:
+                return CancelledState()
+                
+            case .success(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
+                
+                let currentDeviceIsPartOfOwnedDeviceDiscoveryResult = try identityDelegate.processEncryptedOwnedDeviceDiscoveryResult(encryptedOwnedDeviceDiscoveryResult, forOwnedCryptoId: ownedIdentity, within: obvContext)
+                
+                if !currentDeviceIsPartOfOwnedDeviceDiscoveryResult {
+                    ObvProtocolNotification.theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults(ownedIdentity: ownedIdentity)
+                        .postOnBackgroundQueue(within: notificationDelegate)
+                }
+                
+                // Return the new state
+                
+                return ServerQueryProcessedState()
+
             }
-            
-            // Return the new state
-            
-            return ServerQueryProcessedState()
-            
+                        
         }
         
     }

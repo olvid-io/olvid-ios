@@ -135,7 +135,7 @@ extension ContactIdentityDetails {
         
     }
  
-    /// Used *exclusively* during a backup restore for creating an instance, relationships are recreater in a second step
+    /// Used *exclusively* during a backup restore for creating an instance, relationships are recreated in a second step
     convenience init(serializedIdentityCoreDetails: Data, version: Int, photoServerKeyAndLabel: PhotoServerKeyAndLabel?, entityName: String, within obvContext: ObvContext) {
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: obvContext)!
         self.init(entity: entityDescription, insertInto: obvContext)
@@ -169,7 +169,6 @@ extension ContactIdentityDetails {
 
     
     func setContactPhoto(data: Data, delegateManager: ObvIdentityDelegateManager) throws {
-        assert(photoServerKeyAndLabel != nil)
         guard let photoURLInEngine = freshPath(in: delegateManager.identityPhotosDirectory) else { throw makeError(message: "Could not get fresh path for photo") }
         try data.write(to: photoURLInEngine)
         try setContactPhoto(with: photoURLInEngine, delegateManager: delegateManager)
@@ -182,7 +181,6 @@ extension ContactIdentityDetails {
     /// a random filename, and this new filename is saved.
     func setContactPhoto(with newPhotoURL: URL?, delegateManager: ObvIdentityDelegateManager) throws {
         
-        guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); throw makeError(message: "The notification delegate is not set") }
         let currentPhotoURL = getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) // Can be nil
         
         guard currentPhotoURL != newPhotoURL else { return }
@@ -205,7 +203,6 @@ extension ContactIdentityDetails {
         // If there is a new photo URL, we move it to the engine if required, or simply make a hard link if it is already within the engine.
         // Creating a hard link prevents the deletion of a photo referenced by another ContactGroupDetails instance.
         if let newPhotoURL = newPhotoURL {
-            assert(photoServerKeyAndLabel != nil)
             assert(FileManager.default.fileExists(atPath: newPhotoURL.path))
             guard let newPhotoURLInEngine = freshPath(in: delegateManager.identityPhotosDirectory) else { throw makeError(message: "Could not get fresh path for photo") }
             if newPhotoURL.deletingLastPathComponent() == delegateManager.identityPhotosDirectory {
@@ -225,10 +222,10 @@ extension ContactIdentityDetails {
             guard error == nil else { assertionFailure(); return }
             if self is ContactIdentityDetailsPublished, let contactCryptoIdentity {
                 ObvIdentityNotificationNew.publishedPhotoOfContactIdentityHasBeenUpdated(ownedIdentity: ownedCryptoIdentity, contactIdentity: contactCryptoIdentity)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             } else if self is ContactIdentityDetailsTrusted, let contactCryptoIdentity {
                 ObvIdentityNotificationNew.trustedPhotoOfContactIdentityHasBeenUpdated(ownedIdentity: ownedCryptoIdentity, contactIdentity: contactCryptoIdentity)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             } else {
                 assertionFailure()
             }
@@ -332,7 +329,7 @@ extension ContactIdentityDetails {
                 return
             }
             ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
 
         

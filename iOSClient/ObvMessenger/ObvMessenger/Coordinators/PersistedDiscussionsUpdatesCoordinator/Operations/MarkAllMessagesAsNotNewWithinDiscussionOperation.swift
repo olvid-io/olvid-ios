@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -42,7 +42,7 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
 
     private(set) var ownedCryptoId: ObvCryptoId?
     private(set) var discussionReadJSONToSend: DiscussionReadJSON?
-
+    private(set) var ownedIdentityHasAnotherDeviceWithChannel = false
     
     enum Result {
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
@@ -85,6 +85,7 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
             }
             
             self.ownedCryptoId = ownedIdentity.cryptoId
+            self.ownedIdentityHasAnotherDeviceWithChannel = ownedIdentity.hasAnotherDeviceWithChannel
             
             let lastReadMessageServerTimestamp = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId, untilDate: untilDate, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
 

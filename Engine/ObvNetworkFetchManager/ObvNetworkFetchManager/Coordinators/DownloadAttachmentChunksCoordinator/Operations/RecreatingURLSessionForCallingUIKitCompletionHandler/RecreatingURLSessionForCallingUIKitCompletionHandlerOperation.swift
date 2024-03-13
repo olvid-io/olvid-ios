@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,93 +19,79 @@
 
 import Foundation
 import os.log
+import CoreData
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
 
 
-final class RecreatingURLSessionForCallingUIKitCompletionHandlerOperation: Operation {
+final class RecreateURLSessionForCallingUIKitCompletionHandlerOperation: ContextualOperationWithSpecificReasonForCancel<RecreateURLSessionForCallingUIKitCompletionHandlerOperation.ReasonForCancel> {
     
-    enum ReasonForCancel: Hashable {
-        case contextCreatorIsNotSet
-        case couldNotFindOutboxAttachmentSessionInDatabase
-        case cannotFindAttachmentInDatabase
-    }
-    
-    private let uuid = UUID()
     private let urlSessionIdentifier: String
-    private let flowId: FlowIdentifier
+    private let tracker: AttachmentChunkDownloadProgressTracker
+    private let delegateManager: ObvNetworkFetchDelegateManager
     private let log: OSLog
-    private let logSubsystem: String
-    private let logCategory = String(describing: RecreatingURLSessionForCallingUIKitCompletionHandlerOperation.self)
-    private let inbox: URL
+    private let logCategory = String(describing: RecreateURLSessionForCallingUIKitCompletionHandlerOperation.self)
 
-    private weak var contextCreator: ObvCreateContextDelegate?
-    private weak var attachmentChunkDownloadProgressTracker: AttachmentChunkDownloadProgressTracker?
-
-    private(set) var reasonForCancel: ReasonForCancel?
-
-    init(urlSessionIdentifier: String, logSubsystem: String, flowId: FlowIdentifier, inbox: URL, contextCreator: ObvCreateContextDelegate, attachmentChunkDownloadProgressTracker: AttachmentChunkDownloadProgressTracker) {
+    init(urlSessionIdentifier: String, tracker: AttachmentChunkDownloadProgressTracker, delegateManager: ObvNetworkFetchDelegateManager) {
         self.urlSessionIdentifier = urlSessionIdentifier
-        self.flowId = flowId
-        self.logSubsystem = logSubsystem
-        self.log = OSLog(subsystem: logSubsystem, category: logCategory)
-        self.inbox = inbox
-        self.contextCreator = contextCreator
-        self.attachmentChunkDownloadProgressTracker = attachmentChunkDownloadProgressTracker
+        self.tracker = tracker
+        self.delegateManager = delegateManager
+        self.log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
         super.init()
     }
-
-    deinit {
-        os_log("RecreatingURLSessionForCallingUIKitCompletionHandlerOperation %{public}@ is deinitialized", log: log, type: .info, uuid.description)
-    }
-
-    private func cancel(withReason reason: ReasonForCancel) {
-        assert(self.reasonForCancel == nil)
-        self.reasonForCancel = reason
-        self.cancel()
-    }
-
     
-    override func main() {
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        os_log("👑 Starting RecreatingURLSessionForCallingUIKitCompletionHandlerOperation %{public}@", log: log, type: .info, uuid.description)
-        defer {
-            os_log("👑 Ending RecreatingURLSessionForCallingUIKitCompletionHandlerOperation %{public}@ isCancelled: %{public}d", log: log, type: .info, uuid.description, isCancelled)
-        }
-
-        guard let contextCreator = self.contextCreator else {
-            assertionFailure()
-            cancel(withReason: .contextCreatorIsNotSet)
-            return
-        }
-        
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+        do {
             
-            let attachmentSession: InboxAttachmentSession
-            do {
-                let _attachmentSession = try InboxAttachmentSession.getWithSessionIdentifier(urlSessionIdentifier, within: obvContext)
-                guard let _attachmentSession else {
-                    os_log("Could not find any OutboxAttachmentSession for the given session identifier. Callin the completion handler now.", log: log, type: .error)
-                    return cancel(withReason: .couldNotFindOutboxAttachmentSessionInDatabase)
-                }
-                attachmentSession = _attachmentSession
-            } catch {
-                os_log("Could not find any OutboxAttachmentSession for the given session identifier. Callin the completion handler now (2).", log: log, type: .error)
-                return cancel(withReason: .couldNotFindOutboxAttachmentSessionInDatabase)
+            guard let attachmentSession = try InboxAttachmentSession.getWithSessionIdentifier(urlSessionIdentifier, within: obvContext) else {
+                return cancel(withReason: .couldNotFindInboxAttachmentSessionInDatabase)
             }
-
+            
             guard let attachment = attachmentSession.attachment else {
                 return cancel(withReason: .cannotFindAttachmentInDatabase)
             }
 
             guard let attachmentId = attachment.attachmentId else { assertionFailure(); return }
 
-            let sessionDelegate = DownloadAttachmentChunksSessionDelegate(attachmentId: attachmentId,
-                                                                          obvContext: obvContext,
-                                                                          logSubsystem: logSubsystem,
-                                                                          inbox: inbox)
-            sessionDelegate.tracker = attachmentChunkDownloadProgressTracker
+            guard let decryptedAttachmentURL = attachment.getURL(withinInbox: delegateManager.inbox) else {
+                assertionFailure()
+                return cancel(withReason: .cannotDetermineDecryptedAttachmentURL)
+            }
+
+            let cleartextChunkLengths = attachment.chunks.compactMap { $0.cleartextChunkLength }
+            guard cleartextChunkLengths.count == attachment.chunks.count else {
+                assertionFailure()
+                return cancel(withReason: .cannotDetermineCleartextChunkLengths)
+            }
+
+            guard let decryptionKey = attachment.key else {
+                assertionFailure()
+                return cancel(withReason: .decryptionKeyIsNotAvailable)
+            }
+
+            guard let contextCreator = delegateManager.contextCreator else {
+                assertionFailure()
+                return cancel(withReason: .contextCreatorIsNil)
+            }
+
+            let obvContextForDownloadAttachmentChunksSessionDelegate = contextCreator.newBackgroundContext(flowId: obvContext.flowId)
+
+            let sessionDelegate = DownloadAttachmentChunksSessionDelegate(
+                attachmentId: attachmentId,
+                logSubsystem: delegateManager.logSubsystem,
+                decryptedAttachmentURL: decryptedAttachmentURL,
+                tracker: tracker,
+                flowId: obvContext.flowId,
+                cleartextChunkLengths: cleartextChunkLengths,
+                decryptionKey: decryptionKey,
+                queueForDecryptingChunks: delegateManager.queueForDecryptingChunks,
+                queueForComposedOperations: delegateManager.queueForComposedOperations, 
+                queueSharedAmongCoordinators: delegateManager.queueSharedAmongCoordinators,
+                obvContext: obvContextForDownloadAttachmentChunksSessionDelegate,
+                viewContext: viewContext)
+
             os_log("👑 The delegate created for calling the UIKit handler has the following UID: %{public}@", log: log, type: .info, sessionDelegate.uuid.uuidString)
 
             let sessionConfiguration = URLSessionConfiguration.background(withIdentifier: urlSessionIdentifier)
@@ -120,8 +106,48 @@ final class RecreatingURLSessionForCallingUIKitCompletionHandlerOperation: Opera
             _ = URLSession(configuration: sessionConfiguration,
                            delegate: sessionDelegate,
                            delegateQueue: nil)
-            
+
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
         
     }
+    
+    
+    public enum ReasonForCancel: LocalizedErrorWithLogType {
+        
+        case coreDataError(error: Error)
+        case couldNotFindInboxAttachmentSessionInDatabase
+        case cannotFindAttachmentInDatabase
+        case cannotDetermineDecryptedAttachmentURL
+        case cannotDetermineCleartextChunkLengths
+        case decryptionKeyIsNotAvailable
+        case contextCreatorIsNil
+
+        public var logType: OSLogType {
+            return .fault
+        }
+
+        public var errorDescription: String? {
+            switch self {
+            case .coreDataError(error: let error):
+                return "Core Data error: \(error.localizedDescription)"
+            case .couldNotFindInboxAttachmentSessionInDatabase:
+                return "Could not find InboxAttachmentSession in database"
+            case .cannotFindAttachmentInDatabase:
+                return "Could not find attachment in database"
+            case .cannotDetermineDecryptedAttachmentURL:
+                return "Cannot determine decrypted attachment URL"
+            case .cannotDetermineCleartextChunkLengths:
+                return "Cannot determine cleartext chunk lengths"
+            case .decryptionKeyIsNotAvailable:
+                return "Decryption key is not available"
+            case .contextCreatorIsNil:
+                return "Context creator is nil"
+            }
+        }
+
+    }
+
 }

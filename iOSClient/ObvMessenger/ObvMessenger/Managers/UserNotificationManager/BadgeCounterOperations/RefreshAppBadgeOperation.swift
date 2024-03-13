@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,8 +21,9 @@ import Foundation
 import os.log
 import ObvEngine
 import ObvUICoreData
+import OlvidUtils
 
-
+/// Operations that updates the badge on the app icon. This is the only allowed place to do so.
 final class RefreshAppBadgeOperation: Operation {
     
     let log: OSLog
@@ -36,29 +37,39 @@ final class RefreshAppBadgeOperation: Operation {
 
     
     override func main() {
-        guard !isCancelled else { return }
         
-        let userDefaults = self.userDefaults
+        os_log("[🔴][RefreshAppBadgeOperation] start", log: log, type: .debug)
+        defer {
+            os_log("[🔴][RefreshAppBadgeOperation] end", log: log, type: .debug)
+        }
         
         ObvStack.shared.performBackgroundTaskAndWait { [weak self] (context) in
             
-            guard let _self = self else { return }
+            guard let self else { return }
             
-            guard let newBadgeValue = try? PersistedObvOwnedIdentity.computeAppBadgeValue(within: context) else { _self.cancel(); return }
+            guard let newBadgeValue = try? PersistedObvOwnedIdentity.computeAppBadgeValue(within: context) else { cancel(); return }
 
             userDefaults.set(newBadgeValue, forKey: UserDefaultsKeyForBadge.keyForAppBadgeCount)
 
+            let log = self.log
+            
             DispatchQueue.main.async {
-                if UIApplication.shared.applicationIconBadgeNumber != newBadgeValue {
-                    UIApplication.shared.applicationIconBadgeNumber = newBadgeValue
-                    let NotificationType = MessengerInternalNotification.ApplicationIconBadgeNumberWasUpdated.self
-                    NotificationCenter.default.post(name: NotificationType.name, object: nil)
-                }
-            }
+                
+                os_log("[🔴][RefreshAppBadgeOperation] setting new badge value to %d", log: log, type: .debug, newBadgeValue)
 
+                if #available(iOS 16, *) {
+                    UNUserNotificationCenter.current().setBadgeCount(newBadgeValue) { error in
+                        guard error == nil else { assertionFailure(); return }
+                    }
+                } else {
+                    guard UIApplication.shared.applicationIconBadgeNumber != newBadgeValue else { return }
+                    UIApplication.shared.applicationIconBadgeNumber = newBadgeValue
+                }
+                
+            }
+            
         }
         
     }
-
     
 }

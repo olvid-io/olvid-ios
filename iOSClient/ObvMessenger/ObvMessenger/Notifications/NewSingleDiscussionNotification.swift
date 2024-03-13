@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import Foundation
 import CoreData
 import PhotosUI
 import ObvUICoreData
+import LinkPresentation
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?
@@ -50,6 +51,8 @@ enum NewSingleDiscussionNotification {
 	case updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>)
 	case userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>)
 	case userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>)
+	case userWantsToDeletePreviewAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
+	case userWantsToDeleteNotPreviewAttachmentsToDraft(draftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 
 	private enum Name {
 		case userWantsToReadReceivedMessagesThatRequiresUserAction
@@ -69,6 +72,8 @@ enum NewSingleDiscussionNotification {
 		case updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility
 		case userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice
 		case userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice
+		case userWantsToDeletePreviewAttachmentsToDraft
+		case userWantsToDeleteNotPreviewAttachmentsToDraft
 
 		private var namePrefix: String { String(describing: NewSingleDiscussionNotification.self) }
 
@@ -98,6 +103,8 @@ enum NewSingleDiscussionNotification {
 			case .updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility: return Name.updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility.name
 			case .userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice: return Name.userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice.name
 			case .userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice: return Name.userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice.name
+			case .userWantsToDeletePreviewAttachmentsToDraft: return Name.userWantsToDeletePreviewAttachmentsToDraft.name
+			case .userWantsToDeleteNotPreviewAttachmentsToDraft: return Name.userWantsToDeleteNotPreviewAttachmentsToDraft.name
 			}
 		}
 	}
@@ -184,6 +191,14 @@ enum NewSingleDiscussionNotification {
 		case .userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(sentJoinObjectID: let sentJoinObjectID):
 			info = [
 				"sentJoinObjectID": sentJoinObjectID,
+			]
+		case .userWantsToDeletePreviewAttachmentsToDraft(draftObjectID: let draftObjectID):
+			info = [
+				"draftObjectID": draftObjectID,
+			]
+		case .userWantsToDeleteNotPreviewAttachmentsToDraft(draftObjectID: let draftObjectID):
+			info = [
+				"draftObjectID": draftObjectID,
 			]
 		}
 		return info
@@ -361,6 +376,22 @@ enum NewSingleDiscussionNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let sentJoinObjectID = notification.userInfo!["sentJoinObjectID"] as! TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>
 			block(sentJoinObjectID)
+		}
+	}
+
+	static func observeUserWantsToDeletePreviewAttachmentsToDraft(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToDeletePreviewAttachmentsToDraft.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
+			block(draftObjectID)
+		}
+	}
+
+	static func observeUserWantsToDeleteNotPreviewAttachmentsToDraft(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedDraft>) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToDeleteNotPreviewAttachmentsToDraft.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let draftObjectID = notification.userInfo!["draftObjectID"] as! TypeSafeManagedObjectID<PersistedDraft>
+			block(draftObjectID)
 		}
 	}
 

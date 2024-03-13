@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -47,6 +47,10 @@ public struct ObvContactGroup {
 
     public var groupIdentifier: GroupV1Identifier {
         return .init(groupUid: groupUid, groupOwner: groupOwner.cryptoId)
+    }
+    
+    public var obvGroupIdentifier: ObvGroupV1Identifier {
+        return .init(ownedCryptoId: ownedIdentity.cryptoId, groupV1Identifier: groupIdentifier)
     }
     
     public enum GroupType {

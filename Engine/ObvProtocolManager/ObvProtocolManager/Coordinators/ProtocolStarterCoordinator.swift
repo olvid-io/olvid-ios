@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -1191,8 +1191,10 @@ extension ProtocolStarterCoordinator {
     }
     
     
-    func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID) async throws {
+    func continueOwnedIdentityTransferProtocolOnUserEnteredSASOnSourceDevice(enteredSAS: ObvOwnedIdentityTransferSas, deviceToKeepActive: UID?, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, snapshotSentToTargetDevice: @escaping () -> Void) async throws {
   
+        guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); return }
+
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoId.cryptoIdentity),
                                               cryptoProtocolId: .ownedIdentityTransfer,
@@ -1202,6 +1204,45 @@ extension ProtocolStarterCoordinator {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw makeError(message: "Could create generic protocol message to send")
         }
+
+        var localTokens = [NSObjectProtocol]()
+
+        // Before starting the protocol: observe the notification sent by this protocol when the snapshot is sent (indicating the end of the protocol for the source device).
+        // Uppon receiving this notification, we pass the success information back to the app using the `snapshotSentToTargetDevice` callback.
+        
+        var token1: NSObjectProtocol?
+        do {
+            token1 = notificationDelegate.addObserverOfOwnedIdentityTransferProtocolNotification(.protocolFinishedSuccessfullyOnSourceDeviceAsSnapshotSentWasSent { payload in
+                guard let token1 else { return }
+                // Make sure the received notification concerns the protocol we launched here.
+                guard payload.protocolInstanceUID == protocolInstanceUID else { return }
+                // Remove the observer, since we do not expect to be notified again
+                notificationDelegate.removeObserver(token1)
+                // Notify the app, with no error
+                snapshotSentToTargetDevice()
+            })
+            localTokens.append(token1!)
+        }
+        
+        // Before starting the protocol: observe the notification sent by this protocol when the snapshot sending failed (indicating the end of the protocol for the source device).
+        // We do not notify the app (the generic listener on the ownedIdentityTransferProtocolFailed notification does this already).
+        // We simply unsubcribe.
+
+        do {
+            var token: NSObjectProtocol?
+            token = notificationDelegate.addObserverOfOwnedIdentityTransferProtocolNotification(.ownedIdentityTransferProtocolFailed { payload in
+                // Make sure the received notification concerns the protocol we launched here.
+                guard payload.protocolInstanceUID == protocolInstanceUID else { return }
+                // Remove the observer, since we do not expect to be notified again
+                if let token1 {
+                    notificationDelegate.removeObserver(token1)
+                }
+                notificationDelegate.removeObserver(token!)
+            })
+            localTokens.append(token!)
+        }
+
+        notificationCenterTokens.append(contentsOf: localTokens)
 
         try await postChannelMessage(initialMessageToSend, flowId: FlowIdentifier())
         

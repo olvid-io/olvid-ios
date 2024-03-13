@@ -244,9 +244,11 @@ extension OneToOneContactInvitationProtocol {
                     // This will be catched by the protocol manager which will replay the message in the ProtocolInstanceWaitingForContactUpgradeToOneToOne db.
                     // This message will execute the ProcessContactUpgradedToOneToOneStep of the other protocol instance, allowing it to finish properly
                     
+                    let reasonToLog = "OneToOneContactInvitationProtocol.BobProcessesAlicesInvitationStep"
                     try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                                     contactIdentity: contactIdentity,
                                                                     newIsOneToOneStatus: true,
+                                                                    reasonToLog: reasonToLog,
                                                                     within: obvContext)
 
                     // Accept the invitation
@@ -364,9 +366,11 @@ extension OneToOneContactInvitationProtocol {
             
             // Upgrade/downgrade Alice's OneToOne status
             
+            let reasonToLog = "OneToOneContactInvitationProtocol.BobRespondsToAlicesInvitationStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: contactIdentity,
                                                             newIsOneToOneStatus: invitationAccepted,
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
             
             // Remove Bob's dialog
@@ -448,9 +452,11 @@ extension OneToOneContactInvitationProtocol {
             
             // Upgrade/downgrade Bob's OneToOne status
             
+            let reasonToLog = "OneToOneContactInvitationProtocol.AliceReceivesBobsResponseStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: contactIdentity,
                                                             newIsOneToOneStatus: invitationAccepted,
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
             
             // Remove the dialog showed to Alice (telling her that an invitation was sent to Bob, and allowing to abort this protocol)
@@ -534,9 +540,11 @@ extension OneToOneContactInvitationProtocol {
             
             // Downgrade Bob's OneToOne status
             
+            let reasonToLog = "OneToOneContactInvitationProtocol.AliceAbortsHerInvitationToBobStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: contactIdentity,
                                                             newIsOneToOneStatus: false,
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
             
             // Remove the dialog showed to Alice (telling her that an invitation was sent to Bob, and allowing to abort this protocol, which is exactly what we are doing here)
@@ -615,9 +623,11 @@ extension OneToOneContactInvitationProtocol {
             
             // Downgrade Alice's OneToOne status
             
+            let reasonToLog = "OneToOneContactInvitationProtocol.BobProcessesAbortStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: contactIdentity,
                                                             newIsOneToOneStatus: false,
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
             
             // Remove the dialog showed to Bob (that allowed Bob to accept Alice's invitation, but hey, it's too late now)
@@ -841,9 +851,11 @@ extension OneToOneContactInvitationProtocol {
 
             // Upgrade/downgrade Alice's OneToOne status
             
+            let reasonToLog = "OneToOneContactInvitationProtocol.ProcessPropagatedOneToOneResponseMessageStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: contactIdentity,
                                                             newIsOneToOneStatus: invitationAccepted,
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
             
             // Remove Bob's dialog
@@ -891,9 +903,11 @@ extension OneToOneContactInvitationProtocol {
 
             // Downgrade Bob's OneToOne status
             
+            let reasonToLog = "OneToOneContactInvitationProtocol.ProcessPropagatedAbortMessageStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: contactIdentity,
                                                             newIsOneToOneStatus: false,
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
             
             // Remove the dialog showed to Alice (telling her that an invitation was sent to Bob, and allowing to abort this protocol, which is exactly what we are doing here)
@@ -959,9 +973,11 @@ extension OneToOneContactInvitationProtocol {
             
             // If we reach this point, we do not agree with out contact on our mutual OneToOne status. We downgrade him and send him a downgrade message.
 
+            let reasonToLog = "OneToOneContactInvitationProtocol.AliceProcessesUnexpectedBobResponseStep"
             try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                             contactIdentity: remoteIdentity,
                                                             newIsOneToOneStatus: false,
+                                                            reasonToLog: reasonToLog,
                                                             within: obvContext)
             
             let initialMessageToSend = try delegateManager.protocolStarterDelegate.getInitialMessageForDowngradingOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: remoteIdentity)
@@ -1071,9 +1087,11 @@ extension OneToOneContactInvitationProtocol {
                 
                 // We downgrade Alice so as to agree with her
                 
+                let reasonToLog = "OneToOneContactInvitationProtocol.BobProcessesSyncRequestStep"
                 try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                                 contactIdentity: contactIdentity,
                                                                 newIsOneToOneStatus: false,
+                                                                reasonToLog: reasonToLog,
                                                                 within: obvContext)
                 
                 return FinishedState()
@@ -1097,9 +1115,11 @@ extension OneToOneContactInvitationProtocol {
                         // This will be catched by the protocol manager which will replay the message in the ProtocolInstanceWaitingForContactUpgradeToOneToOne db.
                         // This message will execute the ProcessContactUpgradedToOneToOneStep of the other protocol instance, allowing it to finish properly
                         
+                        let reasonToLog = "OneToOneContactInvitationProtocol.BobProcessesSyncRequestStep"
                         try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
                                                                         contactIdentity: contactIdentity,
                                                                         newIsOneToOneStatus: true,
+                                                                        reasonToLog: reasonToLog,
                                                                         within: obvContext)
 
                         // We can finish this protocol instance

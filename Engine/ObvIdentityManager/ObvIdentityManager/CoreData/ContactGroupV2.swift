@@ -1330,7 +1330,7 @@ extension ContactGroupV2 {
             guard error == nil else { return }
             guard let obvGroupV2 = self?.getObvGroupV2(delegateManager: delegateManager) else { assertionFailure(); return }
             ObvIdentityNotificationNew.groupV2WasUpdated(obvGroupV2: obvGroupV2, initiator: creationOrUpdateInitiator)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
     }
     
@@ -1494,6 +1494,12 @@ extension ContactGroupV2 {
     }
     
     
+    static func getObvGroupV2(withGroupIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: OwnedIdentity, delegateManager: ObvIdentityDelegateManager) throws -> ObvGroupV2? {
+        let contactGroup = try getContactGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, delegateManager: delegateManager)
+        return contactGroup?.getObvGroupV2(delegateManager: delegateManager)
+    }
+    
+    
     static func getAllObvGroupV2(of ownedIdentity: OwnedIdentity, delegateManager: ObvIdentityDelegateManager) throws -> Set<ObvGroupV2> {
         guard let obvContext = ownedIdentity.obvContext else { assertionFailure(); throw Self.makeError(message: "Could not get ObvContext from OwnedIdentity") }
         
@@ -1645,7 +1651,6 @@ extension ContactGroupV2 {
         guard !isInsertedWhileRestoringSyncSnapshot else { assert(isInserted); return }
         
         guard let delegateManager = self.delegateManager else { assertionFailure(); return }
-        guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); return }
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactGroupV2.entityName)
 
@@ -1655,22 +1660,22 @@ extension ContactGroupV2 {
             let creationOrUpdateInitiator = self.creationOrUpdateInitiator
             if isInserted {
                 ObvIdentityNotificationNew.groupV2WasCreated(obvGroupV2: obvGroupV2, initiator: creationOrUpdateInitiator)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             } else if !changedKeys.isEmpty {
                 ObvIdentityNotificationNew.groupV2WasUpdated(obvGroupV2: obvGroupV2, initiator: creationOrUpdateInitiator)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
             
         } else {
             guard let valuesOnDeletion = valuesOnDeletion else { assertionFailure(); return }
             ObvIdentityNotificationNew.groupV2WasDeleted(ownedIdentity: valuesOnDeletion.ownedIdentity, appGroupIdentifier: valuesOnDeletion.appGroupIdentifier)
-                .postOnBackgroundQueue(within: notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
         if (isInserted && pushTopic != nil) || (isUpdated && changedKeys.contains(Predicate.Key.rawPushTopic.rawValue)) || isDeleted {
             if let ownedCryptoId = valuesOnDeletion?.ownedIdentity ?? ownedIdentity?.cryptoIdentity {
                 ObvIdentityNotificationNew.pushTopicOfKeycloakGroupWasUpdated(ownedCryptoId: ownedCryptoId)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
         }
         
@@ -1682,7 +1687,7 @@ extension ContactGroupV2 {
                 return
             }
             ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
 
     }

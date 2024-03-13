@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,7 +39,7 @@ public final class PersistedContactGroupJoined: PersistedContactGroup, ObvErrorM
 
     // MARK: Relationships
 
-    @NSManaged public var owner: PersistedObvContactIdentity? // If nil, this entity is eventually cascade-deleted
+    @NSManaged private(set) public var owner: PersistedObvContactIdentity? // If nil, this entity is eventually cascade-deleted
 
     // MARK: Other variables
 
@@ -56,7 +56,7 @@ public final class PersistedContactGroupJoined: PersistedContactGroup, ObvErrorM
 
     // MARK: - Initializer
 
-    public convenience init(contactGroup: ObvContactGroup, within context: NSManagedObjectContext) throws {
+    convenience init(contactGroup: ObvContactGroup, isRestoringSyncSnapshotOrBackup: Bool, within context: NSManagedObjectContext) throws {
 
         guard contactGroup.groupType == .joined else {
             assertionFailure()
@@ -74,7 +74,8 @@ public final class PersistedContactGroupJoined: PersistedContactGroup, ObvErrorM
         
         try self.init(contactGroup: contactGroup,
                       groupName: contactGroup.trustedOrLatestCoreDetails.name,
-                      category: .joined,
+                      category: .joined, 
+                      isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup,
                       forEntityName: PersistedContactGroupJoined.entityName,
                       within: context)
         
@@ -133,7 +134,7 @@ extension PersistedContactGroupJoined {
     }
     
     
-    public func setStatus(to newStatus: PublishedDetailsStatusType) {
+    func setStatus(to newStatus: PublishedDetailsStatusType) {
         guard self.rawStatus != newStatus.rawValue else { return }
         self.rawStatus = newStatus.rawValue
         try? createOrUpdateTheAssociatedDisplayedContactGroup()

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -53,7 +53,7 @@ public enum ObvEngineNotificationNew {
 	case outboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: Data, ownedIdentity: ObvCryptoId)
 	case callerTurnCredentialsReceived(ownedIdentity: ObvCryptoId, callUuid: UUID, turnCredentials: ObvTurnCredentials)
 	case messageWasAcknowledged(ownedIdentity: ObvCryptoId, messageIdentifierFromEngine: Data, timestampFromServer: Date, isAppMessageWithUserContent: Bool, isVoipMessage: Bool)
-	case newMessageReceived(obvMessage: ObvMessage, completionHandler: (Set<ObvAttachment>) -> Void)
+	case newMessageReceived(obvMessage: ObvMessage)
 	case attachmentWasAcknowledgedByServer(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
 	case attachmentDownloadCancelledByServer(obvAttachment: ObvAttachment)
 	case cannotReturnAnyProgressForMessageAttachments(ownedCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data)
@@ -94,7 +94,7 @@ public enum ObvEngineNotificationNew {
 	case aKeycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: ObvCryptoId)
 	case deletedObliviousChannelWithRemoteOwnedDevice
 	case newConfirmedObliviousChannelWithRemoteOwnedDevice
-	case newOwnedMessageReceived(obvOwnedMessage: ObvOwnedMessage, completionHandler: (Set<ObvOwnedAttachment>) -> Void)
+	case newOwnedMessageReceived(obvOwnedMessage: ObvOwnedMessage)
 	case newRemoteOwnedDevice
 	case ownedAttachmentDownloaded(obvOwnedAttachment: ObvOwnedAttachment)
 	case ownedAttachmentDownloadWasResumed(ownCryptoId: ObvCryptoId, messageIdentifierFromEngine: Data, attachmentNumber: Int)
@@ -360,10 +360,9 @@ public enum ObvEngineNotificationNew {
 				"isAppMessageWithUserContent": isAppMessageWithUserContent,
 				"isVoipMessage": isVoipMessage,
 			]
-		case .newMessageReceived(obvMessage: let obvMessage, completionHandler: let completionHandler):
+		case .newMessageReceived(obvMessage: let obvMessage):
 			info = [
 				"obvMessage": obvMessage,
-				"completionHandler": completionHandler,
 			]
 		case .attachmentWasAcknowledgedByServer(ownedCryptoId: let ownedCryptoId, messageIdentifierFromEngine: let messageIdentifierFromEngine, attachmentNumber: let attachmentNumber):
 			info = [
@@ -540,10 +539,9 @@ public enum ObvEngineNotificationNew {
 			info = nil
 		case .newConfirmedObliviousChannelWithRemoteOwnedDevice:
 			info = nil
-		case .newOwnedMessageReceived(obvOwnedMessage: let obvOwnedMessage, completionHandler: let completionHandler):
+		case .newOwnedMessageReceived(obvOwnedMessage: let obvOwnedMessage):
 			info = [
 				"obvOwnedMessage": obvOwnedMessage,
-				"completionHandler": completionHandler,
 			]
 		case .newRemoteOwnedDevice:
 			info = nil
@@ -777,12 +775,11 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeNewMessageReceived(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvMessage, @escaping (Set<ObvAttachment>) -> Void) -> Void) -> NSObjectProtocol {
+	public static func observeNewMessageReceived(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvMessage) -> Void) -> NSObjectProtocol {
 		let name = Name.newMessageReceived.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvMessage = notification.userInfo!["obvMessage"] as! ObvMessage
-			let completionHandler = notification.userInfo!["completionHandler"] as! (Set<ObvAttachment>) -> Void
-			block(obvMessage, completionHandler)
+			block(obvMessage)
 		}
 	}
 
@@ -1125,12 +1122,11 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeNewOwnedMessageReceived(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedMessage, @escaping (Set<ObvOwnedAttachment>) -> Void) -> Void) -> NSObjectProtocol {
+	public static func observeNewOwnedMessageReceived(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvOwnedMessage) -> Void) -> NSObjectProtocol {
 		let name = Name.newOwnedMessageReceived.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvOwnedMessage = notification.userInfo!["obvOwnedMessage"] as! ObvOwnedMessage
-			let completionHandler = notification.userInfo!["completionHandler"] as! (Set<ObvOwnedAttachment>) -> Void
-			block(obvOwnedMessage, completionHandler)
+			block(obvOwnedMessage)
 		}
 	}
 

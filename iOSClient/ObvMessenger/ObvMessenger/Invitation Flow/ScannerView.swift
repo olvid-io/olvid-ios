@@ -269,9 +269,19 @@ fileprivate final class NewQRCodeScannerViewController: UIViewController, AVCapt
         
         self.view.insetsLayoutMarginsFromSafeArea = false
         
-        let deviceDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera],
-                                                                      mediaType: nil,
-                                                                      position: .back)
+        let deviceDiscoverySession: AVCaptureDevice.DiscoverySession
+        if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+            deviceDiscoverySession = AVCaptureDevice.DiscoverySession(
+                deviceTypes: [.builtInWideAngleCamera],
+                mediaType: nil,
+                position: .unspecified)
+        } else {
+            deviceDiscoverySession = AVCaptureDevice.DiscoverySession(
+                deviceTypes: [.builtInWideAngleCamera],
+                mediaType: nil,
+                position: .back)
+        }
+        
 
         guard let captureDevice = deviceDiscoverySession.devices.first else {
             // This happens in the simulator

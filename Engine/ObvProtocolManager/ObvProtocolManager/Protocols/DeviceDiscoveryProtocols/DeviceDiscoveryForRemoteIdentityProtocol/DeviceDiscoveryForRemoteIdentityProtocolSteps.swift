@@ -108,13 +108,21 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: DeviceDiscoveryForRemoteIdentityProtocol.logCategory)
             
             let remoteIdentity = startState.remoteIdentity
-            guard let deviceUids = receivedMessage.deviceUids else {
-                os_log("The received server response does not contain device uids", log: log, type: .error)
-                return nil
+            
+            guard let contactDeviceDiscoveryResult = receivedMessage.contactDeviceDiscoveryResult else {
+                os_log("The received server response does not contain a result. This is a bug", log: log, type: .error)
+                assertionFailure()
+                return CancelledState()
             }
             
-            return DeviceUidsReceivedState(remoteIdentity: remoteIdentity, deviceUids: deviceUids)
-            
+            switch contactDeviceDiscoveryResult {
+            case .failure:
+                assertionFailure()
+                return CancelledState()
+            case .success(let deviceUIDs):
+                return DeviceUidsReceivedState(remoteIdentity: remoteIdentity, deviceUids: deviceUIDs)
+            }
+                        
         }
     }
     

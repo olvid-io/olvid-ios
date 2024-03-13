@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,7 @@
 import Foundation
 import CoreData
 import OlvidUtils
+import UniformTypeIdentifiers
 
 @objc(PersistedDraft)
 public final class PersistedDraft: NSManagedObject, ObvErrorMaker, ObvIdentifiableManagedObject {
@@ -51,6 +52,12 @@ public final class PersistedDraft: NSManagedObject, ObvErrorMaker, ObvIdentifiab
     
     public var fyleJoins: [FyleJoin] {
         unsortedDraftFyleJoins.sorted(by: { $0.index < $1.index })
+    }
+
+    public var fyleJoinsNotPreviews: [FyleJoin] {
+        unsortedDraftFyleJoins
+            .filter { $0.uti != UTType.olvidPreviewUti }
+            .sorted(by: { $0.index < $1.index })
     }
 
     // MARK: Other variables
@@ -128,9 +135,21 @@ extension PersistedDraft {
     
     
     public func removeAllDraftFyleJoin() {
-        unsortedDraftFyleJoins.forEach { removeDraftFyleJoin($0) }
+        unsortedDraftFyleJoins
+            .forEach { removeDraftFyleJoin($0) }
     }
     
+    public func removeAllDraftFyleJoinNotPreviews() {
+        unsortedDraftFyleJoins
+            .filter { $0.uti != UTType.olvidPreviewUti }
+            .forEach { removeDraftFyleJoin($0) }
+    }
+    
+    public func removePreviewDraftFyleJoin() {
+        unsortedDraftFyleJoins
+            .filter { $0.uti == UTType.olvidPreviewUti }
+            .forEach { removeDraftFyleJoin($0) }
+    }
 }
 
 extension PersistedDraft {

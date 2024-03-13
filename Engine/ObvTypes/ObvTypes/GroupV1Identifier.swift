@@ -21,6 +21,28 @@ import Foundation
 import ObvCrypto
 
 
+public struct ObvGroupV1Identifier: Hashable {
+    
+    public let ownedCryptoId: ObvCryptoId
+    public let groupV1Identifier: GroupV1Identifier
+    
+    public init(ownedCryptoId: ObvCryptoId, groupV1Identifier: GroupV1Identifier) {
+        self.ownedCryptoId = ownedCryptoId
+        self.groupV1Identifier = groupV1Identifier
+    }
+    
+    public enum GroupType {
+        case owned
+        case joined
+    }
+
+    public var groupType: GroupType {
+        return ownedCryptoId == groupV1Identifier.groupOwner ? .owned : .joined
+    }
+    
+}
+
+
 /// 2023-09-23 Type introduced for sync snapshots. It should have been introduced earlier...
 public struct GroupV1Identifier: Hashable, LosslessStringConvertible {
 

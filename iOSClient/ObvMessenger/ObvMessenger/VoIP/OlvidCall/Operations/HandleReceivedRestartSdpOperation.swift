@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,12 @@ import WebRTC
 import OlvidUtils
 
 
+protocol HandleReceivedRestartSdpOperationDelegate: AnyObject {
+    func setReconnectAnswerCounter(op: HandleReceivedRestartSdpOperation, newReconnectAnswerCounter: Int) async
+    func getReconnectAnswerCounter(op: HandleReceivedRestartSdpOperation) async -> Int
+    func getReconnectOfferCounter(op: HandleReceivedRestartSdpOperation) async -> Int
+}
+
 
 final class HandleReceivedRestartSdpOperation: AsyncOperationWithSpecificReasonForCancel<HandleReceivedRestartSdpOperation.ReasonForCancel> {
 
@@ -32,29 +38,35 @@ final class HandleReceivedRestartSdpOperation: AsyncOperationWithSpecificReasonF
     private let sessionDescription: RTCSessionDescription
     private let receivedReconnectCounter: Int
     private let receivedPeerReconnectCounterToOverride: Int
-    private let reconnectAnswerCounter: Int
-    private let reconnectOfferCounter: Int
     private let shouldISendTheOfferToCallParticipant: Bool
+    private weak var delegate: HandleReceivedRestartSdpOperationDelegate?
     
-    init(peerConnection: ObvPeerConnection, sessionDescription: RTCSessionDescription, receivedReconnectCounter: Int, receivedPeerReconnectCounterToOverride: Int, reconnectAnswerCounter: Int, reconnectOfferCounter: Int, shouldISendTheOfferToCallParticipant: Bool) {
+    init(peerConnection: ObvPeerConnection, sessionDescription: RTCSessionDescription, receivedReconnectCounter: Int, receivedPeerReconnectCounterToOverride: Int, shouldISendTheOfferToCallParticipant: Bool, delegate: HandleReceivedRestartSdpOperationDelegate) {
         self.peerConnection = peerConnection
         self.sessionDescription = sessionDescription
         self.receivedReconnectCounter = receivedReconnectCounter
         self.receivedPeerReconnectCounterToOverride = receivedPeerReconnectCounterToOverride
-        self.reconnectAnswerCounter = reconnectAnswerCounter
-        self.reconnectOfferCounter = reconnectOfferCounter
         self.shouldISendTheOfferToCallParticipant = shouldISendTheOfferToCallParticipant
-        self.newReconnectAnswerCounter = reconnectAnswerCounter // Will be modified in the main() method of this operation
+        self.delegate = delegate
     }
     
-    
-    private(set) var newReconnectAnswerCounter: Int?
-
+    private(set) var shouldCreateAndSetLocalDescription = false
     
     override func main() async {
 
         os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Start", log: Self.log, type: .info)
         defer { os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Finish", log: Self.log, type: .info) }
+
+        guard let delegate else {
+            assertionFailure()
+            return finish()
+        }
+
+        let reconnectAnswerCounter = await delegate.getReconnectAnswerCounter(op: self)
+        let reconnectOfferCounter = await delegate.getReconnectOfferCounter(op: self)
+        
+        os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] receivedReconnectCounter=%d receivedPeerReconnectCounterToOverride=%d reconnectAnswerCounter=%d reconnectOfferCounter=%d", log: Self.log, type: .info, receivedReconnectCounter, receivedPeerReconnectCounterToOverride, reconnectAnswerCounter, reconnectOfferCounter)
+
 
         do {
             
@@ -62,15 +74,18 @@ final class HandleReceivedRestartSdpOperation: AsyncOperationWithSpecificReasonF
                 
             case .offer:
                 
+                os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] The received SDP is an offer", log: Self.log, type: .info)
+                
                 // If we receive an offer with a counter smaller than another offer we previously received, we can ignore it.
                 guard receivedReconnectCounter >= reconnectAnswerCounter else {
-                    os_log("☎️ Received restart offer with counter too low %{public}@ vs. %{public}@", log: Self.log, type: .info, String(receivedReconnectCounter), String(reconnectAnswerCounter))
+                    os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Received restart offer with counter too low %{public}@ vs. %{public}@", log: Self.log, type: .info, String(receivedReconnectCounter), String(reconnectAnswerCounter))
                     return finish()
                 }
                 
                 switch peerConnection.signalingState {
+                    
                 case .haveRemoteOffer:
-                    os_log("☎️ Received restart offer while already having one --> rollback", log: Self.log, type: .info)
+                    os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Received restart offer while already having one --> rollback", log: Self.log, type: .info)
                     try await peerConnection.rollback()
                     
                 case .haveLocalOffer:
@@ -78,42 +93,59 @@ final class HandleReceivedRestartSdpOperation: AsyncOperationWithSpecificReasonF
                     // If we are the offer sender, do nothing, otherwise rollback and process the new offer
                     if shouldISendTheOfferToCallParticipant {
                         if receivedPeerReconnectCounterToOverride == reconnectOfferCounter {
-                            os_log("☎️ Received restart offer while already having created an offer. It specifies to override my current offer --> rollback", log: Self.log, type: .info)
+                            os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Received restart offer while already having created an offer. It specifies to override my current offer --> rollback", log: Self.log, type: .info)
                             try await peerConnection.rollback()
                         } else {
-                            os_log("☎️ Received restart offer while already having created an offer. I am the offerer --> ignore this new offer", log: Self.log, type: .info)
+                            os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Received restart offer while already having created an offer. I am the offerer --> ignore this new offer", log: Self.log, type: .info)
                             return finish()
                         }
                     } else {
-                        os_log("☎️ Received restart offer while already having created an offer. I am not the offerer --> rollback", log: Self.log, type: .info)
+                        os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Received restart offer while already having created an offer. I am not the offerer --> rollback", log: Self.log, type: .info)
                         try await peerConnection.rollback()
                     }
                     
-                default:
+                case .stable:
+                    // Make sure we send an answer after setting an offer
+                    shouldCreateAndSetLocalDescription = true
+
+                case .haveLocalPrAnswer,
+                        .haveRemotePrAnswer,
+                        .closed:
+                    break
+
+                @unknown default:
+                    assertionFailure()
                     break
                 }
+                                
+                os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Setting our stored reconnectAnswerCounter to %d", log: Self.log, type: .info, receivedReconnectCounter)
+                await delegate.setReconnectAnswerCounter(op: self, newReconnectAnswerCounter: receivedReconnectCounter)
                 
-                newReconnectAnswerCounter = receivedReconnectCounter
+                // Before setting the remote description, we check if it contains a video track.
+                // If it is the case, we make sure we do have a video track too
+                if try videoMediaExistsIn(sessionDescription: sessionDescription.sdp) {
+                    os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Creating and adding a local video and screencast tracks", log: Self.log, type: .info)
+                    await peerConnection.createAndAddLocalVideoAndScreencastTracks()
+                }
                 
-                os_log("☎️ Setting remote description", log: Self.log, type: .info)
+                os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Setting remote description", log: Self.log, type: .info)
                 try await peerConnection.setRemoteDescription(sessionDescription)
-                
-                await peerConnection.restartIce()
-
+                                
             case .answer:
                 
+                os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] The received SDP is an answer", log: Self.log, type: .info)
+
                 guard receivedReconnectCounter == reconnectOfferCounter else {
-                    os_log("☎️ Received restart answer with bad counter %{public}@ vs. %{public}@", log: Self.log, type: .info, String(receivedReconnectCounter), String(reconnectOfferCounter))
+                    os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Received restart answer with bad counter %{public}@ vs. %{public}@", log: Self.log, type: .info, String(receivedReconnectCounter), String(reconnectOfferCounter))
                     return finish()
                 }
 
                 guard peerConnection.signalingState == .haveLocalOffer else {
-                    os_log("☎️ Received restart answer while not in the haveLocalOffer state --> ignore this answer", log: Self.log, type: .info)
+                    os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Received restart answer while not in the haveLocalOffer state --> ignore this answer", log: Self.log, type: .info)
                     return finish()
                 }
 
-                os_log("☎️ Applying received restart answer", log: Self.log, type: .info)
-                os_log("☎️ Setting remote description", log: Self.log, type: .info)
+                os_log("☎️ [WebRTCOperation][HandleReceivedRestartSdpOperation] Setting the answer", log: Self.log, type: .info)
                 try await peerConnection.setRemoteDescription(sessionDescription)
                 
             default:
@@ -139,5 +171,19 @@ final class HandleReceivedRestartSdpOperation: AsyncOperationWithSpecificReasonF
             return .fault
         }
     }
+    
+    
+    private func videoMediaExistsIn(sessionDescription: String) throws -> Bool {
+        let mediaStartVideo = try NSRegularExpression(pattern: "^m=video\\s+", options: .anchorsMatchLines)
+        let lines = sessionDescription.split(whereSeparator: { $0.isNewline }).map({String($0)})
+        for line in lines {
+            let isFirstLineOfVideoSection = mediaStartVideo.numberOfMatches(in: line, options: [], range: NSRange(location: 0, length: line.count)) > 0
+            if isFirstLineOfVideoSection {
+                return true
+            }
+        }
+        return false
+    }
+    
     
 }

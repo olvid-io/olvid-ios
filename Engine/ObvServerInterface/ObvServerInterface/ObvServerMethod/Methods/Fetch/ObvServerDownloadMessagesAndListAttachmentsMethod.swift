@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,13 +51,22 @@ public final class ObvServerDownloadMessagesAndListAttachmentsMethod: ObvServerD
         self.deviceUid = deviceUid
     }
     
-    public enum PossibleReturnStatus: UInt8 {
+    private enum PossibleReturnRawStatus: UInt8 {
         case ok = 0x00
         case invalidSession = 0x04
         case deviceIsNotRegistered = 0x0b
+        case listingTruncated = 0x17
         case generalError = 0xff
     }
     
+    public enum PossibleReturnStatus {
+        case ok(downloadTimestampFromServer: Date, messagesAndAttachmentsOnServer: [MessageAndAttachmentsOnServer])
+        case invalidSession
+        case deviceIsNotRegistered
+        case listingTruncated(downloadTimestampFromServer: Date, messagesAndAttachmentsOnServer: [MessageAndAttachmentsOnServer])
+        case generalError
+    }
+
     lazy public var dataToSend: Data? = {
         return [toIdentity.getIdentity(), token, deviceUid].obvEncode().rawData
     }()
@@ -78,7 +87,7 @@ public final class ObvServerDownloadMessagesAndListAttachmentsMethod: ObvServerD
         public let chunkDownloadPrivateUrls: [URL?]
     }
 
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, downloadTimestampFromServer: Date?, [MessageAndAttachmentsOnServer]?)? {
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? { //} (status: PossibleReturnStatus, downloadTimestampFromServer: Date?, [MessageAndAttachmentsOnServer]?)? {
         
         guard let (rawServerReturnedStatus, listOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .error)
@@ -86,14 +95,14 @@ public final class ObvServerDownloadMessagesAndListAttachmentsMethod: ObvServerD
             return nil
         }
         
-        guard let serverReturnedStatus = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else {
+        guard let serverReturnedStatus = PossibleReturnRawStatus(rawValue: rawServerReturnedStatus) else {
             os_log("The returned server status is invalid", log: log, type: .error)
             return nil
         }
         
         switch serverReturnedStatus {
             
-        case .ok:
+        case .ok, .listingTruncated:
             guard listOfReturnedDatas.count >= 1 else {
                 os_log("We could not decode the messages/attachments returned by the server: unexpected number of values", log: log, type: .error)
                 return nil
@@ -116,19 +125,26 @@ public final class ObvServerDownloadMessagesAndListAttachmentsMethod: ObvServerD
                 return nil
             }
             os_log("We succesfully parsed the message(s) and attachment(s)", log: log, type: .debug)
-            return (serverReturnedStatus, downloadTimestampFromServer, listOfMessageAndAttachments)
+            if serverReturnedStatus == .ok {
+                return .ok(downloadTimestampFromServer: downloadTimestampFromServer, messagesAndAttachmentsOnServer: listOfMessageAndAttachments)
+            } else if serverReturnedStatus == .listingTruncated {
+                return .listingTruncated(downloadTimestampFromServer: downloadTimestampFromServer, messagesAndAttachmentsOnServer: listOfMessageAndAttachments)
+            } else {
+                assertionFailure()
+                return nil
+            }
             
         case .invalidSession:
             os_log("The server reported that the session is invalid", log: log, type: .error)
-            return (serverReturnedStatus, nil, nil)
+            return .invalidSession
             
         case .deviceIsNotRegistered:
             os_log("The server reported that the device is not registered", log: log, type: .error)
-            return (serverReturnedStatus, nil, nil)
+            return .deviceIsNotRegistered
 
         case .generalError:
             os_log("The server reported a general error", log: log, type: .error)
-            return (serverReturnedStatus, nil, nil)
+            return .generalError
             
         }
     }

@@ -60,6 +60,7 @@ extension CommonString.Word {
     static let Discussions = NSLocalizedString("Discussions", comment: "Discussions word, capitalized")
     static let Documents = NSLocalizedString("Documents", comment: "Documents word, capitalized")
     static let Downloads = NSLocalizedString("Downloads", comment: "Downloads word, capitalized")
+    static let Links = NSLocalizedString("Links", comment: "Links word, capitalized")
     static let Edit = NSLocalizedString("Edit", comment: "Edit word, capitalized")
     static let Edited = NSLocalizedString("Edited", comment: "Edited word, capitalized")
     static let Enable = NSLocalizedString("ENABLE", comment: "Enable word, capitalized")

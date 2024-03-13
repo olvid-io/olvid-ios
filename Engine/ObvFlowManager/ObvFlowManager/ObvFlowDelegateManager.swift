@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,21 +33,19 @@ final class ObvFlowDelegateManager {
     
     let simpleBackgroundTaskDelegate: SimpleBackgroundTaskDelegate
     let backgroundTaskDelegate: BackgroundTaskDelegate? // Nil when used within an extension
-    let remoteNotificationDelegate: RemoteNotificationDelegate
+    // let remoteNotificationDelegate: RemoteNotificationDelegate
     
     // MARK: Instance variables (external delegates). Thanks to a mecanism within the DelegateManager, we know for sure that these delegates will be instantiated by the time the Manager is fully initialized. So we can safely force unwrapping.
     
     weak var notificationDelegate: ObvNotificationDelegate! {
         didSet {
             backgroundTaskDelegate?.observeEngineNotifications()
-            remoteNotificationDelegate.observeEngineNotifications()
         }
     }
     
-    init(simpleBackgroundTaskDelegate: SimpleBackgroundTaskDelegate, backgroundTaskDelegate: BackgroundTaskDelegate?, remoteNotificationDelegate: RemoteNotificationDelegate) {
+    init(simpleBackgroundTaskDelegate: SimpleBackgroundTaskDelegate, backgroundTaskDelegate: BackgroundTaskDelegate?) { //, remoteNotificationDelegate: RemoteNotificationDelegate) {
         self.simpleBackgroundTaskDelegate = simpleBackgroundTaskDelegate
         self.backgroundTaskDelegate = backgroundTaskDelegate
-        self.remoteNotificationDelegate = remoteNotificationDelegate
     }
     
 }

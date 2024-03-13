@@ -93,7 +93,7 @@ extension ContactIdentityDetailsPublished {
             self.serializedIdentityCoreDetails = try newContactIdentityDetailsElements.coreDetails.jsonEncode()
         }
         
-        if newContactIdentityDetailsElements.photoServerKeyAndLabel != self.photoServerKeyAndLabel {
+        if self.photoServerKeyAndLabel != newContactIdentityDetailsElements.photoServerKeyAndLabel {
             self.photoServerKeyAndLabel = newContactIdentityDetailsElements.photoServerKeyAndLabel
             try setContactPhoto(with: nil, delegateManager: delegateManager)
         }

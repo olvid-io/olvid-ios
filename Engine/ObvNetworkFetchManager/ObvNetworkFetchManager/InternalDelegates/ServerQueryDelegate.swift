@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,10 +25,10 @@ import OlvidUtils
 
 protocol ServerQueryDelegate {
 
-    func postServerQuery(withObjectId objectId: NSManagedObjectID, flowId: FlowIdentifier)
+    func processPendingServerQuery(pendingServerQueryObjectID: NSManagedObjectID, flowId: FlowIdentifier) async throws
 
-    func postAllPendingServerQuery(for ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-    func postAllPendingServerQuery(flowId: FlowIdentifier)
-    func deletePendingServerQueryOfNonExistingOwnedIdentities(flowId: FlowIdentifier)
+    func processAllPendingServerQueries(for ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws
+    func processAllPendingServerQuery(flowId: FlowIdentifier) async throws
+    func deletePendingServerQueryOfNonExistingOwnedIdentities(flowId: FlowIdentifier) async throws
     
 }

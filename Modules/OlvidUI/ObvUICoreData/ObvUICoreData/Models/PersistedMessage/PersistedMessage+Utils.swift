@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -84,30 +84,66 @@ extension PersistedMessage {
 // MARK: - Convenience NSFetchedResultsController creators
 
 extension PersistedMessage {
-
-    public static func getFetchedResultsControllerForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessage> {
+    
+    private static func getFetchRequestForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> FetchRequestControllerModel<PersistedMessage> {
+        
         let fetchRequest: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
+        
         fetchRequest.predicate = Predicate.withinDiscussion(discussionObjectID)
+        
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortIndex.rawValue, ascending: true)]
         fetchRequest.fetchBatchSize = 500
-        fetchRequest.propertiesToFetch = [
-            Predicate.Key.body.rawValue,
-            Predicate.Key.rawStatus.rawValue,
-            Predicate.Key.rawVisibilityDuration.rawValue,
-            Predicate.Key.readOnce.rawValue,
-            Predicate.Key.sectionIdentifier.rawValue,
-            Predicate.Key.senderSequenceNumber.rawValue,
-            Predicate.Key.sortIndex.rawValue,
-            Predicate.Key.timestamp.rawValue,
-        ]
-        fetchRequest.returnsObjectsAsFaults = false
+        // 2024-02-27 Commenting the following lines
+//        fetchRequest.propertiesToFetch = [
+//            Predicate.Key.body.rawValue,
+//            Predicate.Key.rawStatus.rawValue,
+//            Predicate.Key.rawVisibilityDuration.rawValue,
+//            Predicate.Key.readOnce.rawValue,
+//            Predicate.Key.sectionIdentifier.rawValue,
+//            Predicate.Key.senderSequenceNumber.rawValue,
+//            Predicate.Key.sortIndex.rawValue,
+//            Predicate.Key.timestamp.rawValue,
+//        ]
+        //fetchRequest.returnsObjectsAsFaults = false
         fetchRequest.shouldRefreshRefetchedObjects = true
-        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
-                                                                  managedObjectContext: context,
-                                                                  sectionNameKeyPath: Predicate.Key.sectionIdentifier.rawValue,
-                                                                  cacheName: nil)
 
+        return .init(fetchRequest: fetchRequest, sectionNameKeyPath: Predicate.Key.sectionIdentifier.rawValue)
+        
+    }
+
+    
+    /// Method used when navigating to a single discussion, to populate all the cells of a single discussion collection view.
+    public static func getFetchedResultsControllerForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessage> {
+        let fetchRequestModel = Self.getFetchRequestForAllMessagesWithinDiscussion(discussionObjectID: discussionObjectID)
+        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequestModel.fetchRequest,
+                                                                  managedObjectContext: context,
+                                                                  sectionNameKeyPath: fetchRequestModel.sectionNameKeyPath,
+                                                                  cacheName: nil)
         return fetchedResultsController
+    }
+    
+    
+    public static func searchForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, searchTerm: String, within context: NSManagedObjectContext) throws -> [TypeSafeManagedObjectID<PersistedMessage>] {
+        
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: Self.globalEntityName)
+        request.resultType = .managedObjectIDResultType
+        
+        var subPredicates = [Predicate.withinDiscussion(discussionObjectID)]
+        do {
+            let searchTerms = searchTerm.trimmingWhitespacesAndNewlines().split(separator: " ").map({ String($0) })
+            let searchTermsPredicates = searchTerms.map({ Predicate.whereBodyContains(searchTerm: $0) })
+            let searchTermsPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: searchTermsPredicates)
+            subPredicates.append(searchTermsPredicate)
+        }
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: subPredicates)
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortIndex.rawValue, ascending: true)]
+        
+        let objectIDs = try context.fetch(request) as? [NSManagedObjectID] ?? []
+        
+        let returnedValues = objectIDs.map { TypeSafeManagedObjectID<PersistedMessage>(objectID: $0) }
+
+        return returnedValues
+        
     }
 
 

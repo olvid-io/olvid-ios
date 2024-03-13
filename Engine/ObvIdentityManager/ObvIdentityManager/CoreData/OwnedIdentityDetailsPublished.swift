@@ -185,7 +185,6 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     
     private func setOwnedIdentityPhoto(with newPhotoURL: URL?, delegateManager: ObvIdentityDelegateManager) throws -> Bool {
         
-        guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); throw makeError(message: "The notification delegate is not set") }
         let currentPhotoURL = getPhotoURL(identityPhotosDirectory: delegateManager.identityPhotosDirectory) // Can be nil
 
         guard currentPhotoURL != newPhotoURL else { return false }
@@ -224,7 +223,7 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         try obvContext.addContextDidSaveCompletionHandler { error in
             guard error == nil else { return }
             ObvIdentityNotificationNew.publishedPhotoOfOwnedIdentityHasBeenUpdated(ownedIdentity: ownedCryptoIdentity)
-                .postOnBackgroundQueue(within: notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
         return true
@@ -449,8 +448,8 @@ extension OwnedIdentityDetailsPublished {
 
         if notificationRelatedChanges.contains(.photoServerLabel) || isDeleted {
             if let labelToDelete = self.labelToDelete, let ownedCryptoIdentity = self.ownedIdentity?.cryptoIdentity ?? ownedCryptoIdOnDeletion {
-                let notification = ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoIdentity, label: labelToDelete)
-                notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoIdentity, label: labelToDelete)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
         }
 

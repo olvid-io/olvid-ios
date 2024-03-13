@@ -105,6 +105,7 @@ public struct ObvUICoreDataConstants {
         case mainAppContainer
         case mainEngineContainer
         case forDatabase
+        case forPreviews
         case forFyles
         case forDocuments
         case forTempFiles
@@ -146,6 +147,8 @@ public struct ObvUICoreDataConstants {
                 return Self.securityApplicationGroupURL.appendingPathComponent("Engine", isDirectory: true)
             case .forDatabase:
                 return Self.mainAppContainer.url.appendingPathComponent("Database", isDirectory: true)
+            case .forPreviews:
+                return Self.forCache.url.appendingPathComponent("FylePreviews", isDirectory: true)
             case .forFyles:
                 return Self.mainAppContainer.url.appendingPathComponent("Fyles", isDirectory: true)
             case .forDocuments:

@@ -54,6 +54,8 @@ extension UTType {
         } else if self.conforms(to: UTType.OpenXML.docx) || self.conforms(to: .doc) {
             // Word (docx or doc) document
             return .docFill
+        } else if self.conforms(to: UTType.olvidLinkPreview) {
+            return .safari
         } else {
             return .paperclip
         }

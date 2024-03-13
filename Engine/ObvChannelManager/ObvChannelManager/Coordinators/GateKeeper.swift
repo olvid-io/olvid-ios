@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -59,20 +59,12 @@ final class GateKeeper {
 
 fileprivate final class ObvContextSlotManager {
 
+    private static let log = OSLog(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: "ObvContextSlotManager")
+
     private let semaphore = DispatchSemaphore(value: 1) // Tested
 
-    private let queueForCurrentContextInSlot = DispatchQueue(label: "ObvContextSlotManager queue for context in slot", attributes: [.concurrent])
-    private var _currentContextInSlot: ObvContext?
-    
-    private var currentContextInSlot: ObvContext? {
-        get {
-            return queueForCurrentContextInSlot.sync { return _currentContextInSlot }
-        }
-        set {
-            queueForCurrentContextInSlot.async(flags: .barrier) { [weak self] in self?._currentContextInSlot = newValue }
-        }
-    }
-    
+    // 2023-01-25: We remove the sync mechanism around this variable, as it is not required
+    private var currentContextInSlot: ObvContext?
     
     func waitUntilSlotIsAvailableForObvContext(_ obvContext: ObvContext) {
 
@@ -82,19 +74,45 @@ fileprivate final class ObvContextSlotManager {
             return
         }
         
+        //assert(Task.currentPriority.rawValue > TaskPriority.medium.rawValue)
+        os_log("🚪[%{public}@] Context %{public}@ will wait. Current context in slot: %{public}@", log: Self.log, type: .debug, Task.currentPriority.debugDescription, obvContext.debugDescription, currentContextInSlot?.debugDescription ?? "None")
+        
         semaphore.wait()
         
+        os_log("🚪 Context %{public}@ will take the slot and continue", log: Self.log, type: .debug, obvContext.debugDescription)
+
         assert(currentContextInSlot == nil)
         
         currentContextInSlot = obvContext
         
+        let contextDescription = obvContext.debugDescription
+        
         obvContext.addEndOfScopeCompletionHandler { [weak self] in
-            assert(self?.currentContextInSlot == obvContext)
-            self?.currentContextInSlot = nil
-            self?.semaphore.signal()
+            guard let self else { assertionFailure(); return }
+            currentContextInSlot = nil
+            os_log("🚪 Context %{public}@ will free the slot", log: Self.log, type: .debug, contextDescription)
+            semaphore.signal()
+            os_log("🚪 Context %{public}@ did free the slot", log: Self.log, type: .debug, contextDescription)
         }
 
-        
     }
 
+}
+
+
+private extension TaskPriority {
+    
+    var debugDescription: String {
+        switch self {
+        case .background: return "background"
+        case .high: return "high"
+        case .low: return "low"
+        case .medium: return "medium"
+        case .userInitiated: return "userInitiated"
+        case .utility: return "utility"
+        default:
+            return "custom<\(self.rawValue)>"
+        }
+    }
+    
 }

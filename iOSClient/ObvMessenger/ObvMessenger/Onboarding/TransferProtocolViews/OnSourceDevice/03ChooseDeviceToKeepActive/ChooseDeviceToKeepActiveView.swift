@@ -416,7 +416,7 @@ struct ChooseDeviceToKeepActiveView_Previews: PreviewProvider {
 
         func refreshDeviceDiscovery(for ownedCryptoId: ObvCryptoId) async throws -> ObvOwnedDeviceDiscoveryResult {
             try? await Task.sleep(seconds: 2)
-            return ownedDeviceDiscoveryResultWithMultidevice
+            return await ownedDeviceDiscoveryResultWithMultidevice
         }
      
     }

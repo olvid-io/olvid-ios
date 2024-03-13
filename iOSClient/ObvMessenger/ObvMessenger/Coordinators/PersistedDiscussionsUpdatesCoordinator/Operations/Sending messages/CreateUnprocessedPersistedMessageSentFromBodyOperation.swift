@@ -33,7 +33,7 @@ final class CreateUnprocessedPersistedMessageSentFromBodyOperation: ContextualOp
     let textBody: String
     let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
 
-    private(set) var messageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>?
+    private(set) var messageSentPermanentID: MessageSentPermanentID?
 
     init(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, textBody: String) {
         self.textBody = textBody

@@ -33,10 +33,10 @@ import ObvUICoreData
 actor MessagesKeptForLaterManager {
     
     enum KindOfMessageToKeepForLater {
-        case obvMessageForGroupV2(groupIdentifier: GroupV2Identifier, obvMessage: ObvMessage, completionHandler: (Set<ObvAttachment>) -> Void)
-        case obvOwnedMessageForGroupV2(groupIdentifier: GroupV2Identifier, obvOwnedMessage: ObvOwnedMessage, completionHandler: (Set<ObvOwnedAttachment>) -> Void)
-        case obvMessageExpectingContact(contactCryptoId: ObvCryptoId, obvMessage: ObvMessage, completionHandler: (Set<ObvAttachment>) -> Void)
-        case obvOwnedMessageExpectingContact(contactCryptoId: ObvCryptoId, obvOwnedMessage: ObvOwnedMessage, completionHandler: (Set<ObvOwnedAttachment>) -> Void)
+        case obvMessageForGroupV2(groupIdentifier: GroupV2Identifier, obvMessage: ObvMessage)
+        case obvOwnedMessageForGroupV2(groupIdentifier: GroupV2Identifier, obvOwnedMessage: ObvOwnedMessage)
+        case obvMessageExpectingContact(contactCryptoId: ObvCryptoId, obvMessage: ObvMessage)
+        case obvOwnedMessageExpectingContact(contactCryptoId: ObvCryptoId, obvOwnedMessage: ObvOwnedMessage)
     }
     
     private var keptGroupV2MessagesForOwnedCryptoId = [ObvCryptoId: [GroupV2Identifier: [KindOfMessageToKeepForLater]]]()
@@ -48,7 +48,7 @@ actor MessagesKeptForLaterManager {
         
         switch kind {
 
-        case .obvMessageForGroupV2(let groupIdentifier, let obvMessage, _):
+        case .obvMessageForGroupV2(let groupIdentifier, let obvMessage):
             let ownedCryptoId = obvMessage.fromContactIdentity.ownedCryptoId
             var keptGroupV2Messages = keptGroupV2MessagesForOwnedCryptoId[ownedCryptoId, default: [GroupV2Identifier : [KindOfMessageToKeepForLater]]()]
             var keptMessages = keptGroupV2Messages[groupIdentifier, default: [KindOfMessageToKeepForLater]()]
@@ -56,7 +56,7 @@ actor MessagesKeptForLaterManager {
             keptGroupV2Messages[groupIdentifier] = keptMessages
             keptGroupV2MessagesForOwnedCryptoId[ownedCryptoId] = keptGroupV2Messages
             
-        case .obvOwnedMessageForGroupV2(groupIdentifier: let groupIdentifier, obvOwnedMessage: let obvOwnedMessage, _):
+        case .obvOwnedMessageForGroupV2(groupIdentifier: let groupIdentifier, obvOwnedMessage: let obvOwnedMessage):
             let ownedCryptoId = obvOwnedMessage.ownedCryptoId
             var keptGroupV2Messages = keptGroupV2MessagesForOwnedCryptoId[ownedCryptoId, default: [GroupV2Identifier : [KindOfMessageToKeepForLater]]()]
             var keptMessages = keptGroupV2Messages[groupIdentifier, default: [KindOfMessageToKeepForLater]()]
@@ -64,7 +64,7 @@ actor MessagesKeptForLaterManager {
             keptGroupV2Messages[groupIdentifier] = keptMessages
             keptGroupV2MessagesForOwnedCryptoId[ownedCryptoId] = keptGroupV2Messages
             
-        case .obvMessageExpectingContact(contactCryptoId: let contactCryptoId, obvMessage: let obvMessage, completionHandler: _):
+        case .obvMessageExpectingContact(contactCryptoId: let contactCryptoId, obvMessage: let obvMessage):
             let ownedCryptoId = obvMessage.fromContactIdentity.ownedCryptoId
             var keptMessagesExpectingContact = keptMessagesExpectingContactForOwnedCryptoId[ownedCryptoId, default: [ObvCryptoId : [KindOfMessageToKeepForLater]]()]
             var keptMessages = keptMessagesExpectingContact[contactCryptoId, default: [KindOfMessageToKeepForLater]()]
@@ -72,7 +72,7 @@ actor MessagesKeptForLaterManager {
             keptMessagesExpectingContact[contactCryptoId] = keptMessages
             keptMessagesExpectingContactForOwnedCryptoId[ownedCryptoId] = keptMessagesExpectingContact
 
-        case .obvOwnedMessageExpectingContact(contactCryptoId: let contactCryptoId, obvOwnedMessage: let obvOwnedMessage, completionHandler: _):
+        case .obvOwnedMessageExpectingContact(contactCryptoId: let contactCryptoId, obvOwnedMessage: let obvOwnedMessage):
             let ownedCryptoId = obvOwnedMessage.ownedCryptoId
             var keptMessagesExpectingContact = keptMessagesExpectingContactForOwnedCryptoId[ownedCryptoId, default: [ObvCryptoId : [KindOfMessageToKeepForLater]]()]
             var keptMessages = keptMessagesExpectingContact[contactCryptoId, default: [KindOfMessageToKeepForLater]()]

@@ -62,7 +62,7 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMake
 
     // Initializer
 
-    public convenience init(persistedGroupV2: PersistedGroupV2, shouldApplySharedConfigurationFromGlobalSettings: Bool) throws {
+    public convenience init(persistedGroupV2: PersistedGroupV2, shouldApplySharedConfigurationFromGlobalSettings: Bool, isRestoringSyncSnapshotOrBackup: Bool) throws {
         
         guard let context = persistedGroupV2.managedObjectContext else {
             throw Self.makeError(message: "Could not find context")
@@ -80,7 +80,8 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMake
                       ownedIdentity: persistedOwnedIdentity,
                       forEntityName: PersistedGroupV2Discussion.entityName,
                       status: .active,
-                      shouldApplySharedConfigurationFromGlobalSettings: shouldApplySharedConfigurationFromGlobalSettings)
+                      shouldApplySharedConfigurationFromGlobalSettings: shouldApplySharedConfigurationFromGlobalSettings,
+                      isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
 
         self.groupIdentifier = persistedGroupV2.groupIdentifier
         self.rawOwnedIdentityIdentity = try persistedGroupV2.ownCryptoId.getIdentity()

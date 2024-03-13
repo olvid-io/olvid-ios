@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -125,6 +125,10 @@ extension InboxAttachmentChunk {
         self.cleartextChunkWasWrittenToAttachmentFile = false
     }
     
+    func setCleartextChunkWasWrittenToAttachmentFile() {
+        guard !cleartextChunkWasWrittenToAttachmentFile else { return }
+        cleartextChunkWasWrittenToAttachmentFile = true
+    }
 
     func setCleartextChunkLengthForDecryptionKey(_ key: AuthenticatedEncryptionKey) throws -> Int {
         guard self.cleartextChunkLength == nil else { throw InboxAttachmentChunk.makeError(message: "Cleartext chunk length already set")}
@@ -132,18 +136,6 @@ extension InboxAttachmentChunk {
         self.cleartextChunkLength = cleartextChunkLength
         return cleartextChunkLength
     }
-    
-
-    func decryptAndWriteToAttachmentFileThenDeleteEncryptedChunk(atFileHandle fh: FileHandle, withKey key: AuthenticatedEncryptionKey, offset: Int, withinInbox inbox: URL) throws {
-        guard !self.cleartextChunkWasWrittenToAttachmentFile else { assertionFailure(); throw InboxAttachmentChunk.makeError(message: "Chunk was already decrypted and writtent to file") }
-        guard let attachment = self.attachment else { assertionFailure(); throw InboxAttachmentChunk.makeError(message: "The attachment relationship is nil ") }
-        guard let attachmentURL = attachment.getURL(withinInbox: inbox) else { assertionFailure(); throw InboxAttachmentChunk.makeError(message: "The attachment (cleartext) URL is not set") }
-        let chunk = try Chunk.decrypt(encryptedChunkAtFileHandle: fh, with: key)
-        guard chunk.data.count == self.cleartextChunkLength else { assertionFailure(); throw InboxAttachmentChunk.makeError(message: "Unexpected cleartext chunk length") }
-        try chunk.writeToURL(attachmentURL, offset: offset)
-        self.cleartextChunkWasWrittenToAttachmentFile = true
-    }
-
     
 }
 

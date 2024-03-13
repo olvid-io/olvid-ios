@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,14 +34,16 @@ extension NewDiscussionsSelectionViewController {
         let attachSearchControllerToParent: Bool
         let buttonTitle: String
         let buttonSystemIcon: SystemIcon?
+        let restrictToActiveDiscussions: Bool
                 
-        public init(viewContext: NSManagedObjectContext, preselectedDiscussions: [TypeSafeManagedObjectID<PersistedDiscussion>], ownedCryptoId: ObvCryptoId, attachSearchControllerToParent: Bool, buttonTitle: String, buttonSystemIcon: SystemIcon? = nil) {
+        public init(viewContext: NSManagedObjectContext, preselectedDiscussions: [TypeSafeManagedObjectID<PersistedDiscussion>], ownedCryptoId: ObvCryptoId, restrictToActiveDiscussions: Bool, attachSearchControllerToParent: Bool, buttonTitle: String, buttonSystemIcon: SystemIcon? = nil) {
             self.viewContext = viewContext
             self.preselectedDiscussions = preselectedDiscussions
             self.ownedCryptoId = ownedCryptoId
             self.attachSearchControllerToParent = attachSearchControllerToParent
             self.buttonTitle = buttonTitle
             self.buttonSystemIcon = buttonSystemIcon
+            self.restrictToActiveDiscussions = restrictToActiveDiscussions
         }
         
     }

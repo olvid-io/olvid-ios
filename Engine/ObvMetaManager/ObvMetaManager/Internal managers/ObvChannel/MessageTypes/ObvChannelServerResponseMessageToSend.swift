@@ -48,7 +48,7 @@ public struct ObvChannelServerResponseMessageToSend: ObvChannelMessageToSend {
 extension ObvChannelServerResponseMessageToSend {
 
     public enum ResponseType {
-        case deviceDiscovery(of: ObvCryptoIdentity, deviceUids: [UID])
+        case deviceDiscovery(result: ContactDeviceDiscoveryResult)
         case putUserData
         case getUserData(result: GetUserDataResult)
         case checkKeycloakRevocation(verificationSuccessful: Bool)
@@ -59,8 +59,8 @@ extension ObvChannelServerResponseMessageToSend {
         case requestGroupBlobLock(result: RequestGroupBlobLockResult)
         case updateGroupBlob(uploadResult: UploadResult)
         case getKeycloakData(result: GetUserDataResult)
-        case ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: EncryptedData)
-        case setOwnedDeviceName(success: Bool)
+        case ownedDeviceDiscovery(result: ServerResponseOwnedDeviceDiscoveryResult)
+        case actionPerformedAboutOwnedDevice(success: Bool)
         case sourceGetSessionNumberMessage(result: SourceGetSessionNumberResult)
         case targetSendEphemeralIdentity(result: TargetSendEphemeralIdentityResult)
         case transferRelay(result: OwnedIdentityTransferRelayMessageResult)
@@ -69,9 +69,11 @@ extension ObvChannelServerResponseMessageToSend {
 
         public func getEncodedInputs() -> [ObvEncoded] {
             switch self {
-            case .deviceDiscovery(of: _, deviceUids: let deviceUids):
-                let listOfEncodedUids = deviceUids.map { $0.obvEncode() }
-                return [listOfEncodedUids.obvEncode()]
+//            case .deviceDiscovery(of: _, deviceUids: let deviceUids):
+//                let listOfEncodedUids = deviceUids.map { $0.obvEncode() }
+//                return [listOfEncodedUids.obvEncode()]
+            case .deviceDiscovery(result: let result):
+                return [result.obvEncode()]
             case .putUserData:
                 return []
             case .getUserData(result: let result):
@@ -92,9 +94,9 @@ extension ObvChannelServerResponseMessageToSend {
                 return [uploadResult.obvEncode()]
             case .getKeycloakData(result: let result):
                 return [result.obvEncode()]
-            case .ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
-                return [encryptedOwnedDeviceDiscoveryResult.obvEncode()]
-            case .setOwnedDeviceName(success: let success):
+            case .ownedDeviceDiscovery(result: let result):
+                return [result.obvEncode()]
+            case .actionPerformedAboutOwnedDevice(success: let success):
                 return [success.obvEncode()]
             case .sourceGetSessionNumberMessage(result: let result):
                 return [result.obvEncode()]

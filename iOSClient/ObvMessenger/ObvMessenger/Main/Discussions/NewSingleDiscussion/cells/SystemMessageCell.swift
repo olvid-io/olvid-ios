@@ -390,22 +390,12 @@ private class SystemMessageDateView: ViewForOlvidStack {
     var date = Date() {
         didSet {
             if oldValue != date {
-                label.text = dateFormatter.string(from: date)
+                label.text = date.formattedForOlvidMessage(specificMonthFormat: .abbreviated)
                 setNeedsLayout()
             }
         }
     }
     
-    
-    private let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.doesRelativeDateFormatting = true
-        df.dateStyle = .none
-        df.timeStyle = .short
-        df.locale = Locale.current
-        return df
-    }()
-
     
     private let label = UILabel()
     

@@ -28,17 +28,19 @@ import OlvidUtils
 
 
 
-final class AppSyncSnapshotableCoordinator: ObvAppSnapshotable {
+final class AppSyncSnapshotableCoordinator: OlvidCoordinator, ObvAppSnapshotable {
     
-    private let obvEngine: ObvEngine
-    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppSyncSnapshotableCoordinator.self))
-    private let coordinatorsQueue: OperationQueue
-    private let queueForComposedOperations: OperationQueue
+    let obvEngine: ObvEngine
+    static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: AppSyncSnapshotableCoordinator.self))
+    let coordinatorsQueue: OperationQueue
+    let queueForComposedOperations: OperationQueue
+    let queueForSyncHintsComputationOperation: OperationQueue
 
-    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
+    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue, queueForSyncHintsComputationOperation: OperationQueue) {
         self.obvEngine = obvEngine
         self.coordinatorsQueue = coordinatorsQueue
         self.queueForComposedOperations = queueForComposedOperations
+        self.queueForSyncHintsComputationOperation = queueForSyncHintsComputationOperation
         do {
             try obvEngine.registerAppSnapshotableObject(self)
         } catch {
@@ -83,8 +85,6 @@ final class AppSyncSnapshotableCoordinator: ObvAppSnapshotable {
             errorToThrowInTheEnd = error
         }
         
-        await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
-        
         if let errorToThrowInTheEnd {
             assertionFailure()
             throw errorToThrowInTheEnd
@@ -108,7 +108,7 @@ final class AppSyncSnapshotableCoordinator: ObvAppSnapshotable {
     
     private func syncAppDatabasesWithEngine() async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine(queuePriority: .veryHigh) { result in
+            ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine(queuePriority: .veryHigh, isRestoringSyncSnapshotOrBackup: true) { result in
                 switch result {
                 case .failure(let error):
                     continuation.resume(throwing: error)
@@ -167,40 +167,4 @@ final class AppSyncSnapshotableCoordinator: ObvAppSnapshotable {
         case updateAppDatabaseFailedWithoutSpecifyingError
     }
         
-}
-
-
-// MARK: - Helpers
-
-extension AppSyncSnapshotableCoordinator {
-
-    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-
-    
-    private func createCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>) -> CompositionOfTwoContextualOperations<T1, T2> {
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-
-    
-    private func createCompositionOfFourContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType, T3: LocalizedErrorWithLogType, T4: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>, op3: ContextualOperationWithSpecificReasonForCancel<T3>, op4: ContextualOperationWithSpecificReasonForCancel<T4>) -> CompositionOfFourContextualOperations<T1, T2, T3, T4> {
-        let composedOp = CompositionOfFourContextualOperations(op1: op1, op2: op2, op3: op3, op4: op4, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-
 }

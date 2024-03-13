@@ -491,19 +491,14 @@ extension SingleGroupViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        guard obvContactGroup.groupType == .joined else { return }
-        
-        ObvStack.shared.performBackgroundTask { [weak self] (context) in
-            guard let _self = self else { return }
-            do {
-                guard let writablePersistedContactGroupJoined = try? PersistedContactGroupJoined.get(objectID: _self.persistedContactGroup.objectID, within: context) as? PersistedContactGroupJoined else { return }
-                if writablePersistedContactGroupJoined.status == .unseenPublishedDetails {
-                    writablePersistedContactGroupJoined.setStatus(to: .seenPublishedDetails)
-                }
-                try context.save(logOnFailure: _self.log)
-            } catch {
-                os_log("Could not update the status of a joined contact group", log: _self.log, type: .error)
-            }
+        if obvContactGroup.groupType == .joined,
+            let joinedGroup = persistedContactGroup as? PersistedContactGroupJoined,
+           joinedGroup.status == .unseenPublishedDetails,
+           let obvGroupIdentifier = try? joinedGroup.obvGroupIdentifier
+        {
+            
+            ObvMessengerInternalNotification.userHasSeenPublishedDetailsOfContactGroupJoined(obvGroupIdentifier: obvGroupIdentifier)
+                .postOnDispatchQueue()
         }
 
     }

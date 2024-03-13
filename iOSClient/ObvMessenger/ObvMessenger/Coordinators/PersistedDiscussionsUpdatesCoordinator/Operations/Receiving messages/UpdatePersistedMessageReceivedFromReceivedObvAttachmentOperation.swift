@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,40 +51,28 @@ final class UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation: Co
             
             // Update the attachment sent by this contact
             
-            let attachmentFullyReceivedOrCancelledByServer: Bool
             do {
-                attachmentFullyReceivedOrCancelledByServer = try persistedContactIdentity.process(obvAttachment: obvAttachment)
+                try persistedContactIdentity.process(obvAttachment: obvAttachment)
             } catch {
                 // In rare circumstances, the engine might announce a downloaded attachment although there is no file on disk.
                 // In that case, we request a re-download of the attachments.
                 if let error = error as? ObvUICoreData.Fyle.ObvError, error == .couldNotFindSourceFile {
-                    try? obvEngine.resumeDownloadOfAttachment(obvAttachment.number,
-                                                              ofMessageWithIdentifier: obvAttachment.messageIdentifier,
-                                                              ownedCryptoId: obvAttachment.fromContactIdentity.ownedCryptoId,
-                                                              forceResume: true)
-                }
-                throw error
-            }
-            
-            // If the attachment was fully received, we ask the engine to delete the attachment
-            
-            if attachmentFullyReceivedOrCancelledByServer {
-                let obvEngine = self.obvEngine
-                let obvAttachment = self.obvAttachment
-                let log = self.log
-                do {
-                    try obvContext.addContextDidSaveCompletionHandler { error in
+                    Task {
                         do {
-                            try obvEngine.deleteObvAttachment(attachmentNumber: obvAttachment.number, ofMessageWithIdentifier: obvAttachment.messageIdentifier, ownedCryptoId: obvAttachment.fromContactIdentity.ownedCryptoId)
+                            try await obvEngine.appCouldNotFindFileOfDownloadedAttachment(
+                                obvAttachment.number,
+                                ofMessageWithIdentifier: obvAttachment.messageIdentifier,
+                                ownedCryptoId: obvAttachment.fromContactIdentity.ownedCryptoId)
+                            try await obvEngine.resumeDownloadOfAttachment(
+                                obvAttachment.number,
+                                ofMessageWithIdentifier: obvAttachment.messageIdentifier,
+                                ownedCryptoId: obvAttachment.fromContactIdentity.ownedCryptoId)
                         } catch {
-                            os_log("Call to the engine method deleteObvAttachment did fail", log: log, type: .fault)
-                            assertionFailure()
+                            assertionFailure(error.localizedDescription)
                         }
                     }
-                } catch {
-                    assertionFailure(error.localizedDescription)
                 }
-                
+                throw error
             }
             
         } catch {
@@ -104,7 +92,7 @@ final class UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation: Co
         var logType: OSLogType {
             switch self {
             case .coreDataError, .contextIsNil, .couldNotFindPersistedObvContactIdentityInDatabase:
-                return .fault
+                return .error
             }
         }
         

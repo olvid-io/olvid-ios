@@ -32,6 +32,10 @@ public struct ObvConstants {
     public static let AttachmentCiphertextChunkTypicalLength = 10_485_760 // 2_097_152 = 2MB, 10_485_760 = 10MB
     public static let AttachmentCiphertextMaximumNumberOfChunks = 200
 
+    public static let ServerQueryExpirationDelay = TimeInterval(days: 15)
+    
+    public static let relistDelay: TimeInterval = 10
+    
     // Constants related to the oblivious channels
     public static let thresholdNumberOfDecryptedMessagesSinceLastFullRatchetSentMessage = 20
     public static let thresholdTimeIntervalSinceLastFullRatchetSentMessage = 7200.0 // In seconds, must be a Double

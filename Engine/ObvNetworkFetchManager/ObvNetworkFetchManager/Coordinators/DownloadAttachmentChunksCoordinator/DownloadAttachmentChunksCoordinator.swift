@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,16 +22,12 @@ import os.log
 import ObvMetaManager
 import ObvTypes
 import OlvidUtils
+import ObvServerInterface
 
 
-final class DownloadAttachmentChunksCoordinator {
+actor DownloadAttachmentChunksCoordinator {
     
     // MARK: - Instance variables
-
-    private let internalQueueForHandlers = DispatchQueue(label: "Internal queue for handlers")
-    private var _handlerForSessionIdentifier = [String: (() -> Void)]()
-    private let localQueue = DispatchQueue(label: "DownloadAttachmentChunksCoordinatorQueue")
-    private let queueForNotifications = DispatchQueue(label: "DownloadAttachmentChunksCoordinator queue for notifications")
 
     private static let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     private static let logCategory = "DownloadAttachmentChunksCoordinator"
@@ -43,76 +39,36 @@ final class DownloadAttachmentChunksCoordinator {
 
     var delegateManager: ObvNetworkFetchDelegateManager?
 
-    private var internalOperationQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.name = "Queue for DownloadAttachmentChunksCoordinator operations"
-        queue.maxConcurrentOperationCount = 4
-        return queue
-    }()
-    
-    private func removeHandlerForIdentifier(_ identifier: String) -> (() -> Void)? {
-        var handler: (() -> Void)?
-        internalQueueForHandlers.sync {
-            handler = _handlerForSessionIdentifier.removeValue(forKey: identifier)
-        }
-        return handler
-    }
-
-    private func setHandlerForIdentifier(_ identifier: String, handler: @escaping () -> Void) {
-        internalQueueForHandlers.sync {
-            _handlerForSessionIdentifier[identifier] = handler
-        }
-    }
-
     // Dealing with attachment upload progress
     
     // Maps an attachment identifier to its (exact) completed unit count
     typealias ChunkProgress = (totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)
-    private var _chunksProgressesForAttachment = [ObvAttachmentIdentifier: (chunkProgresses: [ChunkProgress], dateOfLastUpdate: Date)]()
-    private let queueForAttachmentsProgresses = DispatchQueue(label: "Internal queue for attachments progresses", attributes: .concurrent)
     
-    private var _currentURLSessions = [WeakRef<URLSession>]()
-    private func cleanCurrentURLSessions() {
-        _currentURLSessions = _currentURLSessions.filter({ $0.value != nil })
-    }
-    private func addCurrentURLSession(_ urlSession: URLSession) {
-        cleanCurrentURLSessions()
-        _currentURLSessions.append(WeakRef(to: urlSession))
-    }
-    private func currentURLSessionExists(withIdentifier identifier: String) -> Bool {
-        cleanCurrentURLSessions()
-        return _currentURLSessions.compactMap({ $0.value }).filter({ $0.configuration.identifier == identifier }).first != nil
-    }
-    private func getCurrentURLSession(withIdentifier identifier: String) -> URLSession? {
-        cleanCurrentURLSessions()
-        return _currentURLSessions.compactMap({ $0.value }).filter({ $0.configuration.identifier == identifier }).first
+    private var missingSignedURLsDownloadTasks = [ObvAttachmentIdentifier: MissingSignedURLsDownloadTask]()
+    private enum MissingSignedURLsDownloadTask {
+        case inProgress(task: Task<TaskForDownloadingAndSavingSignedURLsResult, Error>)
     }
     
-    // This array tracks the attachment identifiers that are currently refreshing their signed URLs, so as to prevent an infinite loop of refresh
-    private var _attachmentIdsRefreshingSignedURLs = Set<ObvAttachmentIdentifier>()
-    private let queueForAttachmentIdsRefreshingSignedURLs = DispatchQueue(label: "Queue for sync access to _attachmentIdsRefreshingSignedURLs")
-    private func attachmentStartsToRefreshSignedURLs(attachmentId: ObvAttachmentIdentifier) {
-        queueForAttachmentIdsRefreshingSignedURLs.sync {
-            _ = _attachmentIdsRefreshingSignedURLs.insert(attachmentId)
-        }
+    private var downloadAttachmentTask = [ObvAttachmentIdentifier: DownloadAttachmentTask]()
+    private enum DownloadAttachmentTask {
+        case resumingBackgroundDownload(task: Task<Void, Error>)
+        case backgroundDownloadInProgress(urlSession: URLSession)
+        case pausingBackgroundDownload(task: Task<Void, Error>, urlSession: URLSession)
+        case backgroundDownloadPaused(urlSession: URLSession)
     }
-    private func attachmentStoppedToRefreshSignedURLs(attachmentId: ObvAttachmentIdentifier) {
-        queueForAttachmentIdsRefreshingSignedURLs.sync {
-            _ = _attachmentIdsRefreshingSignedURLs.remove(attachmentId)
-        }
-    }
-    private func attachmentIsAlreadyRefreshingSignedURLs(attachmentId: ObvAttachmentIdentifier) -> Bool {
-        var val = false
-        queueForAttachmentIdsRefreshingSignedURLs.sync {
-            val = _attachmentIdsRefreshingSignedURLs.contains(attachmentId)
-        }
-        return val
-    }
+        
+    private var handlerForHandlingEventsForBackgroundURLSessionWithIdentifier = [String: (() -> Void)]()
     
-    
+    private var chunksProgressesForAttachment = [ObvAttachmentIdentifier: (chunkProgresses: [ChunkProgress], dateOfLastUpdate: Date)]()
+
     init(logPrefix: String) {
         let logSubsystem = "\(logPrefix).\(Self.defaultLogSubsystem)"
         Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
+    }
+
+    
+    func setDelegateManager(_ delegateManager: ObvNetworkFetchDelegateManager) {
+        self.delegateManager = delegateManager
     }
 
 }
@@ -122,116 +78,159 @@ final class DownloadAttachmentChunksCoordinator {
 
 extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate {
     
-    func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) -> Bool {
+    /// 2023-12 ok
+    func backgroundURLSessionIdentifierIsAppropriate(backgroundURLSessionIdentifier: String) async -> Bool {
         return backgroundURLSessionIdentifier.isBackgroundURLSessionIdentifierForDownloadingAttachment()
     }
     
     
-    func processAllAttachmentsOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
+    /// 2023-12 ok
+    func resumeDownloadOfAttachmentsNotAlreadyDownloading(downloadKind: InboxAttachmentDownloadKind, flowId: FlowIdentifier) async throws {
         
-        guard let delegateManager = delegateManager else {
+        os_log("📄 Call to resumeDownloadOfAttachmentsNotAlreadyDownloading with downloadKind: %{public}@", log: Self.log, type: .debug, downloadKind.debugDescription)
+        
+        // Make sure the attachment have signed URLs
+        
+        try await downloadAndSaveAllMissingSignedURLs(flowId: flowId)
+        
+        // Resume the download of missing chunks
+        
+        try await resumeDownloadOfAttachmentsHavingSignedURLs(kind: downloadKind, flowId: flowId)
+        
+    }
+    
+    
+    /// Called, e.g., when the user deletes a message. Since she might do so while an attachment is downloading, this is called to make sure the download is properly cancelled
+    func cancelDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
+        
+        os_log("📄[%{public}@] Call to cancelDownloadOfAttachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+
+        // If there is no download task in progress, there is nothing to do
+        
+        guard downloadAttachmentTask[attachmentId] != nil else {
+            return
+        }
+        
+        // There is a download task, we pause it
+
+        try await pauseDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+        
+        // We expect the download task to be paused. We cancel its associated URLSession
+        
+        guard let currentDownloadTask = downloadAttachmentTask[attachmentId] else {
+            return
+        }
+        
+        switch currentDownloadTask {
+        case .resumingBackgroundDownload:
+            assertionFailure()
+            try await cancelDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+            return
+        case .pausingBackgroundDownload:
+            assertionFailure()
+            try await cancelDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+            return
+        case .backgroundDownloadInProgress:
+            assertionFailure()
+            try await cancelDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+            return
+        case .backgroundDownloadPaused(urlSession: let urlSession):
+            os_log("📄[%{public}@] Cancelling the url session associated to the attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+            urlSession.invalidateAndCancel()
+            downloadAttachmentTask.removeValue(forKey: attachmentId)
+            return
+        }
+
+    }
+    
+    
+    func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
+        
+        os_log("📄[%{public}@] Call to pauseDownloadOfAttachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+        
+        guard let delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             assertionFailure()
-            return
+            throw ObvError.theDelegateManagerIsNotSet
         }
         
-        os_log("🌊 Call to processAllAttachmentsOfMessage within flow %{public}@", log: Self.log, type: .debug, flowId.debugDescription)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
             assertionFailure()
-            return
+            throw ObvError.theNotificationDelegateIsNotSet
         }
 
-        var attachmentsRequiringSignedURLs = [ObvAttachmentIdentifier]()
-
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            
-            let message: InboxMessage
+        // Make sure there is a download task to pause.
+        
+        guard let currentDownloadTask = downloadAttachmentTask[attachmentId] else {
+            assertionFailure("No download task to pause. Why did we call this method?")
+            let op1 = ChangeAttachmentStatusToPausedOperation(attachmentId: attachmentId)
             do {
-                guard let _message = try InboxMessage.get(messageId: messageId, within: obvContext) else {
-                    os_log("Could not find message in DB", log: Self.log, type: .fault)
-                    return
-                }
-                message = _message
+                try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
             } catch {
-                os_log("Failed to get inbox message: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                return
+                assertionFailure()
             }
-                        
-            attachmentsRequiringSignedURLs = message.attachments.filter({ !$0.allChunksHaveSignedURLs }).compactMap({ $0.attachmentId })
-
+            return
         }
         
-        // The attachments requiring signed URLs are dealt with now.
-        downloadSignedURLsForAttachments(attachmentIds: attachmentsRequiringSignedURLs, flowId: flowId)
-        // There might be attachments with signed URLs already. We download them now.
-        resumeMissingAttachmentDownloads(flowId: flowId)
-
+        let urlSessionToPause: URLSession
+        
+        switch currentDownloadTask {
+        case .resumingBackgroundDownload(let task):
+            // We wait until the background download is resumed before we pause it
+            try await task.value
+            try await Task.sleep(milliseconds: 300) // Give some time to switch to backgroundDownloadInProgress
+            try await pauseDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+            return
+        case .pausingBackgroundDownload(task: let task, urlSession: _):
+            os_log("📄[%{public}@] Awaiting an existing pause task", log: Self.log, type: .debug, attachmentId.debugDescription)
+            try await task.value
+            try await pauseDownloadOfAttachment(attachmentId: attachmentId, flowId: flowId)
+            return
+        case .backgroundDownloadPaused(urlSession: _):
+            os_log("📄[%{public}@] The attachment download is already paused", log: Self.log, type: .debug, attachmentId.debugDescription)
+            return
+        case .backgroundDownloadInProgress(urlSession: let urlSession):
+            // The background download is ongoing, we can pause it
+            urlSessionToPause = urlSession
+        }
+        
+        // If we reach this point, we are in charge of pausing the attachment download
+        
+        let task = createTaskForPausingAttachmentDownload(attachmentId: attachmentId, urlSession: urlSessionToPause, flowId: flowId, delegateManager: delegateManager)
+        
+        do {
+            downloadAttachmentTask[attachmentId] = .pausingBackgroundDownload(task: task, urlSession: urlSessionToPause)
+            try await task.value
+            downloadAttachmentTask[attachmentId] = .backgroundDownloadPaused(urlSession: urlSessionToPause)
+        } catch {
+            downloadAttachmentTask.removeValue(forKey: attachmentId)
+            throw error
+        }
+        
+        ObvNetworkFetchNotificationNew.inboxAttachmentDownloadWasPaused(attachmentId: attachmentId, flowId: flowId)
+            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
+        
     }
     
     
-    /// This is method is called prior `resumeMissingAttachmentDownloads` and allows to download signed URLs for
-    /// all the attachment's chunks. It is also called when something goes wrong with previously downloaded URLs (like
-    /// when they expire).
-    ///
-    /// We queue an operation that will delete all the signed URLs
-    /// of the attachment, then an operation that resume a download task that gets signed URLs from the server.
-    /// We do so after adding a barrier to the queue, so as to make sure not to interfere with other tasks.
-    private func downloadSignedURLsForAttachments(attachmentIds: [ObvAttachmentIdentifier], flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        localQueue.async { [weak self] in
+    private func createTaskForPausingAttachmentDownload(attachmentId: ObvAttachmentIdentifier, urlSession: URLSession, flowId: FlowIdentifier, delegateManager: ObvNetworkFetchDelegateManager) -> Task<Void, Error> {
+        Task {
             
-            guard let _self = self else { return }
-            
-            var operationsToQueue = [Operation]()
-
-            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            
-                for attachmentId in attachmentIds {
-                    guard !_self.attachmentIsAlreadyRefreshingSignedURLs(attachmentId: attachmentId) else { continue }
-                    _self.attachmentStartsToRefreshSignedURLs(attachmentId: attachmentId)
-                    let ops = _self.getOperationsForDownloadingSignedURLsForAttachment(attachmentId: attachmentId,
-                                                                                 logSubsystem: delegateManager.logSubsystem,
-                                                                                 obvContext: obvContext,
-                                                                                 identityDelegate: identityDelegate)
-                    
-                    operationsToQueue.append(contentsOf: ops)
-                }
-                
+            let allTasks = await urlSession.allTasks
+            for task in allTasks {
+                task.suspend()
             }
             
-            guard !operationsToQueue.isEmpty else { return }
-            
-            // We prevent any interference with previous operations
-            self?.internalOperationQueue.addBarrierBlock({})
-            self?.internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+            let op1 = ChangeAttachmentStatusToPausedOperation(attachmentId: attachmentId)
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
 
         }
-        
     }
 
-
-    func processCompletionHandler(_ handler: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier identifier: String, withinFlowId flowId: FlowIdentifier) {
-                
+    /// 2023-12 ok
+    func processCompletionHandler(_ handler: @escaping () -> Void, forHandlingEventsForBackgroundURLSessionWithIdentifier sessionIdentifier: String, withinFlowId flowId: FlowIdentifier) async {
+        
         guard let delegateManager = delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             DispatchQueue.main.async { handler() }
@@ -239,424 +238,576 @@ extension DownloadAttachmentChunksCoordinator: DownloadAttachmentChunksDelegate 
             return
         }
         
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
+        if let previousHandler = handlerForHandlingEventsForBackgroundURLSessionWithIdentifier.removeValue(forKey: sessionIdentifier) {
             assertionFailure()
-            return
+            DispatchQueue.main.async { previousHandler() }
         }
-
-        // Store the completion handler
-        setHandlerForIdentifier(identifier, handler: handler)
-
-        localQueue.async { [weak self] in
-
-            guard let _self = self else { return }
-            
-            // Look for an existing URLSession for the given identifier. If one exists, there is noting left to do:
-            // We simply wait until all the events have been delivered to the delegate. When this is done, the urlSessionDidFinishEvents(forBackgroundURLSession:) method of the delegate will be called, calling the urlSessionDidFinishEventsForSessionWithIdentifier(_: String) of this coordinator, which will call the stored completion handler.
-            guard !_self.currentURLSessionExists(withIdentifier: identifier) else {
-                return
+        
+        handlerForHandlingEventsForBackgroundURLSessionWithIdentifier[sessionIdentifier] = handler
+        
+        // Look for an existing URLSession for the given identifier. If one exists, there is noting left to do:
+        // We simply wait until all the events have been delivered to the delegate. When this is done, the urlSessionDidFinishEvents(forBackgroundURLSession:) method of the delegate will be called, calling the urlSessionDidFinishEventsForSessionWithIdentifier(_: String) of this coordinator, which will call the stored completion handler.
+        
+        for task in downloadAttachmentTask.values {
+            switch task {
+            case .backgroundDownloadInProgress(urlSession: let urlSession):
+                assert(urlSession.configuration.identifier != nil)
+                if urlSession.configuration.identifier == sessionIdentifier {
+                    return
+                }
+            default:
+                continue
             }
-            
-            // If we reach this point, there is no more URLSession with the given identifier so we recreate one
-            
-            let operation = RecreatingURLSessionForCallingUIKitCompletionHandlerOperation(urlSessionIdentifier: identifier,
-                                                                                          logSubsystem: delegateManager.logSubsystem,
-                                                                                          flowId: flowId,
-                                                                                          inbox: delegateManager.inbox,
-                                                                                          contextCreator: contextCreator,
-                                                                                          attachmentChunkDownloadProgressTracker: _self)
-            
-            self?.internalOperationQueue.addBarrierBlock({})
-            self?.internalOperationQueue.addOperation(operation)
-            
-        } // End of localQueue.async
-
+        }
+        
+        // If we reach this point, there is no more URLSession with the given identifier so we recreate one
+        
+        do {
+            let op1 = RecreateURLSessionForCallingUIKitCompletionHandlerOperation(urlSessionIdentifier: sessionIdentifier, tracker: self, delegateManager: delegateManager)
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        } catch {
+            assertionFailure()
+        }
+        
     }
-
-
-    /// This method looks for `InboxAttachmentSession` objects . The objective is to "takover" these sessions.
-    /// More precisely: this method creates one operation per object. This operation does the following *before* finishing :
-    /// - It recreates the `URLSession`
-    /// - It invalidates the `URLSession` and cancels all the tasks
-    /// - It deletes the `InboxAttachmentSession` object.
-    func cleanExistingOutboxAttachmentSessions(flowId: FlowIdentifier) {
+    
+    
+    /// Called during bootstrap so as to invalidate and cancel any URLSession and to delete their associated ``InboxAttachmentSession``.
+    /// This ensures a "fresh start" after a cold boot of the app.
+    /// 2023-12: ok
+    func cleanExistingOutboxAttachmentSessions(flowId: FlowIdentifier) async throws {
         
         guard let delegateManager = delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             assertionFailure()
-            return
+            throw ObvError.theDelegateManagerIsNotSet
         }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
+
+        let op1 = CleanExistingInboxAttachmentSessionsOperation(logSubsystem: delegateManager.logSubsystem)
+        do {
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        } catch {
             assertionFailure()
-            return
+            throw ObvError.failedToCleanExistingOutboxAttachmentSessions
         }
         
-        localQueue.async { [weak self] in
-
-            guard let _self = self else { return }
-            
-            var attachmentIds = [ObvAttachmentIdentifier]()
-            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                let attachmentSessions: [InboxAttachmentSession]
-                do {
-                    attachmentSessions = try InboxAttachmentSession.getAll(within: obvContext)
-                } catch {
-                    os_log("Could not get attachments sessions", log: Self.log, type: .fault)
-                    return
-                }
-                attachmentIds = attachmentSessions.compactMap({ $0.attachment?.attachmentId })
-            }
-            guard !attachmentIds.isEmpty else { return }
-            
-            let operationsToQueue: [Operation] = attachmentIds.map { (attachmentId) in
-                CleanExistingInboxAttachmentSessions(attachmentId: attachmentId,
-                                                     logSubsystem: delegateManager.logSubsystem,
-                                                     contextCreator: contextCreator,
-                                                     delegate: _self,
-                                                     flowId: flowId)
-            }
-
-            self?.internalOperationQueue.addBarrierBlock({})
-            self?.internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
-            
-        }
+        failedAttemptsCounterManager.resetAll()
         
     }
     
     
+    /// 2023-12: ok
     func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async -> [ObvAttachmentIdentifier: Float] {
         
-        return await withCheckedContinuation { (continuation: CheckedContinuation<[ObvAttachmentIdentifier: Float], Never>) in
-            queueForAttachmentsProgresses.async { [weak self] in
-                guard let _self = self else { continuation.resume(returning: [:]); return }
-                var progressesToReturn = [ObvAttachmentIdentifier: Float]()
-                let appropriateChunksProgressesForAttachment = _self._chunksProgressesForAttachment.filter({ $0.value.dateOfLastUpdate > date })
-                for (attachmentId, value) in appropriateChunksProgressesForAttachment {
-                    let totalBytesWritten = value.chunkProgresses.map({ $0.totalBytesWritten }).reduce(0, +)
-                    let totalBytesExpectedToWrite = value.chunkProgresses.map({ $0.totalBytesExpectedToWrite }).reduce(0, +)
-                    let progress = Float(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
-                    progressesToReturn[attachmentId] = progress
-                }
-                continuation.resume(returning: progressesToReturn)
-            }
-        }
-                
-    }
-    
-    
-    func resumeMissingAttachmentDownloads(flowId: FlowIdentifier) {
+        let latestChunksProgressesForAttachment = chunksProgressesForAttachment
+            .filter { $0.value.dateOfLastUpdate > date }
+
+        var progressesToReturn = [ObvAttachmentIdentifier: Float]()
         
-        guard let delegateManager = delegateManager else {
+        for (attachmentId, value) in latestChunksProgressesForAttachment {
+            let totalBytesWritten = value.chunkProgresses.map({ $0.totalBytesWritten }).reduce(0, +)
+            let totalBytesExpectedToWrite = value.chunkProgresses.map({ $0.totalBytesExpectedToWrite }).reduce(0, +)
+            let progress = Float(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+            progressesToReturn[attachmentId] = progress
+        }
+        
+        return progressesToReturn
+                        
+    }
+
+    
+    /// Called by the app when it cannot find the file associated to an attachment, although it was notified that the attachment is fully downloaded. This is very rare.
+    func appCouldNotFindFileOfDownloadedAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) async throws {
+        
+        guard let delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             assertionFailure()
-            return
+            throw ObvError.theDelegateManagerIsNotSet
         }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
+
+        let op1 = ResetAttachmentStatusIfCurrentStatusIsDownloadedAndFileIsNotAvailableOperation(attachmentId: attachmentId, inbox: delegateManager.inbox)
+        do {
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        } catch {
             assertionFailure()
-            return
+            throw ObvError.anOperationCancelled(localizedDescription: "ResetAttachmentStatusIfCurrentStatusIsDownloadedAndFileIsNotAvailableOperation")
         }
 
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        var resumedAttachmentIds = [ObvAttachmentIdentifier]()
-
-        localQueue.async { [weak self] in
-
-            guard let _self = self else { return }
-            
-            var operationsToQueue = [Operation]()
-
-            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                
-                let attachmentsToResume: [InboxAttachment]
-                do {
-                    attachmentsToResume = (try InboxAttachment.getAllDownloadableWithoutSession(within: obvContext))
-                } catch {
-                    os_log("Could not get attachments to download", log: Self.log, type: .fault)
-                    return
-                }
-
-                guard !attachmentsToResume.isEmpty else {
-                    os_log("There is no downloadable attachment left", log: Self.log, type: .info)
-                    return
-                }
-
-                os_log("👑 We found %{public}d attachment(s) to resume.", log: Self.log, type: .info, attachmentsToResume.count)
-
-                attachmentsToResume.forEach {
-                    guard let attachmentId = $0.attachmentId else { assertionFailure(); return }
-                    os_log("👑 Attachment %{public}@ has a total of %{public}d chunk(s), and %{public}d still need to be downloaded", log: Self.log, type: .info, attachmentId.debugDescription, $0.chunks.count, $0.chunks.filter({ !$0.cleartextChunkWasWrittenToAttachmentFile }).count)
-                    let ops = _self.getOperationsForResumingAttachment($0, flowId: flowId, logSubsystem: delegateManager.logSubsystem, inbox: delegateManager.inbox, contextCreator: contextCreator, identityDelegate: identityDelegate)
-                    os_log("👑 We created %{public}d operations in order to download Attachment %{public}@", log: Self.log, type: .info, ops.count, attachmentId.debugDescription)
-                    guard !ops.isEmpty else { assertionFailure(); return }
-                    operationsToQueue.append(contentsOf: ops)
-                    resumedAttachmentIds.append(attachmentId)
-                }
-
-                resumedAttachmentIds = attachmentsToResume.compactMap({ $0.attachmentId })
-
-            }
-                        
-            // We prevent any interference with previous operations
-            _self.internalOperationQueue.addBarrierBlock({})
-            _self.internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
-            
-            // We notify that the attachment has been taken care of. This will be catched by the flow manager.
-            for attachmentId in resumedAttachmentIds {
-                ObvNetworkFetchNotificationNew.inboxAttachmentWasTakenCareOf(attachmentId: attachmentId, flowId: flowId)
-                    .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
-            }
-
-        } // End of localQueue.async
-     
     }
 
-    
-    func resumeAttachmentDownloadIfResumeIsRequested(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("The identity delegate is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        localQueue.async { [weak self] in
-            
-            guard let _self = self else { return }
-            
-            var operationsToQueue = [Operation]()
-
-            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                
-                let attachmentToResume: InboxAttachment
-                do {
-                    guard let _attachmentToResume = try InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
-                    guard !_attachmentToResume.isDownloaded else { return }
-                    guard _attachmentToResume.session == nil else { return }
-                    guard _attachmentToResume.status == .resumeRequested else { return }
-                    attachmentToResume = _attachmentToResume
-                } catch {
-                    os_log("Could not get attachments to upload", log: Self.log, type: .fault)
-                    return
-                }
-                
-                os_log("👑 Attachment %{public}@ has a total of %{public}d chunk(s) and its download is about to be resumed", log: Self.log, type: .info, attachmentId.debugDescription, attachmentToResume.chunks.count)
-                operationsToQueue = _self.getOperationsForResumingAttachment(attachmentToResume, flowId: flowId, logSubsystem: delegateManager.logSubsystem, inbox: delegateManager.inbox, contextCreator: contextCreator, identityDelegate: identityDelegate)
-                os_log("👑 We created %{public}d operations in order to download Attachment %{public}@", log: Self.log, type: .info, operationsToQueue.count, attachmentId.debugDescription)
-                
-            }
-            
-            guard !operationsToQueue.isEmpty else { return }
-                        
-            // We prevent any interference with previous operations
-            _self.internalOperationQueue.addBarrierBlock({})
-            _self.internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
-        
-            ObvNetworkFetchNotificationNew.inboxAttachmentWasTakenCareOf(attachmentId: attachmentId, flowId: flowId)
-                .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
-
-        } // End of localQueue.async
-                
-    }
 }
 
 
-// MARK: - Implementing AttachmentChunkDownloadProgressTracker
+// MARK: - Helper methods allowing to implement the DownloadAttachmentChunksDelegate protocol
+
+extension DownloadAttachmentChunksCoordinator {
+    
+    enum TaskForDownloadingAndSavingSignedURLsResult {
+        case signedURLsWereSaved
+        case attachmentWasMarkedACancelledFromServer
+    }
+    
+    /// Returns a task allowing to download and save signed URLs for the chunks of the attachment.
+    private func createTaskForDownloadingAndSavingSignedURLs(attachmentId: ObvAttachmentIdentifier, expectedChunkCount: Int, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) -> Task<TaskForDownloadingAndSavingSignedURLsResult, Error> {
+        
+        return Task {
+            
+            let method = RefreshInboxAttachmentSignedUrlServerMethod(
+                identity: attachmentId.messageId.ownedCryptoIdentity,
+                attachmentId: attachmentId,
+                expectedChunkCount: expectedChunkCount,
+                flowId: flowId)
+            
+            method.identityDelegate = delegateManager.identityDelegate
+
+            let (data, response) = try await URLSession.shared.data(for: method.getURLRequest())
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                throw ObvError.invalidServerResponse
+            }
+
+            guard let (status, chunkDownloadPrivateUrls) = RefreshInboxAttachmentSignedUrlServerMethod.parseObvServerResponse(responseData: data, using: Self.log) else {
+                assertionFailure()
+                throw ObvError.couldNotParseReturnStatusFromServer
+            }
+
+            switch status {
+
+            case .ok:
+                
+                guard let chunkDownloadPrivateUrls else { assertionFailure(); throw ObvError.serverReturnedGeneralError }
+                let op1 = SaveSignedURLsOperation(attachmentId: attachmentId, chunkDownloadPrivateUrls: chunkDownloadPrivateUrls)
+                do {
+                    try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+                } catch {
+                    assertionFailure()
+                    throw ObvError.anOperationCancelled(localizedDescription: "SaveSignedURLsOperation")
+                }
+                
+                return .signedURLsWereSaved
+                
+            case .deletedFromServer:
+                
+                let op1 = MarkAttachmentAsDeletedFromServerOperation(attachmentId: attachmentId)
+                do {
+                    try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+                } catch {
+                    assertionFailure()
+                    throw ObvError.anOperationCancelled(localizedDescription: "MarKAttachmentAsDeletedFromServerOperation")
+                }
+                
+                return .attachmentWasMarkedACancelledFromServer
+
+            case .generalError:
+                
+                assertionFailure()
+                throw ObvError.serverReturnedGeneralError
+
+            }
+            
+        }
+        
+    }
+
+    
+    /// Before trying to download all attachments that can be downloaded, we make sure they all have valid signed URLs and download those that are missing.
+    /// 2023-12 ok
+    private func downloadAndSaveAllMissingSignedURLs(flowId: FlowIdentifier) async throws {
+        
+        os_log("📄 Call to downloadAndSaveAllMissingSignedURLs", log: Self.log, type: .debug)
+
+        guard let delegateManager = delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+
+        let op1 = DetermineAttachmentsWithMissingSignedURLsOperation()
+        do {
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        } catch {
+            assertionFailure()
+            throw ObvError.anOperationCancelled(localizedDescription: "DetermineAttachmentsWithMissingSignedURLs")
+        }
+
+        let attachmentsWithMissingSignedURL = op1.attachmentsWithMissingSignedURL
+        os_log("📄 %d attachments with missing signed URL", log: Self.log, type: .debug, attachmentsWithMissingSignedURL.count)
+        guard !attachmentsWithMissingSignedURL.isEmpty else { return }
+        
+        // If we reach this point, we have signed URLs to download
+
+        for (attachmentId, expectedChunkCount) in attachmentsWithMissingSignedURL {
+            
+            do {
+                
+                if let cached = missingSignedURLsDownloadTasks[attachmentId] {
+                    switch cached {
+                    case .inProgress(task: let task):
+                        os_log("📄[%{public}@] Awaiting existing task for downloading missing signed URLs for attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+                        _ = try await task.value
+                        continue
+                    }
+                }
+                
+                let task: Task<TaskForDownloadingAndSavingSignedURLsResult, Error> = createTaskForDownloadingAndSavingSignedURLs(attachmentId: attachmentId, expectedChunkCount: expectedChunkCount, delegateManager: delegateManager, flowId: flowId)
+                
+                os_log("📄[%{public}@] Awaiting just created task for downloading missing signed URLs for attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+
+                let result: DownloadAttachmentChunksCoordinator.TaskForDownloadingAndSavingSignedURLsResult
+                
+                do {
+                    missingSignedURLsDownloadTasks[attachmentId] = .inProgress(task: task)
+                    result = try await task.value
+                    missingSignedURLsDownloadTasks.removeValue(forKey: attachmentId)
+                } catch {
+                    missingSignedURLsDownloadTasks.removeValue(forKey: attachmentId)
+                    assertionFailure()
+                    continue
+                }
+                
+                switch result {
+                case .signedURLsWereSaved:
+                    // Signed URLs were returned and saved from database. The attachment can be downloaded at this point.
+                    // Nothing left to do here, we continue with the next attachment
+                    break
+                case .attachmentWasMarkedACancelledFromServer:
+                    // The attachment was deleted from server, and we marked it as cancelledFromServer in database.
+                    // The networkFetchFlowDelegate that we notify will notify the app. Then, the app will request the deletion of this attachment.
+                    delegateManager.networkFetchFlowDelegate.attachmentWasCancelledByServer(attachmentId: attachmentId, flowId: flowId)
+                }
+                
+            } catch {
+                
+                assertionFailure()
+                // In production, continue with the next attachment
+                
+            }
+            
+        }
+        
+    }
+
+    
+    /// 2023-12 ok
+    private func resumeDownloadOfAttachmentsHavingSignedURLs(kind: InboxAttachmentDownloadKind, flowId: FlowIdentifier) async throws {
+        
+        os_log("📄 Call to resumeDownloadOfAttachmentsHavingSignedURLs", log: Self.log, type: .debug)
+
+        guard let delegateManager = delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+        
+        guard let identityDelegate = delegateManager.identityDelegate else {
+            os_log("The identity delegate is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.theIdentityDelegateIsNotSet
+        }
+        
+        guard let notificationDelegate = delegateManager.notificationDelegate else {
+            os_log("The notification delegate is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.theNotificationDelegateIsNotSet
+        }
+
+        let op1 = DetermineAttachmentsToDownloadAndCreateURLSessionsOperation(
+            kind: kind,
+            tracker: self,
+            delegateManager: delegateManager)
+        
+        do {
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        } catch {
+            assertionFailure()
+            throw ObvError.anOperationCancelled(localizedDescription: "DetermineAttachmentsToDownloadOperation")
+        }
+
+        let chunksToDownloadForAttachment = op1.chunksToDownloadForAttachment
+        guard !chunksToDownloadForAttachment.isEmpty else {
+            os_log("📄 No chunk to download", log: Self.log, type: .debug)
+            return
+        }
+        
+        // If we reach this point, we attachments to download
+
+        for (attachmentId, values) in chunksToDownloadForAttachment {
+            
+            os_log("📄[%{public}@] There are %d chunks to download for attachment", log: Self.log, type: .debug, attachmentId.debugDescription, values.chunkNumbersAndSignedURLs.count)
+
+            do {
+                
+                let kindOfResumeToPerform: ResumeTaskKind
+                
+                if let cached = downloadAttachmentTask[attachmentId] {
+                    switch cached {
+                    case .pausingBackgroundDownload(task: let task, urlSession: _):
+                        // Wait until the download is paused before resuming it
+                        try await task.value
+                        try await resumeDownloadOfAttachmentsHavingSignedURLs(kind: kind, flowId: flowId)
+                        return
+                    case .resumingBackgroundDownload(task: let task):
+                        os_log("📄[%{public}@] Awaiting an existing resumingBackgroundDownload task for attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+                        try await task.value
+                        continue
+                    case .backgroundDownloadInProgress:
+                        // Nothing to do, process the next attachment
+                        continue
+                    case .backgroundDownloadPaused(urlSession: let urlSession):
+                        // We only need to resume the download tasks
+                        kindOfResumeToPerform = .resumingPausedDownload(urlSession: urlSession)
+                    }
+                } else {
+                    // There is no existing paused download to resume, we create a fresh download
+                    kindOfResumeToPerform = .noPausedDownloadToResume(
+                        attachmentId: attachmentId,
+                        chunksToDownload: values.chunkNumbersAndSignedURLs,
+                        urlSession: values.urlSession,
+                        identityDelegate: identityDelegate,
+                        flowId: flowId)
+                }
+                
+                // If we reach this point, we must resume the download of the attachment
+                
+                let task: Task<Void, Error> = createTaskForResumingDownloadOfAttachmentWithSignedURLs(kind: kindOfResumeToPerform)
+
+                os_log("📄[%{public}@] Awaiting just created resumingBackgroundDownload task for attachment", log: Self.log, type: .debug, attachmentId.debugDescription)
+
+                do {
+                    downloadAttachmentTask[attachmentId] = .resumingBackgroundDownload(task: task)
+                    try await task.value
+                    downloadAttachmentTask[attachmentId] = .backgroundDownloadInProgress(urlSession: values.urlSession)
+                } catch {
+                    downloadAttachmentTask.removeValue(forKey: attachmentId)
+                    throw error
+                }
+                
+                os_log("📄 Download of attachment %{public}@ is in progress", log: Self.log, type: .debug, attachmentId.debugDescription)
+
+                ObvNetworkFetchNotificationNew.inboxAttachmentDownloadWasResumed(attachmentId: attachmentId, flowId: flowId)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
+                
+            } catch {
+                
+                os_log("📄[%{public}@] Removing the downloadAttachmentTask for attachment as an error occured: %{public}@", log: Self.log, type: .debug, attachmentId.debugDescription, error.localizedDescription)
+
+                assertionFailure()
+                // In production, continue with the next attachment
+                
+            }
+            
+        }
+        
+    }
+
+    
+    private enum ResumeTaskKind {
+        case resumingPausedDownload(urlSession: URLSession)
+        case noPausedDownloadToResume(attachmentId: ObvAttachmentIdentifier, chunksToDownload: [(chunkNumber: Int, signedURL: URL)], urlSession: URLSession, identityDelegate: ObvIdentityDelegate, flowId: FlowIdentifier)
+    }
+    
+    
+    private func createTaskForResumingDownloadOfAttachmentWithSignedURLs(kind: ResumeTaskKind) -> Task<Void, Error> {
+        return Task {
+            
+            switch kind {
+            case .resumingPausedDownload(let urlSession):
+                
+                let allTasks = await urlSession.allTasks
+                for task in allTasks {
+                    task.resume()
+                }
+
+            case .noPausedDownloadToResume(let attachmentId, let chunksToDownload, let urlSession, let identityDelegate, let flowId):
+                
+                for (chunkNumber, signedURL) in chunksToDownload {
+                    let method = ObvS3DownloadAttachmentChunkMethod(attachmentId: attachmentId,
+                                                                    chunkNumber: chunkNumber,
+                                                                    signedURL: signedURL,
+                                                                    flowId: flowId)
+                    method.identityDelegate = identityDelegate
+                    let downloadTask = try method.downloadTask(within: urlSession)
+                    downloadTask.setAssociatedChunkNumber(chunkNumber)
+                    downloadTask.resume()
+                }
+                
+                urlSession.finishTasksAndInvalidate()
+
+            }
+            
+        }
+    }
+
+}
+
+
+
+// MARK: - Implementing AttachmentChunkDownloadProgressTrackerNEW
 
 extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTracker {
     
-    func downloadAttachmentChunksSessionDidBecomeInvalid(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: DownloadAttachmentChunksSessionDelegate.ErrorForTracker?) {
+    func downloadAttachmentChunksSessionDidBecomeInvalid(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate, error: DownloadAttachmentChunksSessionDelegate.ErrorForTracker?) async {
+                
+        let attachmentId = downloadAttachmentChunksSessionDelegate.attachmentId
+        let flowId = downloadAttachmentChunksSessionDelegate.flowId
         
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            downloadAttachmentTask.removeValue(forKey: attachmentId)
+            return
+        }
+        
+        do {
+            
+            let op1 = DeleteInboxAttachmentSessionOperation(attachmentId: attachmentId)
+            do {
+                try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+            } catch {
+                assertionFailure()
+                downloadAttachmentTask.removeValue(forKey: attachmentId)
+                return
+            }
+
+            // If the attachment is downloaded, there is nothing left to do.
+            // Note that, if the attachment is downloaded, the network fetch flow delegate was already notified about it.
+            guard !op1.attachmentIsDownloaded else {
+                downloadAttachmentTask.removeValue(forKey: attachmentId)
+                os_log("📄[%{public}@] Removing the downloadAttachmentTask as the attachment is downloaded", log: Self.log, type: .debug, attachmentId.debugDescription)
+                return
+            }
+            
+            // If we reach this point, the attachment is not downloaded.
+            // If there is no error, we simply resume missing chunks
+            
+            guard let error else {
+                failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
+                downloadAttachmentTask.removeValue(forKey: attachmentId)
+                try await resumeDownloadOfAttachmentsNotAlreadyDownloading(downloadKind: .specificDownloadableAttachmentsWithoutSession(attachmentId: attachmentId, resumeRequestedByApp: false), flowId: flowId)
+                return
+            }
+
+            // If we reach this point, some error occured while downloading the attachment's chunks.
+            
+            switch error {
+                
+            case .couldNotRecoverAttachmentIdFromTask,
+                 .couldNotRetrieveAnHTTPResponse,
+                 .sessionInvalidationError,
+                 .couldNotSaveContext,
+                 .atLeastOneChunkIsNotYetAvailableOnServer,
+                 .couldNotOpenEncryptedChunkFile,
+                 .markChunkAsWrittenToAttachmentFileOperationFailed,
+                 .failedToDecryptChunkOrWriteToFile,
+                 .unsupportedHTTPErrorStatusCode:
+                
+                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAttachment(attachmentId: attachmentId))
+                os_log("Will retry the call to resumeDownloadOfAttachmentsNotAlreadyDownloading in %f seconds", log: Self.log, type: .error, Double(delay) / 1000.0)
+                await retryManager.waitForDelay(milliseconds: delay)
+
+                downloadAttachmentTask.removeValue(forKey: attachmentId)
+                try await resumeDownloadOfAttachmentsNotAlreadyDownloading(downloadKind: .specificDownloadableAttachmentsWithoutSession(attachmentId: attachmentId, resumeRequestedByApp: false), flowId: flowId)
+                return
+                
+            case .atLeastOneChunkDownloadPrivateURLHasExpired:
+                
+                let op1 = DeleteAllAttachmentSignedURLsOperation(attachmentId: attachmentId)
+                try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+
+                failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
+                
+                downloadAttachmentTask.removeValue(forKey: attachmentId)
+                try await resumeDownloadOfAttachmentsNotAlreadyDownloading(downloadKind: .specificDownloadableAttachmentsWithoutSession(attachmentId: attachmentId, resumeRequestedByApp: false), flowId: flowId)
+                return
+                
+            case .cannotFindAttachmentInDatabase:
+                // We do nothing
+                downloadAttachmentTask.removeValue(forKey: attachmentId)
+                return
+
+            }
+
+        } catch {
+            downloadAttachmentTask.removeValue(forKey: attachmentId)
+            assertionFailure(error.localizedDescription)
+        }
+        
+    }
+    
+    
+    func urlSessionDidFinishEventsForSessionWithIdentifier(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate, urlSessionIdentifier: String) async {
+        guard let handler = handlerForHandlingEventsForBackgroundURLSessionWithIdentifier.removeValue(forKey: urlSessionIdentifier) else { return }
+        DispatchQueue.main.async {
+            handler()
+        }
+    }
+    
+
+    func attachmentChunkDidProgress(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate, chunkProgress: (chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64)) async {
+        
+        let attachmentId = downloadAttachmentChunksSessionDelegate.attachmentId
+        let flowId = downloadAttachmentChunksSessionDelegate.flowId
+        
+        os_log("📄[%{public}@][%d] Attachment chunk did progress %d/%d", log: Self.log, type: .debug, attachmentId.debugDescription, chunkProgress.chunkNumber, chunkProgress.totalBytesWritten, chunkProgress.totalBytesExpectedToWrite)
+
+        failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
+
         guard let delegateManager = delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             assertionFailure()
             return
         }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
 
-        // Check whether the attachment is downloaded and delete the session
-        
-        var attachmentIsDownloaded = false
-        var allChunksHaveSignedURLs = false
-        localQueue.sync {
-            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                guard let attachment = try? InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else {
-                    os_log("Could not find attachment in database", log: Self.log, type: .info)
-                    attachmentIsDownloaded = false
-                    return
-                }
-                attachmentIsDownloaded = attachment.isDownloaded
-                allChunksHaveSignedURLs = attachment.allChunksHaveSignedURLs
-                if let attachmentSession = attachment.session {
-                    obvContext.delete(attachmentSession)
-                    do {
-                        try obvContext.save(logOnFailure: Self.log)
-                    } catch {
-                        os_log("Could not delete InboxAttachmentSession although is was invalidated", log: Self.log, type: .fault)
-                        assertionFailure()
-                        return
-                    }
-                }
-            }
-        }
-        
-        // If the attachment is downloaded, there is nothing left to do.
-        // Note that, if the attachment is downloaded, the network fetch flow delegate was already notified about it.
-        guard !attachmentIsDownloaded else {
-            return
-        }
-
-        // If we reach this point, the attachment is not downloaded.
-        // If there is no error, we simply resume missing chunks
-        
-        guard let error = error else {
-            failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
-            if allChunksHaveSignedURLs {
-                resumeAttachmentDownloadIfResumeIsRequested(attachmentId: attachmentId, flowId: flowId)
-            } else {
-                downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)
-            }
-            return
-        }
-        
-        // If we reach this point, some error occured while downloading the attachment's chunks.
-        
-        switch error {
-        case .couldNotRecoverAttachmentIdFromTask,
-             .couldNotRetrieveAnHTTPResponse,
-             .sessionInvalidationError,
-             .couldNotSaveContext,
-             .atLeastOneChunkIsNotYetAvailableOnServer,
-             .couldNotOpenEncryptedChunkFile,
-             .unsupportedHTTPErrorStatusCode:
-            Task { [weak self] in
-                guard let self else { return }
-                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAttachment(attachmentId: attachmentId))
-                await retryManager.waitForDelay(milliseconds: delay)
-                resumeAttachmentDownloadIfResumeIsRequested(attachmentId: attachmentId, flowId: flowId)
-            }
-        case .atLeastOneChunkDownloadPrivateURLHasExpired:
-            downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)
-        case .cannotFindAttachmentInDatabase:
-            // We do nothing
-            break
-        }
-    }
-    
-    func urlSessionDidFinishEventsForSessionWithIdentifier(_ identifier: String) {
-        guard let handler = removeHandlerForIdentifier(identifier) else { return }
-        internalOperationQueue.addBarrierBlock({})
-        internalOperationQueue.addOperation {
-            DispatchQueue.main.async {
-                handler()
-            }
-        }
-    }
-    
-    
-    func attachmentChunkDidProgress(attachmentId: ObvAttachmentIdentifier, chunkProgress: (chunkNumber: Int, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64), flowId: FlowIdentifier) {
-        
-        queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
-            guard let _self = self else { return }
+        if var (chunksProgresses, _) = chunksProgressesForAttachment[attachmentId] {
             
-            if var (chunksProgresses, _) = _self._chunksProgressesForAttachment[attachmentId] {
-                
-                guard chunkProgress.chunkNumber < chunksProgresses.count else { assertionFailure(); return }
-                chunksProgresses[chunkProgress.chunkNumber] = (chunkProgress.totalBytesWritten, chunkProgress.totalBytesExpectedToWrite)
-                _self._chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
-                
-            } else {
-                
-                guard let delegateManager = _self.delegateManager else {
-                    os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-                    assertionFailure()
-                    return
-                }
+            guard chunkProgress.chunkNumber < chunksProgresses.count else { assertionFailure(); return }
+            chunksProgresses[chunkProgress.chunkNumber] = (chunkProgress.totalBytesWritten, chunkProgress.totalBytesExpectedToWrite)
+            chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
+            
+        } else {
+            
+            do {
+                let op1 = CreateChunksProgressesForAttachmentOperation(attachmentId: attachmentId)
+                try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
 
-                guard let contextCreator = delegateManager.contextCreator else {
-                    os_log("The context creator manager is not set", log: Self.log, type: .fault)
-                    assertionFailure()
-                    return
-                }
-
-                guard let chunksProgresses = _self.createChunksProgressesForAttachment(attachmentId: attachmentId,
-                                                                                       contextCreator: contextCreator,
-                                                                                       flowId: flowId)
-                else {
-                    return
-                }
-                _self._chunksProgressesForAttachment[attachmentId] = chunksProgresses
-
+                chunksProgressesForAttachment[attachmentId] = (op1.currentChunkProgresses, Date())
+                
+            } catch {
+                assertionFailure()
+                return
             }
-
+            
         }
-                
+
     }
     
-    
+
     /// This method is called by the delegate of the session managing a chunk download task. It is called as soon as an encrypted chunk was downloaded, decrypted then written to the appropriate location in the attachment file.
-    func attachmentChunkWasDecryptedAndWrittenToAttachmentFile(attachmentId: ObvAttachmentIdentifier, chunkNumber: Int, flowId: FlowIdentifier) {
+    func attachmentChunkWasDecryptedAndWrittenToAttachmentFile(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate, chunkNumber: Int) async {
+        
+        let attachmentId = downloadAttachmentChunksSessionDelegate.attachmentId
+        
         failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
 
-        queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
-            
-            guard var (chunksProgresses, _) = self?._chunksProgressesForAttachment[attachmentId] else { return }
-            guard chunkNumber < chunksProgresses.count else { assertionFailure(); return }
-            let totalBytesExpectedToWrite = chunksProgresses[chunkNumber].totalBytesExpectedToWrite
-            chunksProgresses[chunkNumber] = (totalBytesExpectedToWrite, totalBytesExpectedToWrite)
-            self?._chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
-
-        }
+        guard var (chunksProgresses, _) = chunksProgressesForAttachment[attachmentId] else { return }
+        guard chunkNumber < chunksProgresses.count else { assertionFailure(); return }
+        let totalBytesExpectedToWrite = chunksProgresses[chunkNumber].totalBytesExpectedToWrite
+        chunksProgresses[chunkNumber] = (totalBytesExpectedToWrite, totalBytesExpectedToWrite)
+        chunksProgressesForAttachment[attachmentId] = (chunksProgresses, Date())
 
     }
     
-    
-    func attachmentDownloadIsComplete(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
 
+    func attachmentDownloadIsComplete(downloadAttachmentChunksSessionDelegate: DownloadAttachmentChunksSessionDelegate) async {
+        
+        let attachmentId = downloadAttachmentChunksSessionDelegate.attachmentId
+        let flowId = downloadAttachmentChunksSessionDelegate.flowId
+        
         // When an attachment is downloaded, we remove the progresses we stored in memory for its chunks
 
-        queueForAttachmentsProgresses.async(flags: .barrier) { [weak self] in
-            self?._chunksProgressesForAttachment.removeValue(forKey: attachmentId)
-        }
-
+        chunksProgressesForAttachment.removeValue(forKey: attachmentId)
+        
         // We also immediately notify the network fetch flow delegate (so as to notify the app)
         
         guard let delegateManager = delegateManager else {
@@ -666,421 +817,10 @@ extension DownloadAttachmentChunksCoordinator: AttachmentChunkDownloadProgressTr
         }
 
         delegateManager.networkFetchFlowDelegate.attachmentWasDownloaded(attachmentId: attachmentId, flowId: flowId)
-        
-    }
-
-
-    private func createChunksProgressesForAttachment(attachmentId: ObvAttachmentIdentifier, contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) -> ([ChunkProgress], Date)? {
-        /// Must be executed on queueForAttachmentsProgresses
-        var chunksProgressess: ([ChunkProgress], Date)?
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            guard let attachment = try? InboxAttachment.get(attachmentId: attachmentId, within: obvContext) else { return }
-            chunksProgressess = (attachment.currentChunkProgresses, Date())
-        }
-        return chunksProgressess
-    }
-
-    
-    func resumeDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, forceResume: Bool, flowId: FlowIdentifier) {
-
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        // Since the that attachment download was resumed by the user, we reset the failed attempt counter
-        
-        failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
-        
-        localQueue.async { [weak self] in
-            
-            // We prevent any interference with previous operations
-            self?.internalOperationQueue.addBarrierBlock({})
-
-            let op = MarkInboxAttachmentAsPausedOrResumedOperation(
-                attachmentId: attachmentId,
-                targetStatus: .resumed,
-                force: forceResume,
-                logSubsystem: delegateManager.logSubsystem,
-                flowId: flowId,
-                contextCreator: contextCreator,
-                delegate: self)
-            self?.internalOperationQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: Self.log)
-            if op.isCancelled {
-                guard let reasonForCancel = op.reasonForCancel else {
-                    assertionFailure()
-                    return
-                }
-                switch reasonForCancel {
-                case .contextCreatorIsNotSet, .couldNotResumeOrPauseDownload, .coreDataError:
-                    assertionFailure()
-                    return
-                case .cannotFindInboxAttachmentInDatabase, .attachmentIsMarkedForDeletion:
-                    return
-                }
-            } else if forceResume {
-                self?.resumeMissingAttachmentDownloads(flowId: flowId)
-            }
-            
-        }
-                
-    }
-
-    
-    func pauseDownloadOfAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
-
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        localQueue.async { [weak self] in
-            
-            // We prevent any interference with previous operations
-            self?.internalOperationQueue.addBarrierBlock({})
-
-            let op = MarkInboxAttachmentAsPausedOrResumedOperation(
-                attachmentId: attachmentId,
-                targetStatus: .paused,
-                force: false,
-                logSubsystem: delegateManager.logSubsystem,
-                flowId: flowId,
-                contextCreator: contextCreator,
-                delegate: self)
-            self?.internalOperationQueue.addOperations([op], waitUntilFinished: true)
-            op.logReasonIfCancelled(log: Self.log)
-            if op.isCancelled {
-                guard let reasonForCancel = op.reasonForCancel else {
-                    assertionFailure()
-                    return
-                }
-                switch reasonForCancel {
-                case .contextCreatorIsNotSet, .couldNotResumeOrPauseDownload, .coreDataError:
-                    assertionFailure()
-                    return
-                case .cannotFindInboxAttachmentInDatabase, .attachmentIsMarkedForDeletion:
-                    assertionFailure()
-                    return
-                }
-            }
-            
-        }
-        
-    }
-
-}
-
-// MARK: - Implementing MarkInboxAttachmentAsPausedOrResumedOperationDelegate
-
-extension DownloadAttachmentChunksCoordinator: MarkInboxAttachmentAsPausedOrResumedOperationDelegate {
-    
-    func inboxAttachmentWasJustMarkedAsPausedOrResumed(attachmentId: ObvAttachmentIdentifier, pausedOrResumed: MarkInboxAttachmentAsPausedOrResumedOperation.PausedOrResumed, flowId: FlowIdentifier) {
-        
-        // If we reach this point, the attachment was just marked as "resumed" or as "paused".
-        
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            os_log("The notification delegate is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        // We first notify
-        
-        switch pausedOrResumed {
-        case .paused:
-            ObvNetworkFetchNotificationNew.inboxAttachmentDownloadWasPaused(attachmentId: attachmentId, flowId: flowId)
-                .postOnBackgroundQueue(queueForNotifications, within: notificationDelegate)
-        case .resumed:
-            ObvNetworkFetchNotificationNew.inboxAttachmentDownloadWasResumed(attachmentId: attachmentId, flowId: flowId)
-                .postOnBackgroundQueue(queueForNotifications, within: notificationDelegate)
-        }
-
-        // We can now try to resume or pause the tasks of an existing session, or creation a new session.
-
-        localQueue.async { [weak self] in
-
-            guard let _self = self else { return }
-            
-            var previousURLSession: URLSession?
-            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                let attachment = try? InboxAttachment.get(attachmentId: attachmentId, within: obvContext)
-                guard let sessionIdentifier = attachment?.session?.sessionIdentifier else { return }
-                previousURLSession = _self.getCurrentURLSession(withIdentifier: sessionIdentifier)
-            }
-
-            if let prevSess = previousURLSession {
-                let resumeOrSuspend: ResumeOrSuspendAllTasksOfURLSessionOperation.ResumeOrSuspend = pausedOrResumed == .paused ? .suspend : .resume
-                let op = ResumeOrSuspendAllTasksOfURLSessionOperation(urlSession: prevSess, resumeOrSuspend: resumeOrSuspend, logSubsystem: delegateManager.logSubsystem)
-                self?.internalOperationQueue.addOperations([op], waitUntilFinished: true) // Cannot fail
-            } else {
-                DispatchQueue(label: "Queue for calling resumeAttachmentDownloadIfResumeIsRequested").async { [weak self] in
-                    switch pausedOrResumed {
-                    case .paused:
-                        // There is no session to suspend, so we have nothing to do in this case
-                        break
-                    case .resumed:
-                        self?.resumeAttachmentDownloadIfResumeIsRequested(attachmentId: attachmentId, flowId: flowId)
-                    }
-                }
-            }
-
-        }
-    }
-    
-    
-}
-
-// MARK: - Implementing AttachmentChunksSignedURLsTracker
-
-extension DownloadAttachmentChunksCoordinator: AttachmentChunksSignedURLsTracker {
-    
-    func getSignedURLsSessionDidBecomeInvalid(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: GetSignedURLsSessionDelegate.ErrorForTracker?) {
-        
-        defer {
-            attachmentStoppedToRefreshSignedURLs(attachmentId: attachmentId)
-        }
-        
-        guard let delegateManager = delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        guard let error = error else {
-            self.resumeMissingAttachmentDownloads(flowId: flowId)
-            return
-        }
-    
-        // If we reach this point, something went wrong while downloading the signed URLs
-        
-        switch error {
-        case .aTaskDidBecomeInvalidWithError,
-             .couldNotParseServerResponse,
-             .coreDataFailure,
-             .couldNotSaveContext,
-             .generalErrorFromServer,
-             .sessionInvalidationError:
-            Task { [weak self] in
-                guard let self else { return }
-                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAttachment(attachmentId: attachmentId))
-                await retryManager.waitForDelay(milliseconds: delay)
-                downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)
-            }
-        case .cannotFindAttachmentInDatabase:
-            // We do nothing
-            break
-        case .attachmentWasCancelledByTheServer:
-            delegateManager.networkFetchFlowDelegate.attachmentWasCancelledByServer(attachmentId: attachmentId, flowId: flowId)
-        }
-        
-    }
-}
-
-
-// MARK: - Implementing FinalizeCleanExistingInboxAttachmentSessionsDelegate
-
-extension DownloadAttachmentChunksCoordinator: FinalizeCleanExistingInboxAttachmentSessionsDelegate {
-    
-    func cleanExistingInboxAttachmentSessionsIsFinished(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: CleanExistingInboxAttachmentSessions.ReasonForCancel?) {
-        
-        failedAttemptsCounterManager.reset(counter: .downloadAttachment(attachmentId: attachmentId))
-
-        guard let error else {
-            // This is the best case, when no error occured
-            os_log("We successfully cleaned InboxAttachmentSession for attachment %{public}@", log: Self.log, type: .info, attachmentId.debugDescription)
-            return
-        }
-
-        switch error {
-        case .contextCreatorIsNotSet,
-             .couldNotSaveContext,
-             .coreDataFailure:
-            assertionFailure()
-        case .cannotFindAttachmentInDatabase,
-             .noOutboxAttachmentSessionSet:
-            break
-        }
-        
-    }
-    
-}
-
-
-// MARK: - Implementing FinalizeSignedURLsOperationsDelegate
-
-extension DownloadAttachmentChunksCoordinator: FinalizeSignedURLsOperationsDelegate {
-    
-    func signedURLsOperationsAreFinished(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier, error: ResumeTaskForGettingAttachmentSignedURLsOperation.ReasonForCancel?) {
-        
-        guard let error else {
-            // This is the best case, when no error occured
-            os_log("Signed URLs operations are finished for attachment %{public}@", log: Self.log, type: .info, attachmentId.debugDescription)
-            return
-        }
-
-        os_log("Failed to obtain signed URLs for attachment %{public}@", log: Self.log, type: .error, attachmentId.debugDescription)
-        
-        attachmentStoppedToRefreshSignedURLs(attachmentId: attachmentId)
-
-        // If we reach this point, at least one of the operations queued for getting signed URLs did fail
-        
-        switch error {
-        case .unexpectedDependencies:
-            assertionFailure()
-        case .cannotFindAttachmentInDatabase:
-            return
-        case .aDependencyCancelled,
-             .nonNilSignedURLWasFound,
-             .coreDataFailure,
-             .failedToCreateTask:
-            Task { [weak self] in
-                guard let self else { return }
-                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAttachment(attachmentId: attachmentId))
-                await retryManager.waitForDelay(milliseconds: delay)
-                downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)
-            }
-        case .attachmentChunksSignedURLsTrackerNotSet:
-            assertionFailure()
-            Task { [weak self] in
-                guard let self else { return }
-                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAttachment(attachmentId: attachmentId))
-                await retryManager.waitForDelay(milliseconds: delay)
-                downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)
-            }
-        }
-        
-    }
-    
-}
-
-
-// MARK: - Implementing FinalizeDownloadChunksOperationsDelegate
-
-extension DownloadAttachmentChunksCoordinator: FinalizeDownloadChunksOperationsDelegate {
-    
-    func downloadChunksOperationsAreFinished(attachmentId: ObvAttachmentIdentifier, urlSession: URLSession?, flowId: FlowIdentifier, error: ResumeDownloadsOfMissingChunksOperation.ReasonForCancel?) {
-
-        guard let error else {
-            // This is the best case, when no error occured
-            if let session = urlSession {
-                addCurrentURLSession(session)
-            }
-            os_log("All operations for downloading chunks of attachment %{public}@ are finished and did not cancel", log: Self.log, type: .info, attachmentId.debugDescription)
-            return
-        }
-
-        switch error {
-        case .contextCreatorIsNotSet,
-             .identityDelegateIsNotSet,
-             .missingRequiredDependency,
-             .dependencyDoesNotProvideExpectedInformations:
-            assertionFailure()
-            urlSession?.invalidateAndCancel()
-        case .cannotFindAttachmentInDatabase:
-            urlSession?.invalidateAndCancel()
-        case .cancelledDependency,
-             .failedToCreateTask,
-             .coreDataFailure:
-            urlSession?.invalidateAndCancel()
-            Task { [weak self] in
-                guard let self else { return }
-                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadAttachment(attachmentId: attachmentId))
-                await retryManager.waitForDelay(milliseconds: delay)
-                resumeAttachmentDownloadIfResumeIsRequested(attachmentId: attachmentId, flowId: flowId)
-            }
-        case .allChunksAreAlreadyDownloaded:
-            assert(urlSession != nil)
-            urlSession?.invalidateAndCancel()
-        case .atLeastOneChunkHasNoSignedURL:
-            urlSession?.invalidateAndCancel()
-            downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)
-        }
 
     }
     
 }
-
-// MARK: - Helpers
-
-extension DownloadAttachmentChunksCoordinator {
-    
-    private func getOperationsForResumingAttachment(_ attachment: InboxAttachment, flowId: FlowIdentifier, logSubsystem: String, inbox: URL, contextCreator: ObvCreateContextDelegate, identityDelegate: ObvIdentityDelegate) -> [Operation] {
-        
-        var operations = [Operation]()
-
-        guard let attachmentId = attachment.attachmentId else {
-            assertionFailure()
-            return operations
-        }
-        
-        let firstOp = ReCreateURLSessionWithNewDelegateForAttachmentDownloadOperation(attachmentId: attachmentId,
-                                                                                      logSubsystem: logSubsystem,
-                                                                                      flowId: flowId,
-                                                                                      inbox: inbox,
-                                                                                      contextCreator: contextCreator,
-                                                                                      attachmentChunkDownloadProgressTracker: self)
-        
-        operations.append(firstOp)
-        
-        let secondOp = ResumeDownloadsOfMissingChunksOperation(attachmentId: attachmentId,
-                                                               logSubsystem: logSubsystem,
-                                                               flowId: flowId,
-                                                               contextCreator: contextCreator,
-                                                               identityDelegate: identityDelegate,
-                                                               delegate: self)
-        secondOp.addDependency(firstOp)
-        operations.append(secondOp)
-        
-        return operations
-    }
- 
-    
-    private func getOperationsForDownloadingSignedURLsForAttachment(attachmentId: ObvAttachmentIdentifier, logSubsystem: String, obvContext: ObvContext, identityDelegate: ObvIdentityDelegate) -> [Operation] {
-        
-        var operations = [Operation]()
-
-        let firstOp = DeletePreviousAttachmentSignedURLsOperation(attachmentId: attachmentId, logSubsystem: logSubsystem, obvContext: obvContext)
-        let secondOp = ResumeTaskForGettingAttachmentSignedURLsOperation(attachmentId: attachmentId, logSubsystem: logSubsystem, obvContext: obvContext, identityDelegate: identityDelegate, attachmentChunksSignedURLsTracker: self, delegate: self)
-        
-        secondOp.addDependency(firstOp)
-        
-        operations.append(firstOp)
-        operations.append(secondOp)
-
-        return operations
-        
-    }
-    
-}
-
-
 
 
 // MARK: - Errors
@@ -1091,7 +831,14 @@ extension DownloadAttachmentChunksCoordinator {
         
         case theDelegateManagerIsNotSet
         case theContextCreatorIsNotSet
+        case theIdentityDelegateIsNotSet
+        case theNotificationDelegateIsNotSet
         case anOperationCancelled(localizedDescription: String?)
+        case failedToCleanExistingOutboxAttachmentSessions
+        case invalidServerResponse
+        case couldNotParseReturnStatusFromServer
+        case serverReturnedGeneralError
+        case couldNotPauseAttachmentDownload
         
         var errorDescription: String? {
             switch self {
@@ -1101,43 +848,26 @@ extension DownloadAttachmentChunksCoordinator {
                 return "The context creator is not set"
             case .anOperationCancelled(localizedDescription: let localizedDescription):
                 return "An operation cancelled with reason: \(String(describing: localizedDescription))"
+            case .failedToCleanExistingOutboxAttachmentSessions:
+                return "Failed to clean existing outbox attachments session"
+            case .invalidServerResponse:
+                return "Invalid server response"
+            case .couldNotParseReturnStatusFromServer:
+                return "Could not parse return status from server"
+            case .serverReturnedGeneralError:
+                return "Server returned a general error"
+            case .theIdentityDelegateIsNotSet:
+                return "The identity delegate is not set"
+            case .theNotificationDelegateIsNotSet:
+                return "The notification delegate is not set"
+            case .couldNotPauseAttachmentDownload:
+                return "Could not pause attachment download"
             }
         }
     }
 
     
 }
-
-// MARK: - Helpers
-
-extension DownloadAttachmentChunksCoordinator {
-    
-    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>, flowId: FlowIdentifier) throws -> CompositionOfOneContextualOperation<T> {
-
-        guard let delegateManager else {
-            assertionFailure("The Delegate Manager is not set")
-            throw ObvError.theDelegateManagerIsNotSet
-        }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            assertionFailure("The context creator manager is not set")
-            throw ObvError.theContextCreatorIsNotSet
-        }
-        
-        let queueForComposedOperations = delegateManager.queueForComposedOperations
-
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: flowId)
-
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-
-    }
-    
-}
-
 
 // MARK: - Other stuff
 

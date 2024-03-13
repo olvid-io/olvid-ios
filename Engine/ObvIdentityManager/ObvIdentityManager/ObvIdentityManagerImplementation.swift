@@ -192,7 +192,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
                             var associations = BackupItemObjectAssociations()
                             try ownedIdentityBackupItem.restoreInstance(within: obvContext,
                                                                         associations: &associations,
-                                                                        notificationDelegate: delegateManager.notificationDelegate)
+                                                                        delegateManager: delegateManager)
                             associationsForRelationships = associations
                         }
                         
@@ -715,6 +715,15 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
+    public func getObvGroupV2(with identifier: ObvGroupV2Identifier, within obvContext: ObvContext) throws -> ObvGroupV2? {
+        guard let ownedIdentity = try OwnedIdentity.get(identifier.ownedCryptoId.cryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound
+        }
+        let groupIdentifier = GroupV2.Identifier(obvGroupV2Identifier: identifier.identifier)
+        let group = try ContactGroupV2.getObvGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, delegateManager: delegateManager)
+        return group
+    }
+    
     public func getTrustedPhotoURLAndUploaderOfObvGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (url: URL, uploader: ObvCryptoIdentity)? {
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
@@ -1187,7 +1196,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
             throw Self.makeError(message: "Could not find ContactIdentity")
         }
         try contactObj.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, delegateManager: delegateManager)
-        contactObj.setIsOneToOne(to: true)
+        contactObj.setIsOneToOne(to: true, reasonToLog: "Call to ObvIdentityManagerImplementation.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(_:toContactIdentity:ofOwnedIdentity:within:)")
     }
     
     public func getTrustOrigins(forContactIdentity contactIdentity: ObvCryptoIdentity, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> [TrustOrigin] {
@@ -1326,9 +1335,9 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         return contactIdentityObject.isOneToOne
     }
     
-    public func resetOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, within obvContext: ObvContext) throws {
+    public func resetOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, reasonToLog: String, within obvContext: ObvContext) throws {
         guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact identity") }
-        contactIdentityObject.setIsOneToOne(to: newIsOneToOneStatus)
+        contactIdentityObject.setIsOneToOne(to: newIsOneToOneStatus, reasonToLog: reasonToLog)
     }
     
     // MARK: - API related to contact devices
@@ -1926,16 +1935,52 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         return serverUserData?.toUserData()
     }
 
-    public func deleteUserData(for ownedIdentity: ObvCryptoIdentity, with label: UID, within obvContext: ObvContext) {
-        guard let userData = try? ServerUserData.getServerUserData(for: ownedIdentity, with: label, within: obvContext) else { return }
-        obvContext.delete(userData)
+//    public func deleteUserData(for ownedIdentity: ObvCryptoIdentity, with label: UID, within obvContext: ObvContext) {
+//        guard let userData = try? ServerUserData.getServerUserData(for: ownedIdentity, with: label, within: obvContext) else { return }
+//        obvContext.delete(userData)
+//    }
+    
+    public func deleteUserData(for ownedIdentity: ObvCryptoIdentity, with label: UID, flowId: FlowIdentifier) async throws {
+        guard let contextCreator = delegateManager.contextCreator else {
+            assertionFailure()
+            throw ObvIdentityManagerError.contextCreatorIsNil
+        }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+                do {
+                    let serverUserData = try ServerUserData.getServerUserData(for: ownedIdentity, with: label, within: obvContext)
+                    try serverUserData?.deleteServerUserData()
+                    return continuation.resume(returning: ())
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 
-    public func updateUserDataNextRefreshTimestamp(for ownedIdentity: ObvCryptoIdentity, with label: UID, within obvContext: ObvContext) {
-        let userData = try? ServerUserData.getServerUserData(for: ownedIdentity, with: label, within: obvContext)
-        userData?.updateNextRefreshTimestamp()
-    }
+//    public func updateUserDataNextRefreshTimestamp(for ownedIdentity: ObvCryptoIdentity, with label: UID, within obvContext: ObvContext) {
+//        let userData = try? ServerUserData.getServerUserData(for: ownedIdentity, with: label, within: obvContext)
+//        userData?.updateNextRefreshTimestamp()
+//    }
 
+    public func updateUserDataNextRefreshTimestamp(for ownedIdentity: ObvCryptoIdentity, with label: UID, flowId: FlowIdentifier) async throws {
+        guard let contextCreator = delegateManager.contextCreator else {
+            assertionFailure()
+            throw ObvIdentityManagerError.contextCreatorIsNil
+        }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+                do {
+                    let serverUserData = try ServerUserData.getServerUserData(for: ownedIdentity, with: label, within: obvContext)
+                    serverUserData?.updateNextRefreshTimestamp()
+                    return continuation.resume(returning: ())
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
 }
 
 

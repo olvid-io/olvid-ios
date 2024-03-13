@@ -165,10 +165,6 @@ fileprivate extension PersistedDiscussionLocalConfiguration {
         OptionalBoolType(doSendReadReceipt)
     }
 
-    var _doFetchContentRichURLsMetadata: OptionalFetchContentRichURLsMetadataChoice {
-        OptionalFetchContentRichURLsMetadataChoice(doFetchContentRichURLsMetadata)
-    }
-
     var _countBasedRetentionIsActive: OptionalBoolType {
         OptionalBoolType(countBasedRetentionIsActive)
     }
@@ -302,8 +298,6 @@ struct DiscussionExpirationSettingsWrapperView: View {
                 PersistedDiscussionLocalConfigurationValue.mentionNotificationMode($0)
                     .sendUpdateRequestNotifications(with: $1)
             },
-            doFetchContentRichURLsMetadata: ValueWithBinding(localConfiguration, \._doFetchContentRichURLsMetadata) {
-                PersistedDiscussionLocalConfigurationValue.doFetchContentRichURLsMetadata($0.value).sendUpdateRequestNotifications(with: $1) },
             showConfirmationMessageBeforeSavingSharedConfig: $model.showConfirmationMessageBeforeSavingSharedConfig,
             countBasedRetentionIsActive: ValueWithBinding(localConfiguration, \._countBasedRetentionIsActive) {
                 PersistedDiscussionLocalConfigurationValue.countBasedRetentionIsActive($0.value).sendUpdateRequestNotifications(with: $1)
@@ -347,7 +341,6 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     let retainWipedOutboundMessages: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
     let doSendReadReceipt: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
     let mentionNotificationMode: ValueWithBinding<PersistedDiscussionLocalConfiguration, DiscussionMentionNotificationMode>
-    let doFetchContentRichURLsMetadata: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalFetchContentRichURLsMetadataChoice>
     @Binding var showConfirmationMessageBeforeSavingSharedConfig: Bool
     let countBasedRetentionIsActive: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
     let countBasedRetention: ValueWithBinding<PersistedDiscussionLocalConfiguration, Int>
@@ -369,17 +362,6 @@ fileprivate struct DiscussionExpirationSettingsView: View {
 
     private func countBasedRetentionDecrement() {
         countBasedRetention.binding.wrappedValue = max(10, countBasedRetention.value - 10)
-    }
-
-    private var stringPartForDoFetchContentRichURLsMetadata: String {
-        switch ObvMessengerSettings.Discussions.doFetchContentRichURLsMetadata {
-        case .never:
-            return CommonString.Word.Never
-        case .withinSentMessagesOnly:
-            return NSLocalizedString("Sent messages only", comment: "")
-        case .always:
-            return CommonString.Word.Always
-        }
     }
 
     var muteNotificationsFooter: Text {
@@ -435,22 +417,6 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                                     Text(CommonString.Word.Yes).tag(optionalBool)
                                 case .falseValue:
                                     Text(CommonString.Word.No).tag(optionalBool)
-                                }
-                            }
-                        }
-                    }
-                    Section {
-                        Picker(selection: doFetchContentRichURLsMetadata.binding, label: Label("SHOW_RICH_LINK_PREVIEW_LABEL", systemImage: "text.below.photo.fill")) {
-                            ForEach(OptionalFetchContentRichURLsMetadataChoice.allCases) { value in
-                                switch value {
-                                case .none:
-                                    Text("\(CommonString.Word.Default) (\(stringPartForDoFetchContentRichURLsMetadata))").tag(value)
-                                case .never:
-                                    Text(CommonString.Word.Never).tag(value)
-                                case .withinSentMessagesOnly:
-                                    Text("Sent messages only").tag(value)
-                                case .always:
-                                    Text(CommonString.Word.Always).tag(value)
                                 }
                             }
                         }
@@ -722,7 +688,6 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 retainWipedOutboundMessages: ValueWithBinding(constant: .falseValue),
                 doSendReadReceipt: ValueWithBinding(constant: .none),
                 mentionNotificationMode: ValueWithBinding(constant: .globalDefault),
-                doFetchContentRichURLsMetadata: ValueWithBinding(constant: .none),
                 showConfirmationMessageBeforeSavingSharedConfig: .constant(false),
                 countBasedRetentionIsActive: ValueWithBinding(constant: .none),
                 countBasedRetention: ValueWithBinding(constant: 0),
@@ -743,7 +708,6 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 retainWipedOutboundMessages: ValueWithBinding(constant: .trueValue),
                 doSendReadReceipt: ValueWithBinding(constant: .trueValue),
                 mentionNotificationMode: ValueWithBinding(constant: .alwaysNotifyWhenMentionned),
-                doFetchContentRichURLsMetadata: ValueWithBinding(constant: .withinSentMessagesOnly),
                 showConfirmationMessageBeforeSavingSharedConfig: .constant(false),
                 countBasedRetentionIsActive: ValueWithBinding(constant: .none),
                 countBasedRetention: ValueWithBinding(constant: 0),

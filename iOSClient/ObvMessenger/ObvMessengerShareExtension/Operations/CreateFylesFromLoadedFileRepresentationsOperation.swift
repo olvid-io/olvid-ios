@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -103,12 +103,7 @@ final class CreateFylesFromLoadedFileRepresentationsOperation: ContextualOperati
                 
             case .text(content: let textContent):
                 
-                let qBegin = Locale.current.quotationBeginDelimiter ?? "\""
-                let qEnd = Locale.current.quotationEndDelimiter ?? "\""
-                
-                let textToAppend = [qBegin, textContent, qEnd].joined(separator: "")
-                
-                bodyTexts.append(textToAppend)
+                bodyTexts.append(textContent)
                 
             case .url(content: let url):
                 bodyTexts.append(url.absoluteString)

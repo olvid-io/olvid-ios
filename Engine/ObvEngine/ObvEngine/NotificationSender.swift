@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -350,7 +350,6 @@ extension ObvEngine {
         observeNewPublishedContactIdentityDetailsNotifications(notificationDelegate: notificationDelegate)
         observeOwnedIdentityDetailsPublicationInProgressNotifications(notificationDelegate: notificationDelegate)
         observeNewTrustedContactIdentityDetailsNotifications(notificationDelegate: notificationDelegate)
-        observeNewReturnReceiptToProcessNotifications(notificationDelegate: notificationDelegate)
         
         // Notification received from the network fetch manager
         
@@ -405,6 +404,9 @@ extension ObvEngine {
                 ObvEngineNotificationNew.serverRequiresAllActiveOwnedIdentitiesToRegisterToPushNotifications
                     .postOnBackgroundQueue(within: appNotificationCenter)
             },
+            ObvNetworkFetchNotificationNew.observeNewReturnReceiptToProcess(within: notificationDelegate) { [weak self] returnReceipt in
+                self?.processNewReturnReceiptToProcessNotification(returnReceipt: returnReceipt)
+            },
         ])
     }
     
@@ -437,19 +439,13 @@ extension ObvEngine {
     }
 
     
-    private func observeNewReturnReceiptToProcessNotifications(notificationDelegate: ObvNotificationDelegate) {
-        let NotificationType = ObvNetworkFetchNotification.NewReturnReceiptToProcess.self
-        let token = notificationDelegate.addObserver(forName: NotificationType.name) { [weak self] (notification) in
-            guard let _self = self else { return }
-            guard let returnReceipt = NotificationType.parse(notification) else { return }
-            let obvReturnReceipt = ObvReturnReceipt(returnReceipt: returnReceipt)
-            ObvEngineNotificationNew.newObvReturnReceiptToProcess(obvReturnReceipt: obvReturnReceipt)
-                .postOnBackgroundQueue(_self.queueForPostingNewObvReturnReceiptToProcessNotifications, within: _self.appNotificationCenter)
-        }
-        notificationCenterTokens.append(token)
+    private func processNewReturnReceiptToProcessNotification(returnReceipt: ReturnReceipt) {
+        let obvReturnReceipt = ObvReturnReceipt(returnReceipt: returnReceipt)
+        ObvEngineNotificationNew.newObvReturnReceiptToProcess(obvReturnReceipt: obvReturnReceipt)
+            .postOnBackgroundQueue(queueForPostingNewObvReturnReceiptToProcessNotifications, within: appNotificationCenter)
     }
     
-    
+
     /// If the protocol performing an owned device discovery reports that the current device is not part of the results returned by the server, we force a registration to push notifications.
     /// If the current device was not part of the discovery because another owned device deactivated it, we will be notified by the server as a result of this re-register to push notifications.
     /// In that case, the registration method will return a ``ObvNetworkFetchError.RegisterPushNotificationError.anotherDeviceIsAlreadyRegistered`` error, and this device will be deactivated.
@@ -1586,40 +1582,6 @@ extension ObvEngine {
                     return
                 }
 
-                // We create a completion handler that, once called, ask to delete the message if possible.
-                // It also specifies all the attachments that should be downloaded as soon as possible.
-                // All the other attachments should not be downloaded now.
-                
-                let allAttachments = Set(obvOwnedMessage.attachments)
-                let completionHandler: (Set<ObvOwnedAttachment>) -> Void = { attachmentsToDownloadNow in
-
-                    // Manage the attachments: download those tht should automatically downloaded.
-                    // For all the others, inform the flow delegate that the decision not to download these attachments has been taken.
-                    // This eventually allows to end the flow.
-                    
-                    let attachmentsToDownload = allAttachments.intersection(attachmentsToDownloadNow)
-                    let attachmentsNotToDownload = allAttachments.subtracting(attachmentsToDownloadNow)
-
-                    for attachment in attachmentsToDownload {
-                        networkFetchDelegate.resumeDownloadOfAttachment(attachmentId: attachment.attachmentId, forceResume: false, flowId: flowId)
-                    }
-
-                    for attachment in attachmentsNotToDownload {
-                        flowDelegate.attachmentDownloadDecisionHasBeenTaken(attachmentId: attachment.attachmentId, flowId: flowId)
-                    }
-                    
-                    // Request the deletion of the message whenever possible
-                    
-                    createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                        do {
-                            networkFetchDelegate.markMessageForDeletion(messageId: obvOwnedMessage.messageId, within: obvContext)
-                            try obvContext.save(logOnFailure: _self.log)
-                        } catch {
-                            os_log("Could not call deleteMessageWhenPossible", log: _self.log, type: .error)
-                        }
-                    }
-                }
-
                 // Before notifying the app about this new message, we start a flow allowing to wait until the return receipt is sent.
                 // In practice, the app will save the new message is database, create the return receipt, pass it to the engine that will send it.
                 // Once this is done, the engine will stop the flow.
@@ -1631,7 +1593,7 @@ extension ObvEngine {
                     // In production, continue anyway
                 }
 
-                ObvEngineNotificationNew.newOwnedMessageReceived(obvOwnedMessage: obvOwnedMessage, completionHandler: completionHandler)
+                ObvEngineNotificationNew.newOwnedMessageReceived(obvOwnedMessage: obvOwnedMessage)
                     .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
 
             } else {
@@ -1644,40 +1606,6 @@ extension ObvEngine {
                     return
                 }
                 
-                // We create a completion handler that, once called, ask to delete the message if possible.
-                // It also specifies all the attachments that should be downloaded as soon as possible.
-                // All the other attachments should not be downloaded now.
-                
-                let allAttachments = Set(obvMessage.attachments)
-                let completionHandler: (Set<ObvAttachment>) -> Void = { attachmentsToDownloadNow in
-                    
-                    // Manage the attachments: download those tht should automatically downloaded.
-                    // For all the others, inform the flow delegate that the decision not to download these attachments has been taken.
-                    // This eventually allows to end the flow.
-                    
-                    let attachmentsToDownload = allAttachments.intersection(attachmentsToDownloadNow)
-                    let attachmentsNotToDownload = allAttachments.subtracting(attachmentsToDownloadNow)
-                    
-                    for attachment in attachmentsToDownload {
-                        networkFetchDelegate.resumeDownloadOfAttachment(attachmentId: attachment.attachmentId, forceResume: false, flowId: flowId)
-                    }
-                    
-                    for attachment in attachmentsNotToDownload {
-                        flowDelegate.attachmentDownloadDecisionHasBeenTaken(attachmentId: attachment.attachmentId, flowId: flowId)
-                    }
-                    
-                    // Request the deletion of the message whenever possible
-                    
-                    createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-                        do {
-                            networkFetchDelegate.markMessageForDeletion(messageId: obvMessage.messageId, within: obvContext)
-                            try obvContext.save(logOnFailure: _self.log)
-                        } catch {
-                            os_log("Could not call deleteMessageWhenPossible", log: _self.log, type: .error)
-                        }
-                    }
-                }
-                
                 // Before notifying the app about this new message, we start a flow allowing to wait until the return receipt is sent.
                 // In practice, the app will save the new message is database, create the return receipt, pass it to the engine that will send it.
                 // Once this is done, the engine will stop the flow.
@@ -1689,7 +1617,7 @@ extension ObvEngine {
                     // In production, continue anyway
                 }
                 
-                ObvEngineNotificationNew.newMessageReceived(obvMessage: obvMessage, completionHandler: completionHandler)
+                ObvEngineNotificationNew.newMessageReceived(obvMessage: obvMessage)
                     .postOnBackgroundQueue(_self.queueForPostingNotificationsToTheApp, within: _self.appNotificationCenter)
 
             }

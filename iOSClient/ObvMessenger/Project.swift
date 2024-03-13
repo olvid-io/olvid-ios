@@ -110,7 +110,11 @@ SUBQUERY (
                                         "ObvMessenger/Utils/UIViewController+ContentController.swift",
                                         "ObvMessenger/Utils/URL+MoveToTrash.swift",
                                         "ObvMessenger/Utils/URL+Thumbnail.swift",
+                                        "ObvMessenger/Utils/UIImage+Utils.swift",
                                         "ObvMessenger/VoIP/Helpers/CallSounds.swift",
+                                        "ObvMessenger/Types/ObvLinkMetadata.swift",
+                                        "ObvMessenger/Types/ObvLinkMetadata+LPLinkMetadata.swift",
+                                        "ObvMessenger/ObvMessengerShareExtension/Operations/FetchAndCacheObvLinkMetadataForFirstURLInLoadedItemProvidersOperation.swift",
                                               ],
                                      resources: [
                                         "ObvMessenger/*.xcstrings",
@@ -647,6 +651,12 @@ func createApp(shareExtension: Target,
                 "LSItemContentTypes" : ["io.olvid.type.olvidbackup"]
             ],
             [
+                "CFBundleTypeIconFiles" : [],
+                "CFBundleTypeName" : "Olvid Link Preview",
+                "LSHandlerRank" : "Owner",
+                "LSItemContentTypes" : ["olvid.link-preview"]
+            ],
+            [
                 "CFBundleTypeName" : "public.comma-separated-values-text",
                 "LSHandlerRank" : "Default",
                 "LSItemContentTypes" : ["public.comma-separated-values-text"]
@@ -757,6 +767,26 @@ func createApp(shareExtension: Target,
                     ]
                 ]
             ],
+            [
+                "UTTypeConformsTo" : [
+                    "public.data",
+                    "public.content",
+                ],
+                "UTTypeDescription" : "Olvid Link Preview",
+                "UTTypeIconFiles" : [],
+                "UTTypeIdentifier" : "olvid.link-preview",
+                "UTTypeTagSpecification" : [
+                    "public.filename-extension" : [
+                        "olvidlinkpreview"
+                    ],
+                    "public.mime-type" : [
+                        "olvid/link-preview"
+                    ],
+                ]
+            ]
+        ],
+        "NSAppTransportSecurity" : [
+            "NSAllowsArbitraryLoads" : true
         ],
         "UTImportedTypeDeclarations" : [
             [

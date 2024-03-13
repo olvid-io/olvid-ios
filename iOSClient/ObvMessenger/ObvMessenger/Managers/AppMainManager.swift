@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -46,6 +46,8 @@ final actor AppMainManager: ObvErrorMaker {
 
     private(set) var currentAppState = NewAppState.initializationRequired
     
+    private var fetchCompletionHandlerForTag = [UUID: (UIBackgroundFetchResult) -> Void]()
+
     deinit {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
@@ -173,6 +175,10 @@ final actor AppMainManager: ObvErrorMaker {
         // Initialize the App theme
         _ = AppTheme.shared
         
+        // Initialize the displayable logs (making it possible to logs accessible directly from the app)
+        ObvDisplayableLogs.shared.setContainerURLForDisplayableLogs(to: ObvUICoreDataConstants.ContainerURL.forDisplayableLogs.url)
+        ObvDisplayableLogs.shared.doEnableRunningLogs({ ObvMessengerSettings.Advanced.enableRunningLogs })
+        
         // Initialize the File System service since it is required before trying to load the persistent container
         runningLog.addEvent(message: "Initializing the filesystem service")
         fileSystemService.createAllDirectoriesIfRequired()
@@ -209,6 +215,7 @@ final actor AppMainManager: ObvErrorMaker {
         migrationToV0_12_5()
         migrationToV0_12_6()
         migrationToV0_12_8()
+        migrationToV1_3_1()
         migrationToV1_4()
     }
     
@@ -341,11 +348,10 @@ final actor AppMainManager: ObvErrorMaker {
     
 }
 
-
-// MARK: Methods called from the App Delegate
+// MARK: - Methods called from the App Delegate for remote push notifications
 
 extension AppMainManager {
-        
+    
     /// Upong receiving a device token, we post a registration block on the internal queue. We know for sure that this block will execute *after* a successful initialisation process.
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) async {
         os_log("🍎✅ We received a remote notification device token: %{public}@", log: Self.log, type: .info, deviceToken.hexString())
@@ -363,87 +369,153 @@ extension AppMainManager {
         }
         await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
     }
-
     
-    @MainActor
+    
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) async {
         
-        let tag = UUID()
-        os_log("Receiving a remote notification. We tag is as %{public}@", log: Self.log, type: .debug, tag.uuidString)
+        let tag = tagAndStore(fetchCompletionHandler: completionHandler)
+        
+        os_log("🌊 Receiving a remote notification. We tag is as %{public}@", log: Self.log, type: .debug, tag.uuidString)
+        await self.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandlerTaggedWith: tag)
+        
+    }
+    
+}
 
+
+// MARK: - Helpers for remote push notifications
+
+extension AppMainManager {
+    
+    /// When receiving a remote push notification, the ``AppDelegate`` pass it to this manager by calling the ``application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`` method.
+    /// This method immediately call this method to store the completion handler until it is appropriate to call it.
+    private func tagAndStore(fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) -> UUID {
+        let tag = UUID()
+        fetchCompletionHandlerForTag[tag] = completionHandler
+        ensureFetchCompletionHandlerIsCalled(after: .init(seconds: 25), withTag: tag, result: .failed)
+        return tag
+    }
+    
+    
+    /// When receiving a remote push notification, the ``AppDelegate`` pass it to this manager by calling the ``application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`` method
+    /// which stores the completion handler for later, when it is appropriate to call it. Calling the completion handler is always done by calling this method.
+    private func callFetchCompletionHandler(withTag tag: UUID, result: UIBackgroundFetchResult) {
+        guard let completionHandler = fetchCompletionHandlerForTag.removeValue(forKey: tag) else {
+            // This can happen if the completion handler was already called
+            return
+        }
+        DispatchQueue.main.async {
+            os_log("🌊 Calling the completion handler of the remote notification tagged as %{public}@. The result is %{public}@", log: Self.log, type: .info, tag.uuidString, result.debugDescription)
+            completionHandler(result)
+        }
+    }
+    
+    
+    /// When receiving a remote push notification, the ``AppDelegate`` pass it to this manager by calling the ``application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`` method.
+    /// We then call the ``tagAndStore(fetchCompletionHandler:)`` method in order to store the completion handler until it is appropriate to call it.
+    /// This method is called within the ``tagAndStore(fetchCompletionHandler:)`` to ensure the completion handler is called within the 30 seconds granted by the system (see https://developer.apple.com/documentation/watchkit/wkapplicationdelegate/3946537-didreceiveremotenotification).
+    nonisolated
+    private func ensureFetchCompletionHandlerIsCalled(after timeInterval: TimeInterval, withTag tag: UUID, result: UIBackgroundFetchResult) {
+        Task {
+            do {
+                try await Task.sleep(for: timeInterval)
+            } catch {
+                assertionFailure()
+                return
+            }
+            await callFetchCompletionHandler(withTag: tag, result: result)
+        }
+    }
+    
+    
+    /// When receiving a remote push notification, the ``AppDelegate`` pass it to this manager by calling the ``application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`` method
+    /// which tags the completion handler and store in memory before calling this method, which in charge of processing the remote notification and calling the completion when appropriate.
+    private func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandlerTaggedWith tag: UUID) async {
+        
         let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitialized()
                 
         if let pushTopic = userInfo["topic"] as? String {
-            // We are receiving a notification originated in the keycloak server
+            // We are receiving a notification originated in the keycloak server.
+            // This happens, e.g., if one of our keycloak managed group has a new title or new group members, when a keycloak user has been revoked
             
             os_log("🧥 The received notification is keycloak push topic: %{public}@", log: Self.log, type: .debug, pushTopic)
+            ObvDisplayableLogs.shared.log("[🧥] The received notification is keycloak push topic: \(pushTopic)")
             
             do {
+                ObvDisplayableLogs.shared.log("[🧥] Transfer of the push topic to the engine start")
                 try await transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: pushTopic)
+                ObvDisplayableLogs.shared.log("[🧥] Transfer of the push topic to the engine end")
             } catch {
                 os_log("🌊 The sync of the appropriate identity with the keycloak server failed: %{public}@. Calling the completion handler of the background notification with tag %{public}@", log: Self.log, type: .info, error.localizedDescription, tag.uuidString)
-                completionHandler(.failed)
-                return
+                return callFetchCompletionHandler(withTag: tag, result: .failed)
             }
             
             os_log("🌊 We sucessfully sync the appropriate identity with the keycloak server, calling the completion handler of the background notification with tag %{public}@", log: Self.log, type: .info, tag.uuidString)
-            completionHandler(.newData)
-            return
-            
-        } else if userInfo["keycloak"] != nil {
+            return callFetchCompletionHandler(withTag: tag, result: .newData)
 
-            os_log("🧥 The received notification is keycloak notification targeted for our owned identity", log: Self.log, type: .debug)
+        } else if userInfo["keycloak"] != nil {
+            // We are receiving a targeted notification originated in the keycloak server.
+            // This happens, e.g., when our owned identity details are updated by the keycloak server
+
+            os_log("🧥 The received notification is a keycloak notification targeted for our owned identity", log: Self.log, type: .debug)
+            ObvDisplayableLogs.shared.log("[🧥] The received notification is a keycloak notification targeted for our owned identity")
 
             do {
+                ObvDisplayableLogs.shared.log("[🧥] sync start")
                 try await requestSyncOfOwnedIdentityToTheKeycloakManager()
+                ObvDisplayableLogs.shared.log("[🧥] sync end")
             } catch {
                 assertionFailure(error.localizedDescription)
                 os_log("🌊 The sync of all identities with the keycloak server failed: %{public}@. Calling the completion handler of the background notification with tag %{public}@", log: Self.log, type: .info, error.localizedDescription, tag.uuidString)
-                completionHandler(.failed)
-                return
+                return callFetchCompletionHandler(withTag: tag, result: .failed)
             }
             
             os_log("🌊 We sucessfully synced all managed identities with the keycloak server, calling the completion handler of the background notification with tag %{public}@", log: Self.log, type: .info, tag.uuidString)
-            completionHandler(.newData)
-            return
+            return callFetchCompletionHandler(withTag: tag, result: .newData)
 
         } else if userInfo["ownedDevices"] != nil {
 
             os_log("🧥 The received notification is an ownedDevices notification targeted for our owned identity", log: Self.log, type: .debug)
 
-            Task {
-                do {
-                    try await obvEngine.performOwnedDeviceDiscoveryForAllOwnedIdentities()
-                    await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
-                    completionHandler(.newData)
-                } catch {
-                    completionHandler(.failed)
-                    return
-                }
+            do {
+                try await obvEngine.performOwnedDeviceDiscoveryForAllOwnedIdentities()
+                await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
+                return callFetchCompletionHandler(withTag: tag, result: .newData)
+            } catch {
+                return callFetchCompletionHandler(withTag: tag, result: .failed)
             }
-            
-            return
             
         } else {
             
-            // We are receiving a notification indicating new data is available on the server
+            do {
+                try await obvEngine.downloadAllMessagesForOwnedIdentities()
+            } catch {
+                assertionFailure()
+                return callFetchCompletionHandler(withTag: tag, result: .failed)
+            }
+
+            // Wait for some time for giving the app a change to process listed messages
             
-            let completionHandlerForEngine: (UIBackgroundFetchResult) -> Void = { (result) in
-                os_log("🌊 Calling the completion handler of the remote notification tagged as %{public}@. The result is %{public}@", log: Self.log, type: .info, tag.uuidString, result.debugDescription)
-                DispatchQueue.main.async {
-                    completionHandler(result)
-                }
+            do {
+                try await Task.sleep(seconds: 2)
+            } catch {
+                assertionFailure()
             }
             
-            DispatchQueue(label: "Queue for transfering remote notification to engine").async {
-                obvEngine.application(didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandlerForEngine)
-            }
-            
+            return callFetchCompletionHandler(withTag: tag, result: .newData)
+
         }
-            
+
+        
     }
     
-    
+}
+
+// MARK: Methods called from the App Delegate
+
+extension AppMainManager {
+        
+
     private func transferTheReceivedPushTopicToTheKeycloakManager(pushTopic: String) async throws {
         try await KeycloakManagerSingleton.shared.forceSyncManagedIdentitiesAssociatedWithPushTopics(pushTopic)
     }
@@ -461,7 +533,7 @@ extension AppMainManager {
             let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitialized()
             os_log("🌊 handleEventsForBackgroundURLSession called with identifier %{public}@", log: Self.log, type: .info, identifier)
             do {
-                try obvEngine.storeCompletionHandler(completionHandler, forHandlingEventsForBackgroundURLSessionWithIdentifier: identifier)
+                try await obvEngine.storeCompletionHandler(completionHandler, forHandlingEventsForBackgroundURLSessionWithIdentifier: identifier)
             } catch {
                 os_log("Could not store completion handler: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
                 assertionFailure()
@@ -477,6 +549,11 @@ extension AppMainManager {
 extension AppMainManager {
 
     private func migrationToV1_4() {
+        guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
+        userDefaults.removeObject(forKey: "settings.discussions.doFetchContentRichURLsMetadata")
+    }
+    
+    private func migrationToV1_3_1() {
         guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
         userDefaults.removeObject(forKey: "settings.voip.isCallKitEnabled")
     }
@@ -753,9 +830,13 @@ extension AppMainManager {
 
 final class BackgroundTaskManagerBasedOnUIApplication: ObvBackgroundTaskManager {
     
-    func beginBackgroundTask(expirationHandler handler: (() -> Void)?) -> UIBackgroundTaskIdentifier {
+    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "BackgroundTaskManagerBasedOnUIApplication")
+
+    func beginBackgroundTask(withName name: String?, expirationHandler handler: (() -> Void)?) -> UIBackgroundTaskIdentifier {
         // This method can be safely called on a non-main thread
-        return UIApplication.shared.beginBackgroundTask(expirationHandler: handler)
+        let backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(withName: name, expirationHandler: handler)
+        os_log("Begin background task with identifier %{public}d for name %{public}@", log: Self.log, type: .info, backgroundTaskIdentifier.rawValue, name ?? "NONE")
+        return backgroundTaskIdentifier
     }
 
     

@@ -64,7 +64,7 @@ extension PersistedMessage {
 extension PersistedMessageReceived {
     
     public struct Structure {
-        public let objectPermanentID: ObvManagedObjectPermanentID<PersistedMessageReceived>
+        public let objectPermanentID: MessageReceivedPermanentID
         public let textBody: String?
         public let messageIdentifierFromEngine: Data
         public let contact: PersistedObvContactIdentity.Structure
@@ -103,7 +103,7 @@ extension PersistedMessageReceived {
 extension PersistedMessageSent {
     
     public struct Structure {
-        public let objectPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>
+        public let objectPermanentID: MessageSentPermanentID
         public let textBody: String?
         public let isEphemeralMessageWithLimitedVisibility: Bool
         fileprivate let abstractStructure: PersistedMessage.AbstractStructure

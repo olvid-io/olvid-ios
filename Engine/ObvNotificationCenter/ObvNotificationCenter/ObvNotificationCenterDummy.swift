@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -93,7 +93,6 @@ public final class ObvNotificationCenterDummy: ObvNotificationDelegate {
 
     // MARK: - Notification names for which we should not generate a log within this dummy implementation
     private let acceptableDiscardedNotifications = Set<Notification.Name>([
-        ObvNetworkFetchNotification.InboxMessageDeletedFromServerAndInboxes.name,
         ObvIdentityNotification.NewContactGroupJoined.name,
         ObvIdentityNotification.NewContactGroupOwned.name,
         ObvIdentityNotification.ContactGroupOwnedHasUpdatedPublishedDetails.name,

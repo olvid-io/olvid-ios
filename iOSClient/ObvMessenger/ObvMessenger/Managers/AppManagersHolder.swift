@@ -50,6 +50,7 @@ final actor AppManagersHolder {
     private let webSocketManager: WebSocketManager
     private let localAuthenticationManager: LocalAuthenticationManager
     private let intentManager: IntentDelegate = IntentManager()
+    private let tipManager: OlvidTipManager
 
     private var observationTokens = [NSObjectProtocol]()
 
@@ -89,6 +90,7 @@ final actor AppManagersHolder {
         self.keycloakManager = KeycloakManager(obvEngine: obvEngine)
         self.webSocketManager = WebSocketManager(obvEngine: obvEngine)
         self.localAuthenticationManager = LocalAuthenticationManager()
+        self.tipManager = OlvidTipManager()
 
         // Listen to StoreKit transactions
         self.subscriptionManager.listenToSKPaymentTransactions()

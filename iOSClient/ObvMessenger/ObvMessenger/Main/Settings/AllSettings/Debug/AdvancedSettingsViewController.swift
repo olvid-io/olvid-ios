@@ -434,8 +434,8 @@ extension AdvancedSettingsViewController {
             guard let item = ClearCacheItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
             switch item {
             case .clearCache:
-                LPMetadataProvider.removeCachedURLMetadata(olderThan: Date())
-                CachedLPMetadataProvider.shared.clearCache()
+                MissingReceivedLinkPreviewFetcher.removeCachedPreviewFilesGenerated(olderThan: Date())
+                Task { await CachedObvLinkMetadataManager.shared.clearCache() }
                 tableView.deselectRow(at: indexPath, animated: true)
             }
             return

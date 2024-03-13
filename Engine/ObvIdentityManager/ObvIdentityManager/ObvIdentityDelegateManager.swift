@@ -34,6 +34,8 @@ final class ObvIdentityDelegateManager {
         logSubsystem = "\(prefix).\(logSubsystem)"
     }
     
+    let queueForPostingNotifications = DispatchQueue(label: "ObvIdentityDelegateManager queue for posting notifications")
+
     // MARK: Internal delegates
     
     // None

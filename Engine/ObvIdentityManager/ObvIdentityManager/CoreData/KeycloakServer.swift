@@ -586,13 +586,6 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             return
         }
         
-        guard let notificationDelegate = delegateManager.notificationDelegate else {
-            let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: KeycloakServer.entityName)
-            os_log("The notification delegate is not set", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: KeycloakServer.entityName)
 
         // Send a backupableManagerDatabaseContentChanged notification
@@ -610,7 +603,7 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
                 return
             }
             ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-                .postOnBackgroundQueue(within: notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
 
     }

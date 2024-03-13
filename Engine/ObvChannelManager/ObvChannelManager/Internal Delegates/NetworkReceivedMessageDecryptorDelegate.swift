@@ -24,6 +24,6 @@ import ObvTypes
 import OlvidUtils
 
 protocol NetworkReceivedMessageDecryptorDelegate {
-    func decryptAndProcessNetworkReceivedMessageEncrypted(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within obvContext: ObvContext) throws
+    func decryptAndProcessNetworkReceivedMessageEncrypted(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within obvContext: ObvContext) throws -> ReceivedEncryptedMessageProcessingResult
     func decrypt(_ receivedMessage: ObvNetworkReceivedMessageEncrypted, within obvContext: ObvContext) throws -> ReceivedApplicationMessage
 }

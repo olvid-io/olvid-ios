@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import CryptoKit
 
 public extension URL {
     
@@ -25,6 +26,41 @@ public extension URL {
         guard FileManager.default.fileExists(atPath: self.path) else { return nil }
         guard let fileAttributes = try? FileManager.default.attributesOfItem(atPath: self.path) else { return nil }
         return fileAttributes[FileAttributeKey.size] as? Int
+    }
+ 
+    func toFileNameForArchiving() -> String? {
+        let digest = SHA256.hash(data: self.dataRepresentation)
+        let digestString = digest.map { String(format: "%02hhx", $0) }.joined()
+        return [digestString, "obvarchive"].joined(separator: ".")
+    }
+    
+    
+    var isArchive: Bool {
+        return self.pathExtension == "obvarchive"
+    }
+    
+    var toHttpsURL: URL? {
+        let safeURL: URL
+        if var urlComponents = URLComponents(url: self, resolvingAgainstBaseURL: true) {
+            switch urlComponents.scheme?.lowercased() {
+            case "https":
+                safeURL = self
+            case "http":
+                urlComponents.scheme = "https"
+                guard let constructedURL = urlComponents.url else { assertionFailure(); return nil }
+                safeURL = constructedURL
+            case nil:
+                guard let constructedURL = URL(string: ["https://", self.path].joined()) else { assertionFailure(); return nil }
+                safeURL = constructedURL
+            default:
+                assertionFailure()
+                return nil
+            }
+        } else {
+            assertionFailure()
+            return nil
+        }
+        return safeURL
     }
     
 }

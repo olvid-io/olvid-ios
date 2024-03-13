@@ -931,6 +931,8 @@ extension MessageJSON.UserMention: CodableWithConfiguration {
 
         let endIndex = String.Index(utf16Offset: rangeEnd, in: messageBody)
 
+        // let messageBodyRange = messageBody.startIndex..<messageBody.endIndex
+
         guard endIndex > startIndex, startIndex >= messageBody.startIndex, endIndex <= messageBody.endIndex else {
             throw MentionError.DecodingError.mentionRangeInvalid(lower: startIndex, upper: endIndex)
         }

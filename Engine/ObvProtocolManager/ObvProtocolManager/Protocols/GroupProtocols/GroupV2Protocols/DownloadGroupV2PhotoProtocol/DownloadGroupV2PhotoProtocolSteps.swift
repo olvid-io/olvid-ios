@@ -131,8 +131,8 @@ extension DownloadGroupV2PhotoProtocol {
                                                              within: obvContext)
             
             let downloadedUserData = delegateManager.downloadedUserData
-            if let photoPathToDelete = receivedMessage.photoPathToDelete {
-                let url = downloadedUserData.appendingPathComponent(photoPathToDelete)
+            if let photoFilenameToDelete = receivedMessage.photoFilenameToDelete {
+                let url = downloadedUserData.appendingPathComponent(photoFilenameToDelete)
                 try? FileManager.default.removeItem(at: url)
             }
             

@@ -31,17 +31,6 @@ final class UserNotificationCenterDelegate: NSObject, UNUserNotificationCenterDe
     
     private var requestIdentifiersThatPlayedSound = Set<String>()
     
-    // Answering an invitation from a notification creates a background operation that, e.g., accepts/rejects an invitation. Eventually, the app will have to modify the badge associated to the persisted invitations. To make sure we are still in the background in order to update this badge, we create a long-running background task when responding to an invitation. This backgroud task ends when we are notified that the badge has been updated. While not bullet proof, this is usually enough.
-    
-    private var backgroundTaskIdForWaitingUntilApplicationIconBadgeNumberWasUpdatedNotification: UIBackgroundTaskIdentifier?
-    private var notificationTokenForApplicationIconBadgeNumberWasUpdatedNotification: NSObjectProtocol?
-
-    deinit {
-        if let notificationTokenForApplicationIconBadgeNumberWasUpdatedNotification {
-            NotificationCenter.default.removeObserver(notificationTokenForApplicationIconBadgeNumberWasUpdatedNotification)
-        }
-    }
-    
 }
 
 
@@ -71,6 +60,7 @@ extension UserNotificationCenterDelegate {
     }
     
 
+    /// Asks the delegate how to handle a notification that arrived while the app was running in the foreground.
     @MainActor
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         
@@ -86,6 +76,18 @@ extension UserNotificationCenterDelegate {
         
         // Wait until the app is initialized
         _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()
+        
+        // Make sure the user accepted to display notifications
+        
+        let authorizationStatus = await center.notificationSettings().authorizationStatus
+        switch authorizationStatus {
+        case .denied:
+            return []
+        case .authorized, .notDetermined, .provisional, .ephemeral:
+            break
+        @unknown default:
+            break
+        }
 
         guard let rawId = notification.request.content.userInfo[UserNotificationKeys.id] as? Int,
               let id = ObvUserNotificationID(rawValue: rawId) else {
@@ -292,7 +294,6 @@ extension UserNotificationCenterDelegate {
         case .accept:
             acceptInvite = true
         case .decline:
-            waitUntilApplicationIconBadgeNumberWasUpdatedNotification()
             acceptInvite = false
         case .mute, .callBack, .replyTo, .sendMessage, .markAsRead:
             assertionFailure()
@@ -370,35 +371,6 @@ extension UserNotificationCenterDelegate {
         }
     }
 
-    
-    private func waitUntilApplicationIconBadgeNumberWasUpdatedNotification() {
-        
-        cancelWaitingForApplicationIconBadgeNumberWasUpdatedNotification()
-        
-        let backgroundTaskId = UIApplication.shared.beginBackgroundTask(withName: "Waiting for BadgeForInvitationsWasUpdated notification") { [weak self] in
-            self?.cancelWaitingForApplicationIconBadgeNumberWasUpdatedNotification()
-        }
-        backgroundTaskIdForWaitingUntilApplicationIconBadgeNumberWasUpdatedNotification = backgroundTaskId
-        
-        let NotificationType = MessengerInternalNotification.ApplicationIconBadgeNumberWasUpdated.self
-        notificationTokenForApplicationIconBadgeNumberWasUpdatedNotification = NotificationCenter.default.addObserver(forName: NotificationType.name, object: nil, queue: nil, using: { [weak self] (_) in
-            self?.cancelWaitingForApplicationIconBadgeNumberWasUpdatedNotification()
-        })
-        
-    }
-    
-    
-    private func cancelWaitingForApplicationIconBadgeNumberWasUpdatedNotification() {
-        if let backgroundTaskId = backgroundTaskIdForWaitingUntilApplicationIconBadgeNumberWasUpdatedNotification {
-            UIApplication.shared.endBackgroundTask(backgroundTaskId)
-            backgroundTaskIdForWaitingUntilApplicationIconBadgeNumberWasUpdatedNotification = nil
-        }
-        if let notificationToken = notificationTokenForApplicationIconBadgeNumberWasUpdatedNotification {
-            NotificationCenter.default.removeObserver(notificationToken)
-            notificationTokenForApplicationIconBadgeNumberWasUpdatedNotification = nil
-        }
-    }
-    
     
     @MainActor
     private func handleDeepLink(within response: UNNotificationResponse) async {

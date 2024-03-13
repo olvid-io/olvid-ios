@@ -144,8 +144,7 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
     private var flowNavigationControllerWidthConstraint: NSLayoutConstraint?
     private var flowNavigationControllerHeightConstraint: NSLayoutConstraint?
     
-    private static let defaultLogSubsystem = "io.olvid.messenger"
-    private static var log = OSLog(subsystem: defaultLogSubsystem, category: String(describing: NewOnboardingFlowViewController.self))
+    private static var log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NewOnboardingFlowViewController.self))
     
     weak var delegate: NewOnboardingFlowViewControllerDelegate?
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -54,6 +54,13 @@ final class CachedWellKnown: NSManagedObject, ObvManagedObject {
         guard self.wellKnownJSON != nil else { return nil }
     }
 
+    func deleteCachedWellKnown() throws {
+        guard let managedObjectContext else {
+            throw ObvError.contextIsNil
+        }
+        managedObjectContext.delete(self)
+    }
+    
     func update(with wellKnownData: Data) {
         self.downloadTimestamp = Date()
         self.wellKnownData = wellKnownData
@@ -66,6 +73,7 @@ final class CachedWellKnown: NSManagedObject, ObvManagedObject {
 
     static func getAllCachedWellKnown(within context: ObvContext) throws -> [CachedWellKnown] {
         let request: NSFetchRequest<CachedWellKnown> = CachedWellKnown.fetchRequest()
+        request.fetchBatchSize = 10
         return try context.fetch(request)
     }
 
@@ -82,4 +90,8 @@ final class CachedWellKnown: NSManagedObject, ObvManagedObject {
         return try context.fetch(request).first
     }
 
+    enum ObvError: Error {
+        case contextIsNil
+    }
+    
 }

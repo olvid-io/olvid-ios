@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -43,7 +43,7 @@ public struct ServerResponse {
 extension ServerResponse {
         
     public enum ResponseType {
-        case deviceDiscovery(of: ObvCryptoIdentity, deviceUids: [UID])
+        case deviceDiscovery(result: ContactDeviceDiscoveryResult)
         case putUserData
         case getUserData(result: GetUserDataResult)
         case checkKeycloakRevocation(verificationSuccessful: Bool)
@@ -54,180 +54,208 @@ extension ServerResponse {
         case requestGroupBlobLock(result: RequestGroupBlobLockResult)
         case updateGroupBlob(uploadResult: UploadResult)
         case getKeycloakData(result: GetUserDataResult)
-        case ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: EncryptedData)
-        case setOwnedDeviceName(success: Bool)
+        case ownedDeviceDiscovery(result: ServerResponseOwnedDeviceDiscoveryResult)
+        case actionPerformedAboutOwnedDevice(success: Bool) // Used for the responses to ServerQuery.setOwnedDeviceName, .deactivateOwnedDevice, .setUnexpiringOwnedDevice
         case sourceGetSessionNumberMessage(result: SourceGetSessionNumberResult)
         case targetSendEphemeralIdentity(result: TargetSendEphemeralIdentityResult)
         case transferRelay(result: OwnedIdentityTransferRelayMessageResult)
         case transferWait(result: OwnedIdentityTransferWaitResult)
         case sourceWaitForTargetConnection(result: SourceWaitForTargetConnectionResult)
 
-        private var rawValue: Int {
+        
+        private enum RawKind: Int, CaseIterable, ObvCodable {
+            
+            case deviceDiscovery = 0
+            case putUserData = 1
+            case getUserData = 2
+            case checkKeycloakRevocation = 3
+            case createGroupBlob = 4
+            case getGroupBlob = 5
+            case deleteGroupBlob = 6
+            case putGroupLog = 7
+            case requestGroupBlobLock = 8
+            case updateGroupBlob = 9
+            case getKeycloakData = 10
+            case ownedDeviceDiscovery = 11
+            case actionPerformedAboutOwnedDevice = 12
+            case sourceGetSessionNumberMessage = 13
+            case targetSendEphemeralIdentity = 14
+            case transferRelay = 15
+            case transferWait = 16
+            case sourceWaitForTargetConnection = 17
+            
+            func obvEncode() -> ObvEncoder.ObvEncoded {
+                self.rawValue.obvEncode()
+            }
+
+            init?(_ obvEncoded: ObvEncoder.ObvEncoded) {
+                guard let rawValue = Int(obvEncoded) else { assertionFailure(); return nil }
+                guard let rawKind = RawKind(rawValue: rawValue) else { assertionFailure(); return nil }
+                self = rawKind
+            }
+
+        }
+        
+        private var rawKind: RawKind {
             switch self {
-            case .deviceDiscovery:
-                return 0
-            case .putUserData:
-                return 1
-            case .getUserData:
-                return 2
-            case .checkKeycloakRevocation:
-                return 3
-            case .createGroupBlob:
-                return 4
-            case .getGroupBlob:
-                return 5
-            case .deleteGroupBlob:
-                return 6
-            case .putGroupLog:
-                return 7
-            case .requestGroupBlobLock:
-                return 8
-            case .updateGroupBlob:
-                return 9
-            case .getKeycloakData:
-                return 10
-            case .ownedDeviceDiscovery:
-                return 11
-            case .setOwnedDeviceName:
-                return 12
-            case .sourceGetSessionNumberMessage:
-                return 13
-            case .targetSendEphemeralIdentity:
-                return 14
-            case .transferRelay:
-                return 15
-            case .transferWait:
-                return 16
-            case .sourceWaitForTargetConnection:
-                return 17
+            case .deviceDiscovery: return .deviceDiscovery
+            case .putUserData: return .putUserData
+            case .getUserData: return .getUserData
+            case .checkKeycloakRevocation: return .checkKeycloakRevocation
+            case .createGroupBlob: return .createGroupBlob
+            case .getGroupBlob: return .getGroupBlob
+            case .deleteGroupBlob: return .deleteGroupBlob
+            case .putGroupLog: return .putGroupLog
+            case .requestGroupBlobLock: return .requestGroupBlobLock
+            case .updateGroupBlob: return .updateGroupBlob
+            case .getKeycloakData: return .getKeycloakData
+            case .ownedDeviceDiscovery: return .ownedDeviceDiscovery
+            case .actionPerformedAboutOwnedDevice: return .actionPerformedAboutOwnedDevice
+            case .sourceGetSessionNumberMessage: return .sourceGetSessionNumberMessage
+            case .targetSendEphemeralIdentity: return .targetSendEphemeralIdentity
+            case .transferRelay: return .transferRelay
+            case .transferWait: return .transferWait
+            case .sourceWaitForTargetConnection: return .sourceWaitForTargetConnection
             }
         }
         
         public func obvEncode() -> ObvEncoded {
             switch self {
-            case .deviceDiscovery(of: let identity, deviceUids: let deviceUids):
-                let listOfEncodedDeviceUids = deviceUids.map { $0.obvEncode() }
-                return [rawValue.obvEncode(), identity.obvEncode(), listOfEncodedDeviceUids.obvEncode()].obvEncode()
+            case .deviceDiscovery(result: let result):
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             case .putUserData:
-                return [rawValue.obvEncode()].obvEncode()
+                return [rawKind.obvEncode()].obvEncode()
             case .getUserData(result: let result):
-                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             case .checkKeycloakRevocation(verificationSuccessful: let verificationSuccessful):
-                return [rawValue.obvEncode(), verificationSuccessful.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), verificationSuccessful.obvEncode()].obvEncode()
             case .createGroupBlob(uploadResult: let uploadResult):
-                return [rawValue.obvEncode(), uploadResult.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), uploadResult.obvEncode()].obvEncode()
             case .getGroupBlob(let result):
-                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             case .deleteGroupBlob(let groupDeletionWasSuccessful):
-                return [rawValue.obvEncode(), groupDeletionWasSuccessful.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), groupDeletionWasSuccessful.obvEncode()].obvEncode()
             case .putGroupLog:
-                return [rawValue.obvEncode()].obvEncode()
+                return [rawKind.obvEncode()].obvEncode()
             case .requestGroupBlobLock(let result):
-                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             case .updateGroupBlob(uploadResult: let uploadResult):
-                return [rawValue.obvEncode(), uploadResult.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), uploadResult.obvEncode()].obvEncode()
             case .getKeycloakData(result: let result):
-                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
-            case .ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
-                return [rawValue.obvEncode(), encryptedOwnedDeviceDiscoveryResult.obvEncode()].obvEncode()
-            case .setOwnedDeviceName(success: let success):
-                return [rawValue.obvEncode(), success.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
+            case .ownedDeviceDiscovery(result: let result):
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
+            case .actionPerformedAboutOwnedDevice(success: let success):
+                return [rawKind.obvEncode(), success.obvEncode()].obvEncode()
             case .sourceGetSessionNumberMessage(result: let result):
-                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             case .targetSendEphemeralIdentity(result: let result):
-                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             case .transferRelay(result: let result):
-                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             case .transferWait(result: let result):
-                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             case .sourceWaitForTargetConnection(result: let result):
-                return [rawValue.obvEncode(), result.obvEncode()].obvEncode()
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             }
         }
         
         public init?(_ obvEncoded: ObvEncoded) {
-            guard let listOfEncoded = [ObvEncoded](obvEncoded) else { return nil }
-            guard let encodedRawValue = listOfEncoded.first else { return nil }
-            guard let rawValue = Int(encodedRawValue) else { return nil }
-            switch rawValue {
-            case 0:
-                guard listOfEncoded.count == 3 else { return nil }
-                guard let identity = ObvCryptoIdentity(listOfEncoded[1]) else { return nil }
-                guard let listOfEncodedDeviceUids = [ObvEncoded](listOfEncoded[2]) else { return nil }
-                var deviceUids = [UID]()
-                for encoded in listOfEncodedDeviceUids {
-                    guard let deviceUid = UID(encoded) else { return nil }
-                    deviceUids.append(deviceUid)
+            guard let listOfEncoded = [ObvEncoded](obvEncoded) else { assertionFailure(); return nil }
+            guard let encodedRawValue = listOfEncoded.first else { assertionFailure(); return nil }
+            guard let rawValue = Int(encodedRawValue) else { assertionFailure(); return nil }
+            guard let rawKind = RawKind(rawValue: rawValue) else { assertionFailure(); return nil }
+            switch rawKind {
+            case .deviceDiscovery:
+                if listOfEncoded.count == 2 {
+                    guard let result = ContactDeviceDiscoveryResult(listOfEncoded[1]) else { assertionFailure(); return nil }
+                    self = .deviceDiscovery(result: result)
+                } else if listOfEncoded.count == 3 {
+                    // Legacy decoding
+                    // guard let identity = ObvCryptoIdentity(listOfEncoded[1]) else { return nil }
+                    guard let listOfEncodedDeviceUids = [ObvEncoded](listOfEncoded[2]) else { return nil }
+                    var deviceUids = [UID]()
+                    for encoded in listOfEncodedDeviceUids {
+                        guard let deviceUid = UID(encoded) else { return nil }
+                        deviceUids.append(deviceUid)
+                    }
+                    self = .deviceDiscovery(result: .success(deviceUIDs: deviceUids))
+                } else {
+                    assertionFailure()
+                    return nil
                 }
-                self = .deviceDiscovery(of: identity, deviceUids: deviceUids)
-            case 1:
+            case .putUserData:
                 self = .putUserData
-            case 2:
+            case .getUserData:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = GetUserDataResult(listOfEncoded[1]) else { return nil }
                 self = .getUserData(result: result)
-            case 3:
+            case .checkKeycloakRevocation:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let verificationSuccessful = Bool(listOfEncoded[1]) else { return nil }
                 self = .checkKeycloakRevocation(verificationSuccessful: verificationSuccessful)
-            case 4:
+            case .createGroupBlob:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let uploadResult = UploadResult(listOfEncoded[1]) else { return nil }
                 self = .createGroupBlob(uploadResult: uploadResult)
-            case  5:
+            case .getGroupBlob:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = GetGroupBlobResult(listOfEncoded[1]) else { assertionFailure(); return nil }
                 self = .getGroupBlob(result: result)
-            case 6:
+            case .deleteGroupBlob:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let groupDeletionWasSuccessful = Bool(listOfEncoded[1]) else { assertionFailure(); return nil }
                 self = .deleteGroupBlob(groupDeletionWasSuccessful: groupDeletionWasSuccessful)
-            case 7:
+            case .putGroupLog:
                 guard listOfEncoded.count == 1 else { return nil }
                 self = .putGroupLog
-            case 8:
+            case .requestGroupBlobLock:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = RequestGroupBlobLockResult(listOfEncoded[1]) else { assertionFailure(); return nil }
                 self = .requestGroupBlobLock(result: result)
-            case 9:
+            case .updateGroupBlob:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let uploadResult = UploadResult(listOfEncoded[1]) else { return nil }
                 self = .updateGroupBlob(uploadResult: uploadResult)
-            case 10:
+            case .getKeycloakData:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = GetUserDataResult(listOfEncoded[1]) else { return nil }
                 self = .getKeycloakData(result: result)
-            case 11:
+            case .ownedDeviceDiscovery:
                 guard listOfEncoded.count == 2 else { return nil }
-                guard let encryptedOwnedDeviceDiscoveryResult = EncryptedData(listOfEncoded[1]) else { return nil }
-                self = .ownedDeviceDiscovery(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult)
-            case 12:
+                if let result = ServerResponseOwnedDeviceDiscoveryResult(listOfEncoded[1]) {
+                    self = .ownedDeviceDiscovery(result: result)
+                } else if let encryptedOwnedDeviceDiscoveryResult = EncryptedData(listOfEncoded[1]) {
+                    // Legacy decoding
+                    self = .ownedDeviceDiscovery(result: .success(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult))
+                } else {
+                    assertionFailure()
+                    return nil
+                }
+            case .actionPerformedAboutOwnedDevice:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let success = Bool(listOfEncoded[1]) else { return nil }
-                self = .setOwnedDeviceName(success: success)
-            case 13:
+                self = .actionPerformedAboutOwnedDevice(success: success)
+            case .sourceGetSessionNumberMessage:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = SourceGetSessionNumberResult(listOfEncoded[1]) else { return nil }
                 self = .sourceGetSessionNumberMessage(result: result)
-            case 14:
+            case .targetSendEphemeralIdentity:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = TargetSendEphemeralIdentityResult(listOfEncoded[1]) else { return nil }
                 self = .targetSendEphemeralIdentity(result: result)
-            case 15:
+            case .transferRelay:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = OwnedIdentityTransferRelayMessageResult(listOfEncoded[1]) else { return nil }
                 self = .transferRelay(result: result)
-            case 16:
+            case .transferWait:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = OwnedIdentityTransferWaitResult(listOfEncoded[1]) else { return nil }
                 self = .transferWait(result: result)
-            case 17:
+            case .sourceWaitForTargetConnection:
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = SourceWaitForTargetConnectionResult(listOfEncoded[1]) else { return nil }
                 self = .sourceWaitForTargetConnection(result: result)
-            default:
-                assertionFailure()
-                return nil
             }
         }
         

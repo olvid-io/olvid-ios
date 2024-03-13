@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -48,6 +48,8 @@ actor WebSocketCoordinator: NSObject, ObvErrorMaker {
 
     private var disconnectTimerForUUID = [UUID: Timer]()
     
+    private var receivingWebSocketTaskForURL = Set<URL>()
+
     private enum RegisterMessageStatus: CustomDebugStringConvertible {
         case registering
         case registered
@@ -59,8 +61,6 @@ actor WebSocketCoordinator: NSObject, ObvErrorMaker {
         }
     }
     
-    private let notificationQueue = DispatchQueue(label: "Queue for notifications from WebSocketCoordinator")
-        
     private let logCategory = String(describing: WebSocketCoordinator.self)
     private var log: OSLog {
         return OSLog(subsystem: delegateManager?.logSubsystem ?? "io.olvid.network.send", category: logCategory)
@@ -401,7 +401,7 @@ extension WebSocketCoordinator: WebSocketDelegate {
 
         // If `alwaysReconnect` is `true`, we try to reconnect each of the identities concerned by the socket that we just disconnected.
         if alwaysReconnect {
-            os_log("🏓 Since the web sockets are marked as always reconnect, we try to reconnect the web socket that we just deconnected.", log: log, type: .fault)
+            os_log("🏓 Since the web sockets are marked as always reconnect, we try to reconnect the web socket that we just deconnected.", log: log, type: .info)
             let identities = webSocketInfosForIdentity.keys.filter({ webSocketInfosForIdentity[$0]?.webSocketServerURL == webSocketServerURL})
             for identity in identities {
                 tryConnectToWebSocketServer(of: identity)
@@ -409,14 +409,26 @@ extension WebSocketCoordinator: WebSocketDelegate {
         }
     }
     
+    
+    private func removeURLFromReceivingWebSocketTaskForURL(_ webSocketServerURL: URL) {
+        receivingWebSocketTaskForURL.remove(webSocketServerURL)
+    }
+    
+    
 
     private func continuouslyReadMessageOnWebSocketServerURL(_ webSocketServerURL: URL) {
-        guard let webSocketTask = webSocketTaskForWebSocketServerURL[webSocketServerURL] else { return }
+        guard let webSocketTask = webSocketTaskForWebSocketServerURL[webSocketServerURL], webSocketTask.state == .running else { return }
         let log = self.log
+        
+        guard receivingWebSocketTaskForURL.insert(webSocketServerURL).inserted else { return }
+
+        os_log("🏓 Will receive on webSocketTask for URL %{public}@", log: log, type: .info, webSocketServerURL.debugDescription)
+
         webSocketTask.receive { result in
             switch result {
             case .failure(let failure):
                 Task { [weak self] in
+                    await self?.removeURLFromReceivingWebSocketTaskForURL(webSocketServerURL)
                     await self?.logWebSocketTaskReceiveError(failure: failure)
                     await self?.disconnectFromWebSocketServerURL(webSocketServerURL)
                 }
@@ -426,11 +438,15 @@ extension WebSocketCoordinator: WebSocketDelegate {
                 case .data:
                     os_log("🏓 Data received on websocket. This is unexpected.", log: log, type: .error)
                     assertionFailure()
-                    Task { [weak self] in await self?.continuouslyReadMessageOnWebSocketServerURL(webSocketServerURL) }
+                    Task { [weak self] in
+                        await self?.removeURLFromReceivingWebSocketTaskForURL(webSocketServerURL)
+                        await self?.continuouslyReadMessageOnWebSocketServerURL(webSocketServerURL)
+                    }
                     return
                 case .string(let string):
                     os_log("🏓 String received on websocket: %{public}@", log: log, type: .info, string)
                     Task { [weak self] in
+                        await self?.removeURLFromReceivingWebSocketTaskForURL(webSocketServerURL)
                         do {
                             try await self?.parseReceivedString(string, fromWebSocketServerURL: webSocketServerURL)
                         } catch {
@@ -443,7 +459,10 @@ extension WebSocketCoordinator: WebSocketDelegate {
                     return
                 @unknown default:
                     assertionFailure()
-                    Task { [weak self] in await self?.continuouslyReadMessageOnWebSocketServerURL(webSocketServerURL) }
+                    Task { [weak self] in
+                        await self?.removeURLFromReceivingWebSocketTaskForURL(webSocketServerURL)
+                        await self?.continuouslyReadMessageOnWebSocketServerURL(webSocketServerURL)
+                    }
                     return
                 }
             }
@@ -464,42 +483,43 @@ extension WebSocketCoordinator: WebSocketDelegate {
                 assertionFailure(error.localizedDescription)
             }
         } else {
-            os_log("🏓 Error while receiving on a websocket task.", log: log, type: .error)
-            assertionFailure(error.localizedDescription)
+            os_log("🏓 Error while receiving on a websocket task: %{public}@ code: %d domain: %{public}@", log: log, type: .error, error.localizedDescription, error.code, error.domain)
+            //assertionFailure(error.localizedDescription)
         }
     }
 
 
     private func parseReceivedString(_ string: String, fromWebSocketServerURL webSocketServerURL: URL) throws {
         
+        guard let delegateManager else {
+            assertionFailure()
+            throw Self.makeError(message: "The delegateManager is nil")
+        }
+        
         if let returnReceipt = try? ReturnReceipt(string: string) {
             os_log("🏓 The server sent a ReturnReceipt", log: log, type: .info)
-            let NotificationType = ObvNetworkFetchNotification.NewReturnReceiptToProcess.self
-            let userInfo = [NotificationType.Key.returnReceipt: returnReceipt]
-            if let notificationDelegate = delegateManager?.notificationDelegate {
-                notificationQueue.async {
-                    notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
-                }
+            if let notificationDelegate = delegateManager.notificationDelegate {
+                ObvNetworkFetchNotificationNew.newReturnReceiptToProcess(returnReceipt: returnReceipt)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
             }
         }
         if let receivedMessage = try? NewMessageAvailableMessage(string: string) {
             os_log("🏓 The server notified that a new message is available for identity %{public}@", log: log, type: .info, receivedMessage.identity.debugDescription)
-            guard let deviceUid = self.webSocketInfosForIdentity[receivedMessage.identity]?.deviceUid else {
-                os_log("🏓 Could not recover the device uid of the identity", log: log, type: .fault)
-                assert(false)
-                return
-            }
             let flowId = FlowIdentifier()
             if let message = receivedMessage.message {
-                do {
-                    // As the websocket notification is sent exactly when the message is uploaded on the server, we can assume that downloadTimestampFromServer = messageUploadTimestampFromServer
-                    try delegateManager?.messagesDelegate.saveMessageReceivedOnWebsocket(message: message, downloadTimestampFromServer: message.messageUploadTimestampFromServer, ownedIdentity: receivedMessage.identity, flowId: flowId)
-                } catch {
-                    os_log("🏓 Failed to save the message received through the websocket: %{public}@. We request a download message and list attachments now", log: log, type: .error, error.localizedDescription)
-                    delegateManager?.messagesDelegate.downloadMessagesAndListAttachments(for: receivedMessage.identity, andDeviceUid: deviceUid, flowId: flowId)
+                Task {
+                    do {
+                        // As the websocket notification is sent exactly when the message is uploaded on the server, we can assume that downloadTimestampFromServer = messageUploadTimestampFromServer
+                        try await delegateManager.messagesDelegate.saveMessageReceivedOnWebsocket(message: message, downloadTimestampFromServer: message.messageUploadTimestampFromServer, ownedCryptoId: receivedMessage.identity, flowId: flowId)
+                    } catch {
+                        os_log("🏓 Failed to save the message received through the websocket: %{public}@. We request a download message and list attachments now", log: log, type: .error, error.localizedDescription)
+                        await delegateManager.messagesDelegate.downloadMessagesAndListAttachments(ownedCryptoId: receivedMessage.identity, flowId: flowId)
+                    }
                 }
             } else {
-                delegateManager?.messagesDelegate.downloadMessagesAndListAttachments(for: receivedMessage.identity, andDeviceUid: deviceUid, flowId: flowId)
+                Task {
+                    await delegateManager.messagesDelegate.downloadMessagesAndListAttachments(ownedCryptoId: receivedMessage.identity, flowId: flowId)
+                }
             }
         } else if let receivedMessage = try? ResponseToRegisterMessage(string: string) {
             os_log("🏓 We received a proper response to the register message", log: log, type: .info)
@@ -542,31 +562,29 @@ extension WebSocketCoordinator: WebSocketDelegate {
                     return
                 }
                 os_log("🏓 Notifying the flow delegate about the identity/device %{public}@ concerned by the recent web socket registration.", log: log, type: .info, concernedIdentity.debugDescription)
-                if let networkFetchFlowDelegate = delegateManager?.networkFetchFlowDelegate {
-                    notificationQueue.async {
-                        networkFetchFlowDelegate.successfulWebSocketRegistration(identity: concernedIdentity, deviceUid: deviceUid)
-                    }
+                Task {
+                    await delegateManager.networkFetchFlowDelegate.successfulWebSocketRegistration(identity: concernedIdentity, deviceUid: deviceUid)
                 }
             }
         } else if let pushTopicMessage = try? PushTopicMessage(string: string) {
             os_log("🫸🏓 The server sent a keycloak topic message: %{public}@", log: log, type: .info, pushTopicMessage.topic)
-            assert(delegateManager?.notificationDelegate != nil)
-            if let notificationDelegate = delegateManager?.notificationDelegate {
+            assert(delegateManager.notificationDelegate != nil)
+            if let notificationDelegate = delegateManager.notificationDelegate {
                 ObvNetworkFetchNotificationNew.pushTopicReceivedViaWebsocket(pushTopic: pushTopicMessage.topic)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
             }
         } else if let targetedKeycloakPushNotification = try? KeycloakTargetedPushNotification(string: string) {
             os_log("🫸🏓 The server sent a targeted keycloak push notification for identity: %{public}@", log: log, type: .info, targetedKeycloakPushNotification.identity.debugDescription)
-            assert(delegateManager?.notificationDelegate != nil)
-            if let notificationDelegate = delegateManager?.notificationDelegate {
+            assert(delegateManager.notificationDelegate != nil)
+            if let notificationDelegate = delegateManager.notificationDelegate {
                 ObvNetworkFetchNotificationNew.keycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: targetedKeycloakPushNotification.identity)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
             }
         } else if let ownedDeviceMessage = try? OwnedDevicesMessage(string: string) {
             os_log("🏓 The server sent an OwnedDevicesMessage for identity: %{public}@", log: log, type: .info, ownedDeviceMessage.identity.debugDescription)
-            if let notificationDelegate = delegateManager?.notificationDelegate {
+            if let notificationDelegate = delegateManager.notificationDelegate {
                 ObvNetworkFetchNotificationNew.ownedDevicesMessageReceivedViaWebsocket(ownedIdentity: ownedDeviceMessage.identity)
-                    .postOnBackgroundQueue(within: notificationDelegate)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
             }
         }
         
@@ -578,7 +596,6 @@ extension WebSocketCoordinator: WebSocketDelegate {
         os_log("🏓 Calling sendRegisterMessageForAllIdentitiesOnWebSocketServerURL", log: log, type: .info)
                 
         guard let webSocketTask = webSocketTaskForWebSocketServerURL[webSocketServerURL], webSocketTask.state == .running else {
-            assertionFailure("This is normally called right after making sure there is a webSocketTask that is running")
             connectAll(flowId: FlowIdentifier())
             return
         }

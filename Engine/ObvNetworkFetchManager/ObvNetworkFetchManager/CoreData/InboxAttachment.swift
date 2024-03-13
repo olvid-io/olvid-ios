@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -81,7 +81,7 @@ final class InboxAttachment: NSManagedObject, ObvManagedObject {
     // MARK: Attributes
     
     @NSManaged private(set) var attachmentNumber: Int
-    private var key: AuthenticatedEncryptionKey? {
+    private(set) var key: AuthenticatedEncryptionKey? {
         get {
             guard let encodedKeyData = kvoSafePrimitiveValue(forKey: Predicate.Key.encodedAuthenticatedDecryptionKey.rawValue) as? Data else { return nil }
             let encodedKey = ObvEncoded(withRawData: encodedKeyData)!
@@ -277,19 +277,35 @@ extension InboxAttachment {
         }
     }
     
-    private func changeStatus(to newStatus: Status, force: Bool = false) throws {
-        guard newStatus != self.status else { return }
-        guard force || canTransistionToNewStatus(newStatus) else {
-            throw InboxAttachment.makeError(message: "Cannot transition from \(status.debugDescription) to \(newStatus.debugDescription)")
+    
+    func resetStatusIfCurrentStatusIsDownloadedAndFileIsNotAvailable(withinInbox inbox: URL) throws {
+        guard status == .downloaded else { assertionFailure("Why did we call this method?"); return }
+        guard let url = getURL(withinInbox: inbox) else { return }
+        guard !FileManager.default.fileExists(atPath: url.path) else { return }
+        // If we reach this point, the attachment status is "downloaded" although the file does not exist on disk.
+        // We force the status back to paused
+        try changeStatus(to: .paused, forceStatusChange: true)
+        chunks.forEach { chunk in
+            chunk.resetDownload()
         }
-        if force && newStatus == .resumeRequested {
-            chunks.forEach { chunk in
-                chunk.resetDownload()
+    }
+    
+    
+    private func changeStatus(to newStatus: Status, forceStatusChange: Bool = false) throws {
+        guard newStatus != self.status else { return }
+        guard canTransistionToNewStatus(newStatus) || forceStatusChange else {
+            if self.status == .markedForDeletion && newStatus == .paused {
+                // Do not throw, we always pause a download right after deleting an attachment, so this case happens
+                return
+            } else {
+                throw InboxAttachment.makeError(message: "Cannot transition from \(status.debugDescription) to \(newStatus.debugDescription)")
             }
         }
         self.status = newStatus
     }
     
+    
+    /// Shall only be called from ``InboxMessage.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion:)``
     func markForDeletion() {
         do {
             try changeStatus(to: .markedForDeletion)
@@ -297,6 +313,7 @@ extension InboxAttachment {
             assert(false)
         }
     }
+    
 
     func markAsCancelledByServer() {
         do {
@@ -306,8 +323,8 @@ extension InboxAttachment {
         }
     }
     
-    func resumeDownload(force: Bool = false) throws {
-        try self.changeStatus(to: .resumeRequested, force: force)
+    func resumeDownload() throws {
+        try changeStatus(to: .resumeRequested)
     }
     
     
@@ -454,20 +471,31 @@ extension InboxAttachment {
 
 extension InboxAttachment {
     
-    func decryptEncryptedChunk(number chunkNumber: Int, atFileHandle fh: FileHandle, andWriteCleartextToAttachmentFileWithinInbox inbox: URL) throws {
-        guard chunkNumber < chunks.count else { throw InboxAttachment.makeError(message: "Unexpected chunk number") }
-        guard let key = self.key else { throw InboxAttachment.makeError(message: "Decryption key is not set") }
-        var offset = 0
-        for nbr in 0..<chunkNumber {
-            guard let cleartextChunkLength = chunks[nbr].cleartextChunkLength else { throw InboxAttachment.makeError(message: "Cannot determine offset") }
-            offset += cleartextChunkLength
+    func setCleartextChunkWasWrittenToAttachmentFile(chunkNumber: Int) throws {
+        
+        guard chunkNumber < chunks.count else {
+            assertionFailure()
+            throw ObvError.unexpectedChunkNumber
         }
-        try chunks[chunkNumber].decryptAndWriteToAttachmentFileThenDeleteEncryptedChunk(atFileHandle: fh, withKey: key, offset: offset, withinInbox: inbox)
-        // Check whether the attachment is fully downloaded
+        
+        chunks[chunkNumber].setCleartextChunkWasWrittenToAttachmentFile()
+
         let allCleartextChunksWereWrittenToAttachmentFile = chunks.allSatisfy({ $0.cleartextChunkWasWrittenToAttachmentFile })
         if allCleartextChunksWereWrittenToAttachmentFile {
             status = .downloaded
         }
+        
+    }
+    
+}
+
+
+// MARK: - Errors
+
+extension InboxAttachment {
+    
+    enum ObvError: Error {
+        case unexpectedChunkNumber
     }
     
 }
@@ -499,10 +527,10 @@ extension InboxAttachment {
         private static func withMessageIdUID(_ messageUID: UID) -> NSPredicate {
             NSPredicate(Key.rawMessageIdUid, EqualToData: messageUID.raw)
         }
-        private static func withAttachmentNumber(_ attachmentNumber: Int) -> NSPredicate {
+        fileprivate static func withAttachmentNumber(_ attachmentNumber: Int) -> NSPredicate {
             NSPredicate(Key.attachmentNumber, EqualToInt: attachmentNumber)
         }
-        private static func withMessageIdentifier(_ messageId: ObvMessageIdentifier) -> NSPredicate {
+        fileprivate static func withMessageIdentifier(_ messageId: ObvMessageIdentifier) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
                 withMessageIdUID(messageId.uid),
                 withMessageIdOwnedIdentity(messageId.ownedCryptoIdentity),
@@ -573,6 +601,42 @@ extension InboxAttachment {
             .filter { (attachment) -> Bool in
                 !attachment.isDownloaded }
         return items
+    }
+    
+    
+    /// Returns all the ``InboxAttachment`` that have no session, that can be downloaded technically and for which a resume was requested,
+    /// and for which at least one chunk has no signed URL.
+    static func getAllDownloadableWithMissingSignedURL(within obvContext: ObvContext) throws -> [(attachmentId: ObvAttachmentIdentifier, expectedChunkCount: Int)] {
+        
+        let request: NSFetchRequest<InboxAttachment> = InboxAttachment.fetchRequest()
+
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withNilSession,
+            Predicate.withNonNilMessage,
+            Predicate.withNonNilEncodedAuthenticatedDecryptionKey,
+            Predicate.withNonNilMetadata,
+            Predicate.withNonNilMessageFromCryptoIdentity,
+            Predicate.withStatus(.resumeRequested),
+        ])
+
+        request.propertiesToFetch = [
+            Predicate.Key.attachmentNumber.rawValue,
+            Predicate.Key.rawMessageIdOwnedIdentity.rawValue,
+            Predicate.Key.rawMessageIdUid.rawValue,
+        ]
+        
+        let items = try obvContext.fetch(request)
+            .filter { attachment in
+                let noSignedURLForOneOrMoreChunks = attachment.chunks.first(where: { $0.signedURL == nil }) != nil
+                return noSignedURLForOneOrMoreChunks
+            }
+
+        return items.compactMap { attachment in
+            guard let attachmentId = attachment.attachmentId else { return nil }
+            let expectedChunkCount = attachment.chunks.count
+            return (attachmentId, expectedChunkCount)
+        }
+
     }
 
     

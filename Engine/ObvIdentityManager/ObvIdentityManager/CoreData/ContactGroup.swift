@@ -411,6 +411,32 @@ extension ContactGroup {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: String(describing: Self.self))
         
+        if isInserted {
+            
+            if let joinedGroup = self as? ContactGroupJoined, let groupOwnerCryptoIdentity = joinedGroup.groupOwner.cryptoIdentity {
+                
+                let NotificationType = ObvIdentityNotification.NewContactGroupJoined.self
+                let userInfo = [NotificationType.Key.groupUid: self.groupUid,
+                                NotificationType.Key.groupOwner: groupOwnerCryptoIdentity,
+                                NotificationType.Key.ownedIdentity: self.ownedIdentity.cryptoIdentity] as [String: Any]
+                delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                
+            } else if self is ContactGroupOwned {
+                
+                let NotificationType = ObvIdentityNotification.NewContactGroupOwned.self
+                let userInfo = [NotificationType.Key.groupUid: self.groupUid,
+                                NotificationType.Key.ownedIdentity: self.ownedIdentity.cryptoIdentity] as [String: Any]
+                delegateManager.notificationDelegate.post(name: NotificationType.name, userInfo: userInfo)
+                
+            } else {
+                
+                assertionFailure()
+                
+            }
+            
+        }
+
+        
         if isDeleted {
             
             let NotificationType = ObvIdentityNotification.ContactGroupDeleted.self
@@ -446,8 +472,8 @@ extension ContactGroup {
                 if isDeleted { assert(ownedIdentityCryptoIdentityOnDeletion != nil) }
                 let ownedCryptoId = ownedIdentityCryptoIdentityOnDeletion ?? ownedIdentity.cryptoIdentity
                 if let labelToDelete = self.labelToDelete {
-                    let notification = ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoId, label: labelToDelete)
-                    notification.postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                    ObvIdentityNotificationNew.serverLabelHasBeenDeleted(ownedIdentity: ownedCryptoId, label: labelToDelete)
+                        .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
                 }
             }
             
@@ -483,7 +509,7 @@ extension ContactGroup {
                 return
             }
             ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
-                .postOnBackgroundQueue(within: delegateManager.notificationDelegate)
+                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
     }

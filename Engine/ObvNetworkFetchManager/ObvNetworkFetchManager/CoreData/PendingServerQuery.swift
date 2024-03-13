@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,6 +35,7 @@ final class PendingServerQuery: NSManagedObject, ObvManagedObject {
     // MARK: Attributes
     
     @NSManaged private(set) var isWebSocket: Bool
+    @NSManaged private var rawCreationDate: Date? // Expected to be non-nil
     @NSManaged private var rawEncodedElements: Data
     @NSManaged private var rawEncodedQueryType: Data
     @NSManaged private var rawEncodedResponseType: Data?
@@ -48,6 +49,10 @@ final class PendingServerQuery: NSManagedObject, ObvManagedObject {
         set { self.rawEncodedElements = newValue.rawData }
     }
     
+    var creationDate: Date {
+        assert(rawCreationDate != nil)
+        return rawCreationDate ?? .distantPast
+    }
     
     private(set) var queryType: ServerQuery.QueryType {
         get { ServerQuery.QueryType(ObvEncoded(withRawData: rawEncodedQueryType)!)! }
@@ -99,6 +104,7 @@ final class PendingServerQuery: NSManagedObject, ObvManagedObject {
         self.delegateManager = delegateManager
         self.obvContext = obvContext
         self.isWebSocket = serverQuery.isWebSocket
+        self.rawCreationDate = Date.now
 
     }
 
@@ -127,6 +133,7 @@ extension PendingServerQuery {
     struct Predicate {
         enum Key: String {
             case isWebSocket = "isWebSocket"
+            case rawCreationDate = "rawCreationDate"
             case rawEncodedElements = "rawEncodedElements"
             case rawEncodedQueryType = "rawEncodedQueryType"
             case rawEncodedResponseType = "rawEncodedResponseType"
@@ -165,6 +172,7 @@ extension PendingServerQuery {
         case bool(_ value: Bool)
     }
     
+    
     static func getAllServerQuery(for identity: ObvCryptoIdentity, isWebSocket: BoolOrAny, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
         var subpredicates = [Predicate.withOwnedCryptoIdentity(identity)]
@@ -184,9 +192,15 @@ extension PendingServerQuery {
     }
 
     
-    static func getAllServerQuery(delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
+    static func getAllServerQuery(isWebSocket: BoolOrAny, delegateManager: ObvNetworkFetchDelegateManager, within obvContext: ObvContext) throws -> [PendingServerQuery] {
         let request: NSFetchRequest<PendingServerQuery> = PendingServerQuery.fetchRequest()
         request.fetchBatchSize = 1_000
+        switch isWebSocket {
+        case .any:
+            break
+        case .bool(let isWebSocket):
+            request.predicate = Predicate.whereIsWebSocketIs(isWebSocket)
+        }
         let items = try obvContext.fetch(request)
         items.forEach { item in
             item.delegateManager = delegateManager

@@ -36,12 +36,10 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
     case protocolMessageToProcess
     case endOfProcessingOfProtocolMessage(withId: ObvMessageIdentifier)
     case deletionOfInboxMessage(withId: ObvMessageIdentifier)
+    case inboxMessageMarkedForDeletion(messageId: ObvMessageIdentifier)
     
     // For outbox attachments
     case attachmentUploadRequestIsTakenCareOfForAttachment(withId: ObvAttachmentIdentifier)
-    
-    // For inbox attachments
-    case decisionToDownloadAttachmentOrNotHasBeenTaken(attachmentId: ObvAttachmentIdentifier)
     
     // For posting return receipts
     case returnReceiptWasPostedForMessage(messageId: ObvMessageIdentifier)
@@ -120,13 +118,6 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             default:
                 return false
             }
-        case .decisionToDownloadAttachmentOrNotHasBeenTaken(attachmentId: let id1):
-            switch rhs {
-            case .decisionToDownloadAttachmentOrNotHasBeenTaken(attachmentId: let id2):
-                return id1 == id2
-            default:
-                return false
-            }
         case .returnReceiptWasPostedForMessage(messageId: let id1):
             switch rhs {
             case .returnReceiptWasPostedForMessage(messageId: let id2):
@@ -137,6 +128,13 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
         case .returnReceiptWasPostedForAttachment(attachmentId: let id1):
             switch rhs {
             case .returnReceiptWasPostedForAttachment(attachmentId: let id2):
+                return id1 == id2
+            default:
+                return false
+            }
+        case .inboxMessageMarkedForDeletion(messageId: let id1):
+            switch rhs {
+            case .inboxMessageMarkedForDeletion(messageId: let id2):
                 return id1 == id2
             default:
                 return false
@@ -164,14 +162,14 @@ enum Expectation: Equatable, Hashable, CustomDebugStringConvertible {
             return "applicationMessageDecrypted<\(uid.debugDescription)>"
         case .deletionOfInboxMessage(withId: let uid):
             return "deletionOfInboxMessage<\(uid.debugDescription)>"
-        case .decisionToDownloadAttachmentOrNotHasBeenTaken(attachmentId: let attachmentId):
-            return "decisionToDownloadAttachmentOrNotHasBeenTaken<\(attachmentId.debugDescription)>"
         case .extendedMessagePayloadWasDownloaded(messageId: let uid):
             return "extendedMessagePayloadWasDownloaded<\(uid.debugDescription)>"
         case .returnReceiptWasPostedForMessage(messageId: let uid):
             return "returnReceiptWasPostedForMessage<\(uid.debugDescription)>"
         case .returnReceiptWasPostedForAttachment(attachmentId: let attachmentId):
             return "returnReceiptWasPostedForAttachment<\(attachmentId.debugDescription)>"
+        case .inboxMessageMarkedForDeletion(messageId: let messageId):
+            return "inboxMessageMarkedForDeletion<\(messageId.debugDescription)>"
         }
     }
     

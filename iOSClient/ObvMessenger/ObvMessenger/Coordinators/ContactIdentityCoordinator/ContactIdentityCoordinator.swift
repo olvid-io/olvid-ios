@@ -28,21 +28,23 @@ import ObvUICoreData
 import ObvSettings
 
 
-final class ContactIdentityCoordinator: ObvErrorMaker {
+final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker {
     
-    private let obvEngine: ObvEngine
-    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ContactIdentityCoordinator.self))
+    let obvEngine: ObvEngine
+    static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ContactIdentityCoordinator.self))
     private var observationTokens = [NSObjectProtocol]()
-    private let coordinatorsQueue: OperationQueue
-    private let queueForComposedOperations: OperationQueue
+    let coordinatorsQueue: OperationQueue
+    let queueForComposedOperations: OperationQueue
+    let queueForSyncHintsComputationOperation: OperationQueue
     weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
 
     static let errorDomain = "ContactIdentityCoordinator"
     
-    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
+    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue, queueForSyncHintsComputationOperation: OperationQueue) {
         self.obvEngine = obvEngine
         self.coordinatorsQueue = coordinatorsQueue
         self.queueForComposedOperations = queueForComposedOperations
+        self.queueForSyncHintsComputationOperation = queueForSyncHintsComputationOperation
         listenToNotifications()
     }
     
@@ -57,9 +59,6 @@ final class ContactIdentityCoordinator: ObvErrorMaker {
         observationTokens.append(contentsOf: [
             ObvMessengerInternalNotification.observeUserWantsToDeleteContact { [weak self] contactCryptoId, ownedCryptoId, viewController, completionHandler in
                 Task { [weak self] in await self?.processUserWantsToDeleteContact(with: contactCryptoId, ownedCryptoId: ownedCryptoId, viewController: viewController, completionHandler: completionHandler) }
-            },
-            ObvMessengerInternalNotification.observeResyncContactIdentityDevicesWithEngine { [weak self] obvContactIdentifier in
-                self?.processResyncContactIdentityDevicesWithEngineNotification(obvContactIdentifier: obvContactIdentifier)
             },
             ObvMessengerInternalNotification.observeUserDidSeeNewDetailsOfContact { [weak self] contactCryptoId, ownedCryptoId in
                 self?.processUserDidSeeNewDetailsOfContactNotification(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
@@ -97,13 +96,13 @@ final class ContactIdentityCoordinator: ObvErrorMaker {
         
         observationTokens.append(contentsOf: [
             ObvEngineNotificationNew.observeDeletedObliviousChannelWithContactDevice(within: NotificationCenter.default) { [weak self] obvContactIdentifier in
-                self?.processDeletedObliviousChannelWithContactDevice(obvContactIdentifier: obvContactIdentifier)
+                Task { [weak self] in await self?.processDeletedObliviousChannelWithContactDevice(obvContactIdentifier: obvContactIdentifier) }
             },
             ObvEngineNotificationNew.observeNewTrustedContactIdentity(within: NotificationCenter.default) { [weak self] obvContactIdentity in
-                self?.processNewTrustedContactIdentity(obvContactIdentity: obvContactIdentity)
+                Task { [weak self] in await self?.processNewTrustedContactIdentity(obvContactIdentity: obvContactIdentity) }
             },
             ObvEngineNotificationNew.observeNewObliviousChannelWithContactDevice(within: NotificationCenter.default) { [weak self] obvContactIdentifier in
-                self?.processNewObliviousChannelWithContactDevice(obvContactIdentifier: obvContactIdentifier)
+                Task { [weak self] in await self?.processNewObliviousChannelWithContactDevice(obvContactIdentifier: obvContactIdentifier) }
             },
             ObvEngineNotificationNew.observeTrustedPhotoOfContactIdentityHasBeenUpdated(within: NotificationCenter.default) { [weak self] obvContactIdentity in
                 self?.processTrustedPhotoOfContactIdentityHasBeenUpdated(obvContactIdentity: obvContactIdentity)
@@ -117,14 +116,17 @@ final class ContactIdentityCoordinator: ObvErrorMaker {
             ObvEngineNotificationNew.observeUpdatedContactIdentity(within: NotificationCenter.default) { [weak self] obvContactIdentity, trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated in
                 self?.processUpdatedContactIdentity(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated: publishedIdentityDetailsWereUpdated)
             },
-            ObvEngineNotificationNew.observeContactObvCapabilitiesWereUpdated(within: NotificationCenter.default) { [weak self] obvContactIdentity in
-                self?.processContactObvCapabilitiesWereUpdated(obvContactIdentity: obvContactIdentity)
-            },
             ObvEngineNotificationNew.observeContactWasDeleted(within: NotificationCenter.default) { [weak self] ownedCryptoId, contactCryptoId in
                 self?.processContactWasDeleted(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
             },
             ObvEngineNotificationNew.observeNewContactDevice(within: NotificationCenter.default) { [weak self] obvContactIdentifier in
-                self?.processNewContactDevice(obvContactIdentifier: obvContactIdentifier)
+                Task { [weak self] in await self?.processNewContactDevice(obvContactIdentifier: obvContactIdentifier) }
+            },
+            ObvEngineNotificationNew.observeContactObvCapabilitiesWereUpdated(within: NotificationCenter.default) { [weak self] obvContactIdentity in
+                Task { [weak self] in await self?.processContactObvCapabilitiesWereUpdated(obvContactIdentity: obvContactIdentity) }
+            },
+            ObvMessengerCoreDataNotification.observePersistedContactWasInserted { [weak self] contactPermanentID, _, _ in
+                Task { [weak self] in await self?.processPersistedContactWasInsertedNotification(contactPermanentID: contactPermanentID) }
             },
         ])
 
@@ -151,7 +153,8 @@ extension ContactIdentityCoordinator {
     private func processObvContactRequest(requestUUID: UUID, contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId) {
         let obvContact: ObvContactIdentity
         do {
-            obvContact = try obvEngine.getContactIdentity(with: contactCryptoId, ofOwnedIdentityWith: ownedCryptoId)
+            guard let _obvContact = try obvEngine.getContactIdentity(with: contactCryptoId, ofOwnedIdentityWith: ownedCryptoId) else { return }
+            obvContact = _obvContact
         } catch {
             os_log("Could not get contact identity of owned identity. This is ok if this contact has just been deleted.", log: Self.log, type: .error)
             return
@@ -221,15 +224,7 @@ extension ContactIdentityCoordinator {
             syncAtomRequestDelegate: syncAtomRequestDelegate)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
-    }
-
-
-    private func processResyncContactIdentityDevicesWithEngineNotification(obvContactIdentifier: ObvContactIdentifier) {
-        let op1 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentifier, obvEngine: obvEngine)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
-    }
-    
+    }    
     
     private enum ContactDeletionConfirmation {
         case userConfirmedDowngradeToNonOneToOne
@@ -424,20 +419,17 @@ extension ContactIdentityCoordinator {
         }
         self.coordinatorsQueue.addOperation(composedOp)
     }
-        
-    
-    private func processContactObvCapabilitiesWereUpdated(obvContactIdentity: ObvContactIdentity) {
-        let op1 = SyncPersistedObvContactIdentitiesWithEngineOperation(obvEngine: obvEngine)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
-    }
-    
 
-    private func processNewTrustedContactIdentity(obvContactIdentity: ObvContactIdentity) {
-        let op1 = ProcessNewTrustedContactIdentityOperation(obvContactIdentity: obvContactIdentity)
-        let op2 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentity.contactIdentifier, obvEngine: obvEngine)
-        let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
-        self.coordinatorsQueue.addOperation(composedOp)
+
+    private func processNewTrustedContactIdentity(obvContactIdentity: ObvContactIdentity) async {
+        do {
+            let op1 = ProcessNewTrustedContactIdentityOperation(obvContactIdentity: obvContactIdentity)
+            await queueAndAwaitCompositionOfOneContextualOperation(op1: op1)
+        }
+        do {
+            let ops = await getOperationsRequiredToSyncContactDevices(scope: .contactDevicesOfContact(contactIdentifier: obvContactIdentity.contactIdentifier), isRestoringSyncSnapshotOrBackup: false)
+            await coordinatorsQueue.addAndAwaitOperations(ops)
+        }
     }
 
     
@@ -448,24 +440,55 @@ extension ContactIdentityCoordinator {
     }
     
     
-    private func processNewObliviousChannelWithContactDevice(obvContactIdentifier: ObvContactIdentifier) {
-        let op1 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentifier, obvEngine: obvEngine)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
+    private func processNewObliviousChannelWithContactDevice(obvContactIdentifier: ObvContactIdentifier) async {
+        let ops = await getOperationsRequiredToSyncContactDevices(scope: .contactDevicesOfContact(contactIdentifier: obvContactIdentifier), isRestoringSyncSnapshotOrBackup: false)
+        await coordinatorsQueue.addAndAwaitOperations(ops)
     }
  
     
-    private func processNewContactDevice(obvContactIdentifier: ObvContactIdentifier) {
-        let op1 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentifier, obvEngine: obvEngine)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
+    private func processNewContactDevice(obvContactIdentifier: ObvContactIdentifier) async {
+        do {
+            // Since this gets called when a contact is added, we also sync the contact
+            let ops = await getOperationsRequiredToSyncContacts(scope: .specificContact(contactIdentifier: obvContactIdentifier), isRestoringSyncSnapshotOrBackup: false)
+            await coordinatorsQueue.addAndAwaitOperations(ops)
+        }
+        do {
+            let ops = await getOperationsRequiredToSyncContactDevices(scope: .contactDevicesOfContact(contactIdentifier: obvContactIdentifier), isRestoringSyncSnapshotOrBackup: false)
+            await coordinatorsQueue.addAndAwaitOperations(ops)
+        }
     }
 
     
-    private func processDeletedObliviousChannelWithContactDevice(obvContactIdentifier: ObvContactIdentifier) {
-        let op1 = ResyncContactIdentityDevicesWithEngineOperation(contactIdentifier: obvContactIdentifier, obvEngine: obvEngine)
+    private func processContactObvCapabilitiesWereUpdated(obvContactIdentity: ObvContactIdentity) async {
+        let op1 = SyncPersistedObvContactIdentityWithEngineOperation(syncType: .syncWithEngine(contactIdentifier: obvContactIdentity.contactIdentifier, isRestoringSyncSnapshotOrBackup: false), obvEngine: obvEngine)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        self.coordinatorsQueue.addOperation(composedOp)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+    }
+
+    
+    private func processPersistedContactWasInsertedNotification(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>) async {
+        /* When receiving a PersistedContactWasInsertedNotification, we re-sync the groups from the engine. This is required when the following situation occurs :
+         * Bob creates a group with Alice and Charlie, who do not know each other. Alice receives a new list of group members including Charlie *before* she includes
+         * Charlie in her contacts. In that case, Charlie stays in the list of pending members. Here, we re-sync the groups members, making sure Charlie appears in
+         * the list of group members.
+         */
+        let operationsToQueueOnQueueForComposedOperation = await getOperationsRequiredToSyncGroupsV1(isRestoringSyncSnapshotOrBackup: false)
+        await coordinatorsQueue.addAndAwaitOperations(operationsToQueueOnQueueForComposedOperation)
+    }
+    
+    
+
+    private func processDeletedObliviousChannelWithContactDevice(obvContactIdentifier: ObvContactIdentifier) async {
+        do {
+            // Since this gets called when a contact is deleted, we also sync the contact
+            let ops = await getOperationsRequiredToSyncContacts(scope: .specificContact(contactIdentifier: obvContactIdentifier), isRestoringSyncSnapshotOrBackup: false)
+            await coordinatorsQueue.addAndAwaitOperations(ops)
+        }
+        do {
+            // Now that the contact is synced, we can sync the contact devices
+            let ops = await getOperationsRequiredToSyncContactDevices(scope: .contactDevicesOfContact(contactIdentifier: obvContactIdentifier), isRestoringSyncSnapshotOrBackup: false)
+            await coordinatorsQueue.addAndAwaitOperations(ops)
+        }
     }
 
     
@@ -517,30 +540,4 @@ extension ContactIdentityCoordinator {
         self.coordinatorsQueue.addOperation(composedOp)
     }
     
-}
-
-
-// MARK: - Helpers
-
-extension ContactIdentityCoordinator {
-
-    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-
-    
-    private func createCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>) -> CompositionOfTwoContextualOperations<T1, T2> {
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-
 }

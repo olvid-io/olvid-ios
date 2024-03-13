@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -41,4 +41,13 @@ extension Text {
         self.init(key, tableName: "Localizable", bundle: Bundle(for: LocalizableClassForObvUIBundle.self), comment: comment ?? "Within ObvUI")
     }
 
+}
+
+
+extension String {
+    
+    init(localized keyAndValue: String.LocalizationValue) {
+        self.init(localized: keyAndValue, table: "Localizable", bundle: Bundle(for: LocalizableClassForObvUIBundle.self))
+    }
+    
 }

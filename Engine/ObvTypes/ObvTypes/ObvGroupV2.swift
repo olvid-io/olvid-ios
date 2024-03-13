@@ -68,6 +68,10 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         groupIdentifier.appGroupIdentifier
     }
     
+    public var obvGroupIdentifier: ObvGroupV2Identifier {
+        ObvGroupV2Identifier(ownedCryptoId: ownIdentity, identifier: groupIdentifier)
+    }
+    
     public var keycloakManaged: Bool {
         switch groupIdentifier.category {
         case .server:

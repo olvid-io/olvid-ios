@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -235,6 +235,11 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
 
         applySnapshotToDatasource(newSnapshot, animated: !firstTimeFetch) // do not animate the first time we fetch data to have results already be present when switching to the discussion tab
         firstTimeFetch = false
+        
+        if #available(iOS 17.0, *) {
+            setNeedsUpdateContentUnavailableConfiguration()
+        }
+        
     }
     
     /// Converts the given managed object id to a list item id
@@ -271,6 +276,22 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         return true
     }
     
+    
+    // MARK: - Managing the empty state
+    
+    @available(iOS 17.0, *)
+    override func updateContentUnavailableConfiguration(using state: UIContentUnavailableConfigurationState) {
+        
+        var config: UIContentUnavailableConfiguration?
+        if let fetchedObjects = frc.fetchedObjects, fetchedObjects.isEmpty {
+            config = .empty()
+            config?.text = NSLocalizedString("CONTENT_UNAVAILABLE_RECENT_DISCUSSIONS_TEXT", comment: "")
+            config?.secondaryText = NSLocalizedString("CONTENT_UNAVAILABLE_RECENT_DISCUSSIONS_SECONDARY_TEXT", comment: "")
+            config?.image = UIImage(systemIcon: .bubbleLeftAndBubbleRight)
+        }
+        self.contentUnavailableConfiguration = config
+
+    }
     
     // MARK: - Protected functions
     

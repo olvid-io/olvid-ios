@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -49,44 +49,42 @@ final class ResumeOrPauseOwnedAttachmentDownloadOperation: ContextualOperationWi
 
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        do {
-            
-            guard let attachment = try? SentFyleMessageJoinWithStatus.getSentFyleMessageJoinWithStatus(objectID: sentJoinObjectID.objectID, within: obvContext.context) else { return }
-            guard let messageId = attachment.messageIdentifierFromEngine else {
-                assertionFailure("The messageIdentifierFromEngine for messages sent from another owned device should always be non-nil. It is always nil for messages sent from the current device (for which no resume/pause download makes sense")
-                return
+        guard let attachment = try? SentFyleMessageJoinWithStatus.getSentFyleMessageJoinWithStatus(objectID: sentJoinObjectID.objectID, within: obvContext.context) else { return }
+        guard let messageId = attachment.messageIdentifierFromEngine else {
+            assertionFailure("The messageIdentifierFromEngine for messages sent from another owned device should always be non-nil. It is always nil for messages sent from the current device (for which no resume/pause download makes sense")
+            return
+        }
+        
+        switch attachment.status {
+        case .downloading:
+            guard resumeOrPause == .pause else { return }
+        case .downloadable:
+            guard resumeOrPause == .resume else { return }
+        case .complete, .cancelledByServer:
+            return
+        case .uploadable:
+            assertionFailure("This should never happen for an attachment sent from another owned device")
+            return
+        case .uploading:
+            assertionFailure("This should never happen for an attachment sent from another owned device")
+            return
+        }
+        
+        guard let ownedCryptoId = attachment.message?.discussion?.ownedIdentity?.cryptoId else { return }
+        
+        let attachmentIndex = attachment.index        
+        Task {
+            do {
+                switch resumeOrPause {
+                case .resume:
+                    try await obvEngine.resumeDownloadOfAttachment(attachmentIndex, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId)
+                case .pause:
+                    try await obvEngine.pauseDownloadOfAttachment(attachmentIndex, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId)
+                }
+            } catch {
+                assertionFailure(error.localizedDescription)
             }
-            
-            switch attachment.status {
-            case .downloading:
-                guard resumeOrPause == .pause else { return }
-            case .downloadable:
-                guard resumeOrPause == .resume else { return }
-            case .complete, .cancelledByServer:
-                return
-            case .uploadable:
-                assertionFailure("This should never happen for an attachment sent from another owned device")
-                return
-            case .uploading:
-                assertionFailure("This should never happen for an attachment sent from another owned device")
-                return
-            }
-            
-            guard let ownedCryptoId = attachment.message?.discussion?.ownedIdentity?.cryptoId else { return }
-            
-            switch resumeOrPause {
-            case .resume:
-                try obvEngine.resumeDownloadOfAttachment(attachment.index, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId, forceResume: false)
-            case .pause:
-                try obvEngine.pauseDownloadOfAttachment(attachment.index, ofMessageWithIdentifier: messageId, ownedCryptoId: ownedCryptoId)
-            }
-            
-            
-        } catch(let error) {
-            assertionFailure()
-            return cancel(withReason: .coreDataError(error: error))
         }
         
     }
 }
-

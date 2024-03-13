@@ -26,9 +26,9 @@ import UI_SystemIcon
 final class SentMessageStatusAndDateView: ViewForOlvidStack {
     
     func setDate(to date: Date) {
-        let dateString = dateFormatter.string(from: date)
-        guard label.text != dateString else { return }
-        label.text = dateString
+        let dateString = date.formattedForOlvidMessage()
+        guard labelForDate.text != dateString else { return }
+        labelForDate.text = dateString
     }
     
     func setStatus(to status: PersistedMessageSent.MessageStatus, showEditedStatus: Bool) {
@@ -69,18 +69,9 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
         return UIImage(systemIcon: SentMessageStatusAndDateView.symbolIconForStatus(status), withConfiguration: config)
     }
     
-    private let dateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.doesRelativeDateFormatting = true
-        df.dateStyle = .none
-        df.timeStyle = .short
-        df.locale = Locale.current
-        return df
-    }()
 
-    
     private let stack = OlvidHorizontalStackView(gap: 6.0, side: .bothSides, debugName: "Sent message status and date view stack view", showInStack: true)
-    private let label = UILabelForOlvidStack()
+    private let labelForDate = UILabelForOlvidStack()
     private let editedStatusImageView = UIImageViewForOlvidStack()
 
     
@@ -104,6 +95,12 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
         addSubview(stack)
         stack.translatesAutoresizingMaskIntoConstraints = false
         
+        stack.addArrangedSubview(labelForDate)
+        labelForDate.textColor = .secondaryLabel
+        labelForDate.font = UIFont.preferredFont(forTextStyle: .caption1)
+        labelForDate.numberOfLines = 0
+        labelForDate.adjustsFontForContentSizeCategory = true
+
         stack.addArrangedSubview(editedStatusImageView)
         let config = UIImage.SymbolConfiguration(font: UIFont.preferredFont(forTextStyle: SentMessageStatusAndDateView.textStyleForStatusImage))
         editedStatusImageView.image = UIImage(systemIcon: .pencil(.circleFill), withConfiguration: config)
@@ -120,12 +117,6 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
             statusImages[status] = imageView
             imageView.showInStack = false
         }
-
-        stack.addArrangedSubview(label)
-        label.textColor = .secondaryLabel
-        label.font = UIFont.preferredFont(forTextStyle: .caption1)
-        label.numberOfLines = 0
-        label.adjustsFontForContentSizeCategory = true
         
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: self.topAnchor),
@@ -134,7 +125,7 @@ final class SentMessageStatusAndDateView: ViewForOlvidStack {
             stack.leadingAnchor.constraint(equalTo: self.leadingAnchor),
         ])
 
-        let heightConstraint = self.heightAnchor.constraint(equalTo: label.heightAnchor)
+        let heightConstraint = self.heightAnchor.constraint(equalTo: labelForDate.heightAnchor)
         heightConstraint.priority = .defaultLow
         NSLayoutConstraint.activate([heightConstraint])
 

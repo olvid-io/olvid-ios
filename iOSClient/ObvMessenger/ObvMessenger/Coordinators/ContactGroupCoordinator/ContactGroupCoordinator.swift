@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,20 +29,22 @@ import OlvidUtils
 
 
 
-final class ContactGroupCoordinator: ObvErrorMaker {
+final class ContactGroupCoordinator: OlvidCoordinator, ObvErrorMaker {
     
-    private let obvEngine: ObvEngine
-    private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ContactGroupCoordinator.self))
+    let obvEngine: ObvEngine
+    static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: ContactGroupCoordinator.self))
     private var observationTokens = [NSObjectProtocol]()
     static let errorDomain = "ContactGroupCoordinator"
-    private let coordinatorsQueue: OperationQueue
-    private let queueForComposedOperations: OperationQueue
+    let coordinatorsQueue: OperationQueue
+    let queueForComposedOperations: OperationQueue
+    let queueForSyncHintsComputationOperation: OperationQueue
     weak var syncAtomRequestDelegate: ObvSyncAtomRequestDelegate?
 
-    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
+    init(obvEngine: ObvEngine, coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue, queueForSyncHintsComputationOperation: OperationQueue) {
         self.obvEngine = obvEngine
         self.coordinatorsQueue = coordinatorsQueue
         self.queueForComposedOperations = queueForComposedOperations
+        self.queueForSyncHintsComputationOperation = queueForSyncHintsComputationOperation
         listenToNotifications()
     }
         
@@ -91,6 +93,9 @@ extension ContactGroupCoordinator {
             ObvMessengerInternalNotification.observeUserWantsToUpdatePersonalNoteOnGroupV2 { [weak self] ownedCryptoId, groupIdentifier, newText in
                 self?.processUserWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, newText: newText)
             },
+            ObvMessengerInternalNotification.observeUserHasSeenPublishedDetailsOfContactGroupJoined { [weak self] obvGroupIdentifier in
+                self?.processUserHasSeenPublishedDetailsOfContactGroupJoined(obvGroupIdentifier: obvGroupIdentifier)
+            },
         ])
         
         // ObvEngine Notifications
@@ -105,9 +110,6 @@ extension ContactGroupCoordinator {
             ObvEngineNotificationNew.observeContactGroupJoinedHasUpdatedTrustedDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
                 self?.processContactGroupJoinedHasUpdatedTrustedDetailsNotification(obvContactGroup: obvContactGroup)
             },
-            ObvEngineNotificationNew.observeContactGroupHasUpdatedPublishedDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
-                self?.processContactGroupHasUpdatedPublishedDetailsNotification(obvContactGroup: obvContactGroup)
-            },
             ObvEngineNotificationNew.observeContactGroupDeleted(within: NotificationCenter.default) { [weak self] obvOwnedIdentity, groupOwner, groupUid in
                 self?.processContactGroupDeletedNotification(obvOwnedIdentity: obvOwnedIdentity, groupOwner: groupOwner, groupUid: groupUid)
             },
@@ -118,13 +120,19 @@ extension ContactGroupCoordinator {
                 self?.processNewContactGroupNotification(obvContactGroup: obvContactGroup)
             },
             ObvEngineNotificationNew.observeContactGroupHasUpdatedPendingMembersAndGroupMembers(within: NotificationCenter.default) { [weak self] obvContactGroup in
-                self?.processContactGroupHasUpdatedPendingMembersAndGroupMembersNotification(obvContactGroup: obvContactGroup)
+                self?.updatePersistedContactGroupWithObvContactGroupFromEngine(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observeContactGroupHasUpdatedPublishedDetails(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.updatePersistedContactGroupWithObvContactGroupFromEngine(obvContactGroup: obvContactGroup)
             },
             ObvEngineNotificationNew.observeTrustedPhotoOfContactGroupJoinedHasBeenUpdated(within: NotificationCenter.default) { [weak self] obvContactGroup in
-                self?.processTrustedPhotoOfContactGroupJoinedHasBeenUpdated(obvContactGroup: obvContactGroup)
+                self?.updatePersistedContactGroupWithObvContactGroupFromEngine(obvContactGroup: obvContactGroup)
             },
             ObvEngineNotificationNew.observePublishedPhotoOfContactGroupOwnedHasBeenUpdated(within: NotificationCenter.default) { [weak self] obvContactGroup in
-                self?.processPublishedPhotoOfContactGroupOwnedHasBeenUpdated(obvContactGroup: obvContactGroup)
+                self?.updatePersistedContactGroupWithObvContactGroupFromEngine(obvContactGroup: obvContactGroup)
+            },
+            ObvEngineNotificationNew.observePublishedPhotoOfContactGroupJoinedHasBeenUpdated(within: NotificationCenter.default) { [weak self] obvContactGroup in
+                self?.updatePersistedContactGroupWithObvContactGroupFromEngine(obvContactGroup: obvContactGroup)
             },
             ObvEngineNotificationNew.observeGroupV2WasCreatedOrUpdated(within: NotificationCenter.default) { [weak self] obvGroupV2, initiator in
                 self?.processGroupV2WasCreatedOrUpdated(obvGroupV2: obvGroupV2, initiator: initiator)
@@ -201,34 +209,29 @@ extension ContactGroupCoordinator {
 
     
     private func processContactGroupJoinedHasUpdatedTrustedDetailsNotification(obvContactGroup: ObvContactGroup) {
-        guard obvContactGroup.groupType == .joined else { return }
-        let op1 = ProcessContactGroupJoinedHasUpdatedTrustedDetailsOperation(obvContactGroup: obvContactGroup)
+        guard obvContactGroup.groupType == .joined else { assertionFailure(); return }
+        let op1 = UpdatePersistedContactGroupWithObvContactGroupFromEngineOperation(obvContactGroup: obvContactGroup)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         coordinatorsQueue.addOperation(composedOp)
     }
 
     
-    private func processContactGroupHasUpdatedPublishedDetailsNotification(obvContactGroup: ObvContactGroup) {
-        let op1 = ProcessContactGroupHasUpdatedPublishedDetailsOperation(obvContactGroup: obvContactGroup)
+    private func processNewPendingGroupMemberDeclinedStatusNotification(obvContactGroup: ObvContactGroup) {
+        guard obvContactGroup.groupType == .owned else { assertionFailure(); return }
+        let op1 = UpdatePersistedContactGroupWithObvContactGroupFromEngineOperation(obvContactGroup: obvContactGroup)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         coordinatorsQueue.addOperation(composedOp)
     }
 
     
-    private func processTrustedPhotoOfContactGroupJoinedHasBeenUpdated(obvContactGroup: ObvContactGroup) {
-        let op1 = ProcessTrustedPhotoOfContactGroupJoinedHasBeenUpdatedOperation(obvContactGroup: obvContactGroup)
+    /// This method is called to process many distinct notifications concerning contact groups
+    private func updatePersistedContactGroupWithObvContactGroupFromEngine(obvContactGroup: ObvContactGroup) {
+        let op1 = UpdatePersistedContactGroupWithObvContactGroupFromEngineOperation(obvContactGroup: obvContactGroup)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         coordinatorsQueue.addOperation(composedOp)
     }
 
-    
-    private func processPublishedPhotoOfContactGroupOwnedHasBeenUpdated(obvContactGroup: ObvContactGroup) {
-        let op1 = ProcessPublishedPhotoOfContactGroupOwnedHasBeenUpdatedOperation(obvContactGroup: obvContactGroup)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        coordinatorsQueue.addOperation(composedOp)
-    }
 
-    
     private func processContactGroupDeletedNotification(obvOwnedIdentity: ObvOwnedIdentity, groupOwner: ObvCryptoId, groupUid: UID) {
         let op1 = ProcessContactGroupDeletedOperation(obvOwnedIdentity: obvOwnedIdentity, groupOwner: groupOwner, groupUid: groupUid)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
@@ -236,27 +239,12 @@ extension ContactGroupCoordinator {
     }
 
     
-    private func processNewPendingGroupMemberDeclinedStatusNotification(obvContactGroup: ObvContactGroup) {
-        guard obvContactGroup.groupType == .owned else { return }
-        let op1 = ProcessNewPendingGroupMemberDeclinedStatusOperation(obvContactGroup: obvContactGroup)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        coordinatorsQueue.addOperation(composedOp)
-    }
-    
-    
     private func processNewContactGroupNotification(obvContactGroup: ObvContactGroup) {
         let op1 = ProcessNewContactGroupOperation(obvContactGroup: obvContactGroup)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         coordinatorsQueue.addOperation(composedOp)
     }
     
-    
-    private func processContactGroupHasUpdatedPendingMembersAndGroupMembersNotification(obvContactGroup: ObvContactGroup) {
-        let op1 = ProcessContactGroupHasUpdatedPendingMembersAndGroupMembersOperation(obvContactGroup: obvContactGroup)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        coordinatorsQueue.addOperation(composedOp)
-    }
-
     
     private func processGroupV2WasCreatedOrUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator) {
         let op1 = CreateOrUpdatePersistedGroupV2Operation(obvGroupV2: obvGroupV2, initiator: initiator, obvEngine: obvEngine)
@@ -326,6 +314,13 @@ extension ContactGroupCoordinator {
     }
 
     
+    private func processUserHasSeenPublishedDetailsOfContactGroupJoined(obvGroupIdentifier: ObvGroupV1Identifier) {
+        let op1 = ProcessUserHasSeenPublishedDetailsOfContactGroupJoinedOperation(obvGroupIdentifier: obvGroupIdentifier)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        coordinatorsQueue.addOperation(composedOp)
+    }
+
+    
     private func processGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: ObvCryptoId, groupIdentifier: Data) {
         let obvEngine = self.obvEngine
         Task.detached {
@@ -335,32 +330,6 @@ extension ContactGroupCoordinator {
                 assertionFailure(error.localizedDescription)
             }
         }
-    }
-    
-}
-
-
-// MARK: - Helpers
-
-extension ContactGroupCoordinator {
-    
-    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) -> CompositionOfOneContextualOperation<T> {
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
-    }
-
-    
-    private func createCompositionOfTwoContextualOperation<T1: LocalizedErrorWithLogType, T2: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T1>, op2: ContextualOperationWithSpecificReasonForCancel<T2>) -> CompositionOfTwoContextualOperations<T1, T2> {
-        let composedOp = CompositionOfTwoContextualOperations(op1: op1, op2: op2, contextCreator: ObvStack.shared, queueForComposedOperations: queueForComposedOperations, log: Self.log, flowId: FlowIdentifier())
-        composedOp.completionBlock = { [weak composedOp] in
-            assert(composedOp != nil)
-            composedOp?.logReasonIfCancelled(log: Self.log)
-        }
-        return composedOp
     }
     
 }

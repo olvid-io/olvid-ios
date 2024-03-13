@@ -604,6 +604,22 @@
         }
       }
     },
+    "ADD_PARTICIPANTS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add participants"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter des participants"
+          }
+        }
+      }
+    },
     "ADD_SELECTED_CONTACTS_TO_CALL" : {
       "localizations" : {
         "en" : {
@@ -899,15 +915,39 @@
       "comment" : "Alert message",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To make this call, you need to allow Olvid to access the microphone. Open Settings and turn on the Microphone"
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "To initiate an outbound call, kindly grant Olvid permission to access the microphone. You can configure this in the System Settings."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "To initiate an outbound call, kindly grant Olvid permission to access the microphone. You can configure this in the Settings."
+                }
+              }
+            }
           }
         },
         "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pour passer cet appel, vous devez autoriser Olvid à accéder au micro. Allez dans les Réglages et activez le Micro."
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pour initier un appel audio, vous devez autoriser Olvid à accéder au micro. Vous pouvez effectuer cette configuration dans réglages système."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pour initier un appel audio, vous devez autoriser Olvid à accéder au micro. Vous pouvez effectuer cette configuration dans l'application Réglages."
+                }
+              }
+            }
           }
         }
       }
@@ -1301,6 +1341,40 @@
         }
       }
     },
+    "ATTACH_PREVIEW_LABEL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attach a preview of links you send"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Joindre un aperçu des liens envoyés"
+          }
+        }
+      }
+    },
+    "ATTACH_PREVIEW_SECTION_FOOTER" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once activated, Olvid will fetch a preview of links you send and attach it to the message."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une fois cette option activée, Olvid téléchargera un aperçu des liens que vous envoyez et le joindra au message."
+          }
+        }
+      }
+    },
     "Attachments smaller than %@ will be automatically downloaded. Larger attachments will require manual download." : {
       "localizations" : {
         "en" : {
@@ -1329,22 +1403,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pièces jointes"
-          }
-        }
-      }
-    },
-    "AUDIO" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio"
           }
         }
       }
@@ -1931,13 +1989,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Allow notifications"
+            "value" : "Manage notifications"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Activer les notifications"
+            "value" : "Gérer les notifications"
           }
         }
       }
@@ -1947,13 +2005,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Grant access to the microphone"
+            "value" : "Configure Microphone Access"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Autoriser le micro"
+            "value" : "Configurer l'accès au micro"
           }
         }
       }
@@ -2681,7 +2739,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Photo et nom personalisés"
+            "value" : "Photo et nom personnalisés"
           }
         }
       }
@@ -3599,6 +3657,150 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ordre de tri des contacts"
+          }
+        }
+      }
+    },
+    "CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "To add a contact, click the \"plus\" button below."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "To add a contact, tap the \"plus\" button below."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pour ajouter un contact, cliquez le bouton « plus » ci-dessous."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pour ajouter un contact, touchez le bouton « plus » ci-dessous."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "CONTENT_UNAVAILABLE_CONTACTS_TEXT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No contacts for now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun contact pour le moment"
+          }
+        }
+      }
+    },
+    "CONTENT_UNAVAILABLE_INVITATIONS_DESCRIPTION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Received and sent invitations will appear here."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les invitations envoyées et reçues apparaîtront ici."
+          }
+        }
+      }
+    },
+    "CONTENT_UNAVAILABLE_INVITATIONS_TEXT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No invitations for now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas d'invitation pour le moment"
+          }
+        }
+      }
+    },
+    "CONTENT_UNAVAILABLE_RECENT_DISCUSSIONS_SECONDARY_TEXT" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "To start a discussion, add a contact by clicking the \"plus\" button below."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "To start a discussion, add a contact by tapping the \"plus\" button below."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pour créer une discussion, ajoutez un contact en cliquant le bouton « plus » ci-dessous."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Pour créer une discussion, ajoutez un contact en touchant le bouton « plus » ci-dessous."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "CONTENT_UNAVAILABLE_RECENT_DISCUSSIONS_TEXT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No discussions for now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas de discussion pour le moment"
           }
         }
       }
@@ -5226,6 +5428,22 @@
         }
       }
     },
+    "DISCUSSION_LAYOUT_TYPE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussion layout"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Layout de discussion"
+          }
+        }
+      }
+    },
     "DISCUSSION_QUICK_EMOJI" : {
       "localizations" : {
         "en" : {
@@ -5816,7 +6034,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Éditer le surnom et la photo personalisée"
+            "value" : "Éditer le surnom et la photo personnalisée"
           }
         }
       }
@@ -6012,22 +6230,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activer les logs intégrés"
-          }
-        }
-      }
-    },
-    "End" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fin"
           }
         }
       }
@@ -6661,6 +6863,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "L'essai gratuit n'a pas pu être activé. N'hésitez pas à essayer à nouveau plus tard."
+          }
+        }
+      }
+    },
+    "FETCH_MISSING_PREVIEW_LABEL" : {
+      "comment" : "Table view section footer",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generate missing link previews"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les achats n'ont pas pu être restaurés : %@."
+          }
+        }
+      }
+    },
+    "FETCH_MISSING_PREVIEW_SECTION_FOOTER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once activated, Olvid will automatically fetch previews of links you receive (if a preview is not attached to the message)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une fois cette option activée, Olvid téléchargera automatiquement un aperçu des liens que vous recevez (si un aperçu n\\'est pas joint au message)."
           }
         }
       }
@@ -7528,6 +7764,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Masquer ce profil"
+          }
+        }
+      }
+    },
+    "Home" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
           }
         }
       }
@@ -9489,6 +9741,40 @@
         }
       }
     },
+    "Links" : {
+      "comment" : "Links word, capitalized",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Links"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liens"
+          }
+        }
+      }
+    },
+    "LIST_LAYOUT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "List"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liste"
+          }
+        }
+      }
+    },
     "Loading" : {
       "comment" : "Loading word, capitalized",
       "localizations" : {
@@ -9928,7 +10214,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hello Olvid!\n\nI could not transfer my profile. Could you please look into this issue? Here is the error:\n\n$@"
+            "value" : "Hello Olvid!\n\nI could not transfer my profile. Could you please look into this issue? Here is the error:\n\n%@"
           }
         },
         "fr" : {
@@ -10099,6 +10385,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Débit moyen maximal"
+          }
+        }
+      }
+    },
+    "MAX_OTHER_PARTICIPANT_COUNT_FOR_VIDEO_CALL_EXCEEDED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sorry, the maximum number of participants for this video call has been reached. It is currently limited to two additional participants."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désolé, le nombre maximum de participants pour cet appel vidéo a été atteint. Il est actuellement limité à deux autres participants."
           }
         }
       }
@@ -11296,38 +11598,6 @@
         }
       }
     },
-    "NO_INVITATION_FOR_NOW_BODY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Received or sent invitations will appear here."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les invitations envoyées et reçues apparaîtront ici."
-          }
-        }
-      }
-    },
-    "NO_INVITATION_FOR_NOW_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No invitations for now"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pas d'invitation pour le moment"
-          }
-        }
-      }
-    },
     "NO_MESSAGE" : {
       "localizations" : {
         "en" : {
@@ -12358,6 +12628,38 @@
         }
       }
     },
+    "ONGOING_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ongoing call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel en cours"
+          }
+        }
+      }
+    },
+    "ONGOING_CALL_WITH_DURATION_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ongoing call: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel en cours : %@"
+          }
+        }
+      }
+    },
     "ONLY_GROUP_OWNER_CAN_MODIFY" : {
       "localizations" : {
         "en" : {
@@ -12391,7 +12693,7 @@
       }
     },
     "Open" : {
-      "comment" : "Aloert button title",
+      "comment" : "Alert button title",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12969,6 +13271,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "**1.** Démarrez Olvid sur votre nouvel appareil.\n\n**2.** Si vous n'avez pas de profil sur cet appareil, suivez les instructions pour importer un profil.\n\n**3.** Sinon, touchez votre photo de profil en haut à gauche et choisissez « Ajouter un profil »."
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ERROR_SERVER_REQUEST_FAILED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We were unable to transfer your profile due to a network error. Please ensure that both of your devices are connected to the internet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous n'avons pas pu transférer votre profil en raison d'une erreur réseau. Veuillez vérifier que vos deux appareils sont connectés à Internet."
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ERROR_TRYING_TO_TRANSFER_IDENTITY_THAT_ALREADY_EXISTS_ON_TARGET" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The profile you are attempting to transfer already exists on this device and cannot be transferred again. After closing this screen, click on your profile picture to view the list of profiles available on this device."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The profile you are attempting to transfer already exists on this device and cannot be transferred again. After closing this screen, tap on your profile picture to view the list of profiles available on this device."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Le profil que vous tentez de transférer existe déjà sur cet appareil et ne peut pas être transféré une seconde fois. Après avoir fermé cette fenêtre, cliquez sur votre photo de profil pour afficher la liste des profils disponibles sur cet appareil."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Le profil que vous tentez de transférer existe déjà sur cet appareil et ne peut pas être transféré une seconde fois. Après avoir fermé cette fenêtre, appuyez sur votre photo de profil pour afficher la liste des profils disponibles sur cet appareil."
+                }
+              }
+            }
           }
         }
       }
@@ -14017,6 +14375,22 @@
         }
       }
     },
+    "PRODUCTION_LAYOUT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In production"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En production"
+          }
+        }
+      }
+    },
     "PROFILE_ADDED_SUCCESSFULLY" : {
       "localizations" : {
         "en" : {
@@ -15061,6 +15435,22 @@
         }
       }
     },
+    "RESULT_NUMBER_%d_OF_%d" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$d of %2$d"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$d de %2$d"
+          }
+        }
+      }
+    },
     "RETAIN_WIPED_OUTBOUND_MESSAGES_LABEL" : {
       "localizations" : {
         "en" : {
@@ -15121,23 +15511,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Politique de rétention des messages"
-          }
-        }
-      }
-    },
-    "Rich link preview" : {
-      "comment" : "Cell title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rich link preview"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prévisualisation des liens"
           }
         }
       }
@@ -15377,6 +15750,22 @@
         }
       }
     },
+    "Search in this discussion" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search in this discussion"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faire une recherche dans cette discussion"
+          }
+        }
+      }
+    },
     "SEARCH_FOR_NEW_DEVICES" : {
       "localizations" : {
         "en" : {
@@ -15405,6 +15794,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Recherchez un contact de votre entreprise 🔎"
+          }
+        }
+      }
+    },
+    "SEARCH_RETURNED_NO_RESULT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No message found 🥲"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun message trouvé 🥲"
           }
         }
       }
@@ -15708,6 +16113,22 @@
         }
       }
     },
+    "SEND_RESOLUTION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send definition"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Définition en envoi"
+          }
+        }
+      }
+    },
     "Sending & receiving messages and attachments" : {
       "localizations" : {
         "en" : {
@@ -15737,22 +16158,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Envoyé"
-          }
-        }
-      }
-    },
-    "Sent messages only" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sent messages only"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Messages envoyés uniquement"
           }
         }
       }
@@ -16170,22 +16575,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Afficher les détails de ce profil"
-          }
-        }
-      }
-    },
-    "SHOW_RICH_LINK_PREVIEW_LABEL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show rich link previews"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prévisualiser"
           }
         }
       }
@@ -17137,6 +17526,16 @@
         }
       }
     },
+    "Some description." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une description."
+          }
+        }
+      }
+    },
     "SOME_GROUP_MEMBERS_MUST_UPGRADE" : {
       "localizations" : {
         "en" : {
@@ -17235,22 +17634,6 @@
         }
       }
     },
-    "SPEAKER" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Speaker"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Haut-parleur"
-          }
-        }
-      }
-    },
     "Start free trial now" : {
       "localizations" : {
         "en" : {
@@ -17263,22 +17646,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Commencer l'essai maintenant"
-          }
-        }
-      }
-    },
-    "START_HERE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add your first contact!"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajoutez votre premier contact !"
           }
         }
       }
@@ -17370,13 +17737,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Olvid works best if you are notified of new messages & invitations! On the next screen, you will get a chance to subscribe to user notifications.\n\nYou can always change your mind later 😇."
+            "value" : "Olvid works best when you get notified about new messages & invitations! We suggest signing up for user notifications.\n\nAnd don't worry, you can always change your mind later! 😇"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Olvid est plus agréable à utiliser si vous acceptez d'être notifié à chaque nouveau message & invitation ! Le prochain écran vous donnera la possibilité de souscrire aux notifications.\n\nVous pourrez toujours changer d'avis plus tard 😇."
+            "value" : "Olvid est plus agréable à utiliser lorsque vous êtes notifié des nouveaux messages et invitations ! Nous vous recommandons de vous abonner aux notifications utilisateur.\n\nEt ne vous inquiétez pas, vous pouvez toujours changer d'avis plus tard ! 😇"
           }
         }
       }
@@ -17838,6 +18205,22 @@
         }
       }
     },
+    "The search is performed in all messages of this discussion." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The search is performed in all messages of this discussion."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La recherche est effectuée dans tous les messages de cette discussion."
+          }
+        }
+      }
+    },
     "THE_CALL_AUDIO_CONFIG_FOR_MAC_IS_AVAILABLE_IN_MENU_BAR" : {
       "localizations" : {
         "en" : {
@@ -18028,6 +18411,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Minuteur"
+          }
+        }
+      }
+    },
+    "Title" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Titre"
           }
         }
       }
@@ -18613,22 +19006,6 @@
         }
       }
     },
-    "Unmute" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unmute"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activer"
-          }
-        }
-      }
-    },
     "UNMUTE_NOTIFICATIONS" : {
       "localizations" : {
         "en" : {
@@ -19036,6 +19413,86 @@
         }
       }
     },
+    "VIDEO_CANNOT_START_FOR_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The video cannot be started for this call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La vidéo ne peut pas être démarrée pour cet appel"
+          }
+        }
+      }
+    },
+    "VIDEO_SEND_RESOLUTION_FULL_HIGH_1080" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full high (1080p)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Très haute (1080p)"
+          }
+        }
+      }
+    },
+    "VIDEO_SEND_RESOLUTION_HIGH_720" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High (720p)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haute (720p)"
+          }
+        }
+      }
+    },
+    "VIDEO_SEND_RESOLUTION_LOW_360" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low (360p)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basse (360p)"
+          }
+        }
+      }
+    },
+    "VIDEO_SEND_RESOLUTION_STANDARD_480" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard (480)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard (480p)"
+          }
+        }
+      }
+    },
     "VoIP" : {
       "comment" : "VoIP word, capitalized",
       "localizations" : {
@@ -19339,6 +19796,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Oui"
+          }
+        }
+      }
+    },
+    "YOU" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous"
           }
         }
       }

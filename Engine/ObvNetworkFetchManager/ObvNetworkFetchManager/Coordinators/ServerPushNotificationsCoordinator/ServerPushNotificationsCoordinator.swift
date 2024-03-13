@@ -47,12 +47,10 @@ actor ServerPushNotificationsCoordinator: ServerPushNotificationsDelegate {
         Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
     }
         
+    private var cache = [ObvPushNotificationType: RegistrationTask]()
     private enum RegistrationTask {
         case inProgress(Task<ObvServerRegisterRemotePushNotificationMethod.PossibleReturnStatus, Error>)
     }
-    
-    private var cache = [ObvPushNotificationType: RegistrationTask]()
-    
     
     // MARK: - ServerPushNotificationsDelegate
     
@@ -76,24 +74,38 @@ actor ServerPushNotificationsCoordinator: ServerPushNotificationsDelegate {
     
     // MARK: - Helper methods
     
-    
+    /// If this method throws, it throws one of the following errors:
+    /// - ObvError.anotherDeviceIsAlreadyRegistered
+    /// - ObvError.deviceToReplaceIsNotRegistered
     private func registerPushNotification(_ pushNotification: ObvPushNotificationType, flowId: FlowIdentifier, requestUUID: UUID) async throws {
         
-        let returnStatus = try await self.registerPushNotificationOnServer(pushNotification, flowId: flowId, requestUUID: requestUUID)
+        let returnStatus: ObvServerRegisterRemotePushNotificationMethod.PossibleReturnStatus
+        do {
+            returnStatus = try await registerPushNotificationOnServer(pushNotification, flowId: flowId, requestUUID: requestUUID)
+        } catch {
+            let delay = failedAttemptsCounterManager.incrementAndGetDelay(.registerPushNotification(ownedIdentity: pushNotification.ownedCryptoId))
+            os_log("Will retry the call to registerPushNotification in %f seconds", log: Self.log, type: .error, Double(delay) / 1000.0)
+            await retryManager.waitForDelay(milliseconds: delay)
+            return try await registerPushNotification(pushNotification, flowId: flowId, requestUUID: requestUUID)
+        }
         
         os_log("🫸[%{public}@] Status returned by the server: %{public}@", log: Self.log, type: .info, requestUUID.debugDescription, returnStatus.debugDescription)
-
+        
         switch returnStatus {
         case .ok:
+            failedAttemptsCounterManager.reset(counter: .registerPushNotification(ownedIdentity: pushNotification.ownedCryptoId))
             return
         case .invalidSession, .generalError:
             // No need to inform the delegate that our session is invalid, this has been done already in registerPushNotificationOnServer(_:flowId:requestUUID:)
             let delay = failedAttemptsCounterManager.incrementAndGetDelay(.registerPushNotification(ownedIdentity: pushNotification.ownedCryptoId))
+            os_log("Will retry the call to registerPushNotification in %f seconds", log: Self.log, type: .error, Double(delay) / 1000.0)
             await retryManager.waitForDelay(milliseconds: delay)
             try await registerPushNotification(pushNotification, flowId: flowId, requestUUID: requestUUID)
         case .anotherDeviceIsAlreadyRegistered:
+            failedAttemptsCounterManager.reset(counter: .registerPushNotification(ownedIdentity: pushNotification.ownedCryptoId))
             throw ObvError.anotherDeviceIsAlreadyRegistered
         case .deviceToReplaceIsNotRegistered:
+            failedAttemptsCounterManager.reset(counter: .registerPushNotification(ownedIdentity: pushNotification.ownedCryptoId))
             throw ObvError.deviceToReplaceIsNotRegistered
         }
         

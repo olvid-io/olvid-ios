@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,17 +27,25 @@ import OlvidUtils
 
 public struct ObvContactDevice: Hashable, CustomStringConvertible {
     
-    public let identifier: Data
+    public let deviceUID: UID
     public let contactIdentifier: ObvContactIdentifier
     public let secureChannelStatus: SecureChannelStatus
 
+    public var identifier: Data {
+        deviceUID.raw
+    }
+    
+    public var deviceIdentifier: ObvContactDeviceIdentifier {
+        .init(contactIdentifier: contactIdentifier, deviceUID: deviceUID)
+    }
+    
     public enum SecureChannelStatus {
         case creationInProgress
         case created
     }
 
     init(remoteDeviceUid: UID, contactIdentifier: ObvContactIdentifier, secureChannelStatus: SecureChannelStatus) {
-        self.identifier = remoteDeviceUid.raw
+        self.deviceUID = remoteDeviceUid
         self.contactIdentifier = contactIdentifier
         self.secureChannelStatus = secureChannelStatus
     }

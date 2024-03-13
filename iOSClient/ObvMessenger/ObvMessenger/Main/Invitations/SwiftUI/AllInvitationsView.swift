@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -53,24 +53,7 @@ struct AllInvitationsView<Model: AllInvitationsViewModelProtocol>: View {
                 .padding()
             }
         } else {
-            VStack(alignment: .center) {
-                HStack {
-                    Spacer()
-                    VStack {
-                        Image(systemIcon: .tray)
-                            .font(.system(size: 50))
-                            .foregroundStyle(.secondary)
-                            .padding(.bottom)
-                        Text("NO_INVITATION_FOR_NOW_TITLE")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Text("NO_INVITATION_FOR_NOW_BODY")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-            }
+            ObvContentUnavailableView("CONTENT_UNAVAILABLE_INVITATIONS_TEXT", systemIcon: .tray, description: Text("CONTENT_UNAVAILABLE_INVITATIONS_DESCRIPTION"))
         }
     }
 }

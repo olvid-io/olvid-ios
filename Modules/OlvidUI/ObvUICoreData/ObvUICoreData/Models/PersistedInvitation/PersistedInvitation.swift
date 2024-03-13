@@ -23,6 +23,7 @@ import os.log
 import ObvEngine
 import ObvTypes
 import OlvidUtils
+import ObvSettings
 
 
 @objc(PersistedInvitation)
@@ -73,6 +74,10 @@ public class PersistedInvitation: NSManagedObject {
     
     private var changedKeys = Set<String>()
 
+    
+    /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
+    private var isInsertedWhileRestoringSyncSnapshot = false
+
 }
 
 
@@ -81,12 +86,13 @@ public class PersistedInvitation: NSManagedObject {
 extension PersistedInvitation {
     
     /// Shall only be called from subclasses
-    convenience init(obvDialog: ObvDialog, forEntityName entityName: String, within context: NSManagedObjectContext) throws {
+    convenience init(obvDialog: ObvDialog, isRestoringSyncSnapshotOrBackup: Bool, forEntityName entityName: String, within context: NSManagedObjectContext) throws {
         guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: obvDialog.ownedCryptoId, within: context) else {
             throw Self.makeError(message: "Could not find owned identity")
         }
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
+        self.isInsertedWhileRestoringSyncSnapshot = isRestoringSyncSnapshotOrBackup
         self.actionRequired = obvDialog.actionRequired
         self.uuid = obvDialog.uuid
         self.rawStatus = Status.new.rawValue
@@ -122,7 +128,7 @@ extension PersistedInvitation {
     }
     
     
-    public static func insertOrUpdate(_ obvDialog: ObvDialog, within context: NSManagedObjectContext) throws {
+    public static func insertOrUpdate(_ obvDialog: ObvDialog, isRestoringSyncSnapshotOrBackup: Bool, within context: NSManagedObjectContext) throws {
         if let existingInvitation = try PersistedInvitation.getPersistedInvitation(uuid: obvDialog.uuid, ownedCryptoId: obvDialog.ownedCryptoId, within: context) {
             if existingInvitation.obvDialog != obvDialog {
                 existingInvitation.obvDialog = obvDialog
@@ -131,7 +137,7 @@ extension PersistedInvitation {
                 existingInvitation.setActionRequired(to: obvDialog.actionRequired)
             }
         } else {
-            _ = try PersistedInvitation(obvDialog: obvDialog, forEntityName: PersistedInvitation.entityName, within: context)
+            _ = try PersistedInvitation(obvDialog: obvDialog, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup, forEntityName: PersistedInvitation.entityName, within: context)
         }
     }
     
@@ -321,7 +327,18 @@ extension PersistedInvitation {
     
     public override func didSave() {
         super.didSave()
-        defer { changedKeys.removeAll() }
+        
+        defer {
+            changedKeys.removeAll()
+            isInsertedWhileRestoringSyncSnapshot = false
+        }
+
+        guard !isInsertedWhileRestoringSyncSnapshot else {
+            assert(isInserted)
+            let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: String(describing: Self.self))
+            os_log("Insertion of a PersistedInvitation during a snapshot restore --> we don't send any notification", log: log, type: .info)
+            return
+        }
 
         if !isDeleted {
             // We do *not* notify that the invitation has changed when the reason is that the invitation status changed from new or updated to old

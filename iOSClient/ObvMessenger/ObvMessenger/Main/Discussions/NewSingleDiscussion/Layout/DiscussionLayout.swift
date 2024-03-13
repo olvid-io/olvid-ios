@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -258,6 +258,15 @@ extension DiscussionLayout {
         cachedSectionInfos.removeAll()
         cachedSupplementaryViewInfos.removeAll()
         
+        /// We removed all the cachedSectionInfos. The updateCache() method will call the updateCacheFromInsertedSections()
+        /// that expects insertedSectionsAfterUpdate to contain all the sections that must be inserted. So we compute this array now.
+        guard let collectionView else { assertionFailure(); return }
+        if collectionView.numberOfSections > 0 {
+            insertedSectionsAfterUpdate = (0..<collectionView.numberOfSections).map({ $0 })
+        } else {
+            insertedSectionsAfterUpdate = []
+        }
+        
         updateCache()
         
     }
@@ -358,15 +367,15 @@ extension DiscussionLayout {
             
             largestValidSection = section > 0 ? minOrNil(largestValidSection, section-1) : nil
 
-            // Update the "from" index paths of moved items
-            
-            for (toIndexPath, fromIndexPath) in movedIndexPaths {
-                guard fromIndexPath.section == section else { continue }
-                guard fromIndexPath.item > item else { continue }
-                let newFromIndexPath = IndexPath(item: fromIndexPath.item-1, section: fromIndexPath.section)
-                movedIndexPaths[toIndexPath] = newFromIndexPath
-            }
-            
+        }
+        
+        // Update the "from" index paths of moved items
+        
+        for (toIndexPath, fromIndexPath) in movedIndexPaths {
+            let numberOfDeletedItemsBelow = deletedIndexPaths.filter({ $0.section == fromIndexPath.section && $0.item < fromIndexPath.item }).count
+            guard fromIndexPath.item - numberOfDeletedItemsBelow >= 0 else { assertionFailure(); continue }
+            let newFromIndexPath = IndexPath(item: fromIndexPath.item - numberOfDeletedItemsBelow, section: fromIndexPath.section)
+            movedIndexPaths[toIndexPath] = newFromIndexPath
         }
         
     }
@@ -375,6 +384,7 @@ extension DiscussionLayout {
     private func updateCacheFromDeletedSections() {
         
         let deletedSections = Array(self.deletedSectionsBeforeUpdate.sorted { $0 > $1 })
+        
         for section in deletedSections {
             
             // Delete cached infos about the deleted section and update the index of the largest section with a valid origin
@@ -386,15 +396,16 @@ extension DiscussionLayout {
             
             largestValidSection = section > 0 ? minOrNil(largestValidSection, section-1) : nil
 
-            // Update the from index paths of moved items
-            
-            for (toIndexPath, fromIndexPath) in movedIndexPaths {
-                guard fromIndexPath.section > section else { continue }
-                let newFromIndexPath = IndexPath(item: fromIndexPath.item, section: fromIndexPath.section-1)
-                movedIndexPaths[toIndexPath] = newFromIndexPath
-            }
-            
         }
+        
+        // Update the from index paths of moved items
+        
+        for (toIndexPath, fromIndexPath) in movedIndexPaths {
+            let numberOfSectionsDeletedBelow = deletedSections.filter({ $0 < fromIndexPath.section }).count
+            let newFromIndexPath = IndexPath(item: fromIndexPath.item, section: fromIndexPath.section-numberOfSectionsDeletedBelow)
+            movedIndexPaths[toIndexPath] = newFromIndexPath
+        }
+
         
     }
 
@@ -405,79 +416,71 @@ extension DiscussionLayout {
         
         // Add cached infos for inserted sections (cells will be added later)
         
-        if let lastInsertedSection = self.insertedSectionsAfterUpdate.max() {
+        let sortedInsertedSectionsAfterUpdate = self.insertedSectionsAfterUpdate.sorted { $0 < $1 }
+        
+        for sectionToInsert in sortedInsertedSectionsAfterUpdate {
             
-            let firstInsertedSection = cachedItemInfos.count
-            
-            assert(firstInsertedSection <= lastInsertedSection)
-            
-            var previousSectionFrame = (cachedItemInfos.count == 0) ? CGRect.zero : cachedSectionInfos.last!.frame
-            
-            for section in firstInsertedSection...lastInsertedSection {
-                
-                // Cache estimated infos for this section
-                
-                do {
-                    let topSpace = interSectionSpacing
-                    let origin = CGPoint(x: sectionXOrigin, y: previousSectionFrame.maxY + topSpace)
-                    assert(collectionView.numberOfItems(inSection: section) > 0)
-                    let sectionHeight = defaultHeightForSupplementaryView + CGFloat(collectionView.numberOfItems(inSection: section)) * (defaultHeightForCell + interItemSpacing)
-                    let size = CGSize(width: sectionWidth, height: sectionHeight)
-                    let frame = CGRect(origin: origin, size: size)
-                    let sectionInfos = ObvCollectionViewLayoutSectionInfos(
-                        frame: frame,
-                        largestItemWithValidOrigin: collectionView.numberOfItems(inSection: section)-1)
-                    cachedSectionInfos.append(sectionInfos)
-                    
-                    previousSectionFrame = frame
-                }
+            let numberOfItemsInInsertedSection = collectionView.numberOfItems(inSection: sectionToInsert)
+            assert(numberOfItemsInInsertedSection > 0)
 
-                // Cache estimated infos for the supplementary view of this section
-                
-                let supplementaryViewFrame: CGRect
-                
-                do {
-                    let origin = CGPoint.zero
-                    let size = CGSize(width: sectionWidth, height: defaultHeightForSupplementaryView)
-                    supplementaryViewFrame = CGRect(origin: origin, size: size)
-                    let svInfos = ObvCollectionViewLayoutSupplementaryViewInfos(frameInSection: supplementaryViewFrame)
-                    cachedSupplementaryViewInfos.append(svInfos)
-                }
-                
-                // Cache estimated infos for all the items within this section
-                
-                var cachedItemInfosInSection = [OlvidCollectionViewLayoutItemInfos]()
-                var previousElementFrame = supplementaryViewFrame
-                
-                for _ in 0..<collectionView.numberOfItems(inSection: section) {
-                    
-                    let topSpace = interItemSpacing
-                    let origin = CGPoint(x: 0, y: previousElementFrame.maxY + topSpace)
-                    let height = defaultHeightForCell
-                    let size = CGSize(width: sectionWidth, height: height)
-                    let frame = CGRect(origin: origin, size: size)
-                    let itemInfos = OlvidCollectionViewLayoutItemInfos(frameInSection: frame, usesPreferredAttributes: false)
-                    cachedItemInfosInSection.append(itemInfos)
-                    
-                    previousElementFrame = frame
-                    
-                }
-                
-                cachedItemInfos.append(cachedItemInfosInSection)
+            // Cache estimated infos for this section
 
+            do {
+                let previousSectionFrame = (sectionToInsert == 0) ? CGRect.zero : cachedSectionInfos[sectionToInsert-1].frame
+                let topSpace = interSectionSpacing
+                let origin = CGPoint(x: sectionXOrigin, y: previousSectionFrame.maxY + topSpace)
+                let sectionHeight = defaultHeightForSupplementaryView + CGFloat(numberOfItemsInInsertedSection) * (defaultHeightForCell + interItemSpacing)
+                let size = CGSize(width: sectionWidth, height: sectionHeight)
+                let frame = CGRect(origin: origin, size: size)
+                let sectionInfos = ObvCollectionViewLayoutSectionInfos(
+                    frame: frame,
+                    largestItemWithValidOrigin: numberOfItemsInInsertedSection-1)
+                cachedSectionInfos.insert(sectionInfos, at: sectionToInsert)
             }
-        }
+            
+            // Cache estimated infos for the supplementary view of this section
+
+            let supplementaryViewFrame: CGRect
+            
+            do {
+                let origin = CGPoint.zero
+                let size = CGSize(width: sectionWidth, height: defaultHeightForSupplementaryView)
+                supplementaryViewFrame = CGRect(origin: origin, size: size)
+                let svInfos = ObvCollectionViewLayoutSupplementaryViewInfos(frameInSection: supplementaryViewFrame)
+                cachedSupplementaryViewInfos.insert(svInfos, at: sectionToInsert)
+            }
+
+            // Cache estimated infos for all the items within this section
+            
+            var cachedItemInfosInSection = [OlvidCollectionViewLayoutItemInfos]()
+            var previousElementFrame = supplementaryViewFrame
+            
+            for _ in 0..<numberOfItemsInInsertedSection {
                 
+                let topSpace = interItemSpacing
+                let origin = CGPoint(x: 0, y: previousElementFrame.maxY + topSpace)
+                let height = defaultHeightForCell
+                let size = CGSize(width: sectionWidth, height: height)
+                let frame = CGRect(origin: origin, size: size)
+                let itemInfos = OlvidCollectionViewLayoutItemInfos(frameInSection: frame, usesPreferredAttributes: false)
+                cachedItemInfosInSection.append(itemInfos)
+                
+                previousElementFrame = frame
+                
+            }
+            
+            cachedItemInfos.insert(cachedItemInfosInSection, at: sectionToInsert)
+
+        }
+        
         // Update the from index paths of moved items
         
-        let insertedSections = Array(self.insertedSectionsAfterUpdate.sorted { $0 < $1 })
-        for section in insertedSections {
-            for (toIndexPath, fromIndexPath) in movedIndexPaths {
-                guard fromIndexPath.section > section else { continue }
-                let newFromIndexPath = IndexPath(item: fromIndexPath.item, section: fromIndexPath.section+1)
-                movedIndexPaths[toIndexPath] = newFromIndexPath
-            }
+        for (toIndexPath, fromIndexPath) in movedIndexPaths {
+            let numberOfSectionsInsertedBelow = sortedInsertedSectionsAfterUpdate.filter({ $0 <= fromIndexPath.section }).count
+            let newFromIndexPath = IndexPath(item: fromIndexPath.item, section: fromIndexPath.section+numberOfSectionsInsertedBelow)
+            movedIndexPaths[toIndexPath] = newFromIndexPath
         }
+        
     }
     
     
@@ -521,15 +524,14 @@ extension DiscussionLayout {
             
             largestValidSection = indexPath.section > 0 ? minOrNil(largestValidSection, indexPath.section-1) : nil
             
-            // Update the from index paths of moved items
-            
-            for (toIndexPath, fromIndexPath) in movedIndexPaths {
-                guard fromIndexPath.section == indexPath.section else { continue }
-                guard fromIndexPath.item >= indexPath.item else { continue }
-                let newFromIndexPath = IndexPath(item: fromIndexPath.item+1, section: fromIndexPath.section)
-                movedIndexPaths[toIndexPath] = newFromIndexPath
-            }
-            
+        }
+        
+        // Update the from index paths of moved items
+        
+        for (toIndexPath, fromIndexPath) in movedIndexPaths {
+            let numberOfItemsInsertedBelow = insertedIndexPaths.filter({ $0.section == fromIndexPath.section && $0.item <= fromIndexPath.item }).count
+            let newFromIndexPath = IndexPath(item: fromIndexPath.item+numberOfItemsInsertedBelow, section: fromIndexPath.section)
+            movedIndexPaths[toIndexPath] = newFromIndexPath
         }
         
     }
@@ -833,8 +835,10 @@ extension DiscussionLayout {
                 guard let indexPath = item.indexPathAfterUpdate else { assertionFailure(); continue }
                 assert(item.indexPathBeforeUpdate == nil)
                 if indexPath.item == NSNotFound {
+                    // This indicates that we must insert a section
                     insertedSectionsAfterUpdate.append(indexPath.section)
                 } else {
+                    // This indicates that we must insert an item
                     insertedIndexPathsAfterUpdate.append(indexPath)
                 }
             case .move:

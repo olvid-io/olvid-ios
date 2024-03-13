@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import SwiftUI
 import MessageUI
+import ObvTypes
 
 
 
@@ -53,9 +54,35 @@ struct OwnedIdentityTransferFailureView: View {
     }
     
     
+    private static func localizedStringKeyForErrorThrownByTransferProtocol(_ error: OwnedIdentityTransferError) -> LocalizedStringKey? {
+        switch error {
+        case .serverRequestFailed:
+            return "OWNED_IDENTITY_TRANSFER_ERROR_SERVER_REQUEST_FAILED"
+        case .tryingToTransferAnOwnedIdentityThatAlreadyExistsOnTargetDevice:
+            return "OWNED_IDENTITY_TRANSFER_ERROR_TRYING_TO_TRANSFER_IDENTITY_THAT_ALREADY_EXISTS_ON_TARGET"
+        case .couldNotGenerateObvChannelServerQueryMessageToSend,
+                .couldNotDecodeSyncSnapshot,
+                .decryptionFailed,
+                .decodingFailed,
+                .incorrectSAS,
+                .connectionIdsDoNotMatch,
+                .couldNotOpenCommitment,
+                .couldNotComputeSeed:
+            return nil
+        }
+    }
+
+    
     private func userWantsToSendErrorByEmail() {
         Task { await actions.userWantsToSendErrorByEmail(errorMessage: Self.stringForError(model.error) ) }
     }
+    
+    
+    private var localizedStringKeyForProtocolError: LocalizedStringKey? {
+        guard let error = model.error as? OwnedIdentityTransferError else { return nil }
+        return Self.localizedStringKeyForErrorThrownByTransferProtocol(error)
+    }
+    
 
     var body: some View {
         VStack {
@@ -73,15 +100,23 @@ struct OwnedIdentityTransferFailureView: View {
                     
                     HStack {
                         VStack(alignment: .leading) {
+                            if let localizedStringKeyForProtocolError {
+                                Text(localizedStringKeyForProtocolError)
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                                    .padding(.bottom, 4)
+                            }
                             Text("OWNED_IDENTITY_TRANSFER_FAILED_BODY_\(ObvMessengerConstants.toEmailForSendingInitializationFailureErrorMessage)")
                                 .font(.body)
                                 .foregroundStyle(.primary)
                                 .padding(.bottom, 4)
-                            Text(verbatim: Self.stringForError(model.error))
-                                .lineLimit(nil)
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                                .padding(.bottom, 4)
+                            if localizedStringKeyForProtocolError == nil {
+                                Text(verbatim: Self.stringForError(model.error))
+                                    .lineLimit(nil)
+                                    .font(.body)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.bottom, 4)
+                            }
                             HStack {
                                 Spacer()
                                 Button("COPY_ERROR_TO_PASTEBOARD") {

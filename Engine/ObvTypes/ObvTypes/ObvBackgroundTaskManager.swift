@@ -25,6 +25,6 @@ import Foundation
 /// This protocol is implemented by the classes that allow to start/end a background task. This is the case
 /// of UIApplication and of BackgroundActivityEmulator.
 public protocol ObvBackgroundTaskManager {
-    func beginBackgroundTask(expirationHandler handler: (() -> Void)?) -> UIBackgroundTaskIdentifier
+    func beginBackgroundTask(withName: String?, expirationHandler handler: (() -> Void)?) -> UIBackgroundTaskIdentifier
     func endBackgroundTask(_ identifier: UIBackgroundTaskIdentifier, completionHandler: (() -> Void)?)
 }

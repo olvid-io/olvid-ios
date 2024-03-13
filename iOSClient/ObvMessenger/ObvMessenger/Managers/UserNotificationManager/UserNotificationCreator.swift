@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -45,7 +45,6 @@ struct UserNotificationKeys {
 
 struct UserNotificationCreator {
 
-    private static let thumbnailPhotoSide = CGFloat(300)
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: UserNotificationCreator.self))
 
     struct MissedCallNotificationInfos {
@@ -55,11 +54,11 @@ struct UserNotificationCreator {
         let receivedMessageIntentInfos: ReceivedMessageIntentInfos
         let discussionNotificationSound: NotificationSound?
         
-        init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind, urlForStoringPNGThumbnail: URL?) {
+        init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind) {
             self.ownedCryptoId = contact.ownedIdentity.cryptoId
             self.discussionPermanentID = discussionKind.discussionPermanentID
             self.contactCustomOrFullDisplayName = contact.customOrFullDisplayName
-            receivedMessageIntentInfos = ReceivedMessageIntentInfos.init(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind)
             discussionNotificationSound = discussionKind.localConfiguration.notificationSound
         }
         
@@ -187,8 +186,7 @@ struct UserNotificationCreator {
         let attachementImages: [NotificationAttachmentImage]?
 
         init(messageReceived: PersistedMessageReceived.Structure,
-             attachmentLocation: NotificationAttachmentLocation,
-             urlForStoringPNGThumbnail: URL?) {
+             attachmentLocation: NotificationAttachmentLocation) {
             self.ownedCryptoId = messageReceived.contact.ownedIdentity.cryptoId
             self.body = messageReceived.textBody ?? ""
             self.messageIdentifierFromEngine = messageReceived.messageIdentifierFromEngine
@@ -205,7 +203,7 @@ struct UserNotificationCreator {
             }
             self.discussionNotificationSound = messageReceived.discussionKind.localConfiguration.notificationSound
             self.isEphemeralMessageWithUserAction = messageReceived.isReplyToAnotherMessage
-            self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(messageReceived: messageReceived, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(messageReceived: messageReceived)
             self.attachmentLocation = attachmentLocation
             self.attachmentsCount = messageReceived.attachmentsCount
             self.attachementImages = messageReceived.attachementImages
@@ -218,8 +216,7 @@ struct UserNotificationCreator {
              isEphemeralMessageWithUserAction: Bool,
              attachmentsCount: Int,
              attachementImages: [NotificationAttachmentImage]?,
-             attachmentLocation: NotificationAttachmentLocation,
-             urlForStoringPNGThumbnail: URL?) async {
+             attachmentLocation: NotificationAttachmentLocation) async {
             self.ownedCryptoId = contact.ownedIdentity.cryptoId
             self.body = body
             self.messageIdentifierFromEngine = messageIdentifierFromEngine
@@ -236,7 +233,7 @@ struct UserNotificationCreator {
             }
             self.discussionNotificationSound = discussionKind.localConfiguration.notificationSound
             self.isEphemeralMessageWithUserAction = isEphemeralMessageWithUserAction
-            self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind)
             self.attachmentLocation = attachmentLocation
             self.attachmentsCount = attachmentsCount
             self.attachementImages = attachementImages
@@ -518,7 +515,7 @@ struct UserNotificationCreator {
     struct ReactionNotificationInfos {
         
         let ownedCryptoId: ObvCryptoId
-        let messagePermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>
+        let messagePermanentID: MessageSentPermanentID
         let discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>
         let contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>
         let contactCustomOrFullDisplayName: String
@@ -527,7 +524,7 @@ struct UserNotificationCreator {
         let messageTextBody: String?
         let receivedMessageIntentInfos: ReceivedMessageIntentInfos
 
-        init(messageSent: PersistedMessageSent.Structure, contact: PersistedObvContactIdentity.Structure, urlForStoringPNGThumbnail: URL?) {
+        init(messageSent: PersistedMessageSent.Structure, contact: PersistedObvContactIdentity.Structure) {
             let discussionKind = messageSent.discussionKind
             self.ownedCryptoId = discussionKind.ownedCryptoId
             self.messagePermanentID = messageSent.objectPermanentID
@@ -537,7 +534,7 @@ struct UserNotificationCreator {
             self.discussionNotificationSound = discussionKind.localConfiguration.notificationSound
             self.isEphemeralPersistedMessageSentWithLimitedVisibility = messageSent.isEphemeralMessageWithLimitedVisibility
             self.messageTextBody = messageSent.textBody
-            self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind, urlForStoringPNGThumbnail: urlForStoringPNGThumbnail)
+            self.receivedMessageIntentInfos = ReceivedMessageIntentInfos(contact: contact, discussionKind: discussionKind)
         }
         
     }

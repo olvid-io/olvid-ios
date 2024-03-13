@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import os.log
 import CoreData
 import ObvEngine
 import ObvUICoreData
+import OlvidUtils
 
 
 final class BackgroundTasksManager {
@@ -86,7 +87,7 @@ final class BackgroundTasksManager {
     init() {
         os_log("🤿 Registering background task", log: Self.log, type: .info)
         BGTaskScheduler.shared.register(forTaskWithIdentifier: BackgroundTasksManager.identifier, using: nil) { backgroundTask in
-            ObvDisplayableLogs.shared.log("Background Task executes")
+            //ObvDisplayableLogs.shared.log("Background Task executes")
 
             Task { [weak self] in
                 
@@ -95,11 +96,11 @@ final class BackgroundTasksManager {
                     var taskResults = [TaskResult]()
                     
                     for task in ObvSubBackgroundTask.allCases {
-                        ObvDisplayableLogs.shared.log("Adding background Task '\(task.description)'")
+                        //ObvDisplayableLogs.shared.log("Adding background Task '\(task.description)'")
                         taskGroup.addTask(priority: nil) {
-                            ObvDisplayableLogs.shared.log("Executing background Task '\(task.description)'")
+                            //ObvDisplayableLogs.shared.log("Executing background Task '\(task.description)'")
                             let isSuccess = await task.execute()
-                            ObvDisplayableLogs.shared.log("Background Task '\(task.description)' did complete. Success is: \(isSuccess.description)")
+                            //ObvDisplayableLogs.shared.log("Background Task '\(task.description)' did complete. Success is: \(isSuccess.description)")
                             return TaskResult(taskDescription: task.description, isSuccess: isSuccess)
                         }
                     }
@@ -112,10 +113,10 @@ final class BackgroundTasksManager {
                 }
                 
                 os_log("🤿 All Background Tasks did complete", log: Self.log, type: .info)
-                ObvDisplayableLogs.shared.log("All Background Tasks did complete")
+                //ObvDisplayableLogs.shared.log("All Background Tasks did complete")
                 for taskResult in taskResults {
                     os_log("🤿 Background Task '%{public}@' did complete. Success is: %{public}@", log: Self.log, type: .info, taskResult.taskDescription, taskResult.isSuccess.description)
-                    ObvDisplayableLogs.shared.log("Background Task '\(taskResult.taskDescription)' did complete. Success is: \(taskResult.isSuccess.description)")
+                    //ObvDisplayableLogs.shared.log("Background Task '\(taskResult.taskDescription)' did complete. Success is: \(taskResult.isSuccess.description)")
                 }
                 backgroundTask.setTaskCompleted(success: true)
 
@@ -129,7 +130,7 @@ final class BackgroundTasksManager {
             ObvMessengerInternalNotification.observeListMessagesOnServerBackgroundTaskWasLaunched(queue: OperationQueue.main) { success in
                 Task { [weak self] in
                     let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitialized()
-                    self?.processListMessagesOnServerBackgroundTaskWasLaunched(obvEngine: obvEngine, success: success)
+                    await self?.processListMessagesOnServerBackgroundTaskWasLaunched(obvEngine: obvEngine, success: success)
                 }
             },
         ])
@@ -192,10 +193,10 @@ final class BackgroundTasksManager {
             do {
                 try BGTaskScheduler.shared.submit(request)
             } catch let error {
-                ObvDisplayableLogs.shared.log("Could not schedule background task: \(error.localizedDescription)")
+                //ObvDisplayableLogs.shared.log("Could not schedule background task: \(error.localizedDescription)")
                 os_log("🤿 Could not schedule background task: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             }
-            ObvDisplayableLogs.shared.log("Background task was submitted with earliest begin date \(String(describing: earliestBeginDate.description))")
+            //ObvDisplayableLogs.shared.log("Background task was submitted with earliest begin date \(String(describing: earliestBeginDate.description))")
             os_log("🤿 Background task was submitted with earliest begin date %{public}@", log: Self.log, type: .info, String(describing: earliestBeginDate.description))
         }
 
@@ -204,7 +205,7 @@ final class BackgroundTasksManager {
     
     private func commonCompletion(obvTask: ObvSubBackgroundTask, backgroundTask: BGTask, success: Bool) {
         os_log("🤿 Background Task '%{public}' did complete. Success is: %{public}@", log: Self.log, type: .info, obvTask.description, success.description)
-        ObvDisplayableLogs.shared.log("Background Task '\(obvTask.description)' did complete. Success is: \(success.description)")
+        //ObvDisplayableLogs.shared.log("Background Task '\(obvTask.description)' did complete. Success is: \(success.description)")
         backgroundTask.setTaskCompleted(success: success)
     }
     
@@ -221,23 +222,32 @@ final class BackgroundTasksManager {
 extension BackgroundTasksManager {
     
     /// This method processes the notification sent after launching a background task for listing messages on the server.
-    private func processListMessagesOnServerBackgroundTaskWasLaunched(obvEngine: ObvEngine, success: @escaping (Bool) -> Void) {
+    private func processListMessagesOnServerBackgroundTaskWasLaunched(obvEngine: ObvEngine, success: @escaping (Bool) -> Void) async {
+        
         let tag = UUID()
         os_log("🤿 We are performing a background fetch. We tag it as %{public}@", log: Self.log, type: .info, tag.uuidString)
-        let completionHandlerForEngine: (UIBackgroundFetchResult) -> Void = { (result) in
-            os_log("🤿 Calling the completion handler of the background fetch tagged as %{public}@. The result is %{public}@", log: Self.log, type: .info, tag.uuidString, result.debugDescription)
-            switch result {
-            case .newData, .noData:
-                success(true)
-            case .failed:
-                assertionFailure()
-                success(false)
-            @unknown default:
-                assertionFailure()
-                success(true)
-            }
+        
+        let isSuccess: Bool
+        do {
+            try await obvEngine.downloadAllMessagesForOwnedIdentities()
+            isSuccess = true
+        } catch {
+            assertionFailure()
+            isSuccess = false
         }
-        obvEngine.application(performFetchWithCompletionHandler: completionHandlerForEngine)
+        
+        // Wait for some time for giving the app a change to process listed messages
+        
+        do {
+            try await Task.sleep(seconds: 2)
+        } catch {
+            assertionFailure()
+        }
+        
+        os_log("🤿 Calling the completion handler of the background fetch tagged as %{public}@. The result is %{public}@", log: Self.log, type: .info, tag.uuidString, isSuccess.description)
+
+        return success(isSuccess)
+        
     }
 
 }

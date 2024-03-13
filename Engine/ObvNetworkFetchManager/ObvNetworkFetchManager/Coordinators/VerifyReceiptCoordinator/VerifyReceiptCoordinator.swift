@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,11 +39,10 @@ actor VerifyReceiptCoordinator {
         Self.log = OSLog(subsystem: logSubsystem, category: Self.logCategory)
     }
 
+    private var cache = [ObvAppStoreReceipt: VerificationTask]()
     private enum VerificationTask {
         case inProgress(Task<[ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus], Never>)
     }
-
-    private var cache = [ObvAppStoreReceipt: VerificationTask]()
 
 }
 
@@ -194,222 +193,8 @@ extension VerifyReceiptCoordinator: VerifyReceiptDelegate {
     func setDelegateManager(_ delegateManager: ObvNetworkFetchDelegateManager) {
         self.delegateManager = delegateManager
     }
-
-    
-//    func verifyReceipt(ownedCryptoIdentities: [ObvCryptoIdentity], receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier) {
-//
-//        guard let delegateManager = delegateManager else {
-//            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-//            os_log("The Delegate Manager is not set", log: log, type: .fault)
-//            assertionFailure()
-//            return
-//        }
-//
-//        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-//
-//        os_log("💰🌊 Call to verifyReceipt within flow %{public}@ for transaction identifier %{public}@", log: log, type: .info, flowId.debugDescription, transactionIdentifier)
-//
-//        localQueue.async { [weak self] in
-//
-//            guard let _self = self else { return }
-//
-//            guard !_self.currentTransactions.contains(transactionIdentifier) else {
-//                assertionFailure()
-//                return
-//            }
-//
-//            _self.currentTransactions.insert(transactionIdentifier)
-//
-//            let ops = ownedCryptoIdentities.map({
-//                VerifyReceiptOperation(identity: $0,
-//                                       receiptData: receiptData,
-//                                       transactionIdentifier: transactionIdentifier,
-//                                       log: log,
-//                                       flowId: flowId,
-//                                       delegateManager: delegateManager,
-//                                       delegate: _self)            })
-//            _self.internalOperationQueue.addOperations(ops, waitUntilFinished: true)
-//            os_log("💰 VerifyReceiptOperation is finished", log: log, type: .info)
-//            for op in ops {
-//                op.logReasonIfCancelled(log: log)
-//            }
-//
-//        }
-//
-//    }
-    
-    
-//    func verifyReceiptsExpectingNewSesssion() {
-//
-//        guard let delegateManager = delegateManager else {
-//            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-//            os_log("💰 The Delegate Manager is not set", log: log, type: .fault)
-//            assertionFailure()
-//            return
-//        }
-//
-//        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-//
-//        os_log("💰 Trying to verify receipts expecting a new server session...", log: log, type: .info)
-//
-//        var receipts = [(ownedIdentity: ObvCryptoIdentity, receiptData: String, transactionIdentifier: String, flowId: FlowIdentifier)]()
-//        localQueue.sync { [weak self] in
-//            guard let _self = self else { return }
-//            receipts = _self.receiptToVerifyWhenNewSessionIsAvailable
-//            _self.receiptToVerifyWhenNewSessionIsAvailable.removeAll()
-//        }
-//
-//        os_log("💰 We verify the %d receipt(s) that were exepecting a new server session", log: log, type: .info, receipts.count)
-//
-//        for receipt in receipts {
-//            verifyReceipt(ownedCryptoIdentities: [receipt.ownedIdentity],
-//                          receiptData: receipt.receiptData,
-//                          transactionIdentifier: receipt.transactionIdentifier,
-//                          flowId: receipt.flowId)
-//        }
-//    }
+        
 }
-
-
-// MARK: - Implementing VerifyReceiptOperationDelegate
-
-//extension VerifyReceiptCoordinator: VerifyReceiptOperationDelegate {
-//
-//    func receiptVerificationFailed(ownedIdentity: ObvCryptoIdentity, transactionIdentifier: String, error: Error, flowId: FlowIdentifier) {
-//
-//        guard let delegateManager = delegateManager else {
-//            let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
-//            os_log("💰 The Delegate Manager is not set", log: log, type: .fault)
-//            assertionFailure()
-//            return
-//        }
-//
-//        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-//
-//        os_log("💰 Receipt verification failed for transaction with identifier %{public}@", log: log, type: .error, transactionIdentifier)
-//
-//        guard let notificationDelegate = delegateManager.notificationDelegate else {
-//            os_log("The notificationDelegate is not set", log: log, type: .fault)
-//            assertionFailure()
-//            return
-//        }
-//
-//        localQueue.async { [weak self] in
-//            guard let _self = self else { return }
-//            _ = _self.currentTransactions.remove(transactionIdentifier)
-//            os_log("💰 Receipt verification failed for transaction %{public}@: %{public}@", log: log, type: .error, transactionIdentifier, error.localizedDescription)
-//            ObvNetworkFetchNotificationNew.appStoreReceiptVerificationFailed(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier, flowId: flowId)
-//                .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
-//        }
-//    }
-//
-//    func receiptVerificationSucceededAndSubscriptionIsValid(ownedIdentity: ObvCryptoIdentity, transactionIdentifier: String, apiKey: UUID, flowId: FlowIdentifier) {
-//
-//        guard let delegateManager = delegateManager else {
-//            let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
-//            os_log("💰 The Delegate Manager is not set", log: log, type: .fault)
-//            return
-//        }
-//
-//        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-//
-//        os_log("💰 Receipt verification succeeded for transaction with identifier %{public}@ and the subscription is valid", log: log, type: .info, transactionIdentifier)
-//
-//        guard let notificationDelegate = delegateManager.notificationDelegate else {
-//            os_log("The notificationDelegate is not set", log: log, type: .fault)
-//            assertionFailure()
-//            return
-//        }
-//
-//        localQueue.async { [weak self] in
-//            guard let _self = self else { return }
-//            _ = _self.currentTransactions.remove(transactionIdentifier)
-//            os_log("💰 Receipt verification succeed for transaction %{public}@", log: log, type: .info, transactionIdentifier)
-//            ObvNetworkFetchNotificationNew.appStoreReceiptVerificationSucceededAndSubscriptionIsValid(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier, apiKey: apiKey, flowId: flowId)
-//                .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
-//        }
-//    }
-//
-//
-//    func receiptVerificationSucceededButSubscriptionIsExpired(ownedIdentity: ObvCryptoIdentity, transactionIdentifier: String, flowId: FlowIdentifier) {
-//
-//        guard let delegateManager = delegateManager else {
-//            let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
-//            os_log("💰 The Delegate Manager is not set", log: log, type: .fault)
-//            return
-//        }
-//
-//        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-//
-//        os_log("💰 Receipt verification succeeded for transaction with identifier %{public}@ but the subscription is expired", log: log, type: .error, transactionIdentifier)
-//
-//        guard let notificationDelegate = delegateManager.notificationDelegate else {
-//            os_log("The notificationDelegate is not set", log: log, type: .fault)
-//            assertionFailure()
-//            return
-//        }
-//
-//        localQueue.async { [weak self] in
-//            guard let _self = self else { return }
-//            _ = _self.currentTransactions.remove(transactionIdentifier)
-//            os_log("💰 Receipt verification succeed for transaction %{public}@ but the subscription is expired", log: log, type: .error, transactionIdentifier)
-//            ObvNetworkFetchNotificationNew.appStoreReceiptVerificationSucceededButSubscriptionIsExpired(ownedIdentity: ownedIdentity, transactionIdentifier: transactionIdentifier, flowId: flowId)
-//                .postOnBackgroundQueue(_self.queueForNotifications, within: notificationDelegate)
-//        }
-//    }
-//
-//    func invalidSession(ownedIdentity: ObvCryptoIdentity, transactionIdentifier: String, receiptData: String, flowId: FlowIdentifier) {
-//
-//        guard let delegateManager = delegateManager else {
-//            let log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
-//            os_log("💰 The Delegate Manager is not set", log: log, type: .fault)
-//            return
-//        }
-//
-//        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-//
-//        localQueue.async { [weak self] in
-//            guard let _self = self else { return }
-//            _ = _self.currentTransactions.remove(transactionIdentifier)
-//            _self.receiptToVerifyWhenNewSessionIsAvailable.append((ownedIdentity, receiptData, transactionIdentifier, flowId))
-//            _self.queueForNotifications.async { [weak self] in
-//                self?.createNewServerSession(ownedIdentity: ownedIdentity, delegateManager: delegateManager, flowId: flowId, log: log)
-//            }
-//        }
-//    }
-//
-//
-//    private func createNewServerSession(ownedIdentity: ObvCryptoIdentity, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier, log: OSLog) {
-//        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); return }
-//        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-//            guard let serverSession = try? ServerSession.get(within: obvContext.context, withIdentity: ownedIdentity), let token = serverSession.token else {
-//                Task.detached {
-//                    do {
-//                        _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedIdentity, currentInvalidToken: nil, flowId: flowId)
-//                    } catch {
-//                        os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
-//                        assertionFailure()
-//                    }
-//                }
-//                return
-//            }
-//
-//            Task.detached {
-//                do {
-//                    _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedIdentity, currentInvalidToken: token, flowId: flowId)
-//                } catch {
-//                    os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
-//                    assertionFailure()
-//                }
-//            }
-//        }
-//
-//    }
-//
-//
-//
-//
-//}
 
 
 // MARK: - Errors

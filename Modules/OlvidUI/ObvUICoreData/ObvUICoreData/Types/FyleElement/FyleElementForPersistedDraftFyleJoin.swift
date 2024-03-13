@@ -80,13 +80,13 @@ public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
     }
 
     private static func draftDirectory(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, in currentSessionDirectoryForHardlinks: URL) -> URL {
-        let directory = draftPermanentID.description.replacingOccurrences(of: "/", with: "_")
+        let directory = draftPermanentID.description.escapedStringForFyleElementDirectoryOrFilename()
         return discussionDirectory(discussionPermanentID: discussionPermanentID, in: currentSessionDirectoryForHardlinks)
             .appendingPathComponent(directory, isDirectory: true)
     }
 
     private static func fyleMessageJoinWithStatusDirectory(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, draftFyleJoinPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>, in currentSessionDirectoryForHardlinks: URL) -> URL {
-        let directory = draftFyleJoinPermanentID.description.replacingOccurrences(of: "/", with: "_")
+        let directory = draftFyleJoinPermanentID.description.escapedStringForFyleElementDirectoryOrFilename()
         return draftDirectory(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID, in: currentSessionDirectoryForHardlinks)
             .appendingPathComponent(directory, isDirectory: true)
     }
@@ -107,7 +107,7 @@ public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
     }
 
     public static func trashDraftFyleJoinDirectory(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, draftFyleJoinPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>, in currentSessionDirectoryForHardlinks: URL) throws {
-        let directory = draftFyleJoinPermanentID.description.replacingOccurrences(of: "/", with: "_")
+        let directory = draftFyleJoinPermanentID.description.escapedStringForFyleElementDirectoryOrFilename()
         let urlToTrash = draftDirectory(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID, in: currentSessionDirectoryForHardlinks)
             .appendingPathComponent(directory, isDirectory: true)
         let trashURL = ObvUICoreDataConstants.ContainerURL.forTrash.appendingPathComponent(UUID().uuidString)

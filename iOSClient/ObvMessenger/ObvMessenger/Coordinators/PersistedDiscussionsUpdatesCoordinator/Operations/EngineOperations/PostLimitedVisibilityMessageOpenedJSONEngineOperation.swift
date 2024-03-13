@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,7 @@ import ObvTypes
 import CoreData
 
 
-final class PostLimitedVisibilityMessageOpenedJSONEngineOperation: ContextualOperationWithSpecificReasonForCancel<PostLimitedVisibilityMessageOpenedJSONEngineOperation.ReasonForCancel> {
+final class PostLimitedVisibilityMessageOpenedJSONEngineOperation: AsyncOperationWithSpecificReasonForCancel<PostLimitedVisibilityMessageOpenedJSONEngineOperation.ReasonForCancel> {
     
     let obvEngine: ObvEngine
     let op: OperationProvidingLimitedVisibilityMessageOpenedJSONs
@@ -36,27 +36,20 @@ final class PostLimitedVisibilityMessageOpenedJSONEngineOperation: ContextualOpe
         self.op = op
         super.init()
     }
-    
 
-    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+    override func main() async {
         
-        assert(op.isFinished)
+        guard op.isFinished else {
+            assertionFailure()
+            return cancel(withReason: .dependencyIsNotFinished)
+        }
         
-        guard !op.isCancelled else { return }
-        guard !op.limitedVisibilityMessageOpenedJSONsToSend.isEmpty else { return }
-        guard let ownedCryptoId = op.ownedCryptoId else { assertionFailure(); return }
+        guard !op.isCancelled else { return finish() }
+        guard !op.limitedVisibilityMessageOpenedJSONsToSend.isEmpty else { return finish() }
+        guard let ownedCryptoId = op.ownedCryptoId else { assertionFailure(); return finish() }
 
         do {
             
-            guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: obvContext.context) else {
-                return cancel(withReason: .couldNotFindOwnedIdentity)
-            }
-            
-            guard ownedIdentity.hasAnotherDeviceWithChannel else {
-                // No need to propagate the fact that we opened a message with limited visibility since we don't have any other owned device with a secure channel
-                return
-            }
-                        
             for limitedVisibilityMessageOpenedJSON in op.limitedVisibilityMessageOpenedJSONsToSend {
                 
                 let persistedItemsJSON = PersistedItemJSON(limitedVisibilityMessageOpenedJSON: limitedVisibilityMessageOpenedJSON)
@@ -71,6 +64,8 @@ final class PostLimitedVisibilityMessageOpenedJSONEngineOperation: ContextualOpe
                                        ofOwnedIdentityWithCryptoId: ownedCryptoId,
                                        alsoPostToOtherOwnedDevices: true)
                 
+                return finish()
+                
             }
             
         } catch {
@@ -84,6 +79,7 @@ final class PostLimitedVisibilityMessageOpenedJSONEngineOperation: ContextualOpe
         
         case couldNotFindOwnedIdentity
         case someError(error: Error)
+        case dependencyIsNotFinished
         
         var logType: OSLogType {
             return .fault
@@ -95,6 +91,8 @@ final class PostLimitedVisibilityMessageOpenedJSONEngineOperation: ContextualOpe
                 return "Error: \(error.localizedDescription)"
             case .couldNotFindOwnedIdentity:
                 return "Could not find owned identity"
+            case .dependencyIsNotFinished:
+                return "The dependency is not finished"
             }
         }
         

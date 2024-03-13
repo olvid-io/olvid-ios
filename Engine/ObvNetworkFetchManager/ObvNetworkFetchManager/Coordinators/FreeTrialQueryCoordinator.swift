@@ -75,16 +75,19 @@ actor FreeTrialQueryCoordinator: FreeTrialQueryDelegate {
             let returnStatus = try await task.value
             switch returnStatus {
             case .invalidSession:
+                failedAttemptsCounterManager.reset(counter: .freeTrialQuery(ownedIdentity: ownedCryptoId))
                 _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: sessionToken, flowId: flowId)
                 return try await queryFreeTrial(for: ownedCryptoId, flowId: flowId)
             case .ok:
+                failedAttemptsCounterManager.reset(counter: .freeTrialQuery(ownedIdentity: ownedCryptoId))
                 return true
             case .freeTrialAlreadyUsed:
+                failedAttemptsCounterManager.reset(counter: .freeTrialQuery(ownedIdentity: ownedCryptoId))
                 return false
             case .generalError:
                 let delay = failedAttemptsCounterManager.incrementAndGetDelay(.freeTrialQuery(ownedIdentity: ownedCryptoId))
+                os_log("Will retry the call to queryFreeTrial in %f seconds", log: Self.log, type: .error, Double(delay) / 1000.0)
                 await retryManager.waitForDelay(milliseconds: delay)
-                _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: sessionToken, flowId: flowId)
                 return try await queryFreeTrial(for: ownedCryptoId, flowId: flowId)
             }
         } catch {
@@ -131,18 +134,21 @@ actor FreeTrialQueryCoordinator: FreeTrialQueryDelegate {
             let (returnStatus, _) = try await task.value
             switch returnStatus {
             case .ok:
+                failedAttemptsCounterManager.reset(counter: .freeTrialQuery(ownedIdentity: ownedCryptoId))
                 let newAPIKeyElements = try await delegateManager.networkFetchFlowDelegate.refreshAPIPermissions(of: ownedCryptoId, flowId: flowId)
                 return newAPIKeyElements
             case .invalidSession:
+                failedAttemptsCounterManager.reset(counter: .freeTrialQuery(ownedIdentity: ownedCryptoId))
                 _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: sessionToken, flowId: flowId)
                 let newAPIKeyElements = try await startFreeTrial(for: ownedCryptoId, flowId: flowId)
                 return newAPIKeyElements
             case .freeTrialAlreadyUsed:
+                failedAttemptsCounterManager.reset(counter: .freeTrialQuery(ownedIdentity: ownedCryptoId))
                 throw ObvError.freeTrialAlreadyUsed
             case .generalError:
                 let delay = failedAttemptsCounterManager.incrementAndGetDelay(.freeTrialQuery(ownedIdentity: ownedCryptoId))
+                os_log("Will retry the call to startFreeTrial in %f seconds", log: Self.log, type: .error, Double(delay) / 1000.0)
                 await retryManager.waitForDelay(milliseconds: delay)
-                _ = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: sessionToken, flowId: flowId)
                 let newAPIKeyElements = try await startFreeTrial(for: ownedCryptoId, flowId: flowId)
                 return newAPIKeyElements
             }

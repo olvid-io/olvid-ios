@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2023 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,5 +23,5 @@ import OlvidUtils
 
 
 public protocol ObvProcessDownloadedMessageDelegate: ObvManager {
-    func processNetworkReceivedEncryptedMessages(_ networkReceivedMessages: Set<ObvNetworkReceivedMessageEncrypted>, within obvContext: ObvContext)
+    func processNetworkReceivedEncryptedMessages(_ networkReceivedMessages: Set<ObvNetworkReceivedMessageEncrypted>, within obvContext: ObvContext) throws -> [ReceivedEncryptedMessageProcessingResult]
 }

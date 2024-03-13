@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,4 +30,16 @@ public protocol FyleElement {
     func directoryForHardLink(in currentSessionDirectoryForHardlinks: URL) -> URL
     func replacingFullFileIsAvailable(with newFullFileIsAvailable: Bool) -> FyleElement
     static func makeError(message: String) -> Error
+}
+
+
+extension String {
+
+    /// When creating a hardlink on the basis of a `FyleElement` we often need to derive a directory name or a filename from a string.
+    /// We use this method to excape the string
+    public func escapedStringForFyleElementDirectoryOrFilename() -> String {
+        return self
+            .replacingOccurrences(of: "/", with: "_")
+    }
+    
 }

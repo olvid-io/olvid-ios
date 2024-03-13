@@ -1272,8 +1272,7 @@
         }
       }
     },
-    "WITH_N_PARTICIPANTS" : {
-      "extractionState" : "migrated",
+    "WITH_%lld_PARTICIPANTS" : {
       "localizations" : {
         "en" : {
           "variations" : {
@@ -1287,7 +1286,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "with %u participants"
+                  "value" : "with %lld participants"
                 }
               },
               "zero" : {
@@ -1311,7 +1310,7 @@
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "avec %u participants"
+                  "value" : "avec %lld participants"
                 }
               },
               "zero" : {

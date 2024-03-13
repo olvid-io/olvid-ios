@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -97,7 +97,6 @@ enum ObvMessengerInternalNotification {
 	case insertDebugMessagesInAllExistingDiscussions
 	case draftExpirationWasBeenUpdated(persistedDraftObjectID: TypeSafeManagedObjectID<PersistedDraft>)
 	case cleanExpiredMuteNotficationsThatExpiredEarlierThanNow
-	case needToRecomputeAllBadges(completionHandler: (Bool) -> Void)
 	case userWantsToDisplayContactIntroductionScreen(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, viewController: UIViewController)
 	case userDidTapOnMissedMessageBubble
 	case olvidSnackBarShouldBeShown(ownedCryptoId: ObvCryptoId, snackBarCategory: OlvidSnackBarCategory)
@@ -117,7 +116,7 @@ enum ObvMessengerInternalNotification {
 	case installedOlvidAppIsOutdated(presentingViewController: UIViewController?)
 	case userOwnedIdentityWasRevokedByKeycloak(ownedCryptoId: ObvCryptoId)
 	case uiRequiresSignedContactDetails(ownedIdentityCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId, completion: (SignedObvKeycloakUserDetails?) -> Void)
-	case requestSyncAppDatabasesWithEngine(queuePriority: Operation.QueuePriority, completion: (Result<Void,Error>) -> Void)
+	case requestSyncAppDatabasesWithEngine(queuePriority: Operation.QueuePriority, isRestoringSyncSnapshotOrBackup: Bool, completion: (Result<(coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue),Error>) -> Void)
 	case uiRequiresSignedOwnedDetails(ownedIdentityCryptoId: ObvCryptoId, completion: (SignedObvKeycloakUserDetails?) -> Void)
 	case listMessagesOnServerBackgroundTaskWasLaunched(completionHandler: (Bool) -> Void)
 	case userWantsToSendOneToOneInvitationToContact(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId)
@@ -150,7 +149,6 @@ enum ObvMessengerInternalNotification {
 	case userWantsToSwitchToOtherHiddenOwnedIdentity(password: String)
 	case userWantsToUnhideOwnedIdentity(ownedCryptoId: ObvCryptoId)
 	case metaFlowControllerDidSwitchToOwnedIdentity(ownedCryptoId: ObvCryptoId)
-	case recomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities
 	case closeAnyOpenHiddenOwnedIdentity
 	case userWantsToUpdateOwnedCustomDisplayName(ownedCryptoId: ObvCryptoId, newCustomDisplayName: String?)
 	case userWantsToReorderDiscussions(discussionObjectIds: [NSManagedObjectID], ownedIdentity: ObvCryptoId, completionHandler: ((Bool) -> Void)?)
@@ -173,6 +171,7 @@ enum ObvMessengerInternalNotification {
 	case userWantsToUpdatePersonalNoteOnGroupV1(ownedCryptoId: ObvCryptoId, groupId: GroupV1Identifier, newText: String?)
 	case userWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data, newText: String?)
 	case allPersistedInvitationCanBeMarkedAsOld(ownedCryptoId: ObvCryptoId)
+	case userHasSeenPublishedDetailsOfContactGroupJoined(obvGroupIdentifier: ObvGroupV1Identifier)
 
 	private enum Name {
 		case messagesAreNotNewAnymore
@@ -235,7 +234,6 @@ enum ObvMessengerInternalNotification {
 		case insertDebugMessagesInAllExistingDiscussions
 		case draftExpirationWasBeenUpdated
 		case cleanExpiredMuteNotficationsThatExpiredEarlierThanNow
-		case needToRecomputeAllBadges
 		case userWantsToDisplayContactIntroductionScreen
 		case userDidTapOnMissedMessageBubble
 		case olvidSnackBarShouldBeShown
@@ -288,7 +286,6 @@ enum ObvMessengerInternalNotification {
 		case userWantsToSwitchToOtherHiddenOwnedIdentity
 		case userWantsToUnhideOwnedIdentity
 		case metaFlowControllerDidSwitchToOwnedIdentity
-		case recomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities
 		case closeAnyOpenHiddenOwnedIdentity
 		case userWantsToUpdateOwnedCustomDisplayName
 		case userWantsToReorderDiscussions
@@ -311,6 +308,7 @@ enum ObvMessengerInternalNotification {
 		case userWantsToUpdatePersonalNoteOnGroupV1
 		case userWantsToUpdatePersonalNoteOnGroupV2
 		case allPersistedInvitationCanBeMarkedAsOld
+		case userHasSeenPublishedDetailsOfContactGroupJoined
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -383,7 +381,6 @@ enum ObvMessengerInternalNotification {
 			case .insertDebugMessagesInAllExistingDiscussions: return Name.insertDebugMessagesInAllExistingDiscussions.name
 			case .draftExpirationWasBeenUpdated: return Name.draftExpirationWasBeenUpdated.name
 			case .cleanExpiredMuteNotficationsThatExpiredEarlierThanNow: return Name.cleanExpiredMuteNotficationsThatExpiredEarlierThanNow.name
-			case .needToRecomputeAllBadges: return Name.needToRecomputeAllBadges.name
 			case .userWantsToDisplayContactIntroductionScreen: return Name.userWantsToDisplayContactIntroductionScreen.name
 			case .userDidTapOnMissedMessageBubble: return Name.userDidTapOnMissedMessageBubble.name
 			case .olvidSnackBarShouldBeShown: return Name.olvidSnackBarShouldBeShown.name
@@ -436,7 +433,6 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToSwitchToOtherHiddenOwnedIdentity: return Name.userWantsToSwitchToOtherHiddenOwnedIdentity.name
 			case .userWantsToUnhideOwnedIdentity: return Name.userWantsToUnhideOwnedIdentity.name
 			case .metaFlowControllerDidSwitchToOwnedIdentity: return Name.metaFlowControllerDidSwitchToOwnedIdentity.name
-			case .recomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities: return Name.recomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities.name
 			case .closeAnyOpenHiddenOwnedIdentity: return Name.closeAnyOpenHiddenOwnedIdentity.name
 			case .userWantsToUpdateOwnedCustomDisplayName: return Name.userWantsToUpdateOwnedCustomDisplayName.name
 			case .userWantsToReorderDiscussions: return Name.userWantsToReorderDiscussions.name
@@ -459,6 +455,7 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToUpdatePersonalNoteOnGroupV1: return Name.userWantsToUpdatePersonalNoteOnGroupV1.name
 			case .userWantsToUpdatePersonalNoteOnGroupV2: return Name.userWantsToUpdatePersonalNoteOnGroupV2.name
 			case .allPersistedInvitationCanBeMarkedAsOld: return Name.allPersistedInvitationCanBeMarkedAsOld.name
+			case .userHasSeenPublishedDetailsOfContactGroupJoined: return Name.userHasSeenPublishedDetailsOfContactGroupJoined.name
 			}
 		}
 	}
@@ -741,10 +738,6 @@ enum ObvMessengerInternalNotification {
 			]
 		case .cleanExpiredMuteNotficationsThatExpiredEarlierThanNow:
 			info = nil
-		case .needToRecomputeAllBadges(completionHandler: let completionHandler):
-			info = [
-				"completionHandler": completionHandler,
-			]
 		case .userWantsToDisplayContactIntroductionScreen(contactObjectID: let contactObjectID, viewController: let viewController):
 			info = [
 				"contactObjectID": contactObjectID,
@@ -820,9 +813,10 @@ enum ObvMessengerInternalNotification {
 				"contactCryptoId": contactCryptoId,
 				"completion": completion,
 			]
-		case .requestSyncAppDatabasesWithEngine(queuePriority: let queuePriority, completion: let completion):
+		case .requestSyncAppDatabasesWithEngine(queuePriority: let queuePriority, isRestoringSyncSnapshotOrBackup: let isRestoringSyncSnapshotOrBackup, completion: let completion):
 			info = [
 				"queuePriority": queuePriority,
+				"isRestoringSyncSnapshotOrBackup": isRestoringSyncSnapshotOrBackup,
 				"completion": completion,
 			]
 		case .uiRequiresSignedOwnedDetails(ownedIdentityCryptoId: let ownedIdentityCryptoId, completion: let completion):
@@ -972,8 +966,6 @@ enum ObvMessengerInternalNotification {
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 			]
-		case .recomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities:
-			info = nil
 		case .closeAnyOpenHiddenOwnedIdentity:
 			info = nil
 		case .userWantsToUpdateOwnedCustomDisplayName(ownedCryptoId: let ownedCryptoId, newCustomDisplayName: let newCustomDisplayName):
@@ -1080,6 +1072,10 @@ enum ObvMessengerInternalNotification {
 		case .allPersistedInvitationCanBeMarkedAsOld(ownedCryptoId: let ownedCryptoId):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
+			]
+		case .userHasSeenPublishedDetailsOfContactGroupJoined(obvGroupIdentifier: let obvGroupIdentifier):
+			info = [
+				"obvGroupIdentifier": obvGroupIdentifier,
 			]
 		}
 		return info
@@ -1642,14 +1638,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeNeedToRecomputeAllBadges(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (@escaping (Bool) -> Void) -> Void) -> NSObjectProtocol {
-		let name = Name.needToRecomputeAllBadges.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let completionHandler = notification.userInfo!["completionHandler"] as! (Bool) -> Void
-			block(completionHandler)
-		}
-	}
-
 	static func observeUserWantsToDisplayContactIntroductionScreen(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedObvContactIdentity>, UIViewController) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToDisplayContactIntroductionScreen.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -1809,12 +1797,13 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeRequestSyncAppDatabasesWithEngine(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Operation.QueuePriority, @escaping (Result<Void,Error>) -> Void) -> Void) -> NSObjectProtocol {
+	static func observeRequestSyncAppDatabasesWithEngine(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (Operation.QueuePriority, Bool, @escaping (Result<(coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue),Error>) -> Void) -> Void) -> NSObjectProtocol {
 		let name = Name.requestSyncAppDatabasesWithEngine.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let queuePriority = notification.userInfo!["queuePriority"] as! Operation.QueuePriority
-			let completion = notification.userInfo!["completion"] as! (Result<Void,Error>) -> Void
-			block(queuePriority, completion)
+			let isRestoringSyncSnapshotOrBackup = notification.userInfo!["isRestoringSyncSnapshotOrBackup"] as! Bool
+			let completion = notification.userInfo!["completion"] as! (Result<(coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue),Error>) -> Void
+			block(queuePriority, isRestoringSyncSnapshotOrBackup, completion)
 		}
 	}
 
@@ -2104,13 +2093,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeRecomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.recomputeRecomputeBadgeCountForDiscussionsTabForAllOwnedIdentities.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
-		}
-	}
-
 	static func observeCloseAnyOpenHiddenOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
 		let name = Name.closeAnyOpenHiddenOwnedIdentity.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -2314,6 +2296,14 @@ enum ObvMessengerInternalNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			block(ownedCryptoId)
+		}
+	}
+
+	static func observeUserHasSeenPublishedDetailsOfContactGroupJoined(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvGroupV1Identifier) -> Void) -> NSObjectProtocol {
+		let name = Name.userHasSeenPublishedDetailsOfContactGroupJoined.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let obvGroupIdentifier = notification.userInfo!["obvGroupIdentifier"] as! ObvGroupV1Identifier
+			block(obvGroupIdentifier)
 		}
 	}
 

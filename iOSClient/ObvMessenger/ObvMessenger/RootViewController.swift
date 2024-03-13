@@ -548,12 +548,6 @@ extension RootViewController {
     
         private func observeVoIPNotifications() {
             observationTokens.append(contentsOf: [
-//                VoIPNotification.observeShowCallViewControllerForAnsweringNonCallKitIncomingCall { incomingCall in
-//                    Task(priority: .userInitiated) { [weak self] in
-//                        self?.preferMetaViewControllerOverCallViewController = false
-//                        await self?.setCallInProgress(to: incomingCall)
-//                    }
-//                },
                 VoIPNotification.observeNewCallToShow { model in
                     Task(priority: .userInitiated) { [weak self] in
                         self?.preferMetaViewControllerOverCallViewController = false
@@ -566,18 +560,6 @@ extension RootViewController {
                         await self?.setCallViewControllerModel(to: nil)
                     }
                 },
-//                VoIPNotification.observeNewOutgoingCall { newOutgoingCall in
-//                    Task(priority: .userInitiated) { [weak self] in
-//                        self?.preferMetaViewControllerOverCallViewController = false
-//                        await self?.setCallInProgress(to: newOutgoingCall)
-//                    }
-//                },
-//                VoIPNotification.observeAnIncomingCallShouldBeShownToUser { newOutgoingCall in
-//                    Task(priority: .userInitiated) { [weak self] in
-//                        self?.preferMetaViewControllerOverCallViewController = false
-//                        await self?.setCallInProgress(to: newOutgoingCall)
-//                    }
-//                },
                 VoIPNotification.observeHideCallView {
                     Task(priority: .userInitiated) { [weak self] in
                         self?.preferMetaViewControllerOverCallViewController = true

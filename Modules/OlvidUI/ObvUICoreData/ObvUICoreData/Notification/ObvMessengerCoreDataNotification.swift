@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -44,10 +44,10 @@ public enum ObvMessengerCoreDataNotification {
 	case persistedContactHasNewStatus(contactCryptoId: ObvCryptoId, ownedCryptoId: ObvCryptoId)
 	case persistedContactIsActiveChanged(contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 	case newMessageExpiration(expirationDate: Date)
-	case persistedMessageReactionReceivedWasDeletedOnSentMessage(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>)
+	case persistedMessageReactionReceivedWasDeletedOnSentMessage(messagePermanentID: MessageSentPermanentID, contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>)
 	case persistedMessageReactionReceivedWasInsertedOrUpdated(objectID: TypeSafeManagedObjectID<PersistedMessageReactionReceived>)
 	case persistedContactGroupHasUpdatedContactIdentities(persistedContactGroupObjectID: NSManagedObjectID, insertedContacts: Set<PersistedObvContactIdentity>, removedContacts: Set<PersistedObvContactIdentity>)
-	case aReadOncePersistedMessageSentWasSent(persistedMessageSentPermanentID: ObvManagedObjectPermanentID<PersistedMessageSent>, persistedDiscussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>)
+	case aReadOncePersistedMessageSentWasSent(persistedMessageSentPermanentID: MessageSentPermanentID, persistedDiscussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>)
 	case newPersistedObvContactDevice(contactDeviceObjectID: NSManagedObjectID, contactCryptoId: ObvCryptoId)
 	case deletedPersistedObvContactDevice(contactCryptoId: ObvCryptoId)
 	case persistedDiscussionHasNewTitle(objectID: TypeSafeManagedObjectID<PersistedDiscussion>, title: String)
@@ -536,10 +536,10 @@ public enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	public static func observePersistedMessageReactionReceivedWasDeletedOnSentMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedMessageSent>, ObvManagedObjectPermanentID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
+	public static func observePersistedMessageReactionReceivedWasDeletedOnSentMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (MessageSentPermanentID, ObvManagedObjectPermanentID<PersistedObvContactIdentity>) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedMessageReactionReceivedWasDeletedOnSentMessage.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let messagePermanentID = notification.userInfo!["messagePermanentID"] as! ObvManagedObjectPermanentID<PersistedMessageSent>
+			let messagePermanentID = notification.userInfo!["messagePermanentID"] as! MessageSentPermanentID
 			let contactPermanentID = notification.userInfo!["contactPermanentID"] as! ObvManagedObjectPermanentID<PersistedObvContactIdentity>
 			block(messagePermanentID, contactPermanentID)
 		}
@@ -563,10 +563,10 @@ public enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	public static func observeAReadOncePersistedMessageSentWasSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedMessageSent>, ObvManagedObjectPermanentID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
+	public static func observeAReadOncePersistedMessageSentWasSent(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (MessageSentPermanentID, ObvManagedObjectPermanentID<PersistedDiscussion>) -> Void) -> NSObjectProtocol {
 		let name = Name.aReadOncePersistedMessageSentWasSent.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let persistedMessageSentPermanentID = notification.userInfo!["persistedMessageSentPermanentID"] as! ObvManagedObjectPermanentID<PersistedMessageSent>
+			let persistedMessageSentPermanentID = notification.userInfo!["persistedMessageSentPermanentID"] as! MessageSentPermanentID
 			let persistedDiscussionPermanentID = notification.userInfo!["persistedDiscussionPermanentID"] as! ObvManagedObjectPermanentID<PersistedDiscussion>
 			block(persistedMessageSentPermanentID, persistedDiscussionPermanentID)
 		}

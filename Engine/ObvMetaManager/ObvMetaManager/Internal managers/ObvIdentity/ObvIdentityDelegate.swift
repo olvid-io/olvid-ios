@@ -132,6 +132,8 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     func getAllObvGroupV2(of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvGroupV2>
     
+    func getObvGroupV2(with identifier: ObvGroupV2Identifier, within obvContext: ObvContext) throws -> ObvGroupV2?
+
     func getTrustedPhotoURLAndUploaderOfObvGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (url: URL, uploader: ObvCryptoIdentity)?
 
     func replaceTrustedDetailsByPublishedDetailsOfGroupV2(withGroupWithIdentifier groupIdentifier: GroupV2.Identifier, of ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
@@ -352,7 +354,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     func isOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
     
-    func resetOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, within obvContext: ObvContext) throws
+    func resetOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, reasonToLog: String, within obvContext: ObvContext) throws
 
     // MARK: - API related to contact capabilities
 
@@ -388,9 +390,9 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     
     func getServerUserData(for ownedIdentity: ObvCryptoIdentity, with label: UID, within obvContext: ObvContext) -> UserData?
 
-    func deleteUserData(for ownedIdentity: ObvCryptoIdentity, with label: UID, within obvContext: ObvContext)
+    func deleteUserData(for ownedIdentity: ObvCryptoIdentity, with label: UID, flowId: FlowIdentifier) async throws
 
-    func updateUserDataNextRefreshTimestamp(for ownedIdentity: ObvCryptoIdentity, with label: UID, within obvContext: ObvContext)
+    func updateUserDataNextRefreshTimestamp(for ownedIdentity: ObvCryptoIdentity, with label: UID, flowId: FlowIdentifier) async throws
 
     // MARK: - Getting informations about missing photos
 

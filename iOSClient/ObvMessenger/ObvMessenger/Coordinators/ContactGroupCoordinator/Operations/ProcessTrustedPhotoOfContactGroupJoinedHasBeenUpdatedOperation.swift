@@ -25,35 +25,35 @@ import CoreData
 import ObvUICoreData
 
 
-final class ProcessTrustedPhotoOfContactGroupJoinedHasBeenUpdatedOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
-
-    let obvContactGroup: ObvContactGroup
-    
-    init(obvContactGroup: ObvContactGroup) {
-        self.obvContactGroup = obvContactGroup
-        super.init()
-    }
-    
-    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
-        
-        do {
-            
-            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
-                return
-            }
-            
-            let groupIdentifier = obvContactGroup.groupIdentifier
-            
-            guard let groupJoined = try PersistedContactGroupJoined.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
-                return
-            }
-            
-            groupJoined.updatePhoto(with: obvContactGroup.trustedOrLatestPhotoURL)
-            
-        } catch {
-            assertionFailure()
-            return cancel(withReason: .coreDataError(error: error))
-        }
-        
-    }
-}
+//final class ProcessTrustedPhotoOfContactGroupJoinedHasBeenUpdatedOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
+//
+//    let obvContactGroup: ObvContactGroup
+//    
+//    init(obvContactGroup: ObvContactGroup) {
+//        self.obvContactGroup = obvContactGroup
+//        super.init()
+//    }
+//    
+//    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+//        
+//        do {
+//            
+//            guard let persistedObvOwnedIdentity = try PersistedObvOwnedIdentity.get(persisted: obvContactGroup.ownedIdentity, within: obvContext.context) else {
+//                return
+//            }
+//            
+//            let groupIdentifier = obvContactGroup.groupIdentifier
+//            
+//            guard let groupJoined = try PersistedContactGroupJoined.getContactGroup(groupIdentifier: groupIdentifier, ownedIdentity: persistedObvOwnedIdentity) as? PersistedContactGroupJoined else {
+//                return
+//            }
+//            
+//            groupJoined.updatePhoto(with: obvContactGroup.trustedOrLatestPhotoURL)
+//            
+//        } catch {
+//            assertionFailure()
+//            return cancel(withReason: .coreDataError(error: error))
+//        }
+//        
+//    }
+//}

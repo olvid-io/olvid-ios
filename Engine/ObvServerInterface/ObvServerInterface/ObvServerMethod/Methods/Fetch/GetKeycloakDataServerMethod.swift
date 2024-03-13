@@ -46,24 +46,30 @@ public final class GetKeycloakDataServerMethod: ObvServerDataMethod {
         self.serverLabel = serverLabel
     }
     
-    public enum PossibleReturnStatus: UInt8 {
+    private enum PossibleReturnRawStatus: UInt8 {
         case ok = 0x00
         case deletedFromServer = 0x09
         case generalError = 0xff
     }
-    
+
+    public enum PossibleReturnStatus {
+        case ok(userDataFilename: String)
+        case deletedFromServer
+        case generalError
+    }
+
     lazy public var dataToSend: Data? = {
         return serverLabel.raw
     }()
     
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog, downloadedUserData: URL, serverLabel: UID) -> (status: PossibleReturnStatus, userDataPath: String?)? {
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog, downloadedUserData: URL, serverLabel: UID) -> PossibleReturnStatus? {
         
         guard let (rawServerReturnedStatus, listOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .error)
             return nil
         }
         
-        guard let serverReturnedStatus = PossibleReturnStatus(rawValue: rawServerReturnedStatus) else {
+        guard let serverReturnedStatus = PossibleReturnRawStatus(rawValue: rawServerReturnedStatus) else {
             os_log("The returned server status is invalid", log: log, type: .error)
             return nil
         }
@@ -90,16 +96,18 @@ public final class GetKeycloakDataServerMethod: ObvServerDataMethod {
             do {
                 try encryptedData.raw.write(to: userDataPath)
             } catch {
-                return (.generalError, nil)
+                assertionFailure()
+                return nil
             }
             
-            return (serverReturnedStatus, filename)
+            return .ok(userDataFilename: filename)
+
         case .deletedFromServer:
-            return (serverReturnedStatus, "")
+            return .deletedFromServer
             
         case .generalError:
             os_log("The server reported a general error", log: log, type: .error)
-            return (serverReturnedStatus, nil)
+            return .generalError
         }
     }
 }

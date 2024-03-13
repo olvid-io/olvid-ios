@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -96,6 +96,13 @@ protocol NewComposeMessageViewDelegate: UIViewController {
     /// - Returns: The superview to add the picker view to, same superview as ``NewComposeMessageViewDelegate/newComposeMessageViewShortcutPickerAboveSiblingView(_:)``
     func newComposeMessageViewShortcutPickerSuperview(_ newComposeMessageView: NewComposeMessageView) -> UIView
     
+    /// Method called when the compose message view detects a link inside the text body
+    /// - Parameter newComposeMessageView: The compose view responsible for this call
+    func newComposeMessageViewHasDetectedLink(_ newComposeMessageView: NewComposeMessageView)
+    
+    /// Method called when the user tapped on the close button of the preview.
+    /// - Parameter newComposeMessageView: The compose view responsible for this call
+    func newComposeMessageViewWantsToRemovePreview(_ newComposeMessageView: NewComposeMessageView)
 }
 
 /// Protocol that acts as the datsource for an instance of ``NewComposeMessageView``
@@ -164,11 +171,28 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     private var constraintsWhenShowingReplyTo = [NSLayoutConstraint]()
     private var constraintsWhenHidingReplyTo = [NSLayoutConstraint]()
 
+    private var constraintsWhenShowingPreview = [NSLayoutConstraint]()
+    private var constraintsWhenHidingPreview = [NSLayoutConstraint]()
+    
     private var discussionViewDidAppearWasCalled = false
     private let buttonsAnimationValues: (duration: Double, options: UIView.AnimationOptions) = (0.25, UIView.AnimationOptions([.curveEaseInOut]))
     
     let draft: PersistedDraft
     let attachmentsCollectionViewController: AttachmentsCollectionViewController
+    
+    // MARK: Previews
+    let previewComposeView: LinkPreviewComposeView
+    
+    /// This ``ManagedObjectChangesPublisher`` produces changes that occured on the collection of ``PersistedDraftFyleJoin`` of "link preview" type for the current draft.
+    private var linkPreviewsPublisher: AnyPublisher<[PersistedDraftFyleJoin], Never> {
+        let fetchRequest = PersistedDraftFyleJoin.getFetchRequestForPreviewAttachments(withObjectID: draft.typedObjectID)
+        let publisher = ObvStack.shared.viewContext.fetchRequestPublisher(for: fetchRequest)
+            .catch({ _ in
+                Empty<NSFetchRequestPublisher<PersistedDraftFyleJoin>.Output, Never>()
+            })
+            .eraseToAnyPublisher()
+        return publisher
+    }
     
     private var textFieldBubbleWasJustTapped = false
     
@@ -237,6 +261,8 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
     }
     private var currentDraftId = UUID()
     private let internalQueue = DispatchQueue(label: "NewComposeMessageView internal queue")
+
+    private let queueForLoadingItemProvidersToPaste = OperationQueue.createSerialQueue(name: "NewComposeMessageView queue for loading item providers to paste")
 
     private let dateFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -350,13 +376,17 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         mentionsPublisher = mentionsSubject
             .eraseToAnyPublisher()
 
+        previewComposeView = LinkPreviewComposeView(draft: draft)
+        
         super.init(frame: .zero)
 
         (currentFreezeId, currentFreezeProgress) = CompositionViewFreezeManager.shared.register(self)
 
         setupInternalViews()
+        continuouslyDetectLink()
         continuouslySaveDraftText()
         observeAttachmentsChanges()
+        observePreviewChanges()
         observeDraftBodyChanges()
         observeMessageChanges()
         observeDiscussionLocalConfigurationHasBeenUpdatedNotifications()
@@ -473,12 +503,16 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         backgroundVisualEffectView.translatesAutoresizingMaskIntoConstraints = false
         backgroundVisualEffectView.contentView.isUserInteractionEnabled = true
 
-        addSubview(mainContentView) // f u UIVisualEffectView; its contentView isn't propagating the bounds change when we need it
+        addSubview(mainContentView) // UIVisualEffectView; its contentView isn't propagating the bounds change when we need it
         mainContentView.isUserInteractionEnabled = true
         mainContentView.translatesAutoresizingMaskIntoConstraints = false
 
         mainContentView.addSubview(replyToView)
         replyToView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Setup Preview View
+        mainContentView.addSubview(previewComposeView)
+        previewComposeView.translatesAutoresizingMaskIntoConstraints = false
         
         // Configure the multiple buttons stack and all its buttons
         
@@ -549,7 +583,7 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         textFieldBubble.addSubview(textViewForTyping)
         textViewForTyping.translatesAutoresizingMaskIntoConstraints = false
         textViewForTyping.font = UIFont.preferredFont(forTextStyle: .body)
-        textViewForTyping.maxHeight = 100
+        textViewForTyping.maxHeight = ObvMessengerConstants.targetEnvironmentIsMacCatalyst ? 300 : 100
         textViewForTyping.backgroundColor = .none
         textViewForTyping.delegate = self
         textViewForTyping.autoGrowingTextViewDelegate = self
@@ -773,17 +807,27 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         ])
 
         constraintsWhenShowingReplyTo = [
-            replyToView.topAnchor.constraint(equalTo: topAnchor, constant: padding),
+            replyToView.topAnchor.constraint(equalTo: previewComposeView.bottomAnchor, constant: padding),
             replyToView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
             replyToView.bottomAnchor.constraint(equalTo: textFieldBubble.topAnchor, constant: -padding),
             replyToView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
         ]
         
         constraintsWhenHidingReplyTo = [
-            textFieldBubble.topAnchor.constraint(equalTo: topAnchor, constant: padding),
+            textFieldBubble.topAnchor.constraint(equalTo: previewComposeView.bottomAnchor, constant: padding),
+        ]
+        
+        constraintsWhenShowingPreview = [
+            previewComposeView.heightAnchor.constraint(equalToConstant: 50.0),
+        ]
+
+        constraintsWhenHidingPreview = [
+            previewComposeView.heightAnchor.constraint(equalToConstant: 0.0),
         ]
         
         hideReplyToView()
+        
+        hidePreview()
         
         // Configure the constraints that are common to all states (note that the button sizes are already set in `setupInternalViews()`)
         
@@ -815,6 +859,10 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
             emojiButton.bottomAnchor.constraint(equalTo: sendButtonsHolder.bottomAnchor),
             emojiButton.leadingAnchor.constraint(equalTo: sendButtonsHolder.leadingAnchor),
 
+            previewComposeView.topAnchor.constraint(equalTo: topAnchor),
+            previewComposeView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+            previewComposeView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            
             attachmentsCollectionViewController.view.trailingAnchor.constraint(equalTo: self.trailingAnchor),
             attachmentsCollectionViewController.view.bottomAnchor.constraint(equalTo: mainContentView.safeAreaLayoutGuide.bottomAnchor),
             attachmentsCollectionViewController.view.leadingAnchor.constraint(equalTo: self.leadingAnchor),
@@ -953,6 +1001,28 @@ final class NewComposeMessageView: UIView, UITextViewDelegate, ViewShowingHardLi
         switchToState(newState: currentState, newAttachmentsState: evaluateNewAttachmentState(), animationValues: buttonsAnimationValues, completionForSendButton: nil)
     }
 
+    public var currentHttpsURLDetected: URL? {
+        return textViewForTyping.attributedText.string.getHttpsURLs().first
+        }
+    
+    
+    private func continuouslyDetectLink() {
+        textPublisher
+            .debounce(for: 0.5, scheduler: RunLoop.main)
+            .filter { [weak self] in $0.id == self?.currentDraftId }
+            .map(\.body)
+            .removeDuplicates()
+            .map({ text in
+                return text.getHttpsURLs().first
+            })
+            .removeDuplicates()
+            .sink { [weak self] link in
+                guard let self else { return }
+                delegate?.newComposeMessageViewHasDetectedLink(self)
+            }
+            .store(in: &cancellables)
+    }
+    
     private func continuouslySaveDraftText() {
         let draftObjectID = draft.typedObjectID
 
@@ -2008,6 +2078,39 @@ extension NewComposeMessageView {
         })
     }
 
+    
+    private func observePreviewChanges() {
+
+        // We create a publisher that produces the first PersistedDraftFyleJoin of type "link preview" associated to the draft.
+        let firstLinkPreviewPublisher = linkPreviewsPublisher.map { linkPreviews in
+            linkPreviews.first
+        }
+        
+        // We bind and transform the first draft available to the preview compose view.
+        // As a consequence, each time the first PersistedDraftFyleJoin of type "link preview" associated to the draft does change, the previewComposeView is notified.
+        firstLinkPreviewPublisher
+            .assign(to: \.draftFyleJoin, on: self.previewComposeView)
+            .store(in: &cancellables)
+        
+        // We hide the previewComposeView in case there is no PersistedDraftFyleJoin of type "link preview" associated to the draft
+        firstLinkPreviewPublisher
+            .map { $0 == nil }
+            .sink { [weak self] previewIsHidden in
+                guard let self else { return }
+                previewIsHidden ? hidePreview() : showPreview()
+            }
+            .store(in: &cancellables)
+        
+        // We subscribe to the publisher of the previewComposeView that produces a value when the user taps on the button allowing to remove the PersistedDraftFyleJoin of type "link preview" associated to the draft.
+        previewComposeView.removePreviewPublisher
+            .sink { [weak self] in
+                guard let self else { return }
+                delegate?.newComposeMessageViewWantsToRemovePreview(self)
+            }
+            .store(in: &cancellables)
+    }
+    
+    
     private func observeDiscussionLocalConfigurationHasBeenUpdatedNotifications() {
         let token = ObvMessengerCoreDataNotification.observeDiscussionLocalConfigurationHasBeenUpdated { [weak self] value, objectId in
             DispatchQueue.main.async {
@@ -2032,7 +2135,7 @@ extension NewComposeMessageView {
 
     private func evaluateNewAttachmentState() -> AttachmentsState {
         assert(Thread.isMainThread)
-        self.numberOfAttachments = draft.fyleJoins.count
+        self.numberOfAttachments = draft.fyleJoinsNotPreviews.count
         return self.numberOfAttachments == 0 ? .noAttachment : .hasAttachments
     }
 
@@ -2072,6 +2175,18 @@ extension NewComposeMessageView {
         replyToView.isHidden = true
     }
 
+    private func showPreview() {
+        NSLayoutConstraint.deactivate(constraintsWhenHidingPreview)
+        NSLayoutConstraint.activate(constraintsWhenShowingPreview)
+        previewComposeView.isHidden = false
+    }
+
+    private func hidePreview() {
+        NSLayoutConstraint.deactivate(constraintsWhenShowingPreview)
+        NSLayoutConstraint.activate(constraintsWhenHidingPreview)
+        previewComposeView.isHidden = true
+    }
+    
 }
 
 
@@ -2125,7 +2240,7 @@ extension NewComposeMessageView {
     /// Appends an array of `NSItemProvider`s to the current draft, either as text pasted in the text view, or as attachments.
     /// - Parameters:
     ///   - itemProviders: An array of item providers to append
-    func addAttachments(from itemProviders: [NSItemProvider], attachAllItems: Bool = false) async {
+    func addAttachments(from itemProviders: [NSItemProvider], attachTextItems: Bool = false) async {
 
         let draftPermanentID = draft.objectPermanentID
 
@@ -2133,8 +2248,8 @@ extension NewComposeMessageView {
         // - One for the items we want to paste as text in the text view
         // - One for the items we want to add as attachments
         
-        let itemProvidersToPaste = attachAllItems ? [] : itemProviders.filter {
-            $0.obvRegisteredContentTypes.contains(where: { $0.conforms(to: .text) } )
+        let itemProvidersToPaste = itemProviders.filter {
+            $0.obvRegisteredContentTypes.contains(where: { ($0.conforms(to: .text) && !attachTextItems) || $0.conforms(to: .webInternetLocation) } )
         }
         let itemProvidersToAttach = itemProviders.filter {
             !itemProvidersToPaste.contains($0)
@@ -2142,30 +2257,38 @@ extension NewComposeMessageView {
 
         // Process the item providers that we want to paste as text (i.e. Strings and URLs)
         
-        itemProvidersToPaste.forEach { itemProviderToPaste in
-            let textViewForTyping = self.textViewForTyping
-            itemProviderToPaste.loadItem(forTypeIdentifier: UTType.text.identifier) { item, error in
-                if let error {
-                    assertionFailure(error.localizedDescription)
-                    return
-                }
-                if let text = item as? String {
+        if !itemProvidersToPaste.isEmpty {
+            
+            itemProvidersToPaste.forEach { itemProviderToPaste in
+                let textViewForTyping = self.textViewForTyping
+                
+                let op1 = LoadItemProviderOperation(itemProviderOrItemURL: .itemProvider(itemProvider: itemProviderToPaste), progressAvailable: { _ in })
+                let op2 = BlockOperation {
+                    guard let loadedItemProvider = op1.loadedItemProvider else { assertionFailure(); return }
+                    let textToPaste: String
+                    switch loadedItemProvider {
+                    case .file:
+                        assertionFailure()
+                        return
+                    case .url(content: let url):
+                        textToPaste = url.absoluteString
+                    case .text(content: let text):
+                        textToPaste = text
+                    }
                     DispatchQueue.main.async {
                         if let selectedTextRange = textViewForTyping.selectedTextRange {
-                            textViewForTyping.replace(selectedTextRange, withText: text)
+                            textViewForTyping.replace(selectedTextRange, withText: textToPaste)
                         } else {
-                            textViewForTyping.text.append(contentsOf: text)
+                            textViewForTyping.text.append(contentsOf: textToPaste)
                         }
                     }
-                } else {
-                    // 2023-08-03 As we made the NewComposeMessageView.addAttachments(from:) async, we commented this code
-                    // that should never be executed anyway
-                    assertionFailure()
-//                    DispatchQueue.main.async {
-//                        textViewForTyping.paste(itemProviders: [itemProviderToPaste])
-//                    }
                 }
+                
+                op2.addDependency(op1)
+                queueForLoadingItemProvidersToPaste.addOperations([op1, op2], waitUntilFinished: false)
+
             }
+            
         }
         
         // Process the item providers we want to add as attachments

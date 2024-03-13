@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,9 +19,13 @@
 
 import Foundation
 import CallKit
+import AVFoundation
 import os.log
 import ObvTypes
 import ObvUICoreData
+#if canImport(ScreenCaptureKit)
+import ScreenCaptureKit
+#endif
 
 
 protocol OlvidCallManagerDelegate: AnyObject {
@@ -41,7 +45,11 @@ actor OlvidCallManager {
     private var calls = [OlvidCall]()
     /// Stores ICE candidates received for a call that cannot be found yet. They will be used as soon as the call is added to the list of calls.
     private var receivedIceCandidatesStoredForLater = [UUID: [(iceCandidate: IceCandidateJSON, userId: OlvidUserId)]]()
-    
+
+    /// We keep a weak reference to the one (and only) ``ObvPeerConnectionFactory``. All ongoing ``OlvidCall`` keep a strong pointer to it, allowing to keep in memory and to re-use the same factory in case
+    /// we create a second call while a call already exists. Once the last call is deallocated, the fact that we only keep a weak reference allows to make sure the factory is deallocated too.
+    private weak var factory: ObvPeerConnectionFactory?
+
     private weak var delegate: OlvidCallManagerDelegate?
     
     nonisolated
@@ -82,12 +90,15 @@ actor OlvidCallManager {
     
     
     func createIncomingCall(uuidForCallKit: UUID, uuidForWebRTC: UUID, contactIdentifier: ObvContactIdentifier, startCallMessage: StartCallMessageJSON, rtcPeerConnectionQueue: OperationQueue, callDelegate: OlvidCallDelegate) async throws -> OlvidCall {
+        let factory = self.factory ?? ObvPeerConnectionFactory()
+        self.factory = factory
         let incomingCall = try await OlvidCall.createIncomingCall(
             callIdentifierForCallKit: uuidForCallKit,
             uuidForWebRTC: uuidForWebRTC,
             callerId: contactIdentifier,
             startCallMessage: startCallMessage,
-            rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+            rtcPeerConnectionQueue: rtcPeerConnectionQueue, 
+            factory: factory,
             delegate: callDelegate)
         addCall(incomingCall)
         return incomingCall
@@ -460,6 +471,28 @@ extension OlvidCallManager {
 
 extension OlvidCallManager {
     
+    func incomingCallCannotBeAnsweredBecauseOfDeniedRecordPermission(uuidForCallKit: UUID) async throws -> (incomingCall: OlvidCall?, callReport: CallReport?, WebRTCMessageJSON?) {
+        
+        guard let incomingCall = callWithCallIdentifierForCallKit(uuidForCallKit) else {
+            assertionFailure()
+            throw ObvError.callNotFound
+        }
+        
+        let (callReport, _) = try await incomingCall.endBecauseOfDeniedRecordPermission()
+        
+        if incomingCall.state.isFinalState {
+           removeCall(incomingCall)
+        } else {
+            assertionFailure()
+        }
+        
+        let rejectedOnOtherDeviceMessageJSON = try? AnsweredOrRejectedOnOtherDeviceMessageJSON(answered: false).embedInWebRTCMessageJSON(callIdentifier: incomingCall.uuidForWebRTC)
+
+        return (incomingCall, callReport, rejectedOnOtherDeviceMessageJSON)
+        
+    }
+    
+    
     func incomingWasNotAnsweredToAndTimedOut(uuidForCallKit: UUID) async -> (callReport: CallReport?, cxCallEndedReason: CXCallEndedReason?) {
         
         guard let incomingCall = callWithCallIdentifierForCallKit(uuidForCallKit) else {
@@ -502,12 +535,15 @@ extension OlvidCallManager {
 
         // Create the outgoing call and add it to the list of calls
         
+        let factory = self.factory ?? ObvPeerConnectionFactory()
+        self.factory = factory
         let outgoingCall = try await OlvidCall.createOutgoingCall(
             ownedCryptoId: ownedCryptoId,
             contactCryptoIds: contactCryptoIds,
             ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials,
             groupId: groupId,
-            rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+            rtcPeerConnectionQueue: rtcPeerConnectionQueue, 
+            factory: factory,
             delegate: olvidCallDelegate)
         
         addCall(outgoingCall)
@@ -548,7 +584,23 @@ extension OlvidCallManager {
             throw ObvError.callNotFound
         }
 
-        try await outgoingCall.userWantsToRemoveParticipantFromThisOutgoingCall(cryptoId: participantToRemove)
+        if outgoingCall.otherParticipants.count <= 1 {
+            try await userWantsToEndOngoingCall(uuidForCallKit: uuidForCallKit)
+        } else {
+            try await outgoingCall.userWantsToRemoveParticipantFromThisOutgoingCall(cryptoId: participantToRemove)
+        }
+        
+    }
+    
+    
+    /// This method is actully required by the ``OlvidCallViewActionsProtocol``. It is called when the user (caller) wants to have a one2one chat with a participant.
+    func userWantsToChatWithParticipant(uuidForCallKit: UUID, participant: ObvCryptoId) async throws {
+        
+        guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else {
+            throw ObvError.callNotFound
+        }
+        
+        try await call.userWantsToChatWithParticipant(participant: participant)
         
     }
     
@@ -597,6 +649,7 @@ extension OlvidCallManager {
 
 
     /// Called when the user taps the end call button on the in-house UI during an ongoing call (both for incoming and outgoing calls).
+    /// This is also called when the user removes the only other participant of an outgoing call
     func userWantsToEndOngoingCall(uuidForCallKit: UUID) async throws {
         os_log("☎️🔚 userWantsToEndOngoingCall %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
         let endCallAction = CXEndCallAction(call: uuidForCallKit)
@@ -615,6 +668,33 @@ extension OlvidCallManager {
         try await callControllerHolder.callController.request(transaction)
     }
 
+    
+    func userWantsToStartOrStopVideoCamera(uuidForCallKit: UUID, start: Bool, preferredPosition: AVCaptureDevice.Position) async throws {
+        os_log("☎️ userWantsToStartOrStopVideoCamera %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
+        guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else {
+            assertionFailure()
+            return
+        }
+        try await call.userWantsToStartOrStopVideoCamera(start: start, preferredPosition: preferredPosition)
+    }
+    
+    
+    func callViewDidDisappear(uuidForCallKit: UUID) async {
+        os_log("☎️ callViewDidDisappear %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
+        guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else { return }
+        await call.callViewDidDisappear()
+    }
+    
+    
+    func callViewDidAppear(uuidForCallKit: UUID) async {
+        os_log("☎️ callViewDidAppear %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
+        guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else {
+            assertionFailure()
+            return
+        }
+        await call.callViewDidAppear()
+    }
+    
 }
 
 
