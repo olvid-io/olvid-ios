@@ -153,9 +153,13 @@ public extension NSPredicate {
     }
 
     convenience init<T: RawRepresentable>(_ key: T, is bool: Bool) where T.RawValue == String {
-        self.init(format: bool ? "%K == YES" : "%K == NO", key.rawValue)
+        self.init(key.rawValue, is: bool)
     }
-    
+
+    convenience init(_ rawKey: String, is bool: Bool) {
+        self.init(format: bool ? "%K == YES" : "%K == NO", rawKey)
+    }
+
     convenience init(withEntity entity: NSEntityDescription) {
         self.init(format: "entity = %@", entity)
     }

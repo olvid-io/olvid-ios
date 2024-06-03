@@ -55,7 +55,6 @@ public enum ObvIdentityNotificationNew {
 	case contactObvCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case ownedIdentityCapabilitiesWereUpdated(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case contactIdentityOneToOneStatusChanged(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
-	case contactTrustLevelWasIncreased(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, trustLevelOfContactIdentity: TrustLevel, isOneToOne: Bool, flowId: FlowIdentifier)
 	case groupV2WasCreated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
 	case groupV2WasUpdated(obvGroupV2: ObvGroupV2, initiator: ObvGroupV2.CreationOrUpdateInitiator)
 	case groupV2WasDeleted(ownedIdentity: ObvCryptoIdentity, appGroupIdentifier: Data)
@@ -90,7 +89,6 @@ public enum ObvIdentityNotificationNew {
 		case contactObvCapabilitiesWereUpdated
 		case ownedIdentityCapabilitiesWereUpdated
 		case contactIdentityOneToOneStatusChanged
-		case contactTrustLevelWasIncreased
 		case groupV2WasCreated
 		case groupV2WasUpdated
 		case groupV2WasDeleted
@@ -135,7 +133,6 @@ public enum ObvIdentityNotificationNew {
 			case .contactObvCapabilitiesWereUpdated: return Name.contactObvCapabilitiesWereUpdated.name
 			case .ownedIdentityCapabilitiesWereUpdated: return Name.ownedIdentityCapabilitiesWereUpdated.name
 			case .contactIdentityOneToOneStatusChanged: return Name.contactIdentityOneToOneStatusChanged.name
-			case .contactTrustLevelWasIncreased: return Name.contactTrustLevelWasIncreased.name
 			case .groupV2WasCreated: return Name.groupV2WasCreated.name
 			case .groupV2WasUpdated: return Name.groupV2WasUpdated.name
 			case .groupV2WasDeleted: return Name.groupV2WasDeleted.name
@@ -272,14 +269,6 @@ public enum ObvIdentityNotificationNew {
 			info = [
 				"ownedIdentity": ownedIdentity,
 				"contactIdentity": contactIdentity,
-				"flowId": flowId,
-			]
-		case .contactTrustLevelWasIncreased(ownedIdentity: let ownedIdentity, contactIdentity: let contactIdentity, trustLevelOfContactIdentity: let trustLevelOfContactIdentity, isOneToOne: let isOneToOne, flowId: let flowId):
-			info = [
-				"ownedIdentity": ownedIdentity,
-				"contactIdentity": contactIdentity,
-				"trustLevelOfContactIdentity": trustLevelOfContactIdentity,
-				"isOneToOne": isOneToOne,
 				"flowId": flowId,
 			]
 		case .groupV2WasCreated(obvGroupV2: let obvGroupV2, initiator: let initiator):
@@ -550,18 +539,6 @@ public enum ObvIdentityNotificationNew {
 			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(ownedIdentity, contactIdentity, flowId)
-		}
-	}
-
-	public static func observeContactTrustLevelWasIncreased(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, ObvCryptoIdentity, TrustLevel, Bool, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.contactTrustLevelWasIncreased.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
-			let contactIdentity = notification.userInfo!["contactIdentity"] as! ObvCryptoIdentity
-			let trustLevelOfContactIdentity = notification.userInfo!["trustLevelOfContactIdentity"] as! TrustLevel
-			let isOneToOne = notification.userInfo!["isOneToOne"] as! Bool
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(ownedIdentity, contactIdentity, trustLevelOfContactIdentity, isOneToOne, flowId)
 		}
 	}
 

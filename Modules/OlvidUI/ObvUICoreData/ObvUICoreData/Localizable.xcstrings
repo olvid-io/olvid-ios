@@ -647,13 +647,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Group members have been updated. Tap to learn more."
+            "value" : "Group members have been updated."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les membres du groupe ont été mis à jour. Touchez pour en savoir plus."
+            "value" : "Les membres du groupe ont été mis à jour."
           }
         }
       }

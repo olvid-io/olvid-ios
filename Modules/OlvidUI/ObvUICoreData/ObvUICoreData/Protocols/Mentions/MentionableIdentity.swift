@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,9 @@ import CoreData.NSManagedObject
 import UI_ObvCircledInitials
 import ObvTypes
 
+
+/// Type used when constructing mentions in a draft, i.e., when sending a message containing a mention.
+/// At some point, we might replace it with ``ObvMentionableIdentityAttribute``.
 public enum MentionableIdentityTypes {
     
     /// `[Range<String.Index>: MentionableIdentity]`
@@ -39,6 +42,49 @@ public enum MentionableIdentityTypes {
         case contact(TypeSafeManagedObjectID<PersistedObvContactIdentity>)
         /// Represents a V2 group member. See ``PersistedGroupV2Member``
         case groupV2Member(TypeSafeManagedObjectID<PersistedGroupV2Member>)
+    }
+}
+
+
+/// This type is a custom attribute used in the attribute string constructed in ``PersistedMessage``, and eventually displayed in the text bubble of a discussion cell.
+public enum ObvMentionableIdentityAttribute: CodableAttributedStringKey, MarkdownDecodableAttributedStringKey {
+    
+    public enum Value: Hashable, Codable {
+        
+        case ownedIdentity(ownedCryptoId: ObvCryptoId)
+        case contact(contactIdentifier: ObvContactIdentifier)
+        case groupV2Member(groupIdentifier: ObvGroupV2Identifier, memberId: ObvCryptoId)
+        
+        enum ObvError: Error {
+            case stringEncodingFailed
+        }
+        
+        public func jsonEncode() throws -> String {
+            let data = try JSONEncoder().encode(self)
+            guard let string = String(data: data, encoding: .utf8) else { assertionFailure(); throw ObvError.stringEncodingFailed }
+            return string
+        }
+
+    }
+    
+    public static let name = "mention"
+    
+}
+
+
+public extension AttributeScopes {
+    struct OlvidAppAttributes: AttributeScope {
+        public let mention: ObvMentionableIdentityAttribute
+        public let uiKit: UIKitAttributes
+    }
+
+    var olvidApp: OlvidAppAttributes.Type { OlvidAppAttributes.self }
+}
+
+
+public extension AttributeDynamicLookup {
+    subscript<T: AttributedStringKey>(dynamicMember keyPath: KeyPath<AttributeScopes.OlvidAppAttributes, T>) -> T {
+        self[T.self]
     }
 }
 

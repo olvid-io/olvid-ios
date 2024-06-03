@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,7 +39,8 @@ enum ObvUserNotificationID: Int {
     case missedCall
     case shouldGrantRecordPermissionToReceiveIncomingCalls
 
-    case staticIdentifier = 1000
+    case anotherCallParticipantStartedCamera = 2_000
+    case staticIdentifier = 1_000
 }
 
 enum ObvUserNotificationIdentifier {
@@ -64,6 +65,8 @@ enum ObvUserNotificationIdentifier {
     case shouldGrantRecordPermissionToReceiveIncomingCalls
     // Static identifier, when notifications should not disclose any content
     case staticIdentifier
+    // Static identifier used when notifying that another user started her video during a call
+    case anotherCallParticipantStartedCamera
 
     func getIdentifier() -> String {
         switch self {
@@ -95,6 +98,8 @@ enum ObvUserNotificationIdentifier {
             return "shouldGrantRecordPermissionToReceiveIncomingCalls"
         case .staticIdentifier:
             return "staticIdentifier"
+        case .anotherCallParticipantStartedCamera:
+            return "anotherCallParticipantStartedCamera"
         }
     }
 
@@ -113,6 +118,7 @@ enum ObvUserNotificationIdentifier {
         case .oneToOneInvitationReceived: return .oneToOneInvitationReceived
         case .shouldGrantRecordPermissionToReceiveIncomingCalls: return .shouldGrantRecordPermissionToReceiveIncomingCalls
         case .staticIdentifier: return .staticIdentifier
+        case .anotherCallParticipantStartedCamera: return .anotherCallParticipantStartedCamera
         }
     }
 
@@ -122,7 +128,7 @@ enum ObvUserNotificationIdentifier {
             return "MessageThread"
         case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .oneToOneInvitationReceived:
             return "InvitationThread"
-        case .missedCall, .shouldGrantRecordPermissionToReceiveIncomingCalls:
+        case .missedCall, .shouldGrantRecordPermissionToReceiveIncomingCalls, .anotherCallParticipantStartedCamera:
             return "CallThread"
         case .newReaction, .newReactionNotificationWithHiddenContent:
             return "ReactionThread"
@@ -145,7 +151,7 @@ enum ObvUserNotificationIdentifier {
             return .missedCallCategory
         case .newReaction, .newReactionNotificationWithHiddenContent:
             return .newReactionCategory
-        case .sasExchange, .mutualTrustConfirmed, .staticIdentifier:
+        case .sasExchange, .mutualTrustConfirmed, .staticIdentifier, .anotherCallParticipantStartedCamera:
             return nil
         }
     }

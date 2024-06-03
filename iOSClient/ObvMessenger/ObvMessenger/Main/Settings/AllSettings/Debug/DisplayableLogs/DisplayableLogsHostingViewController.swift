@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -56,8 +56,6 @@ final class DisplayableLogsViewStore: ObservableObject {
     private(set) var logFilenames: [String]
     @Published var changed: Bool
 
-    private let byteCountFormatter = ByteCountFormatter()
-
     weak var delegate: DisplayableLogsViewStoreDelegate?
     
     init() {
@@ -73,7 +71,7 @@ final class DisplayableLogsViewStore: ObservableObject {
         guard let size = try? ObvDisplayableLogs.shared.getSizeOfLog(logFilename: logFilename) else {
             return nil
         }
-        return byteCountFormatter.string(fromByteCount: size)
+        return size.formatted(.byteCount(style: .file, allowedUnits: .all, spellsOutZero: true, includesActualByteCount: false))
     }
     
     func deleteLog(_ logFilename: String) {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -126,7 +126,24 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     }
     
     
-    func newOutboxMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
+    func requestBatchUploadMessagesWithoutAttachment(serverURL: URL, flowId: FlowIdentifier) async throws {
+        
+        guard let delegateManager = delegateManager else {
+            let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
+            os_log("The Delegate Manager is not set", log: log, type: .fault)
+            return
+        }
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
+
+        os_log("Call to requestBatchUploadMessagesWithoutAttachment within flow %{public}@", log: log, type: .info, flowId.debugDescription)
+
+        try await delegateManager.batchUploadMessagesWithoutAttachmentDelegate.batchUploadMessagesWithoutAttachment(serverURL: serverURL, flowId: flowId)
+        
+    }
+    
+    
+    func newOutboxMessageWithAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
@@ -156,7 +173,8 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
         os_log("We failed to upload and get uid for message %{public}@ within flow %{public}@", log: log, type: .error, messageId.debugDescription, flowId.debugDescription)
         
         let delay = failedFetchAttemptsCounterManager.incrementAndGetDelay(.uploadMessage(messageId: messageId))
-        retryManager.executeWithDelay(delay) { [weak self] in
+        Task { [weak self] in
+            await self?.retryManager.waitForDelay(milliseconds: delay)
             self?.delegateManager?.uploadMessageAndGetUidsDelegate.getIdFromServerUploadMessage(messageId: messageId, flowId: flowId)
         }
     }
@@ -312,14 +330,16 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     
     func attachmentFailedToUpload(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         let delay = failedFetchAttemptsCounterManager.incrementAndGetDelay(.uploadAttachment(attachmentId: attachmentId))
-        retryManager.executeWithDelay(delay) { [weak self] in
+        Task { [weak self] in
+            await self?.retryManager.waitForDelay(milliseconds: delay)
             self?.delegateManager?.uploadAttachmentChunksDelegate.resumeMissingAttachmentUploads(flowId: flowId)
         }
     }
     
     func signedURLsDownloadFailedForAttachment(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier) {
         let delay = failedFetchAttemptsCounterManager.incrementAndGetDelay(.uploadAttachment(attachmentId: attachmentId))
-        retryManager.executeWithDelay(delay) { [weak self] in
+        Task { [weak self] in
+            await self?.retryManager.waitForDelay(milliseconds: delay)
             self?.delegateManager?.uploadAttachmentChunksDelegate.downloadSignedURLsForAttachments(attachmentIds: [attachmentId], flowId: flowId)
         }
     }
@@ -384,7 +404,9 @@ extension NetworkSendFlowCoordinator: NetworkSendFlowDelegate {
     
     func resetAllFailedSendAttempsCountersAndRetrySending() {
         failedFetchAttemptsCounterManager.resetAll()
-        retryManager.executeAllWithNoDelay()
+        Task {
+            await retryManager.executeAllWithNoDelay()
+        }
     }
     
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,20 +26,25 @@ import ObvEngine
 import ObvUICoreData
 
 
+/// Called prior the processing a discussion deletion requested by an owned identity from the current device. This operation does nothing if the deletion type is `.fromThisDeviceOnly`.
 final class SendGlobalDeleteDiscussionJSONOperation: OperationWithSpecificReasonForCancel<SendGlobalDeleteDiscussionJSONOperationReasonForCancel> {
 
     private let persistedDiscussionObjectID: NSManagedObjectID
+    private let deletionType: DeletionType
     private let obvEngine: ObvEngine
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SendGlobalDeleteDiscussionJSONOperation.self))
 
-    init(persistedDiscussionObjectID: NSManagedObjectID, obvEngine: ObvEngine) {
+    init(persistedDiscussionObjectID: NSManagedObjectID, deletionType: DeletionType, obvEngine: ObvEngine) {
         self.persistedDiscussionObjectID = persistedDiscussionObjectID
         self.obvEngine = obvEngine
+        self.deletionType = deletionType
         super.init()
     }
 
     override func main() {
+
+        guard deletionType != .fromThisDeviceOnly else { return }
 
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
             
@@ -63,12 +68,25 @@ final class SendGlobalDeleteDiscussionJSONOperation: OperationWithSpecificReason
                 
                 let contactCryptoIds: Set<ObvCryptoId>
                 let ownCryptoId: ObvCryptoId
-                do {
-                    (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
-                } catch {
-                    return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
+                switch deletionType {
+                case .fromThisDeviceOnly:
+                    assertionFailure()
+                    return
+                case .fromAllOwnedDevices:
+                    do {
+                        (ownCryptoId, _) = try discussion.getAllActiveParticipants()
+                        contactCryptoIds = Set() // Send the request to our other remote devices only
+                    } catch {
+                        return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
+                    }
+                case .fromAllOwnedDevicesAndAllContactDevices:
+                    do {
+                        (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
+                    } catch {
+                        return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
+                    }
                 }
-                
+
                 guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownCryptoId, within: context) else {
                     return cancel(withReason: .couldNotFindOwnedIdentity)
                 }

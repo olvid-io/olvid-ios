@@ -59,6 +59,7 @@ public extension Project {
                 let launchArguments: [LaunchArgument] = [
                     .init(name: "-com.apple.CoreData.MigrationDebug 1", isEnabled: true),
                     .init(name: "-com.apple.CoreData.SQLDebug 1", isEnabled: false),
+                    .init(name: "-com.apple.TipKit.ResetDatastore 1", isEnabled: false),
                     .init(name: "-com.apple.CoreData.ConcurrencyDebug 1", isEnabled: true),
                     .init(name: "-NSShowNonLocalizedStrings YES", isEnabled: true),
                 ]

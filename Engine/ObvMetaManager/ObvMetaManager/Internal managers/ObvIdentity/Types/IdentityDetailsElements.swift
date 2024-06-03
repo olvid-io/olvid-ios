@@ -37,6 +37,7 @@ public struct IdentityDetailsElements {
     }
     
     
+    /// Called when comparing published contact details that were trusted on another owned device with those present on this device.
     public func fieldsAreTheSameButVersionAndSignedDetailsAreNotConsidered(than other: IdentityDetailsElements) -> Bool {
         return self.coreDetails.fieldsAreTheSameAndSignedDetailsAreNotConsidered(than: other.coreDetails) && self.photoServerKeyAndLabel == other.photoServerKeyAndLabel
     }

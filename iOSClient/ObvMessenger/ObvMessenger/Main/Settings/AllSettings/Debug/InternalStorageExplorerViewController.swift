@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -41,12 +41,15 @@ final class InternalStorageExplorerViewController: UIViewController, UICollectio
             }
         }
         
-        func secondaryText(dateFormater df: DateFormatter, byteCountFormatter bf: ByteCountFormatter) -> String {
+        func secondaryText(dateFormater df: DateFormatter) -> String {
             switch self {
             case .directory(name: _, creationDate: let creationDate, url: _):
                 return df.string(from: creationDate)
             case .file(name: _, creationDate: let creationDate, byteSize: let byteSize, url: _):
-                return [df.string(from: creationDate), bf.string(fromByteCount: Int64(byteSize))].joined(separator: " - ")
+                return [
+                    df.string(from: creationDate),
+                    Int64(byteSize).formatted(.byteCount(style: .file, allowedUnits: .all, spellsOutZero: true, includesActualByteCount: false)),
+                ].joined(separator: " - ")
             }
         }
 
@@ -73,12 +76,6 @@ final class InternalStorageExplorerViewController: UIViewController, UICollectio
         df.dateStyle = .short
         df.timeStyle = .short
         return df
-    }()
-    
-    private static let byteCountFormatter: ByteCountFormatter = {
-        let bf = ByteCountFormatter()
-        bf.countStyle = .file
-        return bf
     }()
     
     init(root: URL) {
@@ -150,7 +147,7 @@ final class InternalStorageExplorerViewController: UIViewController, UICollectio
         let cellRegistrationForDirectories = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
             var content = cell.defaultContentConfiguration()
             content.text = item.text
-            content.secondaryText = item.secondaryText(dateFormater: Self.dateFormater, byteCountFormatter: Self.byteCountFormatter)
+            content.secondaryText = item.secondaryText(dateFormater: Self.dateFormater)
             content.image = UIImage(systemIcon: .folder)
             content.textProperties.font = UIFont.preferredFont(forTextStyle: .footnote)
             content.secondaryTextProperties.color = .secondaryLabel
@@ -161,7 +158,7 @@ final class InternalStorageExplorerViewController: UIViewController, UICollectio
         let cellRegistrationForFiles = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { cell, _, item in
             var content = cell.defaultContentConfiguration()
             content.text = item.text
-            content.secondaryText = item.secondaryText(dateFormater: Self.dateFormater, byteCountFormatter: Self.byteCountFormatter)
+            content.secondaryText = item.secondaryText(dateFormater: Self.dateFormater)
             content.image = UIImage(systemIcon: .doc)
             content.textProperties.font = UIFont.preferredFont(forTextStyle: .footnote)
             content.secondaryTextProperties.color = .secondaryLabel

@@ -26,6 +26,7 @@ import UniformTypeIdentifiers
 import Platform_UIKit_Additions
 import ObvUICoreData
 import Components_TextInputShortcutsResultView
+import ObvSettings
 
 /// Represents all types related to ``AutoGrowingTextView``
 enum AutoGrowingTextViewTypes {
@@ -78,24 +79,36 @@ final class AutoGrowingTextView: UITextViewFixed {
 
     weak var autoGrowingTextViewDelegate: AutoGrowingTextViewDelegate?
 
-    /// Helper instance of `UIKeyCommand` when using the combo cmd + return
-    private lazy var returnKeyCommand = UIKeyCommand(input: "\r",
-                                                     modifierFlags: .command,
-                                                     action: #selector(handleKeyCommand))..{
-        $0.title = NSLocalizedString("Send", comment: "Send word, capitalized")
-
-        $0.wantsPriorityOverSystemBehavior = true
-    }
-
     private var __userIsEnteringAShortcut = false
 
+    
     override var keyCommands: [UIKeyCommand]? {
-        guard let superValue = super.keyCommands else {
-            return [returnKeyCommand]
+        
+        let sendMessageKeyCommand: UIKeyCommand
+        
+        switch ObvMessengerSettings.Interface.sendMessageShortcutType {
+        case .enter:
+            sendMessageKeyCommand = UIKeyCommand(title: String(localized: "SEND_MESSAGE"),
+                                                 image: UIImage.init(systemIcon: .paperplaneFill),
+                                                 action: #selector(handleKeyCommandForSendingMessage),
+                                                 input: "\r", // Return key
+                                                 discoverabilityTitle: String(localized: "SEND_MESSAGE"))
+        case .commandEnter:
+            sendMessageKeyCommand = UIKeyCommand(title: String(localized: "SEND_MESSAGE"),
+                                                 image: UIImage.init(systemIcon: .paperplaneFill),
+                                                 action: #selector(handleKeyCommandForSendingMessage),
+                                                 input: "\r", // Return key
+                                                 modifierFlags: .command,
+                                                 discoverabilityTitle: String(localized: "SEND_MESSAGE"))
         }
+        
+        sendMessageKeyCommand.wantsPriorityOverSystemBehavior = true
 
-        return superValue + [returnKeyCommand]
+        
+        return (super.keyCommands ?? []) + [sendMessageKeyCommand]
+                
     }
+    
 
     var maxHeight: CGFloat {
         get { maxHeightConstraint.constant }
@@ -256,20 +269,20 @@ final class AutoGrowingTextView: UITextViewFixed {
     }
 
 
+    /// Method called when the user types the ``UIKeyCommand`` shortcut for sending a message.
     @objc
-    private func handleKeyCommand(_ command: UIKeyCommand) {
-        if command == returnKeyCommand {
-            guard isActuallyEditable else {
-                return
-            }
-
-            guard let autoGrowingTextViewDelegate = autoGrowingTextViewDelegate else {
-                os_log("🎤 we're missing our delegate", log: log, type: .fault)
-                return
-            }
-
-            autoGrowingTextViewDelegate.autoGrowingTextView(self, perform: .keyboardPerformReturn)
+    private func handleKeyCommandForSendingMessage(_ command: UIKeyCommand) {
+        
+        guard isActuallyEditable else { return }
+        
+        guard let autoGrowingTextViewDelegate = autoGrowingTextViewDelegate else {
+            os_log("🎤 we're missing our delegate", log: log, type: .fault)
+            assertionFailure()
+            return
         }
+        
+        autoGrowingTextViewDelegate.autoGrowingTextView(self, perform: .keyboardPerformReturn)
+        
     }
 
     

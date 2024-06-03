@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,6 @@ import os.log
 import ObvUICoreData
 
 
-@available(iOS 15.0, *)
 final class ReplyToView: UIView {
     
     private let replyingToLabel = UILabel()
@@ -174,13 +173,13 @@ final class ReplyToView: UIView {
     
     @MainActor
     private func setOrRequestImage(hardlink: HardLinkToFyle, size: CGSize) {
-        if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
+        if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: .full(minSize: size)) {
             imageView.setHardlink(newHardlink: hardlink, withImage: image)
         } else {
             imageView.setHardlink(newHardlink: hardlink, withImage: nil)
             Task {
                 do {
-                    let image = try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                    let image = try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: size))
                     imageView.setHardlink(newHardlink: hardlink, withImage: image)
                 } catch {
                     os_log("The request for an image for the hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)

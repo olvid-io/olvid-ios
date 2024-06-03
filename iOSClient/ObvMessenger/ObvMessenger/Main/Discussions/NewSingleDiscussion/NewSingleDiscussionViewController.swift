@@ -72,6 +72,8 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private lazy var scrollToBottomButton = ScrollToBottomButton(observing: collectionView, initialVerticalVisibilityThreshold: 0)
     private let viewDidLayoutSubviewsSubject = PassthroughSubject<Void, Never>()
     private var isDragSessionInProgress = false
+    private static let spaceBellowLastCell: CGFloat = 8.0
+    private var hideGroupMemberChangeMessages = ObvMessengerSettings.ContactsAndGroups.hideGroupMemberChangeMessages
 
     // Search related variables
     private var isUserPerformingSearch = false
@@ -123,6 +125,13 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var searchWithinDiscussionTip: Any? = {
         if #available(iOS 17, *) {
             return OlvidTip.SearchWithinDiscussion()
+        } else {
+            return nil
+        }
+    }()
+    private var keyboardShortcutForSendingMessage: Any? = {
+        if #available(iOS 17, *) {
+            return OlvidTip.KeyboardShortcutForSendingMessage()
         } else {
             return nil
         }
@@ -278,21 +287,20 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private func configureScrollToBottomButton() {
         let verticalVisibilityPublisher = Publishers.CombineLatest(
             viewDidLayoutSubviewsSubject,
-            collectionView.publisher(for: \.contentSize,
-                                     options: [.initial, .new]))
-        .map(\.1)
-        .compactMap { [weak collectionView] contentSize -> CGFloat? in
-            guard let collectionView else {
-                return nil
+            collectionView.publisher(for: \.contentSize, options: [.initial, .new]))
+            .map(\.1)
+            .compactMap { [weak collectionView] contentSize -> CGFloat? in
+                guard let collectionView else {
+                    return nil
+                }
+                
+                let contentHeight = contentSize.height
+                
+                let pageHeight = collectionView.frame.height
+                
+                return contentHeight - (pageHeight * 2) - collectionView.adjustedContentInset.top
             }
-
-            let contentHeight = contentSize.height
-
-            let pageHeight = collectionView.frame.height
-
-            return contentHeight - (pageHeight * 2) - collectionView.adjustedContentInset.top
-        }
-
+        
         verticalVisibilityPublisher
             .assign(to: &scrollToBottomButton.$verticalVisibilityThreshold)
     }
@@ -369,8 +377,28 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         // Add a tip on the ellipsisButton
         
         if #available(iOS 17.0, *) {
-            guard let searchWithinDiscussionTip = searchWithinDiscussionTip as? OlvidTip.SearchWithinDiscussion else { assertionFailure(); return }
+            guard let searchWithinDiscussionTip = searchWithinDiscussionTip as? OlvidTip.SearchWithinDiscussion,
+                  let keyboardShortcutForSendingMessage = keyboardShortcutForSendingMessage as? OlvidTip.KeyboardShortcutForSendingMessage else {
+                assertionFailure()
+                return
+            }
             tipObservationTask = tipObservationTask ?? Task { @MainActor in
+                if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+                    for await shouldDisplay in keyboardShortcutForSendingMessage.shouldDisplayUpdates {
+                        if shouldDisplay {
+                            guard let sourceItem = composeMessageView else { assertionFailure(); return }
+                            let popoverController = TipUIPopoverViewController(keyboardShortcutForSendingMessage, sourceItem: sourceItem)
+                            present(popoverController, animated: true)
+                            tipPopoverController = popoverController
+                        } else {
+                            if presentedViewController is TipUIPopoverViewController {
+                                dismiss(animated: animated)
+                                tipPopoverController = nil
+                            }
+                        }
+                    }
+                }
+                guard tipPopoverController == nil else { return }
                 for await shouldDisplay in searchWithinDiscussionTip.shouldDisplayUpdates {
                     if shouldDisplay {
                         guard let sourceItem = viewSavedToDisplayTip as? UIPopoverPresentationControllerSourceItem else { assertionFailure(); return }
@@ -763,7 +791,10 @@ extension NewSingleDiscussionViewController {
     private func configureDataSource() {
         
         let collectionView = self.collectionView!
-        self.frc = PersistedMessage.getFetchedResultsControllerForAllMessagesWithinDiscussion(discussionObjectID: discussionObjectID, within: ObvStack.shared.viewContext)
+        self.frc = PersistedMessage.getFetchedResultsControllerForAllMessagesWithinDiscussion(
+            discussionObjectID: discussionObjectID,
+            includeMembersOfGroupV2WereUpdated: !hideGroupMemberChangeMessages,
+            within: ObvStack.shared.viewContext)
         self.frc.delegate = self
         
         let sentMessageCellRegistration = UICollectionView.CellRegistration<SentMessageCell, PersistedMessageSent> { [weak self] (cell, indexPath, message) in
@@ -944,7 +975,7 @@ extension NewSingleDiscussionViewController {
                   let ownedCryptoId = contactIdentity?.ownedIdentity?.cryptoId else {
                 return
             }
-            ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set([contactCryptoId]), groupId: nil)
+            ObvMessengerInternalNotification.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set([contactCryptoId]), groupId: nil, startCallIntent: nil)
                 .postOnDispatchQueue(internalQueue)
         case .groupV1(withContactGroup: let contactGroup):
             if let contactGroup = contactGroup, let groupV1Identifier = try? contactGroup.getGroupId() {
@@ -1093,6 +1124,7 @@ extension NewSingleDiscussionViewController {
         self.navigationItem.searchController?.isActive = false
         singleDiscussionSearchView.setResultsPublisher(resultsPublisher: searchControllerDelegate.$searchResults)
         continuouslyUpdateSearchResults()
+        continuouslyReloadDiscussionOnSettings()
         continuouslyProcessSearchedMessageToScrollTo()
         
         // If we don't add a search menu item, we want to use the search bar to display the tip about search
@@ -1119,6 +1151,25 @@ extension NewSingleDiscussionViewController {
             .store(in: &cancellables)
     }
     
+    
+    /// When the user changes the ``hideGroupMemberChangeMessages`` setting while a discussion is shown, we want to refresh to this discussion
+    /// to make sure the latest value of the setting is respected.
+    private func continuouslyReloadDiscussionOnSettings() {
+        ObvMessengerSettingsObservableObject.shared.$hideGroupMemberChangeMessages
+            .removeDuplicates()
+            .receive(on: OperationQueue.main)
+            .sink { [weak self] value in
+                guard let self else { return }
+                guard self.hideGroupMemberChangeMessages != value else { return }
+                self.hideGroupMemberChangeMessages = value
+                self.frc?.fetchRequest.predicate = PersistedMessage.getFetchRequestPredicateForAllMessagesWithinDiscussion(
+                    discussionObjectID: self.discussionObjectID,
+                    includeMembersOfGroupV2WereUpdated: !hideGroupMemberChangeMessages,
+                    within: ObvStack.shared.viewContext)
+                try? self.frc?.performFetch()
+            }
+            .store(in: &cancellables)
+    }
     
     
     /// Called when configuring the search controller, this method observes the "search result to scroll to" published by the search controller delegate.
@@ -1776,6 +1827,28 @@ extension NewSingleDiscussionViewController {
                 children.append(action)
             }
             
+            // Add a reaction action
+            if (try? persistedMessage.ownedIdentityIsAllowedToSetReaction) == true {
+                let title = persistedMessage.deleteOwnReactionActionCanBeMadeAvailable ? CommonString.Title.changeAReactionText : CommonString.Title.addAReactionText
+                let action = UIAction(title: title) { [weak self] (_) in
+                    guard let self else { return }
+                    self.userWantsToReactToMessage(messageID: persistedMessageObjectID)
+                }
+                action.image = UIImage(systemIcon: persistedMessage.deleteOwnReactionActionCanBeMadeAvailable ? .arrowClockwiseHeart : .heart)
+                children.append(action)
+            }
+            
+            // Delete reaction action
+            if persistedMessage.deleteOwnReactionActionCanBeMadeAvailable {
+                let action = UIAction(title: CommonString.Title.deleteOwnReaction) { (_) in
+                    guard let ownedCryptoId = persistedMessage.discussion?.ownedIdentity?.cryptoId else { assertionFailure(); return }
+                    ObvMessengerInternalNotification.userWantsToUpdateReaction(ownedCryptoId: ownedCryptoId, messageObjectID: persistedMessage.typedObjectID, newEmoji: nil)
+                        .postOnDispatchQueue()
+                }
+                action.image = UIImage(systemIcon: .heartSlash)
+                children.append(action)
+            }
+
             // Copy Text action
             if let textToCopy = cell.textToCopy, persistedMessage.copyActionCanBeMadeAvailable {
                 let action = UIAction(title: CommonString.Title.copyText) { (_) in
@@ -1924,7 +1997,7 @@ extension NewSingleDiscussionViewController {
                     guard let ownedCryptoId = ownedCryptoIds.first else { return }
                     
                     if contactCryptoIds.count == 1 {
-                        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId)
+                        ObvMessengerInternalNotification.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId, startCallIntent: nil)
                             .postOnDispatchQueue()
                     } else {
                         ObvMessengerInternalNotification.userWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId)
@@ -1935,22 +2008,11 @@ extension NewSingleDiscussionViewController {
                 children.append(action)
             }
 
-            // Delete reaction action
-            if persistedMessage.deleteOwnReactionActionCanBeMadeAvailable {
-                let action = UIAction(title: CommonString.Title.deleteOwnReaction) { (_) in
-                    guard let ownedCryptoId = persistedMessage.discussion?.ownedIdentity?.cryptoId else { assertionFailure(); return }
-                    ObvMessengerInternalNotification.userWantsToUpdateReaction(ownedCryptoId: ownedCryptoId, messageObjectID: persistedMessage.typedObjectID, newEmoji: nil)
-                        .postOnDispatchQueue()
-                }
-                action.image = UIImage(systemIcon: .heartSlashFill)
-                children.append(action)
-            }
-
             // Delete message action
-            if persistedMessage.deleteMessageActionCanBeMadeAvailable {
+            if !persistedMessage.deletionTypesThatCanBeMadeAvailableForThisMessage.isEmpty {
                 let action = UIAction(title: CommonString.Word.Delete) { [weak self] (_) in
                     // Do not show any confirmation if the user deletes a wiped message.
-                    let confirmedDeletionType: DeletionType? = persistedMessage.isWiped ? .local : nil
+                    let confirmedDeletionType: DeletionType? = persistedMessage.isWiped ? .fromThisDeviceOnly : nil
                     self?.deletePersistedMessage(objectId: persistedMessageObjectID.objectID, confirmedDeletionType: confirmedDeletionType, withinCell: cell)
                 }
                 action.image = UIImage(systemIcon: .trash)
@@ -1997,7 +2059,34 @@ extension NewSingleDiscussionViewController {
         case .none:
             
             guard let persistedMessage = try? PersistedMessage.get(with: objectId, within: ObvStack.shared.viewContext) else { return }
-            guard persistedMessage.discussion?.typedObjectID == self.discussionObjectID else { return }
+            guard let discussion = persistedMessage.discussion else { return }
+            guard discussion.typedObjectID == self.discussionObjectID else { return }
+            let ownedIdentityHasHasAnotherDeviceWithChannel = discussion.ownedIdentity?.hasAnotherDeviceWithChannel ?? false
+            
+            let multipleContacts: Bool
+            do {
+                switch try discussion.kind {
+                case .oneToOne:
+                    multipleContacts = false
+                case .groupV1(withContactGroup: let group):
+                    if let group {
+                        multipleContacts = group.contactIdentities.count > 1
+                    } else {
+                        assertionFailure()
+                        multipleContacts = false
+                    }
+                case .groupV2(withGroup: let group):
+                    if let group {
+                        multipleContacts = group.otherMembers.count > 1
+                    } else {
+                        assertionFailure()
+                        multipleContacts = false
+                    }
+                }
+            } catch {
+                assertionFailure()
+                multipleContacts = true
+            }
             
             let numberOfAttachedFyles: Int
             if let persistedMessageSent = persistedMessage as? PersistedMessageSent {
@@ -2018,16 +2107,13 @@ extension NewSingleDiscussionViewController {
             
             let alert = UIAlertController(title: userAlertTitle, message: userAlertMessage, preferredStyle: .actionSheet)
             
-            alert.addAction(UIAlertAction(title: CommonString.AlertButton.performDeletionAction, style: .default, handler: { [weak self] (action) in
-                self?.deletePersistedMessage(objectId: objectId, confirmedDeletionType: .local, withinCell: cell)
-            }))
-            
-            if persistedMessage.globalDeleteMessageActionCanBeMadeAvailable {
-                alert.addAction(UIAlertAction(title: CommonString.AlertButton.performGlobalDeletionAction, style: .destructive, handler: { [weak self] (action) in
-                    self?.deletePersistedMessage(objectId: objectId, confirmedDeletionType: .global, withinCell: cell)
+            for deletionType in persistedMessage.deletionTypesThatCanBeMadeAvailableForThisMessage.sorted() {
+                let title = CommonString.AlertButton.deletionActionTitle(for: deletionType, ownedIdentityHasHasAnotherDeviceWithChannel: ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts: multipleContacts)
+                alert.addAction(UIAlertAction(title: title, style: .destructive, handler: { [weak self] (action) in
+                    self?.deletePersistedMessage(objectId: objectId, confirmedDeletionType: deletionType, withinCell: cell)
                 }))
             }
-                        
+
             alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
 
             alert.popoverPresentationController?.sourceView = cell.viewForTargetedPreview
@@ -2173,7 +2259,7 @@ extension NewSingleDiscussionViewController {
         //guard !composeMessageView.preventTextViewFromEditing else { return }
         guard currentScrolling != .manually || !collectionView.isTracking else { return }
 
-        let bottom = contentViewFrameHeight + view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom
+        let bottom = contentViewFrameHeight + view.keyboardLayoutGuide.layoutFrame.height - view.safeAreaInsets.bottom + Self.spaceBellowLastCell
         guard collectionView.contentInset.bottom != bottom else { return }
         
         let currentHeightBelowContent = max(0, collectionView.bounds.height - collectionView.adjustedContentInset.bottom - collectionView.adjustedContentInset.top - collectionView.contentSize.height)
@@ -2244,7 +2330,9 @@ extension NewSingleDiscussionViewController {
                     let linkMetadata = await ObvLinkMetadata.from(linkMetadata: linkMetadataFromProvider)
                     
                     self.previewMetadataInComposeView = linkMetadata
-                    await sendUserWantsToAddAttachmentstoDraft(draftPermanentID: discussion.draft.objectPermanentID, linkMetadata: linkMetadata)
+                    if let discussionDraftObjectPermanentID = discussion.draft.objectPermanentID {
+                        await sendUserWantsToAddAttachmentstoDraft(draftPermanentID: discussionDraftObjectPermanentID, linkMetadata: linkMetadata)
+                    }
                 } catch {
                     sendUserWantsToRemovePreviewAttachmentsToDraft(draftObjectID: discussion.draft.typedObjectID)
                     previewMetadataInComposeView = nil
@@ -2654,6 +2742,10 @@ extension NewSingleDiscussionViewController {
 
     
     private func userDoubleTappedOnMessage(messageID: TypeSafeManagedObjectID<PersistedMessage>) {
+        userWantsToReactToMessage(messageID: messageID)
+    }
+    
+    private func userWantsToReactToMessage(messageID: TypeSafeManagedObjectID<PersistedMessage>) {
         guard let message = try? PersistedMessage.get(with: messageID, within: ObvStack.shared.viewContext) else { return }
         guard let ownedCryptoId = message.discussion?.ownedIdentity?.cryptoId else { return }
         guard !message.isWiped else { return }
@@ -2835,10 +2927,9 @@ extension NewSingleDiscussionViewController {
             let message = frc.object(at: indexPath)
             guard message is PersistedMessageSent || message is PersistedMessageReceived else { continue }
             cacheDelegate.requestAllRelevantHardlinksForMessage(with: message.typedObjectID, completionWhenHardlinksCached: { _ in })
-            if let text = message.textBodyToSend {
-                cacheDelegate.requestDataDetection(text: text, completionWhenDataDetectionCached: { _ in })
+            if let text = message.displayableAttributedBody {
+                cacheDelegate.requestDataDetection(attributedString: text, completionWhenDataDetectionCached: { _ in })
             }
-            
             // We only try to fetch preview for message received.
             if let messageReceived = message as? PersistedMessageReceived {
                 cacheDelegate.requestMissingPreviewIfNeededForMessage(with: messageReceived.typedObjectID)
@@ -2867,9 +2958,17 @@ extension NewSingleDiscussionViewController: AudioPlayerViewDelegate {
 // MARK: - TextBubbleDelegate
 
 extension NewSingleDiscussionViewController {
-    func textBubble(_ textBubble: TextBubble, userDidTapOn mentionableIdentity: any MentionableIdentity) {
-        delegate?.singleDiscussionViewController(self, userDidTapOn: mentionableIdentity)
+    
+    func textBubble(_ textBubble: TextBubble, userDidTapOn mentionableIdentity: ObvMentionableIdentityAttribute.Value) async {
+        await delegate?.singleDiscussionViewController(self, userDidTapOn: mentionableIdentity)
     }
+    
+    
+    func textView(_ textBubble: TextBubble, shouldInteractWith URL: URL, interaction: UITextItemInteraction) -> Bool {
+        Task { await UIApplication.shared.userSelectedURL(URL, within: self) }
+        return false
+    }
+    
 }
 
 

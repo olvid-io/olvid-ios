@@ -102,8 +102,10 @@ public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identi
         return UIImage(contentsOfFile: photoURL.path)
     }
     
-    public var objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup> {
-        ObvManagedObjectPermanentID<DisplayedContactGroup>(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>? {
+        guard self.managedObjectContext != nil else { assertionFailure(); return nil }
+        return ObvManagedObjectPermanentID<DisplayedContactGroup>(uuid: self.permanentUUID)
     }
     
     public var ownedCryptoId: ObvCryptoId? {
@@ -526,8 +528,8 @@ public final class DisplayedContactGroup: NSManagedObject, ObvErrorMaker, Identi
             return
         }
 
-        if isInserted {
-            ObvMessengerCoreDataNotification.displayedContactGroupWasJustCreated(permanentID: self.objectPermanentID)
+        if isInserted, let objectPermanentID = self.objectPermanentID {
+            ObvMessengerCoreDataNotification.displayedContactGroupWasJustCreated(permanentID: objectPermanentID)
                 .postOnDispatchQueue()
         }
         

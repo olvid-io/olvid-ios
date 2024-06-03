@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -708,7 +708,7 @@ extension ObvObliviousChannel {
         }
         
         if isDeleted {
-            //assertionFailure("This assertion shall be deleted. We are just trying to understand when a channel can be deleted")
+            assertionFailure("This assertion shall be deleted. We are just trying to understand when a channel can be deleted")
         }
         
         let log = OSLog(subsystem: ObvObliviousChannel.delegateManager.logSubsystem, category: ObvObliviousChannel.entityName)

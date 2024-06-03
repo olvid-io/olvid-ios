@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -35,7 +35,7 @@ public final class ObvServerDownloadMessagesAndListAttachmentsMethod: ObvServerD
     
     public let toIdentity: ObvCryptoIdentity
     
-    public let ownedIdentity: ObvCryptoIdentity
+    public let ownedIdentity: ObvCryptoIdentity?
     private let token: Data
     private let deviceUid: UID
     public let isActiveOwnedIdentityRequired = true
@@ -87,7 +87,7 @@ public final class ObvServerDownloadMessagesAndListAttachmentsMethod: ObvServerD
         public let chunkDownloadPrivateUrls: [URL?]
     }
 
-    public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? { //} (status: PossibleReturnStatus, downloadTimestampFromServer: Date?, [MessageAndAttachmentsOnServer]?)? {
+    public static func parseObvServerResponse(responseData: Data, using log: OSLog, flowId: FlowIdentifier) -> PossibleReturnStatus? {
         
         guard let (rawServerReturnedStatus, listOfReturnedDatas) = genericParseObvServerResponse(responseData: responseData, using: log) else {
             os_log("Could not parse the server response", log: log, type: .error)
@@ -124,7 +124,7 @@ public final class ObvServerDownloadMessagesAndListAttachmentsMethod: ObvServerD
                 os_log("We could not decode the messages/attachments returned by the server", log: log, type: .error)
                 return nil
             }
-            os_log("We succesfully parsed the message(s) and attachment(s)", log: log, type: .debug)
+            os_log("[%{public}@] We succesfully parsed the message(s) and attachment(s)", log: log, type: .debug, flowId.shortDebugDescription)
             if serverReturnedStatus == .ok {
                 return .ok(downloadTimestampFromServer: downloadTimestampFromServer, messagesAndAttachmentsOnServer: listOfMessageAndAttachments)
             } else if serverReturnedStatus == .listingTruncated {

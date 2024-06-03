@@ -794,15 +794,17 @@ public struct GroupV2 {
         public let groupVersion: Int
         public let serializedGroupCoreDetails: Data
         public let serverPhotoInfo: ServerPhotoInfo? // Nil if the group has no photo
+        public let serializedGroupType: Data?
         
         public static let errorDomain = "GroupV2.ServerBlob"
         
-        public init(administratorsChain: AdministratorsChain, groupMembers: Set<IdentityAndPermissionsAndDetails>, groupVersion: Int, serializedGroupCoreDetails: Data, serverPhotoInfo: ServerPhotoInfo?) {
+        public init(administratorsChain: AdministratorsChain, groupMembers: Set<IdentityAndPermissionsAndDetails>, groupVersion: Int, serializedGroupCoreDetails: Data, serverPhotoInfo: ServerPhotoInfo?, serializedGroupType: Data?) {
             self.administratorsChain = administratorsChain
             self.groupMembers = groupMembers
             self.groupVersion = groupVersion
             self.serializedGroupCoreDetails = serializedGroupCoreDetails
             self.serverPhotoInfo = serverPhotoInfo
+            self.serializedGroupType = serializedGroupType
         }
         
         
@@ -813,6 +815,7 @@ public struct GroupV2 {
             case groupVersion = "v"
             case serializedGroupCoreDetails = "det"
             case serverPhotoInfo = "ph"
+            case serializedGroupType = "t"
             
             var key: Data { rawValue.data(using: .utf8)! }
             
@@ -833,6 +836,8 @@ public struct GroupV2 {
                     try obvDict.obvEncode(serializedGroupCoreDetails, forKey: codingKey)
                 case .serverPhotoInfo:
                     try obvDict.obvEncodeIfPresent(serverPhotoInfo, forKey: codingKey)
+                case .serializedGroupType:
+                    try obvDict.obvEncodeIfPresent(serializedGroupType, forKey: codingKey)
                 }
             }
             return obvDict.obvEncode()
@@ -847,11 +852,13 @@ public struct GroupV2 {
                 let groupVersion = try obvDict.obvDecode(Int.self, forKey: ObvCodingKeys.groupVersion)
                 let serializedGroupCoreDetails = try obvDict.obvDecode(Data.self, forKey: ObvCodingKeys.serializedGroupCoreDetails)
                 let serverPhotoInfo = try obvDict.obvDecodeIfPresent(ServerPhotoInfo.self, forKey: ObvCodingKeys.serverPhotoInfo)
+                let serializedGroupType = try obvDict.obvDecodeIfPresent(Data.self, forKey: ObvCodingKeys.serializedGroupType)
                 self.init(administratorsChain: administratorsChain,
                           groupMembers: groupMembers,
                           groupVersion: groupVersion,
                           serializedGroupCoreDetails: serializedGroupCoreDetails,
-                          serverPhotoInfo: serverPhotoInfo)
+                          serverPhotoInfo: serverPhotoInfo,
+                          serializedGroupType: serializedGroupType)
             } catch {
                 assertionFailure(error.localizedDescription)
                 return nil
@@ -963,7 +970,8 @@ public struct GroupV2 {
                                          groupMembers: blob.groupMembers,
                                          groupVersion: blob.groupVersion,
                                          serializedGroupCoreDetails: blob.serializedGroupCoreDetails,
-                                         serverPhotoInfo: blob.serverPhotoInfo)
+                                         serverPhotoInfo: blob.serverPhotoInfo,
+                                         serializedGroupType: blob.serializedGroupType)
             
             return (blobToReturn, signer)
             
@@ -988,7 +996,8 @@ public struct GroupV2 {
                                                 groupMembers: groupMembersWithoutLeavers,
                                                 groupVersion: self.groupVersion,
                                                 serializedGroupCoreDetails: self.serializedGroupCoreDetails,
-                                                serverPhotoInfo: self.serverPhotoInfo)
+                                                serverPhotoInfo: self.serverPhotoInfo,
+                                                serializedGroupType: self.serializedGroupType)
 
             return blobWithoutLeavers
             
@@ -999,6 +1008,7 @@ public struct GroupV2 {
         public func consolidateWithChangeset(_ changeset: ObvGroupV2.Changeset, ownedIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, within obvContext: ObvContext) throws -> ServerBlob {
             
             var updatedSerializedGroupCoreDetails = self.serializedGroupCoreDetails
+            var updatedSerializedGroupType = self.serializedGroupType
             var updatedServerPhotoInfo = self.serverPhotoInfo
             
             // We update the core details of all group members, even those that are not concerned by the changeset.
@@ -1086,6 +1096,8 @@ public struct GroupV2 {
                         updatedServerPhotoInfo = GroupV2.ServerPhotoInfo.generate(for: ownedIdentity, with: prng)
                     }
                     
+                case .groupType(serializedGroupType: let serializedGroupType):
+                    updatedSerializedGroupType = serializedGroupType
                 }
             }
             
@@ -1114,7 +1126,8 @@ public struct GroupV2 {
                                          groupMembers: updatedGroupMembers,
                                          groupVersion: self.groupVersion + 1,
                                          serializedGroupCoreDetails: updatedSerializedGroupCoreDetails,
-                                         serverPhotoInfo: updatedServerPhotoInfo)
+                                         serverPhotoInfo: updatedServerPhotoInfo,
+                                         serializedGroupType: updatedSerializedGroupType)
 
             return updatedBlob
             
@@ -1129,7 +1142,8 @@ public struct GroupV2 {
                               groupMembers: self.groupMembers,
                               groupVersion: self.groupVersion,
                               serializedGroupCoreDetails: self.serializedGroupCoreDetails,
-                              serverPhotoInfo: self.serverPhotoInfo)
+                              serverPhotoInfo: self.serverPhotoInfo,
+                              serializedGroupType: self.serializedGroupType)
 
         }
         
@@ -1144,7 +1158,8 @@ public struct GroupV2 {
                               groupMembers: self.groupMembers,
                               groupVersion: self.groupVersion,
                               serializedGroupCoreDetails: self.serializedGroupCoreDetails,
-                              serverPhotoInfo: self.serverPhotoInfo)
+                              serverPhotoInfo: self.serverPhotoInfo,
+                              serializedGroupType: self.serializedGroupType)
 
         }
         

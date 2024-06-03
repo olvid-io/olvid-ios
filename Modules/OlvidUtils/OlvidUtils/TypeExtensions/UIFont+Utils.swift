@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,6 +51,18 @@ public extension UIFont {
         let systemFont = UIFont.preferredFont(forTextStyle: style)
         let font: UIFont
         if let descriptor = systemFont.fontDescriptor.withSymbolicTraits(.traitItalic) {
+            font = UIFont(descriptor: descriptor, size: 0)
+        } else {
+            font = systemFont
+        }
+        return font
+    }
+    
+    
+    static func bold(forTextStyle style: TextStyle) -> UIFont {
+        let systemFont = UIFont.preferredFont(forTextStyle: style)
+        let font: UIFont
+        if let descriptor = systemFont.fontDescriptor.withSymbolicTraits(.traitBold) {
             font = UIFont(descriptor: descriptor, size: 0)
         } else {
             font = systemFont

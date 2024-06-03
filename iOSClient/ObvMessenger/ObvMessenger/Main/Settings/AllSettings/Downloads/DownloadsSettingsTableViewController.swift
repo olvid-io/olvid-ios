@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,8 +24,6 @@ import ObvSettings
 
 final class DownloadsSettingsTableViewController: UITableViewController {
 
-    private let byteCountFormatter = ObvPositiveByteCountFormatter()
-    
     init() {
         super.init(style: Self.settingsTableStyle)
     }
@@ -66,7 +64,7 @@ final class DownloadsSettingsTableViewController: UITableViewController {
         case IndexPath(row: 0, section: 0):
             cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
             cell.textLabel?.text = CommonString.Word.Size
-            cell.detailTextLabel?.text = self.byteCountFormatter.string(fromByteCount: Int64(ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload))
+            cell.detailTextLabel?.text = Int64(ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload).obvFormattedWithPositiveByteCount
             cell.accessoryType = .disclosureIndicator
         default:
             cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
@@ -84,7 +82,7 @@ final class DownloadsSettingsTableViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         guard section == 0 else { return nil }
         if ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload >= 0 {
-            let sizeString = self.byteCountFormatter.string(fromByteCount: Int64(ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload))
+            let sizeString = Int64(ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload).obvFormattedWithPositiveByteCount
             return DownloadsSettingsTableViewController.Strings.downloadSizeExplanation(sizeString)
         } else {
             return DownloadsSettingsTableViewController.Strings.downloadSizeExplanationWhenUnlimited

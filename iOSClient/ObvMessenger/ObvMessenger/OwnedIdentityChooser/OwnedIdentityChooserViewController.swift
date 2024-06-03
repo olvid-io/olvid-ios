@@ -33,7 +33,6 @@ import ObvDesignSystem
 protocol OwnedIdentityChooserViewControllerDelegate: AnyObject {
     func userUsedTheOwnedIdentityChooserViewControllerToChoose(ownedCryptoId: ObvCryptoId) async
     func userWantsToEditCurrentOwnedIdentity(ownedCryptoId: ObvCryptoId) async
-    var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityDeletion: Bool { get }
     var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityEdition: Bool { get }
     var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityCreation: Bool { get }
     var ownedIdentityChooserViewControllerExplanationString: String? { get }
@@ -109,10 +108,6 @@ fileprivate struct OwnedIdentityChooserInnerView: View {
     let models: [OwnedIdentityItemView.Model]
     weak var delegate: OwnedIdentityChooserViewControllerDelegate?
     
-    private var allowDeletion: Bool {
-        delegate?.ownedIdentityChooserViewControllerShouldAllowOwnedIdentityDeletion ?? false
-    }
-    
     private var allowEdition: Bool {
         delegate?.ownedIdentityChooserViewControllerShouldAllowOwnedIdentityEdition ?? false
     }
@@ -144,19 +139,8 @@ fileprivate struct OwnedIdentityChooserInnerView: View {
                             delegate: delegate)
                         .listRowSeparator(.hidden)
                     }
-                    .if(allowDeletion, transform: { view in
-                        view.onDelete { indexSet in
-                            guard let index = indexSet.first else { return }
-                            guard let ownedCryptoId = models[safe: index]?.ownedCryptoId else { return }
-                            ObvMessengerInternalNotification.userWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: ownedCryptoId)
-                                .postOnDispatchQueue()
-                        }
-                    })
                 }
                 .listStyle(.plain)
-                .if(allowDeletion, transform: { view in
-                    view.navigationBarItems(leading: EditButton())
-                })
                 if allowEdition {
                     OlvidButton(style: .standardWithBlueText,
                                 title: Text("EDIT_CURRENT_IDENTITY"),

@@ -36,8 +36,11 @@ final class NewAutorisationRequesterViewController: UIHostingController<NewAutor
 
     init(autorisationCategory: AutorisationCategory, delegate: NewAutorisationRequesterViewControllerDelegate) {
         let actions = NewAutorisationRequesterViewActions()
+        
         let view = NewAutorisationRequesterView(autorisationCategory: autorisationCategory, actions: actions)
         super.init(rootView: view)
+        
+        
         actions.delegate = self
         self.delegate = delegate
     }
@@ -66,6 +69,7 @@ final class NewAutorisationRequesterViewController: UIHostingController<NewAutor
     private func configureNavigation(animated: Bool) {
         navigationItem.largeTitleDisplayMode = .never
         navigationController?.setNavigationBarHidden(false, animated: animated)
+        navigationItem.hidesBackButton = true
     }
 
     // NewAutorisationRequesterViewActionsProtocol

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,14 +24,20 @@ import UIKit
 public extension String {
     
     func extractURLs() -> [URL] {
-        guard let urlDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return [] }
-        let range = NSRange(location: 0, length: self.utf16.count)
-        let matches = urlDetector.matches(in: self, options: [], range: range)
-        let urls: [URL] = matches.compactMap { (match) -> URL? in
-            guard let rangeOfMatch = Range(match.range, in: self) else { return nil }
-            return URL(string: String(self[rangeOfMatch]))
+        if let url = URL(string: self.trimmingWhitespacesAndNewlines()) {
+            // On rare occasions (which we encountered while extraction invitations URLs), the data detector failed to extract a full
+            // URL. For this reason, we try this simpler method first.
+            return [url]
+        } else {
+            guard let urlDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return [] }
+            let range = NSRange(location: 0, length: self.utf16.count)
+            let matches = urlDetector.matches(in: self, options: [], range: range)
+            let urls: [URL] = matches.compactMap { (match) -> URL? in
+                guard let rangeOfMatch = Range(match.range, in: self) else { return nil }
+                return URL(string: String(self[rangeOfMatch]))
+            }
+            return urls
         }
-        return urls
     }
 
     func trimmingWhitespacesAndNewlines() -> String {

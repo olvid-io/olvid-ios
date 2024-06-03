@@ -313,24 +313,16 @@ extension AdvancedSettingsViewController {
                         cell.detailTextLabel?.text = nil
                     }
                 } else {
-                    cell.textLabel?.text = CommonString.Word.Unavailable
+                    cell.textLabel?.text = String(localized: "PLEASE_WAIT")
                     cell.detailTextLabel?.text = nil
                 }
                 cell.selectionStyle = .none
-                let toDoIfPingsTakesTooLong = DispatchWorkItem { [weak self] in
-                    self?.currentWebSocketStatus = nil
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval)) {
-                        guard let tableView = self?.tableView else { return }
-                        guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
-                        tableView.reconfigureRows(at: [indexPath])
-                    }
-                }
                 let ownedCryptoId = self.ownedCryptoId
                 Task {
                     let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval * 5), execute: toDoIfPingsTakesTooLong)
-                    currentWebSocketStatus = try? await obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId)
+                    let newWebSocketStatus = try? await obvEngine.getWebSocketState(ownedIdentity: ownedCryptoId)
                     DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(AdvancedSettingsViewController.websocketRefreshTimeInterval)) { [weak self] in
+                        self?.currentWebSocketStatus = newWebSocketStatus
                         guard let tableView = self?.tableView else { return }
                         guard tableView.numberOfSections > indexPath.section && tableView.numberOfRows(inSection: indexPath.section) > indexPath.row else { return }
                         tableView.reconfigureRows(at: [indexPath])

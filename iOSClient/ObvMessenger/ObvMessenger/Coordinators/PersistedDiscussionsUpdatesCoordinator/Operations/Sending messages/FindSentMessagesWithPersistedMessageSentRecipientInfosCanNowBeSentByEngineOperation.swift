@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -107,7 +107,9 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
                             // If we reach this point, we can send the message to the recipient indicated in the infos.
                             // We add the message to the set of messages to send.
                             
-                            messageSentPermanentIDs.insert(info.messageSent.objectPermanentID)
+                            if let messageSentObjectPermanentID = info.messageSent.objectPermanentID {
+                                messageSentPermanentIDs.insert(messageSentObjectPermanentID)
+                            }
                             
                         case .groupV1(withContactGroup: let group):
                             
@@ -146,7 +148,9 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
                             // If we reach this point, we can send the message to the recipient indicated in the infos.
                             // We add the message to the set of messages to send.
                             
-                            messageSentPermanentIDs.insert(info.messageSent.objectPermanentID)
+                            if let messageSentObjectPermanentID = info.messageSent.objectPermanentID {
+                                messageSentPermanentIDs.insert(messageSentObjectPermanentID)
+                            }
 
                         case .groupV2(withGroup: let group):
                             
@@ -189,7 +193,9 @@ final class FindSentMessagesWithPersistedMessageSentRecipientInfosCanNowBeSentBy
                             // If we reach this point, we can send the message to the recipient indicated in the infos.
                             // We add the message to the set of messages to send.
                             
-                            messageSentPermanentIDs.insert(info.messageSent.objectPermanentID)
+                            if let messageSentObjectPermanentID = info.messageSent.objectPermanentID {
+                                messageSentPermanentIDs.insert(messageSentObjectPermanentID)
+                            }
 
                         }
                         

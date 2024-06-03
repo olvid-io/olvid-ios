@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,7 +31,7 @@ public final class ObvServerDeviceDiscoveryMethod: ObvServerDataMethod {
     
     public let pathComponent = "/deviceDiscovery"
 
-    public let ownedIdentity: ObvCryptoIdentity
+    public let ownedIdentity: ObvCryptoIdentity?
     public let isActiveOwnedIdentityRequired = true
     public var serverURL: URL { return toIdentity.serverURL }
     public let toIdentity: ObvCryptoIdentity // We will discover the devices of this identity

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -79,11 +79,13 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
         let encryptedPayload = try ObvCryptoSuite.sharedInstance.authenticatedEncryption().encrypt(payload, with: authenticatedEncryptionKey, and: self.prng)
         
         let toIdentity = contactCryptoId.cryptoIdentity
-        let method = ObvServerUploadReturnReceipt(ownedIdentity: ownedCryptoId.cryptoIdentity,
-                                                  nonce: elements.nonce,
-                                                  encryptedPayload: encryptedPayload,
-                                                  toIdentity: toIdentity,
-                                                  deviceUids: Array(deviceUids),
+        let returnReceipt = ObvServerUploadReturnReceipt.ReturnReceipt(
+            toIdentity: toIdentity,
+            deviceUids: Array(deviceUids),
+            nonce: elements.nonce,
+            encryptedPayload: encryptedPayload)
+        let method = ObvServerUploadReturnReceipt(serverURL: toIdentity.serverURL,
+                                                  returnReceipts: [returnReceipt],
                                                   flowId: flowId)
         method.identityDelegate = identityDelegate
         
@@ -98,6 +100,7 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
         let (responseData, response) = try await URLSession.shared.upload(for: urlRequest, from: dataToSend)
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            assertionFailure()
             throw Self.makeError(message: "Bad HTTPURLResponse")
         }
         
@@ -110,6 +113,7 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
         switch status {
         case .generalError:
             os_log("🧾 Failed to send the return receipt. The server returned a General Error.", log: log, type: .fault)
+            assertionFailure()
             throw Self.makeError(message: "Failed to send the return receipt. The server returned a General Error")
         case .ok:
             os_log("🧾 Return receipt sent successfully", log: log, type: .info)

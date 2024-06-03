@@ -80,7 +80,6 @@ final class SyncPersistedObvContactDeviceWithEngineOperation: ContextualOperatio
                 
                 // Make sure the contact device still does not exist within the engine
                 guard try obvEngine.getObvContactDevice(with: contactDeviceIdentifier) == nil else {
-                    assertionFailure()
                     return
                 }
 

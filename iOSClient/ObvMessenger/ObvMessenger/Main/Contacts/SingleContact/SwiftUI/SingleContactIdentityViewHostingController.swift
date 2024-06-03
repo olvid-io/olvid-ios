@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -58,8 +58,11 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
         guard let ownCryptoId = contact.ownedIdentity?.cryptoId else {
             throw Self.makeError(message: "Could not determine owned identity")
         }
+        guard let contactObjectPermanentID = contact.objectPermanentID else {
+            throw Self.makeError(message: "Could not obtain contact objectPermanentID")
+        }
         self.currentOwnedCryptoId = ownCryptoId
-        self.contactPermanentID = contact.objectPermanentID
+        self.contactPermanentID = contactObjectPermanentID
         self.persistedObvContactIdentityObjectID = contact.objectID
         self.contactCryptoId = contact.cryptoId
         self.ownedIdentityCryptoId = contact.ownedIdentity?.cryptoId

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -93,4 +93,13 @@ extension String {
     var containsOnlyEmoji: Bool {
         return !isEmpty && !contains { !$0.isEmoji }
     }
+}
+
+
+extension AttributedString {
+    
+    var containsOnlyEmoji: Bool {
+        self.characters.allSatisfy({ $0.isEmoji })
+    }
+    
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,7 +31,7 @@ public final class GetKeycloakDataServerMethod: ObvServerDataMethod {
     
     public let pathComponent = "olvid-rest/getData" // No slash at the beginning of this string
     
-    public let ownedIdentity: ObvCryptoIdentity
+    public let ownedIdentity: ObvCryptoIdentity?
     public let isActiveOwnedIdentityRequired = false
     public let serverURL: URL
     public let serverLabel: UID

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -90,7 +90,7 @@ final actor AppManagersHolder {
         self.keycloakManager = KeycloakManager(obvEngine: obvEngine)
         self.webSocketManager = WebSocketManager(obvEngine: obvEngine)
         self.localAuthenticationManager = LocalAuthenticationManager()
-        self.tipManager = OlvidTipManager()
+        self.tipManager = OlvidTipManager(obvEngine: obvEngine)
 
         // Listen to StoreKit transactions
         self.subscriptionManager.listenToSKPaymentTransactions()
@@ -124,6 +124,9 @@ final actor AppManagersHolder {
         await snackBarManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         //await callManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
         await webSocketManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
+        if #available(iOS 17.0, *) {
+            await tipManager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime)
+        }
     }
 
 

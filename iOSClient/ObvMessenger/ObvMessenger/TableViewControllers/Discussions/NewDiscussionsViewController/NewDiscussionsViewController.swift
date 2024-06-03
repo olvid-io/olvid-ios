@@ -20,6 +20,7 @@
 import Combine
 import CoreData
 import Foundation
+import TipKit
 import ObvTypes
 import ObvUI
 import ObvUICoreData
@@ -33,7 +34,7 @@ import ObvDesignSystem
 protocol NewDiscussionsViewControllerDelegate: AnyObject {
     func userDidSelect(persistedDiscussion: PersistedDiscussion)
     func userAskedToDeleteDiscussion(_ persistedDiscussion: PersistedDiscussion, completionHandler: @escaping (Bool) -> Void)
-    func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void)
+    func userAskedToRefreshDiscussions() async throws
 }
 
 
@@ -42,11 +43,13 @@ protocol NewDiscussionsViewControllerDelegate: AnyObject {
 final class NewDiscussionsViewController: UIViewController, NSFetchedResultsControllerDelegate, UICollectionViewDelegate, UISearchControllerDelegate {
 
     private enum Section: Int, CaseIterable {
+        case tips
         case pinnedDiscussions
         case discussions
     }
     
     private enum Item: Hashable {
+        case tip(tipToDisplay: DisplayableTip)
         case persistedDiscussion(TypeSafeManagedObjectID<PersistedDiscussion>)
     }
 
@@ -55,6 +58,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: NewDiscussionsViewController.self))
     
+    private var cancellables = Set<AnyCancellable>()
+
     private var viewModel: ViewModel
     private var dataSource: DataSource!
     private weak var collectionView: UICollectionView!
@@ -69,6 +74,40 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     private var discussionsSearchViewController: DiscussionsSearchViewController? {
         return searchController?.searchResultsController as? DiscussionsSearchViewController
     }
+    
+    /// Tip related variables
+
+    /// Enumerates all the tips that can be displayed in a cell at the top of the list.
+    private enum DisplayableTip: CaseIterable {
+        case doSendReadReceiptTip
+        case createBackupKeyTip
+        case shouldPerformBackupTip
+        case shouldVerifyBackupKeyTip
+    }
+    
+    @Published private var tipToDisplay: DisplayableTip?
+
+    private var observationTaskForTip = [DisplayableTip: Task<Void, Never>]()
+    
+    private var tipStructForTip: [DisplayableTip: Any] = {
+        var result = [DisplayableTip: Any]()
+        if #available(iOS 17, *) {
+            for tip in DisplayableTip.allCases {
+                switch tip {
+                case .doSendReadReceiptTip:
+                    result[tip] = OlvidTip.DoSendReadReceipt()
+                case .createBackupKeyTip:
+                    result[tip] = OlvidTip.Backup.CreateBackupKey()
+                case .shouldPerformBackupTip:
+                    result[tip] = OlvidTip.Backup.ShouldPerformBackup()
+                case .shouldVerifyBackupKeyTip:
+                    result[tip] = OlvidTip.Backup.ShouldVerifyBackupKey()
+                }
+            }
+        }
+        return result
+    }()
+    
     
     /// Allows to differentiate between two different UX states this viewController may have during the `isEditing` state of its collectionView.
     /// When `isEditing` is set to true, based on the `isReordering` state, the user will be able to reorder pinned discussions.
@@ -91,6 +130,10 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     }
     
     
+    deinit {
+        cancellables.forEach({ $0.cancel() })
+    }
+    
     // MARK: - Life Cycle
     
     override func viewDidLoad() {
@@ -104,6 +147,14 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         
         observeDiscussionLocalConfigurationHasBeenUpdatedNotifications()
 
+    }
+    
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if #available(iOS 17.0, *) {
+            configureTipsOnViewDidAppear(animated: animated)
+        }
     }
     
     
@@ -154,6 +205,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
                 for indexPath in indexPathsForSelectedItems {
                     guard let itemId = dataSource.itemIdentifier(for: indexPath) else { assertionFailure(); continue }
                     switch itemId {
+                    case .tip:
+                        break
                     case .persistedDiscussion(let listItemID):
                         listItemIds += [listItemID]
                     }
@@ -166,6 +219,91 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         }
         
         collectionView.isEditing = editing
+    }
+    
+    // MARK: - Tip related stuff
+    
+    
+    @available(iOS 17.0, *)
+    private func configureTipsOnViewDidAppear(animated: Bool) {
+
+        continuouslyObserveTipToDisplay()
+
+        for displayableTip in DisplayableTip.allCases {
+            
+            guard let tip = self.tipStructForTip[displayableTip] as? (any Tip) else { assertionFailure(); return }
+            self.observationTaskForTip[displayableTip] = self.observationTaskForTip[displayableTip] ?? Task { @MainActor [weak self] in
+                guard let self else { return }
+                for await shouldDisplay in tip.shouldDisplayUpdates {
+                    if shouldDisplay {
+                        if self.tipToDisplay != displayableTip { self.tipToDisplay = displayableTip }
+                    } else {
+                        if self.tipToDisplay == displayableTip { self.tipToDisplay = nil }
+                    }
+                }
+            }
+
+        }
+
+    }
+    
+    
+    /// When the `tipToDisplay` published local variable is changed in the task deciding which tip to display, this
+    /// method calls the ``configureTipInDataSource(tipToDisplay:)`` to update the data source accordingly.
+    @available(iOS 17.0, *)
+    private func continuouslyObserveTipToDisplay() {
+        $tipToDisplay
+            .removeDuplicates()
+            .receive(on: OperationQueue.main)
+            .sink { [weak self] newValue in
+                guard let self else { return }
+                guard let dataSource else { assertionFailure(); return }
+                var snapshot = dataSource.snapshot()
+                configureTipToDisplayInSnapshot(&snapshot, withTipToDisplay: tipToDisplay)
+                applySnapshotToDatasource(snapshot, animated: true)
+            }
+            .store(in: &cancellables)
+    }
+    
+
+    /// Configure the ``snapshot`` to include/exclude a tip from the collection view.
+    ///
+    /// This is called both from:
+    /// - ``continuouslyObserveTipToDisplay()`` when the the `tipToDisplay` published local variable changes.
+    /// - ``controller(_:didChangeContentWith:)``, when the data source changes (e.g., when a discussion is updated), so as to make sure the data source keeps the tip to display on screen if required.
+    ///
+    /// If ``tipToDisplay`` is `nil`, we remove the `tips` section
+    /// from the data source. If there is tip to display, we make sure there is a `tips` section with exactly one appripriate tip in it.
+    @available(iOS 17.0, *)
+    @MainActor
+    private func configureTipToDisplayInSnapshot(_ snapshot: inout NSDiffableDataSourceSnapshot<NewDiscussionsViewController.Section, NewDiscussionsViewController.Item>, withTipToDisplay tipToDisplay: DisplayableTip?) {
+        
+        if let tipToDisplay {
+            // Make sure the tips section exists. Do not show this tips section if there is no other section yet.
+            if !snapshot.sectionIdentifiers.contains(where: { $0 == .tips }) {
+                guard let topSection = snapshot.sectionIdentifiers.first else { return }
+                snapshot.insertSections([.tips], beforeSection: topSection)
+            }
+            // Remove any previous tip in the tips section and append the requested tip to display
+            snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .tips))
+            snapshot.appendItems([.tip(tipToDisplay: tipToDisplay)], toSection: .tips)
+        } else {
+            // Remove the tips section if it exists
+            if snapshot.sectionIdentifiers.contains(where: { $0 == .tips }) {
+                snapshot.deleteSections([.tips])
+            }
+        }
+
+    }
+    
+    
+    /// Called when the tip cell registration needs to configure a `TipUICollectionViewCell`
+    @available(iOS 17.0, *)
+    private func configureTipUICollectionViewCell(_ tipCell: UICollectionViewCell, with tipToDisplay: DisplayableTip) {
+        guard let tipCell = tipCell as? TipUICollectionViewCell else { assertionFailure(); return }
+        guard let tip = self.tipStructForTip[tipToDisplay] as? (any Tip) else { assertionFailure(); return }
+        tipCell.configureTip(tip)
+        tipCell.imageSize = CGSize(width: 20, height: 20)
     }
     
     
@@ -194,16 +332,30 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     // MARK: - Refresh Control related
 
     /// Callback for the refresh control when pulling down
-    @objc
-    private func refresh() {
-        let actionDate = Date()
-        let completionHander = { [weak self] (  ) in
-            let timeUntilStop: TimeInterval = max(0.0, 1.5 + actionDate.timeIntervalSinceNow) // The spinner should spin at least two second
-            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + .milliseconds(Int(timeUntilStop*1000)), execute: { [weak self] in
-                self?.collectionView?.refreshControl?.endRefreshing()
-            })
+    @objc private func refreshControlWasPulledDown() {
+        Task { [weak self] in await self?.userAskedToRefreshDiscussions() }
+    }
+    
+    
+    @MainActor
+    private func userAskedToRefreshDiscussions() async {
+        guard let delegate else { assertionFailure(); return }
+        
+        do {
+            
+            let actionDate = Date()
+            
+            try await delegate.userAskedToRefreshDiscussions()
+            
+            let elapsedTime = Date.now.timeIntervalSince(actionDate)
+            try? await Task.sleep(seconds: max(0, 1.5 - elapsedTime)) // Spin for at least 1.5 seconds
+            
+            collectionView?.refreshControl?.endRefreshing()
+            
+        } catch {
+            assertionFailure()
         }
-        delegate?.userAskedToRefreshDiscussions(completionHandler: completionHander)
+        
     }
 
 
@@ -214,6 +366,7 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         let databaseSnapshot = snapshot as NSDiffableDataSourceSnapshot<String, NSManagedObjectID>
         
         var newSnapshot = Snapshot()
+                
         for rawSectionIdentifier in databaseSnapshot.sectionIdentifiers {
             guard let sectionIdentifier = PersistedDiscussion.PinnedSectionKeyPathValue(rawValue: rawSectionIdentifier) else {
                 assertionFailure()
@@ -232,6 +385,10 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         }
         
         newSnapshot.reconfigureItems(databaseSnapshot.reloadedItemIdentifiers.compactMap(convertToPersistedDiscussionListItemID(using:)))
+
+        if #available(iOS 17.0, *) {
+            configureTipToDisplayInSnapshot(&newSnapshot, withTipToDisplay: tipToDisplay)
+        }
 
         applySnapshotToDatasource(newSnapshot, animated: !firstTimeFetch) // do not animate the first time we fetch data to have results already be present when switching to the discussion tab
         firstTimeFetch = false
@@ -255,6 +412,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt tvIndexPath: IndexPath) {
         guard let selectedItem = dataSource.itemIdentifier(for: tvIndexPath) else { return }
         switch (selectedItem) {
+        case .tip:
+            break
         case .persistedDiscussion(let discussionId):
             if !collectionView.isEditing {
                 guard let discussion = try? PersistedDiscussion.get(objectID: discussionId.objectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
@@ -323,6 +482,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     private func trailingSwipeActionsConfigurationProvider(_ indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else { return UISwipeActionsConfiguration(actions: []) }
         switch (selectedItem) {
+        case .tip:
+            return nil
         case .persistedDiscussion(let listItemID):
             let deleteAllMessagesAction = self.createDeleteAllMessagesContextualAction(for: listItemID)
             let archiveDiscussionAction = self.createArchiveDiscussionContextualAction(for: listItemID)
@@ -336,9 +497,13 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     private func leadingSwipeActionsConfigurationProvider(_ indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard let sectionKind = dataSource.sectionIdentifier(for: indexPath.section) else { return nil }
         switch sectionKind {
+        case .tips:
+            return nil
         case .pinnedDiscussions: // list
             guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else { return UISwipeActionsConfiguration(actions: []) }
             switch (selectedItem) {
+            case .tip:
+                return nil
             case .persistedDiscussion(let listItemID):
                 let unpinAction = self.createUnpinContextualAction(for: listItemID)
                 let markAllMessagesAsNotNewAction = self.createMarkAllMessagesAsNotNewContextualAction(for: listItemID)
@@ -349,6 +514,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         case .discussions: // list
             guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else { return UISwipeActionsConfiguration(actions: []) }
             switch (selectedItem) {
+            case .tip:
+                return nil
             case .persistedDiscussion(let listItemID):
                 let pinAction = self.createPinContextualAction(for: listItemID)
                 let markAllMessagesAsNotNewAction = self.createMarkAllMessagesAsNotNewContextualAction(for: listItemID)
@@ -438,9 +605,13 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
 
         var actions = [UIAction]()
         switch item {
+        case .tip:
+            return nil
         case .persistedDiscussion(let listItemID):
             actions += [createMarkAllMessagesAsNotNewAction(for: listItemID)]
             switch sectionKind {
+            case .tips:
+                break
             case .pinnedDiscussions:
                 actions += [createUnpinAction(for: listItemID)]
             case .discussions:
@@ -546,8 +717,9 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     /// - Returns: An array of object ids
     private static func retrieveDiscussionObjectIds(from snapshot: Snapshot) -> [NSManagedObjectID] {
         guard snapshot.indexOfSection(.pinnedDiscussions) != nil else { return [] }
-        return snapshot.itemIdentifiers(inSection: .pinnedDiscussions).map({
+        return snapshot.itemIdentifiers(inSection: .pinnedDiscussions).compactMap({
             switch $0 {
+            case .tip: return nil
             case .persistedDiscussion(let listItemID): return listItemID.objectID
             }
         })
@@ -557,8 +729,10 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     private func reorderingCompleted() {
         let snapshot = dataSource.snapshot()
         guard snapshot.sectionIdentifiers.contains(where: { $0 == .pinnedDiscussions }) else { return }
-        let discussionObjectIds = snapshot.itemIdentifiers(inSection: .pinnedDiscussions).map {
+        let discussionObjectIds: [NSManagedObjectID] = snapshot.itemIdentifiers(inSection: .pinnedDiscussions).compactMap {
             switch $0 {
+            case .tip:
+                return nil
             case .persistedDiscussion(let listItemID):
                 return listItemID.objectID
             }
@@ -618,7 +792,7 @@ extension NewDiscussionsViewController {
         collectionView.delegate = self
 
         collectionView.refreshControl = UIRefreshControl()
-        collectionView.refreshControl?.addTarget(self, action: #selector(refresh), for: .valueChanged)
+        collectionView.refreshControl?.addTarget(self, action: #selector(refreshControlWasPulledDown), for: .valueChanged)
 
         view.addSubview(collectionView)
         
@@ -641,6 +815,10 @@ extension NewDiscussionsViewController {
     /// Configures the datasource of this vc
     private func configureDataSource() {
         
+        if #available(iOS 17, *) {
+            collectionView.register(TipUICollectionViewCell.self, forCellWithReuseIdentifier: "TipUICollectionViewCell")
+        }
+        
         let cellRegistration = UICollectionView.CellRegistration<Cell, TypeSafeManagedObjectID<PersistedDiscussion>> { [weak self] cell, _, discussionId in
             guard let self else { return }
             guard let cellViewModel = Cell.ViewModel.createFromPersistedDiscussion(with: discussionId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
@@ -648,8 +826,17 @@ extension NewDiscussionsViewController {
             cell.accessories = self.accessoriesForListCellItem(cellViewModel)
         }
                 
-        dataSource = DataSource(collectionView: collectionView) { (collectionView: UICollectionView, indexPath: IndexPath, item: Item) -> UICollectionViewCell? in
+        dataSource = DataSource(collectionView: collectionView) { [weak self] (collectionView: UICollectionView, indexPath: IndexPath, item: Item) -> UICollectionViewCell? in
+
             switch item {
+                
+            case .tip(tipToDisplay: let tipToDisplay):
+                let tipCell = collectionView.dequeueReusableCell(withReuseIdentifier: "TipUICollectionViewCell", for: indexPath)
+                if #available(iOS 17.0, *) {
+                    self?.configureTipUICollectionViewCell(tipCell, with: tipToDisplay)
+                }
+                return tipCell
+                
             case .persistedDiscussion(let discussionId):
                 return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: discussionId)
 

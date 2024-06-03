@@ -1317,7 +1317,7 @@ extension NewComposeMessageView {
     private func stopRecordingAudioMessage() {
         assert(Thread.isMainThread)
         guard ObvAudioRecorder.shared.isRecording else { return }
-        let draftPermanentID = draft.objectPermanentID
+        guard let draftPermanentID = draft.objectPermanentID else { assertionFailure(); return }
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
         ObvAudioRecorder.shared.stopRecording { [weak self] result in
             guard let _self = self else { return }
@@ -1424,11 +1424,12 @@ extension NewComposeMessageView {
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
         switch currentState {
         case .initial:
-            do { try CompositionViewFreezeManager.shared.unfreeze(draft.objectPermanentID, success: true) } catch { assertionFailure() }
+            guard let draftPermanentID = draft.objectPermanentID else { assertionFailure(); return }
+            do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: true) } catch { assertionFailure() }
             return
         case .recording:
             if ObvAudioRecorder.shared.isRecording {
-                let draftPermanentID = draft.objectPermanentID
+                guard let draftPermanentID = draft.objectPermanentID else { assertionFailure(); return }
                 ObvAudioRecorder.shared.stopRecording { [weak self] result in
                     guard let _self = self else { return }
                     switch result {
@@ -1472,9 +1473,10 @@ extension NewComposeMessageView {
     }
 
     private func sendUserWantsToSendDraftNotification(with textBody: String, mentions: Set<MessageJSON.UserMention>) {
+        guard let draftPermanentID = draft.objectPermanentID else { assertionFailure(); return }
         shortcutsView.configure(with: [], animated: true)
         currentDraftId = UUID()
-        NewSingleDiscussionNotification.userWantsToSendDraft(draftPermanentID: draft.objectPermanentID,
+        NewSingleDiscussionNotification.userWantsToSendDraft(draftPermanentID: draftPermanentID,
                                                              textBody: textBody,
                                                              mentions: Set(mentions))
             .postOnDispatchQueue()
@@ -2197,7 +2199,7 @@ extension NewComposeMessageView: PHPickerViewControllerDelegate {
         picker.dismiss(animated: true)
         guard !results.isEmpty else { return }
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        let draftPermanentID = draft.objectPermanentID
+        guard let draftPermanentID = draft.objectPermanentID else { assertionFailure(); return }
         delegateViewController?.showHUD(type: .spinner)
         let itemProviders = results.map { $0.itemProvider }
         NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraft(draftPermanentID: draftPermanentID, itemProviders: itemProviders) { success in
@@ -2230,7 +2232,7 @@ extension NewComposeMessageView {
     func addAttachments(from fileURLs: [URL]) {
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
         delegateViewController?.showHUD(type: .spinner)
-        let draftPermanentID = draft.objectPermanentID
+        guard let draftPermanentID = draft.objectPermanentID else { assertionFailure(); return }
         NewSingleDiscussionNotification.userWantsToAddAttachmentsToDraftFromURLs(draftPermanentID: draftPermanentID, urls: fileURLs) { success in
             do { try CompositionViewFreezeManager.shared.unfreeze(draftPermanentID, success: success) } catch { assertionFailure() }
         }
@@ -2242,7 +2244,7 @@ extension NewComposeMessageView {
     ///   - itemProviders: An array of item providers to append
     func addAttachments(from itemProviders: [NSItemProvider], attachTextItems: Bool = false) async {
 
-        let draftPermanentID = draft.objectPermanentID
+        guard let draftPermanentID = draft.objectPermanentID else { assertionFailure(); return }
 
         // Split the received itemProviders in two lists:
         // - One for the items we want to paste as text in the text view
@@ -2341,7 +2343,7 @@ extension NewComposeMessageView: UIImagePickerControllerDelegate, UINavigationCo
         picker.dismiss(animated: true)
         delegateViewController?.showHUD(type: .progress(progress: nil))
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }
-        let draftPermanentID = draft.objectPermanentID
+        guard let draftPermanentID = draft.objectPermanentID else { assertionFailure(); return }
 
         let dateFormatter = self.dateFormatter
         let log = self.log
@@ -2436,7 +2438,7 @@ extension NewComposeMessageView: VNDocumentCameraViewControllerDelegate {
 
         let dateFormatter = self.dateFormatter
         
-        let draftPermanentID = draft.objectPermanentID
+        guard let draftPermanentID = draft.objectPermanentID else { assertionFailure(); return }
         
         delegateViewController?.showHUD(type: .spinner)
         do { try CompositionViewFreezeManager.shared.freeze(self) } catch { assertionFailure() }

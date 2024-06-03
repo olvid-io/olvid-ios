@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -83,6 +83,7 @@ final class CreateUnprocessedPersistedMessageSentFromPersistedDraftOperation: Co
             self.messageSentPermanentID = persistedMessageSent.objectPermanentID
             try obvContext.addContextDidSaveCompletionHandler { error in
                 guard error == nil else { assertionFailure(); return }
+                guard let draftPermanentID else { return }
                 ObvMessengerInternalNotification.draftToSendWasReset(discussionPermanentID: discussionPermanentID, draftPermanentID: draftPermanentID)
                     .postOnDispatchQueue()
             }

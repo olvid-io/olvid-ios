@@ -229,8 +229,10 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
         return identityCoreDetails?.position
     }
 
-    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity> {
-        ObvManagedObjectPermanentID<PersistedObvContactIdentity>(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>? {
+        guard self.managedObjectContext != nil else { assertionFailure(); return nil }
+        return ObvManagedObjectPermanentID<PersistedObvContactIdentity>(uuid: self.permanentUUID)
     }
 
     public var circledInitialsConfiguration: CircledInitialsConfiguration {
@@ -1524,6 +1526,16 @@ extension PersistedObvContactIdentity {
         let count = try context.count(for: request)
         return count
     }
+    
+    
+    public static func userHasAtLeastOnContact(within context: NSManagedObjectContext) throws -> Bool {
+        let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.fetchLimit = 1
+        request.propertiesToFetch = []
+        let item = try context.fetch(request).first
+        return item != nil
+    }
+    
 }
 
 
@@ -1657,7 +1669,7 @@ extension PersistedObvContactIdentity {
 
         if isInserted {
             
-            if let ownedCryptoId = self.ownedIdentity?.cryptoId {
+            if let ownedCryptoId = self.ownedIdentity?.cryptoId, let objectPermanentID {
                 let contactCryptoId = self.cryptoId
                 ObvMessengerCoreDataNotification.persistedContactWasInserted(contactPermanentID: objectPermanentID, ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
                     .postOnDispatchQueue()

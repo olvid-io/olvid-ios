@@ -58,7 +58,7 @@ actor MessagesCoordinator {
 
     private var cacheOfCurrentDeviceUIDForOwnedIdentity = [ObvCryptoIdentity: UID]()
     
-    private typealias DownloadMessagesTask = Task<Void,Never>
+    private typealias DownloadMessagesTask = Task<Void,Error>
     private typealias PairOfDownloadMessagesTasks = (inProgress: DownloadMessagesTask, next: DownloadMessagesTask?)
     private var cacheOfPairOfServerDownloadMessagesTasks = [ObvCryptoIdentity: PairOfDownloadMessagesTasks]()
 
@@ -71,11 +71,16 @@ extension MessagesCoordinator: MessagesDelegate {
     
     func downloadMessagesAndListAttachments(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async {
         
-        os_log("Call to downloadMessagesAndListAttachments for owned identity %{public}@", log: Self.log, type: .info, ownedCryptoId.debugDescription)
+        os_log("[%{public}@] Call to downloadMessagesAndListAttachments for owned identity %{public}@", log: Self.log, type: .debug, flowId.shortDebugDescription, ownedCryptoId.debugDescription)
+        defer {
+            os_log("[%{public}@] End of the call to downloadMessagesAndListAttachments for owned identity %{public}@", log: Self.log, type: .debug, flowId.shortDebugDescription, ownedCryptoId.debugDescription)
+        }
         
         let awaitedTask: DownloadMessagesTask
         
         let pairOfServerDownloadMessagesTasks = cacheOfPairOfServerDownloadMessagesTasks[ownedCryptoId]
+        
+        var awaitTaskFailed = false
         
         switch pairOfServerDownloadMessagesTasks {
             
@@ -83,29 +88,49 @@ extension MessagesCoordinator: MessagesDelegate {
             
             awaitedTask = createDownloadMessagesAndListAttachmentsTask(ownedCryptoId: ownedCryptoId, flowId: flowId)
             cacheOfPairOfServerDownloadMessagesTasks[ownedCryptoId] = (awaitedTask, nil)
-            await awaitedTask.value
+            os_log("[%{public}@] No existing task found for downloading messages for owned identity %{public}@. We created task %{public}@ will now await for it.", log: Self.log, type: .debug, flowId.shortDebugDescription, ownedCryptoId.debugDescription, awaitedTask.shortDebugDescription)
+            do {
+                try await awaitedTask.value
+            } catch {
+                awaitTaskFailed = true
+            }
             
         case .some(let pair):
             
+            os_log("[%{public}@] A task %{public}@ is already in progress for downloading messages for owned identity %{public}@", log: Self.log, type: .debug, flowId.shortDebugDescription, pair.inProgress.shortDebugDescription, ownedCryptoId.debugDescription)
+
             if let nextTask = pair.next {
                 
+                os_log("[%{public}@] No need to create a task for downloading messages for owned identity %{public}@, a next-task %{public}@ already exists", log: Self.log, type: .debug, flowId.shortDebugDescription, ownedCryptoId.debugDescription, nextTask.shortDebugDescription)
+
                 awaitedTask = nextTask
 
             } else {
                 
                 awaitedTask = createDownloadMessagesAndListAttachmentsTask(ownedCryptoId: ownedCryptoId, flowId: flowId)
+                os_log("[%{public}@] Created the task %{public}@ for downloading messages for owned identity %{public}@", log: Self.log, type: .debug, flowId.shortDebugDescription, awaitedTask.shortDebugDescription, ownedCryptoId.debugDescription)
                 cacheOfPairOfServerDownloadMessagesTasks[ownedCryptoId] = (pair.inProgress, awaitedTask)
                 
             }
             
-            await pair.inProgress.value
+            os_log("[%{public}@] Awaiting the end of the previous messages download task %{public}@ for owned identity %{public}@", log: Self.log, type: .debug, flowId.shortDebugDescription, pair.inProgress.shortDebugDescription, ownedCryptoId.debugDescription)
+
+            try? await pair.inProgress.value
             if cacheOfPairOfServerDownloadMessagesTasks[ownedCryptoId]?.next == awaitedTask {
                 cacheOfPairOfServerDownloadMessagesTasks[ownedCryptoId] = (awaitedTask, nil)
             }
-            await awaitedTask.value
+            
+            os_log("[%{public}@] Awaiting the end of messages download task %{public}@ for owned identity %{public}@", log: Self.log, type: .debug, flowId.shortDebugDescription, awaitedTask.shortDebugDescription, ownedCryptoId.debugDescription)
+
+            do {
+                try await awaitedTask.value
+            } catch {
+                awaitTaskFailed = true
+            }
             
         }
         
+        os_log("[%{public}@] The task %{public}@ for downloading messages for owned identity %{public}@ is finished", log: Self.log, type: .debug, flowId.shortDebugDescription, awaitedTask.shortDebugDescription, ownedCryptoId.debugDescription)
 
         if let pair = cacheOfPairOfServerDownloadMessagesTasks[ownedCryptoId] {
             if pair.inProgress == awaitedTask {
@@ -118,6 +143,14 @@ extension MessagesCoordinator: MessagesDelegate {
                 assert(pair.next != awaitedTask)
             }
         }
+        
+        if awaitTaskFailed {
+            // The delay increase/reset is managed by the DownloadMessagesTask
+            let delay = failedAttemptsCounterManager.getCurrentDelay(.downloadMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
+            os_log("🖲️ Will retry the call to downloadMessagesAndListAttachments in %f seconds", log: Self.log, type: .error, Double(delay) / 1000.0)
+            await retryManager.waitForDelay(milliseconds: delay)
+            await downloadMessagesAndListAttachments(ownedCryptoId: ownedCryptoId, flowId: flowId)
+        }
 
     }
     
@@ -128,7 +161,7 @@ extension MessagesCoordinator: MessagesDelegate {
             do {
                 try await downloadMessagesAndListAttachments(ownedCryptoId: ownedCryptoId, flowId: flowId, currentInvalidToken: nil)
                 failedAttemptsCounterManager.reset(counter: .downloadMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
-                os_log("Call to downloadMessagesAndListAttachments for owned identity %{public}@ was a success", log: Self.log, type: .info, ownedCryptoId.debugDescription)
+                os_log("[%{public}@] Call to downloadMessagesAndListAttachments for owned identity %{public}@ was a success", log: Self.log, type: .info, flowId.shortDebugDescription, ownedCryptoId.debugDescription)
             } catch {
                 if let error = error as? ObvError {
                     switch error {
@@ -148,10 +181,7 @@ extension MessagesCoordinator: MessagesDelegate {
                     }
                 }
                 let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
-                os_log("🖲️ Will retry the call to downloadMessagesAndListAttachments in %f seconds", log: Self.log, type: .error, Double(delay) / 1000.0)
-                await retryManager.waitForDelay(milliseconds: delay)
-                await downloadMessagesAndListAttachments(ownedCryptoId: ownedCryptoId, flowId: flowId)
-                return
+                throw error
             }
             
         }
@@ -217,7 +247,7 @@ extension MessagesCoordinator: MessagesDelegate {
             throw ObvError.invalidServerResponse
         }
         
-        guard let returnStatus = ObvServerDownloadMessagesAndListAttachmentsMethod.parseObvServerResponse(responseData: data, using: Self.log) else {
+        guard let returnStatus = ObvServerDownloadMessagesAndListAttachmentsMethod.parseObvServerResponse(responseData: data, using: Self.log, flowId: flowId) else {
             assertionFailure()
             throw ObvError.couldNotParseReturnStatusFromServer
         }
@@ -292,7 +322,7 @@ extension MessagesCoordinator: MessagesDelegate {
         
         let idsOfNewMessages = op1.idsOfNewMessages
         
-        os_log("🌊 We successfully downloaded %d messages (%d are new) for identity %@ within flow %{public}@. Listing was truncated: %{public}@", log: Self.log, type: .info, messagesAndAttachmentsOnServer.count, idsOfNewMessages.count, ownedCryptoId.debugDescription, flowId.debugDescription, isListingTruncated.description)
+        os_log("[%{public}@] 🌊 We successfully downloaded %d messages (%d are new) for identity %@. Listing was truncated: %{public}@", log: Self.log, type: .info, flowId.shortDebugDescription, messagesAndAttachmentsOnServer.count, idsOfNewMessages.count, ownedCryptoId.debugDescription, isListingTruncated.description)
         
         // The list of new messages and attachments just received from the server was properly saved, we can new process them.
         // The processing is performed asynchronously, as we want the ``downloadMessagesAndListAttachments(ownedCryptoId:flowId:)`` to return at this point.
@@ -384,7 +414,7 @@ extension MessagesCoordinator: MessagesDelegate {
         
         assert(iterationNumber < 1_000, "May happen if there were many unprocessed messages. But this is unlikely and should be investigated.")
         
-        os_log("Initializing a ProcessBatchOfUnprocessedMessagesOperation (iterationNumber is %d)", log: Self.log, type: .info, iterationNumber)
+        os_log("[%{public}@] Initializing a ProcessBatchOfUnprocessedMessagesOperation (iterationNumber is %d)", log: Self.log, type: .info, flowId.shortDebugDescription, iterationNumber)
         
         let op1 = ProcessBatchOfUnprocessedMessagesOperation(
             ownedCryptoIdentity: ownedCryptoIdentity,
@@ -392,7 +422,8 @@ extension MessagesCoordinator: MessagesDelegate {
             notificationDelegate: notificationDelegate,
             processDownloadedMessageDelegate: processDownloadedMessageDelegate,
             inbox: delegateManager.inbox,
-            log: Self.log)
+            log: Self.log,
+            flowId: flowId)
         do {
             try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
         } catch {
@@ -401,18 +432,21 @@ extension MessagesCoordinator: MessagesDelegate {
             return
         }
 
-        let postOperationTasksToPerform = op1.postOperationTasksToPerform
+        let postOperationTasksToPerform = op1.postOperationTasksToPerform.sorted()
         Task {
             for postOperationTaskToPerform in postOperationTasksToPerform {
                 
                 switch postOperationTaskToPerform {
                     
-                case .processPendingDeleteFromServer(messageId: let messageId):
-                    os_log("[🗑️ %{public}@] The message has a PendingDeleteFromServer to process", log: Self.log, type: .debug, messageId.debugDescription)
-                    do {
-                        try await delegateManager.networkFetchFlowDelegate.processPendingDeleteIfItExistsForMessage(messageId: messageId, flowId: flowId)
-                    } catch {
-                        assertionFailure(error.localizedDescription)
+                case .batchDeleteAndMarkAsListed(ownedCryptoIdentity: let ownedCryptoIdentity):
+                    
+                    os_log("[%{public}@] Will batch delete and mark as listed", log: Self.log, type: .debug, flowId.shortDebugDescription)
+                    Task.detached {
+                        do {
+                            try await delegateManager.batchDeleteAndMarkAsListedDelegate.batchDeleteAndMarkAsListed(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId)
+                        } catch {
+                            assertionFailure(error.localizedDescription)
+                        }
                     }
                     
                 case .processInboxAttachmentsOfMessage(let messageId):
@@ -437,10 +471,7 @@ extension MessagesCoordinator: MessagesDelegate {
                                                                                hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload,
                                                                                flowId: flowId)
                     .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
-                    
-                case .markMessageAsListedOnServer(let messageId):
-                    delegateManager.networkFetchFlowDelegate.markMessageAsListedOnServer(messageId: messageId, flowId: flowId)
-                    
+                                        
                 }
                 
             }
@@ -494,7 +525,7 @@ extension MessagesCoordinator {
     
     private func downloadExtendedMessagePayload(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws {
         
-        os_log("Call to downloadExtendedMessagePayload for message %{public}@ with flow id %{public}@", log: Self.log, type: .debug, messageId.debugDescription, flowId.debugDescription)
+        os_log("Call to downloadExtendedMessagePayload for message %{public}@ with flow id %{public}@", log: Self.log, type: .debug, messageId.debugDescription, flowId.shortDebugDescription)
 
         guard let delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
@@ -656,6 +687,17 @@ extension MessagesCoordinator {
         case deviceIsNotRegistered
         case theNotificationDelegateIsNotSet
         case theProcessDownloadedMessageDelegateIsNotSet
+    }
+    
+}
+
+
+// MARK: - Private helpers
+
+fileprivate extension Task<Void, Error> {
+    
+    var shortDebugDescription: String {
+        return "<\(self.hashValue & 0xFF)>"
     }
     
 }

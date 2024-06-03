@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -45,6 +45,8 @@ extension OwnedIdentityDeletionProtocol {
                     return step
                 } else if let step = StartDeletionFromPropagateOwnedIdentityDeletionMessageStep(from: concreteProtocol, and: receivedMessage) {
                     return step
+                } else if let step = StartDeletionFromReplayStartDeletionStepMessageStep(from: concreteProtocol, and: receivedMessage) {
+                    return step
                 } else {
                     return nil
                 }
@@ -75,37 +77,52 @@ extension OwnedIdentityDeletionProtocol {
         }
     }
     
-        
+
     // MARK: - StartDeletionStep
     
     class StartDeletionStep: ProtocolStep {
         
-        private let startState: ConcreteProtocolInitialState
+        private let startState: StartStateType
         private let receivedMessage: ReceivedMessageType
 
+        enum StartStateType {
+            case initial(startState: ConcreteProtocolInitialState)
+            case firstDeletionStepPerformedState(startState: FirstDeletionStepPerformedState)
+        }
+        
         enum ReceivedMessageType {
             case initiateOwnedIdentityDeletionMessage(receivedMessage: InitiateOwnedIdentityDeletionMessage)
             case propagateGlobalOwnedIdentityDeletionMessage(receivedMessage: PropagateGlobalOwnedIdentityDeletionMessage)
+            case replayStartDeletionStepMessage(receivedMessage: ReplayStartDeletionStepMessage)
         }
 
-        init?(startState: ConcreteProtocolInitialState, receivedMessage: ReceivedMessageType, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+        init?(startState: StartStateType, receivedMessage: ReceivedMessageType, concreteCryptoProtocol: ConcreteCryptoProtocol) {
             
             self.startState = startState
             self.receivedMessage = receivedMessage
             
-            switch receivedMessage {
-            case .initiateOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage):
+            switch (startState, receivedMessage) {
+            case (.initial, .initiateOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
                            expectedReceptionChannelInfo: .Local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
-            case .propagateGlobalOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage):
+            case (.initial, .propagateGlobalOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
                            expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
+            case (.firstDeletionStepPerformedState, .replayStartDeletionStepMessage(receivedMessage: let receivedMessage)):
+                super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                           expectedReceptionChannelInfo: .Local,
+                           receivedMessage: receivedMessage,
+                           concreteCryptoProtocol: concreteCryptoProtocol)
+            default:
+                // Any other state/message combination is unexpected
+                assertionFailure()
+                return nil
             }
-
+            
         }
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
@@ -119,6 +136,15 @@ extension OwnedIdentityDeletionProtocol {
             case .propagateGlobalOwnedIdentityDeletionMessage:
                 globalOwnedIdentityDeletion = true
                 propagationNeeded = false
+            case .replayStartDeletionStepMessage:
+                switch startState {
+                case .initial:
+                    assertionFailure()
+                    throw Self.makeError(message: "Unexpected state")
+                case .firstDeletionStepPerformedState(let startState):
+                    globalOwnedIdentityDeletion = startState.globalOwnedIdentityDeletion
+                    propagationNeeded = startState.propagationNeeded
+                }
             }
             
             // If the user request a global deletion, we make sure the identity is active
@@ -214,7 +240,7 @@ extension OwnedIdentityDeletionProtocol {
         init?(startState: ConcreteProtocolInitialState, receivedMessage: InitiateOwnedIdentityDeletionMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
             self.startState = startState
             self.receivedMessage = receivedMessage
-            super.init(startState: startState,
+            super.init(startState: .initial(startState: startState),
                        receivedMessage: .initiateOwnedIdentityDeletionMessage(receivedMessage: receivedMessage),
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -234,8 +260,28 @@ extension OwnedIdentityDeletionProtocol {
         init?(startState: ConcreteProtocolInitialState, receivedMessage: PropagateGlobalOwnedIdentityDeletionMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
             self.startState = startState
             self.receivedMessage = receivedMessage
-            super.init(startState: startState,
+            super.init(startState: .initial(startState: startState),
                        receivedMessage: .propagateGlobalOwnedIdentityDeletionMessage(receivedMessage: receivedMessage),
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+
+        // The step execution is defined in the superclass
+        
+    }
+    
+    
+    // MARK: StartDeletionFromReplayStartDeletionStepMessageStep
+    
+    final class StartDeletionFromReplayStartDeletionStepMessageStep: StartDeletionStep, TypedConcreteProtocolStep {
+        
+        let startState: FirstDeletionStepPerformedState
+        let receivedMessage: ReplayStartDeletionStepMessage
+
+        init?(startState: FirstDeletionStepPerformedState, receivedMessage: ReplayStartDeletionStepMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            super.init(startState: .firstDeletionStepPerformedState(startState: startState),
+                       receivedMessage: .replayStartDeletionStepMessage(receivedMessage: receivedMessage),
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
 

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -390,10 +390,12 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         return ownedIdentityObj.keycloakServer?.ownAPIKey
     }
     
-    public func getOwnedIdentitiesAndCurrentDeviceUids(within obvContext: ObvContext) throws -> [(ownedCryptoIdentity: ObvCryptoIdentity, currentDeviceUid: UID)] {
+    
+    public func getActiveOwnedIdentitiesAndCurrentDeviceUids(within obvContext: ObvContext) throws -> Set<OwnedCryptoIdentityAndCurrentDeviceUID> {
         let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
-        let ownedIdentitiesAndCurrentDeviceUids = ownedIdentities.map { ($0.cryptoIdentity, $0.currentDeviceUid) }
-        return ownedIdentitiesAndCurrentDeviceUids
+            .filter { $0.isActive }
+        let ownedIdentitiesAndCurrentDeviceUids = ownedIdentities.map { OwnedCryptoIdentityAndCurrentDeviceUID(ownedCryptoId: $0.cryptoIdentity, currentDeviceUID: $0.currentDeviceUid) }
+        return Set(ownedIdentitiesAndCurrentDeviceUids)
     }
     
     
@@ -530,7 +532,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func createContactGroupV2AdministratedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, serializedGroupCoreDetails: Data, photoURL: URL?, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, within obvContext: ObvContext) throws -> (groupIdentifier: GroupV2.Identifier, groupAdminServerAuthenticationPublicKey: PublicKeyForAuthentication, serverPhotoInfo: GroupV2.ServerPhotoInfo?, encryptedServerBlob: EncryptedData, photoURL: URL?) {
+    public func createContactGroupV2AdministratedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, serializedGroupCoreDetails: Data, photoURL: URL?, serializedGroupType: Data, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, within obvContext: ObvContext) throws -> (groupIdentifier: GroupV2.Identifier, groupAdminServerAuthenticationPublicKey: PublicKeyForAuthentication, serverPhotoInfo: GroupV2.ServerPhotoInfo?, encryptedServerBlob: EncryptedData, photoURL: URL?) {
         
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
@@ -539,6 +541,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         let (group, publicKey) = try ContactGroupV2.createContactGroupV2AdministratedByOwnedIdentity(ownedIdentity,
                                                                                                      serializedGroupCoreDetails: serializedGroupCoreDetails,
                                                                                                      photoURL: photoURL,
+                                                                                                     serializedGroupType: serializedGroupType,
                                                                                                      ownRawPermissions: ownRawPermissions,
                                                                                                      otherGroupMembers: otherGroupMembers,
                                                                                                      using: prng,
@@ -958,7 +961,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         assert(!ownedIdentity.isKeycloakManaged)
         
         let publishedDetails = ownedIdentity.publishedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory)
-        let publishedDetailsWithoutSignedDetails = try publishedDetails.removingSignedUserDetails()
+        let publishedDetailsWithoutSignedDetails = try publishedDetails.removingSignedUserDetailsAndPositionAndCompany()
         
         try updatePublishedIdentityDetailsOfOwnedIdentity(ownedCryptoIdentity, with: publishedDetailsWithoutSignedDetails, within: obvContext)
         
@@ -1180,11 +1183,11 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func addContactIdentity(_ contactIdentity: ObvCryptoIdentity, with identityCoreDetails: ObvIdentityCoreDetails, andTrustOrigin trustOrigin: TrustOrigin, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within obvContext: ObvContext) throws {
+    public func addContactIdentity(_ contactIdentity: ObvCryptoIdentity, with identityCoreDetails: ObvIdentityCoreDetails, andTrustOrigin trustOrigin: TrustOrigin, forOwnedIdentity ownedIdentity: ObvCryptoIdentity, isKnownToBeOneToOne: Bool, within obvContext: ObvContext) throws {
         guard let ownedIdentity = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
         }
-        guard ContactIdentity(cryptoIdentity: contactIdentity, identityCoreDetails: identityCoreDetails, trustOrigin: trustOrigin, ownedIdentity: ownedIdentity, isOneToOne: newOneToOneValue, delegateManager: delegateManager) != nil else {
+        guard ContactIdentity(cryptoIdentity: contactIdentity, identityCoreDetails: identityCoreDetails, trustOrigin: trustOrigin, ownedIdentity: ownedIdentity, isKnownToBeOneToOne: isKnownToBeOneToOne, delegateManager: delegateManager) != nil else {
             throw makeError(message: "Could not create ContactIdentity instance")
         }
     }
@@ -1330,16 +1333,16 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         contactIdentityObject.setForcefullyTrustedByUser(to: forcefullyTrustedByUser, delegateManager: delegateManager)
     }
     
-    public func isOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
-        guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { return false }
-        return contactIdentityObject.isOneToOne
+    public func getOneToOneStatusOfContactIdentity(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> OneToOneStatusOfContactIdentity {
+        guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { return .notOneToOne }
+        return contactIdentityObject.oneToOneStatus
     }
     
-    public func resetOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, reasonToLog: String, within obvContext: ObvContext) throws {
+    public func setOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, reasonToLog: String, within obvContext: ObvContext) throws {
         guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact identity") }
         contactIdentityObject.setIsOneToOne(to: newIsOneToOneStatus, reasonToLog: reasonToLog)
     }
-    
+
     // MARK: - API related to contact devices
     
     

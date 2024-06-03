@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -362,14 +362,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     
     
     // MARK: - Logging debug informations
-    
-    
-    private let byteCountFormatter: ByteCountFormatter = {
-        var bcf = ByteCountFormatter()
-        return bcf
-    }()
-    
-    
+        
     private let dateFormatter: DateFormatter = {
         var df = DateFormatter()
         df.dateStyle = .short
@@ -440,7 +433,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
                         var resourceString = [String]()
                         if let resourceValues = try? value.element.resourceValues(forKeys: Set(resourceKeys)) {
                             if let fileSize = resourceValues.fileSize {
-                                resourceString.append("File size: \(byteCountFormatter.string(fromByteCount: Int64(fileSize)))")
+                                resourceString.append("File size: " + Int64(fileSize).formatted(.byteCount(style: .file, allowedUnits: .all, spellsOutZero: true, includesActualByteCount: false)))
                             }
                             if let creationDate = resourceValues.creationDate {
                                 resourceString.append("Creation date: \(dateFormatter.string(from: creationDate))")

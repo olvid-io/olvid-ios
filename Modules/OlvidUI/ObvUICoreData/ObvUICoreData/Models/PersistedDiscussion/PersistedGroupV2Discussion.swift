@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -56,8 +56,10 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMake
         }
     }
 
-    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedGroupV2Discussion> {
-        ObvManagedObjectPermanentID<PersistedGroupV2Discussion>(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedGroupV2Discussion>? {
+        guard self.managedObjectContext != nil else { assertionFailure(); return nil }
+        return ObvManagedObjectPermanentID<PersistedGroupV2Discussion>(uuid: self.permanentUUID)
     }
 
     // Initializer

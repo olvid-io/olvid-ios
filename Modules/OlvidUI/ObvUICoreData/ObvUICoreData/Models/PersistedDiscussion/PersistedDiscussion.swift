@@ -324,43 +324,50 @@ public class PersistedDiscussion: NSManagedObject {
     }
     
     
-    /// This is expected to be called from the UI in order to determine if it can shows the global delete options for this discussion.
+    /// This is expected to be called from the UI in order to determine which deletion types can be shown.
     ///
-    /// This is implemented by creating a child context in which we simulated the global deletion of the discussion. This method returns `true` iff the deletion succeeds.
+    /// This is implemented by creating a child context in which we simulate the deletion of the discussion.
     /// Of course, the child context is not saved to prevent any side-effect (view contexts are never saved anyway).
-    public var globalDeleteActionCanBeMadeAvailable: Bool {
+    public var deletionTypesThatCanBeMadeAvailableForThisDiscussion: Set<DeletionType> {
+        
         guard let context = self.managedObjectContext else {
             assertionFailure()
-            return false
+            return Set()
         }
+        
         guard context.concurrencyType == .mainQueueConcurrencyType else {
             assertionFailure()
-            return false
+            return Set()
         }
         
-        // We don't want to show that a global deletion is available when it makes no sense, e.g., for a group v2 discussion when we have no contact (i.e., discussion with self) and no other owned device
-        if let groupV2Discussion = self as? PersistedGroupV2Discussion, let group = groupV2Discussion.group, let ownedIdentity {
-            if group.otherMembers.isEmpty && ownedIdentity.devices.count < 2 {
-                return false
+        var acceptableDeletionTypes = Set<DeletionType>()
+        
+        for deletionType in DeletionType.allCases {
+            
+            let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+            childViewContext.parent = context
+            guard let discussionInChildViewContext = try? PersistedDiscussion.get(objectID: self.objectID, within: childViewContext) else {
+                assertionFailure()
+                return Set()
             }
+            guard let ownedIdentityInChildViewContext = discussionInChildViewContext.ownedIdentity else {
+                assertionFailure()
+                return Set()
+            }
+            do {
+                _ = try ownedIdentityInChildViewContext.processDiscussionDeletionRequestFromCurrentDeviceOfThisOwnedIdentity(discussionObjectID: discussionInChildViewContext.typedObjectID, deletionType: deletionType)
+                acceptableDeletionTypes.insert(deletionType)
+            } catch {
+                continue
+            }
+            
         }
         
-        // The following code makes sure a call to a global deletion would succeed.
-        // We return true iff it is the case
-        
-        let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-        childViewContext.parent = context
-        guard let discussionInChildViewContext = try? PersistedDiscussion.get(objectID: self.objectID, within: childViewContext) else { assertionFailure(); return false }
-        guard let ownedIdentity = discussionInChildViewContext.ownedIdentity else { assertionFailure(); return false }
-        do {
-            try ownedIdentity.processDiscussionDeletionRequestFromCurrentDeviceOfThisOwnedIdentity(discussionObjectID: discussionInChildViewContext.typedObjectID, deletionType: .global)
-            return true
-        } catch {
-            return false
-        }
+        return acceptableDeletionTypes
+
     }
     
-    
+
     private func setLastOutboundMessageSequenceNumber(to newLastOutboundMessageSequenceNumber: Int) {
         if self.lastOutboundMessageSequenceNumber != newLastOutboundMessageSequenceNumber {
             self.lastOutboundMessageSequenceNumber = newLastOutboundMessageSequenceNumber
@@ -513,12 +520,30 @@ public class PersistedDiscussion: NSManagedObject {
             throw ObvError.ownedIdentityIsNil
         }
         
+        // Don't accept a wipe request from a contact for a sent message, unless the discussion is a group discussion with the appropriate permissions
+        
+        if requesterCryptoId != ownedIdentity.cryptoId {
+            switch try self.kind {
+            case .oneToOne, .groupV1:
+                return []
+            case .groupV2(withGroup: let group):
+                guard let group, let requester = group.otherMembers.first(where: { $0.identity == requesterCryptoId.getIdentity() }) else {
+                    assertionFailure()
+                    return []
+                }
+                guard requester.isAllowedToRemoteDeleteAnything else {
+                    return []
+                }
+                // If we reach this point, the contact is allowed to wipe a sent message in this discussion
+            }
+        }
+        
         // Get the sent messages to wipe
         
         var sentMessagesToWipe = [PersistedMessageSent]()
         do {
             let sentMessages = messagesToDelete
-                .filter({ $0.senderIdentifier == ownedIdentity.cryptoId.getIdentity() })
+                .filter({ $0.senderIdentifier == ownedIdentity.cryptoId.getIdentity() }) // Restrict to sent messages
             for sentMessage in sentMessages {
                 if let persistedMessageSent = try PersistedMessageSent.get(senderSequenceNumber: sentMessage.senderSequenceNumber,
                                                                            senderThreadIdentifier: sentMessage.senderThreadIdentifier,
@@ -542,18 +567,15 @@ public class PersistedDiscussion: NSManagedObject {
 
         for message in sentMessagesToWipe {
             
+            let info: InfoAboutWipedOrDeletedPersistedMessage
+            
             do {
-                try message.wipeThisMessage(requesterCryptoId: requesterCryptoId)
+                info = try message.wipeThisMessage(requesterCryptoId: requesterCryptoId)
             } catch {
                 assertionFailure(error.localizedDescription) // In production, continue with next message
                 continue
             }
 
-            let info = InfoAboutWipedOrDeletedPersistedMessage(
-                kind: .wiped,
-                discussionPermanentID: self.discussionPermanentID,
-                messagePermanentID: message.messagePermanentID)
-                    
             infos.append(info)
 
         }
@@ -569,12 +591,31 @@ public class PersistedDiscussion: NSManagedObject {
             throw ObvError.ownedIdentityIsNil
         }
         
+        // Don't accept a wipe request of a received message unless the requester is the sender of the message or the owned identity. Only exception: group v2 discussions where the requested has the appropriate permission.
+        
+        let requesterIsAllowedToRemoteDeleteAnythingOnThisDevice: Bool
+        if requesterCryptoId == ownedIdentity.cryptoId {
+            requesterIsAllowedToRemoteDeleteAnythingOnThisDevice = true
+        } else {
+            switch try self.kind {
+            case .oneToOne, .groupV1:
+                requesterIsAllowedToRemoteDeleteAnythingOnThisDevice = false
+            case .groupV2(withGroup: let group):
+                guard let group, let requester = group.otherMembers.first(where: { $0.identity == requesterCryptoId.getIdentity() }) else {
+                    assertionFailure()
+                    return []
+                }
+                requesterIsAllowedToRemoteDeleteAnythingOnThisDevice = requester.isAllowedToRemoteDeleteAnything
+            }
+        }
+        
         // Get received messages to wipe. If a message cannot be found, save the request for later if `saveRequestIfMessageCannotBeFound` is true
 
         var receivedMessagesToWipe = [PersistedMessageReceived]()
         do {
             let receivedMessages = messagesToDelete
-                .filter({ $0.senderIdentifier != ownedIdentity.cryptoId.getIdentity() })
+                .filter({ $0.senderIdentifier != ownedIdentity.cryptoId.getIdentity() }) // Restrict to received messages
+                .filter({ $0.senderIdentifier == requesterCryptoId.getIdentity() || requesterIsAllowedToRemoteDeleteAnythingOnThisDevice }) // Requester is allowed to delete her messages. She may be allowed to delete anything.
             for receivedMessage in receivedMessages {
                 if let persistedMessageReceived = try PersistedMessageReceived.get(senderSequenceNumber: receivedMessage.senderSequenceNumber,
                                                                                    senderThreadIdentifier: receivedMessage.senderThreadIdentifier,
@@ -596,18 +637,15 @@ public class PersistedDiscussion: NSManagedObject {
 
         for message in receivedMessagesToWipe {
             
+            let info: InfoAboutWipedOrDeletedPersistedMessage
+            
             do {
-                try message.wipeThisMessage(requesterCryptoId: requesterCryptoId)
+                info = try message.wipeThisMessage(requesterCryptoId: requesterCryptoId)
             } catch {
                 assertionFailure(error.localizedDescription) // In production, continue with next message
                 continue
             }
             
-            let info = InfoAboutWipedOrDeletedPersistedMessage(
-                kind: .wiped,
-                discussionPermanentID: self.discussionPermanentID,
-                messagePermanentID: message.messagePermanentID)
-                    
             infos.append(info)
 
         }
@@ -692,12 +730,17 @@ public class PersistedDiscussion: NSManagedObject {
             throw ObvError.unexpectedDiscussionForMessageToDelete
         }
 
-        // We can only globally delete a message from an active discussion
-
         switch deletionType {
-        case .local:
+        case .fromThisDeviceOnly:
+            // Always allow a message deletion on this device when the request was made on this device
             break
-        case .global:
+        case .fromAllOwnedDevices:
+            // Throw if we have no other owned devices. This is handy when using the method to determine if the option
+            // to delete from all other owned devices is pertinent
+            guard ownedIdentity.hasAnotherDeviceWithChannel else {
+                throw ObvError.ownedIdentityDoesNotHaveAnotherDeviceWithChannel
+            }
+        case .fromAllOwnedDevicesAndAllContactDevices:
             switch self.status {
             case .locked, .preDiscussion:
                 throw ObvError.cannotGloballyDeleteMessageFromLockedOrPrediscussion
@@ -722,9 +765,11 @@ public class PersistedDiscussion: NSManagedObject {
         // We can only globally delete a discussion from an active discussion
 
         switch deletionType {
-        case .local:
+        case .fromThisDeviceOnly:
             break
-        case .global:
+        case .fromAllOwnedDevices:
+            break
+        case .fromAllOwnedDevicesAndAllContactDevices:
             switch self.status {
             case .locked, .preDiscussion:
                 throw ObvError.cannotGloballyDeleteLockedOrPrediscussion
@@ -856,7 +901,7 @@ public class PersistedDiscussion: NSManagedObject {
             assertionFailure(error.localizedDescription) // Continue anyway
         }
 
-        let messageSentPermanentId = createdMessage.objectPermanentID
+        let messageSentPermanentId = createdMessage.objectPermanentID // nil if the created message was just deleted by applying a saved delete request
         
         return messageSentPermanentId
 
@@ -2592,6 +2637,7 @@ extension PersistedDiscussion {
         case incoherentDiscussionKind
         case couldNotFindMessage
         case unexpectedMessageKind
+        case ownedIdentityDoesNotHaveAnotherDeviceWithChannel
 
         var localizedDescription: String {
             switch self {
@@ -2647,6 +2693,8 @@ extension PersistedDiscussion {
                 return "Incoherent discussion kind"
             case .couldNotFindMessage:
                 return "Could not find message"
+            case .ownedIdentityDoesNotHaveAnotherDeviceWithChannel:
+                return "Owned identity does not have another device with a channel"
             }
         }
         

@@ -62,7 +62,6 @@ public extension TargetDependency {
 
                     public static let composeMessage: TargetDependency = .project(target: "Discussions_Mentions_ComposeMessageBuilder", path: .relativeToRoot("Modules/Discussions"))
 
-                    public static let textBubble: TargetDependency = .project(target: "Discussions_Mentions_TextBubbleBuilder", path: .relativeToRoot("Modules/Discussions"))
                 }
             }
 

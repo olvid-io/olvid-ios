@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,5 +29,5 @@ protocol DiscussionsTableViewControllerDelegate: AnyObject {
 
     func userAskedToDeleteDiscussion(_: PersistedDiscussion, completionHandler: @escaping (Bool) -> Void)
 
-    func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void)
+    func userAskedToRefreshDiscussions() async throws
 }

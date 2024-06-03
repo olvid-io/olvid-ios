@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -118,31 +118,47 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
         
         assert(Thread.isMainThread)
         
-        let alert = UIAlertController(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.title,
-                                      message: Strings.AlertConfirmAllDiscussionMessagesDeletion.message,
+        let ownedIdentityHasHasAnotherDeviceWithChannel = persistedDiscussion.ownedIdentity?.hasAnotherDeviceWithChannel ?? false
+        let multipleContacts: Bool
+        do {
+            switch try persistedDiscussion.kind {
+            case .oneToOne:
+                multipleContacts = false
+            case .groupV1:
+                multipleContacts = true
+            case .groupV2:
+                multipleContacts = true
+            }
+        } catch {
+            assertionFailure()
+            multipleContacts = false
+        }
+        
+        let alert = UIAlertController(title: Strings.Alert.ConfirmAllDeletionOfAllMessages.title,
+                                      message: Strings.Alert.ConfirmAllDeletionOfAllMessages.message,
                                       preferredStyleForTraitCollection: self.traitCollection)
         
-        // Global delete action (if possible)
-
-        if persistedDiscussion.globalDeleteActionCanBeMadeAvailable {
-            alert.addAction(UIAlertAction(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.actionDeleteAllGlobally, style: .destructive, handler: { [weak self] (action) in
-                alert.dismiss(animated: true) {
-                    self?.ensureUserWantsToGloballyDeleteDiscussion(persistedDiscussion, completionHandler: completionHandler)
+        for deletionType in persistedDiscussion.deletionTypesThatCanBeMadeAvailableForThisDiscussion.sorted() {
+            let title = Strings.Alert.ConfirmAllDeletionOfAllMessages.actionTitle(for: deletionType, ownedIdentityHasHasAnotherDeviceWithChannel: ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts: multipleContacts)
+            alert.addAction(UIAlertAction(title: title, style: .destructive, handler: { [weak self] (action) in
+                guard let ownedCryptoId = persistedDiscussion.ownedIdentity?.cryptoId else { return }
+                switch deletionType {
+                case .fromThisDeviceOnly, .fromAllOwnedDevices:
+                    ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(
+                        ownedCryptoId: ownedCryptoId,
+                        discussionObjectID: persistedDiscussion.typedObjectID,
+                        deletionType: deletionType,
+                        completionHandler: completionHandler)
+                        .postOnDispatchQueue()
+                case .fromAllOwnedDevicesAndAllContactDevices:
+                    // Request a second confirmation in that case, as the discussion will also be delete from contact devices
+                    self?.ensureUserWantsToGloballyDeleteDiscussion(persistedDiscussion,
+                                                                    ownedIdentityHasHasAnotherDeviceWithChannel: ownedIdentityHasHasAnotherDeviceWithChannel,
+                                                                    multipleContacts: multipleContacts,
+                                                                    completionHandler: completionHandler)
                 }
             }))
         }
-        
-        // Local delete action
-        
-        alert.addAction(UIAlertAction(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.actionDeleteAll, style: .destructive, handler: { (action) in
-            guard let ownedCryptoId = persistedDiscussion.ownedIdentity?.cryptoId else { return }
-            ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(
-                ownedCryptoId: ownedCryptoId,
-                discussionObjectID: persistedDiscussion.typedObjectID,
-                deletionType: .local,
-                completionHandler: completionHandler)
-                .postOnDispatchQueue()
-        }))
         
         // Cancel action
         
@@ -154,18 +170,18 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
         
     }
     
-    func ensureUserWantsToGloballyDeleteDiscussion(_ discussion: PersistedDiscussion, completionHandler: @escaping (Bool) -> Void) {
+    func ensureUserWantsToGloballyDeleteDiscussion(_ discussion: PersistedDiscussion, ownedIdentityHasHasAnotherDeviceWithChannel: Bool, multipleContacts: Bool, completionHandler: @escaping (Bool) -> Void) {
         assert(Thread.current.isMainThread)
-        
         let alert = UIAlertController(title: Strings.AlertConfirmAllDiscussionMessagesDeletionGlobally.title,
                                       message: Strings.AlertConfirmAllDiscussionMessagesDeletionGlobally.message,
                                       preferredStyleForTraitCollection: self.traitCollection)
-        alert.addAction(UIAlertAction(title: Strings.AlertConfirmAllDiscussionMessagesDeletion.actionDeleteAllGlobally, style: .destructive, handler: { (action) in
+        let actionTitle = Strings.Alert.ConfirmAllDeletionOfAllMessages.actionTitle(for: .fromAllOwnedDevicesAndAllContactDevices, ownedIdentityHasHasAnotherDeviceWithChannel: ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts: multipleContacts)
+        alert.addAction(UIAlertAction(title: actionTitle, style: .destructive, handler: { (action) in
             guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else { return }
             ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(
                 ownedCryptoId: ownedCryptoId,
                 discussionObjectID: discussion.typedObjectID,
-                deletionType: .global,
+                deletionType: .fromAllOwnedDevicesAndAllContactDevices,
                 completionHandler: completionHandler)
                 .postOnDispatchQueue()
         }))
@@ -181,8 +197,8 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
         presentedViewController?.dismiss(animated: true)
     }
 
-    func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void) {
-        flowDelegate?.userAskedToRefreshDiscussions(completionHandler: completionHandler)
+    func userAskedToRefreshDiscussions() async throws {
+        try await flowDelegate?.userAskedToRefreshDiscussions()
     }
 
 }

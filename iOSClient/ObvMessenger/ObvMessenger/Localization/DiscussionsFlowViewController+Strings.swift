@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,17 +18,40 @@
  */
 
 import Foundation
+import ObvUICoreData
 
 extension DiscussionsFlowViewController {
 
     struct Strings {
         
-        struct AlertConfirmAllDiscussionMessagesDeletion {
-            static let title = NSLocalizedString("Delete all messages?", comment: "Alert title")
-            static let message = NSLocalizedString("Do you wish to delete all the messages within this discussion? This action is irreversible.", comment: "Alert message")
-            static let actionDeleteAll = NSLocalizedString("Delete all messages", comment: "Alert action title")
-            static let actionDeleteAllGlobally = NSLocalizedString("Delete all messages for all users", comment: "Alert action title")
+        struct Alert {
+            
+            struct ConfirmAllDeletionOfAllMessages {
+                static let title = NSLocalizedString("DELETE_ALL_MESSAGES", comment: "Alert title")
+                static let message = NSLocalizedString("THIS_ACTION_IS_IRREVERSIBLE", comment: "Alert message")
+                static func actionTitle(for deletionType: DeletionType, ownedIdentityHasHasAnotherDeviceWithChannel: Bool, multipleContacts: Bool) -> String {
+                    switch deletionType {
+                    case .fromThisDeviceOnly:
+                        return NSLocalizedString("DELETE_DISCUSSION_FROM_THIS_DEVICE_ONLY", comment: "Alert button title")
+                    case .fromAllOwnedDevices:
+                        return NSLocalizedString("DELETE_DISCUSSION_FROM_ALL_OWNED_DEVICES", comment: "Alert button title")
+                    case .fromAllOwnedDevicesAndAllContactDevices:
+                        switch (ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts) {
+                        case (false, false):
+                            return NSLocalizedString("DELETE_DISCUSSION_FROM_THIS_DEVICE_AND_CONTACT_DEVICES", comment: "Alert button title")
+                        case (false, true):
+                            return NSLocalizedString("DELETE_DISCUSSION_FROM_THIS_DEVICE_AND_ALL_CONTACTS_DEVICES", comment: "Alert button title")
+                        case (true, false):
+                            return NSLocalizedString("DELETE_DISCUSSION_FROM_ALL_OWNED_DEVICES_AND_CONTACT_DEVICES", comment: "Alert button title")
+                        case (true, true):
+                            return NSLocalizedString("DELETE_DISCUSSION_FROM_ALL_OWNED_DEVICES_AND_ALL_CONTACTS_DEVICES", comment: "Alert button title")
+                        }
+                    }
+                }
+            }
+            
         }
+        
         
         struct AlertConfirmAllDiscussionMessagesDeletionGlobally {
             static let title = NSLocalizedString("Delete all messages for all users?", comment: "Alert title")

@@ -108,7 +108,6 @@ final class MetaFlowController: UIViewController, OlvidURLHandler, MainFlowViewC
         
         // Internal notifications
         
-        observeUserWantsToRefreshDiscussionsNotifications()
         observeUserTriedToAccessCameraButAccessIsDeniedNotifications()
         observeUserWantsToDeleteOwnedContactGroupNotifications()
         observeUserWantsToLeaveJoinedContactGroupNotifications()
@@ -150,9 +149,6 @@ final class MetaFlowController: UIViewController, OlvidURLHandler, MainFlowViewC
             },
             ObvMessengerInternalNotification.observeUserWantsToCreateNewGroupV1(queue: OperationQueue.main) { [weak self] (groupName, groupDescription, groupMembersCryptoIds, ownedCryptoId, photoURL) in
                 self?.processUserWantsToCreateNewGroupV1(groupName: groupName, groupDescription: groupDescription, groupMembersCryptoIds: groupMembersCryptoIds, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToCreateNewGroupV2(queue: OperationQueue.main) { [weak self] (groupCoreDetails, ownPermissions, otherGroupMembers, ownedCryptoId, photoURL) in
-                self?.processUserWantsToCreateNewGroupV2(groupCoreDetails: groupCoreDetails, ownPermissions: ownPermissions, otherGroupMembers: otherGroupMembers, ownedCryptoId: ownedCryptoId, photoURL: photoURL)
             },
             ObvMessengerCoreDataNotification.observeDisplayedContactGroupWasJustCreated { [weak self] permanentID in
                 Task { await self?.processDisplayedContactGroupWasJustCreated(permanentID: permanentID) }
@@ -1178,6 +1174,53 @@ extension MetaFlowController {
 
 extension MetaFlowController {
     
+    @MainActor
+    func userWantsToPublishGroupV2Modification(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async {
+        assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
+        
+        guard let group = try? PersistedGroupV2.get(objectID: groupObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+        guard group.ownedIdentityIsAdmin else { assertionFailure(); return }
+        guard !changeset.isEmpty else { return }
+
+        automaticallyNavigateToCreatedDisplayedContactGroup = true
+        let obvEngine = self.obvEngine
+        guard let ownedCryptoId = try? group.ownCryptoId else { assertionFailure(); return }
+        let groupIdentifier = group.groupIdentifier
+        DispatchQueue(label: "Background queue for calling obvEngine.updateGroupV2").async {
+            do {
+                try obvEngine.updateGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, changeset: changeset)
+            } catch {
+                assertionFailure()
+            }
+        }
+    }
+    
+    
+    @MainActor
+    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: PersistedGroupV2.GroupType) async {
+        assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
+        automaticallyNavigateToCreatedDisplayedContactGroup = true
+        let obvEngine = self.obvEngine
+        let log = self.log
+        DispatchQueue(label: "Background queue for calling obvEngine.startGroupV2CreationProtocol").async {
+            do {
+                let serializedGroupCoreDetails = try groupCoreDetails.jsonEncode()
+                let serializedGroupType = try groupType.toSerializedGroupType()
+                try obvEngine.startGroupV2CreationProtocol(serializedGroupCoreDetails: serializedGroupCoreDetails,
+                                                           ownPermissions: ownPermissions,
+                                                           otherGroupMembers: otherGroupMembers,
+                                                           ownedCryptoId: ownedCryptoId,
+                                                           photoURL: photoURL,
+                                                           serializedGroupType: serializedGroupType)
+            } catch {
+                os_log("Failed to create GroupV2: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                return
+            }
+        }
+    }
+
+    
     func userWantsToAddNewDevice(_ viewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async {
         guard let ownedDetails = try? await getOwnedIdentityDetails(ownedCryptoId: ownedCryptoId) else { assertionFailure(); return }
         let newOnboardingFlowViewController = NewOnboardingFlowViewController(
@@ -1418,49 +1461,6 @@ extension MetaFlowController {
 }
 
 
-// MARK: - Exchanging messages
-
-extension MetaFlowController {
-    
-    private func observeUserWantsToRefreshDiscussionsNotifications() {
-        observationTokens.append(ObvMessengerInternalNotification.observeUserWantsToRefreshDiscussions { [weak self] completionHandler in
-            Task { [weak self] in
-                guard let self else { return }
-                // Request the download of all messages to the engine
-                try await obvEngine.downloadAllMessagesForOwnedIdentities()
-                // If one of the owned identities is keycloak managed, resync
-                do {
-                    if try await atLeastOneOwnedIdentityIsKeycloakManaged() {
-                        try await KeycloakManagerSingleton.shared.syncAllManagedIdentities()
-                    }
-                } catch {
-                    assertionFailure(error.localizedDescription)
-                }
-                // Call the completion
-                completionHandler()
-            }
-        })
-    }
-    
-    
-    private func atLeastOneOwnedIdentityIsKeycloakManaged() async throws -> Bool {
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
-            ObvStack.shared.performBackgroundTask { context in
-                do {
-                    let ownedIdentities = try PersistedObvOwnedIdentity.getAllNonHiddenOwnedIdentities(within: context)
-                    let result = ownedIdentities.first(where: { $0.isKeycloakManaged }) != nil
-                    return continuation.resume(returning: result)
-                } catch {
-                    assertionFailure()
-                    return continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-    
-}
-
-
 // MARK: - Misc and protocols starters
 
 extension MetaFlowController {
@@ -1526,29 +1526,7 @@ extension MetaFlowController {
         }
     }
     
-    
-    private func processUserWantsToCreateNewGroupV2(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?) {
-        assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
-        automaticallyNavigateToCreatedDisplayedContactGroup = true
-        let obvEngine = self.obvEngine
-        let log = self.log
-        DispatchQueue(label: "Background queue for calling obvEngine.startGroupV2CreationProtocol").async {
-            do {
-                let serializedGroupCoreDetails = try groupCoreDetails.jsonEncode()
-                try obvEngine.startGroupV2CreationProtocol(serializedGroupCoreDetails: serializedGroupCoreDetails,
-                                                           ownPermissions: ownPermissions,
-                                                           otherGroupMembers: otherGroupMembers,
-                                                           ownedCryptoId: ownedCryptoId,
-                                                           photoURL: photoURL)
-            } catch {
-                os_log("Failed to create GroupV2: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-        }
-    }
 
-    
     @MainActor
     private func processDisplayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>) async {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
@@ -1561,7 +1539,7 @@ extension MetaFlowController {
         guard displayedContactGroup.ownPermissionAdmin else { return }
         // Navigate to the group
         automaticallyNavigateToCreatedDisplayedContactGroup = false
-        let deepLink = ObvDeepLink.contactGroupDetails(ownedCryptoId: currentOwnedCryptoId, objectPermanentID: permanentID)
+        let deepLink = ObvDeepLink.groupV1Details(ownedCryptoId: currentOwnedCryptoId, objectPermanentID: permanentID)
         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
             .postOnDispatchQueue()
     }

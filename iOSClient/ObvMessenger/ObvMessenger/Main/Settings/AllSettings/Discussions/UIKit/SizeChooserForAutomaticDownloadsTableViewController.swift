@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,10 +22,8 @@ import ObvUICoreData
 import ObvSettings
 
 
-class SizeChooserForAutomaticDownloadsTableViewController: UITableViewController {
+final class SizeChooserForAutomaticDownloadsTableViewController: UITableViewController {
 
-    private let byteCountFormatter = ObvPositiveByteCountFormatter()
-    
     init() {
         super.init(style: Self.settingsTableStyle)
     }
@@ -55,7 +53,7 @@ class SizeChooserForAutomaticDownloadsTableViewController: UITableViewController
         let sizeForCell = ObvMessengerSettings.Downloads.byteSizes[indexPath.row]
         
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-        cell.textLabel?.text = self.byteCountFormatter.string(fromByteCount: Int64(sizeForCell))
+        cell.textLabel?.text = Int64(sizeForCell).obvFormattedWithPositiveByteCount
         cell.selectionStyle = .none
         
         if sizeForCell == ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload {

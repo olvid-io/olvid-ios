@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@
 import UIKit
 import QuickLookThumbnailing
 
-@available(iOS 15.0, *)
+
 extension URL {
     
     private static func makeError(message: String) -> Error { NSError(domain: "URL+Thumbnail", code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
@@ -77,9 +77,114 @@ extension URL {
     }
     
     
+    /// Returns a thumbnail with a width as close as possible to the specified ``mandatoryWidth``, and which height is less or equal than the ``maxHeight``.
+    /// The bottom part of the thumbnail might be cropped to make it possible to obtain the desired size.
+    @MainActor
+    func byPreparingCropBottomThumbnail(mandatoryWidth: CGFloat, maxHeight: CGFloat) async throws -> UIImage {
+     
+        let scale = UIScreen.main.scale
+
+        if let image = UIImage(contentsOfFile: self.path) {
+            
+            guard image.size.height > 0 && image.size.width > 0 else {
+                assertionFailure()
+                throw Self.makeError(message: "Cannot prepare thumbnail for an image that has a width or a height of 0")
+            }
+            
+            let sourceRatio = image.size.width / image.size.height
+            
+            let uncroppedThumbnailSize = CGSize(width: mandatoryWidth * scale,
+                                                height: mandatoryWidth * scale / sourceRatio)
+            
+            guard let uncroppedThumbnail = await image.byPreparingThumbnail(ofSize: uncroppedThumbnailSize) else {
+                assertionFailure()
+                throw Self.makeError(message: "The preparingThumbnail of the UIImage returned a nil thumbnail")
+            }
+            
+            assert(uncroppedThumbnail.size.width == mandatoryWidth)
+            
+            if uncroppedThumbnail.size.height > maxHeight {
+                guard let ciImage = uncroppedThumbnail.ciImage else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Crop method failed")
+                }
+                let croppedCIImage = ciImage.cropped(to: CGRect(origin: .zero, size: CGSize(width: mandatoryWidth * scale, height: maxHeight * scale)))
+                let croppedThumbnail = UIImage(ciImage: croppedCIImage)
+                assert(croppedThumbnail.size.width == mandatoryWidth && croppedThumbnail.size.height <= maxHeight)
+                return croppedThumbnail
+            } else {
+                return uncroppedThumbnail
+            }
+            
+        } else {
+            
+            let generator = QLThumbnailGenerator.shared
+
+            // Generate a representation with the exact mandatory width
+            
+            let representation: QLThumbnailRepresentation
+            
+            do {
+                let requestedSize = CGSize(width: mandatoryWidth, height: maxHeight)
+                let request = QLThumbnailGenerator.Request(fileAt: self,
+                                                           size: requestedSize,
+                                                           scale: scale,
+                                                           representationTypes: .thumbnail)
+                let firstRepresentation = try await generator.generateBestRepresentation(for: request)
+                if firstRepresentation.uiImage.size.width == mandatoryWidth {
+                    representation = firstRepresentation
+                } else {
+                    let ratio = mandatoryWidth / CGFloat(firstRepresentation.uiImage.size.width)
+                    let requestedSize = CGSize(width: mandatoryWidth, height: ceil(firstRepresentation.uiImage.size.height * ratio))
+                    let request = QLThumbnailGenerator.Request(fileAt: self,
+                                                               size: requestedSize,
+                                                               scale: scale,
+                                                               representationTypes: .thumbnail)
+                    let secondRepresentation = try await generator.generateBestRepresentation(for: request)
+                    assert(abs(secondRepresentation.uiImage.size.width - mandatoryWidth) < 1.0, "Distance: \(abs(secondRepresentation.uiImage.size.width - mandatoryWidth))")
+                    representation = secondRepresentation
+                }
+
+            }
+            
+            let uncroppedThumbnail = representation.uiImage
+            
+            // Crop the thumbnail if required
+            
+            let returnedThumbnail: UIImage
+            
+            if uncroppedThumbnail.size.height <= maxHeight {
+                returnedThumbnail = uncroppedThumbnail
+            } else {
+                let cropZone = CGRect(origin: .zero, size: CGSize(width: representation.uiImage.size.width * scale, height: maxHeight * scale))
+                guard let cutImageRef: CGImage = representation.cgImage.cropping(to:cropZone) else {
+                    assertionFailure()
+                    throw Self.makeError(message: "Crop failed")
+                }
+                returnedThumbnail = UIImage(cgImage: cutImageRef, scale: scale, orientation: .up)
+            }
+
+            assert(abs(returnedThumbnail.size.width - mandatoryWidth) < 1.0)
+            assert(returnedThumbnail.size.height <= maxHeight)
+            
+            return returnedThumbnail
+            
+        }
+                
+    }
+    
+    
     @MainActor
     func byPreparingThumbnailPreparedForDisplay(ofSize size: CGSize) async throws -> UIImage {
         let thumbnail = try await self.byPreparingThumbnail(ofSize: size)
+        let preparedThumbnail = await thumbnail.byPreparingForDisplay() ?? thumbnail
+        return preparedThumbnail
+    }
+    
+    
+    @MainActor
+    func bybyPreparingCropBottomThumbnailPreparedForDisplay(mandatoryWidth: CGFloat, maxHeight: CGFloat) async throws -> UIImage {
+        let thumbnail = try await self.byPreparingCropBottomThumbnail(mandatoryWidth: mandatoryWidth, maxHeight: maxHeight)
         let preparedThumbnail = await thumbnail.byPreparingForDisplay() ?? thumbnail
         return preparedThumbnail
     }

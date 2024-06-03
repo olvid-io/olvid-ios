@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,20 +21,17 @@ import Foundation
 import ObvTypes
 import ObvCrypto
 import OlvidUtils
+import ObvMetaManager
 
 protocol WebSocketDelegate {
     
-    func connectAll(flowId: FlowIdentifier) async
+    func connectUpdatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws
     func disconnectAll(flowId: FlowIdentifier) async
 
-    func setWebSocketServerURL(for serverURL: URL, to webSocketServerURL: URL) async
-    func setDeviceUid(to deviceUid: UID, for identity: ObvCryptoIdentity) async
-    func setServerSessionToken(to token: Data, for identity: ObvCryptoIdentity) async
+    func disconnectThenReconnectOnSatisfiedNetworkPathStatus(flowId: FlowIdentifier) async
 
     func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) async throws
-
-    func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (URLSessionTask.State,TimeInterval?)
-
-    func updateListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async
+    
+    func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (state: URLSessionTask.State, pingInterval: TimeInterval?)
 
 }

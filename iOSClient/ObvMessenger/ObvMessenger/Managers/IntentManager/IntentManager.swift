@@ -28,13 +28,11 @@ import ObvSettings
 
 
 protocol IntentDelegate: AnyObject {
-    @available(iOS 14.0, *)
     static func getSendMessageIntentForMessageReceived(infos: ReceivedMessageIntentInfos,
                                                        showGroupName: Bool) -> INSendMessageIntent
 }
 
 
-@available(iOS 14.0, *)
 final class IntentManager {
 
     fileprivate static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: IntentManager.self))
@@ -69,7 +67,6 @@ final class IntentManager {
 
 // MARK: - Notifications observation
 
-@available(iOS 14.0, *)
 extension IntentManager {
 
     private func observeMessageInsertionToDonateINSendMessageIntent() {
@@ -187,7 +184,6 @@ extension IntentManager {
 
 // MARK: - INSendMessageIntent creation
 
-@available(iOS 14.0, *)
 extension IntentManager: IntentDelegate {
 
     static func getSendMessageIntentForMessageReceived(infos: ReceivedMessageIntentInfos,
@@ -221,14 +217,12 @@ struct ReceivedMessageIntentInfos {
 
     var conversationIdentifier: String { discussionPermanentID.description }
     
-    @available(iOS 14.0, *)
     init(messageReceived: PersistedMessageReceived.Structure) {
         let contact = messageReceived.contact
         let discussionKind = messageReceived.discussionKind
         self.init(contact: contact, discussionKind: discussionKind)
     }
 
-    @available(iOS 14.0, *)
     init(contact: PersistedObvContactIdentity.Structure, discussionKind: PersistedDiscussion.StructureKind) {
         self.discussionPermanentID = discussionKind.discussionPermanentID
         let ownedIdentity = contact.ownedIdentity

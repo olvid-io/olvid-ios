@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,7 @@ import OlvidUtils
 
 protocol NetworkFetchFlowDelegate {
     
-    func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws
+    func updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws
 
     // MARK: - Session's Challenge/Response/Token related methods
     
@@ -37,10 +37,6 @@ protocol NetworkFetchFlowDelegate {
     func queryAPIKeyStatus(for ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> APIKeyElements
     func registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> ObvRegisterApiKeyResult
 
-    // MARK: - Downloading message and listing attachments
-    
-    func markMessageAsListedOnServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
-    
     // MARK: - Downloading encrypted extended message payload
     
     func downloadingMessageExtendedPayloadWasPerformed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
@@ -52,10 +48,6 @@ protocol NetworkFetchFlowDelegate {
     func attachmentWasDownloaded(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
     func attachmentWasCancelledByServer(attachmentId: ObvAttachmentIdentifier, flowId: FlowIdentifier)
     func requestDownloadAttachmentProgressesUpdatedSince(date: Date) async throws -> [ObvAttachmentIdentifier: Float]
-
-    // MARK: - Deletion related methods
-    
-    func processPendingDeleteIfItExistsForMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws
     
     // MARK: - Push notification's related methods
     
@@ -80,6 +72,6 @@ protocol NetworkFetchFlowDelegate {
     
     // MARK: - Reacting to web socket changes
     
-    func successfulWebSocketRegistration(identity: ObvCryptoIdentity, deviceUid: UID) async
+    func successfulWebSocketRegistration(identity: ObvCryptoIdentity) async
 
 }

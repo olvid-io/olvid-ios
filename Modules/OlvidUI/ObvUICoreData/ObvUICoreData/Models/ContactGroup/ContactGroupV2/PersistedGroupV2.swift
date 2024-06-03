@@ -51,6 +51,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     @NSManaged private var rawOwnedIdentityIdentity: Data // Part of primary key
     @NSManaged private var rawPublishedDetailsStatus: Int
     @NSManaged public private(set) var updateInProgress: Bool
+    @NSManaged private var serializedGroupType: Data? // Might be nil
 
     // Relationships
     
@@ -117,7 +118,13 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     public var discussion: PersistedGroupV2Discussion? {
         return rawDiscussion
     }
-        
+    
+    public var groupType: GroupType? {
+        guard let serializedGroupType else { return nil }
+        return try? GroupType(serializedGroupType: serializedGroupType)
+    }
+    
+
     private(set) var publishedDetailsStatus: PublishedDetailsStatusType {
         get {
             let value = PublishedDetailsStatusType(rawValue: rawPublishedDetailsStatus)
@@ -174,49 +181,90 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
     
     
+    private func setOwnPermissions(to permissions: Set<ObvGroupV2.Permission>, keycloakManaged: Bool) {
+        for permission in ObvGroupV2.Permission.allCases {
+            switch permission {
+            case .groupAdmin:
+                if keycloakManaged {
+                    assert(!permissions.contains(permission))
+                    self.ownPermissionAdmin = false
+                } else {
+                    let newPermissionValue = permissions.contains(permission)
+                    if self.ownPermissionAdmin != newPermissionValue {
+                        if newPermissionValue {
+                            try? discussion?.ownedIdentityBecameAnAdmin()
+                        } else {
+                            try? discussion?.ownedIdentityIsNoLongerAnAdmin()
+                        }
+                        self.ownPermissionAdmin = newPermissionValue
+                    }
+                }
+            case .remoteDeleteAnything:
+                let newPermissionValue = permissions.contains(permission)
+                if self.ownPermissionRemoteDeleteAnything != newPermissionValue {
+                    self.ownPermissionRemoteDeleteAnything = newPermissionValue
+                }
+            case .editOrRemoteDeleteOwnMessages:
+                let newPermissionValue = permissions.contains(permission)
+                if self.ownPermissionEditOrRemoteDeleteOwnMessages != newPermissionValue {
+                    self.ownPermissionEditOrRemoteDeleteOwnMessages = newPermissionValue
+                }
+            case .changeSettings:
+                let newPermissionValue = permissions.contains(permission)
+                if self.ownPermissionChangeSettings != newPermissionValue {
+                    self.ownPermissionChangeSettings = newPermissionValue
+                }
+            case .sendMessage:
+                let newPermissionValue = permissions.contains(permission)
+                if self.ownPermissionSendMessage != newPermissionValue {
+                    self.ownPermissionSendMessage = newPermissionValue
+                }
+            }
+        }
+    }
+    
+    
     private func updateAttributes(obvGroupV2: ObvGroupV2) {
+
         if self.groupIdentifier != obvGroupV2.appGroupIdentifier {
             self.groupIdentifier = obvGroupV2.appGroupIdentifier
         }
+
         if self.keycloakManaged != obvGroupV2.keycloakManaged {
             self.keycloakManaged = obvGroupV2.keycloakManaged
         }
+
         // namesOfOtherMembers is updated later
-        if obvGroupV2.keycloakManaged {
-            if self.ownPermissionAdmin {
-                self.ownPermissionAdmin = false
-            }
-        } else {
-            let newOwnPermissionAdmin = obvGroupV2.ownPermissions.contains(.groupAdmin)
-            if self.ownPermissionAdmin != newOwnPermissionAdmin {
-                if newOwnPermissionAdmin {
-                    try? discussion?.ownedIdentityBecameAnAdmin()
-                } else {
-                    try? discussion?.ownedIdentityIsNoLongerAnAdmin()
-                }
-                self.ownPermissionAdmin = newOwnPermissionAdmin
-            }
-        }
-        if self.ownPermissionChangeSettings != obvGroupV2.ownPermissions.contains(.changeSettings) {
-            self.ownPermissionChangeSettings = obvGroupV2.ownPermissions.contains(.changeSettings)
-        }
-        if self.ownPermissionEditOrRemoteDeleteOwnMessages != obvGroupV2.ownPermissions.contains(.editOrRemoteDeleteOwnMessages) {
-            self.ownPermissionEditOrRemoteDeleteOwnMessages = obvGroupV2.ownPermissions.contains(.editOrRemoteDeleteOwnMessages)
-        }
-        if self.ownPermissionRemoteDeleteAnything != obvGroupV2.ownPermissions.contains(.remoteDeleteAnything) {
-            self.ownPermissionRemoteDeleteAnything = obvGroupV2.ownPermissions.contains(.remoteDeleteAnything)
-        }
-        if self.ownPermissionSendMessage != obvGroupV2.ownPermissions.contains(.sendMessage) {
-            self.ownPermissionSendMessage = obvGroupV2.ownPermissions.contains(.sendMessage)
-        }
+
+        setOwnPermissions(to: obvGroupV2.ownPermissions, keycloakManaged: obvGroupV2.keycloakManaged)
+
         if self.rawOwnedIdentityIdentity != obvGroupV2.ownIdentity.getIdentity() {
             self.rawOwnedIdentityIdentity = obvGroupV2.ownIdentity.getIdentity()
         }
         if self.updateInProgress != obvGroupV2.updateInProgress {
             self.updateInProgress = obvGroupV2.updateInProgress
         }
+        
+        if let serializedGroupType = obvGroupV2.serializedGroupType {
+            do {
+                if let selfSerializedGroupType = self.serializedGroupType {
+                    if try GroupType(serializedGroupType: serializedGroupType) != GroupType(serializedGroupType: selfSerializedGroupType) {
+                        self.serializedGroupType = serializedGroupType
+                    }
+                } else {
+                    _ = try GroupType(serializedGroupType: serializedGroupType) // Make sure the serialized group type can be deserialized
+                    self.serializedGroupType = serializedGroupType
+                }
+            } catch {
+                assertionFailure()
+                self.serializedGroupType = nil
+                // In production, continue anyway
+            }
+        }
+        
         try? createOrUpdateTheAssociatedDisplayedContactGroup()
         try? discussion?.resetTitle(to: self.displayName)
+
     }
     
     
@@ -562,20 +610,6 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
     
     
-    /// Called exclusively from the UI, when updating the scratch object during an edition of a `PersistedGroupV2`.
-    public func addGroupMembers(contactObjectIDs: Set<TypeSafeManagedObjectID<PersistedObvContactIdentity>>) throws {
-        assert(Thread.isMainThread)
-        try contactObjectIDs.forEach { contactObjectID in
-            // If there already a PersistedGroupV2Member for this contact, do not add her twice
-            guard !self.contactsAmongOtherPendingAndNonPendingMembers.map({ $0.typedObjectID }).contains(contactObjectID) else {
-                return // Continue with next contactObjectID
-            }
-            _ = try PersistedGroupV2Member(contactObjectID: contactObjectID,
-                                           persistedGroupV2: self)
-        }
-    }
-    
-    
     fileprivate func updateWhenPersistedGroupV2MemberIsUpdated() {
         try? createOrUpdateTheAssociatedDisplayedContactGroup()
         try? discussion?.resetTitle(to: self.displayName)
@@ -825,86 +859,6 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
     
 
-    // MARK: Computing changesets
-    
-    @MainActor
-    public func computeChangeset(with referenceGroup: PersistedGroupV2) throws -> ObvGroupV2.Changeset {
-        assert(Thread.isMainThread)
-        guard let context = self.managedObjectContext, let referenceContext = referenceGroup.managedObjectContext, context.concurrencyType == .mainQueueConcurrencyType, referenceContext.concurrencyType == .mainQueueConcurrencyType else {
-            assertionFailure()
-            throw Self.makeError(message: "Unexpected context")
-        }
-        guard !context.updatedObjects.contains(referenceGroup) && !referenceGroup.hasChanges else {
-            assertionFailure()
-            throw Self.makeError(message: "The reference group has changes")
-        }
-        var changes = Set<ObvGroupV2.Change>()
-        // Augment the changeset with changes made to the group details and photo
-        if let change = try computeChangeForGroupDetails(with: referenceGroup) {
-            changes.insert(change)
-        }
-        if let change = try computeChangeForGroupPhoto(with: referenceGroup) {
-            changes.insert(change)
-        }
-        // Augment the changeset with changes made to the members
-        for member in self.otherMembers {
-            if let change = try member.computeChange() {
-                changes.insert(change)
-            }
-        }
-        if let changesForDeletedMembers = try computeChangesForDeletedMembers(with: referenceGroup) {
-            changes.formUnion(changesForDeletedMembers)
-        }
-        return try ObvGroupV2.Changeset(changes: changes)
-    }
-    
-    
-    @MainActor private func computeChangeForGroupDetails(with referenceGroup: PersistedGroupV2) throws -> ObvGroupV2.Change? {
-        guard self.hasChanges else { return nil }
-        guard let detailsTrusted = self.detailsTrusted, let referenceDetailsTrusted = referenceGroup.detailsTrusted else {
-            throw Self.makeError(message: "Could not get trusted details")
-        }
-        // Check whether the core details did change
-        let coreDetails = detailsTrusted.coreDetails
-        let referenceCoreDetails = referenceDetailsTrusted.coreDetails
-        let coreDetailsWereChanged = coreDetails != referenceCoreDetails
-        // Return a change if necessary
-        guard coreDetailsWereChanged else { return nil }
-        let serializedGroupCoreDetails = try coreDetails.jsonEncode()
-        return ObvGroupV2.Change.groupDetails(serializedGroupCoreDetails: serializedGroupCoreDetails)
-    }
-
-    
-    @MainActor private func computeChangeForGroupPhoto(with referenceGroup: PersistedGroupV2) throws -> ObvGroupV2.Change? {
-        guard self.hasChanges else { return nil }
-        guard let detailsTrusted = self.detailsTrusted, let referenceDetailsTrusted = referenceGroup.detailsTrusted else {
-            throw Self.makeError(message: "Could not get trusted details")
-        }
-        // Check whether the photo did change.
-        let photoURLFromEngine = detailsTrusted.photoURLFromEngine
-        let referencePhotoURLFromEngine = referenceDetailsTrusted.photoURLFromEngine
-        let photoWasChanged = photoURLFromEngine != referencePhotoURLFromEngine
-        // Return a change if necessary
-        guard photoWasChanged else { return nil }
-        return ObvGroupV2.Change.groupPhoto(photoURL: photoURLFromEngine)
-    }
-
-    
-    @MainActor private func computeChangesForDeletedMembers(with referenceGroup: PersistedGroupV2) throws -> Set<ObvGroupV2.Change>? {
-        assert(Thread.isMainThread)
-        guard let context = self.managedObjectContext, context.concurrencyType == .mainQueueConcurrencyType else {
-            throw Self.makeError(message: "Unexpected context")
-        }
-        // To compute the deleted members, we take all the `PersistedGroupV2Member` objects that are deleted from the context.
-        // We filter out those that are not part of the group. This is necessary in the case the user deletes a first member (which creates a first entry in the context's deletedObjects), and then deletes another member (creating a *second* entry in the context's deletedObjects). During the second deletion, we thus want to filter out the first deleted `PersistedGroupV2Member`.
-        let deletedMembers = context.deletedObjects.compactMap({ $0 as? PersistedGroupV2Member }).filter({ referenceGroup.otherMembers.compactMap({ $0.cryptoId }).contains($0.cryptoId) })
-        guard !deletedMembers.isEmpty else { return nil }
-        let contactCryptoIds = deletedMembers.compactMap { $0.cryptoIdWhenDeleted }
-        assert(!contactCryptoIds.isEmpty)
-        return Set(contactCryptoIds.map({ ObvGroupV2.Change.memberRemoved(contactCryptoId: $0) }))
-    }
-    
-    
     // MARK: On save
     
     private var changedKeys = Set<String>()
@@ -947,6 +901,217 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
                     .postOnDispatchQueue()
             }
         }
+        
+    }
+    
+    
+    // MARK: - Group type and associated permissions
+    
+    public enum GroupType: Codable, Equatable, Hashable {
+        
+        case standard
+        case managed
+        case readOnly
+        case advanced(isReadOnly: Bool, remoteDeleteAnythingPolicy: RemoteDeleteAnythingPolicy)
+
+        
+        public enum RemoteDeleteAnythingPolicy: String, Codable, Equatable, CaseIterable {
+            case nobody = "nobody"
+            case admins = "admins"
+            case everyone = "everyone"
+        }
+        
+        
+        private var deserializedGroupType: DeserializedGroupType {
+            switch self {
+            case .standard:
+                return .init(type: .standard, isReadOnly: nil, remoteDeleteAnythingPolicy: nil)
+            case .managed:
+                return .init(type: .managed, isReadOnly: nil, remoteDeleteAnythingPolicy: nil)
+            case .readOnly:
+                return .init(type: .readOnly, isReadOnly: nil, remoteDeleteAnythingPolicy: nil)
+            case .advanced(isReadOnly: let isReadOnly, remoteDeleteAnythingPolicy: let remoteDeleteAnythingPolicy):
+                return .init(type: .advanced, isReadOnly: isReadOnly, remoteDeleteAnythingPolicy: remoteDeleteAnythingPolicy)
+            }
+        }
+        
+        
+        public func encode(to encoder: Encoder) throws {
+            try self.deserializedGroupType.encode(to: encoder)
+        }
+
+        
+        public init(from decoder: Decoder) throws {
+            let deserializedGroupType = try DeserializedGroupType(from: decoder)
+            switch deserializedGroupType.type {
+            case .standard:
+                self = .standard
+            case .managed:
+                self = .managed
+            case .readOnly:
+                self = .readOnly
+            case .advanced:
+                assert(deserializedGroupType.isReadOnly != nil)
+                assert(deserializedGroupType.remoteDeleteAnythingPolicy != nil)
+                self = .advanced(isReadOnly: deserializedGroupType.isReadOnly ?? false, remoteDeleteAnythingPolicy: deserializedGroupType.remoteDeleteAnythingPolicy ?? .nobody)
+            }
+        }
+
+        
+        public func toSerializedGroupType() throws -> Data {
+            let encoder = JSONEncoder()
+            return try encoder.encode(self.deserializedGroupType)
+        }
+        
+        
+        init(serializedGroupType: Data) throws {
+            let decoder = JSONDecoder()
+            self = try decoder.decode(GroupType.self, from: serializedGroupType)
+        }
+
+        
+        /// Helper struct, allowing to serialize/deserialize a ``GroupType``.
+        private struct DeserializedGroupType: Codable {
+            
+            let type: GroupTypeValue
+            let isReadOnly: Bool? // Only makes sense if type is custom
+            let remoteDeleteAnythingPolicy: RemoteDeleteAnythingPolicy? // Only makes sense if type is custom
+
+            enum GroupTypeValue: String, Codable {
+                case standard = "simple"
+                case managed = "private"
+                case readOnly = "read_only"
+                case advanced = "custom"
+            }
+
+            private enum CodingKeys: String, CodingKey {
+                case type = "type"
+                case isReadOnly = "ro"
+                case remoteDeleteAnythingPolicy = "del"
+            }
+            
+        }
+        
+    }
+    
+    
+    public enum AdminOrRegularMember {
+        case admin
+        case regularMember
+    }
+    
+    
+    /// Returns the **exact** set of permissions of an admin or a regular member, for a given group type.
+    public static func exactPermissions(of adminOrRegularMember: AdminOrRegularMember, forGroupType groupType: GroupType) -> Set<ObvGroupV2.Permission> {
+
+        let permissions: [ObvGroupV2.Permission]
+        let isAdmin = adminOrRegularMember == .admin
+
+        switch groupType {
+
+        case .standard:
+            permissions = ObvGroupV2.Permission.allCases.filter { permission in
+                switch permission {
+                case .groupAdmin: return true
+                case .remoteDeleteAnything: return false
+                case .editOrRemoteDeleteOwnMessages: return true
+                case .changeSettings: return true
+                case .sendMessage: return true
+                }
+            }
+
+        case .managed:
+            permissions = ObvGroupV2.Permission.allCases.filter { permission in
+                switch permission {
+                case .groupAdmin: return isAdmin
+                case .remoteDeleteAnything: return false
+                case .editOrRemoteDeleteOwnMessages: return true
+                case .changeSettings: return isAdmin
+                case .sendMessage: return true
+                }
+            }
+
+        case .readOnly:
+            permissions = ObvGroupV2.Permission.allCases.filter { permission in
+                switch permission {
+                case .groupAdmin: return isAdmin
+                case .remoteDeleteAnything: return false
+                case .editOrRemoteDeleteOwnMessages: return true
+                case .changeSettings: return isAdmin
+                case .sendMessage: return isAdmin
+                }
+            }
+
+        case .advanced(isReadOnly: let isReadOnly, remoteDeleteAnythingPolicy: let remoteDeleteAnythingPolicy):
+            permissions = ObvGroupV2.Permission.allCases.filter { permission in
+                switch permission {
+                case .groupAdmin: return isAdmin
+                case .remoteDeleteAnything:
+                    switch remoteDeleteAnythingPolicy {
+                    case .nobody:
+                        return false
+                    case .admins:
+                        return isAdmin
+                    case .everyone:
+                        return true
+                    }
+                case .editOrRemoteDeleteOwnMessages: return true
+                case .changeSettings: return isAdmin
+                case .sendMessage: return isReadOnly ? isAdmin : true
+                }
+            }
+        }
+        
+        return Set(permissions)
+        
+    }
+    
+    
+    public var ownPermissions: Set<ObvGroupV2.Permission> {
+        var permissions = Set<ObvGroupV2.Permission>()
+        for permission in ObvGroupV2.Permission.allCases {
+            switch permission {
+            case .groupAdmin:
+                if ownPermissionAdmin { permissions.insert(permission) }
+            case .remoteDeleteAnything:
+                if ownPermissionRemoteDeleteAnything { permissions.insert(permission) }
+            case .editOrRemoteDeleteOwnMessages:
+                if ownPermissionEditOrRemoteDeleteOwnMessages { permissions.insert(permission) }
+            case .changeSettings:
+                if ownPermissionChangeSettings { permissions.insert(permission) }
+            case .sendMessage:
+                if ownPermissionSendMessage { permissions.insert(permission) }
+            }
+        }
+        return permissions
+    }
+
+    
+    /// If a serialized group type is available, this the method returns its deserialized version, provided it is in adequation with the permissions of all group members (including us).
+    ///
+    /// Note: We don't try to infer the group type if there is no `serializedGroupType`.
+    public func getAdequateGroupType() -> GroupType? {
+        
+        guard let serializedGroupType, let groupType = try? GroupType(serializedGroupType: serializedGroupType) else { return nil }
+        
+        // Make sure the returned group type is adequate given the own permissions and the other member permissions
+        
+        let exactPermissionsForAdmins = Self.exactPermissions(of: .admin, forGroupType: groupType)
+        let exactPermissionsForRegularMembers = Self.exactPermissions(of: .regularMember, forGroupType: groupType)
+
+        if self.ownedIdentityIsAdmin {
+            guard self.ownPermissions == exactPermissionsForAdmins else { return nil }
+        } else {
+            guard self.ownPermissions == exactPermissionsForRegularMembers else { return nil }
+        }
+        
+        for member in self.otherMembers {
+            guard member.permissions == (member.isAnAdmin ? exactPermissionsForAdmins : exactPermissionsForRegularMembers) else { return nil }
+        }
+        
+        // If we reach this point, we can return the group type as it is in adequation with the current permissions of all group members
+
+        return groupType
         
     }
     
@@ -1097,11 +1262,15 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         }
 
         switch deletionType {
-        case .local:
+        case .fromThisDeviceOnly:
             break
-        case .global:
+        case .fromAllOwnedDevices:
+            break
+        case .fromAllOwnedDevicesAndAllContactDevices:
+            guard !otherMembers.isEmpty else {
+                throw ObvError.deleteRequestMakesNoSenseAsGroupHasNoOtherMembers
+            }
             guard self.ownedIdentityIsAllowedToRemoteDeleteAnything || (self.ownedIdentityIsAllowedToEditOrRemoteDeleteOwnMessages && messageToDelete is PersistedMessageSent) else {
-                assertionFailure()
                 throw ObvError.ownedIdentityIsNotAllowedToDeleteThisMessage
             }
         }
@@ -1283,11 +1452,6 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             throw ObvError.couldNotFindGroupDiscussion
         }
 
-        // Check that the owned identity is allowed to perform a remote deletion
-        guard self.ownedIdentityIsAllowedToRemoteDeleteAnything else {
-            throw ObvError.ownedIdentityIsNotAllowedToDeleteDiscussion
-        }
-        
         try discussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
 
     }
@@ -1304,9 +1468,16 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         }
 
         switch deletionType {
-        case .local:
+        case .fromThisDeviceOnly:
             break
-        case .global:
+        case .fromAllOwnedDevices:
+            guard ownedIdentity.hasAnotherDeviceWithChannel else {
+                throw ObvError.cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+            }
+        case .fromAllOwnedDevicesAndAllContactDevices:
+            guard !otherMembers.isEmpty else {
+                throw ObvError.deleteRequestMakesNoSenseAsGroupHasNoOtherMembers
+            }
             guard self.ownedIdentityIsAllowedToRemoteDeleteAnything else {
                 throw ObvError.ownedIdentityIsNotAllowedToDeleteDiscussion
             }
@@ -1329,10 +1500,6 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             throw ObvError.couldNotFindGroupDiscussion
         }
 
-        guard ownedIdentityIsAllowedToSendMessage else {
-            throw ObvError.ownedIdentityIsNotAllowedToSendMessages
-        }
-        
         try discussion.processSetOrUpdateReactionOnMessageLocalRequest(from: ownedIdentity, for: message, newEmoji: newEmoji)
         
     }
@@ -1344,20 +1511,10 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
             throw ObvError.ownedIdentityIsNotPartOfThisGroup
         }
 
-        guard let requester = self.otherMembers.first(where: { $0.identity == contact.cryptoId.getIdentity() }) else {
-            throw ObvError.wipeRequestedByNonGroupMember
-        }
-
         guard let discussion else {
             throw ObvError.couldNotFindGroupDiscussion
         }
         
-        // Check that the contact is allowed to react
-        
-        guard requester.isAllowedToSendMessage else {
-            throw ObvError.messageReceivedByMemberNotAllowedToSendMessage
-        }
-
         let updatedMessage = try discussion.processSetOrUpdateReactionOnMessageRequest(reactionJSON, receivedFrom: contact, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
         
         return updatedMessage
@@ -1494,6 +1651,8 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         case ownedIdentityIsNotAllowedToEditOrRemoteDeleteOwnMessages
         case requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo
         case ownedIdentityIsNotAllowedToDeleteDiscussion
+        case cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+        case deleteRequestMakesNoSenseAsGroupHasNoOtherMembers
         
         public var errorDescription: String? {
             switch self {
@@ -1519,6 +1678,10 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
                 return "Request to delete all messages within this group discussion received from a contact who is not allowed to do so"
             case .ownedIdentityIsNotAllowedToDeleteDiscussion:
                 return "Owned identity is not allowed to delete this group discussion"
+            case .cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel:
+                return "Cannot delete discussion from all owned devices as the owned identity has no other device with channel"
+            case .deleteRequestMakesNoSenseAsGroupHasNoOtherMembers:
+                return "Delete request makes no sens as this group has no other members"
             }
         }
         
@@ -1628,7 +1791,7 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErr
         rawGroup?.displayedContactGroup
     }
     
-    var permissions: Set<ObvGroupV2.Permission> {
+    public var permissions: Set<ObvGroupV2.Permission> {
         var permissions = Set<ObvGroupV2.Permission>()
         for permission in ObvGroupV2.Permission.allCases {
             switch permission {
@@ -1685,9 +1848,9 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErr
         }
         
         let contact = try PersistedObvContactIdentity.get(contactCryptoId: identityAndPermissionsAndDetails.identity,
-                                                                ownedIdentityCryptoId: ownCryptoId,
-                                                                whereOneToOneStatusIs: .any,
-                                                                within: context)
+                                                          ownedIdentityCryptoId: ownCryptoId,
+                                                          whereOneToOneStatusIs: .any,
+                                                          within: context)
         
         guard contact != nil || identityAndPermissionsAndDetails.isPending else {
             assertionFailure()
@@ -1706,40 +1869,6 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErr
         try self.updateWith(identityAndPermissionsAndDetails: identityAndPermissionsAndDetails)
         self.rawOwnedIdentityIdentity = ownCryptoId.getIdentity()
         
-    }
-    
-    /// Used exclusively from the UI, when updating the scratch object
-    fileprivate convenience init(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, persistedGroupV2: PersistedGroupV2) throws {
-        assert(Thread.isMainThread)
-        guard let context = persistedGroupV2.managedObjectContext, context.concurrencyType == .mainQueueConcurrencyType else {
-            assertionFailure()
-            throw Self.makeError(message: "Unexpected context")
-        }
-        guard let contact = try PersistedObvContactIdentity.get(objectID: contactObjectID, within: context) else {
-            throw Self.makeError(message: "Could not find PersistedObvContactIdentity")
-        }
-        guard try persistedGroupV2.ownCryptoId == contact.ownedIdentity?.cryptoId else {
-            assertionFailure()
-            throw Self.makeError(message: "Owned identities do not match")
-        }
-        let entityDescription = NSEntityDescription.entity(forEntityName: Self.entityName, in: context)!
-        self.init(entity: entityDescription, insertInto: context)
-
-        self.groupIdentifier = groupIdentifier
-        guard let contactIdentityCoreDetails = contact.identityCoreDetails else {
-            throw Self.makeError(message: "Could not get contact identity core details")
-        }
-        let identityAndPermissionsAndDetails = ObvGroupV2.IdentityAndPermissionsAndDetails(
-            identity: contact.cryptoId,
-            permissions: ObvUICoreDataConstants.defaultObvGroupV2PermissionsForNewGroupMembers,
-            serializedIdentityCoreDetails: try contactIdentityCoreDetails.jsonEncode(),
-            isPending: true)
-        try self.updateWith(identityAndPermissionsAndDetails: identityAndPermissionsAndDetails)
-        guard let ownedIdentity = contact.ownedIdentity?.cryptoId else { throw Self.makeError(message: "Could not determine owned identity") }
-        self.rawOwnedIdentityIdentity = ownedIdentity.getIdentity()
-
-        self.rawContact = contact
-        self.rawGroup = persistedGroupV2
     }
     
 
@@ -1837,49 +1966,40 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable, ObvErr
     }
 
     
-    /// Setting the admin permission actually resets all the permissions to the default values of new admins.
-    /// Removing the admin permission resets all the permissions to the default values of new members.
-    public func setPermissionAdmin(to newValue: Bool) {
-        let newPermissions: Set<ObvGroupV2.Permission>
-        if newValue {
-            newPermissions = ObvUICoreDataConstants.defaultObvGroupV2PermissionsForAdmin
-        } else {
-            newPermissions = ObvUICoreDataConstants.defaultObvGroupV2PermissionsForNewGroupMembers
-        }
+    public func setPermissions(to permissions: Set<ObvGroupV2.Permission>) {
         for permission in ObvGroupV2.Permission.allCases {
             switch permission {
             case .groupAdmin:
-                let newPermissionValue = newPermissions.contains(permission)
+                let newPermissionValue = permissions.contains(permission)
                 if self.permissionAdmin != newPermissionValue {
                     self.permissionAdmin = newPermissionValue
                 }
             case .remoteDeleteAnything:
-                let newPermissionValue = newPermissions.contains(permission)
+                let newPermissionValue = permissions.contains(permission)
                 if self.permissionRemoteDeleteAnything != newPermissionValue {
                     self.permissionRemoteDeleteAnything = newPermissionValue
                 }
             case .editOrRemoteDeleteOwnMessages:
-                let newPermissionValue = newPermissions.contains(permission)
+                let newPermissionValue = permissions.contains(permission)
                 if self.permissionEditOrRemoteDeleteOwnMessages != newPermissionValue {
                     self.permissionEditOrRemoteDeleteOwnMessages = newPermissionValue
                 }
             case .changeSettings:
-                let newPermissionValue = newPermissions.contains(permission)
+                let newPermissionValue = permissions.contains(permission)
                 if self.permissionChangeSettings != newPermissionValue {
                     self.permissionChangeSettings = newPermissionValue
                 }
             case .sendMessage:
-                let newPermissionValue = newPermissions.contains(permission)
+                let newPermissionValue = permissions.contains(permission)
                 if self.permissionSendMessage != newPermissionValue {
                     self.permissionSendMessage = newPermissionValue
                 }
             }
         }
     }
-
     
-    /// Also called from the UI to remove a member for the PersistedGroupV2 scratch object.
-    public func delete() throws {
+
+    fileprivate func delete() throws {
         guard let context = self.managedObjectContext else { throw Self.makeError(message: "Could not find context") }
         cryptoIdWhenDeleted = self.cryptoId
         context.delete(self)
@@ -2241,5 +2361,5 @@ struct PersistedGroupV2SyncSnapshotNode: ObvSyncSnapshotNode {
         }
         
     }
-    
+ 
 }

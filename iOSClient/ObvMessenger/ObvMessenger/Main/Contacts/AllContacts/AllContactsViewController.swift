@@ -189,17 +189,13 @@ extension AllContactsViewController {
     
     private func addAndConfigureContactsTableViewController() {
         let mode: MultipleContactsMode = .all(oneToOneStatus: self.oneToOneStatus, requiredCapabilitites: nil)
-        guard let viewController = try? MultipleContactsHostingViewController(ownedCryptoId: currentOwnedCryptoId,
-                                                                              mode: mode,
-                                                                              disableContactsWithoutDevice: false,
-                                                                              allowMultipleSelection: false,
-                                                                              showExplanation: showExplanation,
-                                                                              textAboveContactList: textAboveContactList,
-                                                                              floatingButtonModel: nil)
-        else {
-            assertionFailure()
-            return
-        }
+        let viewController = MultipleContactsHostingViewController(ownedCryptoId: currentOwnedCryptoId,
+                                                                   mode: mode,
+                                                                   disableContactsWithoutDevice: false,
+                                                                   allowMultipleSelection: false,
+                                                                   showExplanation: showExplanation,
+                                                                   textAboveContactList: textAboveContactList,
+                                                                   floatingButtonModel: nil)
         viewController.delegate = self
         navigationItem.searchController = viewController.searchController
         viewController.willMove(toParent: self)

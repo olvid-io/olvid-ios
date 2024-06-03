@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,6 +31,7 @@ protocol EditNicknameAndCustomPictureViewActionsProtocol: AnyObject {
     // the appropriate UI allowing the user to create her profile picture.
     func userWantsToTakePhoto() async -> UIImage?
     func userWantsToChoosePhoto() async -> UIImage?
+    func userWantsToChoosePhotoWithDocumentPicker() async -> UIImage?
 }
 
 
@@ -197,6 +198,15 @@ struct EditNicknameAndCustomPictureView: View, ObvPhotoButtonViewActionsProtocol
     }
     
     
+    func userWantsToAddProfilePictureWithDocumentPicker() {
+        Task {
+            guard let newImage = await actions.userWantsToChoosePhotoWithDocumentPicker() else { return }
+            await model.userChoseNewCustomPhoto(newImage)
+            resetIsSaveButtonDisabled()
+        }
+    }
+    
+    
     private var explanationLocalizedStringKey: LocalizedStringKey {
         switch model.identifier {
         case .contact:
@@ -282,6 +292,10 @@ struct EditNicknameAndCustomPictureView_Previews: PreviewProvider {
         
         func userWantsToChoosePhoto() async -> UIImage? {
             return UIImage(systemIcon: .book)
+        }
+     
+        func userWantsToChoosePhotoWithDocumentPicker() async -> UIImage? {
+            return UIImage(systemIcon: .airpods)
         }
         
     }

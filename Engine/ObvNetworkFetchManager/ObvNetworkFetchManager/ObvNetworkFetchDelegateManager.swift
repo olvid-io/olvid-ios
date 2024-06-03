@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -55,7 +55,7 @@ final class ObvNetworkFetchDelegateManager {
     let serverSessionDelegate: ServerSessionDelegate
     let messagesDelegate: MessagesDelegate
     let downloadAttachmentChunksDelegate: DownloadAttachmentChunksDelegate
-    let deleteMessageAndAttachmentsFromServerDelegate: DeleteMessageAndAttachmentsFromServerDelegate
+    let batchDeleteAndMarkAsListedDelegate: BatchDeleteAndMarkAsListedDelegate
     let serverPushNotificationsDelegate: ServerPushNotificationsDelegate
     let webSocketDelegate: WebSocketDelegate
     let getTurnCredentialsDelegate: GetTurnCredentialsDelegate?
@@ -78,7 +78,7 @@ final class ObvNetworkFetchDelegateManager {
 
     // MARK: Initialiazer
     
-    init(inbox: URL, sharedContainerIdentifier: String, supportBackgroundFetch: Bool, logPrefix: String, networkFetchFlowDelegate: NetworkFetchFlowDelegate, serverSessionDelegate: ServerSessionDelegate, downloadMessagesAndListAttachmentsDelegate: MessagesDelegate, downloadAttachmentChunksDelegate: DownloadAttachmentChunksDelegate, deleteMessageAndAttachmentsFromServerDelegate: DeleteMessageAndAttachmentsFromServerDelegate, serverPushNotificationsDelegate: ServerPushNotificationsDelegate, webSocketDelegate: WebSocketDelegate, getTurnCredentialsDelegate: GetTurnCredentialsDelegate?, freeTrialQueryDelegate: FreeTrialQueryDelegate, verifyReceiptDelegate: VerifyReceiptDelegate, serverQueryDelegate: ServerQueryDelegate, serverQueryWebSocketDelegate: ServerQueryWebSocketDelegate, serverUserDataDelegate: ServerUserDataDelegate, wellKnownCacheDelegate: WellKnownCacheDelegate) {
+    init(inbox: URL, sharedContainerIdentifier: String, supportBackgroundFetch: Bool, logPrefix: String, networkFetchFlowDelegate: NetworkFetchFlowDelegate, serverSessionDelegate: ServerSessionDelegate, downloadMessagesAndListAttachmentsDelegate: MessagesDelegate, downloadAttachmentChunksDelegate: DownloadAttachmentChunksDelegate, batchDeleteAndMarkAsListedDelegate: BatchDeleteAndMarkAsListedDelegate, serverPushNotificationsDelegate: ServerPushNotificationsDelegate, webSocketDelegate: WebSocketDelegate, getTurnCredentialsDelegate: GetTurnCredentialsDelegate?, freeTrialQueryDelegate: FreeTrialQueryDelegate, verifyReceiptDelegate: VerifyReceiptDelegate, serverQueryDelegate: ServerQueryDelegate, serverQueryWebSocketDelegate: ServerQueryWebSocketDelegate, serverUserDataDelegate: ServerUserDataDelegate, wellKnownCacheDelegate: WellKnownCacheDelegate) {
 
         self.logSubsystem = "\(logPrefix).\(logSubsystem)"
         self.inbox = inbox
@@ -89,7 +89,7 @@ final class ObvNetworkFetchDelegateManager {
         self.serverSessionDelegate = serverSessionDelegate
         self.messagesDelegate = downloadMessagesAndListAttachmentsDelegate
         self.downloadAttachmentChunksDelegate = downloadAttachmentChunksDelegate
-        self.deleteMessageAndAttachmentsFromServerDelegate = deleteMessageAndAttachmentsFromServerDelegate
+        self.batchDeleteAndMarkAsListedDelegate = batchDeleteAndMarkAsListedDelegate
         self.serverPushNotificationsDelegate = serverPushNotificationsDelegate
         self.webSocketDelegate = webSocketDelegate
         self.getTurnCredentialsDelegate = getTurnCredentialsDelegate

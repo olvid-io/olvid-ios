@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,8 @@ enum ObvDeepLinkHost: CaseIterable {
     case latestDiscussions
     case singleDiscussion
     case invitations
-    case contactGroupDetails
+    case groupV1Details
+    case groupV2Details
     case contactIdentityDetails
     case airDrop
     case qrCodeScan
@@ -35,8 +36,10 @@ enum ObvDeepLinkHost: CaseIterable {
     case backupSettings
     case voipSettings
     case privacySettings
+    case interfaceSettings
     case message
     case allGroups
+    case olvidCallView
 
     var name: String { String(describing: self) }
 
@@ -59,8 +62,9 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
     case latestDiscussions(ownedCryptoId: ObvCryptoId?)
     case singleDiscussion(ownedCryptoId: ObvCryptoId, objectPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>)
     case invitations(ownedCryptoId: ObvCryptoId)
-    case contactGroupDetails(ownedCryptoId: ObvCryptoId, objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>)
-    case contactIdentityDetails(ownedCryptoId: ObvCryptoId, objectPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>)
+    case groupV1Details(ownedCryptoId: ObvCryptoId, objectPermanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>)
+    case groupV2Details(groupIdentifier: ObvGroupV2Identifier)
+    case contactIdentityDetails(contactIdentifier: ObvContactIdentifier)
     case airDrop(fileURL: URL)
     case qrCodeScan
     case myId(ownedCryptoId: ObvCryptoId)
@@ -68,9 +72,11 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
     case settings
     case backupSettings
     case privacySettings
+    case interfaceSettings
     case voipSettings
     case message(ownedCryptoId: ObvCryptoId, objectPermanentID: ObvManagedObjectPermanentID<PersistedMessage>)
     case allGroups(ownedCryptoId: ObvCryptoId)
+    case olvidCallView
 
     var description: String {
         switch self {
@@ -84,10 +90,12 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
             return [host.name, ownedCryptoId.description, objectPermanentID.description].joined(separator: "|")
         case .invitations(let ownedCryptoId):
             return [host.name, ownedCryptoId.description].joined(separator: "|")
-        case .contactGroupDetails(let ownedCryptoId, let objectPermanentID):
+        case .groupV1Details(let ownedCryptoId, let objectPermanentID):
             return [host.name, ownedCryptoId.description, objectPermanentID.description].joined(separator: "|")
-        case .contactIdentityDetails(let ownedCryptoId, let objectPermanentID):
-            return [host.name, ownedCryptoId.description, objectPermanentID.description].joined(separator: "|")
+        case .groupV2Details(groupIdentifier: let groupIdentifier):
+            return [host.name, groupIdentifier.description].joined(separator: "|")
+        case .contactIdentityDetails(contactIdentifier: let contactIdentifier):
+            return [host.name, contactIdentifier.description].joined(separator: "|")
         case .airDrop(let fileURL):
             return [host.name, fileURL.path].joined(separator: "|")
         case .qrCodeScan:
@@ -104,10 +112,14 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
             return host.name
         case .privacySettings:
             return host.name
+        case .interfaceSettings:
+            return host.name
         case .message(let ownedCryptoId, let objectPermanentID):
             return [host.name, ownedCryptoId.description, objectPermanentID.description].joined(separator: "|")
         case .allGroups(let ownedCryptoId):
             return [host.name, ownedCryptoId.description].joined(separator: "|")
+        case .olvidCallView:
+            return host.name
         }
     }
     
@@ -137,16 +149,19 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
             guard splits.count == 2 else { assertionFailure(); return nil }
             guard let ownedCryptoId = ObvCryptoId(splits[1]) else { assertionFailure(); return nil }
             self = .invitations(ownedCryptoId: ownedCryptoId)
-        case .contactGroupDetails:
+        case .groupV1Details:
             guard splits.count == 3 else { assertionFailure(); return nil }
             guard let ownedCryptoId = ObvCryptoId(splits[1]) else { assertionFailure(); return nil }
             guard let objectPermanentID = ObvManagedObjectPermanentID<DisplayedContactGroup>(splits[2]) else { assertionFailure(); return nil }
-            self = .contactGroupDetails(ownedCryptoId: ownedCryptoId, objectPermanentID: objectPermanentID)
+            self = .groupV1Details(ownedCryptoId: ownedCryptoId, objectPermanentID: objectPermanentID)
+        case .groupV2Details:
+            guard splits.count == 2 else { assertionFailure(); return nil }
+            guard let groupIdentifier = ObvGroupV2Identifier(splits[1]) else { assertionFailure(); return nil }
+            self = .groupV2Details(groupIdentifier: groupIdentifier)
         case .contactIdentityDetails:
-            guard splits.count == 3 else { assertionFailure(); return nil }
-            guard let ownedCryptoId = ObvCryptoId(splits[1]) else { assertionFailure(); return nil }
-            guard let objectPermanentID = ObvManagedObjectPermanentID<PersistedObvContactIdentity>(splits[2]) else { assertionFailure(); return nil }
-            self = .contactIdentityDetails(ownedCryptoId: ownedCryptoId, objectPermanentID: objectPermanentID)
+            guard splits.count == 2 else { assertionFailure(); return nil }
+            guard let contactIdentifier = ObvContactIdentifier(splits[1]) else { assertionFailure(); return nil }
+            self = .contactIdentityDetails(contactIdentifier: contactIdentifier)
         case .airDrop:
             guard splits.count == 2 else { assertionFailure(); return nil }
             guard let fileURL = URL(string: splits[1]) else { assertionFailure(); return nil }
@@ -167,6 +182,8 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
             self = .voipSettings
         case .privacySettings:
             self = .privacySettings
+        case .interfaceSettings:
+            self = .interfaceSettings
         case .message:
             guard splits.count == 3 else { assertionFailure(); return nil }
             guard let ownedCryptoId = ObvCryptoId(splits[1]) else { assertionFailure(); return nil }
@@ -176,6 +193,8 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
             guard splits.count == 2 else { assertionFailure(); return nil }
             guard let ownedCryptoId = ObvCryptoId(splits[1]) else { assertionFailure(); return nil }
             self = .allGroups(ownedCryptoId: ownedCryptoId)
+        case .olvidCallView:
+            self = .olvidCallView
         }
     }
 
@@ -185,7 +204,8 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
         case .latestDiscussions: return .latestDiscussions
         case .singleDiscussion: return .singleDiscussion
         case .invitations: return .invitations
-        case .contactGroupDetails: return .contactGroupDetails
+        case .groupV1Details: return .groupV1Details
+        case .groupV2Details: return .groupV2Details
         case .contactIdentityDetails: return .contactIdentityDetails
         case .airDrop: return .airDrop
         case .qrCodeScan: return .qrCodeScan
@@ -195,8 +215,10 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
         case .backupSettings: return .backupSettings
         case .voipSettings: return .voipSettings
         case .privacySettings: return .privacySettings
+        case .interfaceSettings: return .interfaceSettings
         case .message: return .message
         case .allGroups: return .allGroups
+        case .olvidCallView: return .olvidCallView
         }
     }
 
@@ -211,10 +233,12 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
             return ownedCryptoId
         case .invitations(let ownedCryptoId):
             return ownedCryptoId
-        case .contactGroupDetails(let ownedCryptoId, _):
+        case .groupV1Details(let ownedCryptoId, _):
             return ownedCryptoId
-        case .contactIdentityDetails(let ownedCryptoId, _):
-            return ownedCryptoId
+        case .groupV2Details(groupIdentifier: let groupIdentifier):
+            return groupIdentifier.ownedCryptoId
+        case .contactIdentityDetails(contactIdentifier: let contactIdentifier):
+            return contactIdentifier.ownedCryptoId
         case .airDrop:
             return nil
         case .qrCodeScan:
@@ -231,12 +255,15 @@ enum ObvDeepLink: Equatable, LosslessStringConvertible {
             return nil
         case .privacySettings:
             return nil
+        case .interfaceSettings:
+            return nil
         case .message(let ownedCryptoId, _):
             return ownedCryptoId
         case .allGroups(let ownedCryptoId):
             return ownedCryptoId
+        case .olvidCallView:
+            return nil
         }
     }
-    
     
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,9 +31,10 @@ public final class OwnedDeviceManagementServerMethod: ObvServerDataMethod {
     
     public let pathComponent = "/deviceManagement"
 
-    public let ownedIdentity: ObvCryptoIdentity
+    public var ownedIdentity: ObvCryptoIdentity? { ownedCryptoId }
+    private let ownedCryptoId: ObvCryptoIdentity
     public let isActiveOwnedIdentityRequired = true
-    public var serverURL: URL { return ownedIdentity.serverURL }
+    public var serverURL: URL { return ownedCryptoId.serverURL }
     public let flowId: FlowIdentifier
     let queryType: QueryType
     let token: Data
@@ -59,7 +60,7 @@ public final class OwnedDeviceManagementServerMethod: ObvServerDataMethod {
 
     public init(ownedIdentity: ObvCryptoIdentity, token: Data, queryType: QueryType, flowId: FlowIdentifier) {
         self.flowId = flowId
-        self.ownedIdentity = ownedIdentity
+        self.ownedCryptoId = ownedIdentity
         self.queryType = queryType
         self.token = token
     }
@@ -86,11 +87,11 @@ public final class OwnedDeviceManagementServerMethod: ObvServerDataMethod {
     lazy public var dataToSend: Data? = {
         switch queryType {
         case .setOwnedDeviceName(let ownedDeviceUID, let encryptedDeviceName):
-            return [self.ownedIdentity, token, queryType.byteIdentifier, ownedDeviceUID, encryptedDeviceName.raw].obvEncode().rawData
+            return [self.ownedCryptoId, token, queryType.byteIdentifier, ownedDeviceUID, encryptedDeviceName.raw].obvEncode().rawData
         case .deactivateOwnedDevice(ownedDeviceUID: let ownedDeviceUID):
-            return [self.ownedIdentity, token, queryType.byteIdentifier, ownedDeviceUID].obvEncode().rawData
+            return [self.ownedCryptoId, token, queryType.byteIdentifier, ownedDeviceUID].obvEncode().rawData
         case .setUnexpiringOwnedDevice(ownedDeviceUID: let ownedDeviceUID):
-            return [self.ownedIdentity, token, queryType.byteIdentifier, ownedDeviceUID].obvEncode().rawData
+            return [self.ownedCryptoId, token, queryType.byteIdentifier, ownedDeviceUID].obvEncode().rawData
         }
     }()
     

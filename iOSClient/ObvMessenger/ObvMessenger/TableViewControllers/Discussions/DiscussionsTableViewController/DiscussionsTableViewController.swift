@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -166,7 +166,7 @@ extension DiscussionsTableViewController {
         self.tableView?.estimatedRowHeight = UITableView.automaticDimension
 
         self.tableView?.refreshControl = self.spinner
-        self.tableView?.refreshControl?.addTarget(self, action: #selector(refresh), for: .valueChanged)
+        self.tableView?.refreshControl?.addTarget(self, action: #selector(refreshControlWasPulledDown), for: .valueChanged)
         
         registerTableViewCell()
         
@@ -208,19 +208,35 @@ extension DiscussionsTableViewController {
         }
     }
     
-    @objc
-    private func refresh() {
-        let actionDate = Date()
-        let completionHander = { [weak self] in
-            let timeUntilStop: TimeInterval = max(0.0, 1.5 + actionDate.timeIntervalSinceNow) // The spinner should spin at least two second
-            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + .milliseconds(Int(timeUntilStop*1000)), execute: { [weak self] in
-                self?.tableView?.refreshControl?.endRefreshing()
-            })
-            return
-        }
-        delegate?.userAskedToRefreshDiscussions(completionHandler: completionHander)
+    
+    /// Callback for the refresh control when pulling down
+    @objc private func refreshControlWasPulledDown() {
+        Task { [weak self] in await self?.userAskedToRefreshDiscussions() }
     }
- 
+    
+    
+    @MainActor
+    private func userAskedToRefreshDiscussions() async {
+        guard let delegate else { assertionFailure(); return }
+        
+        do {
+            
+            let actionDate = Date()
+            
+            try await delegate.userAskedToRefreshDiscussions()
+            
+            let elapsedTime = Date.now.timeIntervalSince(actionDate)
+            try? await Task.sleep(seconds: max(0, 1.5 - elapsedTime)) // Spin for at least 1.5 seconds
+            
+            tableView?.refreshControl?.endRefreshing()
+            
+        } catch {
+            assertionFailure()
+        }
+        
+    }
+    
+    
 }
 
 

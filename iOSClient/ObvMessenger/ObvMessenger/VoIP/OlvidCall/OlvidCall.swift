@@ -35,6 +35,7 @@ protocol OlvidCallDelegate: AnyObject {
     func requestTurnCredentialsForCall(call: OlvidCall, ownedIdentityForRequestingTurnCredentials: ObvCryptoId) async throws -> ObvTurnCredentials
     func incomingWasNotAnsweredToAndTimedOut(call: OlvidCall) async
     func callDidChangeState(call: OlvidCall, previousState: OlvidCall.State, newState: OlvidCall.State)
+    func shouldRequestCXCallUpdate(call: OlvidCall) async
 }
 
 
@@ -69,6 +70,7 @@ final class OlvidCall: ObservableObject {
     @Published private(set) var currentCameraPosition: AVCaptureDevice.Position?
     @Published private(set) var selfVideoSize: CGSize?
     @Published private(set) var atLeastOneOtherParticipantHasCameraEnabled = false
+    @Published private var hasVideo = false // true iff one of the participants (including self) has a video track
     private var userWantsToStreamSelfVideo = false
 
     private let factory: ObvPeerConnectionFactory
@@ -85,7 +87,7 @@ final class OlvidCall: ObservableObject {
     private var cancellablesForWatchingOtherParticipants = Set<AnyCancellable>()
 
     /// When receiving an incoming call, we let some time to the user to answer the call. After that, we end it automatically.
-    private static let ringingTimeoutInterval: TimeInterval = 60 // 60 seconds
+    private static let ringingTimeoutInterval: TimeInterval = 30 // 30 seconds
 
     /// This task allows to implement the mechanism allowing to wait until ``currentlyCreatingPeerConnection``
     /// is set back to false before proceeding with a negotiation.
@@ -124,6 +126,9 @@ final class OlvidCall: ObservableObject {
         regularlyUpdatePublishedAudioInformations()
         reactToAppLifecycleNotifications()
         continuouslyWatchOtherParticipantsVideoEnabled()
+        keepHasVideoValueUpToDate()
+        notifyDelegateWhenCXCallUpdateShouldBeRequested()
+        postUserNotificationWhenAtLeastOneOtherParticipantHasCameraEnabled()
     }
     
     
@@ -175,7 +180,7 @@ final class OlvidCall: ObservableObject {
         }
         cancellables.forEach { $0.cancel() }
         cancellablesForWatchingOtherParticipants.forEach { $0.cancel() }
-        os_log("☎️ OlvidCall deinit", log: Self.log, type: .fault)
+        os_log("☎️ OlvidCall deinit", log: Self.log, type: .debug)
     }
     
     
@@ -276,6 +281,7 @@ final class OlvidCall: ObservableObject {
     
 
     /// Given the information available for this call, this method returns the most up-to-date `CXCallUpdate` possible.
+    @MainActor
     func createUpToDateCXCallUpdate() async -> CXCallUpdate {
         let update = CXCallUpdate()
         let sortedContacts: [(isCaller: Bool, displayName: String)] = otherParticipants.map {
@@ -293,13 +299,13 @@ final class OlvidCall: ObservableObject {
                 update.localizedCallerName! += " + \(initialParticipantCount - 1)"
             }
         } else if sortedContacts.count > 0 {
-            let contactName = sortedContacts.map({ $0.displayName }).joined(separator: ", ")
+            let contactName = ListFormatter.localizedString(byJoining: sortedContacts.map({ $0.displayName }))
             update.localizedCallerName = contactName
         } else {
             update.localizedCallerName = "..."
         }
         update.remoteHandle = .init(type: .generic, value: uuidForCallKit.uuidString)
-        update.hasVideo = false
+        update.hasVideo = self.hasVideo
         update.supportsGrouping = false
         update.supportsUngrouping = false
         update.supportsHolding = false
@@ -321,17 +327,18 @@ final class OlvidCall: ObservableObject {
 extension OlvidCall {
     
     @MainActor
-    func userWantsToStartOrStopVideoCamera(start: Bool, preferredPosition: AVCaptureDevice.Position) async throws {
-        if start {
-            userWantsToStreamSelfVideo = true
-            try await startVideoCamera(preferredPosition: preferredPosition)
-        } else {
-            userWantsToStreamSelfVideo = false
-            await stopVideoCamera()
-        }
+    func userWantsToStartVideoCamera(preferredPosition: AVCaptureDevice.Position) async throws {
+        userWantsToStreamSelfVideo = true
+        try await startVideoCamera(preferredPosition: preferredPosition)
     }
     
     
+    @MainActor
+    func userWantsToStopVideoCamera() async {
+        userWantsToStreamSelfVideo = false
+        await stopVideoCamera()
+    }
+        
     @MainActor
     private func startVideoCamera(preferredPosition: AVCaptureDevice.Position) async throws {
         
@@ -505,6 +512,54 @@ extension OlvidCall {
         NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
             .sink { [weak self] _ in
                 Task { [weak self] in await self?.stopVideoCamera() }
+            }
+            .store(in: &cancellables)
+    }
+    
+    
+    /// When one of the participants of the call turns her camera on or off, we might need to update the value of ``hasVideo``.
+    /// To do so, we observe the modifications made to ``atLeastOneOtherParticipantHasCameraEnabled`` and of ``localPreviewVideoTrack``.
+    private func keepHasVideoValueUpToDate() {
+        Publishers.CombineLatest($atLeastOneOtherParticipantHasCameraEnabled, $localPreviewVideoTrack)
+            .map { (atLeastOneOtherParticipantHasCameraEnabled, localPreviewVideoTrack) in
+                let newHasVideo = atLeastOneOtherParticipantHasCameraEnabled || (localPreviewVideoTrack != nil)
+                return newHasVideo
+            }
+            .removeDuplicates()
+            .receive(on: OperationQueue.main)
+            .sink { [weak self] newHasVideo in
+                self?.hasVideo = newHasVideo
+            }
+            .store(in: &cancellables)
+    }
+    
+    
+    /// Whenever a participant activates her camera, we might need to post a user notification allowing the local user to be notified.
+    private func postUserNotificationWhenAtLeastOneOtherParticipantHasCameraEnabled() {
+        $atLeastOneOtherParticipantHasCameraEnabled
+            .receive(on: OperationQueue.main)
+            .sink { [weak self] atLeastOneOtherParticipantHasCameraEnabled in
+                guard let self else { return }
+                guard atLeastOneOtherParticipantHasCameraEnabled else { return }
+                let otherParticipantNames = otherParticipants
+                    .filter { $0.remoteCameraVideoTrackIsEnabled || $0.remoteScreenCastVideoTrackIsEnabled }
+                    .map { $0.displayName }
+                VoIPNotification.anotherCallParticipantStartedCamera(otherParticipantNames: otherParticipantNames)
+                    .postOnDispatchQueue()
+            }
+            .store(in: &cancellables)
+    }
+    
+    
+    /// When the list of participants changes, or when the audio call turns into a video call, we want to update the CallKit UI.
+    /// To do so, we notify our delegate, which will  update the CallKit UI.
+    private func notifyDelegateWhenCXCallUpdateShouldBeRequested() {
+        Publishers.CombineLatest($otherParticipants, $hasVideo)
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    guard let self, let delegate else { return }
+                    await delegate.shouldRequestCXCallUpdate(call: self)
+                }
             }
             .store(in: &cancellables)
     }
@@ -747,7 +802,7 @@ extension OlvidCall {
         // Before setting the new list of participants, we stop our own video stream if the number of participants is too large
         
         if newOtherParticipants.count > ObvMessengerConstants.maxOtherParticipantCountForVideoCalls {
-            try? await userWantsToStartOrStopVideoCamera(start: false, preferredPosition: .front)
+            await userWantsToStopVideoCamera()
         }
         
         // We can now set the new list of participants
@@ -1848,7 +1903,7 @@ extension OlvidCall {
 
         if previousState == .callInProgress && newState == .ringing { return }
         
-        // And outgoing call can move to the outgoingCallIsConnecting state from the ringing state only.
+        // An outgoing call can move to the outgoingCallIsConnecting state from the ringing state only.
         if newState == .outgoingCallIsConnecting && previousState != .ringing { return }
 
         os_log("☎️ OlvidCall will change state: %{public}@ --> %{public}@", log: Self.log, type: .info, previousState.debugDescription, newState.debugDescription)

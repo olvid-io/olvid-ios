@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,8 +31,9 @@ public struct ObvIdentityDetails: Equatable {
         self.photoURL = photoURL
     }
     
-    public func removingSignedUserDetails() throws -> ObvIdentityDetails {
-        let newCoreDetails = try coreDetails.removingSignedUserDetails()
+    /// When removing the signed details (typically, as we are leaving a company's keycloak), we also remove the position and company from the details.
+    public func removingSignedUserDetailsAndPositionAndCompany() throws -> ObvIdentityDetails {
+        let newCoreDetails = try coreDetails.removingSignedUserDetailsAndPositionAndCompany()
         return ObvIdentityDetails(coreDetails: newCoreDetails,
                                   photoURL: photoURL)
     }

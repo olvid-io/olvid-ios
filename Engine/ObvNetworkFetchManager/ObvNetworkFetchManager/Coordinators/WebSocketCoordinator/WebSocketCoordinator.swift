@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,485 +27,416 @@ import ObvServerInterface
 import ObvEncoder
 
 
-
-actor WebSocketCoordinator: NSObject, ObvErrorMaker {
+actor WebSocketCoordinator: NSObject {
     
     private weak var delegateManager: ObvNetworkFetchDelegateManager?
-        
-    /// For each WebSocket server, we keep a WebSocket task. This way, two identities on the same server can use the same WebSocket.
-    private var webSocketTaskForWebSocketServerURL = [URL: URLSessionWebSocketTask]()
     
-    /// Each owned identity much register to the server. To do so, she must provide its identity, device UID, and token.
-    private var webSocketInfosForIdentity = [ObvCryptoIdentity: (deviceUid: UID?, token: Data?, webSocketServerURL: URL?)]()
-    
-    /// After connecting a websocket for a given `webSocketServerURL`, we need to send a register message for each identity on this `webSocketServerURL`. This table prevents sending to many of them.
-    ///
-    /// In order to prevent sending many register messages, we keep track of the status of the register message for each identity:
-    /// - No entry means that we should send a register message.
-    /// - If the status is `.registering`, we should not send a register message as one is being sent.
-    /// - If the status is `.registered`, we should not send a register message as the identity is already registered.
-    private var registerMessageStatusForIdentity = [ObvCryptoIdentity: RegisterMessageStatus]()
-
-    private var disconnectTimerForUUID = [UUID: Timer]()
-    
-    private var receivingWebSocketTaskForURL = Set<URL>()
-
-    private enum RegisterMessageStatus: CustomDebugStringConvertible {
-        case registering
-        case registered
-        var debugDescription: String {
-            switch self {
-            case .registering: return "registering"
-            case .registered: return "registered"
-            }
-        }
-    }
-    
+    private var alwaysReconnect = false
+            
     private let logCategory = String(describing: WebSocketCoordinator.self)
     private var log: OSLog {
         return OSLog(subsystem: delegateManager?.logSubsystem ?? "io.olvid.network.send", category: logCategory)
     }
-    
-    static let errorDomain = "WebSocketCoordinator"
+        
+    private var failedAttemptsCounterManager = FailedAttemptsCounterManager()
+    private var retryManager = FetchRetryManager()
 
-    /// When `true`, this coordinator will always try to create, resume and register a new WebSocket when one closes/disconnects.
-    /// It does this for each of the identities concerned by the closed WebSocket. If `false`, this coordinator does nothing
-    /// when a WebSocket closes/disconnects.
-    var alwaysReconnect = true
-
-    private var pingRunningWebSocketsTimer: Timer?
-    private let pingRunningWebSocketsInterval: TimeInterval = 120.0 // We perform a ping test on all running web socket tasks every 2 minutes
-    private let maxTimeIntervalAllowedForPingTest: TimeInterval = 10.0
+    enum ObvError: Error {
+        case theDelegateManagerIsNil
+        case couldNotFindWebSocketTaskForOwnedIdentity
+    }
     
     func setDelegateManager(to delegateManager: ObvNetworkFetchDelegateManager) {
         self.delegateManager = delegateManager
     }
+
     
+    private enum TaskForDeterminingWebSocketURLs {
+        case inProgress(ownedCryptoIds: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, task: Task<[URL: Set<OwnedCryptoIdentityAndCurrentDeviceUID>], Never>)
+        case completed(ownedCryptoIds: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, ownedCryptoIdsForWebSocketServerURL: [URL: Set<OwnedCryptoIdentityAndCurrentDeviceUID>])
+        var ownedCryptoIds: Set<OwnedCryptoIdentityAndCurrentDeviceUID> {
+            switch self {
+            case .inProgress(let ownedCryptoIds, _), .completed(let ownedCryptoIds, _):
+                return ownedCryptoIds
+            }
+        }
+    }
+    
+    
+    private enum TaskForConnectingWebSocket {
+        case inProgress(webSocketServerURL: URL, task: Task<URLSessionWebSocketTask, Never>)
+        case connected(webSocketServerURL: URL, runningWebSocketTask: URLSessionWebSocketTask)
+        var webSocketServerURL: URL {
+            switch self {
+            case .inProgress(let webSocketServerURL, _), .connected(let webSocketServerURL, _):
+                return webSocketServerURL
+            }
+        }
+        var webSocketTask: URLSessionWebSocketTask? {
+            switch self {
+            case .inProgress:
+                return nil
+            case .connected(webSocketServerURL: _, runningWebSocketTask: let runningWebSocketTask):
+                return runningWebSocketTask
+            }
+        }
+    }
+    
+    
+    private enum TaskForSendingRegisterMessage {
+        case inProgress(ownedCryptoId: OwnedCryptoIdentityAndCurrentDeviceUID, webSocketTask: URLSessionWebSocketTask, task: Task<Void, Error>)
+        case sent(ownedCryptoId: OwnedCryptoIdentityAndCurrentDeviceUID, webSocketTask: URLSessionWebSocketTask)
+        var ownedCryptoId: OwnedCryptoIdentityAndCurrentDeviceUID {
+            switch self {
+            case .inProgress(ownedCryptoId: let ownedCryptoId, webSocketTask: _, task: _), .sent(ownedCryptoId: let ownedCryptoId, webSocketTask: _):
+                return ownedCryptoId
+            }
+        }
+        var webSocketTask: URLSessionWebSocketTask {
+            switch self {
+            case .inProgress(ownedCryptoId: _, webSocketTask: let webSocketTask, task: _), .sent(ownedCryptoId: _, webSocketTask: let webSocketTask):
+                return webSocketTask
+            }
+        }
+    }
+    
+    
+    private var tasksForSendingRegisterMessage = [TaskForSendingRegisterMessage]()
+    
+    private var taskForConnectingWebSocketWithServerURL = [TaskForConnectingWebSocket]()
+    
+    private var ownedCryptoIdsAndCurrentDeviceUIDsForWebSocketTask = [URLSessionWebSocketTask: Set<OwnedCryptoIdentityAndCurrentDeviceUID>]()
+    
+    private var taskForDeterminingWebSocketURLsForOwnedCryptoIds = [TaskForDeterminingWebSocketURLs]()
+
+    /// Used when the registration of an owned identity failed because the session is invalid
+    private var serverSessionTokenUsedForRegisteringOwnedCryptoId = [ObvCryptoIdentity: Data]()
+    
+    /// Allows to determine the appropriate ``URLSessionWebSocketTask`` when sending a message for an owned identity
+    private var webSocketTaskForOwnedCryptoId = [ObvCryptoIdentity: URLSessionWebSocketTask]()
+    
+    private var currentlyPingedWebSocketURL = [URLSessionWebSocketTask: Timer]()
+    private let pingRunningWebSocketsInterval = TimeInterval(minutes: 2) // We perform a ping test on all running web socket tasks every 2 minutes
+
+    /// Each time we receive a set of owned crypto ids and associated current device UIDs, we add them to this set.
+    /// This makes it easy to perform a reconnect.
+    private var ownedCryptoIdsToReconnect = Set<OwnedCryptoIdentityAndCurrentDeviceUID>()
+
 }
 
 
+// MARK: - WebSocketDelegate
 
 extension WebSocketCoordinator: WebSocketDelegate {
     
-    // MARK: - Reacting the App lifecycle changes
+    func connectUpdatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
+        
+        os_log("🏓 Call to connectAll(ownedCryptoIdsAndCurrentDeviceUIDs:flowId:)", log: log, type: .info)
 
-    func connectAll(flowId: FlowIdentifier) {
-        os_log("🏓❄️ Call to connect all websockets", log: log, type: .info)
+        // If the known set of owned identities to reconnect differs from the new set of active identities, we disconnect/reconnect.
+        // This happens when an owned identity is deleted, or when importing a new identity. In the later case, this allows to make sure that
+        // we connect the websocket of this new identity, even if her websocket server is the same as the one of the previous existing identity.
+        if ownedCryptoIdsToReconnect != activeOwnedCryptoIdsAndCurrentDeviceUIDs {
+            os_log("🏓 Disconnecting/reconnecting all websocket as the set of owned identities changed", log: log, type: .debug)
+            await disconnectAll(flowId: flowId)
+        }
+
+        os_log("🏓 Setting alwaysReconnect to true", log: log, type: .debug)
+
         alwaysReconnect = true
-        updateListOfOwnedIdentities(flowId: flowId)
-        updateListOfWebSocketServerURLs(flowId: flowId)
-        startPerformingPingTestsOnRunningWebSocketsIfRequired()
-        let identities = [ObvCryptoIdentity](self.webSocketInfosForIdentity.keys)
-        for identity in identities {
-            tryConnectToWebSocketServer(of: identity)
+        
+        ownedCryptoIdsToReconnect = activeOwnedCryptoIdsAndCurrentDeviceUIDs
+        
+        guard let delegateManager else {
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNil
+        }
+        
+        await connectAll(delegateManager: delegateManager, flowId: flowId)
+                
+    }
+    
+    
+    func disconnectAll(flowId: FlowIdentifier) async {
+
+        os_log("🏓 Call to disconnectAll(flowId:) and setting alwaysReconnect to false", log: log, type: .info)
+        
+        alwaysReconnect = false
+        
+        let webSocketTasks = currentlyPingedWebSocketURL.keys
+        for webSocketTask in webSocketTasks {
+            disconnect(webSocketTask: webSocketTask, flowId: flowId)
+        }
+
+    }
+
+    
+    func disconnectThenReconnectOnSatisfiedNetworkPathStatus(flowId: FlowIdentifier) async {
+        os_log("🏓 Call to disconnectThenReconnectOnChangeIfNetworkPath(flowId:)", log: log, type: .debug)
+        guard let delegateManager else { return }
+        await disconnectAll(flowId: flowId)
+        await connectAll(delegateManager: delegateManager, flowId: flowId)
+    }
+    
+    
+    /// This method allows to ask the server to delete the return receipt with the specified serverUid, for the identity given in parameter.
+    func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) async throws {
+        guard let webSocketTask = webSocketTaskForOwnedCryptoId[ownedIdentity] else {
+            os_log("🏓 Could not find an appropriate webSocketServerURL for this owned identity", log: log, type: .error)
+            assertionFailure()
+            return
+        }
+        guard webSocketTask.state == .running else {
+            os_log("🏓 The WebSocket task associated with the owned identity is not in a running state", log: log, type: .error)
+            assertionFailure()
+            return
+        }
+        
+        let deleteReturnReceiptMessage = try DeleteReturnReceipt(identity: ownedIdentity, serverUid: serverUid).getURLSessionWebSocketTaskMessage()
+        assert(webSocketTask.state == URLSessionTask.State.running)
+        do {
+            try await webSocketTask.send(deleteReturnReceiptMessage)
+            os_log("🏓 We successfully deleted a return receipt", log: log, type: .info)
+        } catch {
+            os_log("🏓 A return receipt failed to be deleted on server: %{public}@", log: log, type: .error, error.localizedDescription)
+            assertionFailure()
         }
     }
     
     
-    func disconnectAll(flowId: FlowIdentifier) {
-        os_log("🏓❄️ Call to disconnect all websockets", log: log, type: .info)
-        self.alwaysReconnect = false
-        self.stopPerformingPingTestsOnRunningWebSockets()
-        let allServerURLs = webSocketTaskForWebSocketServerURL.keys.map({ $0 as URL })
-        for serverURL in allServerURLs {
-            disconnectFromWebSocketServerURL(serverURL)
-        }
-    }
-    
-    
-    private func updateListOfWebSocketServerURLs(flowId: FlowIdentifier) {
+    func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (state: URLSessionTask.State, pingInterval: TimeInterval?) {
         
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("🏓 The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("🏓 The context creator is not set", log: log, type: .fault)
-            return
+        guard let webSocketTask = webSocketTaskForOwnedCryptoId[ownedIdentity] else {
+            os_log("🏓 Could not find an appropriate webSocketServerURL for this owned identity", log: log, type: .error)
+            assertionFailure()
+            throw ObvError.couldNotFindWebSocketTaskForOwnedIdentity
         }
 
-        var urls = [(serverURL: URL, webSocketServerURL: URL)]()
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
-            do {
-                let allCachedWellKnown = try CachedWellKnown.getAllCachedWellKnown(within: obvContext)
-                urls = allCachedWellKnown.compactMap({ cachedWellKnow in
-                    guard let wellKnownJSON = cachedWellKnow.wellKnownJSON else { assertionFailure(); return nil }
-                    return (cachedWellKnow.serverURL, wellKnownJSON.serverConfig.webSocketURL)
-                })
-            } catch {
-                os_log("🏓 Could not get all cached well known", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-        }
+        let state = webSocketTask.state
         
-        for (serverURL, webSocketServerURL) in urls {
-            setWebSocketServerURL(for: serverURL, to: webSocketServerURL)
-        }
-        
-    }
-    
-    
-    private func updateListOfOwnedIdentities(flowId: FlowIdentifier) {
-        
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("🏓 The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("🏓 The context creator is not set", log: log, type: .fault)
-            return
-        }
-
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("🏓 The identity delegate is not set", log: log, type: .fault)
-            return
-        }
-
-        var ownedIdentities = Set<ObvCryptoIdentity>()
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
-            guard let _ownedIdentities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
-                assertionFailure()
-                return
-            }
-            ownedIdentities = _ownedIdentities
-        }
-        
-        updateListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
-        
-    }
-    
-    
-    func updateListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) {
-        
-        // When the list of owned identities is updated (which typically happens after the first onboarding), request de current device uids of the identities an synchronize this list with the `webSocketInfosForIdentity` dictionary.
-
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("🏓 The Delegate Manager is not set", log: log, type: .fault)
-            return
-        }
-        
-        let log = OSLog(subsystem: delegateManager.logSubsystem, category: logCategory)
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("🏓 The context creator is not set", log: log, type: .fault)
-            return
-        }
-
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            os_log("🏓 The identity delegate is not set", log: log, type: .fault)
-            return
-        }
-        
-        // We need to add the missing deviceUID values in the `webSocketInfosForIdentity` dictionary
-        
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
-            for ownedIdentity in ownedIdentities {
-                let deviceUid: UID
-                do {
-                    deviceUid = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
-                } catch {
-                    os_log("🏓 Could not obtain the current device uid of the owned identity", log: log, type: .fault)
-                    assertionFailure()
-                    continue
-                }
-                setDeviceUid(to: deviceUid, for: ownedIdentity)
-            }
-        }
-        
-    }
-        
-    
-    // MARK: - Getting infos about the current websockets
-    
-    func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (URLSessionTask.State,TimeInterval?) {
-        guard let webSocketServerURL = webSocketInfosForIdentity[ownedIdentity]?.webSocketServerURL,
-              let task = webSocketTaskForWebSocketServerURL[webSocketServerURL] else {
-            throw Self.makeError(message: "Could not find webSocket task")
-        }
-        let state = task.state
         switch state {
         case .running:
             let pingTime = Date()
             return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(URLSessionTask.State,TimeInterval?), Error>) in
-                task.sendPing { error in
+                webSocketTask.sendPing { error in
                     if let error {
-                        continuation.resume(throwing: error)
-                        return
+                        return continuation.resume(throwing: error)
+                    } else {
+                        let interval = Date().timeIntervalSince(pingTime)
+                        return continuation.resume(returning: (state, interval))
                     }
-                    // No error
-                    let interval = Date().timeIntervalSince(pingTime)
-                    continuation.resume(returning: (state, interval))
                 }
             }
         default:
             return (state, nil)
         }
+        
     }
-    
-    
-    // MARK: - Setting infos
-    
-    func setWebSocketServerURL(for serverURL: URL, to webSocketServerURL: URL) {
 
-        let concernedIdentities = webSocketInfosForIdentity.keys.filter({ $0.serverURL == serverURL })
 
-        for identity in concernedIdentities {
-            
-            if let infos = webSocketInfosForIdentity[identity] {
-                
-                guard webSocketServerURL != infos.webSocketServerURL else { continue }
-                
-                if let previousWebSocketServerURL = infos.webSocketServerURL, let existingTask = webSocketTaskForWebSocketServerURL.removeValue(forKey: previousWebSocketServerURL) {
-                    existingTask.cancel(with: .normalClosure, reason: nil)
-                }
-                webSocketInfosForIdentity[identity] = (infos.deviceUid, infos.token, webSocketServerURL)
-                
-            } else {
-                
-                webSocketInfosForIdentity[identity] = (nil, nil, webSocketServerURL)
-                
-            }
-            
-            // If we reach this point, we can try to connect to the webSocketServerURL
-            
-            registerMessageStatusForIdentity.removeValue(forKey: identity)
-            
-            connectAll(flowId: FlowIdentifier())
-                        
+}
+
+
+// MARK: - Connecting a WebSocket
+
+extension WebSocketCoordinator {
+    
+    private func connectAll(delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) async {
+        
+        os_log("🏓 Call to connect all WebSockets", log: log, type: .info)
+        
+        let ownedCryptoIdsForWebSocketServerURL = await determineWebSocketURLs(for: ownedCryptoIdsToReconnect, delegateManager: delegateManager, flowId: flowId)
+        
+        for (webSocketServerURL, ownedCryptoIds) in ownedCryptoIdsForWebSocketServerURL {
+            await connectWebSocket(with: webSocketServerURL, for: ownedCryptoIds, delegateManager: delegateManager, flowId: flowId)
+            // The newConnectedAndRunningWebSocketTask(webSocketTask:) method will be called once the WebSocket is connected and running
         }
-                
+        
     }
 
+    
+    private func newConnectedAndRunningWebSocketTask(webSocketTask: URLSessionWebSocketTask) async {
+        
+        guard let delegateManager else { assertionFailure("This cannot happen"); return }
 
-    func setDeviceUid(to deviceUid: UID, for identity: ObvCryptoIdentity) {
-        let newInfos: (UID, Data?, URL?)
-        if let infos = webSocketInfosForIdentity[identity] {
-            guard deviceUid != infos.deviceUid else { return }
-            newInfos = (deviceUid, infos.token, infos.webSocketServerURL)
-        } else {
-            newInfos = (deviceUid, nil, nil)
-        }
-        webSocketInfosForIdentity[identity] = newInfos
-        registerMessageStatusForIdentity.removeValue(forKey: identity)
-        tryConnectToWebSocketServer(of: identity)
-    }
-    
-    
-    func setServerSessionToken(to token: Data, for identity: ObvCryptoIdentity) {
-        let newInfos: (UID?, Data, URL?)
-        if let infos = webSocketInfosForIdentity[identity] {
-            guard token != infos.token else { return }
-            newInfos = (infos.deviceUid, token, infos.webSocketServerURL)
-        } else {
-            newInfos = (nil, token, nil)
-        }
-        webSocketInfosForIdentity[identity] = newInfos
-        registerMessageStatusForIdentity.removeValue(forKey: identity)
-        tryConnectToWebSocketServer(of: identity)
-    }
-    
-    
-    /// This method gets called each time a new element (deviceUid, server session, or WebSocket URL) is set for a given identity.
-    /// Until all the required information is set, this method does nothing. Once all the information is available, this method creates and resumes
-    /// a WebSocket (unless one is already available).
-    private func tryConnectToWebSocketServer(of identity: ObvCryptoIdentity) {
-                
-        guard let delegateManager = delegateManager else {
-            let log = OSLog(subsystem: ObvNetworkFetchDelegateManager.defaultLogSubsystem, category: logCategory)
-            os_log("🏓 The Delegate Manager is not set", log: log, type: .fault)
+        failedAttemptsCounterManager.reset(counter: .webSocketTask(webSocketServerURL: webSocketTask.originalRequest?.url))
+
+        let flowId = FlowIdentifier()
+
+        guard let ownedCryptoIds = ownedCryptoIdsAndCurrentDeviceUIDsForWebSocketTask[webSocketTask] else {
             assertionFailure()
             return
         }
+        
+        continuouslyReadMessages(on: webSocketTask, flowId: flowId)
+        continuouslyPingWebSocket(on: webSocketTask, flowId: flowId)
 
-        guard let infos = webSocketInfosForIdentity[identity] as? (deviceUid: UID, token: Data, webSocketServerURL: URL) else {
-
-            if webSocketInfosForIdentity[identity]?.token == nil {
-                Task.detached { [weak self] in
-                    do {
-                        let (serverSessionToken, _) = try await delegateManager.networkFetchFlowDelegate.getValidServerSessionToken(for: identity, currentInvalidToken: nil, flowId: FlowIdentifier())
-                        await self?.setServerSessionToken(to: serverSessionToken, for: identity)
-                    } catch {
-                        assertionFailure(error.localizedDescription)
-                    }
-                }
+        var failedToSendAtLeastOneRegisterMessage = false
+        
+        for ownedCryptoId in ownedCryptoIds {
+            do {
+                try await sendRegisterMessage(for: ownedCryptoId, on: webSocketTask, delegateManager: delegateManager, flowId: flowId)
+            } catch {
+                failedToSendAtLeastOneRegisterMessage = true
+                clearAllCache(for: ownedCryptoId, webSocketTask: webSocketTask, flowId: flowId)
             }
-            
+        }
+        
+        if failedToSendAtLeastOneRegisterMessage {
+            let delay = failedAttemptsCounterManager.incrementAndGetDelay(.sendingWebSocketRegisterMessage)
+            os_log("🏓 Will retry the call to connectAll in %f seconds", log: log, type: .error, Double(delay) / 1000.0)
+            await retryManager.waitForDelay(milliseconds: delay)
+            await connectAll(delegateManager: delegateManager, flowId: flowId)
+        } else {
+            failedAttemptsCounterManager.reset(counter: .sendingWebSocketRegisterMessage)
+        }
+
+    }
+ 
+    
+    /// Helper method for ``newConnectedAndRunningWebSocketTask(webSocketTask:)``
+    private func clearAllCache(for ownedCryptoIdAndCurrentDeviceUID: OwnedCryptoIdentityAndCurrentDeviceUID, webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) {
+        taskForDeterminingWebSocketURLsForOwnedCryptoIds.removeAll(where: { $0.ownedCryptoIds.contains(ownedCryptoIdAndCurrentDeviceUID) })
+        disconnect(webSocketTask: webSocketTask, flowId: flowId)
+    }
+    
+}
+
+
+// MARK: - Disconnecting/Reconnecting a WebSocket
+
+extension WebSocketCoordinator {
+    
+    private func disconnect(webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) {
+        
+        webSocketTask.cancel(with: .normalClosure, reason: nil)
+        // Remove cache from tasksForSendingRegisterMessage
+        tasksForSendingRegisterMessage.removeAll(where: { $0.webSocketTask == webSocketTask })
+        
+        // Remove cache from taskForConnectingWebSocketWithServerURL
+        taskForConnectingWebSocketWithServerURL.removeAll(where: { $0.webSocketTask == webSocketTask })
+        
+        // Remove cache from ownedCryptoIdsAndCurrentDeviceUIDsForWebSocketTask
+        ownedCryptoIdsAndCurrentDeviceUIDsForWebSocketTask.removeValue(forKey: webSocketTask)
+        
+        // Remove cache from webSocketTaskForOwnedCryptoId
+        // Rember that dictionaries are value types in Swift, so the following method works
+        webSocketTaskForOwnedCryptoId
+            .filter { $0.value == webSocketTask }
+            .forEach { webSocketTaskForOwnedCryptoId.removeValue(forKey: $0.key) }
+        
+        // Remove cache from currentlyPingedWebSocketURL
+        stopContinuouslyPingWebSocket(on: webSocketTask)
+        currentlyPingedWebSocketURL.removeValue(forKey: webSocketTask)
+        
+    }
+    
+    
+    private func disconnectThenReconnect(webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) {
+        disconnect(webSocketTask: webSocketTask, flowId: flowId)
+        guard let delegateManager else { assertionFailure("Cannot happen"); return  }
+        Task { await connectAll(delegateManager: delegateManager, flowId: flowId) }
+    }
+    
+    
+    private func disconnectThenReconnectIfAppropriate(webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) {
+        os_log("🏓 Call to disconnectThenReconnectIfAppropriate(webSocketTask:flowId:) for WebSocket with server URL %{public}@", log: log, type: .info, String(describing: webSocketTask.originalRequest?.url))
+        disconnect(webSocketTask: webSocketTask, flowId: flowId)
+        guard alwaysReconnect else { return }
+        guard let delegateManager else { assertionFailure("Cannot happen"); return  }
+        Task { await connectAll(delegateManager: delegateManager, flowId: flowId) }
+    }
+    
+    
+    private func disconnectThenReconnectIfAppropriateAfterDelay(webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) async {
+        assert(webSocketTask.originalRequest?.url != nil)
+        let delay = failedAttemptsCounterManager.incrementAndGetDelay(.webSocketTask(webSocketServerURL: webSocketTask.originalRequest?.url))
+        os_log("🏓 Will wait for %f seconds before calling disconnectThenReconnectIfAppropriate(webSocketTask:flowId:)", log: log, type: .info, Double(delay) / 1000.0)
+        await retryManager.waitForDelay(milliseconds: delay)
+        if webSocketTaskForOwnedCryptoId.values.contains(where: { $0 != webSocketTask && $0.originalRequest?.url == webSocketTask.originalRequest?.url && $0.state == .running }) {
+            os_log("🏓 Another WebSocket is already handling the same URL as the WebSocket waiting for reconnection. Nothing left to do.", log: log, type: .info, Double(delay) / 1000.0)
             return
         }
-        
-        os_log("🏓 Trying to connect to the web socket server of the owned identity %{public}@.", log: log, type: .info, identity.debugDescription)
-        
-        // If we reach this point, for have all the information we need to create a WebSocket for this identity. There might already be one though.
-        
-        if let existingTask = webSocketTaskForWebSocketServerURL[infos.webSocketServerURL] {
-            switch existingTask.state {
-            case .running:
-                os_log("🏓 No need to connect to the websocket server, a previous already exists and is running.", log: log, type: .info)
-                Task { await sendRegisterMessageForAllIdentitiesOnWebSocketServerURL(infos.webSocketServerURL) }
-                return
-            case .suspended:
-                os_log("🏓 Resuming a suspended websocket task", log: log, type: .info)
-                existingTask.resume()
-                Task { await sendRegisterMessageForAllIdentitiesOnWebSocketServerURL(infos.webSocketServerURL) }
-                return
-            case .canceling, .completed:
-                _ = webSocketTaskForWebSocketServerURL.removeValue(forKey: infos.webSocketServerURL)
-                registerMessageStatusForIdentity.removeValue(forKey: identity)
-            @unknown default:
-                _ = webSocketTaskForWebSocketServerURL.removeValue(forKey: infos.webSocketServerURL)
-                registerMessageStatusForIdentity.removeValue(forKey: identity)
-                assertionFailure()
-            }
-        }
-        
-        // If we reach this point, no websocket task exist for this websocket server URL
-        
-        os_log("🏓 Creating a new web socket task and resume it.", log: log, type: .info)
-        
-        assert(webSocketTaskForWebSocketServerURL[infos.webSocketServerURL] == nil)
-        
-        let urlSessionConfiguration = URLSessionConfiguration.default
-        urlSessionConfiguration.waitsForConnectivity = true
-        let urlSession = URLSession(configuration: urlSessionConfiguration, delegate: self, delegateQueue: nil)
-        let webSocketTask = urlSession.webSocketTask(with: infos.webSocketServerURL)
-        webSocketTaskForWebSocketServerURL[infos.webSocketServerURL] = webSocketTask
-        assert(webSocketTask.state == URLSessionTask.State.suspended)
-        webSocketTask.resume()
-        assert(webSocketTask.state == URLSessionTask.State.running)
-        
+        disconnectThenReconnectIfAppropriate(webSocketTask: webSocketTask, flowId: flowId)
     }
     
-    
-    func disconnectFromWebSocketServerURL(_ webSocketServerURL: URL) {
-        
-        guard let webSocketTask = webSocketTaskForWebSocketServerURL.removeValue(forKey: webSocketServerURL) else { return }
-        webSocketTask.cancel()
-        os_log("🏓 We just cancelled a web socket task. Number of remaining web socket tasks: %d", log: log, type: .info, webSocketTaskForWebSocketServerURL.count)
-        
-        // Remove the register message status of all identities concerned by the webSocketServerURL that we are disconnecting
-        
-        let concernedIdentities = webSocketInfosForIdentity.filter({ $1.webSocketServerURL == webSocketServerURL }).keys
-        for identity in concernedIdentities {
-            registerMessageStatusForIdentity.removeValue(forKey: identity)
-        }
+}
 
-        // If `alwaysReconnect` is `true`, we try to reconnect each of the identities concerned by the socket that we just disconnected.
-        if alwaysReconnect {
-            os_log("🏓 Since the web sockets are marked as always reconnect, we try to reconnect the web socket that we just deconnected.", log: log, type: .info)
-            let identities = webSocketInfosForIdentity.keys.filter({ webSocketInfosForIdentity[$0]?.webSocketServerURL == webSocketServerURL})
-            for identity in identities {
-                tryConnectToWebSocketServer(of: identity)
-            }
-        }
-    }
-    
-    
-    private func removeURLFromReceivingWebSocketTaskForURL(_ webSocketServerURL: URL) {
-        receivingWebSocketTaskForURL.remove(webSocketServerURL)
-    }
-    
-    
 
-    private func continuouslyReadMessageOnWebSocketServerURL(_ webSocketServerURL: URL) {
-        guard let webSocketTask = webSocketTaskForWebSocketServerURL[webSocketServerURL], webSocketTask.state == .running else { return }
+// MARK: - Continuously read messages on a WebSocket
+
+extension WebSocketCoordinator {
+    
+    private func continuouslyReadMessages(on webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) {
+        
+        os_log("🏓✅ Will receive on webSocketTask %d for URL %{public}@", log: log, type: .info, webSocketTask.taskIdentifier, String(describing: webSocketTask.originalRequest?.url))
         let log = self.log
-        
-        guard receivingWebSocketTaskForURL.insert(webSocketServerURL).inserted else { return }
-
-        os_log("🏓 Will receive on webSocketTask for URL %{public}@", log: log, type: .info, webSocketServerURL.debugDescription)
 
         webSocketTask.receive { result in
             switch result {
-            case .failure(let failure):
-                Task { [weak self] in
-                    await self?.removeURLFromReceivingWebSocketTaskForURL(webSocketServerURL)
-                    await self?.logWebSocketTaskReceiveError(failure: failure)
-                    await self?.disconnectFromWebSocketServerURL(webSocketServerURL)
-                }
+            case .failure(let error):
+                os_log("🏓 Failed to receive a result on a WebSocket: %{public}@", log: log, type: .error, error.localizedDescription)
+                Task { [weak self] in await self?.failedToReadMessage(on: webSocketTask, flowId: flowId) }
                 return
             case .success(let message):
                 switch message {
                 case .data:
                     os_log("🏓 Data received on websocket. This is unexpected.", log: log, type: .error)
                     assertionFailure()
-                    Task { [weak self] in
-                        await self?.removeURLFromReceivingWebSocketTaskForURL(webSocketServerURL)
-                        await self?.continuouslyReadMessageOnWebSocketServerURL(webSocketServerURL)
-                    }
+                    Task { [weak self] in await self?.continuouslyReadMessages(on: webSocketTask, flowId: flowId) }
                     return
                 case .string(let string):
                     os_log("🏓 String received on websocket: %{public}@", log: log, type: .info, string)
                     Task { [weak self] in
-                        await self?.removeURLFromReceivingWebSocketTaskForURL(webSocketServerURL)
                         do {
-                            try await self?.parseReceivedString(string, fromWebSocketServerURL: webSocketServerURL)
+                            try await self?.parseString(string, receivedOn: webSocketTask, flowId: flowId)
                         } catch {
                             os_log("🏓 Failed to parse received string: %{public}@", log: log, type: .error, error.localizedDescription)
                             assertionFailure(error.localizedDescription)
                             // Continue anyway
                         }
-                        await self?.continuouslyReadMessageOnWebSocketServerURL(webSocketServerURL)
+                        await self?.continuouslyReadMessages(on: webSocketTask, flowId: flowId)
                     }
                     return
                 @unknown default:
                     assertionFailure()
-                    Task { [weak self] in
-                        await self?.removeURLFromReceivingWebSocketTaskForURL(webSocketServerURL)
-                        await self?.continuouslyReadMessageOnWebSocketServerURL(webSocketServerURL)
-                    }
+                    Task { [weak self] in await self?.failedToReadMessage(on: webSocketTask, flowId: flowId) }
                     return
                 }
             }
         }
+        
     }
     
     
-    private func logWebSocketTaskReceiveError(failure: Error) {
-        let error = failure as NSError
-        if error.domain == POSIXError.errorDomain {
-            let posixErrorCode = POSIXErrorCode(rawValue: Int32(error.code))
-            if posixErrorCode == POSIXErrorCode.ENOTCONN {
-                os_log("🏓 Error while receiving on a websocket task: Socket is not connected.", log: log, type: .error)
-            } else if posixErrorCode == POSIXErrorCode.ECONNABORTED {
-                os_log("🏓 Error while receiving on a websocket task: Software caused connection abort.", log: log, type: .error)
-            } else {
-                os_log("🏓 Error while receiving on a websocket task (posix error code).", log: log, type: .error)
-                assertionFailure(error.localizedDescription)
-            }
-        } else {
-            os_log("🏓 Error while receiving on a websocket task: %{public}@ code: %d domain: %{public}@", log: log, type: .error, error.localizedDescription, error.code, error.domain)
-            //assertionFailure(error.localizedDescription)
-        }
+    private func failedToReadMessage(on webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) {
+        disconnectThenReconnect(webSocketTask: webSocketTask, flowId: flowId)
     }
-
-
-    private func parseReceivedString(_ string: String, fromWebSocketServerURL webSocketServerURL: URL) throws {
+    
+    
+    private func parseString(_ stringReceived: String, receivedOn webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) throws {
         
         guard let delegateManager else {
-            assertionFailure()
-            throw Self.makeError(message: "The delegateManager is nil")
+            assertionFailure("This cannot happen")
+            throw ObvError.theDelegateManagerIsNil
         }
         
-        if let returnReceipt = try? ReturnReceipt(string: string) {
+        
+        if let returnReceipt = try? ReturnReceipt(string: stringReceived) {
+            
+            // Case #1: ReturnReceipt
+            
             os_log("🏓 The server sent a ReturnReceipt", log: log, type: .info)
             if let notificationDelegate = delegateManager.notificationDelegate {
                 ObvNetworkFetchNotificationNew.newReturnReceiptToProcess(returnReceipt: returnReceipt)
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
             }
-        }
-        if let receivedMessage = try? NewMessageAvailableMessage(string: string) {
+            
+        } else if let receivedMessage = try? NewMessageAvailableMessage(string: stringReceived) {
+            
+            // Case #2: NewMessageAvailableMessage
+            
             os_log("🏓 The server notified that a new message is available for identity %{public}@", log: log, type: .info, receivedMessage.identity.debugDescription)
-            let flowId = FlowIdentifier()
             if let message = receivedMessage.message {
                 Task {
                     do {
@@ -521,311 +452,373 @@ extension WebSocketCoordinator: WebSocketDelegate {
                     await delegateManager.messagesDelegate.downloadMessagesAndListAttachments(ownedCryptoId: receivedMessage.identity, flowId: flowId)
                 }
             }
-        } else if let receivedMessage = try? ResponseToRegisterMessage(string: string) {
+            
+        } else if let receivedMessage = try? ResponseToRegisterMessage(string: stringReceived) {
+            
+            // Case #3: ResponseToRegisterMessage
+            
             os_log("🏓 We received a proper response to the register message", log: log, type: .info)
             if let error = receivedMessage.error {
                 os_log("🏓 The server reported that the registration was not successful. Error code is %{public}@", log: log, type: .error, error.debugDescription)
                 switch error {
                 case .general:
-                    disconnectFromWebSocketServerURL(webSocketServerURL)
+                    disconnectThenReconnect(webSocketTask: webSocketTask, flowId: flowId)
                 case .invalidServerSession:
-                    // Remove the server token from the infos
-                    var  requiringNewToken = [(ownedCryptoId: ObvCryptoIdentity, currentInvalidToken: Data)]()
-                    for (identity, infos) in webSocketInfosForIdentity {
-                        if infos.webSocketServerURL == webSocketServerURL, let token = infos.token {
-                            requiringNewToken.append((identity, token))
-                            webSocketInfosForIdentity[identity] = (infos.deviceUid, nil, infos.webSocketServerURL)
-                        }
+                    guard let ownedCryptoId = receivedMessage.identity else { assertionFailure("We expect the server to return the identity in case the server session is invalid"); return }
+                    guard let serverSessionToken = serverSessionTokenUsedForRegisteringOwnedCryptoId[ownedCryptoId] else { assertionFailure("This cannot happen"); return }
+                    // Make sure the server session delegate knows that this server session token is invalid
+                    Task {
+                        _ = try? await delegateManager.serverSessionDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: serverSessionToken, flowId: flowId)
+                        disconnectThenReconnect(webSocketTask: webSocketTask, flowId: flowId)
                     }
-                    // As for a new server session token
-                    for (identity, token) in requiringNewToken {
-                        let flowId = FlowIdentifier()
-                        let log = self.log
-                        Task.detached { [weak self] in
-                            do {
-                                _ = try await self?.delegateManager?.networkFetchFlowDelegate.getValidServerSessionToken(for: identity, currentInvalidToken: token, flowId: flowId)
-                            } catch {
-                                os_log("Call to getValidServerSessionToken did fail", log: log, type: .fault)
-                                assertionFailure()
-                            }
-                        }
-                    }
-                    disconnectFromWebSocketServerURL(webSocketServerURL)
                 case .unknownError:
                     assert(false)
                 }
             } else {
                 guard let concernedIdentity = receivedMessage.identity else { assertionFailure(); return }
                 os_log("🏓 The server reported that the WebSocket registration was successful for identity %{public}@.", log: log, type: .info, concernedIdentity.debugDescription)
-                guard let deviceUid = webSocketInfosForIdentity[concernedIdentity]?.deviceUid else {
-                    os_log("🏓 Could not determine the device UID of the identity concerned by the web socket that was just registered.", log: log, type: .error)
-                    return
-                }
                 os_log("🏓 Notifying the flow delegate about the identity/device %{public}@ concerned by the recent web socket registration.", log: log, type: .info, concernedIdentity.debugDescription)
                 Task {
-                    await delegateManager.networkFetchFlowDelegate.successfulWebSocketRegistration(identity: concernedIdentity, deviceUid: deviceUid)
+                    await delegateManager.networkFetchFlowDelegate.successfulWebSocketRegistration(identity: concernedIdentity)
                 }
             }
-        } else if let pushTopicMessage = try? PushTopicMessage(string: string) {
+            
+        } else if let pushTopicMessage = try? PushTopicMessage(string: stringReceived) {
+            
+            // Case #4: PushTopicMessage
+            
             os_log("🫸🏓 The server sent a keycloak topic message: %{public}@", log: log, type: .info, pushTopicMessage.topic)
             assert(delegateManager.notificationDelegate != nil)
             if let notificationDelegate = delegateManager.notificationDelegate {
                 ObvNetworkFetchNotificationNew.pushTopicReceivedViaWebsocket(pushTopic: pushTopicMessage.topic)
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
             }
-        } else if let targetedKeycloakPushNotification = try? KeycloakTargetedPushNotification(string: string) {
+            
+        } else if let targetedKeycloakPushNotification = try? KeycloakTargetedPushNotification(string: stringReceived) {
+            
+            // Case #5: KeycloakTargetedPushNotification
+            
             os_log("🫸🏓 The server sent a targeted keycloak push notification for identity: %{public}@", log: log, type: .info, targetedKeycloakPushNotification.identity.debugDescription)
             assert(delegateManager.notificationDelegate != nil)
             if let notificationDelegate = delegateManager.notificationDelegate {
                 ObvNetworkFetchNotificationNew.keycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: targetedKeycloakPushNotification.identity)
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
             }
-        } else if let ownedDeviceMessage = try? OwnedDevicesMessage(string: string) {
+            
+        } else if let ownedDeviceMessage = try? OwnedDevicesMessage(string: stringReceived) {
+            
+            // Case #6: OwnedDevicesMessage
+            
             os_log("🏓 The server sent an OwnedDevicesMessage for identity: %{public}@", log: log, type: .info, ownedDeviceMessage.identity.debugDescription)
             if let notificationDelegate = delegateManager.notificationDelegate {
                 ObvNetworkFetchNotificationNew.ownedDevicesMessageReceivedViaWebsocket(ownedIdentity: ownedDeviceMessage.identity)
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
             }
+            
+        } else {
+            
+            assertionFailure("Unknown message type")
+            
+        }
+        
+    }
+    
+}
+
+
+// MARK: - Registering owned identities
+
+extension WebSocketCoordinator {
+    
+    private func sendRegisterMessage(for ownedCryptoIdAndCurrentDeviceUID: OwnedCryptoIdentityAndCurrentDeviceUID, on webSocketTask: URLSessionWebSocketTask, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) async throws {
+        
+        os_log("🏓 Call to sendRegisterMessage(for:on:delegateManager:flowId:) on WebSocket task %d", log: log, type: .info, webSocketTask.taskIdentifier)
+
+        if let cached = tasksForSendingRegisterMessage.first(where: { $0.ownedCryptoId == ownedCryptoIdAndCurrentDeviceUID && $0.webSocketTask == webSocketTask }) {
+            switch cached {
+            case .inProgress(ownedCryptoId: _, webSocketTask: _, task: let task):
+                try await task.value
+            case .sent(ownedCryptoId: _, webSocketTask: _):
+                return
+            }
+        } else {
+            let task = createTaskForSendingRegisterMessage(on: webSocketTask, for: ownedCryptoIdAndCurrentDeviceUID, currentInvalidToken: nil, delegateManager: delegateManager, flowId: flowId)
+            tasksForSendingRegisterMessage.append(.inProgress(ownedCryptoId: ownedCryptoIdAndCurrentDeviceUID, webSocketTask: webSocketTask, task: task))
+            do {
+                try await task.value
+            } catch {
+                tasksForSendingRegisterMessage.removeAll(where: { $0.ownedCryptoId == ownedCryptoIdAndCurrentDeviceUID && $0.webSocketTask == webSocketTask })
+                throw error
+            }
+            tasksForSendingRegisterMessage.removeAll(where: { $0.ownedCryptoId == ownedCryptoIdAndCurrentDeviceUID && $0.webSocketTask == webSocketTask })
+            tasksForSendingRegisterMessage.append(.sent(ownedCryptoId: ownedCryptoIdAndCurrentDeviceUID, webSocketTask: webSocketTask))
         }
         
     }
     
     
-    private func sendRegisterMessageForAllIdentitiesOnWebSocketServerURL(_ webSocketServerURL: URL) async {
+    /// If an error is thrown, it is an ``InternalErrorOnSendingRegisterMessage``.
+    private func createTaskForSendingRegisterMessage(on webSocketTask: URLSessionWebSocketTask, for ownedCryptoIdAndCurrentDeviceUID: OwnedCryptoIdentityAndCurrentDeviceUID, currentInvalidToken: Data?, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) -> Task<Void, Error> {
         
-        os_log("🏓 Calling sendRegisterMessageForAllIdentitiesOnWebSocketServerURL", log: log, type: .info)
-                
-        guard let webSocketTask = webSocketTaskForWebSocketServerURL[webSocketServerURL], webSocketTask.state == .running else {
-            connectAll(flowId: FlowIdentifier())
-            return
-        }
+        let serverSessionDelegate = delegateManager.serverSessionDelegate
         
-        let identitiesOnThatWebSocketServerURL = webSocketInfosForIdentity.filter({ $0.value.webSocketServerURL == webSocketServerURL }).map({ $0.key })
-
-        assert(!identitiesOnThatWebSocketServerURL.isEmpty)
-
-        let identitiesAndInfos: [(ObvCryptoIdentity, UID, Data)] = identitiesOnThatWebSocketServerURL.compactMap({
-            guard let deviceUid = self.webSocketInfosForIdentity[$0]?.deviceUid else { return nil }
-            guard let token = self.webSocketInfosForIdentity[$0]?.token else { return nil }
-            return ($0, deviceUid, token)
-        })
-
-        for (identity, deviceUid, token) in identitiesAndInfos {
+        let ownedCryptoId = ownedCryptoIdAndCurrentDeviceUID.ownedCryptoId
+        let currentDeviceUID = ownedCryptoIdAndCurrentDeviceUID.currentDeviceUID
+        
+        return Task {
             
-            if let registerMessageStatus = registerMessageStatusForIdentity[identity] {
-                os_log("🏓 No need to send a register message for identity %{public}@ a previous one exists with status %{public}@", log: log, type: .info, identity.debugDescription, registerMessageStatus.debugDescription)
-                continue // Continue with the next identity
+            switch webSocketTask.state {
+            case .running:
+                break
+            case .suspended:
+                webSocketTask.resume()
+            case .canceling, .completed:
+                throw InternalErrorOnSendingRegisterMessage.registerMessageCouldNotBeSent
+            @unknown default:
+                throw InternalErrorOnSendingRegisterMessage.registerMessageCouldNotBeSent
             }
-            
-            // If we reach this point, we need to send a register message for the identity
-            
-            registerMessageStatusForIdentity[identity] = .registering
 
             do {
-                let registerMessage = try RegisterMessage(identity: identity, deviceUid: deviceUid, token: token).getURLSessionWebSocketTaskMessage()
+                let serverSessionToken = try await serverSessionDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: currentInvalidToken, flowId: flowId).serverSessionToken
+                serverSessionTokenUsedForRegisteringOwnedCryptoId[ownedCryptoId] = serverSessionToken
+                let registerMessage = try RegisterMessage(identity: ownedCryptoId, deviceUid: currentDeviceUID, token: serverSessionToken).getURLSessionWebSocketTaskMessage()
                 try await webSocketTask.send(registerMessage)
-                registerMessageStatusForIdentity[identity] = .registered
-                os_log("🏓✅ We successfully sent the register message for identity %{public}@", log: log, type: .info, identity.debugDescription)
+                os_log("🏓✅ We successfully sent the register message for identity %{public}@", log: log, type: .info, ownedCryptoId.debugDescription)
             } catch {
                 assertionFailure()
-                registerMessageStatusForIdentity.removeValue(forKey: identity)
-                os_log("🏓 We could not send a register message for identity %{public}@: %{public}@", log: log, type: .error, identity.debugDescription, error.localizedDescription)
-                // Continue with the next identity
+                os_log("🏓 We could not send a register message for identity %{public}@: %{public}@", log: log, type: .error, ownedCryptoId.debugDescription, error.localizedDescription)
+                throw InternalErrorOnSendingRegisterMessage.registerMessageCouldNotBeSent
+            }
+            
+        }
+
+    }
+    
+    
+    private enum InternalErrorOnSendingRegisterMessage: Error {
+        case registerMessageCouldNotBeSent
+    }
+    
+}
+
+
+// MARK: - Continuously ping a WebSocket
+
+extension WebSocketCoordinator {
+    
+    private func continuouslyPingWebSocket(on webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) {
+        
+        guard !currentlyPingedWebSocketURL.keys.contains(webSocketTask) else { return }
+        
+        let log = self.log
+        
+        let timer = Timer(timeInterval: pingRunningWebSocketsInterval, repeats: true) { [weak self] timer in
+            guard timer.isValid else { return }
+            Task { [weak self] in
+                guard let self else { return }
+                os_log("🏓 Performing a ping test on  websocket at url %{public}@", log: log, type: .info, String(describing: webSocketTask.currentRequest?.url?.description))
+                switch webSocketTask.state {
+                case .running:
+                    await pingTest(webSocketTask: webSocketTask, flowId: flowId)
+                case .suspended:
+                    webSocketTask.resume()
+                case .canceling, .completed:
+                    return await failedPingTest(webSocketTask: webSocketTask, flowId: flowId)
+                @unknown default:
+                    return await failedPingTest(webSocketTask: webSocketTask, flowId: flowId)
+                }
+                await pingTest(webSocketTask: webSocketTask, flowId: flowId)
             }
         }
-        
-        // Ping the websocket
 
-        startPerformingPingTestsOnRunningWebSocketsIfRequired()
-        
-        // Read message on websocket
-        
-        continuouslyReadMessageOnWebSocketServerURL(webSocketServerURL)
+        currentlyPingedWebSocketURL[webSocketTask] = timer
+
+        RunLoop.main.add(timer, forMode: .common)
 
     }
     
     
-    /// This method allows to ask the server to delete the return receipt with the specified serverUid, for the identity given in parameter.
-    func sendDeleteReturnReceipt(ownedIdentity: ObvCryptoIdentity, serverUid: UID) async throws {
-        guard let webSocketServerURL = webSocketInfosForIdentity[ownedIdentity]?.webSocketServerURL else {
-            os_log("🏓 Could not find an appropriate webSocketServerURL for this owned identity", log: log, type: .error)
-            return
-        }
-        guard let webSocketTask = webSocketTaskForWebSocketServerURL[webSocketServerURL] else {
-            os_log("🏓 Could not find an appropriate webSocketTask for this webSocketServerURL", log: log, type: .error)
-            return
-        }
-        let deleteReturnReceiptMessage = try DeleteReturnReceipt(identity: ownedIdentity, serverUid: serverUid).getURLSessionWebSocketTaskMessage()
-        assert(webSocketTask.state == URLSessionTask.State.running)
-        do {
-            try await webSocketTask.send(deleteReturnReceiptMessage)
-            os_log("🏓 We successfully deleted a return receipt", log: log, type: .info)
-        } catch {
-            os_log("🏓 A return receipt failed to be deleted on server: %{public}@", log: log, type: .error, error.localizedDescription)
+    private func pingTest(webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) {
+        let log = self.log
+        webSocketTask.sendPing { [weak self] error in
+            if let error {
+                os_log("🏓 Ping failed with error: %{public}@. We disconnect the web socket task.", log: log, type: .error, error.localizedDescription)
+                Task { [weak self] in await self?.failedPingTest(webSocketTask: webSocketTask, flowId: flowId) }
+            } else {
+                os_log("🏓 One pong received", log: log, type: .info)
+            }
         }
     }
+
     
+    private func failedPingTest(webSocketTask: URLSessionWebSocketTask, flowId: FlowIdentifier) {
+        disconnectThenReconnect(webSocketTask: webSocketTask, flowId: flowId)
+    }
+    
+    
+    private func stopContinuouslyPingWebSocket(on webSocketTask: URLSessionWebSocketTask) {
+        let timer = currentlyPingedWebSocketURL.removeValue(forKey: webSocketTask)
+        timer?.invalidate()
+    }
+    
+}
+
+
+
+// MARK: - Connecting a WebSocket and obtaining its URLSessionWebSocketTask
+
+extension WebSocketCoordinator {
+    
+    private func connectWebSocket(with webSocketServerURL: URL, for ownedCryptoIds: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) async {
+        
+        if let cached = taskForConnectingWebSocketWithServerURL.first(where: { $0.webSocketServerURL == webSocketServerURL }) {
+            let runningWebSocketTask: URLSessionWebSocketTask
+            switch cached {
+            case .inProgress(webSocketServerURL: _, task: let task):
+                runningWebSocketTask = await task.value
+            case .connected(webSocketServerURL: _, runningWebSocketTask: let _runningWebSocketTask):
+                runningWebSocketTask = _runningWebSocketTask
+            }
+            switch runningWebSocketTask.state {
+            case .running:
+                return
+            case .suspended:
+                runningWebSocketTask.resume()
+                return
+            case .canceling, .completed:
+                taskForConnectingWebSocketWithServerURL.removeAll(where: { $0.webSocketServerURL == webSocketServerURL })
+                return await connectWebSocket(with: webSocketServerURL, for: ownedCryptoIds, delegateManager: delegateManager, flowId: flowId)
+            @unknown default:
+                taskForConnectingWebSocketWithServerURL.removeAll(where: { $0.webSocketServerURL == webSocketServerURL })
+                return await connectWebSocket(with: webSocketServerURL, for: ownedCryptoIds, delegateManager: delegateManager, flowId: flowId)
+            }
+        } else {
+            let task = createTaskForConnectingWebSocket(with: webSocketServerURL, for: ownedCryptoIds, delegateManager: delegateManager, flowId: flowId)
+            taskForConnectingWebSocketWithServerURL.append(.inProgress(webSocketServerURL: webSocketServerURL, task: task))
+            let runningWebSocketTask = await task.value
+            taskForConnectingWebSocketWithServerURL.removeAll(where: { $0.webSocketServerURL == webSocketServerURL })
+            taskForConnectingWebSocketWithServerURL.append(.connected(webSocketServerURL: webSocketServerURL, runningWebSocketTask: runningWebSocketTask))
+            return
+        }
+        
+    }
+    
+    
+    private func createTaskForConnectingWebSocket(with webSocketServerURL: URL, for ownedCryptoIds: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) -> Task<URLSessionWebSocketTask, Never> {
+        return Task {
+            
+            let urlSessionConfiguration = URLSessionConfiguration.default
+            let urlSession = URLSession(configuration: urlSessionConfiguration, delegate: self, delegateQueue: nil)
+            let webSocketTask = urlSession.webSocketTask(with: webSocketServerURL)
+            assert(webSocketTask.state == .suspended)
+            ownedCryptoIdsAndCurrentDeviceUIDsForWebSocketTask[webSocketTask] = ownedCryptoIds
+            ownedCryptoIds.map({ $0.ownedCryptoId }) .forEach { ownedCryptoId in
+                webSocketTaskForOwnedCryptoId[ownedCryptoId] = webSocketTask
+            }
+            webSocketTask.resume()
+            assert(webSocketTask.state == .running)
+
+            return webSocketTask
+            
+        }
+    }
+        
 }
 
 
 // MARK: - URLSessionWebSocketDelegate
 
-
-extension WebSocketCoordinator: URLSessionWebSocketDelegate, URLSessionTaskDelegate {
-
+extension WebSocketCoordinator: URLSessionWebSocketDelegate {
+    
     nonisolated
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol _protocol: String?) {
+        assert(webSocketTask.state == .running)
         Task {
-            await urlSessionAsync(session, webSocketTask: webSocketTask, didOpenWithProtocol: _protocol)
+            let log = await self.log
+            os_log("🏓 Call to the URLSessionWebSocketDelegate method urlSession(_:webSocketTask:didOpenWithProtocol:) for webSocketTask %{public}d", log: log, type: .debug, webSocketTask.taskIdentifier)
+            await newConnectedAndRunningWebSocketTask(webSocketTask: webSocketTask)
         }
-    }
-    
-    
-    private func urlSessionAsync(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol _protocol: String?) async {
-        os_log("🏓 Session WebSocket task did open", log: log, type: .info)
-        
-        // A websocket task was opened. We send a "register" message to the server for each identity concerned  by the server URL of this socket
-        
-        let webSocketServerURLCandidates = self.webSocketTaskForWebSocketServerURL.keys.compactMap {
-            webSocketTaskForWebSocketServerURL[$0] == webSocketTask ? $0 : nil
-        }
-        
-        let webSocketServerURL: URL
-        do {
-            guard webSocketServerURLCandidates.count == 1 else {
-                os_log("🏓 Unexpected number of WebSocket server URL candidate(s) for the given WebSocket. Expected 1, got %d", log: log, type: .error, webSocketServerURLCandidates.count)
-                return
-            }
-            webSocketServerURL = webSocketServerURLCandidates.first!
-        }
-        
-        let identities = webSocketInfosForIdentity.keys.filter({ webSocketInfosForIdentity[$0]?.webSocketServerURL == webSocketServerURL})
-        
-        guard !identities.isEmpty else {
-            os_log("🏓 Could not find any identity concerned by the opened WebSocket", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        await sendRegisterMessageForAllIdentitiesOnWebSocketServerURL(webSocketServerURL)
-        
     }
     
     
     nonisolated
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        let flowId = FlowIdentifier()
         Task {
-            await urlSessionAsync(session, webSocketTask: webSocketTask, didCloseWith: closeCode, reason: reason)
+            let log = await self.log
+            os_log("🏓 Call to the URLSessionWebSocketDelegate method urlSession(_:webSocketTask:didCloseWith:reason:)", log: log, type: .debug)
+            await disconnectThenReconnectIfAppropriateAfterDelay(webSocketTask: webSocketTask, flowId: flowId)
         }
-    }
-    
-    
-    private func urlSessionAsync(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
-        os_log("🏓 Session WebSocket task did close with code %{public}d and reason: %{public}@", log: log, type: .info, closeCode.rawValue, reason?.debugDescription ?? "None")
-        guard let webSocketServerURL = webSocketTaskForWebSocketServerURL.first(where: { (_, task) in task == webSocketTask })?.key else {
-            os_log("🏓 Could not determine the server URL of the web socket that closed.", log: log, type: .error)
-            return
-        }
-        disconnectFromWebSocketServerURL(webSocketServerURL)
     }
 
     
     nonisolated
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard error != nil, let webSocketTask = task as? URLSessionWebSocketTask else { return }
+        let flowId = FlowIdentifier()
         Task {
-            await urlSessionAsync(session, task: task, didCompleteWithError: error)
+            let log = await self.log
+            os_log("🏓 Call to the URLSessionWebSocketDelegate method urlSession(_:task:didCompleteWithError:)", log: log, type: .debug)
+            await disconnectThenReconnectIfAppropriateAfterDelay(webSocketTask: webSocketTask, flowId: flowId)
         }
     }
-    
-    
-    private func urlSessionAsync(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if let error = error {
-            os_log("🏓 Session WebSocket task did close with error: %{public}@", log: log, type: .info, error.localizedDescription)
-        } else {
-            os_log("🏓 Session WebSocket task did close without error", log: log, type: .info)
-        }
-        guard let webSocketServerURL = webSocketTaskForWebSocketServerURL.first(where: { (_, _task) in _task == task })?.key else {
-            os_log("🏓 Could not determine the server URL of the web socket that closed.", log: log, type: .error)
-            return
-        }
-        disconnectFromWebSocketServerURL(webSocketServerURL)
-    }
+
 
 }
 
 
-// MARK: - Pinging running websockets
-
+// MARK: - Determining the WebSocket URLs of a set of owned crypto Ids and device UIDs
 
 extension WebSocketCoordinator {
     
-    private func startPerformingPingTestsOnRunningWebSocketsIfRequired() {
-        guard pingRunningWebSocketsTimer == nil else { return }
-        let log = self.log
-        let timer = Timer(timeInterval: pingRunningWebSocketsInterval, repeats: true) { [weak self] timer in
-            guard timer.isValid else { return }
-            Task { [weak self] in
-                guard let _self = self else { return }
-                os_log("🏓 Performing a ping test on all running websockets", log: log, type: .info)
-                let runningWebSocketTasks = await _self.webSocketTaskForWebSocketServerURL.values.filter({ $0.state == .running })
-                os_log("🏓 There are %d web socket tasks to ping", log: log, type: .info, runningWebSocketTasks.count)
-                for task in runningWebSocketTasks {
-                    await _self.pingTest(webSocketTask: task)
+    private func determineWebSocketURLs(for ownedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) async -> [URL: Set<OwnedCryptoIdentityAndCurrentDeviceUID>] {
+        
+        if let cached = taskForDeterminingWebSocketURLsForOwnedCryptoIds.first(where: { $0.ownedCryptoIds == ownedCryptoIdsAndCurrentDeviceUIDs }) {
+            switch cached {
+            case .inProgress(ownedCryptoIds: _, task: let task):
+                return await task.value
+            case .completed(ownedCryptoIds: _, ownedCryptoIdsForWebSocketServerURL: let ownedCryptoIdsForWebSocketServerURL):
+                return ownedCryptoIdsForWebSocketServerURL
+            }
+        } else {
+            let task = createTaskForDeterminingWebSocketURLs(for: ownedCryptoIdsAndCurrentDeviceUIDs, delegateManager: delegateManager, flowId: flowId)
+            taskForDeterminingWebSocketURLsForOwnedCryptoIds.append(.inProgress(ownedCryptoIds: ownedCryptoIdsAndCurrentDeviceUIDs, task: task))
+            let result = await task.value
+            taskForDeterminingWebSocketURLsForOwnedCryptoIds.removeAll(where: { $0.ownedCryptoIds == ownedCryptoIdsAndCurrentDeviceUIDs })
+            taskForDeterminingWebSocketURLsForOwnedCryptoIds.append(.completed(ownedCryptoIds: ownedCryptoIdsAndCurrentDeviceUIDs, ownedCryptoIdsForWebSocketServerURL: result))
+            return result
+        }
+        
+    }
+    
+    
+    private func createTaskForDeterminingWebSocketURLs(for ownedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) -> Task<[URL: Set<OwnedCryptoIdentityAndCurrentDeviceUID>], Never> {
+        return Task {
+            
+            var ownedCryptoIdsForWebSocketServerURL = [URL: Set<OwnedCryptoIdentityAndCurrentDeviceUID>]()
+            
+            let wellKnownCacheDelegate = delegateManager.wellKnownCacheDelegate
+            
+            for idAndDeviceUID in ownedCryptoIdsAndCurrentDeviceUIDs {
+                let ownedCryptoId = idAndDeviceUID.ownedCryptoId
+                let webSocketURL: URL
+                do {
+                    webSocketURL = try await wellKnownCacheDelegate.getWebSocketURL(for: ownedCryptoId.serverURL, flowId: flowId)
+                } catch {
+                    os_log("🏓 Could not get WebSocket URL for an owned identity", log: log, type: .fault)
+                    assertionFailure()
+                    continue
                 }
+                var ownedCryptoIds = ownedCryptoIdsForWebSocketServerURL[webSocketURL, default: Set<OwnedCryptoIdentityAndCurrentDeviceUID>()]
+                ownedCryptoIds.insert(idAndDeviceUID)
+                ownedCryptoIdsForWebSocketServerURL[webSocketURL] = ownedCryptoIds
             }
+            
+            return ownedCryptoIdsForWebSocketServerURL
+            
         }
-        RunLoop.main.add(timer, forMode: .common)
-        pingRunningWebSocketsTimer = timer
     }
-    
-    
-    private func stopPerformingPingTestsOnRunningWebSockets() {
-        pingRunningWebSocketsTimer?.invalidate()
-        pingRunningWebSocketsTimer = nil
-    }
-    
         
-    /// This method executes a ping test for the web scoket task passed as a parameter.
-    ///
-    /// A ping test consists in sending a ping to the task. If the corresponding pong takes too much time to come back,
-    /// we consider that the web socket cannot be used anymore and we disconnect it. If the pong is received with an error,
-    /// we also disconnect the websocket. If the pong is received without error, nothing more happens.
-    private func pingTest(webSocketTask: URLSessionWebSocketTask) async {
-        let log = self.log
-        guard let webSocketServerURL = webSocketTaskForWebSocketServerURL.first(where: { (_, task) in task == webSocketTask })?.key else {
-            os_log("🏓 Could not determine the server URL of the web socket on which we were asked to perform a ping test.", log: log, type: .error)
-            return
-        }
-        let timerUUID = UUID()
-        let disconnectTimer = Timer(timeInterval: maxTimeIntervalAllowedForPingTest, repeats: false) { [weak self] timer in
-            guard timer.isValid else { return }
-            os_log("🏓 The disconnect timer fired, we disconnect the corresponding web socket task.", log: log, type: .error)
-            Task { [weak self] in
-                await self?.disconnectFromWebSocketServerURL(webSocketServerURL)
-            }
-        }
-        disconnectTimerForUUID[timerUUID] = disconnectTimer
-        RunLoop.main.add(disconnectTimer, forMode: .common)
-        
-        webSocketTask.sendPing { [weak self] error in
-            if let error {
-                os_log("🏓 Ping failed with error: %{public}@. We disconnect the web socket task.", log: log, type: .error, error.localizedDescription)
-                Task { [weak self] in await self?.disconnectFromWebSocketServerURL(webSocketServerURL) }
-                return
-            }
-            // No error
-            os_log("🏓 One pong received", log: log, type: .info)
-            Task { [weak self] in await self?.invalidateTimerWithUUID(timerUUID) }
-        }
-        
-    }
-    
-    
-    private func invalidateTimerWithUUID(_ timerUUID: UUID) {
-        guard let timer = disconnectTimerForUUID.removeValue(forKey: timerUUID) else { return }
-        timer.invalidate()
-    }
-    
 }
 
 

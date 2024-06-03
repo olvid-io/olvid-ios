@@ -49,6 +49,8 @@ public extension URL {
                 urlComponents.scheme = "https"
                 guard let constructedURL = urlComponents.url else { assertionFailure(); return nil }
                 safeURL = constructedURL
+            case "tel", "calshow":
+                return self
             case nil:
                 guard let constructedURL = URL(string: ["https://", self.path].joined()) else { assertionFailure(); return nil }
                 safeURL = constructedURL

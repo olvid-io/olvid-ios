@@ -580,6 +580,12 @@ extension RootViewController {
                         }
                     }
                 },
+                VoIPNotification.observeAnotherCallParticipantStartedCamera { [weak self] otherParticipantNames in
+                    guard let self else { return }
+                    guard !sceneIsActive || preferMetaViewControllerOverCallViewController else { return }
+                    ObvMessengerInternalNotification.postUserNotificationAsAnotherCallParticipantStartedCamera(otherParticipantNames: otherParticipantNames)
+                        .postOnDispatchQueue()
+                },
             ])
         }
     
@@ -589,19 +595,6 @@ extension RootViewController {
 // MARK: - Managing calls
 
 extension RootViewController {
-    
-//    private func setCallInProgress(to call: GenericCall?) async {
-//        _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()
-//        callInProgress = call
-//        Task(priority: .userInitiated) { [weak self] in
-//            do {
-//                try await self?.switchToNextViewController()
-//            } catch {
-//                assertionFailure(error.localizedDescription)
-//            }
-//        }
-//    }
-    
     
     private func setCallViewControllerModel(to newCallViewControllerModel: OlvidCallViewController.Model?) async {
         _ = await NewAppStateManager.shared.waitUntilAppIsInitialized()
@@ -631,13 +624,13 @@ extension RootViewController {
                 let contactCryptoIds = item.logContacts.compactMap { $0.contactIdentity?.cryptoId }
                 let groupId = item.groupIdentifier
                 os_log("📲 Posting a userWantsToCallButWeShouldCheckSheIsAllowedTo notification following an INStartCallIntent", log: Self.log, type: .info)
-                ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId)
+                ObvMessengerInternalNotification.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId, startCallIntent: startCallIntent)
                     .postOnDispatchQueue()
             } else if let contact = try? PersistedObvContactIdentity.getAll(within: context).first(where: { $0.getGenericHandleValue(engine: obvEngine) == handle }) {
                 // To be compatible with previous 1to1 versions
                 let contactCryptoId = contact.cryptoId
                 guard let ownedCryptoId = contact.ownedIdentity?.cryptoId else { return }
-                ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set([contactCryptoId]), groupId: nil)
+                ObvMessengerInternalNotification.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set([contactCryptoId]), groupId: nil, startCallIntent: startCallIntent)
                     .postOnDispatchQueue()
             } else {
                 os_log("📲 Could not parse INStartCallIntent", log: Self.log, type: .fault)

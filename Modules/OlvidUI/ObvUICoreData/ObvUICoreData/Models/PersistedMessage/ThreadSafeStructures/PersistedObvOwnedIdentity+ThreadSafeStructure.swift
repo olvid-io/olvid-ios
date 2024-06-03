@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -42,7 +42,11 @@ extension PersistedObvOwnedIdentity {
     }
     
     public func toStruct() throws -> Structure {
-        return Structure(objectPermanentID: self.objectPermanentID,
+        guard let objectPermanentID else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract objectPermanentID")
+        }
+        return Structure(objectPermanentID: objectPermanentID,
                          cryptoId: self.cryptoId,
                          fullDisplayName: self.fullDisplayName,
                          identityCoreDetails: self.identityCoreDetails,

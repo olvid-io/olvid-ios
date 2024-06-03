@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,6 +34,7 @@ extension OwnedIdentityDeletionProtocol {
         case propagateGlobalOwnedIdentityDeletion = 2
         case deactivateOwnedDeviceServerQuery = 106
         case finalizeOwnedIdentityDeletion = 107
+        case replayStartDeletionStep = 108
         
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
@@ -42,6 +43,7 @@ extension OwnedIdentityDeletionProtocol {
             case .deactivateOwnedDeviceServerQuery     : return DeactivateOwnedDeviceServerQueryMessage.self
             case .propagateGlobalOwnedIdentityDeletion : return PropagateGlobalOwnedIdentityDeletionMessage.self
             case .finalizeOwnedIdentityDeletion        : return FinalizeOwnedIdentityDeletionMessage.self
+            case .replayStartDeletionStep              : return ReplayStartDeletionStepMessage.self
             }
         }
     }
@@ -77,6 +79,26 @@ extension OwnedIdentityDeletionProtocol {
             self.globalOwnedIdentityDeletion = try message.encodedInputs[0].obvDecode()
         }
         
+    }
+    
+    
+    // MARK: - ReplayStartDeletionStepMessage
+    
+    struct ReplayStartDeletionStepMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.replayStartDeletionStep
+        let coreProtocolMessage: CoreProtocolMessage
+
+        init(coreProtocolMessage: CoreProtocolMessage) {
+            self.coreProtocolMessage = coreProtocolMessage
+        }
+        
+        var encodedInputs: [ObvEncoded] { [] }
+
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+        }
+
     }
 
     

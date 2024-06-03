@@ -19,6 +19,7 @@
 
 import Foundation
 import LinkPresentation
+import AVFoundation
 
 /// Makes it possible to create an ``ObvLinkMetadata`` from a standard ``LPLinkMetadata``
 extension ObvLinkMetadata {
@@ -26,31 +27,77 @@ extension ObvLinkMetadata {
     public static let maxIconSize = CGSize(width: 1080, height: 1080)
     
     public static func from(linkMetadata: LPLinkMetadata) async -> ObvLinkMetadata {
-        return await withCheckedContinuation { (continuation: CheckedContinuation<ObvLinkMetadata, Never>) in
-
-            let title = linkMetadata.title
-            let url = linkMetadata.url
-            let desc = linkMetadata.value(forKey: "summary") as? String
-            
-            let imageProvider = linkMetadata.imageProvider ?? linkMetadata.iconProvider
-            if let imageProvider = imageProvider {
-                imageProvider.loadObject(ofClass: UIImage.self, completionHandler: { image, error in
-                    guard error == nil, let image = image as? UIImage else {
-                        let preview = ObvLinkMetadata(title: title, desc: desc, url: url, pngData: nil)
-                        return continuation.resume(returning: preview)
-                    }
-                    let downSizedImage = image.downsizeIfRequired(maxWidth: maxIconSize.width, maxHeight: maxIconSize.height)
-                    let preview = ObvLinkMetadata(title: title, desc: desc, url: url, pngData: downSizedImage?.pngData())
-                    return continuation.resume(returning: preview)
-                })
-
-            }
-            else {
-                let preview = ObvLinkMetadata(title: title, desc: desc, url: url, pngData: nil)
-                return continuation.resume(returning: preview)
-            }
+        
+        let title = linkMetadata.title
+        let url = linkMetadata.url
+        let desc = linkMetadata.value(forKey: "summary") as? String
+        let remoteVideoURL = linkMetadata.remoteVideoURL
+        
+        var imageProvided: UIImage? = nil
+        
+        // We check that an imageProvider exists and we load it.
+        if let imageProvider = linkMetadata.imageProvider {
+            imageProvided = try? await loadImage(from: imageProvider)
         }
         
-    }
+        // if imageProvider failed, we check that a remote video URL exists and we try to generate a thumbnail
+        if imageProvided == nil, let remoteVideoURL = remoteVideoURL {
+            let image = try? await AVAsset(url: remoteVideoURL).generateThumbnail()
+            imageProvided = image?.downsizeIfRequired(maxWidth: maxIconSize.width, maxHeight: maxIconSize.height)
+        }
         
+        // If no image provider and no remote video url exist or fail to load, we try to load an icon
+        if imageProvided == nil, let iconProvider = linkMetadata.iconProvider {
+            imageProvided = try? await loadImage(from: iconProvider)
+        }
+        
+        let preview = ObvLinkMetadata(title: title, desc: desc, url: url, pngData: imageProvided?.pngData())
+        return preview
+        
+    }
+
+
+    private static func loadImage(from provider: NSItemProvider) async throws -> UIImage? {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UIImage?, (any Error)>) in
+            provider.loadObject(ofClass: UIImage.self) { image, error in
+                if let error = error {
+                    return continuation.resume(throwing: error)
+                }
+                
+                guard let image = image as? UIImage else {
+                    return continuation.resume(returning: nil)
+                }
+                
+                let downSizedImage = image.downsizeIfRequired(maxWidth: maxIconSize.width, maxHeight: maxIconSize.height)
+                return continuation.resume(returning: downSizedImage)
+            }
+        }
+    }
+    
+}
+
+
+private extension AVAsset {
+    
+    func generateThumbnail() async throws -> UIImage? {
+        
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UIImage?, (any Error)>) in
+                let imageGenerator = AVAssetImageGenerator(asset: self)
+                
+                imageGenerator.appliesPreferredTrackTransform = true
+                
+                let time = CMTime(seconds: 0.0, preferredTimescale: 600)
+                let times = [NSValue(time: time)]
+                
+                imageGenerator.generateCGImagesAsynchronously(forTimes: times, completionHandler: { timeAsked, image, timeResulted, result, error in
+                    if let image = image {
+                        return continuation.resume(returning: UIImage(cgImage: image))
+                    } else if let error = error {
+                        return continuation.resume(throwing: error)
+                    } else {
+                        return continuation.resume(returning: nil)
+                    }
+                })
+            }
+        }
 }

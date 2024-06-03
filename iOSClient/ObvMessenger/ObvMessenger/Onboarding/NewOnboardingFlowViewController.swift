@@ -154,6 +154,8 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
             
     private let mode: Onboarding.Mode
     
+    private var profileKindOfCreatedOwnedIdentity: NewOnboardingState.ProfileKind? = nil
+    
     private let directoryForTempFiles: URL
     
     public init(logSubsystem: String, directoryForTempFiles: URL, mode: Onboarding.Mode) {
@@ -469,14 +471,18 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
         // In case we are performing the initial onboarding and there is an MDM configuration, we apply it.
         // Othersise, we send the user to the screen allowing her to choose her given name and family name.
 
-        if let mdmConfig = mode.mdmConfigDuringInitialOnboarding {
-            self.internalState = .keycloakConfigAvailable(keycloakConfiguration: mdmConfig.keycloakConfiguration, isConfiguredFromMDM: true)
+        // If an owned identity has already been created, we skip entirely the flow
+        if let profileKindOfCreatedOwnedIdentity {
+            await requestNextAutorisationPermissionAfterCreatingTheOwnedIdentity(profileKind: profileKindOfCreatedOwnedIdentity)
         } else {
-            self.internalState = .userWantsToChooseUnmanagedDetails
+            if let mdmConfig = mode.mdmConfigDuringInitialOnboarding {
+                self.internalState = .keycloakConfigAvailable(keycloakConfiguration: mdmConfig.keycloakConfiguration, isConfiguredFromMDM: true)
+            } else {
+                self.internalState = .userWantsToChooseUnmanagedDetails
+            }
+
+            await showNextOnboardingScreen(animated: true)
         }
-
-        await showNextOnboardingScreen(animated: true)
-
     }
     
     
@@ -1186,6 +1192,11 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
     /// When all the permissions screen have been dealt with, the appropriate "final" screen is chosen depending on the profile kind
     @MainActor
     private func requestNextAutorisationPermissionAfterCreatingTheOwnedIdentity(profileKind: NewOnboardingState.ProfileKind) async {
+        
+        // In order to prevent the creation of two profiles during the same onboarding, we save the created profile in a local variable.
+        
+        self.profileKindOfCreatedOwnedIdentity = profileKind
+        
         if await requestingAutorisationIsNecessary(for: .localNotifications) {
             internalState = .shouldRequestPermission(profileKind: profileKind, category: .localNotifications)
         } else if await requestingAutorisationIsNecessary(for: .recordPermission) {

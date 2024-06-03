@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -152,6 +152,32 @@ final class NewUnmanagedDetailsChooserViewController: UIHostingController<NewUnm
         return resizedImage
         
     }
+    
+    
+    private var continuationForDocumentPicker: CheckedContinuation<UIImage?, Never>?
+
+    @MainActor
+    func userWantsToChoosePhotoWithDocumentPicker() async -> UIImage? {
+        
+        removeAnyPreviousContinuation()
+
+        let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.jpeg, .png], asCopy: true)
+        documentPicker.delegate = self
+        documentPicker.allowsMultipleSelection = false
+        documentPicker.shouldShowFileExtensions = false
+
+        let imageFromPicker = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+            self.continuationForDocumentPicker = continuation
+            present(documentPicker, animated: true)
+        }
+
+        guard let imageFromPicker else { return nil }
+
+        let resizedImage = await resizeImageFromPicker(imageFromPicker: imageFromPicker)
+        
+        return resizedImage
+
+    }
 
     
     private func removeAnyPreviousContinuation() {
@@ -247,6 +273,42 @@ final class NewUnmanagedDetailsChooserViewController: UIHostingController<NewUnm
 }
 
 
+// MARK: UIDocumentPickerDelegate
+
+extension NewUnmanagedDetailsChooserViewController: UIDocumentPickerDelegate {
+    
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        
+        controller.dismiss(animated: true)
+        guard let continuationForDocumentPicker else { assertionFailure(); return }
+        self.continuationForDocumentPicker = nil
+        guard let url = urls.first else { return continuationForDocumentPicker.resume(returning: nil) }
+
+        let needToCallStopAccessingSecurityScopedResource = url.startAccessingSecurityScopedResource()
+                
+        let image = UIImage(contentsOfFile: url.path)
+
+        if needToCallStopAccessingSecurityScopedResource {
+            url.stopAccessingSecurityScopedResource()
+        }
+
+        return continuationForDocumentPicker.resume(returning: image)
+
+    }
+    
+    
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        
+        controller.dismiss(animated: true)
+        guard let continuationForDocumentPicker else { return }
+        self.continuationForDocumentPicker = nil
+        continuationForDocumentPicker.resume(returning: nil)
+        
+    }
+    
+}
+
+
 
 
 fileprivate final class Actions: NewUnmanagedDetailsChooserViewActions {
@@ -267,6 +329,10 @@ fileprivate final class Actions: NewUnmanagedDetailsChooserViewActions {
 
     func userWantsToChoosePhoto() async -> UIImage? {
         await delegate?.userWantsToChoosePhoto()
+    }
+    
+    func userWantsToChoosePhotoWithDocumentPicker() async -> UIImage? {
+        await delegate?.userWantsToChoosePhotoWithDocumentPicker()
     }
 
 }

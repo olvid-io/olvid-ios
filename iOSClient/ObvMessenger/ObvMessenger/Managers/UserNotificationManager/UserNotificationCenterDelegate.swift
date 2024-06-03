@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -97,6 +97,7 @@ extension UserNotificationCenterDelegate {
 
         // If we reach this point, we know we are initialized and active. We decide what to show depending on the current activity of the user.
         switch ObvUserActivitySingleton.shared.currentUserActivity {
+            
         case .continueDiscussion(ownedCryptoId: _, discussionPermanentID: let currentDiscussionPermanentID):
             switch id {
             case .newReactionNotificationWithHiddenContent, .newReaction:
@@ -118,6 +119,8 @@ extension UserNotificationCenterDelegate {
                 }
             case .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .oneToOneInvitationReceived, .shouldGrantRecordPermissionToReceiveIncomingCalls:
                 return [.list, .banner]
+            case .anotherCallParticipantStartedCamera:
+                return [.list, .banner, .sound]
             case .staticIdentifier:
                 assertionFailure()
                 return []
@@ -133,9 +136,12 @@ extension UserNotificationCenterDelegate {
                     requestIdentifiersThatPlayedSound.insert(notification.request.identifier)
                     return .sound
                 }
+            case .anotherCallParticipantStartedCamera:
+                return [.list, .banner, .sound]
             case .newReactionNotificationWithHiddenContent, .newReaction, .acceptInvite, .sasExchange, .mutualTrustConfirmed, .acceptMediatorInvite, .acceptGroupInvite, .missedCall, .oneToOneInvitationReceived, .staticIdentifier, .shouldGrantRecordPermissionToReceiveIncomingCalls:
                 return [.list, .banner]
             }
+            
         case .displayInvitations:
             /* The user is currently looking at the invitiation tab.
              * 2020-10-08: We used to prevent
@@ -143,7 +149,13 @@ extension UserNotificationCenterDelegate {
              * or if it concerned a sas exchange or a mutual trust confirmation.
              * Now, we always show it
              */
-            return [.list, .banner]
+            switch id {
+            case .anotherCallParticipantStartedCamera:
+                return [.list, .banner, .sound]
+            default:
+                return [.list, .banner]
+            }
+            
         case .other,
              .displaySingleContact,
              .displayContacts,
@@ -151,7 +163,12 @@ extension UserNotificationCenterDelegate {
              .displaySingleGroup,
              .displaySettings,
              .unknown:
-            return [.list, .banner]
+            switch id {
+            case .anotherCallParticipantStartedCamera:
+                return [.list, .banner, .sound]
+            default:
+                return [.list, .banner]
+            }
         }
         
     }
@@ -270,7 +287,7 @@ extension UserNotificationCenterDelegate {
         let contactCryptoIds = item.logContacts.compactMap { $0.contactIdentity?.cryptoId }
         guard let ownedCryptoId = item.ownedCryptoId else { return }
         let groupId = item.groupIdentifier
-        ObvMessengerInternalNotification.userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId)
+        ObvMessengerInternalNotification.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ownedCryptoId, contactCryptoIds: Set(contactCryptoIds), groupId: groupId, startCallIntent: nil)
             .postOnDispatchQueue()
     }
 

@@ -34,7 +34,7 @@ final class DetermineAttachmentsProcessingRequestForMessageSentOperation: Contex
     private let kind: Kind
 
     enum Kind {
-        case allAttachmentsOfMessage(op: OperationProvidingMessageSentPermanentID)
+        case allAttachmentsOfMessage(messageSentPermanentId: MessageSentPermanentID)
         case specificAttachment(attachmentId: ObvAttachmentIdentifier)
     }
 
@@ -59,11 +59,7 @@ final class DetermineAttachmentsProcessingRequestForMessageSentOperation: Contex
 
             switch kind {
 
-            case .allAttachmentsOfMessage(let op):
-                guard let messageSentPermanentId = op.messageSentPermanentId else {
-                    assertionFailure()
-                    return
-                }
+            case .allAttachmentsOfMessage(messageSentPermanentId: let messageSentPermanentId):
 
                 guard let persistedMessage = try PersistedMessageSent.getManagedObject(withPermanentID: messageSentPermanentId, within: obvContext.context) else {
                     return
@@ -108,10 +104,3 @@ final class DetermineAttachmentsProcessingRequestForMessageSentOperation: Contex
 
     }
 }
-
-protocol OperationProvidingMessageSentPermanentID: Operation {
-    
-    var messageSentPermanentId: MessageSentPermanentID? { get }
-    
-}
-

@@ -252,8 +252,7 @@ struct UserNotificationCreator {
         // Configure the minimal notification content
         var (notificationId, notificationContent) = createMinimalNotification(badge: badge)
 
-        if addNotificationSilently,
-           #available(iOS 15, *) {
+        if addNotificationSilently {
             notificationContent.interruptionLevel = .passive
         }
 
@@ -324,6 +323,12 @@ struct UserNotificationCreator {
         }
         
         setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
+        
+        // Before returning the notification, strip any Markdown markup
+        
+        let markdownStrippedContentBody = (try? String(AttributedString(markdown: notificationContent.body, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)).characters))
+        
+        notificationContent.body = markdownStrippedContentBody ?? notificationContent.body
 
         if let incomingMessageIntent = incomingMessageIntent,
            let updatedNotificationContent = try? notificationContent.updating(from: incomingMessageIntent) {
@@ -331,6 +336,42 @@ struct UserNotificationCreator {
         } else {
             return (notificationId, notificationContent)
         }
+    }
+    
+    
+    static func createAnotherCallParticipantStartedCameraNotification(otherParticipantNames: [String]) -> (notificationId: ObvUserNotificationIdentifier, notificationContent: UNMutableNotificationContent) {
+        
+        let hideNotificationContent = ObvMessengerSettings.Privacy.hideNotificationContent
+
+        // Configure the notification content
+        let notificationContent = UNMutableNotificationContent()
+        notificationContent.sound = UNNotificationSound.default
+
+        switch hideNotificationContent {
+            
+        case .completely, .partially:
+            
+            notificationContent.title = String(localized: "A_PARTICIPANT_STARTED_THEIR_CAMERA")
+            notificationContent.subtitle = ""
+            notificationContent.body = String(localized: "TAP_HERE_TO_SEE_THE_PARTICIPANT_VIDEO")
+
+        case .no:
+
+            notificationContent.title = String(localized: "A_PARTICIPANT_STARTED_THEIR_CAMERA")
+            notificationContent.subtitle = ""
+            notificationContent.body = String(localized: "TAP_HERE_TO_SEE_THE_PARTICIPANT_VIDEO")
+
+        }
+
+        let deepLink = ObvDeepLink.olvidCallView
+        notificationContent.userInfo[UserNotificationKeys.deepLinkDescription] = deepLink.description
+
+        let notificationId = ObvUserNotificationIdentifier.shouldGrantRecordPermissionToReceiveIncomingCalls
+
+        setThreadAndCategory(notificationId: notificationId, notificationContent: notificationContent)
+
+        return (notificationId, notificationContent)
+
     }
 
 
@@ -663,8 +704,7 @@ struct UserNotificationCreator {
                         os_log("Cannot compute downsized image data or url", log: Self.log, type: .fault)
                         assertionFailure(); continue
                     }
-                    let resizedImage = image.resize(with: max(UIScreen.main.bounds.size.height, UIScreen.main.bounds.size.width))
-                    guard let newData = resizedImage?.jpegData(compressionQuality: 0.75) else {
+                    guard let newData = image.jpegData(compressionQuality: 0.75) else {
                         os_log("Cannot compute downsized image data or url", log: Self.log, type: .fault)
                         assertionFailure(); continue
                     }

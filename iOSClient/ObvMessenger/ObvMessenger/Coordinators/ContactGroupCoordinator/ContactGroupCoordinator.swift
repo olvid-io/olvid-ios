@@ -75,9 +75,6 @@ extension ContactGroupCoordinator {
             ObvMessengerInternalNotification.observeUserWantsToRefreshContactGroupJoined { [weak self] (obvContactGroup) in
                 self?.processUserWantsToRefreshContactGroupJoined(obvContactGroup: obvContactGroup)
             },
-            ObvMessengerInternalNotification.observeUserWantsToUpdateGroupV2() { [weak self] groupObjectID, changeset in
-                self?.processUserWantsToUpdateGroupV2(groupObjectID: groupObjectID, changeset: changeset)
-            },
             ObvMessengerInternalNotification.observeUserWantsToUpdateCustomNameAndGroupV2Photo() { [weak self] ownedCryptoId, groupIdentifier, customName, customPhoto in
                 self?.processUserWantsToUpdateCustomNameAndGroupV2Photo(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, customName: customName, customPhoto: customPhoto)
             },
@@ -266,14 +263,7 @@ extension ContactGroupCoordinator {
         coordinatorsQueue.addOperation(composedOp)
     }
 
-    
-    private func processUserWantsToUpdateGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) {
-        let op1 = UpdateGroupV2Operation(groupObjectID: groupObjectID, changeset: changeset, obvEngine: obvEngine)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        coordinatorsQueue.addOperation(composedOp)
-    }
-    
-    
+
     private func processUserWantsToUpdateCustomNameAndGroupV2Photo(ownedCryptoId: ObvCryptoId, groupIdentifier: Data, customName: String?, customPhoto: UIImage?) {
         let op1 = UpdateCustomNameAndGroupV2PhotoOperation(
             ownedCryptoId: ownedCryptoId,

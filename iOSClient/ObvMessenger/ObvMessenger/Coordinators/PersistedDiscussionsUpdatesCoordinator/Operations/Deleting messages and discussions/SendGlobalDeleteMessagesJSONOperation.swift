@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,23 +26,26 @@ import ObvEngine
 import ObvUICoreData
 
 
-/// Called prior the processing the message deletion requested by an owned identity from the current device, when the deletionType is .global.
+/// Called prior the processing the message deletion requested by an owned identity from the current device. This operation does nothing if the deletion type is `.fromThisDeviceOnly`.
 final class SendGlobalDeleteMessagesJSONOperation: OperationWithSpecificReasonForCancel<SendGlobalDeleteMessagesJSONOperationReasonForCancel> {
 
     private let persistedMessageObjectIDs: [NSManagedObjectID]
+    private let deletionType: DeletionType
     private let obvEngine: ObvEngine
     
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SendGlobalDeleteMessagesJSONOperation.self))
 
-    init(persistedMessageObjectIDs: [NSManagedObjectID], obvEngine: ObvEngine) {
+    init(persistedMessageObjectIDs: [NSManagedObjectID], deletionType: DeletionType, obvEngine: ObvEngine) {
         self.persistedMessageObjectIDs = persistedMessageObjectIDs
         self.obvEngine = obvEngine
+        self.deletionType = deletionType
         super.init()
     }
 
     override func main() {
 
         guard !persistedMessageObjectIDs.isEmpty else { assertionFailure(); return }
+        guard deletionType != .fromThisDeviceOnly else { return }
         
         ObvStack.shared.performBackgroundTaskAndWait { (context) in
             
@@ -77,12 +80,25 @@ final class SendGlobalDeleteMessagesJSONOperation: OperationWithSpecificReasonFo
             
             let contactCryptoIds: Set<ObvCryptoId>
             let ownCryptoId: ObvCryptoId
-            do {
-                (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
-            } catch {
-                return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
+            switch deletionType {
+            case .fromThisDeviceOnly:
+                assertionFailure()
+                return
+            case .fromAllOwnedDevices:
+                do {
+                    (ownCryptoId, _) = try discussion.getAllActiveParticipants()
+                    contactCryptoIds = Set() // Send the request to our other remote devices only
+                } catch {
+                    return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
+                }
+            case .fromAllOwnedDevicesAndAllContactDevices:
+                do {
+                    (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()
+                } catch {
+                    return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
+                }
             }
-
+            
             // Create a payload of the PersistedItemJSON we just created and send it.
             // We do not keep track of the message identifiers from engine.
             

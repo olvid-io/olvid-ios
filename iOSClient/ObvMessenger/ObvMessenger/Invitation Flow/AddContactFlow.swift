@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -95,7 +95,8 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
             OperationQueue.main.addOperation { [weak self] in
                 guard let contact = try? PersistedObvContactIdentity.getManagedObject(withPermanentID: contactPermanentID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
                 guard contact.cryptoId == newContactCryptoId && contact.ownedIdentity?.cryptoId == ownedCryptoId else { return }
-                let deepLink = ObvDeepLink.contactIdentityDetails(ownedCryptoId: ownedCryptoId, objectPermanentID: contactPermanentID)
+                guard let contactIdentifier = try? contact.contactIdentifier else { assertionFailure(); return }
+                let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentifier: contactIdentifier)
                 Task { [weak self] in
                     await self?.showHUDAndAwaitAnimationEnd(type: .checkmark)
                     await self?.dismiss(animated: true) {
@@ -106,7 +107,8 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
             }
         })
         if let persistedContact = try? PersistedObvContactIdentity.get(contactCryptoId: newContactCryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) {
-            let deepLink = ObvDeepLink.contactIdentityDetails(ownedCryptoId: ownedCryptoId, objectPermanentID: persistedContact.objectPermanentID)
+            guard let contactIdentifier = try? persistedContact.contactIdentifier else { assertionFailure(); return }
+            let deepLink = ObvDeepLink.contactIdentityDetails(contactIdentifier: contactIdentifier)
             self.showHUD(type: .checkmark) {
                 self.dismiss(animated: true) {
                     ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)

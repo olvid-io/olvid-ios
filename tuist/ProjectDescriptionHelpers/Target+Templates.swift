@@ -14,7 +14,7 @@ extension Target {
         product: ProjectDescription.Product,
         productName: String? = nil,
         bundleId: String,
-        deploymentTarget: DeploymentTarget? = Constants.deploymentTarget,
+        deploymentTargets: DeploymentTargets? = Constants.deploymentTargets,
         infoPlist: ProjectDescription.InfoPlist? = .default,
         sources: ProjectDescription.SourceFilesList? = nil,
         resources: ProjectDescription.ResourceFileElements? = nil,
@@ -27,15 +27,16 @@ extension Target {
         coreDataModels: [ProjectDescription.CoreDataModel] = [],
         environmentVariables: [String : ProjectDescription.EnvironmentVariable] = [:],
         launchArguments: [ProjectDescription.LaunchArgument] = [],
-        additionalFiles: [ProjectDescription.FileElement] = []
+        additionalFiles: [ProjectDescription.FileElement] = [],
+        buildRules: [BuildRule] = []
     ) -> Self {
         return Self.init(
             name: name,
-            platform: .iOS,
+            destinations: Constants.destinations,
             product: product,
             productName: productName,
             bundleId: bundleId,
-            deploymentTarget: deploymentTarget,
+            deploymentTargets: deploymentTargets,
             infoPlist: infoPlist,
             sources: sources,
             resources: resources,
@@ -48,12 +49,13 @@ extension Target {
             coreDataModels: coreDataModels,
             environmentVariables: environmentVariables,
             launchArguments: launchArguments,
-            additionalFiles: additionalFiles)
+            additionalFiles: additionalFiles,
+            buildRules: buildRules)
     }
 
     public static func mainApp(
         name: String,
-        deploymentTarget: DeploymentTarget = Constants.deploymentTarget,
+        deploymentTarget: DeploymentTargets = Constants.deploymentTargets,
         infoPlist: InfoPlist,
         sources: SourceFilesList,
         resources: ResourceFileElements,
@@ -69,7 +71,7 @@ extension Target {
             product: .app,
             productName: name,
             bundleId: Constants.baseAppBundleIdentifier.appending("$(OLVID_PRODUCT_BUNDLE_IDENTIFIER_SERVER_SUFFIX)"),
-            deploymentTarget: deploymentTarget,
+            deploymentTargets: deploymentTarget,
             infoPlist: infoPlist,
             sources: sources,
             resources: resources,
@@ -84,7 +86,7 @@ extension Target {
 
     public static func sampleApp(
         name: String,
-        deploymentTarget: DeploymentTarget = Constants.deploymentTarget,
+        deploymentTargets: DeploymentTargets = Constants.deploymentTargets,
         sources: SourceFilesList,
         resources: ResourceFileElements,
         dependencies: [TargetDependency]
@@ -98,7 +100,7 @@ extension Target {
             product: .app,
             productName: name.appending("Sample"),
             bundleId: _sampleAppBundleIdentifier(for: name),
-            deploymentTarget: deploymentTarget,
+            deploymentTargets: deploymentTargets,
             infoPlist: infoPlist,
             sources: sources,
             resources: resources,
@@ -109,7 +111,7 @@ extension Target {
     public static func appExtension(
         name: String,
         bundleIdentifier: String,
-        deploymentTarget: DeploymentTarget = Constants.deploymentTarget,
+        deploymentTargets: DeploymentTargets = Constants.deploymentTargets,
         infoPlist: InfoPlist,
         sources: SourceFilesList,
         resources: ResourceFileElements,
@@ -123,7 +125,7 @@ extension Target {
             product: .appExtension,
             productName: name,
             bundleId: bundleIdentifier,
-            deploymentTarget: deploymentTarget,
+            deploymentTargets: deploymentTargets,
             infoPlist: infoPlist,
             sources: sources,
             resources: resources,

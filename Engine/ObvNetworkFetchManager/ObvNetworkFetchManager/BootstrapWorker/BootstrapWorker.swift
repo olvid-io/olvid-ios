@@ -86,9 +86,15 @@ final class BootstrapWorker {
             return
         }
         
+        guard let identityDelegate = delegateManager.identityDelegate else {
+            os_log("The identity delegate is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            return
+        }
+        
         // These operations used to be scheduled in the `finalizeInitialization` method. In order to speed up the boot process, we schedule them here instead
         try? await delegateManager.downloadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessions(flowId: flowId)
-        try? await reschedulePendingDeleteFromServers(flowId: flowId, log: Self.log, delegateManager: delegateManager)
+        performBatchDeleteAndMarkAsListedForAllOwnedIdentities(flowId: flowId, log: Self.log, identityDelegate: identityDelegate, contextCreator: contextCreator, delegateManager: delegateManager)
 
         if forTheFirstTime {
             Task { [weak self] in
@@ -101,7 +107,6 @@ final class BootstrapWorker {
                 
                 do { try await delegateManager.serverQueryDelegate.deletePendingServerQueryOfNonExistingOwnedIdentities(flowId: flowId) } catch { assertionFailure(error.localizedDescription) }
                 do { try await postAllPendingServerQuery(delegateManager: delegateManager, flowId: flowId) } catch { assertionFailure(error.localizedDescription) }
-                useExistingServerSessionTokenForWebsocketCoordinator(contextCreator: contextCreator, flowId: flowId)
                 reNotifyAboutAPIKeyStatus(contextCreator: contextCreator, notificationDelegate: notificationDelegate, flowId: flowId)
             }
         }
@@ -152,17 +157,6 @@ extension BootstrapWorker {
     }
     
     
-    /// If a server session (with a valid token) can be found in DB at first launch, we pass this token to the websocket coordinator.
-    private func useExistingServerSessionTokenForWebsocketCoordinator(contextCreator: ObvCreateContextDelegate, flowId: FlowIdentifier) {
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-            let ownedIdentitiesAndTokens = try? ServerSession.getAllTokens(within: obvContext.context)
-            ownedIdentitiesAndTokens?.forEach { (ownedCryptoId, token) in
-                Task { await delegateManager?.webSocketDelegate.setServerSessionToken(to: token, for: ownedCryptoId) }
-            }
-        }
-    }
-    
-    
     private func deleteOrphanedInboxAttachmentChunk(flowId: FlowIdentifier, log: OSLog, delegateManager: ObvNetworkFetchDelegateManager) async {
         let op1 = DeleteOrphanedInboxAttachmentChunkOperation()
         do {
@@ -196,73 +190,55 @@ extension BootstrapWorker {
     }
     
     
-    private func reschedulePendingDeleteFromServers(flowId: FlowIdentifier, log: OSLog, delegateManager: ObvNetworkFetchDelegateManager) async throws {
-        let messageIdsWithPendingDeletes = try await getMessageIdsWithPendingDeletes(delegateManager: delegateManager, flowId: flowId)
-        for messageId in messageIdsWithPendingDeletes {
-            Task {
-                do {
-                    try await delegateManager.networkFetchFlowDelegate.processPendingDeleteIfItExistsForMessage(messageId: messageId, flowId: flowId)
-                } catch {
-                    assertionFailure()
+    private func performBatchDeleteAndMarkAsListedForAllOwnedIdentities(flowId: FlowIdentifier, log: OSLog, identityDelegate: ObvIdentityDelegate, contextCreator: ObvCreateContextDelegate, delegateManager: ObvNetworkFetchDelegateManager) {
+        
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+
+            do {
+                let ownedCryptoIds = try identityDelegate.getOwnedIdentities(within: obvContext)
+                for ownedCryptoId in ownedCryptoIds {
+                    Task {
+                        do {
+                            try await delegateManager.batchDeleteAndMarkAsListedDelegate.batchDeleteAndMarkAsListed(ownedCryptoIdentity: ownedCryptoId, flowId: flowId)
+                        } catch {
+                            os_log("Could not perform batch delete and marked as listed for an owned identity during bootstrap: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                            assertionFailure()
+                        }
+                    }
                 }
+            } catch {
+                os_log("Could not perform batch delete and marked as listed during bootstrap: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
+                assertionFailure()
             }
         }
 
-    }
-    
-    
-    private func getMessageIdsWithPendingDeletes(delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) async throws -> [ObvMessageIdentifier] {
-        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); throw ObvError.theContextCreatorIsNotSet }
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvMessageIdentifier], Error>) in
-            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
-                do {
-                    let allPendingDeleteFromServer = try PendingDeleteFromServer.getAll(within: obvContext)
-                    let messageIdsWithPendingDeletes = allPendingDeleteFromServer
-                        .filter({ !$0.isDeleted })
-                        .compactMap({ $0.messageId })
-                    return continuation.resume(returning: messageIdsWithPendingDeletes)
-                } catch {
-                    return continuation.resume(throwing: error)
-                }
-            }
-        }
     }
     
 
     /// This method is called on init and reschedules all messages by calling the newOutboxMessage() method on the flow coordinator.
     private func rescheduleAllInboxMessagesAndAttachments(flowId: FlowIdentifier, log: OSLog, contextCreator: ObvCreateContextDelegate, notificationDelegate: ObvNotificationDelegate, delegateManager: ObvNetworkFetchDelegateManager) {
         
+        Task {
+            do {
+                try await delegateManager.downloadAttachmentChunksDelegate.resumeDownloadOfAttachmentsNotAlreadyDownloading(downloadKind: .allDownloadableAttachmentsWithoutSession, flowId: flowId)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
+        }
+
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
 
-            var messages: [InboxMessage]
+            let messages: [InboxMessage]
             do {
-                messages = try InboxMessage.getAll(within: obvContext)
+                messages = try InboxMessage.fetchMessagesThatCannotBeDeletedFromServer(within: obvContext)
+                assert(messages.allSatisfy({ !$0.canBeDeletedFromServer }))
             } catch {
                 os_log("Could not get inbox messages", log: Self.log, type: .fault)
                 assertionFailure()
                 return
             }
 
-            os_log("Number of InboxMessage instances found during bootstrap: %d", log: Self.log, type: .info, messages.count)
-            
-            // Processs the messages that can be deleted
-            do {
-                let messagesToDelete = messages.filter({ $0.canBeDeleted })
-                messages.removeAll(where: { messagesToDelete.contains($0) })
-                for messageToDelete in messagesToDelete {
-                    if (try? PendingDeleteFromServer.exists(for: messageToDelete)) != true {
-                        if let messageId = messageToDelete.messageId {
-                            Task {
-                                let op1 = CreateMissingPendingDeleteFromServerOperation(messageId: messageId)
-                                try? await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: log, flowId: flowId)
-                                try? await delegateManager.networkFetchFlowDelegate.processPendingDeleteIfItExistsForMessage(messageId: messageId, flowId: flowId)
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // The remaining messages are already processed
+            os_log("Number of InboxMessage instances that cannot be deleted from server during bootstrap: %d", log: Self.log, type: .info, messages.count)
             
             do {
                 for msg in messages {
@@ -272,13 +248,8 @@ extension BootstrapWorker {
                         case .paused:
                             break
                         case .resumeRequested:
-                            Task {
-                                do {
-                                    try await delegateManager.downloadAttachmentChunksDelegate.resumeDownloadOfAttachmentsNotAlreadyDownloading(downloadKind: .allDownloadableAttachmentsWithoutSession, flowId: flowId)
-                                } catch {
-                                    assertionFailure(error.localizedDescription)
-                                }
-                            }
+                            // We already resumed all downloads above
+                            break
                         case .downloaded:
                             delegateManager.networkFetchFlowDelegate.attachmentWasDownloaded(attachmentId: attachmentId, flowId: flowId)
                         case .cancelledByServer:
@@ -429,6 +400,7 @@ extension BootstrapWorker {
         case delegateManagerIsNil
         case theContextCreatorIsNotSet
         case couldNotProcessMessageMarkedForDeletion
+        case identityDelegateIsNil
     }
     
 }

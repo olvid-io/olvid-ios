@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -42,8 +42,10 @@ public final class PersistedDraftFyleJoin: NSManagedObject, FyleJoin, ObvIdentif
     
     // MARK: Computed properties
     
-    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin> {
-        ObvManagedObjectPermanentID<PersistedDraftFyleJoin>(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedDraftFyleJoin>? {
+        guard self.managedObjectContext != nil else { assertionFailure(); return nil }
+        return ObvManagedObjectPermanentID<PersistedDraftFyleJoin>(uuid: self.permanentUUID)
     }
     
     public var contentType: UTType {

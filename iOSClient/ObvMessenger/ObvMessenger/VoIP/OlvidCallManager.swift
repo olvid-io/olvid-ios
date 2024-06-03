@@ -23,9 +23,7 @@ import AVFoundation
 import os.log
 import ObvTypes
 import ObvUICoreData
-#if canImport(ScreenCaptureKit)
-import ScreenCaptureKit
-#endif
+import Intents
 
 
 protocol OlvidCallManagerDelegate: AnyObject {
@@ -521,47 +519,78 @@ extension OlvidCallManager {
     
     /// This is called when the local user wants to start a new outgoing call. This method creates a ``CXStartCallAction`` so as to let the system know about the user action.
     /// Eventually, this manager will be called back from the ``provider(_:perform:CXStartCallAction)`` delegate method of the ``CallProviderDelegate``.
-    func localUserWantsToStartOutgoingCall(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?, rtcPeerConnectionQueue: OperationQueue, olvidCallDelegate: OlvidCallDelegate) async throws {
+    func localUserWantsToStartOutgoingCall(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?, rtcPeerConnectionQueue: OperationQueue, olvidCallDelegate: OlvidCallDelegate, startCallIntent: INStartCallIntent?) async throws {
         
         guard !contactCryptoIds.isEmpty else {
             assertionFailure()
             throw ObvError.cannotStartOutgoingCallAsNotCalleeWasSpecified
         }
         
-        guard !someCallIsInProgress else {
-            assertionFailure()
-            throw ObvError.cannotStartOutgoingCallWhileAnotherCallIsInProgress
+        if someCallIsInProgress {
+            
+            // This typically happens when the user taps on the camera button in the CallKit UI.
+            // In the case, the app receives an INStartCallIntent where the callCapability is .video.
+            
+            guard let startCallIntent else {
+                assertionFailure()
+                return
+            }
+            
+            // Find the ongoing call corresponding the received INStartCallIntent
+            
+            guard let call = calls.filter({ !$0.state.isFinalState }).first(where: { call in
+                call.uuidForCallKit.uuidString == startCallIntent.identifier ||
+                startCallIntent.contacts?.first(where: { $0.personHandle?.value == call.uuidForCallKit.uuidString }) != nil
+            }) else {
+                return
+            }
+
+            switch startCallIntent.callCapability {
+            case .unknown:
+                break
+            case .audioCall:
+                await userWantsToStopVideoCamera(uuidForCallKit: call.uuidForCallKit)
+            case .videoCall:
+                try? await userWantsToStartVideoCamera(uuidForCallKit: call.uuidForCallKit, preferredPosition: .front)
+            @unknown default:
+                break
+            }
+            
+            return
+            
+        } else {
+            
+            // Create the outgoing call and add it to the list of calls
+            
+            let factory = self.factory ?? ObvPeerConnectionFactory()
+            self.factory = factory
+            let outgoingCall = try await OlvidCall.createOutgoingCall(
+                ownedCryptoId: ownedCryptoId,
+                contactCryptoIds: contactCryptoIds,
+                ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials,
+                groupId: groupId,
+                rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+                factory: factory,
+                delegate: olvidCallDelegate)
+            
+            addCall(outgoingCall)
+
+            // Create a CXStartCallAction and pass it to the CallControllerHolder to inform it about the local user action
+            // Eventually, this manager will be called back in localUserWantsToPerform(_:)
+
+            os_log("☎️ Creating CXStartCallAction for call with uuidForCallKit %{public}@", log: Self.log, type: .info, outgoingCall.uuidForCallKit.uuidString)
+            
+            let handle = CXHandle(type: .generic, value: outgoingCall.uuidForCallKit.uuidString)
+            let startCallAction = CXStartCallAction(call: outgoingCall.uuidForCallKit, handle: handle)
+            // We don't set the startCallAction.contactIdentifier as it is not used by CallKit (to the contrary of what the documentation says).
+            // Instead, in the CallProviderHolderDelegate, we update the call using a CXCallUpdate.
+            startCallAction.isVideo = false
+            let transaction = CXTransaction()
+            transaction.addAction(startCallAction)
+            try await callControllerHolder.callController.request(transaction)
+            
         }
-
-        // Create the outgoing call and add it to the list of calls
         
-        let factory = self.factory ?? ObvPeerConnectionFactory()
-        self.factory = factory
-        let outgoingCall = try await OlvidCall.createOutgoingCall(
-            ownedCryptoId: ownedCryptoId,
-            contactCryptoIds: contactCryptoIds,
-            ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials,
-            groupId: groupId,
-            rtcPeerConnectionQueue: rtcPeerConnectionQueue, 
-            factory: factory,
-            delegate: olvidCallDelegate)
-        
-        addCall(outgoingCall)
-
-        // Create a CXStartCallAction and pass it to the CallControllerHolder to inform it about the local user action
-        // Eventually, this manager will be called back in localUserWantsToPerform(_:)
-
-        os_log("☎️ Creating CXStartCallAction for call with uuidForCallKit %{public}@", log: Self.log, type: .info, outgoingCall.uuidForCallKit.uuidString)
-        
-        let handle = CXHandle(type: .generic, value: outgoingCall.uuidForCallKit.uuidString)
-        let startCallAction = CXStartCallAction(call: outgoingCall.uuidForCallKit, handle: handle)
-        // We don't set the startCallAction.contactIdentifier as it is not used by CallKit (to the contrary of what the documentation says).
-        // Instead, in the CallProviderHolderDelegate, we update the call using a CXCallUpdate.
-        startCallAction.isVideo = false
-        let transaction = CXTransaction()
-        transaction.addAction(startCallAction)
-        try await callControllerHolder.callController.request(transaction)
-
     }
     
 
@@ -668,17 +697,22 @@ extension OlvidCallManager {
         try await callControllerHolder.callController.request(transaction)
     }
 
-    
-    func userWantsToStartOrStopVideoCamera(uuidForCallKit: UUID, start: Bool, preferredPosition: AVCaptureDevice.Position) async throws {
-        os_log("☎️ userWantsToStartOrStopVideoCamera %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
-        guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else {
-            assertionFailure()
-            return
-        }
-        try await call.userWantsToStartOrStopVideoCamera(start: start, preferredPosition: preferredPosition)
+
+    /// Called either from the in house UI or when the user taps the video button in the CallKit UI.
+    func userWantsToStartVideoCamera(uuidForCallKit: UUID, preferredPosition: AVCaptureDevice.Position) async throws {
+        os_log("☎️ userWantsToStartVideoCamera %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
+        guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else { assertionFailure(); return }
+        try await call.userWantsToStartVideoCamera(preferredPosition: preferredPosition)
     }
     
     
+    func userWantsToStopVideoCamera(uuidForCallKit: UUID) async {
+        os_log("☎️ userWantsToStopVideoCamera %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
+        guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else { assertionFailure(); return }
+        await call.userWantsToStopVideoCamera()
+    }
+
+
     func callViewDidDisappear(uuidForCallKit: UUID) async {
         os_log("☎️ callViewDidDisappear %{public}@", log: Self.log, type: .info, uuidForCallKit.uuidString)
         guard let call = callWithCallIdentifierForCallKit(uuidForCallKit) else { return }
@@ -704,7 +738,6 @@ extension OlvidCallManager {
     
     enum ObvError: Error {
         case callNotFound
-        case cannotStartOutgoingCallWhileAnotherCallIsInProgress
         case cannotStartOutgoingCallAsNotCalleeWasSpecified
         case expectingAnIncomingCall
     }

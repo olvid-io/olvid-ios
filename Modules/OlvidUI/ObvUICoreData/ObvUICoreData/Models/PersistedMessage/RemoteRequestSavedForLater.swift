@@ -236,15 +236,17 @@ final class RemoteRequestSavedForLater: NSManagedObject {
                 return
             }
             
-        }
-        
-        // If we reach this point, there are not delete request. We can apply them in order
-        
-        for remoteRequestSavedForLater in remoteRequestsSavedForLater {
+        } else {
             
-            try? remoteRequestSavedForLater.apply(to: message)
-            try? remoteRequestSavedForLater.delete()
-
+            // If we reach this point, there are not delete request. We can apply the other requests in order
+            
+            for remoteRequestSavedForLater in remoteRequestsSavedForLater {
+                
+                try? remoteRequestSavedForLater.apply(to: message)
+                try? remoteRequestSavedForLater.delete()
+                
+            }
+            
         }
 
     }

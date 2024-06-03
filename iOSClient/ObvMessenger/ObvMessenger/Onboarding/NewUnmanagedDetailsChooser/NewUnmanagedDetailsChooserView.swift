@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,6 +37,7 @@ protocol NewUnmanagedDetailsChooserViewActions: AnyObject {
     // the appropriate UI allowing the user to create her profile picture.
     func userWantsToTakePhoto() async -> UIImage?
     func userWantsToChoosePhoto() async -> UIImage?
+    func userWantsToChoosePhotoWithDocumentPicker() async -> UIImage?
 }
 
 
@@ -45,15 +46,15 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
     @ObservedObject var model: Model
     let actions: NewUnmanagedDetailsChooserViewActions
     
-    @State private var firstname = "";
-    @State private var lastname = "";
-    @State private var position = "";
-    @State private var company = "";
+    @State private var firstname = ""
+    @State private var lastname = ""
+    @State private var position = ""
+    @State private var company = ""
     @State private var isButtonDisabled = true
     @State private var isInterfaceDisabled = false
     @State private var photoAlertToShow: PhotoAlertType?
     
-    enum PhotoAlertType {
+    private enum PhotoAlertType {
         case camera
         case photoLibrary
     }
@@ -97,6 +98,13 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
         }
     }
 
+    
+    func userWantsToAddProfilePictureWithDocumentPicker() {
+        Task {
+            guard let image = await actions.userWantsToChoosePhotoWithDocumentPicker() else { return }
+            await model.updatePhoto(with: image)
+        }
+    }
     
     func userWantsToRemoveProfilePicture() {
         Task {
@@ -149,7 +157,9 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
             }
             .padding(.horizontal)
             .disabled(isInterfaceDisabled)
-        }
+        }.onAppear(perform: {
+            isInterfaceDisabled = false
+        })
     }
 }
 
@@ -218,6 +228,10 @@ struct NewUnmanagedDetailsChooserView_Previews: PreviewProvider {
         
         func userWantsToChoosePhoto() async -> UIImage? {
             return UIImage(systemIcon: .checkmarkSealFill)
+        }
+        
+        func userWantsToChoosePhotoWithDocumentPicker() async -> UIImage? {
+            return UIImage(systemIcon: .airpods)
         }
         
         func userDidChooseUnmanagedDetails(ownedIdentityCoreDetails: ObvTypes.ObvIdentityCoreDetails, photo: UIImage?) {}

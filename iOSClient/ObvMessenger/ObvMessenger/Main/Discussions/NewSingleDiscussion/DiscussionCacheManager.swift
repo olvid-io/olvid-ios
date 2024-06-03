@@ -29,12 +29,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     
     private struct HardlinkAndSize: Hashable {
         let hardlink: HardLinkToFyle
-        let size: CGSize
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(hardlink)
-            hasher.combine(size.width)
-            hasher.combine(size.height)
-        }
+        let size: ObvDiscussionThumbnailSize
     }
 
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "DiscussionCacheManager")
@@ -42,7 +37,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     private var imageCache = [HardlinkAndSize: UIImage]()
     private var imageCacheContinuations = [HardlinkAndSize: [CheckedContinuation<UIImage, Error>]]()
     
-    private var dataDetectedCache = [String: UIDataDetectorTypes]()
+    private var dataDetectedCache = [String: [ObvDiscussionDataDetected]]()
     private var dataDetectedCacheCompletions = [String: [(Bool) -> Void]]()
     
     private var linkCache = [String: [URL]]()
@@ -251,15 +246,23 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     }
 
     
-    func getCachedDataDetection(text: String) -> UIDataDetectorTypes? {
-        return dataDetectedCache[text]
+    func getCachedDataDetection(attributedString: AttributedString) -> [ObvDiscussionDataDetected]? {
+        let text = String(attributedString.characters)
+        return getCachedDataDetection(text: text)
     }
 
+    
+    private func getCachedDataDetection(text: String) -> [ObvDiscussionDataDetected]? {
+        return dataDetectedCache[text]
+    }
+    
 
-    func requestDataDetection(text: String, completionWhenDataDetectionCached: @escaping ((Bool) -> Void)) {
+    func requestDataDetection(attributedString: AttributedString, completionWhenDataDetectionCached: @escaping ((Bool) -> Void)) {
         
         assert(Thread.isMainThread)
         
+        let text = String(attributedString.characters)
+                
         if let dataDetected = getCachedDataDetection(text: text) {
             completionWhenDataDetectionCached(!dataDetected.isEmpty)
             return
@@ -272,14 +275,19 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
         } else {
             dataDetectedCacheCompletions[text] = [completionWhenDataDetectionCached]
             internalQueue.async {
-                let dataDetected = text.containsDetectableData()
+                let matches: [ObvDiscussionDataDetected] = text
+                    .detectData()
+                    .compactMap { result in
+                        guard let link = result.getLinkForAttributedString() else { return nil }
+                        return ObvDiscussionDataDetected(range: result.range, resultType: result.resultType, link: link)
+                    }
                 DispatchQueue.main.async { [weak self] in
                     guard let _self = self else { return }
                     assert(_self.dataDetectedCache[text] == nil)
-                    _self.dataDetectedCache[text] = dataDetected
+                    _self.dataDetectedCache[text] = matches
                     guard let completions = _self.dataDetectedCacheCompletions.removeValue(forKey: text) else { assertionFailure(); return }
                     for completion in completions {
-                        completion(!dataDetected.isEmpty)
+                        completion(!matches.isEmpty)
                     }
                 }
             }
@@ -299,22 +307,14 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     }
 
     
-    func getCachedImageForHardlink(hardlink: HardLinkToFyle, size: CGSize) -> UIImage? {
-        if let image = imageCache[HardlinkAndSize(hardlink: hardlink, size: size)] {
-            return image
-        } else {
-            let acceptableImages = imageCache
-                .filter({ $0.key.hardlink == hardlink })
-                .filter({ $0.key.size.width >= size.width })
-                .filter({ $0.key.size.height >= size.height })
-            return acceptableImages.first?.value
-        }
+    func getCachedImageForHardlink(hardlink: HardLinkToFyle, size: ObvDiscussionThumbnailSize) -> UIImage? {
+        imageCache[HardlinkAndSize(hardlink: hardlink, size: size)]
     }
 
     
     /// If this method returns without throwing, a prepared image has been cached for the hardlink at the requested size (or more).
     @MainActor
-    @discardableResult func requestImageForHardlink(hardlink: HardLinkToFyle, size: CGSize) async throws -> UIImage {
+    @discardableResult func requestImageForHardlink(hardlink: HardLinkToFyle, size: ObvDiscussionThumbnailSize) async throws -> UIImage {
         
         let hardlinkAndSize = HardlinkAndSize(hardlink: hardlink, size: size)
         if let image = imageCache[hardlinkAndSize] {
@@ -353,7 +353,12 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
             imageCacheContinuations[hardlinkAndSize] = [] // We are in charge -> this prevents another call to fall in this branch
             
             do {
-                thumbnail = try await url.byPreparingThumbnailPreparedForDisplay(ofSize: size)
+                switch size {
+                case .full(let minSize):
+                    thumbnail = try await url.byPreparingThumbnailPreparedForDisplay(ofSize: minSize)
+                case .cropBottom(mandatoryWidth: let mandatoryWidth, maxHeight: let maxHeight):
+                    thumbnail = try await url.bybyPreparingCropBottomThumbnailPreparedForDisplay(mandatoryWidth: mandatoryWidth, maxHeight: maxHeight)
+                }
             } catch {
                 if let continuations = imageCacheContinuations.removeValue(forKey: hardlinkAndSize) {
                     continuations.forEach({ $0.resume(throwing: error) })
@@ -513,7 +518,7 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
                         var augmentedConfig = configuration.replaceHardLink(with: hardlink)
                         do {
                             let size = CGSize(width: MessageCellConstants.replyToImageSize, height: MessageCellConstants.replyToImageSize)
-                            let thumbnail = try await _self.requestImageForHardlink(hardlink: hardlink, size: size)
+                            let thumbnail = try await _self.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: size))
                             augmentedConfig = augmentedConfig.replaceThumbnail(with: thumbnail)
                         } catch {
                             // We could not get an image corresponding to the hardlink. We return the current config.
@@ -639,14 +644,14 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     
     // MARK: - Images (and thumbnails) for FyleMessageJoinWithStatus
 
-    func getCachedPreparedImage(for objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) -> UIImage? {
+    func getCachedPreparedImage(for objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: ObvDiscussionThumbnailSize) -> UIImage? {
         guard let hardlink = getCachedHardlinkForFyleMessageJoinWithStatus(with: objectID) else { return nil }
         return getCachedImageForHardlink(hardlink: hardlink, size: size)
     }
 
     
     @MainActor
-    func requestPreparedImage(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) async throws {
+    func requestPreparedImage(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: ObvDiscussionThumbnailSize) async throws {
         try await requestHardlinkForFyleMessageJoinWithStatus(with: objectID)
         guard let hardlink = getCachedHardlinkForFyleMessageJoinWithStatus(with: objectID) else { assertionFailure(); throw Self.makeError(message: "Internal error") }
         _ = try await requestImageForHardlink(hardlink: hardlink, size: size)
@@ -662,23 +667,13 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
 
 public extension String {
     
-    func containsDetectableData() -> UIDataDetectorTypes {
-        assert(!Thread.isMainThread)
+    func detectData() -> [NSTextCheckingResult] {
         guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.allTypes.rawValue) else { assertionFailure(); return [] }
         let range = NSRange(location: 0, length: self.utf16.count)
-        let matches = detector.matches(in: self, options: [], range: range)
-        let detectedTypes = matches.map({ $0.resultType })
-        var uiDataDetectorTypes: UIDataDetectorTypes = []
-        for detectedType in detectedTypes {
-            let uiDetectorType = detectedType.equivalentUIDataDetectorType
-            if uiDetectorType == .all {
-                return .all
-            } else if !uiDataDetectorTypes.contains(uiDetectorType) {
-                uiDataDetectorTypes.insert(uiDetectorType)
-            }
-        }
-        return uiDataDetectorTypes
+        let matches = detector.matches(in: self, range: range)
+        return matches
     }
+    
     
     func getHttpsURLs() -> [URL] {
         guard self.lowercased().contains("https") else { return [] }
@@ -697,19 +692,40 @@ public extension String {
 }
 
 
-fileprivate extension NSTextCheckingResult.CheckingType {
-        
-    // Best effort to map self to UIDataDetectorTypes
-    var equivalentUIDataDetectorType: UIDataDetectorTypes {
-        switch self {
+private extension NSTextCheckingResult {
+    
+    /// When data is detected in a string (that will typically be displayed in a message cell), we want to prepare the `NSTextCheckingResult` the best way we
+    /// can to facilitate the work at the cell level. We thus return an URL for each `NSTextCheckingResult` which will be used as a link attribute of the attributed string
+    /// of the cell's text.
+    func getLinkForAttributedString() -> URL? {
+        switch self.resultType {
         case .phoneNumber:
-            return .phoneNumber
-        case .link:
-            return .link
+            var urlComponents = URLComponents()
+            urlComponents.scheme = "tel"
+            urlComponents.host = self.phoneNumber
+            guard let url = urlComponents.url else { assertionFailure(); return nil }
+            return url
         case .address:
-            return .address
+            guard let address = self.addressComponents?.values.map({String($0)}).joined(separator: "+") else { assertionFailure(); return nil }
+            var urlComponents = URLComponents()
+            urlComponents.scheme = "https"
+            urlComponents.host = "maps.apple.com"
+            urlComponents.queryItems = [.init(name: "address", value: address)]
+            guard let url = urlComponents.url else { assertionFailure(); return nil }
+            return url
+        case .date:
+            guard let timeIntervalSinceReferenceDate = self.date?.timeIntervalSinceReferenceDate else { assertionFailure(); return nil }
+            guard let url = URL(string: "calshow:\(timeIntervalSinceReferenceDate)") else { assertionFailure(); return nil }
+            return url
+        case .link:
+            guard let url = self.url else { assertionFailure(); return nil }
+            guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return nil }
+            components.scheme = "https"
+            guard let finalURL = components.url else { assertionFailure(); return nil }
+            return finalURL
         default:
-            return .all
+            assertionFailure()
+            return url
         }
     }
     

@@ -29,7 +29,7 @@ public struct ObvUICoreDataConstants {
     
     public static let seedLengthForHiddenProfiles = 8
     
-    static let appGroupIdentifier = Bundle.main.infoDictionary!["OBV_APP_GROUP_IDENTIFIER"]! as! String
+    public static let appGroupIdentifier = Bundle.main.infoDictionary!["OBV_APP_GROUP_IDENTIFIER"]! as! String
 
     static var isRunningOnRealDevice: Bool {
         #if targetEnvironment(simulator)
@@ -215,18 +215,73 @@ public struct ObvUICoreDataConstants {
 
     // Groups V2
     
-    public static let defaultObvGroupV2PermissionsForNewGroupMembers: Set<ObvGroupV2.Permission> = {
-        Set([
-            ObvGroupV2.Permission.sendMessage,
-            ObvGroupV2.Permission.remoteDeleteAnything,
-            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
-        ])
-    }()
-
-    public static let defaultObvGroupV2PermissionsForAdmin: Set<ObvGroupV2.Permission> = {
-        Set(ObvGroupV2.Permission.allCases)
-    }()
-
+//    public static let defaultObvGroupV2PermissionsForNewGroupMembers: Set<ObvGroupV2.Permission> = {
+//        Set([
+//            ObvGroupV2.Permission.sendMessage,
+//            ObvGroupV2.Permission.remoteDeleteAnything,
+//            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
+//        ])
+//    }()
+//    
+//    public static let defaultObvGroupV2PermissionsForAdmin: Set<ObvGroupV2.Permission> = {
+//        Set([
+//            ObvGroupV2.Permission.sendMessage,
+//            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
+//            ObvGroupV2.Permission.changeSettings,
+//            ObvGroupV2.Permission.groupAdmin
+//        ])
+//    }()
+//
+//    // Groups Simple
+//    public static let defaultObvGroupSimplePermissionsForNewGroupMembers: Set<ObvGroupV2.Permission> = {
+//        Set([
+//            ObvGroupV2.Permission.sendMessage,
+//            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
+//            ObvGroupV2.Permission.changeSettings,
+//            ObvGroupV2.Permission.groupAdmin
+//        ])
+//    }()
+//    
+//    public static let defaultObvGroupSimplePermissionsForAdmin: Set<ObvGroupV2.Permission> = {
+//        Set([
+//            ObvGroupV2.Permission.sendMessage,
+//            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
+//            ObvGroupV2.Permission.changeSettings,
+//            ObvGroupV2.Permission.groupAdmin
+//        ])
+//    }()
+//    
+//    // Groups Private
+//    public static let defaultObvGroupPrivatePermissionsForNewGroupMembers: Set<ObvGroupV2.Permission> = {
+//        Set([
+//            ObvGroupV2.Permission.sendMessage,
+//            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
+//        ])
+//    }()
+//    
+//    public static let defaultObvGroupPrivatePermissionsForAdmin: Set<ObvGroupV2.Permission> = {
+//        Set([
+//            ObvGroupV2.Permission.sendMessage,
+//            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
+//            ObvGroupV2.Permission.changeSettings,
+//            ObvGroupV2.Permission.groupAdmin
+//        ])
+//    }()
+//    
+//    // Groups Read-Only
+//    public static let defaultObvGroupReadOnlyPermissionsForNewGroupMembers: Set<ObvGroupV2.Permission> = {
+//        Set([])
+//    }()
+//    
+//    public static let defaultObvGroupReadOnlyPermissionsForAdmin: Set<ObvGroupV2.Permission> = {
+//        Set([
+//            ObvGroupV2.Permission.sendMessage,
+//            ObvGroupV2.Permission.editOrRemoteDeleteOwnMessages,
+//            ObvGroupV2.Permission.changeSettings,
+//            ObvGroupV2.Permission.groupAdmin
+//        ])
+//    }()
+    
 }
 
 

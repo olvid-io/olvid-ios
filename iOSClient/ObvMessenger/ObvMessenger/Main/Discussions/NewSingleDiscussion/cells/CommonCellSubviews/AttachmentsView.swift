@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,45 +23,17 @@ import CoreData
 import ObvUICoreData
 
 
-@available(iOS 14.0, *)
-final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff {
+final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator, UIViewWithTappableStuff, ViewShowingHardLinks {
     
-    enum Configuration: Equatable, Hashable {
-        // For sent attachments
-        case uploadableOrUploading(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?, progress: Progress)
-        // For received attachments
-        case downloadable(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
-        case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
-        case completeButReadRequiresUserInteraction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>, fileSize: Int, uti: String)
-        case cancelledByServer(fileSize: Int, uti: String, filename: String?)
-        // For received attachments sent from other owned device
-        case downloadableSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
-        case downloadingSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
-        // For both
-        case complete(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?, wasOpened: Bool?)
-        
-        var hardlink: HardLinkToFyle? {
-            switch self {
-            case .complete(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, wasOpened: _),
-                 .uploadableOrUploading(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, progress: _):
-                return hardlink
-            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
-                return nil
-            }
-        }
-    }
 
-    private var currentConfigurations = [Configuration]()
+    private var currentConfigurations = [SingleAttachmentView.Configuration]()
 
     
-    func setConfiguration(_ newConfigurations: [AttachmentsView.Configuration]) {
+    func setConfiguration(_ newConfigurations: [SingleAttachmentView.Configuration]) {
         guard self.currentConfigurations != newConfigurations else { return }
         self.currentConfigurations = newConfigurations
         refresh()
     }
-    
-    
-    private var currentRefreshId = UUID()
     
     
     func getAllShownHardLink() -> [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)] {
@@ -69,9 +41,7 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
         var hardlinks = [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)]()
         for view in mainStack.arrangedSubviews {
             if let attachmentView = view as? SingleAttachmentView {
-                if let hardlink = attachmentView.imageView.hardlink {
-                    hardlinks.append((hardlink, attachmentView.imageView))
-                }
+                hardlinks.append(contentsOf: attachmentView.getAllShownHardLink())
             } else {
                 assertionFailure()
             }
@@ -81,8 +51,6 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
     
     
     private func refresh() {
-        
-        currentRefreshId = UUID()
         
         // Reset all existing single attachment views and make sure there are enough views to handle all the urls
         prepareSingleAttachmentViews(count: currentConfigurations.count)
@@ -94,141 +62,14 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
     }
     
     
-    private func refresh(atIndex index: Int, withConfiguration configuration: Configuration) {
+    private func refresh(atIndex index: Int, withConfiguration configuration: SingleAttachmentView.Configuration) {
         
         guard index < mainStack.arrangedSubviews.count else { assertionFailure(); return }
         guard let singleAttachmentView = mainStack.arrangedSubviews[index] as? SingleAttachmentView else { assertionFailure(); return }
                 
-        let tapToReadView = singleAttachmentView.tapToReadView
-        let fyleProgressView = singleAttachmentView.fyleProgressView
-        let imageView = singleAttachmentView.imageView
-        let titleView = singleAttachmentView.title
-        let subtitleView = singleAttachmentView.subtitle
-        
-        refresh(tapToReadView: tapToReadView,
-                fyleProgressView: fyleProgressView,
-                imageView: imageView,
-                titleView: titleView,
-                subtitleView: subtitleView,
-                withConfiguration: configuration)
+        singleAttachmentView.refresh(withConfiguration: configuration)
         
     }
-
-    
-    private func refresh(tapToReadView: TapToReadView, fyleProgressView: FyleProgressView, imageView: UIImageViewForHardLink, titleView: UILabel, subtitleView: UILabel, withConfiguration configuration: Configuration) {
-        switch configuration {
-        case .uploadableOrUploading(hardlink: let hardlink, thumbnail: let thumbnail, fileSize: let fileSize, uti: let uti, filename: let filename, progress: let progress):
-            tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.uploadableOrUploading(progress: progress))
-            tapToReadView.messageObjectID = nil
-            if let hardlink = hardlink {
-                imageView.setHardlink(newHardlink: hardlink, withImage: thumbnail)
-            } else {
-                imageView.reset()
-            }
-            if let url = hardlink?.hardlinkURL {
-                setTitleOnSubtitleView(titleView, url: url)
-                setSubtitleOnSubtitleView(subtitleView, url: url)
-            } else {
-                setTitleOnSubtitleView(titleView, filename: filename)
-                setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-            }
-        case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
-            tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.downloadable(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
-            tapToReadView.messageObjectID = nil
-            imageView.reset()
-            setTitleOnSubtitleView(titleView, filename: filename)
-            setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-        case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
-            tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.downloadableSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
-            tapToReadView.messageObjectID = nil
-            imageView.reset()
-            setTitleOnSubtitleView(titleView, filename: filename)
-            setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-        case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
-            tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
-            tapToReadView.messageObjectID = nil
-            imageView.reset()
-            setTitleOnSubtitleView(titleView, filename: filename)
-            setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-        case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
-            tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.downloadingSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
-            tapToReadView.messageObjectID = nil
-            imageView.reset()
-            setTitleOnSubtitleView(titleView, filename: filename)
-            setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-        case .completeButReadRequiresUserInteraction(messageObjectID: let messageObjectID, fileSize: let fileSize, uti: let uti):
-            tapToReadView.isHidden = false
-            fyleProgressView.setConfiguration(.complete)
-            tapToReadView.messageObjectID = messageObjectID
-            imageView.reset()
-            setTitleOnSubtitleView(titleView, filename: nil)
-            setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-        case .complete(hardlink: let hardlink, thumbnail: let thumbnail, fileSize: let fileSize, uti: let uti, filename: let filename, wasOpened: _):
-            tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.complete)
-            tapToReadView.messageObjectID = nil
-            if let hardlink = hardlink {
-                imageView.setHardlink(newHardlink: hardlink, withImage: thumbnail)
-            } else {
-                imageView.reset()
-            }
-            if let url = hardlink?.hardlinkURL {
-                setTitleOnSubtitleView(titleView, url: url)
-                setSubtitleOnSubtitleView(subtitleView, url: url)
-            } else {
-                setTitleOnSubtitleView(titleView, filename: filename)
-                setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-            }
-        case .cancelledByServer(fileSize: let fileSize, uti: let uti, filename: let filename):
-            tapToReadView.isHidden = true
-            fyleProgressView.setConfiguration(.cancelled)
-            tapToReadView.messageObjectID = nil
-            imageView.reset()
-            setTitleOnSubtitleView(titleView, filename: filename)
-            setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-        }
-
-    }
-    
-
-    private func setSubtitleOnSubtitleView(_ subtitleView: UILabel, url: URL) {
-        var fileSize = 0
-        if let resources = try? url.resourceValues(forKeys: [.fileSizeKey]) {
-            fileSize = resources.fileSize!
-        }
-        let uti = UTType(filenameExtension: url.pathExtension)?.identifier ?? ""
-        setSubtitleOnSubtitleView(subtitleView, fileSize: fileSize, uti: uti)
-    }
-
-    
-    private func setSubtitleOnSubtitleView(_ subtitleView: UILabel, fileSize: Int, uti: String) {
-        var subtitleElements = [String]()
-        subtitleElements.append(byteCountFormatter.string(fromByteCount: Int64(fileSize)))
-        if let uti = UTType(uti), let type = uti.localizedDescription {
-            subtitleElements.append(type)
-        }
-        let subtitleText = subtitleElements.joined(separator: " - ")
-        if subtitleView.text != subtitleText {
-            subtitleView.text = subtitleText
-        }
-    }
-
-    
-    private func setTitleOnSubtitleView(_ titleView: UILabel, url: URL) {
-        let filename = url.lastPathComponent
-        setTitleOnSubtitleView(titleView, filename: filename)
-    }
-    
-    private func setTitleOnSubtitleView(_ titleView: UILabel, filename: String?) {
-        guard titleView.text != filename else { return }
-        titleView.text = filename
-    }
-
         
     var maskedCorner: UIRectCorner {
         get { bubble.maskedCorner }
@@ -236,11 +77,9 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
     }
 
     
-    private var requestId = UUID()
     private var currentURLs = [URL]()
     private let mainStack = OlvidVerticalStackView(gap: 1, side: .bothSides, debugName: "Attachments view main stack view", showInStack: true)
     private let bubble = BubbleView()
-    private let byteCountFormatter = ByteCountFormatter()
     let expirationIndicator = ExpirationIndicatorView()
     let expirationIndicatorSide: ExpirationIndicatorView.Side
 
@@ -318,17 +157,46 @@ final class AttachmentsView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithE
 }
 
 
-@available(iOS 14.0, *)
-fileprivate final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff {
-    
-    fileprivate let imageView = UIImageViewForHardLink()
-    fileprivate let title = UILabel()
-    fileprivate let subtitle = UILabel()
-    private let labelsBackground = UIView()
-    fileprivate let tapToReadView = TapToReadView(showText: false)
-    fileprivate let fyleProgressView = FyleProgressView()
 
-    private let height = CGFloat(40)
+// MARK: - SingleAttachmentView
+
+final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappableStuff, ViewShowingHardLinks {
+    
+    enum Configuration: Equatable, Hashable {
+        // For sent attachments
+        case uploadableOrUploading(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?, progress: Progress)
+        // For received attachments
+        case downloadable(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
+        case downloading(receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
+        case completeButReadRequiresUserInteraction(messageObjectID: TypeSafeManagedObjectID<PersistedMessageReceived>, fileSize: Int, uti: String)
+        case cancelledByServer(fileSize: Int, uti: String, filename: String?)
+        // For received attachments sent from other owned device
+        case downloadableSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
+        case downloadingSent(sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>, progress: Progress, fileSize: Int, uti: String, filename: String?)
+        // For both
+        case complete(hardlink: HardLinkToFyle?, thumbnail: UIImage?, fileSize: Int, uti: String, filename: String?, wasOpened: Bool?)
+        
+        var hardlink: HardLinkToFyle? {
+            switch self {
+            case .complete(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, wasOpened: _),
+                 .uploadableOrUploading(hardlink: let hardlink, thumbnail: _, fileSize: _, uti: _, filename: _, progress: _):
+                return hardlink
+            case .downloadable, .downloading, .completeButReadRequiresUserInteraction, .cancelledByServer, .downloadableSent, .downloadingSent:
+                return nil
+            }
+        }
+    }
+
+    
+    private let imageView = UIImageViewForHardLink()
+    private let titleLabel = UILabel()
+    private let subtitleLabel = UILabel()
+    private let labelsBackgroundView = UIView()
+    private let tapToReadView = TapToReadView(showText: false)
+    private let fyleProgressView = FyleProgressView()
+
+    /// The recommended size to use when requesting a thumbnail image. The image view size will probably be less than this requested size.
+    static let sizeForRequestingThumbnail = CGSize(width: 100, height: 100)
     
     init() {
         super.init(frame: .zero)
@@ -336,11 +204,11 @@ fileprivate final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappa
     }
 
     func reset() {
-        if self.title.text != nil {
-            self.title.text = nil
+        if self.titleLabel.text != nil {
+            self.titleLabel.text = nil
         }
-        if self.subtitle.text != nil {
-            self.subtitle.text = nil
+        if self.subtitleLabel.text != nil {
+            self.subtitleLabel.text = nil
         }
         self.imageView.reset()
     }
@@ -372,41 +240,54 @@ fileprivate final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappa
         imageView.translatesAutoresizingMaskIntoConstraints = false
         imageView.clipsToBounds = true
         
-        addSubview(labelsBackground)
-        labelsBackground.translatesAutoresizingMaskIntoConstraints = false
-        
-        labelsBackground.addSubview(title)
-        title.translatesAutoresizingMaskIntoConstraints = false
-        title.font = UIFont.preferredFont(forTextStyle: .caption1)
-        title.textColor = .label
-        
-        labelsBackground.addSubview(subtitle)
-        subtitle.translatesAutoresizingMaskIntoConstraints = false
-        subtitle.font = UIFont.preferredFont(forTextStyle: .caption2)
-        subtitle.textColor = .secondaryLabel
+        addSubview(labelsBackgroundView)
+        labelsBackgroundView.translatesAutoresizingMaskIntoConstraints = false
+        labelsBackgroundView.clipsToBounds = true
 
-        addSubview(fyleProgressView)
+        labelsBackgroundView.addSubview(titleLabel)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.font = UIFont.preferredFont(forTextStyle: .subheadline)
+        titleLabel.textColor = .label
+        titleLabel.numberOfLines = 1
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.adjustsFontForContentSizeCategory = true
+
+        labelsBackgroundView.addSubview(subtitleLabel)
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        subtitleLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
+        subtitleLabel.textColor = .secondaryLabel
+        subtitleLabel.numberOfLines = 1
+        subtitleLabel.lineBreakMode = .byTruncatingTail
+        subtitleLabel.adjustsFontForContentSizeCategory = true
+
+        imageView.addSubview(fyleProgressView)
         fyleProgressView.translatesAutoresizingMaskIntoConstraints = false
         
-        addSubview(tapToReadView)
+        imageView.addSubview(tapToReadView)
         tapToReadView.translatesAutoresizingMaskIntoConstraints = false
         tapToReadView.tapToReadLabelTextColor = .label
 
         NSLayoutConstraint.activate([
+            
             imageView.topAnchor.constraint(equalTo: self.topAnchor),
-            imageView.trailingAnchor.constraint(equalTo: labelsBackground.leadingAnchor, constant: -CGFloat(4)),
+            imageView.trailingAnchor.constraint(equalTo: labelsBackgroundView.leadingAnchor, constant: -16),
             imageView.bottomAnchor.constraint(equalTo: self.bottomAnchor),
             imageView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
-            labelsBackground.centerYAnchor.constraint(equalTo: self.centerYAnchor),
-            labelsBackground.trailingAnchor.constraint(equalTo: self.trailingAnchor),
-            title.topAnchor.constraint(equalTo: labelsBackground.topAnchor),
-            title.trailingAnchor.constraint(equalTo: labelsBackground.trailingAnchor),
-            title.bottomAnchor.constraint(equalTo: subtitle.topAnchor, constant: -CGFloat(2)),
-            title.leadingAnchor.constraint(equalTo: labelsBackground.leadingAnchor),
-            subtitle.trailingAnchor.constraint(equalTo: labelsBackground.trailingAnchor),
-            subtitle.bottomAnchor.constraint(equalTo: labelsBackground.bottomAnchor),
-            subtitle.leadingAnchor.constraint(equalTo: labelsBackground.leadingAnchor),
             
+            imageView.widthAnchor.constraint(equalTo: imageView.heightAnchor),
+            
+            labelsBackgroundView.topAnchor.constraint(equalTo: self.topAnchor, constant: 16),
+            labelsBackgroundView.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -16),
+            labelsBackgroundView.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -16),
+            
+            titleLabel.topAnchor.constraint(equalTo: labelsBackgroundView.topAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: labelsBackgroundView.leadingAnchor),
+            
+            titleLabel.bottomAnchor.constraint(equalTo: subtitleLabel.topAnchor, constant: -4),
+
+            subtitleLabel.bottomAnchor.constraint(equalTo: labelsBackgroundView.bottomAnchor),
+            subtitleLabel.leadingAnchor.constraint(equalTo: labelsBackgroundView.leadingAnchor),
+
             fyleProgressView.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
             fyleProgressView.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
 
@@ -416,14 +297,160 @@ fileprivate final class SingleAttachmentView: ViewForOlvidStack, UIViewWithTappa
         ])
         
         let sizeConstraints = [
-            imageView.widthAnchor.constraint(equalToConstant: MessageCellConstants.attachmentIconSize),
-            imageView.heightAnchor.constraint(equalToConstant: MessageCellConstants.attachmentIconSize),
             tapToReadView.widthAnchor.constraint(equalToConstant: MessageCellConstants.attachmentIconSize),
             tapToReadView.heightAnchor.constraint(equalToConstant: MessageCellConstants.attachmentIconSize),
             self.widthAnchor.constraint(equalToConstant: MessageCellConstants.singleAttachmentViewWidth),
         ]
         NSLayoutConstraint.activate(sizeConstraints)
-
+        
+        // The following constraints allow to make sure that the labels don't extend behond their container (the labelsBackgroundView).
+        // We need to set their compression resistance to low, as we don't want their intrinsic content size to define their width if it is too large.
+        
+        let labelWidthConstraints = [
+            titleLabel.widthAnchor.constraint(lessThanOrEqualTo: labelsBackgroundView.widthAnchor),
+            subtitleLabel.widthAnchor.constraint(lessThanOrEqualTo: labelsBackgroundView.widthAnchor),
+        ]
+        labelWidthConstraints.forEach({ $0.isActive = true })
+        
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        subtitleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        
+        // We want the labels to define the height of the view. We set their hugging priority to high, so that the final height of the view is as small as possible
+        // while respecting all the other constraints. We also must set the compression resistance of the image view to low, in order to make sure
+        // that the intrinsinc content size of the view (which will be the size of the requested thumbnail) won't impact the height of the whole view.
+        
+        titleLabel.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        subtitleLabel.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        
     }
     
+    
+    fileprivate func refresh(withConfiguration configuration: Configuration) {
+        switch configuration {
+        case .uploadableOrUploading(hardlink: let hardlink, thumbnail: let thumbnail, fileSize: let fileSize, uti: let uti, filename: let filename, progress: let progress):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.uploadableOrUploading(progress: progress))
+            tapToReadView.messageObjectID = nil
+            if let hardlink = hardlink {
+                imageView.setHardlink(newHardlink: hardlink, withImage: thumbnail)
+            } else {
+                imageView.reset()
+            }
+            if let url = hardlink?.hardlinkURL {
+                setTitleOnSubtitleView(url: url)
+                setSubtitleOnSubtitleView(url: url)
+            } else {
+                setTitleOnSubtitleView(filename: filename)
+                setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+            }
+        case .downloadable(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadable(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(filename: filename)
+            setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+        case .downloadableSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadableSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(filename: filename)
+            setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+        case .downloading(receivedJoinObjectID: let receivedJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloading(receivedJoinObjectID: receivedJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(filename: filename)
+            setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+        case .downloadingSent(sentJoinObjectID: let sentJoinObjectID, progress: let progress, fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.downloadingSent(sentJoinObjectID: sentJoinObjectID, progress: progress))
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(filename: filename)
+            setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+        case .completeButReadRequiresUserInteraction(messageObjectID: let messageObjectID, fileSize: let fileSize, uti: let uti):
+            tapToReadView.isHidden = false
+            fyleProgressView.setConfiguration(.complete)
+            tapToReadView.messageObjectID = messageObjectID
+            imageView.reset()
+            setTitleOnSubtitleView(filename: nil)
+            setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+        case .complete(hardlink: let hardlink, thumbnail: let thumbnail, fileSize: let fileSize, uti: let uti, filename: let filename, wasOpened: _):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.complete)
+            tapToReadView.messageObjectID = nil
+            if let hardlink = hardlink {
+                imageView.setHardlink(newHardlink: hardlink, withImage: thumbnail)
+            } else {
+                imageView.reset()
+            }
+            if let url = hardlink?.hardlinkURL {
+                setTitleOnSubtitleView(url: url)
+                setSubtitleOnSubtitleView(url: url)
+            } else {
+                setTitleOnSubtitleView(filename: filename)
+                setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+            }
+        case .cancelledByServer(fileSize: let fileSize, uti: let uti, filename: let filename):
+            tapToReadView.isHidden = true
+            fyleProgressView.setConfiguration(.cancelled)
+            tapToReadView.messageObjectID = nil
+            imageView.reset()
+            setTitleOnSubtitleView(filename: filename)
+            setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+        }
+
+    }
+
+    
+    private func setSubtitleOnSubtitleView(url: URL) {
+        var fileSize = 0
+        if let resources = try? url.resourceValues(forKeys: [.fileSizeKey]) {
+            fileSize = resources.fileSize!
+        }
+        let uti = UTType(filenameExtension: url.pathExtension)?.identifier ?? ""
+        setSubtitleOnSubtitleView(fileSize: fileSize, uti: uti)
+    }
+
+    
+    private func setSubtitleOnSubtitleView(fileSize: Int, uti: String) {
+        var subtitleElements = [String]()
+        subtitleElements.append(Int64(fileSize).formatted(.byteCount(style: .file, allowedUnits: .all, spellsOutZero: true, includesActualByteCount: false)))
+        if let uti = UTType(uti), let type = uti.localizedDescription {
+            subtitleElements.append(type)
+        }
+        let subtitleText = subtitleElements.joined(separator: " - ")
+        if subtitleLabel.text != subtitleText {
+            subtitleLabel.text = subtitleText
+        }
+    }
+
+    
+    private func setTitleOnSubtitleView(url: URL) {
+        let filename = url.lastPathComponent
+        setTitleOnSubtitleView(filename: filename)
+    }
+    
+    
+    private func setTitleOnSubtitleView(filename: String?) {
+        guard titleLabel.text != filename else { return }
+        titleLabel.text = filename
+    }
+
+    
+    func getAllShownHardLink() -> [(hardlink: HardLinkToFyle, viewShowingHardLink: UIView)] {
+        guard showInStack else { return [] }
+        if let hardlink = imageView.hardlink {
+            return [(hardlink, imageView)]
+        } else {
+            return []
+        }
+    }
+
 }

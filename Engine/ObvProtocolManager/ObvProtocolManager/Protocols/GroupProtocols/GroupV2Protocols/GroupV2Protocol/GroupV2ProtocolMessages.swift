@@ -118,25 +118,30 @@ extension GroupV2Protocol {
         let otherGroupMembers: Set<GroupV2.IdentityAndPermissions>
         let serializedGroupCoreDetails: Data // Serialized GroupV2.CoreDetails
         let photoURL: URL?
+        let serializedGroupType: Data // Serialized ObvGroupType
         
         // Init when sending this message
 
-        init(coreProtocolMessage: CoreProtocolMessage, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?) {
+        init(coreProtocolMessage: CoreProtocolMessage, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, serializedGroupType: Data) {
             self.coreProtocolMessage = coreProtocolMessage
             self.ownRawPermissions = ownRawPermissions
             self.otherGroupMembers = otherGroupMembers
             self.serializedGroupCoreDetails = serializedGroupCoreDetails
             self.photoURL = photoURL
+            self.serializedGroupType = serializedGroupType
         }
 
         var encodedInputs: [ObvEncoded] {
             let encodedOwnRawPermissions = (ownRawPermissions.map { $0.obvEncode() }).obvEncode()
             let encodedMembers = (otherGroupMembers.map { $0.obvEncode() }).obvEncode()
             let encodedCoreDetails = serializedGroupCoreDetails.obvEncode()
-            var encodedValues = [encodedOwnRawPermissions, encodedMembers, encodedCoreDetails]
+            let encodedGroupType = serializedGroupType.obvEncode()
+            
+            var encodedValues = [encodedOwnRawPermissions, encodedMembers, encodedCoreDetails, encodedGroupType]
             if let photoURL = photoURL {
                 encodedValues.append(photoURL.obvEncode())
             }
+            
             return encodedValues
         }
         
@@ -144,7 +149,7 @@ extension GroupV2Protocol {
 
         init(with message: ReceivedMessage) throws {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
-            guard message.encodedInputs.count == 3 || message.encodedInputs.count == 4 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
+            guard message.encodedInputs.count == 4 || message.encodedInputs.count == 5 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded inputs") }
             let encodedOwnRawPermissions = message.encodedInputs[0]
             guard let listOfEncodedOwnRawPermissions = [ObvEncoded](encodedOwnRawPermissions) else { throw Self.makeError(message: "Could not decode list of encoded own permissions") }
             self.ownRawPermissions = try Set(listOfEncodedOwnRawPermissions.map { try $0.obvDecode() })
@@ -153,8 +158,10 @@ extension GroupV2Protocol {
             self.otherGroupMembers = try Set(listOfEncodedMembers.map { try $0.obvDecode() })
             let encodedCoreDetails = message.encodedInputs[2]
             self.serializedGroupCoreDetails = try encodedCoreDetails.obvDecode()
-            if message.encodedInputs.count > 3 {
-                let encodedPhotoURL = message.encodedInputs[3]
+            let encodedGroupType = message.encodedInputs[3]
+            self.serializedGroupType = try encodedGroupType.obvDecode()
+            if message.encodedInputs.count > 4 {
+                let encodedPhotoURL = message.encodedInputs[4]
                 self.photoURL = try encodedPhotoURL.obvDecode()
             } else {
                 self.photoURL = nil

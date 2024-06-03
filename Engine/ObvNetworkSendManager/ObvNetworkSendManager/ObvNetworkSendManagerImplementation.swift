@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,6 +19,7 @@
 
 import Foundation
 import os.log
+import Network
 import OlvidUtils
 import ObvTypes
 import ObvCrypto
@@ -35,6 +36,9 @@ public final class ObvNetworkSendManagerImplementation: ObvNetworkPostDelegate, 
         delegateManager.prependLogSubsystem(with: prefix)
     }
     
+    private let nwPathMonitor = NWPathMonitor()
+    private var lastNWPathStatus: NWPath.Status?
+
     // MARK: Instance variables
     
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvNetworkSendManagerImplementation")
@@ -53,24 +57,27 @@ public final class ObvNetworkSendManagerImplementation: ObvNetworkPostDelegate, 
     
     // MARK: Initialiser
     
-    public init(outbox: URL, sharedContainerIdentifier: String, appType: AppType, supportBackgroundFetch: Bool = false) {
+    public init(outbox: URL, sharedContainerIdentifier: String, appType: AppType, logPrefix: String, supportBackgroundFetch: Bool = false) {
         self.bootstrapWorker = BootstrapWorker(appType: appType, outbox: outbox)
         self.appType = appType
         let networkSendFlowCoordinator = NetworkSendFlowCoordinator(outbox: outbox)
         let uploadMessageAndGetUidsCoordinator = UploadMessageAndGetUidsCoordinator()
         let uploadAttachmentChunksCoordinator = UploadAttachmentChunksCoordinator(appType: appType, sharedContainerIdentifier: sharedContainerIdentifier, outbox: outbox)
         let tryToDeleteMessageAndAttachmentsCoordinator = TryToDeleteMessageAndAttachmentsCoordinator()
+        let batchUploadMessagesWithoutAttachmentCoordinator = BatchUploadMessagesWithoutAttachmentCoordinator(logPrefix: logPrefix)
         delegateManager = ObvNetworkSendDelegateManager(sharedContainerIdentifier: sharedContainerIdentifier,
                                                         supportBackgroundFetch: supportBackgroundFetch,
                                                         networkSendFlowDelegate: networkSendFlowCoordinator,
                                                         uploadMessageAndGetUidsDelegate: uploadMessageAndGetUidsCoordinator,
                                                         uploadAttachmentChunksDelegate: uploadAttachmentChunksCoordinator,
-                                                        tryToDeleteMessageAndAttachmentsDelegate: tryToDeleteMessageAndAttachmentsCoordinator)
+                                                        tryToDeleteMessageAndAttachmentsDelegate: tryToDeleteMessageAndAttachmentsCoordinator,
+                                                        batchUploadMessagesWithoutAttachmentDelegate: batchUploadMessagesWithoutAttachmentCoordinator)
         networkSendFlowCoordinator.delegateManager = delegateManager
         uploadMessageAndGetUidsCoordinator.delegateManager = delegateManager
         uploadAttachmentChunksCoordinator.delegateManager = delegateManager
         tryToDeleteMessageAndAttachmentsCoordinator.delegateManager = delegateManager
         bootstrapWorker.delegateManager = delegateManager
+        Task { await batchUploadMessagesWithoutAttachmentCoordinator.setDelegateManager(delegateManager) }
     }
 }
 
@@ -115,6 +122,7 @@ extension ObvNetworkSendManagerImplementation {
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
         if forTheFirstTime {
             delegateManager.networkSendFlowDelegate.resetAllFailedSendAttempsCountersAndRetrySending()
+            monitorNetworkChanges()
         }
         await bootstrapWorker.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
     }
@@ -122,6 +130,28 @@ extension ObvNetworkSendManagerImplementation {
 
 }
 
+// MARK: - Monitor Network Path Status
+
+extension ObvNetworkSendManagerImplementation {
+    
+    private func monitorNetworkChanges() {
+        nwPathMonitor.start(queue: DispatchQueue(label: "NetworkSendMonitor"))
+        nwPathMonitor.pathUpdateHandler = self.networkPathDidChange
+    }
+    
+    
+    private func networkPathDidChange(nwPath: NWPath) {
+        // The nwPath status changes very early during the network status change. This is the reason why we wait before trying to reconnect. This is not bullet proof though, as the `networkPathDidChange` method does not seem to be called at every network change... This is unfortunate. Last but not least, it is very hard to work with nwPath.status so we don't even look at it.
+        guard lastNWPathStatus != nwPath.status else { return }
+        lastNWPathStatus = nwPath.status
+        if nwPath.status == .satisfied {
+            Task {
+                await delegateManager.batchUploadMessagesWithoutAttachmentDelegate.resetDelaysOnSatisfiedNetworkPath()
+            }
+        }
+    }
+    
+}
 
 // MARK: - Implementing ObvNetworkPostDelegate
 

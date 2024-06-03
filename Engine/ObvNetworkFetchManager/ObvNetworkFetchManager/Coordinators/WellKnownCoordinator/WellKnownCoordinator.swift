@@ -31,6 +31,7 @@ protocol WellKnownCacheDelegate: AnyObject {
     func initializateCache(flowId: FlowIdentifier) async throws
     func downloadAndUpdateCache(flowId: FlowIdentifier) async throws
     func getTurnURLs(for server: URL, flowId: FlowIdentifier) async throws -> Result<[String], WellKnownCacheError>
+    func getWebSocketURL(for server: URL, flowId: FlowIdentifier) async throws -> URL
     func queryServerWellKnown(serverURL: URL, flowId: FlowIdentifier) async throws
 
 }
@@ -168,6 +169,29 @@ extension WellKnownCoordinator: WellKnownCacheDelegate {
             return .success(wellKnown.serverConfig.turnServerURLs)
         }
 
+    }
+    
+    
+    func getWebSocketURL(for server: URL, flowId: FlowIdentifier) async throws -> URL {
+        
+        guard let delegateManager = delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+
+        try await initializateCache(flowId: flowId)
+
+        if let wellKnown = wellKnownCache[server] {
+            return wellKnown.serverConfig.webSocketURL
+        } else {
+            let (wellKnown, isUpdated) = await downloadAndCacheWellKnownFromServer(serverURL: server, delegateManager: delegateManager, flowId: flowId)
+            Task {
+                notifyDelegateAboutCachedWellKnown(server: server, wellKnown: wellKnown, isUpdated: isUpdated, delegateManager: delegateManager, flowId: flowId)
+            }
+            return wellKnown.serverConfig.webSocketURL
+        }
+        
     }
 
 

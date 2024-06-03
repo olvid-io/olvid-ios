@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,7 +33,7 @@ public final class ObvServerUploadMessageAndGetUidsMethod: ObvServerDataMethod {
     
     public let serverURL: URL
     
-    public let ownedIdentity: ObvCryptoIdentity
+    public let ownedIdentity: ObvCryptoIdentity?
     private let encryptedAttachments: [(length: Int, chunkLength: Int)]
     private let encryptedExtendedMessagePayload: EncryptedData?
     private let headers: [(deviceUid: UID, wrappedKey: EncryptedData, toIdentity: ObvCryptoIdentity)]

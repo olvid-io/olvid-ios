@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,7 +22,7 @@ import QuickLookThumbnailing
 import CoreData
 import ObvUICoreData
 
-@available(iOS 14.0, *)
+
 fileprivate extension AudioPlayerView.Configuration {
 
     var canReadAudio: Bool {
@@ -76,10 +76,10 @@ protocol AudioPlayerViewDelegate: AnyObject {
     func audioHasBeenPlayed(_: HardLinkToFyle)
 }
 
-@available(iOS 14.0, *)
+
 final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWithExpirationIndicator, ViewShowingHardLinks, UIViewWithTappableStuff {
 
-    typealias Configuration = AttachmentsView.Configuration
+    typealias Configuration = SingleAttachmentView.Configuration
 
     private var currentConfiguration: Configuration?
 
@@ -99,7 +99,6 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
     private let title = UILabel()
     private let subtitle = UILabel()
     private let durationLabel = UILabel()
-    private let byteCountFormatter = ByteCountFormatter()
     private let speakerButton = UIButton(type: .custom)
     private let badge = UIImageView(image: UIImage(systemIcon: .circleFill))
 
@@ -228,7 +227,7 @@ final class AudioPlayerView: ViewForOlvidStack, ObvAudioPlayerDelegate, ViewWith
 
     private func setSubtitle(fileSize: Int, uti: String) {
         var subtitleElements = [String]()
-        subtitleElements.append(byteCountFormatter.string(fromByteCount: Int64(fileSize)))
+        subtitleElements.append(Int64(fileSize).formatted(.byteCount(style: .file, allowedUnits: .all, spellsOutZero: true, includesActualByteCount: false)))
         if let uti = UTType(uti), let type = uti.localizedDescription {
             subtitleElements.append(type)
         }

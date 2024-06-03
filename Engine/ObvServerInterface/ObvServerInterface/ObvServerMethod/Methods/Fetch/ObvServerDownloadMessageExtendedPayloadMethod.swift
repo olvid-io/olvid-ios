@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,9 +32,9 @@ public final class ObvServerDownloadMessageExtendedPayloadMethod: ObvServerDataM
     
     public let pathComponent = "/downloadMessageExtendedContent"
     
-    public var serverURL: URL { ownedIdentity.serverURL }
+    public let serverURL: URL
     
-    public var ownedIdentity: ObvCryptoIdentity { messageId.ownedCryptoIdentity }
+    public var ownedIdentity: ObvCryptoIdentity? { messageId.ownedCryptoIdentity }
 
     private let messageId: ObvMessageIdentifier
     private let token: Data
@@ -47,6 +47,7 @@ public final class ObvServerDownloadMessageExtendedPayloadMethod: ObvServerDataM
         self.messageId = messageId
         self.flowId = flowId
         self.token = token
+        self.serverURL = messageId.ownedCryptoIdentity.serverURL
     }
     
     private enum PossibleReturnRawStatus: UInt8 {

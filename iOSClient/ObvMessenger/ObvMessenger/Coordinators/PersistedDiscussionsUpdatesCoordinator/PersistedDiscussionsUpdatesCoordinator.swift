@@ -938,7 +938,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
             
             if contactGroupHasAtLeastOneRemoteContactDevice {
                 let sentMessages = groupDiscussion.messages.compactMap { $0 as? PersistedMessageSent }
-                let objectIDOfUnprocessedMessages = sentMessages.filter({ $0.status == .unprocessed || $0.status == .processing }).map({ $0.objectPermanentID })
+                let objectIDOfUnprocessedMessages = sentMessages.filter({ $0.status == .unprocessed || $0.status == .processing }).compactMap({ $0.objectPermanentID })
                 let ops: [(ComputeExtendedPayloadOperation, SendUnprocessedPersistedMessageSentOperation)] = objectIDOfUnprocessedMessages.map({
                     let op1 = ComputeExtendedPayloadOperation(messageSentPermanentID: $0)
                     let op2 = SendUnprocessedPersistedMessageSentOperation(messageSentPermanentID: $0, alsoPostToOtherOwnedDevices: false, extendedPayloadProvider: op1, obvEngine: obvEngine)
@@ -1014,14 +1014,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         var operationsToQueue = [OperationKind]()
         
-        switch deletionType {
-        case .local:
-            break // We will do the work below
-        case .global:
-            let op = SendGlobalDeleteMessagesJSONOperation(persistedMessageObjectIDs: [persistedMessageObjectID], obvEngine: obvEngine)
-            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
-            operationsToQueue.append(.engineCall(op: op))
-        }
+        let op = SendGlobalDeleteMessagesJSONOperation(persistedMessageObjectIDs: [persistedMessageObjectID], deletionType: deletionType, obvEngine: obvEngine)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        operationsToQueue.append(.engineCall(op: op))
         
         do {
             let op1 = DetermineEngineIdentifiersOfMessagesToCancelOperation(input: .messages(persistedMessageObjectIDs: [persistedMessageObjectID]), obvEngine: obvEngine)
@@ -1066,15 +1061,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
         cleanJsonMessagesSavedByNotificationExtension()
         
         var operationsToQueue = [OperationKind]()
-        
-        switch deletionType {
-        case .local:
-            break
-        case .global:
-            let op = SendGlobalDeleteDiscussionJSONOperation(persistedDiscussionObjectID: discussionObjectID.objectID, obvEngine: obvEngine)
-            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
-            operationsToQueue.append(.engineCall(op: op))
-        }
+
+        let op = SendGlobalDeleteDiscussionJSONOperation(persistedDiscussionObjectID: discussionObjectID.objectID, deletionType: deletionType, obvEngine: obvEngine)
+        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+        operationsToQueue.append(.engineCall(op: op))
         
         do {
             let op1 = DetermineEngineIdentifiersOfMessagesToCancelOperation(
@@ -1700,8 +1690,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
             
         case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
             
+            os_log("🧦 The received message belongs to a group we couldn't find in database", log: Self.log, type: .debug)
+
             if Date.now.timeIntervalSince(obvMessage.localDownloadTimestamp) < ObvMessengerConstants.maximumTimeIntervalForKeptForLaterMessages {
                 
+                os_log("🧦 Since the message is young enough, we keep for later, until the group is hopefully created", log: Self.log, type: .debug)
+
                 await messagesKeptForLaterManager.keepForLater(
                     .obvMessageForGroupV2(
                         groupIdentifier: groupIdentifier,
@@ -1710,6 +1704,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
             } else {
                 
+                os_log("🧦 Since the message is old, we don't wait until the group is created and request its deletion to the engine", log: Self.log, type: .debug)
+
                 notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
 
             }
@@ -2374,7 +2370,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     private func processUserWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ObvCryptoId, objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>) {
         var operationsToQueue = [Operation]()
         do {
-            let op1 = WipeFyleMessageJoinsWithStatusOperation(joinObjectIDs: objectIDs, ownedCryptoId: ownedCryptoId, deletionType: .local)
+            let op1 = WipeFyleMessageJoinsWithStatusOperation(joinObjectIDs: objectIDs, ownedCryptoId: ownedCryptoId, deletionType: .fromThisDeviceOnly)
             let op2 = DeletePersistedMessagesOperation(operationProvidingPersistedMessageObjectIDsToDelete: op1)
             let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
             operationsToQueue.append(composedOp)
@@ -2625,6 +2621,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
             switch result {
             case .sentMessageCreated(attachmentsProcessingRequest: let attachmentsProcessingRequest):
                 return .done(attachmentsProcessingRequest: attachmentsProcessingRequest)
+            case .remoteDeleteRequestSavedForLaterWasApplied:
+                return .done(attachmentsProcessingRequest: .deleteAll)
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .sentMessageCreationFailure:
@@ -3304,6 +3302,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case sentMessageCreated(attachmentsProcessingRequest: ObvAttachmentsProcessingRequest)
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
         case sentMessageCreationFailure
+        case remoteDeleteRequestSavedForLaterWasApplied
     }
 
     /// This method *must* be called from ``PersistedDiscussionsUpdatesCoordinator.processReceivedObvOwnedMessage(_:completionHandler:)``.
@@ -3329,19 +3328,23 @@ extension PersistedDiscussionsUpdatesCoordinator {
             return .sentMessageCreationFailure
         }
         
+        let messageSentPermanentId: MessageSentPermanentID
+        
         switch op1.result {
         case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
             return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
         case nil:
             assertionFailure()
             return .sentMessageCreationFailure
-        case .sentMessageCreated:
-            break
+        case .remoteDeleteRequestSavedForLaterWasApplied:
+            return .remoteDeleteRequestSavedForLaterWasApplied
+        case .sentMessageCreated(messageSentPermanentId: let _messageSentPermanentId):
+            messageSentPermanentId = _messageSentPermanentId
         }
 
         // If we reach this point, the message was properly created. We can determine the attachments to download now.
 
-        let downloadOp = DetermineAttachmentsProcessingRequestForMessageSentOperation(kind: .allAttachmentsOfMessage(op: op1))
+        let downloadOp = DetermineAttachmentsProcessingRequestForMessageSentOperation(kind: .allAttachmentsOfMessage(messageSentPermanentId: messageSentPermanentId))
         await queueAndAwaitCompositionOfOneContextualOperation(op1: downloadOp)
 
         assert(downloadOp.isFinished && !downloadOp.isCancelled)

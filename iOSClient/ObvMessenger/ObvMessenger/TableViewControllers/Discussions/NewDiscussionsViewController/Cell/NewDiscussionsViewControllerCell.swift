@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -117,8 +117,6 @@ fileprivate struct DiscussionsListCellContentView: View {
                     Text(viewModel.subtitle)
                         .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
                         .lineLimit(2)
-                        .font(.subheadline)
-                        .italic(viewModel.isSubtitleInItalics)
                     Spacer()
                     HStack(alignment: .center, spacing: 0) {
                         if viewModel.aNewReceivedMessageDoesMentionOwnedIdentity {

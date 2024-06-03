@@ -28,9 +28,7 @@ import ObvDesignSystem
 
 
 @MainActor
-final class PrivacyTableViewController: UITableViewController, ObvErrorMaker {
-
-    static let errorDomain = "PrivacyTableViewController"
+final class PrivacyTableViewController: UITableViewController {
 
     let ownedCryptoId: ObvCryptoId
 

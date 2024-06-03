@@ -212,7 +212,7 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         throw Self.makeError(message: "getInitialMessageForOneStatusSyncRequest does nothing in this dummy implementation")
     }
     
-    public func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+    public func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, serializedGroupType: Data, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         os_log("getInitiateGroupCreationMessageForGroupV2Protocol does nothing in this dummy implementation", log: log, type: .error)
         throw ObvProtocolManagerDummy.makeError(message: "getInitiateGroupCreationMessageForGroupV2Protocol does nothing in this dummy implementation")
     }

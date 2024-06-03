@@ -16,20 +16,17 @@ public enum Constants {
 
     public static let iOSDeploymentTargetVersion = "15.5"
 
-    public static let iOSDeploymentDevices: DeploymentDevice = [.iphone, .ipad, .mac]
+    public static let destinations: Destinations = Set([Destination.iPhone, .iPad, .macCatalyst])
 
-    public static let deploymentTarget: DeploymentTarget = .iOS(
-        targetVersion: Constants.iOSDeploymentTargetVersion,
-        devices: Constants.iOSDeploymentDevices,
-        supportsMacDesignedForIOS: false)
-
+    public static let deploymentTargets = DeploymentTargets(iOS: "15.5")
+    
     static let developmentTeam = ""
 
-    static let marketingVersion = "2.1"
+    static let marketingVersion = "2.4"
 
     static var buildNumber: String {
         get throws {
-            return "757"
+            return "778"
         }
     }
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,14 +32,6 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
     // MARK: Internal constants
     
     static let entityName = "OutboxAttachment"
-    private static let attachmentNumberKey = "attachmentNumber"
-    private static let cancelExternallyRequestedKey = "cancelExternallyRequested"
-    private static let messageKey = "message"
-    private static let chunksKey = "chunks"
-    private static let sessionKey = "session"
-    private static let rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
-    private static let rawMessageIdUidKey = "rawMessageIdUid"
-    private static let messageUploadedKey = [messageKey, OutboxMessage.Predicate.Key.uploaded.rawValue].joined(separator: ".")
 
     private static let errorDomain = "OutboxAttachment"
     
@@ -63,38 +55,38 @@ final class OutboxAttachment: NSManagedObject, ObvManagedObject {
     
     private(set) var chunks: [OutboxAttachmentChunk] {
         get {
-            let items: [OutboxAttachmentChunk] = (kvoSafePrimitiveValue(forKey: OutboxAttachment.chunksKey) as? Set<OutboxAttachmentChunk>)?
+            let items: [OutboxAttachmentChunk] = (kvoSafePrimitiveValue(forKey: Predicate.Key.chunks.rawValue) as? Set<OutboxAttachmentChunk>)?
                 .sorted(by: { $0.chunkNumber < $1.chunkNumber }) ?? []
             for item in items { item.obvContext = self.obvContext }
             return items
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OutboxAttachment.chunksKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.chunks.rawValue)
         }
     }
 
     // We do not expect the message to be nil, since this attachment is cascade deleted
     private(set) var message: OutboxMessage? {
         get {
-            let item = kvoSafePrimitiveValue(forKey: OutboxAttachment.messageKey) as? OutboxMessage
+            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.message.rawValue) as? OutboxMessage
             item?.obvContext = self.obvContext
             return item
         }
         set {
             guard let value = newValue, let messageId = value.messageId else { assertionFailure(); return }
             self.messageId = messageId
-            kvoSafeSetPrimitiveValue(value, forKey: OutboxAttachment.messageKey)
+            kvoSafeSetPrimitiveValue(value, forKey: Predicate.Key.message.rawValue)
         }
     }
     
     private(set) var session: OutboxAttachmentSession? {
         get {
-            let item = kvoSafePrimitiveValue(forKey: OutboxAttachment.sessionKey) as? OutboxAttachmentSession
+            let item = kvoSafePrimitiveValue(forKey: Predicate.Key.session.rawValue) as? OutboxAttachmentSession
             item?.obvContext = self.obvContext
             return item
         }
         set {
-            kvoSafeSetPrimitiveValue(newValue, forKey: OutboxAttachment.sessionKey)
+            kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.session.rawValue)
         }
     }
 
@@ -286,6 +278,55 @@ extension OutboxAttachment {
 // MARK: - Convenience DB getters
 extension OutboxAttachment {
     
+    struct Predicate {
+        
+        enum Key: String {
+            // Attributes
+            case attachmentLength = "attachmentLength"
+            case attachmentNumber = "attachmentNumber"
+            case cancelExternallyRequested = "cancelExternallyRequested"
+            case deleteAfterSend = "deleteAfterSend"
+            case encodedAuthenticatedEncryptionKey = "encodedAuthenticatedEncryptionKey"
+            case fileURL = "fileURL"
+            case rawMessageIdOwnedIdentity = "rawMessageIdOwnedIdentity"
+            case rawMessageIdUid = "rawMessageIdUid"
+            // Relationships
+            case chunks = "chunks"
+            case message = "message"
+            case session = "session"
+        }
+        
+        static func whereCancelExternallyRequested(is bool: Bool) -> NSPredicate {
+            NSPredicate(Key.cancelExternallyRequested, is: bool)
+        }
+        
+        static func withAttachmentIdentifier(_ attachmentId: ObvAttachmentIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: attachmentId.messageId.ownedCryptoIdentity.getIdentity()),
+                NSPredicate(Key.rawMessageIdUid, EqualToData: attachmentId.messageId.uid.raw),
+                NSPredicate(Key.attachmentNumber, EqualToInt: attachmentId.attachmentNumber),
+            ])
+        }
+        
+        static var withNonNilOutboxMessage: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.message)
+        }
+
+        static var withNilOutboxMessage: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.message)
+        }
+
+        static var withNilSession: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.session)
+        }
+        
+        static var withUploadedMessage: NSPredicate {
+            let messageUploadedKey = [Key.message.rawValue, OutboxMessage.Predicate.Key.uploaded.rawValue].joined(separator: ".")
+            return NSPredicate(messageUploadedKey, is: true)
+        }
+        
+    }
+
     @nonobjc class func fetchRequest() -> NSFetchRequest<OutboxAttachment> {
         return NSFetchRequest<OutboxAttachment>(entityName: OutboxAttachment.entityName)
     }
@@ -293,11 +334,9 @@ extension OutboxAttachment {
     
     static func get(attachmentId: ObvAttachmentIdentifier, within obvContext: ObvContext) throws -> OutboxAttachment? {
         let request: NSFetchRequest<OutboxAttachment> = OutboxAttachment.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@ AND %K == %@ AND %K == %d",
-                                        rawMessageIdOwnedIdentityKey, attachmentId.messageId.ownedCryptoIdentity.getIdentity() as NSData,
-                                        rawMessageIdUidKey, attachmentId.messageId.uid.raw as NSData,
-                                        attachmentNumberKey, attachmentId.attachmentNumber)
-        request.propertiesToFetch = [cancelExternallyRequestedKey]
+        request.predicate = Predicate.withAttachmentIdentifier(attachmentId)
+        request.fetchLimit = 1
+        request.propertiesToFetch = [Predicate.Key.cancelExternallyRequested.rawValue]
         let item = try obvContext.fetch(request).first
         return item
     }
@@ -305,6 +344,7 @@ extension OutboxAttachment {
     
     static func getAll(within obvContext: ObvContext) throws -> [OutboxAttachment] {
         let request: NSFetchRequest<OutboxAttachment> = OutboxAttachment.fetchRequest()
+        request.fetchBatchSize = 500
         let items = try obvContext.fetch(request)
         return items
     }
@@ -312,11 +352,13 @@ extension OutboxAttachment {
     
     static func getAllUploadableWithoutSession(within obvContext: ObvContext) throws -> [OutboxAttachment] {
         let request: NSFetchRequest<OutboxAttachment> = OutboxAttachment.fetchRequest()
-        request.predicate = NSPredicate(format: "%K != NIL AND %K == NIL AND %K == true AND %K == false",
-                                        messageKey,
-                                        sessionKey,
-                                        messageUploadedKey,
-                                        cancelExternallyRequestedKey)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withNonNilOutboxMessage,
+            Predicate.withNilSession,
+            Predicate.withUploadedMessage,
+            Predicate.whereCancelExternallyRequested(is: false),
+        ])
+        request.fetchBatchSize = 500
         let items = try obvContext.fetch(request)
             .filter { (attachment) -> Bool in
                 let allChunksHaveSignedURLs = attachment.chunks.allSatisfy({ $0.signedURL != nil })
@@ -329,7 +371,7 @@ extension OutboxAttachment {
     
     static func deleteAllOrphanedAttachments(within obvContext: ObvContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: OutboxAttachment.entityName)
-        fetchRequest.predicate = NSPredicate(format: "%K == NIL", messageKey)
+        fetchRequest.predicate = Predicate.withNilOutboxMessage
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
         _ = try obvContext.execute(request)
     }

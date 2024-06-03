@@ -236,8 +236,6 @@ extension ShareViewModel: OwnedIdentityChooserViewControllerDelegate {
     
     func userWantsToEditCurrentOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId) async { }
     
-    var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityDeletion: Bool { false }
-    
     var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityEdition: Bool { false }
     
     var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityCreation: Bool { false }

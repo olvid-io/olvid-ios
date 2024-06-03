@@ -176,10 +176,11 @@ final class SingleGifView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExp
         }
         setupWidthAndHeightConstraints(width: Self.imageMaxSize * min(1, CGFloat(truncating: canvasPixelWidth) / CGFloat(truncating: canvasPixelHeight)),
                                        height: Self.imageMaxSize * min(1, CGFloat(truncating: canvasPixelHeight) / CGFloat(truncating: canvasPixelWidth)))
+        let imageMaxSize = Self.imageMaxSize as NSNumber
         Task.detached(priority: .userInitiated) { [weak self] in
             let cgImageSourceCount = CGImageSourceGetCount(cgImageSource)
-            let thmbnailOptions = [kCGImageSourceThumbnailMaxPixelSize: Self.imageMaxSize as NSNumber, kCGImageSourceCreateThumbnailFromImageIfAbsent: kCFBooleanTrue] as CFDictionary
-            let cgImages = (0..<cgImageSourceCount).compactMap { CGImageSourceCreateThumbnailAtIndex(cgImageSource, $0, thmbnailOptions) }
+            let thumbnailOptions = [kCGImageSourceThumbnailMaxPixelSize: imageMaxSize, kCGImageSourceCreateThumbnailFromImageIfAbsent: kCFBooleanTrue] as CFDictionary
+            let cgImages = (0..<cgImageSourceCount).compactMap { CGImageSourceCreateThumbnailAtIndex(cgImageSource, $0, thumbnailOptions) }
             let images = cgImages.map { UIImage(cgImage: $0) }
             guard let gifFrameInfoArray = gifProperties[kCGImagePropertyGIFFrameInfoArray] as? [Dictionary<CFString, Any>],
                   let gifDelayTimes = gifFrameInfoArray.map({ ($0[kCGImagePropertyGIFDelayTime] ) }) as? [NSNumber]

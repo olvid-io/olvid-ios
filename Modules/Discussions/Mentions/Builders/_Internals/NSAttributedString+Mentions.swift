@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,4 +22,6 @@ import UIKit
 public extension NSAttributedString.Key {
     /// Attributed string key for a _mentionable_ user identity. Points to an instance of `MentionableIdentity`
     static let mentionableIdentity: Self = .init("io.olvid.modules.discussions.mentions.builder._internals.nsattributed-string.key.mentionable-identity")
+    /// This attributed string key is used when displaying a mention in a message cell
+    static let mention: Self = .init("mention")
 }

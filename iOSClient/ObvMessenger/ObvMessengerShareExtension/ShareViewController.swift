@@ -521,9 +521,10 @@ final class ShareViewHostingController: UIHostingController<ShareView>, ShareVie
             let op = CreateUnprocessedPersistedMessageSentFromFylesAndStrings(body: body, fyleJoins: fyleJoins, discussionObjectID: discussion.typedObjectID, log: Self.log)
             op.viewContext = ObvStack.shared.viewContext
             op.obvContext = obvContext
+            let log = Self.log
             op.completionBlock = {
                 guard let index = discussions.firstIndex(of: discussion) else { return }
-                os_log("📤 [%{public}@/%{public}@] Create Unprocessed Persisted Message Sent From Fyles And Strings done.", log: Self.log, type: .info, String(index + 1), String(discussions.count))
+                os_log("📤 [%{public}@/%{public}@] Create Unprocessed Persisted Message Sent From Fyles And Strings done.", log: log, type: .info, String(index + 1), String(discussions.count))
             }
             createMsgOps.append(op)
             internalQueue.addOperation(op)

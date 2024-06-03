@@ -45,6 +45,7 @@ enum VoIPNotification {
 	case hideCallView
 	case newWebRTCMessageToSend(webrtcMessage: WebRTCMessageJSON, contactID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, forStartingCall: Bool)
 	case newOwnedWebRTCMessageToSend(ownedCryptoId: ObvCryptoId, webrtcMessage: WebRTCMessageJSON)
+	case anotherCallParticipantStartedCamera(otherParticipantNames: [String])
 
 	private enum Name {
 		case reportCallEvent
@@ -56,6 +57,7 @@ enum VoIPNotification {
 		case hideCallView
 		case newWebRTCMessageToSend
 		case newOwnedWebRTCMessageToSend
+		case anotherCallParticipantStartedCamera
 
 		private var namePrefix: String { String(describing: VoIPNotification.self) }
 
@@ -77,6 +79,7 @@ enum VoIPNotification {
 			case .hideCallView: return Name.hideCallView.name
 			case .newWebRTCMessageToSend: return Name.newWebRTCMessageToSend.name
 			case .newOwnedWebRTCMessageToSend: return Name.newOwnedWebRTCMessageToSend.name
+			case .anotherCallParticipantStartedCamera: return Name.anotherCallParticipantStartedCamera.name
 			}
 		}
 	}
@@ -116,6 +119,10 @@ enum VoIPNotification {
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 				"webrtcMessage": webrtcMessage,
+			]
+		case .anotherCallParticipantStartedCamera(otherParticipantNames: let otherParticipantNames):
+			info = [
+				"otherParticipantNames": otherParticipantNames,
 			]
 		}
 		return info
@@ -218,6 +225,14 @@ enum VoIPNotification {
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let webrtcMessage = notification.userInfo!["webrtcMessage"] as! WebRTCMessageJSON
 			block(ownedCryptoId, webrtcMessage)
+		}
+	}
+
+	static func observeAnotherCallParticipantStartedCamera(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([String]) -> Void) -> NSObjectProtocol {
+		let name = Name.anotherCallParticipantStartedCamera.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let otherParticipantNames = notification.userInfo!["otherParticipantNames"] as! [String]
+			block(otherParticipantNames)
 		}
 	}
 

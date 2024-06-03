@@ -171,8 +171,10 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
     }
     
     
-    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity> {
-        ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>? {
+        guard self.managedObjectContext != nil else { assertionFailure(); return nil }
+        return ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>(uuid: self.permanentUUID)
     }
     
     
@@ -644,7 +646,7 @@ extension PersistedObvOwnedIdentity {
             
         }
         
-        return messageSentPermanentId
+        return messageSentPermanentId // nil if, e.g., the created sent message was deleted due to a saved remote delete request
         
     }
     
@@ -957,7 +959,6 @@ extension PersistedObvOwnedIdentity {
         
         return infos
 
-        
     }
     
     
@@ -2327,10 +2328,12 @@ extension PersistedObvOwnedIdentity {
                 }
             }
             
-            if changedKeys.contains(Predicate.Key.fullDisplayName.rawValue) ||
+            if let objectPermanentID,
+               (changedKeys.contains(Predicate.Key.fullDisplayName.rawValue) ||
                 changedKeys.contains(Predicate.Key.photoURL.rawValue) ||
                 changedKeys.contains(Predicate.Key.customDisplayName.rawValue) ||
-                changedKeys.contains(Predicate.Key.isKeycloakManaged.rawValue) {
+                changedKeys.contains(Predicate.Key.isKeycloakManaged.rawValue))
+            {
                 ObvMessengerCoreDataNotification.ownedCircledInitialsConfigurationDidChange(
                     ownedIdentityPermanentID: objectPermanentID,
                     ownedCryptoId: cryptoId,
@@ -2436,10 +2439,10 @@ struct PersistedObvOwnedIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
         case pinnedDiscussions = "pinned_discussions" // not used as a domain
         case pinned = "pinned"
         case domain = "domain"
-        case orderedPinnedDiscussions = "pinned_sorted"
+        case orderedPinnedDiscussions = "pinned_sorted" // not used as a domain
     }
 
-    private static let defaultDomain: Set<CodingKeys> = Set(CodingKeys.allCases.filter({ $0 != .domain && $0 != .pinnedDiscussions }))
+    private static let defaultDomain: Set<CodingKeys> = Set(CodingKeys.allCases.filter({ $0 != .domain && $0 != .pinnedDiscussions && $0 != .orderedPinnedDiscussions }))
 
     
     init(ownedCryptoId: ObvCryptoId, customDisplayName: String?, contacts: Set<PersistedObvContactIdentity>, contactGroups: Set<PersistedContactGroup>, contactGroupsV2: Set<PersistedGroupV2>, within context: NSManagedObjectContext) throws {

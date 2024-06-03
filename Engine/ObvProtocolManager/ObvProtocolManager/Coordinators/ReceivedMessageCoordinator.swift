@@ -463,7 +463,8 @@ final class ProtocolStepAndActionsOperationWrapper: ObvOperationWrapper<Protocol
                     try ReceivedMessage.delete(messageId: operation.receivedMessageId, within: obvContext)
                     try obvContext.save(logOnFailure: log)
                 } catch {
-                    os_log("Could not delete the received protocol message from database", log: log, type: .error)
+                    os_log("Could not delete the received protocol message from database", log: log, type: .fault)
+                    assertionFailure()
                     return
                 }
             }

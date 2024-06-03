@@ -96,6 +96,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         hardlinks.append(contentsOf: contentView.multipleImagesView.getAllShownHardLink())
         hardlinks.append(contentsOf: contentView.attachmentsView.getAllShownHardLink())
         hardlinks.append(contentsOf: contentView.audioPlayerView.getAllShownHardLink())
+        hardlinks.append(contentsOf: contentView.singlePDFView.getAllShownHardLink())
         return hardlinks
     }
 
@@ -210,7 +211,8 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             content.singleGifViewConfiguration = nil
         }
 
-        // Configure preview types of attachments
+        // Configure link-preview type of attachments
+
         var otherAttachments = message.fyleMessageJoinWithStatusesOfOtherTypes
         let previewAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfPreviewType
         if let previewAttachment = previewAttachments.first {
@@ -219,7 +221,8 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             content.singlePreviewConfiguration = nil
         }
         
-        //We remove the previewAttachments for all cases
+        // We remove the link-preview from the attachments
+
         otherAttachments = otherAttachments.filter { !previewAttachments.contains($0) }
         
         // Configure other types of attachments
@@ -233,9 +236,25 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         }
 
         // We choose to show audioPlayer only for the first audio song.
+        
         otherAttachments += audioAttachments
 
-        content.multipleAttachmentsViewConfiguration = message.isWiped ? [] : otherAttachments.map({ attachmentViewConfigurationForAttachment($0) })
+        // The first pdf/docx/... attachment must have a large preview
+
+        let fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType = message.isWiped ? nil : message.fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType.first
+        if let fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType {
+            content.singlePDFViewConfiguration = attachmentViewConfigurationForAttachment(fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType,
+                                                                                          size: .cropBottom(mandatoryWidth: SinglePDFView.singlePDFViewWidth,
+                                                                                                            maxHeight: SinglePDFView.singlePDFPreviewMaxHeight))
+        } else {
+            content.singlePDFViewConfiguration = nil
+        }
+
+        // Add the remaining attachments
+        
+        content.multipleAttachmentsViewConfiguration = message.isWiped ? [] : otherAttachments
+            .filter({ $0 != fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType })
+            .map({ attachmentViewConfigurationForAttachment($0, size: .full(minSize: SingleAttachmentView.sizeForRequestingThumbnail)) })
         
         // Configure the rest
         
@@ -251,20 +270,14 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             // Configure the text body (determine whether we should use data detection on the text view)
             
             content.textBubbleConfiguration = nil
-            if let text = message.textBody, !message.isWiped {
-                if let dataDetected = cacheDelegate?.getCachedDataDetection(text: text) {
-                    content.textBubbleConfiguration = TextBubble.Configuration(kind: .received, 
-                                                                               text: text,
-                                                                               dataDetectorTypes: dataDetected, 
-                                                                               searchedTextToHighlight: searchedTextToHighlight,
-                                                                               mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
-                } else {
-                    content.textBubbleConfiguration = TextBubble.Configuration(kind: .received, 
-                                                                               text: text,
-                                                                               dataDetectorTypes: [], 
-                                                                               searchedTextToHighlight: searchedTextToHighlight,
-                                                                               mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
-                    cacheDelegate?.requestDataDetection(text: text) { [weak self] dataDetected in
+            if let attributedTextBody = message.displayableAttributedBody, !message.isWiped {
+                let dataDetectorMatches = cacheDelegate?.getCachedDataDetection(attributedString: attributedTextBody)
+                content.textBubbleConfiguration = TextBubble.Configuration(kind: .received,
+                                                                           attributedText: attributedTextBody,
+                                                                           dataDetectorMatches: dataDetectorMatches ?? [],
+                                                                           searchedTextToHighlight: searchedTextToHighlight)
+                if let cacheDelegate, dataDetectorMatches == nil {
+                    cacheDelegate.requestDataDetection(attributedString: attributedTextBody) { [weak self] dataDetected in
                         guard dataDetected else { return }
                         self?.setNeedsUpdateConfiguration()
                     }
@@ -355,7 +368,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             } else {
                 printDebugLog(message: message, hardlink: hardlink)
                 if let hardlink = hardlink, hardlink.hardlinkURL != nil {
-                    if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
+                    if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: .full(minSize: size)) {
                         cacheDelegate?.removeCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID.downcast)
                         config = .complete(downsizedThumbnail: nil, hardlink: hardlink, thumbnail: image)
                     } else {
@@ -363,8 +376,8 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
                         config = .complete(downsizedThumbnail: downsizedThumbnail, hardlink: hardlink, thumbnail: nil)
                         Task {
                             do {
-                                try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
-                                try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                                try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: sizeForUIDragItemPreview))
+                                try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: size))
                                 setNeedsUpdateConfiguration()
                             } catch {
                                 os_log("The request for an image for the hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
@@ -427,10 +440,10 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         os_log("🧷 [%{public}@] requestAllHardlinksForMessage completion willCallSetNeedsUpdateConfiguration=%{public}@", log: Self.log, type: .info, messageObjectID.hashValue.description, willCallSetNeedsUpdateConfiguration.description)
     }
 
-    private func attachmentViewConfigurationForAttachment(_ attachment: ReceivedFyleMessageJoinWithStatus) -> AttachmentsView.Configuration {
+    private func attachmentViewConfigurationForAttachment(_ attachment: ReceivedFyleMessageJoinWithStatus, size: ObvDiscussionThumbnailSize = .full(minSize: CGSize(width: MessageCellConstants.attachmentIconSize, height: MessageCellConstants.attachmentIconSize))) -> SingleAttachmentView.Configuration {
         let message = attachment.receivedMessage
         let filename = message.readingRequiresUserAction ? nil : attachment.fileName
-        let config: AttachmentsView.Configuration
+        let config: SingleAttachmentView.Configuration
         switch attachment.status {
         case .downloadable:
             config = .downloadable(receivedJoinObjectID: attachment.typedObjectID,
@@ -451,7 +464,6 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
                 let attachmentObjectID = (attachment as FyleMessageJoinWithStatus).typedObjectID
                 let hardlink = cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: attachmentObjectID)
                 if let hardlink = hardlink {
-                    let size = CGSize(width: MessageCellConstants.attachmentIconSize, height: MessageCellConstants.attachmentIconSize)
                     if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
                         config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: filename, wasOpened: attachment.wasOpened)
                     } else {
@@ -460,11 +472,19 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
                             // This happens when the attachment was just downloaded and we need to "refresh" the cached hardlink
                             // We do nothing since the hardlink will soon be refreshed
                         } else {
-                            Task {
+                            let messageID = message.typedObjectID.downcast
+                            Task { [weak self] in
+                                guard let self else { return }
                                 do {
-                                    try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
+                                    try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: sizeForUIDragItemPreview))
                                     try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
-                                    setNeedsUpdateConfiguration()
+                                    switch size {
+                                    case .full:
+                                        setNeedsUpdateConfiguration()
+                                    case .cropBottom:
+                                        setNeedsUpdateConfiguration()
+                                        cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: messageID)
+                                    }
                                 } catch {
                                     os_log("The request for an image for the hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)
                                 }
@@ -585,7 +605,7 @@ extension ReceivedMessageCell {
     var textToCopy: String? {
         guard let contentView = contentView as? ReceivedMessageCellContentView else { assertionFailure(); return nil }
         let text: String
-        if let textBubbleText = contentView.textBubble.text, !textBubbleText.isEmpty, contentView.textBubble.showInStack {
+        if let textBubbleText = contentView.textBubble.textToCopy, !textBubbleText.isEmpty, contentView.textBubble.showInStack {
             text = textBubbleText
         } else if let emojiText = contentView.emojiOnlyBodyView.text, !emojiText.isEmpty, contentView.emojiOnlyBodyView.showInStack {
             text = emojiText
@@ -623,7 +643,7 @@ extension ReceivedMessageCell {
             .compactMap({ $0 })
             .compactMap({ ($0, $0.uiDragItem) })
             .compactMap({ (hardLinkToFyle, uiDragItem) in
-                if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardLinkToFyle, size: sizeForUIDragItemPreview) {
+                if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardLinkToFyle, size: .full(minSize: sizeForUIDragItemPreview)) {
                     uiDragItem?.previewProvider = {
                         UIDragPreview(view: UIImageView(image: image))
                     }
@@ -668,7 +688,7 @@ fileprivate struct ReceivedMessageCellCustomContentConfiguration: UIContentConfi
     var singleImageViewConfiguration: SingleImageView.Configuration?
     var singleGifViewConfiguration: SingleImageView.Configuration?
     var multipleImagesViewConfiguration = [SingleImageView.Configuration]()
-    var multipleAttachmentsViewConfiguration = [AttachmentsView.Configuration]()
+    var multipleAttachmentsViewConfiguration = [SingleAttachmentView.Configuration]()
     var audioPlayerConfiguration: AudioPlayerView.Configuration?
     var wipedViewConfiguration: WipedView.Configuration?
     var contactPictureAndNameViewConfiguration: ContactPictureAndNameView.Configuration?
@@ -676,6 +696,7 @@ fileprivate struct ReceivedMessageCellCustomContentConfiguration: UIContentConfi
 
     var textBubbleConfiguration: TextBubble.Configuration?
     var singlePreviewConfiguration: SinglePreviewView.Configuration?
+    var singlePDFViewConfiguration: SingleAttachmentView.Configuration?
     var reactionAndCounts = [ReactionAndCount]()
     
     var replyToBubbleViewConfiguration: ReplyToBubbleView.Configuration?
@@ -708,6 +729,7 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
     fileprivate let textBubble = TextBubble(expirationIndicatorSide: .trailing, bubbleColor: AppTheme.shared.colorScheme.newReceivedCellBackground, textColor: UIColor.label)
     fileprivate let emojiOnlyBodyView = EmojiOnlyBodyView(expirationIndicatorSide: .trailing)
     private let singlePreviewView = SinglePreviewView(expirationIndicatorSide: .trailing)
+    fileprivate let singlePDFView = SinglePDFView(expirationIndicatorSide: .trailing)
     private let dateView = ReceivedMessageDateView()
     fileprivate let singleImageView = SingleImageView(expirationIndicatorSide: .trailing)
     fileprivate let multipleImagesView = MultipleImagesView(expirationIndicatorSide: .trailing)
@@ -902,6 +924,8 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
 
         mainStack.addArrangedSubview(singleImageView)
 
+        mainStack.addArrangedSubview(singlePDFView)
+
         mainStack.addArrangedSubview(multipleImagesView)
         
         mainStack.addArrangedSubview(attachmentsView)
@@ -1026,6 +1050,7 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         setNeedsUpdateConstraints()
 
         // Missing message bubble
+        
         if let missedMessageConfiguration = newConfig.missedMessageConfiguration {
             missedMessageCountBubble.apply(missedMessageConfiguration)
             missedMessageCountBubble.showInStack = true
@@ -1061,9 +1086,10 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
             textBubble.showInStack = false
             emojiOnlyBodyView.showInStack = false
         } else {
-            if let textBubbleConfiguration = newConfig.textBubbleConfiguration, let text = textBubbleConfiguration.text, !text.isEmpty {
-                if text.containsOnlyEmoji == true, text.count < 4 {
-                    emojiOnlyBodyView.text = text
+            if let textBubbleConfiguration = newConfig.textBubbleConfiguration, !textBubbleConfiguration.attributedText.characters.isEmpty {
+                let attributedText = textBubbleConfiguration.attributedText
+                if attributedText.containsOnlyEmoji, attributedText.characters.count < 4 {
+                    emojiOnlyBodyView.text = String(attributedText.characters)
                     textBubble.showInStack = false
                     emojiOnlyBodyView.showInStack = true
                 } else {
@@ -1087,6 +1113,7 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
         }
       
         // Single preview View
+        
         if newConfig.readingRequiresUserAction {
             singlePreviewView.showInStack = false
         } else if let singlePreviewConfiguration = newConfig.singlePreviewConfiguration {
@@ -1121,6 +1148,15 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
             singleGifView.showInStack = false
         }
         
+        // Single PDF attachment
+        
+        if let singlePDFViewConfiguration = newConfig.singlePDFViewConfiguration {
+            singlePDFView.showInStack = true
+            singlePDFView.setConfiguration(singlePDFViewConfiguration)
+        } else {
+            singlePDFView.showInStack = false
+        }
+
         // Non-image attachments
         
         if newConfig.multipleAttachmentsViewConfiguration.isEmpty {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -57,9 +57,6 @@ final class SaveMessagesAndAttachmentsFromServerOperation: ContextualOperationWi
                 
                 // Check that the message does not already exist in DB
                 guard try InboxMessage.get(messageId: messageId, within: obvContext) == nil else { continue }
-                
-                // Check that the message was not recently deleted from DB
-                guard try PendingDeleteFromServer.get(messageId: messageId, within: obvContext) == nil else { continue }
                 
                 // If we reach this point, the message is actually new
                 

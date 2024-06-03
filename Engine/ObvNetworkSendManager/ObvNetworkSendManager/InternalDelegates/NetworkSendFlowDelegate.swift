@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,8 @@ protocol NetworkSendFlowDelegate {
     
     func post(_: ObvNetworkMessageToSend, within: ObvContext) throws
     
-    func newOutboxMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
+    func requestBatchUploadMessagesWithoutAttachment(serverURL: URL, flowId: FlowIdentifier) async throws
+    func newOutboxMessageWithAttachments(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     
     func failedUploadAndGetUidOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)
     func successfulUploadOfMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier)

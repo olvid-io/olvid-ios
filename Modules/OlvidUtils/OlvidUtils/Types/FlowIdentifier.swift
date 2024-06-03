@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,4 +31,13 @@ extension FlowIdentifier: LosslessStringConvertible {
             return nil
         }
     }
+}
+
+
+extension FlowIdentifier {
+    
+    public var shortDebugDescription: String {
+        return String(self.debugDescription.prefix(8))
+    }
+    
 }

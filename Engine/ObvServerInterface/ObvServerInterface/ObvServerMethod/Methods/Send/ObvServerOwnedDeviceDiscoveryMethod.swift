@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,16 +31,17 @@ public final class ObvServerOwnedDeviceDiscoveryMethod: ObvServerDataMethod {
     
     public let pathComponent = "/ownedDeviceDiscovery"
 
-    public let ownedIdentity: ObvCryptoIdentity
+    public var ownedIdentity: ObvCryptoIdentity? { ownedCryptoId }
+    private let ownedCryptoId: ObvCryptoIdentity
     public let isActiveOwnedIdentityRequired = false
-    public var serverURL: URL { return ownedIdentity.serverURL }
+    public var serverURL: URL { return ownedCryptoId.serverURL }
     public let flowId: FlowIdentifier
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
     public init(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         self.flowId = flowId
-        self.ownedIdentity = ownedIdentity
+        self.ownedCryptoId = ownedIdentity
     }
     
     private enum ServerReturnStatus: UInt8 {
@@ -54,7 +55,7 @@ public final class ObvServerOwnedDeviceDiscoveryMethod: ObvServerDataMethod {
     }
     
     lazy public var dataToSend: Data? = {
-        return [self.ownedIdentity].obvEncode().rawData
+        return [self.ownedCryptoId].obvEncode().rawData
     }()
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> Result<PossibleReturnStatus, Error> {

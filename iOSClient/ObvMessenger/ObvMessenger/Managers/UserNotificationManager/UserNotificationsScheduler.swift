@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,7 +36,6 @@ final class UserNotificationsScheduler {
 
         if immediately {
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-
             request = UNNotificationRequest(identifier: identifier, content: notificationContent, trigger: trigger)
         } else {
             request = UNNotificationRequest(identifier: identifier, content: notificationContent, trigger: nil)

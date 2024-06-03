@@ -120,6 +120,7 @@ SUBQUERY (
                                         "ObvMessenger/*.xcstrings",
                                         "ObvMessenger/Assets.xcassets",
                                         "ObvMessenger/LaunchScreen.storyboard",
+                                        "ObvMessengerShareExtension/PrivacyInfo.xcprivacy",
                                      ],
                                      entitlements: "ObvMessengerShareExtension/ObvMessengerShareExtension.entitlements",
                                      dependencies: [
@@ -209,7 +210,7 @@ func createNotificationServiceExtension() -> Target {
                                         "ObvMessenger/VoIP/Helpers/CallSounds.swift",
                                         "ObvMessenger/VoIP/VoIPNotification/CallUpdateKind.swift",
                                         "ObvMessengerNotificationServiceExtension/NotificationService.swift",
-                                              ],
+                                     ],
                                      resources: [
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Strings/Strings10.caf",
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Synth-Chordal/Synth-Chordal11.caf",
@@ -574,7 +575,8 @@ func createNotificationServiceExtension() -> Target {
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Clav-Fly/Clav-Fly08.caf",
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Clarinet/Clarinet10.caf",
                                         "ObvMessenger/Managers/UserNotificationManager/Sounds/Synth-Emotive/Synth-Emotive07.caf",
-                                        "ObvMessenger/Managers/UserNotificationManager/Sounds/Oboe/Oboe09.caf"
+                                        "ObvMessenger/Managers/UserNotificationManager/Sounds/Oboe/Oboe09.caf",
+                                        "ObvMessengerNotificationServiceExtension/PrivacyInfo.xcprivacy",
                                      ],
                                      entitlements: "ObvMessengerNotificationServiceExtension/ObvMessengerNotificationServiceExtension.entitlements",
                                      dependencies: [
@@ -612,7 +614,7 @@ func createIntentsServiceExtension() -> Target {
 
     let target = Target.appExtension(name: "ObvMessengerIntentsExtension",
                                      bundleIdentifier: "$(OBV_PRODUCT_BUNDLE_IDENTIFIER_FOR_INTENTS_EXTENSION)",
-                                     deploymentTarget: .iOS(targetVersion: "15.2", devices: Constants.iOSDeploymentDevices),
+                                     deploymentTargets: .init(iOS: "15.5"),
                                      infoPlist: infoPlist,
                                      sources: [
                                         "ObvMessengerIntentsExtension/IntentHandler.swift"
@@ -883,7 +885,6 @@ func createApp(shareExtension: Target,
         .Modules.Platform.uiKitAdditions,
         .Modules.Components.textInputShortcutsResultView,
         .Modules.Discussions.Mentions.Builders.composeMessage,
-        .Modules.Discussions.Mentions.Builders.textBubble,
         .Modules.Discussions.Mentions.Builders.buildersShared,
         .Modules.Discussions.scrollToBottomButton,
     ]
@@ -902,7 +903,8 @@ func createApp(shareExtension: Target,
                                     "ObvMessenger/**/*.xcstrings",
                                     "ObvMessenger/**/*.lproj/AppIntentVocabulary.plist",
                                     "ObvMessenger/Assets.xcassets",
-                                    "ObvMessenger/Settings.bundle"
+                                    "ObvMessenger/Settings.bundle",
+                                    "ObvMessenger/PrivacyInfo.xcprivacy",
                                  ],
                                  entitlements: "ObvMessenger/ObvMessenger.entitlements",
                                  dependencies: dependencies,

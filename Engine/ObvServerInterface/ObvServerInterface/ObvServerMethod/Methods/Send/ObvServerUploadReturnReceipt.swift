@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,25 +31,45 @@ public final class ObvServerUploadReturnReceipt: ObvServerDataMethod {
 
     public let pathComponent = "/uploadReturnReceipt"
 
-    public var serverURL: URL { return toIdentity.serverURL }
-    
-    public let ownedIdentity: ObvCryptoIdentity
-    public let isActiveOwnedIdentityRequired = true
-    let toIdentity: ObvCryptoIdentity
-    let deviceUids: [UID]
-    let nonce: Data
-    let encryptedPayload: EncryptedData
+    public let serverURL: URL
+    private let returnReceipts: [ReturnReceipt]
     public let flowId: FlowIdentifier
-
+    
+    public let isActiveOwnedIdentityRequired = false
+    public let ownedIdentity: ObvCryptoIdentity? = nil
     weak public var identityDelegate: ObvIdentityDelegate? = nil
+    
+    
+    public struct ReturnReceipt: ObvEncodable {
+                
+        let toIdentity: ObvCryptoIdentity
+        let deviceUids: [UID]
+        let nonce: Data
+        let encryptedPayload: EncryptedData
+        
+        public init(toIdentity: ObvCryptoIdentity, deviceUids: [UID], nonce: Data, encryptedPayload: EncryptedData) {
+            self.toIdentity = toIdentity
+            self.deviceUids = deviceUids
+            self.nonce = nonce
+            self.encryptedPayload = encryptedPayload
+        }
+        
+        public func obvEncode() -> ObvEncoded {
+            [
+                toIdentity.obvEncode(),
+                deviceUids.map({ $0.obvEncode() }).obvEncode(),
+                nonce.obvEncode(),
+                encryptedPayload.obvEncode()
+            ].obvEncode()
+        }
 
-    public init(ownedIdentity: ObvCryptoIdentity, nonce: Data, encryptedPayload: EncryptedData, toIdentity: ObvCryptoIdentity, deviceUids: [UID], flowId: FlowIdentifier) {
+    }
+
+    
+    public init(serverURL: URL, returnReceipts: [ReturnReceipt], flowId: FlowIdentifier) {
+        self.serverURL = serverURL
+        self.returnReceipts = returnReceipts
         self.flowId = flowId
-        self.ownedIdentity = ownedIdentity
-        self.nonce = nonce
-        self.encryptedPayload = encryptedPayload
-        self.toIdentity = toIdentity
-        self.deviceUids = deviceUids
     }
     
     
@@ -60,11 +80,7 @@ public final class ObvServerUploadReturnReceipt: ObvServerDataMethod {
 
     
     lazy public var dataToSend: Data? = {
-        let encodedDeviceUids = self.deviceUids.map({ $0.obvEncode() })
-        return [toIdentity.obvEncode(),
-                encodedDeviceUids.obvEncode(),
-                nonce.obvEncode(),
-                encryptedPayload.obvEncode()].obvEncode().rawData
+        returnReceipts.map({ $0.obvEncode() }).obvEncode().rawData
     }()
     
     

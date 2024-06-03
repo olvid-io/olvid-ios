@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import ObvCrypto
 import ObvTypes
 import ObvMetaManager
 import OlvidUtils
+import ObvEncoder
 
 public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMethod {
     
@@ -30,38 +31,68 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
     
     public let pathComponent = "/deleteMessageAndAttachments"
     
-    public var serverURL: URL { return messageId.ownedCryptoIdentity.serverURL }
+    public var serverURL: URL { return ownedCryptoId.serverURL }
 
     private let token: Data
-    private let messageId: ObvMessageIdentifier
     private let deviceUid: UID
     public let flowId: FlowIdentifier
     public let isActiveOwnedIdentityRequired = false
-    private let category: Category
+    private let ownedCryptoId: ObvCryptoIdentity
+    private let messageUIDsAndCategories: [MessageUIDAndCategory]
     
-    public var ownedIdentity: ObvCryptoIdentity {
-        return messageId.ownedCryptoIdentity
+    public var ownedIdentity: ObvCryptoIdentity? {
+        return ownedCryptoId
     }
     
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
-    public enum Category: CustomDebugStringConvertible {
+    public enum Category: CustomDebugStringConvertible, ObvEncodable {
+                
         case requestDeletion
         case markAsListed
+        
         public var debugDescription: String {
             switch self {
             case .requestDeletion: return "requestDeletion"
             case .markAsListed: return "markAsListed"
             }
         }
+        
+        public func obvEncode() -> ObvEncoder.ObvEncoded {
+            let markAsListed: Bool
+            switch self {
+            case .requestDeletion:
+                markAsListed = false
+            case .markAsListed:
+                markAsListed = true
+            }
+            return markAsListed.obvEncode()
+        }
+
     }
     
-    public init(token: Data, messageId: ObvMessageIdentifier, deviceUid: UID, category: Category, flowId: FlowIdentifier) {
-        self.flowId = flowId
+    public struct MessageUIDAndCategory {
+        
+        public let messageUID: UID
+        public let category: Category
+        
+        public init(messageUID: UID, category: Category) {
+            self.messageUID = messageUID
+            self.category = category
+        }
+        
+        func toListOfObvEncoded() -> [ObvEncoded] {
+            [messageUID.obvEncode(), category.obvEncode()]
+        }
+        
+    }
+    
+    public init(ownedCryptoId: ObvCryptoIdentity, token: Data, deviceUid: UID, messageUIDsAndCategories: [MessageUIDAndCategory], flowId: FlowIdentifier) {
+        self.ownedCryptoId = ownedCryptoId
         self.token = token
-        self.messageId = messageId
         self.deviceUid = deviceUid
-        self.category = category
+        self.messageUIDsAndCategories = messageUIDsAndCategories
+        self.flowId = flowId
     }
     
     public enum PossibleReturnStatus: UInt8, CustomDebugStringConvertible {
@@ -78,19 +109,11 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
     }
 
     lazy public var dataToSend: Data? = {
-        let markAsListed: Bool
-        switch category {
-        case .requestDeletion:
-            markAsListed = false
-        case .markAsListed:
-            markAsListed = true
-        }
-        return [
-            messageId.ownedCryptoIdentity.getIdentity(),
-            token,
-            messageId.uid.raw,
-            deviceUid,
-            markAsListed,
+        [
+            ownedCryptoId.getIdentity().obvEncode(),
+            token.obvEncode(),
+            deviceUid.obvEncode(),
+            messageUIDsAndCategories.toListOfObvEncoded().obvEncode(),
         ].obvEncode().rawData
     }()
 
@@ -110,4 +133,19 @@ public final class ObvServerDeleteMessageAndAttachmentsMethod: ObvServerDataMeth
         return serverReturnedStatus
     }
 
+}
+
+
+// MARK: - Helper
+
+extension [ObvServerDeleteMessageAndAttachmentsMethod.MessageUIDAndCategory] {
+    
+    func toListOfObvEncoded() -> [ObvEncoded] {
+        var listOfObvEncoded = [ObvEncoded]()
+        for messageUIDAndCategory in self {
+            listOfObvEncoded += messageUIDAndCategory.toListOfObvEncoded()
+        }
+        return listOfObvEncoded
+    }
+    
 }

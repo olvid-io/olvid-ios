@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -88,9 +88,12 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         case version50 = "ObvEngineModel-v50"
         case version51 = "ObvEngineModel-v51"
         case version52 = "ObvEngineModel-v52"
+        case version53 = "ObvEngineModel-v53"
+        case version54 = "ObvEngineModel-v54"
+        case version55 = "ObvEngineModel-v55"
 
         static var latest: ObvEngineModelVersion {
-            return .version52
+            return .version55
         }
         
         var identifier: String {
@@ -143,7 +146,7 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         return model.first!
     }
 
-    
+
     override func getNextManagedObjectModelVersion(from sourceModel: NSManagedObjectModel) throws -> (destinationModel: NSManagedObjectModel, migrationType: MigrationType) {
         
         let sourceVersion = try ObvEngineModelVersion(model: sourceModel)
@@ -204,7 +207,10 @@ final class DataMigrationManagerForObvEngine: DataMigrationManager<ObvEnginePers
         case .version49: migrationType = .heavyweight; destinationVersion = .version50
         case .version50: migrationType = .lightweight; destinationVersion = .version51
         case .version51: migrationType = .heavyweight; destinationVersion = .version52
-        case .version52: migrationType = .heavyweight; destinationVersion = .version52
+        case .version52: migrationType = .heavyweight; destinationVersion = .version53
+        case .version53: migrationType = .lightweight; destinationVersion = .version54
+        case .version54: migrationType = .lightweight; destinationVersion = .version55
+        case .version55: migrationType = .heavyweight; destinationVersion = .version55
         }
         
         let destinationModel = try getManagedObjectModel(version: destinationVersion)

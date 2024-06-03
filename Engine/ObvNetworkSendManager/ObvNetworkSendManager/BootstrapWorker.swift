@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -165,12 +165,29 @@ extension BootstrapWorker {
         guard appType == .mainApp else { assertionFailure(); return }
 
         os_log("Rescheduling all outbox messages and attachmentds during bootstrap", log: log, type: .info)
-
+                
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
+            
+            // Perform a batch upload of messages without attachment
+
+            do {
+                let serverURLs = try OutboxMessage.getAllServerURLsForMessagesToUpload(within: obvContext)
+                for serverURL in serverURLs {
+                    Task {
+                        try? await delegateManager.networkSendFlowDelegate.requestBatchUploadMessagesWithoutAttachment(serverURL: serverURL, flowId: flowId)
+                    }
+                }
+            } catch {
+                os_log("Could not reschedule batch upload of messages", log: log, type: .fault)
+                assertionFailure()
+                return
+            }
+
+            // Upload messages with attachments
 
             let outboxMessageIdentifiers: [ObvMessageIdentifier]
             do {
-                let outboxMessages = try OutboxMessage.getAll(delegateManager: delegateManager, within: obvContext)
+                let outboxMessages = try OutboxMessage.getAllMessagesToUploadWithAttachments(delegateManager: delegateManager, within: obvContext)
                 outboxMessageIdentifiers = outboxMessages.compactMap { $0.messageId }
             } catch {
                 os_log("Could not reschedule existing OutboxMessages", log: log, type: .fault)
@@ -181,7 +198,7 @@ extension BootstrapWorker {
             os_log("Number of outbox messages found during bootstrap: %{public}d", log: log, type: .info, outboxMessageIdentifiers.count)
 
             for messageId in outboxMessageIdentifiers {
-                delegateManager.networkSendFlowDelegate.newOutboxMessage(messageId: messageId, flowId: flowId)
+                delegateManager.networkSendFlowDelegate.newOutboxMessageWithAttachments(messageId: messageId, flowId: flowId)
             }
             
         }

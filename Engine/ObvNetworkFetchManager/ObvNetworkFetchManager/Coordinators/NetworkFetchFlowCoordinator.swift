@@ -36,7 +36,7 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate, ObvErrorMaker
     private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
 
     private let nwPathMonitor = NWPathMonitor()
-    private var lastNWPath: NWPath?
+    private var lastNWPathStatus: NWPath.Status?
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
     
@@ -58,14 +58,18 @@ final class NetworkFetchFlowCoordinator: NetworkFetchFlowDelegate, ObvErrorMaker
 
 extension NetworkFetchFlowCoordinator {
     
-    func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws {
+    func updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
+        
         guard let delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
             assertionFailure()
-            return
+            throw ObvError.theDelegateManagerIsNotSet
         }
-        try await delegateManager.wellKnownCacheDelegate.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
-        await delegateManager.webSocketDelegate.updateListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
+        
+        try await delegateManager.wellKnownCacheDelegate.updatedListOfOwnedIdentites(ownedIdentities: Set(activeOwnedCryptoIdsAndCurrentDeviceUIDs.map({ $0.ownedCryptoId })), flowId: flowId)
+        
+        try await delegateManager.webSocketDelegate.connectUpdatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: activeOwnedCryptoIdsAndCurrentDeviceUIDs, flowId: flowId)
+        
     }
     
     // MARK: - Session's Challenge/Response/Token related methods
@@ -93,37 +97,12 @@ extension NetworkFetchFlowCoordinator {
         }
         let (serverSessionToken, apiKeyElements) = try await delegateManager.serverSessionDelegate.getValidServerSessionToken(for: ownedCryptoIdentity, currentInvalidToken: currentInvalidToken, flowId: flowId)
         
-        newToken(serverSessionToken, for: ownedCryptoIdentity, flowId: flowId)
         newAPIKeyElementsForCurrentAPIKeyOf(ownedCryptoIdentity, apiKeyStatus: apiKeyElements.status, apiPermissions: apiKeyElements.permissions, apiKeyExpirationDate: apiKeyElements.expirationDate, flowId: flowId)
         
         return (serverSessionToken, apiKeyElements)
     }
     
 
-    private func newToken(_ token: Data, for identity: ObvCryptoIdentity, flowId: FlowIdentifier) {
-        
-        guard let delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-            return
-        }
-        
-        guard let contextCreator = delegateManager.contextCreator else {
-            os_log("The context creator is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
-            
-            // We pass the token to the WebSocket coordinator, this will allow re-scheduled tasks to be executed
-            Task {
-                await delegateManager.webSocketDelegate.setServerSessionToken(to: token, for: identity)
-            }
-        }
-        
-    }
-
-    
     func verifyReceiptAndRefreshAPIPermissions(appStoreReceiptElements: ObvAppStoreReceipt, flowId: FlowIdentifier) async throws -> [ObvCryptoIdentity : ObvAppStoreReceipt.VerificationStatus] {
         
         guard let delegateManager else {
@@ -279,29 +258,6 @@ extension NetworkFetchFlowCoordinator {
     }
     
     
-    // MARK: - Downloading message and listing attachments
-            
-    /// Called after setting the "from" and the payload of an `InboxMessage`.
-    func markMessageAsListedOnServer(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
-        
-        guard let delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-        
-        Task {
-            do {
-                try await delegateManager.deleteMessageAndAttachmentsFromServerDelegate.markMessageAsListedOnServer(messageId: messageId, flowId: flowId)
-            } catch {
-                os_log("Could not mark message as listed on server: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-                assertionFailure()
-            }
-        }
-                
-    }
-    
-    
     // MARK: - Message's extended content related methods
     
     func downloadingMessageExtendedPayloadWasPerformed(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) {
@@ -391,22 +347,6 @@ extension NetworkFetchFlowCoordinator {
 
     }
         
-
-    // MARK: - Deletion related methods
-
-    /// Called when a `PendingDeleteFromServer` was just created in DB. This also means that the message and its attachments have been deleted
-    /// from the local inbox.
-    func processPendingDeleteIfItExistsForMessage(messageId: ObvMessageIdentifier, flowId: FlowIdentifier) async throws {
-
-        guard let delegateManager else {
-            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
-            assertionFailure()
-            return
-        }
-
-        try await delegateManager.deleteMessageAndAttachmentsFromServerDelegate.deleteMessage(messageId: messageId, flowId: flowId)
-        
-    }
 
     // MARK: - Push notification's related methods
 
@@ -505,12 +445,14 @@ extension NetworkFetchFlowCoordinator {
     
     private func networkPathDidChange(nwPath: NWPath) {
         // The nwPath status changes very early during the network status change. This is the reason why we wait before trying to reconnect. This is not bullet proof though, as the `networkPathDidChange` method does not seem to be called at every network change... This is unfortunate. Last but not least, it is very hard to work with nwPath.status so we don't even look at it.
-        guard lastNWPath != nwPath else { return }
-        lastNWPath = nwPath
+        guard lastNWPathStatus != nwPath.status else { return }
+        lastNWPathStatus = nwPath.status
         Task {
+            debugPrint("🏓 nwPath.status = \(nwPath.status)")
             let flowId = FlowIdentifier()
-            await delegateManager?.webSocketDelegate.disconnectAll(flowId: flowId)
-            await delegateManager?.webSocketDelegate.connectAll(flowId: flowId)
+            if nwPath.status == .satisfied {
+                await delegateManager?.webSocketDelegate.disconnectThenReconnectOnSatisfiedNetworkPathStatus(flowId: flowId)
+            }
         }
     }
 
@@ -533,9 +475,7 @@ extension NetworkFetchFlowCoordinator {
         }
         
         Task {
-            await delegateManager.webSocketDelegate.setWebSocketServerURL(for: server, to: newWellKnownJSON.serverConfig.webSocketURL)
-
-            // On Android, this notification is not sent when `wellKnownHasBeenUpdated` is sent. But we agreed with Matthieu that this is better ;-)
+            // On Android, this notification is not sent when `wellKnownHasBeenUpdated` is sent. But we agreed that this is better ;-)
             ObvNetworkFetchNotificationNew.wellKnownHasBeenDownloaded(serverURL: server, appInfo: newWellKnownJSON.appInfo, flowId: flowId)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
         }
@@ -557,7 +497,6 @@ extension NetworkFetchFlowCoordinator {
         }
 
         Task {
-            await delegateManager.webSocketDelegate.setWebSocketServerURL(for: server, to: newWellKnownJSON.serverConfig.webSocketURL)
             ObvNetworkFetchNotificationNew.wellKnownHasBeenUpdated(serverURL: server, appInfo: newWellKnownJSON.appInfo, flowId: flowId)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
         }
@@ -586,7 +525,7 @@ extension NetworkFetchFlowCoordinator {
     
     // MARK: - Reacting to web socket changes
     
-    func successfulWebSocketRegistration(identity: ObvCryptoIdentity, deviceUid: UID) async {
+    func successfulWebSocketRegistration(identity: ObvCryptoIdentity) async {
         
         guard let delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)

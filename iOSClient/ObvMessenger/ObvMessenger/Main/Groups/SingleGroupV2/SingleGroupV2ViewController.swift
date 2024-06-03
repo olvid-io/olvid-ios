@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,9 @@ import ObvTypes
 import ObvUI
 import SwiftUI
 import ObvUICoreData
+import ObvSettings
 import ObvDesignSystem
+import UniformTypeIdentifiers
 
 
 protocol SingleGroupV2ViewControllerDelegate: AnyObject {
@@ -33,6 +35,7 @@ protocol SingleGroupV2ViewControllerDelegate: AnyObject {
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
     func userWantsToCloneGroup(displayedContactGroupObjectID: TypeSafeManagedObjectID<DisplayedContactGroup>)
     func userWantsToInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>) async throws
+    func userWantsToPublishGroupV2Modification(groupObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedGroupV2>, changeset: ObvTypes.ObvGroupV2.Changeset) async
 }
 
 
@@ -42,10 +45,7 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     let currentOwnedCryptoId: ObvCryptoId
     let displayedContactGroupPermanentID: DisplayedContactGroupPermanentID
     private let obvEngine: ObvEngine
-    private var scratchGroup: PersistedGroupV2
-    private var referenceGroup: PersistedGroupV2 // Allows to compute a diff with the scratchGroup when publishing group members updates
-    private let scratchViewContext: NSManagedObjectContext
-    private let referenceViewContext: NSManagedObjectContext
+    private var group: PersistedGroupV2
     private let viewDelegate = ViewDelegate()
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: SingleGroupV2ViewController.self))
     static let errorDomain = "SingleGroupV2ViewController"
@@ -59,21 +59,12 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
         guard let displayedContactGroupPermanentID = group.displayedContactGroup?.objectPermanentID else {
             throw Self.makeError(message: "Could not determine displayed contact group")
         }
+        self.group = group
         self.currentOwnedCryptoId = ownCryptoId
         self.displayedContactGroupPermanentID = displayedContactGroupPermanentID
         self.persistedGroupV2ObjectID = group.typedObjectID
         self.obvEngine = obvEngine
-        self.scratchViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-        scratchViewContext.persistentStoreCoordinator = ObvStack.shared.persistentStoreCoordinator
-        guard let scratchGroup = try PersistedGroupV2.get(objectID: group.typedObjectID, within: scratchViewContext) else { throw Self.makeError(message: "Could not get group") }
-        
-        self.referenceViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-        referenceViewContext.persistentStoreCoordinator = ObvStack.shared.persistentStoreCoordinator
-        guard let referenceGroup = try PersistedGroupV2.get(objectID: group.typedObjectID, within: referenceViewContext) else { throw Self.makeError(message: "Could not get group") }
-
-        self.scratchGroup = scratchGroup
-        self.referenceGroup = referenceGroup
-        let view = SingleGroupV2View(group: self.scratchGroup, delegate: viewDelegate)
+        let view = SingleGroupV2View(group: group, delegate: viewDelegate)
         super.init(rootView: view)
         viewDelegate.delegate = self
         self.delegate = delegate
@@ -89,10 +80,8 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = scratchGroup.displayName
-        
+        title = group.displayName
         addRightBarButtonMenu()
-
     }
     
     
@@ -108,7 +97,9 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
             image: UIImage(systemIcon: .camera(.none)),
             handler: userWantsToEditPersonalGroupDetails)
         
-        let menu = UIMenu(children: [actionEditNote, actionEditCustomDetails])
+        let menu: UIMenu
+        
+        menu = UIMenu(children: [actionEditNote, actionEditCustomDetails])
         
         let barButtonItem = UIBarButtonItem(image: UIImage(systemIcon: .ellipsisCircle), menu: menu)
         
@@ -117,7 +108,7 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     
     
     private func userWantsToShowPersonalNoteEditor(_ action: UIAction) {
-        let personalNote = referenceGroup.personalNote
+        let personalNote = group.personalNote
         let viewControllerToPresent = PersonalNoteEditorHostingController(model: .init(initialText: personalNote), actions: self)
         if let sheet = viewControllerToPresent.sheetPresentationController {
             sheet.detents = [.medium()]
@@ -132,20 +123,20 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     
     private func userWantsToEditPersonalGroupDetails(_ action: UIAction) {
         assert(Thread.isMainThread)
-        let groupV2Identifier = scratchGroup.groupIdentifier
+        let groupV2Identifier = group.groupIdentifier
         let defaultPhoto: UIImage?
-        if let url = scratchGroup.trustedPhotoURL {
+        if let url = group.trustedPhotoURL {
             defaultPhoto = UIImage(contentsOfFile: url.path)
         } else {
             defaultPhoto = nil
         }
         let currentCustomPhoto: UIImage?
-        if let url = scratchGroup.customPhotoURL {
+        if let url = group.customPhotoURL {
             currentCustomPhoto = UIImage(contentsOfFile: url.path)
         } else {
             currentCustomPhoto = nil
         }
-        let currentNickname = scratchGroup.customName ?? ""
+        let currentNickname = group.customName ?? ""
         let vc = EditNicknameAndCustomPictureViewController(
             model: .init(identifier: .groupV2(groupV2Identifier: groupV2Identifier),
                          currentInitials: "", // No initials needed for groups
@@ -155,7 +146,6 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
             delegate: self)
         present(vc, animated: true)
     }
-
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -174,27 +164,24 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     
     private func observeNotifications() {
         tokens.append(contentsOf: [
-            NotificationCenter.default.addObserver(forName: Notification.Name.NSManagedObjectContextDidSave, object: nil, queue: OperationQueue.main) { [weak self] (notification) in
-                withAnimation {
-                    self?.scratchViewContext.mergeChanges(fromContextDidSave: notification)
-                    self?.referenceViewContext.mergeChanges(fromContextDidSave: notification)
+            ObvMessengerCoreDataNotification.observePersistedGroupV2UpdateIsFinished { [weak self] objectID, _, _ in
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    guard objectID == group.typedObjectID else { return }
+                    // At the end of an update of the group in database, we rollback all changes we made.
+                    // At this point, if we were in edit mode, we loose our modifications. This is acceptable for now.
+                    withAnimation {
+                        self.hideUpdateInProgress()
+                    }
                 }
             },
-            ObvMessengerCoreDataNotification.observePersistedGroupV2UpdateIsFinished(queue: OperationQueue.main) { [weak self] objectID, _, _ in
-                guard let _self = self else { return }
-                guard objectID == _self.scratchGroup.typedObjectID else { return }
-                // At the end of an update of the group in database, we rollback all changes we made.
-                // At this point, if we were in edit mode, we loose our modifications. This is acceptable for now.
-                withAnimation {
-                    self?.hideUpdateInProgress()
-                    self?.scratchViewContext.rollback()
-                }
-            },
-            ObvMessengerCoreDataNotification.observePersistedGroupV2WasDeleted(queue: OperationQueue.main) { [weak self] objectID in
-                guard let _self = self else { return }
-                guard objectID == _self.persistedGroupV2ObjectID else { return }
-                if _self.presentingViewController != nil {
-                    _self.dismiss(animated: true)
+            ObvMessengerCoreDataNotification.observePersistedGroupV2WasDeleted { [weak self] objectID in
+                DispatchQueue.main.async { [weak self] in
+                    guard let _self = self else { return }
+                    guard objectID == _self.persistedGroupV2ObjectID else { return }
+                    if _self.presentingViewController != nil {
+                        _self.dismiss(animated: true)
+                    }
                 }
             },
         ])
@@ -209,12 +196,6 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     
     private final class ViewDelegate: SingleGroupV2ViewDelegate {
         weak var delegate: SingleGroupV2ViewDelegate?
-        func userWantsToAddGroupMembers() {
-            delegate?.userWantsToAddGroupMembers()
-        }
-        func rollbackAllModifications() {
-            delegate?.rollbackAllModifications()
-        }
         func userWantsToNavigateToPersistedObvContactIdentity(_ contact: PersistedObvContactIdentity) {
             delegate?.userWantsToNavigateToPersistedObvContactIdentity(contact)
         }
@@ -223,10 +204,6 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
         }
         func userWantsToCall() async {
             await delegate?.userWantsToCall()
-        }
-        func userWantsToPublishAllModifications() {
-            assert(Thread.isMainThread)
-            delegate?.userWantsToPublishAllModifications()
         }
         func userWantsToReplaceTrustedDetailsByPublishedDetails() {
             delegate?.userWantsToReplaceTrustedDetailsByPublishedDetails()
@@ -240,8 +217,8 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
         func userWantsToPerformDisbandOfGroupV2() {
             delegate?.userWantsToPerformDisbandOfGroupV2()
         }
-        func userWantsToEditDetailsOfGroupAsAdmin() {
-            delegate?.userWantsToEditDetailsOfGroupAsAdmin()
+        func userWantsToEditGroupAsAdmin() {
+            delegate?.userWantsToEditGroupAsAdmin()
         }
         func userWantsToCloneThisGroup() {
             delegate?.userWantsToCloneThisGroup()
@@ -252,60 +229,12 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     }
     
     
-    func userWantsToAddGroupMembers() {
-        do {
-            let excludedMembers = Set(scratchGroup.otherMembers.compactMap({ $0.cryptoId }))
-            let ownedCryptoId = try scratchGroup.ownCryptoId
-            let mode = MultipleContactsMode.excluded(from: excludedMembers, oneToOneStatus: .any, requiredCapabilitites: [.groupsV2])
-            let button: MultipleContactsButton = .floating(title: CommonString.Word.Ok, systemIcon: .personCropCircleFillBadgeCheckmark)
-            let vc = MultipleContactsViewController(ownedCryptoId: ownedCryptoId,
-                                                    mode: mode,
-                                                    button: button,
-                                                    disableContactsWithoutDevice: true,
-                                                    allowMultipleSelection: true,
-                                                    showExplanation: false,
-                                                    allowEmptySetOfContacts: false,
-                                                    textAboveContactList: CommonString.someOfYourContactsMayNotAppearAsGroupV2Candidates) { [weak self] selectedContacts in
-                let contactObjectIDs = Set(selectedContacts.map({ $0.typedObjectID }))
-                try? self?.scratchGroup.addGroupMembers(contactObjectIDs: contactObjectIDs)
-                self?.presentedViewController?.dismiss(animated: true)
-            } dismissAction: { [weak self] in
-                self?.presentedViewController?.dismiss(animated: true)
-            }
-            vc.title = NSLocalizedString("ADD_GROUP_MEMBERS", comment: "")
-            present(ObvNavigationController(rootViewController: vc), animated: true)
-        } catch {
-            os_log("Could not show MultipleContactsHostingViewController: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-            assertionFailure()
-        }
-    }
-    
-    
-    func rollbackAllModifications() {
-        let scratchGroupObjectID = scratchGroup.typedObjectID
-        scratchGroup.managedObjectContext?.rollback()
-        do {
-            guard let scratchGroup = try PersistedGroupV2.get(objectID: scratchGroupObjectID, within: scratchViewContext) else {
-                throw Self.makeError(message: "Could not get group")
-            }
-            self.scratchGroup = scratchGroup
-        } catch {
-            os_log("Could not reload scratch group: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-        }
-    }
-    
-    
     func userWantsToNavigateToPersistedObvContactIdentity(_ contact: PersistedObvContactIdentity) {
         delegate?.userWantsToDisplay(persistedContact: contact, within: navigationController)
     }
     
     
     func userWantsToNavigateToDiscussion() {
-        // The delegate expects the discussion object to be registered with the main view context
-        guard let group = try? PersistedGroupV2.get(objectID: persistedGroupV2ObjectID, within: ObvStack.shared.viewContext) else {
-            assertionFailure()
-            return
-        }
         guard let discussion = group.discussion else { assertionFailure(); return }
         delegate?.userWantsToDisplay(persistedDiscussion: discussion)
     }
@@ -353,42 +282,28 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     }
     
     
-    @MainActor
-    func userWantsToPublishAllModifications() {
-        assert(Thread.isMainThread)
-        do {
-            let changeset = try scratchGroup.computeChangeset(with: referenceGroup)
-            guard !changeset.isEmpty else { return }
-            showUpdateInProgress()
-            ObvMessengerInternalNotification.userWantsToUpdateGroupV2(groupObjectID: scratchGroup.typedObjectID, changeset: changeset)
-                .postOnDispatchQueue()
-        } catch {
-            os_log("Failed to update group: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-        }
-    }
-    
-    
     func userWantsToReplaceTrustedDetailsByPublishedDetails() {
         do {
-            try scratchGroup.trustedDetailsShouldBeReplacedByPublishedDetails()
+            try group.trustedDetailsShouldBeReplacedByPublishedDetails()
         } catch {
             assertionFailure()
         }
     }
     
     
+    @MainActor
     func userWantsToPerformReDownloadOfGroupV2() {
         let obvEngine = self.obvEngine
         let ownedCryptoId: ObvCryptoId
         let keycloakManaged: Bool
         do {
-            ownedCryptoId = try scratchGroup.ownCryptoId
-            keycloakManaged = scratchGroup.keycloakManaged
+            ownedCryptoId = try group.ownCryptoId
+            keycloakManaged = group.keycloakManaged
         } catch {
             os_log("Failed to perform manual resync of group: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             return
         }
-        let groupIdentifier = scratchGroup.groupIdentifier
+        let groupIdentifier = group.groupIdentifier
         if keycloakManaged {
             Task { try? await KeycloakManagerSingleton.shared.syncAllManagedIdentities() }
         } else {
@@ -403,16 +318,17 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     }
 
     
+    @MainActor
     func userWantsToPerformDisbandOfGroupV2() {
         let obvEngine = self.obvEngine
         let ownedCryptoId: ObvCryptoId
         do {
-            ownedCryptoId = try scratchGroup.ownCryptoId
+            ownedCryptoId = try group.ownCryptoId
         } catch {
             os_log("Failed to perform manual resync of group: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             return
         }
-        let groupIdentifier = scratchGroup.groupIdentifier
+        let groupIdentifier = group.groupIdentifier
         DispatchQueue(label: "Background queue for performing a manual resync of a group").async {
             do {
                 try obvEngine.performDisbandOfGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
@@ -423,18 +339,18 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     }
     
     
-    func userWantsToEditDetailsOfGroupAsAdmin() {
-        guard let ownedCryptoId = try? scratchGroup.ownCryptoId else { assertionFailure(); return }
-        let ownedGroupEditionFlowVC = GroupEditionFlowViewController(
-            ownedCryptoId: ownedCryptoId,
-            editionType: .editGroupV2AsAdmin(groupIdentifier: scratchGroup.groupIdentifier),
-            obvEngine: obvEngine)
-        present(ownedGroupEditionFlowVC, animated: true)
+    func userWantsToEditGroupAsAdmin() {
+        guard let ownedCryptoId = try? group.ownCryptoId else { assertionFailure(); return }
+        let groupCreationFlowVC = NewGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId,
+                                                                    editionType: .modifyGroup(delegate: self, groupIdentifier: group.groupIdentifier),
+                                                                    logSubsystem: ObvMessengerConstants.logSubsystem,
+                                                                    directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url)
+        present(groupCreationFlowVC, animated: true)
     }
-    
+
     
     func userWantsToCloneThisGroup() {
-        guard let displayedContactGroup = scratchGroup.displayedContactGroup else { assertionFailure(); return }
+        guard let displayedContactGroup = group.displayedContactGroup else { assertionFailure(); return }
         delegate?.userWantsToCloneGroup(displayedContactGroupObjectID: displayedContactGroup.typedObjectID)
     }
 
@@ -443,12 +359,12 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
         let obvEngine = self.obvEngine
         let ownedCryptoId: ObvCryptoId
         do {
-            ownedCryptoId = try scratchGroup.ownCryptoId
+            ownedCryptoId = try group.ownCryptoId
         } catch {
             os_log("Failed to leave group: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             return
         }
-        let groupIdentifier = scratchGroup.groupIdentifier
+        let groupIdentifier = group.groupIdentifier
         DispatchQueue(label: "Background queue for performing a manual resync of a group").async {
             do {
                 try obvEngine.leaveGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier)
@@ -459,16 +375,9 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     }
     
     
-    private func showUpdateInProgress() {
-        guard !scratchGroup.updateInProgress else { return }
-        navigationItem.rightBarButtonItem?.isEnabled = false
-        scratchGroup.setUpdateInProgress()
-    }
-    
-    
     private func hideUpdateInProgress() {
-        guard scratchGroup.updateInProgress else { return }
-        scratchGroup.removeUpdateInProgress()
+        guard group.updateInProgress else { return }
+        group.removeUpdateInProgress()
         navigationItem.rightBarButtonItem?.isEnabled = true
     }
  
@@ -483,11 +392,17 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
     
     @MainActor
     func userWantsToUpdatePersonalNote(with newText: String?) async {
-        ObvMessengerInternalNotification.userWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: currentOwnedCryptoId, groupIdentifier: referenceGroup.groupIdentifier, newText: newText)
+        ObvMessengerInternalNotification.userWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: currentOwnedCryptoId, groupIdentifier: group.groupIdentifier, newText: newText)
             .postOnDispatchQueue()
         presentedViewController?.dismiss(animated: true)
     }
-
+    
+    // MARK: - GroupCreationEditViewActionsProtocol
+    
+    
+    func userWantsToDismissGroupEditView() async {
+        presentedViewController?.dismiss(animated: true)
+    }
     
     // MARK: - EditNicknameAndCustomPictureViewControllerDelegate
     
@@ -499,8 +414,8 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
             assertionFailure("The controller is expected to be configured with an identifier corresponding to the group shown by this view controller")
             return
         case .groupV2(let _groupV2Identifier):
-            guard scratchGroup.groupIdentifier == _groupV2Identifier else { assertionFailure(); return }
-            guard let _ownedCryptoId = try? scratchGroup.ownCryptoId else { assertionFailure(); return }
+            guard group.groupIdentifier == _groupV2Identifier else { assertionFailure(); return }
+            guard let _ownedCryptoId = try? group.ownCryptoId else { assertionFailure(); return }
             groupV2Identifier = _groupV2Identifier
             ownedCryptoId = _ownedCryptoId
         }
@@ -522,10 +437,22 @@ final class SingleGroupV2ViewController: UIHostingController<SingleGroupV2View>,
 }
 
 
+// MARK: - NewGroupEditionFlowViewControllerGroupModificationDelegate
+
+extension SingleGroupV2ViewController: NewGroupEditionFlowViewControllerGroupModificationDelegate {
+    
+    @MainActor
+    func userWantsToPublishGroupV2Modification(controller: NewGroupEditionFlowViewController, groupObjectID: ObvUICoreData.TypeSafeManagedObjectID<ObvUICoreData.PersistedGroupV2>, changeset: ObvTypes.ObvGroupV2.Changeset) async {
+        await delegate?.userWantsToPublishGroupV2Modification(groupObjectID: groupObjectID, changeset: changeset)
+        controller.dismiss(animated: true)
+    }
+    
+}
+
+
 // MARK: - SingleGroupV2ViewDelegate
 
-protocol SingleGroupV2ViewDelegate: AnyObject, GroupMembersViewActionsProtocol {
-    func userWantsToAddGroupMembers()
+protocol SingleGroupV2ViewDelegate: AnyObject {
     func userWantsToNavigateToPersistedObvContactIdentity(_ contact: PersistedObvContactIdentity)
     func userWantsToNavigateToDiscussion()
     func userWantsToCall() async
@@ -533,8 +460,9 @@ protocol SingleGroupV2ViewDelegate: AnyObject, GroupMembersViewActionsProtocol {
     func userWantsToPerformReDownloadOfGroupV2()
     func userWantsToLeaveGroup()
     func userWantsToPerformDisbandOfGroupV2()
-    func userWantsToEditDetailsOfGroupAsAdmin()
+    func userWantsToEditGroupAsAdmin()
     func userWantsToCloneThisGroup()
+    func userWantsToInviteAllMembersWithChannelToOneToOne() async throws
 }
 
 
@@ -733,8 +661,7 @@ struct SingleGroupV2View: View {
                     GroupMembersView(ownedIdentityIsAdmin: group.ownedIdentityIsAdmin,
                                      otherMembers: Array(group.otherMembersSorted),
                                      delegate: delegate,
-                                     updateInProgress: group.updateInProgress,
-                                     actions: delegate)
+                                     updateInProgress: group.updateInProgress)
                     .padding(.bottom, 16)
 
                     Spacer()
@@ -828,26 +755,13 @@ struct SingleGroupV2View: View {
 
 // MARK: - GroupMembersView
 
-protocol GroupMembersViewActionsProtocol {
-    
-    func rollbackAllModifications()
-    func userWantsToPublishAllModifications()
-    func userWantsToInviteAllMembersWithChannelToOneToOne() async throws
-    
-}
-
-
-fileprivate struct GroupMembersView: View {
+private struct GroupMembersView: View {
     
     let ownedIdentityIsAdmin: Bool
     let otherMembers: [PersistedGroupV2Member]
     let delegate: SingleGroupV2ViewDelegate?
     let updateInProgress: Bool
-    let actions: GroupMembersViewActionsProtocol // Expected to be non nil
-//    let rollbackAllModifications: (() -> Void)? // Expected to be non nil
-//    let publishAllModifications: (() -> Void)? // Expected to be non nil
 
-    @State private var editMode = false
     @State private var tappedContact: PersistedObvContactIdentity? = nil
     @State private var isInviteAllAlertPresented = false
     @State private var hudCategory: HUDView.Category?
@@ -859,7 +773,7 @@ fileprivate struct GroupMembersView: View {
         }
         Task {
             do {
-                try await actions.userWantsToInviteAllMembersWithChannelToOneToOne()
+                try await delegate?.userWantsToInviteAllMembersWithChannelToOneToOne()
                 await dismissHUD(success: true)
             } catch {
                 await dismissHUD(success: false)
@@ -895,47 +809,11 @@ fileprivate struct GroupMembersView: View {
                         
                         if ownedIdentityIsAdmin {
                             
-                            if !editMode {
-                                
-                                HStack {
-                                    
-                                    OlvidButton(olvidButtonAction: OlvidButtonAction(
-                                        action: { withAnimation { editMode.toggle() } },
-                                        title: Text("EDIT_GROUP_MEMBERS_AS_ADMINISTRATOR_BUTTON_TITLE"),
-                                        systemIcon: .person2Circle))
-                                    .disabled(updateInProgress)
-                                    
-                                    OlvidButton(olvidButtonAction: OlvidButtonAction(
-                                        action: { delegate?.userWantsToEditDetailsOfGroupAsAdmin() },
-                                        title: Text("EDIT_GROUP_DETAILS_AS_ADMINISTRATOR_BUTTON_TITLE"),
-                                        systemIcon: .pencil(.circle)))
-                                    .disabled(updateInProgress)
-                                    
-                                }
-                                
-                            } else {
-                                
-                                VStack {
-                                    OlvidButton(olvidButtonAction: OlvidButtonAction(
-                                        action: { delegate?.userWantsToAddGroupMembers() },
-                                        title: Text("ADD_GROUP_MEMBERS"),
-                                        systemIcon: .personCropCircleBadgePlus))
-                                    HStack {
-                                        OlvidButton(style: .red,
-                                                    title: Text(CommonString.Word.Cancel),
-                                                    systemIcon: .xmarkCircle,
-                                                    action: { withAnimation { actions.rollbackAllModifications(); editMode.toggle() } })
-                                        .transition(.asymmetric(insertion: .move(edge: .leading), removal: .scale))
-                                        OlvidButton(style: .green,
-                                                    title: Text("PUBLISH"),
-                                                    systemIcon: .checkmarkCircle,
-                                                    action: { withAnimation { actions.userWantsToPublishAllModifications(); editMode.toggle() } })
-                                        .disabled(updateInProgress)
-                                        .transition(.asymmetric(insertion: .scale, removal: .scale))
-                                    }
-                                }
-                                
-                            }
+                            OlvidButton(olvidButtonAction: OlvidButtonAction(
+                                action: { delegate?.userWantsToEditGroupAsAdmin() },
+                                title: Text("EDIT_GROUP_AS_ADMINISTRATOR_BUTTON_TITLE"),
+                                systemIcon: .pencil(.circle)))
+                            .disabled(updateInProgress)
                             
                             Divider()
                                 .padding(.vertical, 16)
@@ -967,9 +845,8 @@ fileprivate struct GroupMembersView: View {
                         } else {
                             
                             ForEach(otherMembers) { otherMember in
-                                SingleGroupMemberView(otherMember: otherMember, editMode: editMode, selected: tappedContact != nil && tappedContact == otherMember.contact)
+                                SingleGroupMemberView(otherMember: otherMember, selected: tappedContact != nil && tappedContact == otherMember.contact)
                                     .onTapGesture {
-                                        guard !editMode else { return }
                                         guard let contact = otherMember.contact else { return }
                                         withAnimation {
                                             tappedContact = contact
@@ -992,23 +869,22 @@ fileprivate struct GroupMembersView: View {
                                 }
                             }
                             
-                            if !editMode {
-                                OlvidButton(style: .blue, title: Text("INVITE_ALL_GROUP_MEMBERS_BUTTON_TITLE"), systemIcon: .personCropCircleBadgePlus) {
-                                    isInviteAllAlertPresented.toggle()
+                            // Invite all group members
+                            
+                            OlvidButton(style: .blue, title: Text("INVITE_ALL_GROUP_MEMBERS_BUTTON_TITLE"), systemIcon: .personCropCircleBadgePlus) {
+                                isInviteAllAlertPresented.toggle()
+                            }
+                            .padding(.top)
+                            .confirmationDialog(
+                                "INVITE_ALL_GROUP_MEMBERS_BUTTON_TITLE",
+                                isPresented: $isInviteAllAlertPresented
+                            ) {
+                                Button(action: userWantsToInviteAllGroupMembersToOneToOne ) {
+                                    Label("INVITE_ALL_GROUP_MEMBERS_BUTTON_TITLE", systemIcon: .personCropCircleBadgePlus)
                                 }
-                                .padding(.top)
-                                .confirmationDialog(
-                                    "INVITE_ALL_GROUP_MEMBERS_BUTTON_TITLE",
-                                    isPresented: $isInviteAllAlertPresented
-                                ) {
-                                    Button(action: userWantsToInviteAllGroupMembersToOneToOne ) {
-                                        Label("INVITE_ALL_GROUP_MEMBERS_BUTTON_TITLE", systemIcon: .personCropCircleBadgePlus)
-                                    }
-                                    Button("Cancel", role: .cancel, action: {})
-                                } message: {
-                                    Text("INVITE_ALL_GROUP_MEMBERS_EXPLANATION")
-                                }
-                                
+                                Button("Cancel", role: .cancel, action: {})
+                            } message: {
+                                Text("INVITE_ALL_GROUP_MEMBERS_EXPLANATION")
                             }
                             
                         }
@@ -1029,25 +905,20 @@ fileprivate struct GroupMembersView: View {
 }
 
 
-struct SingleGroupMemberView: View {
+/// Cell view shown in the list of all other group members.
+private struct SingleGroupMemberView: View {
     
     @ObservedObject var otherMember: PersistedGroupV2Member
-    let editMode: Bool
     let selected: Bool
 
-    private var informativeTextAboutPendingStatusAndAdminStatus: Text? {
-        switch (editMode, otherMember.isPending, otherMember.isAnAdmin) {
-        case (false, false, false): return nil
-        case (false, false, true): return Text("IS_ADMIN")
-        case (false, true, false): return Text("IS_PENDING")
-        case (false, true, true): return Text("IS_PENDING_ADMIN")
-        case (true, false, false): return Text("IS_NOT_ADMIN")
-        case (true, false, true): return Text("IS_ADMIN")
-        case (true, true, false): return Text("IS_NOT_ADMIN")
-        case (true, true, true): return Text("IS_ADMIN")
+    private var informativeTextAboutPendingStatusAndAdminStatus: LocalizedStringKey? {
+        switch (otherMember.isPending, otherMember.isAnAdmin) {
+        case (false, false): return nil
+        case (false, true): return "IS_ADMIN"
+        case (true, false): return "IS_PENDING"
+        case (true, true): return "IS_PENDING_ADMIN"
         }
     }
-    
     
     private var circleAndTitlesViewModel: CircleAndTitlesView.Model {
         .init(content: otherMember.circleAndTitlesViewModelContent,
@@ -1059,38 +930,22 @@ struct SingleGroupMemberView: View {
     
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
-            OlvidButtonSquare(style: .redOnTransparentBackground, systemIcon: .trash, action: {
-                withAnimation {
-                    try? otherMember.delete()
-                }
-            })
-            .opacity(editMode ? 1.0 : 0.0)
-            .frame(width: editMode ? nil : 0.0, height: editMode ? nil : 0.0)
             CircleAndTitlesView(model: circleAndTitlesViewModel)
             Spacer()
-            VStack(alignment: .center, spacing: 0) {
-                Toggle("", isOn: Binding<Bool>(
-                    get: { otherMember.isAnAdmin },
-                    set: { otherMember.setPermissionAdmin(to: $0) }
-                )
-                )
-                .labelsHidden()
-                .padding(.bottom, 4)
-                .opacity(editMode ? 1.0 : 0.0)
-                .frame(height: editMode ? nil : 0.0)
-                informativeTextAboutPendingStatusAndAdminStatus
-                    .multilineTextAlignment(.center)
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
-                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+            if let text = informativeTextAboutPendingStatusAndAdminStatus {
+                VStack(alignment: .center, spacing: 0) {
+                    Text(text)
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                }
+                .frame(width: 60) // Heuristic, width of "Not admin"
             }
-            .frame(width: 60) // Heuristic, width of "Not admin"
             if let persistedContact = otherMember.contact {
                 SpinnerViewForContactCell(model: persistedContact)
             }
-            if !editMode {
-                ObvChevron(selected: selected)
-                    .opacity(otherMember.contact != nil ? 1.0 : 0.0)
-            }
+            ObvChevron(selected: selected)
+                .opacity(otherMember.contact != nil ? 1.0 : 0.0)
         }
         .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
     }

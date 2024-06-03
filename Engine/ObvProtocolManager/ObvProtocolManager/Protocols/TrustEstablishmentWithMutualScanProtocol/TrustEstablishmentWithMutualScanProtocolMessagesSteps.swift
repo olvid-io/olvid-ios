@@ -228,7 +228,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
                 }
                 try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
             } else {
-                try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
             }
             for uid in aliceDeviceUids {
                 try identityDelegate.addDeviceForContactIdentity(aliceIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
@@ -337,7 +337,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             if (try? identityDelegate.isIdentity(aliceIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
                 try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(.direct(timestamp: Date()), toContactIdentity: aliceIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
             } else {
-                try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addContactIdentity(aliceIdentity, with: aliceCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
             }
             for uid in aliceDeviceUids {
                 try identityDelegate.addDeviceForContactIdentity(aliceIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
@@ -398,7 +398,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
                 }
                 try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(.direct(timestamp: Date()), toContactIdentity: bobIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
             } else {
-                try identityDelegate.addContactIdentity(bobIdentity, with: bobCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                try identityDelegate.addContactIdentity(bobIdentity, with: bobCoreDetails, andTrustOrigin: .direct(timestamp: Date()), forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
             }
             for uid in bobDeviceUids {
                 try identityDelegate.addDeviceForContactIdentity(bobIdentity, withUid: uid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)

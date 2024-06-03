@@ -37,15 +37,6 @@ let discussionsMentionsComposeMessageBuilder = Target.swiftLibrary(
     ]
 )
 
-let discussionsMentionsTextBubbleBuilder = Target.swiftLibrary(
-    name: "Discussions_Mentions_TextBubbleBuilder",
-    isExtensionSafe: true,
-    sources: "Mentions/Builders/TextBubbleBuilder/*.swift",
-    dependencies: [
-        .target(discussionsMentionsBuildersShared)
-    ]
-)
-
 let discussionsScrollToBottomButton = Target.swiftLibrary(
     name: "Discussions_ScrollToBottomButton",
     isExtensionSafe: true,
@@ -62,7 +53,6 @@ let project = Project.createProject(name: "Discussions",
                                               discussionsMentionsBuildersShared,
                                               discussionsMentionsBuilderInternals,
                                               discussionsMentionsComposeMessageBuilder,
-                                              discussionsMentionsTextBubbleBuilder,
                                               discussionsScrollToBottomButton],
                                     shouldEnableDefaultResourceSynthesizers: true)
 

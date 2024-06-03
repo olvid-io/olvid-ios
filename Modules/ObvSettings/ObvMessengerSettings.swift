@@ -45,8 +45,16 @@ public struct ObvMessengerSettings {
     
     public struct ContactsAndGroups {
         
-        private struct Keys {
-            static let autoAcceptGroupInviteFrom = "settings.contacts.and.groups.autoAcceptGroupInviteFrom"
+        enum Key: String {
+            case autoAcceptGroupInviteFrom = "autoAcceptGroupInviteFrom"
+            case hideGroupMemberChangeMessages = "hideGroupMemberChangeMessages"
+            
+            private var kContactsAndGroups: String { "contacts.and.groups" }
+
+            var path: String {
+                [kSettingsKeyPath, kContactsAndGroups, self.rawValue].joined(separator: ".")
+            }
+
         }
         
         public enum AutoAcceptGroupInviteFrom: String, CaseIterable {
@@ -57,18 +65,29 @@ public struct ObvMessengerSettings {
         
         public private(set) static var autoAcceptGroupInviteFrom: AutoAcceptGroupInviteFrom {
             get {
-                let raw = userDefaults.stringOrNil(forKey: Keys.autoAcceptGroupInviteFrom) ?? AutoAcceptGroupInviteFrom.oneToOneContactsOnly.rawValue
+                let raw = userDefaults.stringOrNil(forKey: Key.autoAcceptGroupInviteFrom.path) ?? AutoAcceptGroupInviteFrom.oneToOneContactsOnly.rawValue
                 return AutoAcceptGroupInviteFrom(rawValue: raw) ?? .oneToOneContactsOnly
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: Keys.autoAcceptGroupInviteFrom)
+                userDefaults.set(newValue.rawValue, forKey: Key.autoAcceptGroupInviteFrom.path)
             }
         }
         
-        public static func setAutoAcceptGroupInviteFrom(to newValue: AutoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice: Bool, ownedCryptoId: ObvCryptoId?) {
+        public static func setAutoAcceptGroupInviteFrom(to newValue: AutoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice: Bool) {
             guard newValue != autoAcceptGroupInviteFrom else { return }
             autoAcceptGroupInviteFrom = newValue
-            ObvMessengerSettingsObservableObject.shared.autoAcceptGroupInviteFrom = (autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice, ownedCryptoId)
+            ObvMessengerSettingsObservableObject.shared.autoAcceptGroupInviteFrom = (autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice)
+        }
+        
+        
+        public static var hideGroupMemberChangeMessages: Bool {
+            get {
+                return userDefaults.boolOrNil(forKey: Key.hideGroupMemberChangeMessages.path) ?? false
+            }
+            set {
+                userDefaults.set(newValue, forKey: Key.hideGroupMemberChangeMessages.path)
+                ObvMessengerSettingsObservableObject.shared.hideGroupMemberChangeMessages = newValue
+            }
         }
         
     }
@@ -80,6 +99,7 @@ public struct ObvMessengerSettings {
             case contactsSortOrder = "contactsSortOrder"
             case preferredComposeMessageViewActions = "preferredComposeMessageViewActions"
             case discussionLayoutType = "discussionLayoutType"
+            case sendMessageShortcutType = "sendMessageShortcutType"
             
             private var kInterface: String { "interface" }
             
@@ -93,6 +113,24 @@ public struct ObvMessengerSettings {
         public enum DiscussionLayoutType: Int, CaseIterable {
             case productionLayout
             case listLayout
+        }
+        
+        
+        public enum SendMessageShortcutType: Int, CaseIterable {
+            case enter
+            case commandEnter
+        }
+        
+        
+        public static var sendMessageShortcutType: SendMessageShortcutType {
+            get {
+                let raw = userDefaults.integerOrNil(forKey: Key.sendMessageShortcutType.path) ?? 0
+                return SendMessageShortcutType(rawValue: raw) ?? SendMessageShortcutType.enter
+            }
+            set {
+                userDefaults.set(newValue.rawValue, forKey: Key.sendMessageShortcutType.path)
+                ObvMessengerSettingsObservableObject.shared.sendMessageShortcutType = newValue
+            }
         }
         
         
@@ -189,10 +227,10 @@ public struct ObvMessengerSettings {
             }
         }
         
-        public static func setDoSendReadReceipt(to newValue: Bool, changeMadeFromAnotherOwnedDevice: Bool, ownedCryptoId: ObvCryptoId?) {
+        public static func setDoSendReadReceipt(to newValue: Bool, changeMadeFromAnotherOwnedDevice: Bool) {
             guard newValue != doSendReadReceipt else { return }
             self.doSendReadReceipt = newValue
-            ObvMessengerSettingsObservableObject.shared.doSendReadReceipt = (doSendReadReceipt, changeMadeFromAnotherOwnedDevice, ownedCryptoId)
+            ObvMessengerSettingsObservableObject.shared.doSendReadReceipt = (doSendReadReceipt, changeMadeFromAnotherOwnedDevice)
         }
         
         
@@ -912,13 +950,17 @@ public final class ObvMessengerSettingsObservableObject: ObservableObject {
     public static let shared = ObvMessengerSettingsObservableObject()
 
     @Published public fileprivate(set) var defaultEmojiButton: String?
-    @Published public fileprivate(set) var doSendReadReceipt: (doSendReadReceipt: Bool, changeMadeFromAnotherOwnedDevice: Bool, ownedCryptoId: ObvCryptoId?)
-    @Published public fileprivate(set) var autoAcceptGroupInviteFrom: (autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice: Bool, ownedCryptoId: ObvCryptoId?)
+    @Published public fileprivate(set) var doSendReadReceipt: (doSendReadReceipt: Bool, changeMadeFromAnotherOwnedDevice: Bool)
+    @Published public fileprivate(set) var autoAcceptGroupInviteFrom: (autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice: Bool)
+    @Published public fileprivate(set) var hideGroupMemberChangeMessages: Bool
+    @Published public fileprivate(set) var sendMessageShortcutType: ObvMessengerSettings.Interface.SendMessageShortcutType
     
     private init() {
         defaultEmojiButton = ObvMessengerSettings.Emoji.defaultEmojiButton
-        doSendReadReceipt = (ObvMessengerSettings.Discussions.doSendReadReceipt, false, nil)
-        autoAcceptGroupInviteFrom = (ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom, false, nil)
+        doSendReadReceipt = (ObvMessengerSettings.Discussions.doSendReadReceipt, false)
+        autoAcceptGroupInviteFrom = (ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom, false)
+        hideGroupMemberChangeMessages = ObvMessengerSettings.ContactsAndGroups.hideGroupMemberChangeMessages
+        sendMessageShortcutType = ObvMessengerSettings.Interface.sendMessageShortcutType
     }
     
 }
@@ -1021,11 +1063,11 @@ public struct GlobalSettingsSyncSnapshotNode: ObvSyncSnapshotNode {
     public func useToUpdateGlobalSettings() {
         
         if domain.contains(.autoAcceptGroupInviteFrom), let autoAcceptGroupInviteFrom {
-            ObvMessengerSettings.ContactsAndGroups.setAutoAcceptGroupInviteFrom(to: autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice: false, ownedCryptoId: nil)
+            ObvMessengerSettings.ContactsAndGroups.setAutoAcceptGroupInviteFrom(to: autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice: false)
         }
         
         if domain.contains(.doSendReadReceipt), let doSendReadReceipt {
-            ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: doSendReadReceipt, changeMadeFromAnotherOwnedDevice: false, ownedCryptoId: nil)
+            ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: doSendReadReceipt, changeMadeFromAnotherOwnedDevice: false)
         }
         
     }

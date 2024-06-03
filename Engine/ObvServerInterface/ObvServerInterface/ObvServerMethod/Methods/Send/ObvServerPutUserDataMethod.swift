@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,9 +30,10 @@ public final class ObvServerPutUserDataMethod: ObvServerDataMethod {
 
     public let pathComponent = "/putUserData"
 
-    public let ownedIdentity: ObvCryptoIdentity
+    public var ownedIdentity: ObvCryptoIdentity? { ownedCryptoId }
+    private let ownedCryptoId: ObvCryptoIdentity
     public let isActiveOwnedIdentityRequired = true
-    public var serverURL: URL { ownedIdentity.serverURL }
+    public var serverURL: URL { ownedCryptoId.serverURL }
     public let token: Data
     public let serverLabel: UID
     public let data: EncryptedData
@@ -41,7 +42,7 @@ public final class ObvServerPutUserDataMethod: ObvServerDataMethod {
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
     public init(ownedIdentity: ObvCryptoIdentity, token: Data, serverLabel: UID, data: EncryptedData, flowId: FlowIdentifier) {
-        self.ownedIdentity = ownedIdentity
+        self.ownedCryptoId = ownedIdentity
         self.token = token
         self.serverLabel = serverLabel
         self.data = data
@@ -55,7 +56,7 @@ public final class ObvServerPutUserDataMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        return [self.ownedIdentity, self.token, self.serverLabel, self.data].obvEncode().rawData
+        return [self.ownedCryptoId, self.token, self.serverLabel, self.data].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> Result<PossibleReturnStatus, Error> {

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,9 +31,10 @@ public final class ObvRegisterAPIKeyServerMethod: ObvServerDataMethod {
     
     public let pathComponent = "/registerApiKey"
 
-    public let ownedIdentity: ObvCryptoIdentity
+    public var ownedIdentity: ObvCryptoIdentity? { ownedCryptoId }
+    private let ownedCryptoId: ObvCryptoIdentity
     public let isActiveOwnedIdentityRequired = true
-    public var serverURL: URL { return ownedIdentity.serverURL }
+    public var serverURL: URL { return ownedCryptoId.serverURL }
     public let flowId: FlowIdentifier
     private let apiKey: UUID
     private let serverSessionToken: Data
@@ -42,7 +43,7 @@ public final class ObvRegisterAPIKeyServerMethod: ObvServerDataMethod {
 
     public init(ownedIdentity: ObvCryptoIdentity, serverSessionToken: Data, apiKey: UUID, identityDelegate: ObvIdentityDelegate, flowId: FlowIdentifier) {
         self.flowId = flowId
-        self.ownedIdentity = ownedIdentity
+        self.ownedCryptoId = ownedIdentity
         self.identityDelegate = identityDelegate
         self.serverSessionToken = serverSessionToken
         self.apiKey = apiKey
@@ -56,7 +57,7 @@ public final class ObvRegisterAPIKeyServerMethod: ObvServerDataMethod {
     }
     
     lazy public var dataToSend: Data? = {
-        return [self.ownedIdentity, self.serverSessionToken, self.apiKey].obvEncode().rawData
+        return [self.ownedCryptoId, self.serverSessionToken, self.apiKey].obvEncode().rawData
     }()
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> Result<ServerReturnStatus, Error> {

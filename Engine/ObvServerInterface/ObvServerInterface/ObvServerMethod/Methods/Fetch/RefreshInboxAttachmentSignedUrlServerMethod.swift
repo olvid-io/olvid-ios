@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,7 +39,7 @@ public final class RefreshInboxAttachmentSignedUrlServerMethod: ObvServerDataMet
     public let flowId: FlowIdentifier
     public let isActiveOwnedIdentityRequired = true
 
-    public var ownedIdentity: ObvCryptoIdentity {
+    public var ownedIdentity: ObvCryptoIdentity? {
         return attachmentId.messageId.ownedCryptoIdentity
     }
     

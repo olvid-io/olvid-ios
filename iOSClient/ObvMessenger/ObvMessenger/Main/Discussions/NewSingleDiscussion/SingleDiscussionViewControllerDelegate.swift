@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,9 +26,10 @@ protocol SingleDiscussionViewControllerDelegate: AnyObject {
     func userTappedTitleOfDiscussion(_ discussion: PersistedDiscussion)
     func userDidTapOnContactImage(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 
+
     /// Delegation method called whenever a user taps on a user mention within the text
     /// - Parameters:
-    ///   - viewController: An instance of ``SomeSingleDiscussionViewController``
-    ///   - mentionableIdentity: An instance of ``MentionableIdentity`` that the user tapped
-    func singleDiscussionViewController(_ viewController: SomeSingleDiscussionViewController, userDidTapOn mentionableIdentity: MentionableIdentity)
+    ///   - viewController: An instance of ``SomeSingleDiscussionViewController``.
+    ///   - mentionableIdentity: An instance of ``ObvMentionableIdentityAttribute.Value`` that the user tapped.
+    func singleDiscussionViewController(_ viewController: SomeSingleDiscussionViewController, userDidTapOn mentionableIdentity: ObvMentionableIdentityAttribute.Value) async
 }

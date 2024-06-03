@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,21 @@
 
 import Foundation
 
-public enum DeletionType {
-    case local
-    case global
+public enum DeletionType: Hashable, CaseIterable, Comparable {
+    case fromThisDeviceOnly
+    case fromAllOwnedDevices
+    case fromAllOwnedDevicesAndAllContactDevices
+    
+    private var sortOrder: Int {
+        switch self {
+        case .fromThisDeviceOnly: return 0
+        case .fromAllOwnedDevices: return 1
+        case .fromAllOwnedDevicesAndAllContactDevices: return 2
+        }
+    }
+
+    public static func < (lhs: DeletionType, rhs: DeletionType) -> Bool {
+        lhs.sortOrder < rhs.sortOrder
+    }
+    
 }

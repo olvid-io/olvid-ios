@@ -119,9 +119,14 @@ final class ContactTrustLevelWatcher {
                             continue
                         }
                         
-                        guard try identityDelegate.isOneToOneContact(ownedIdentity: protocolInstance.ownedCryptoIdentity, contactIdentity: protocolInstance.contactCryptoIdentity, within: obvContext) else {
+                        let oneToOneStatus = try identityDelegate.getOneToOneStatusOfContactIdentity(ownedIdentity: protocolInstance.ownedCryptoIdentity,
+                                                                                                     contactIdentity: protocolInstance.contactCryptoIdentity,
+                                                                                                     within: obvContext)
+                        
+                        guard oneToOneStatus == .oneToOne else {
                             continue
                         }
+                        
                     } catch {
                         os_log("Error when evaluating if we can re-launch a protocol instance waiting for contact upgrade to OneToOne: %{public}@", log: log, type: .fault, error.localizedDescription)
                         assertionFailure()
@@ -187,7 +192,8 @@ final class ContactTrustLevelWatcher {
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
 
             do {
-                guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
+                let oneToOneStatus = try identityDelegate.getOneToOneStatusOfContactIdentity(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext)
+                guard oneToOneStatus == .oneToOne else {
                     return
                 }
             } catch {

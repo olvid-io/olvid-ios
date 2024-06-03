@@ -296,6 +296,7 @@ extension GroupV2Protocol {
             let otherGroupMembers = receivedMessage.otherGroupMembers
             let serializedGroupCoreDetails = receivedMessage.serializedGroupCoreDetails
             let photoURLManagedByTheApp = receivedMessage.photoURL // URL of the photo, typically, in app cache manager
+            let serializedGroupType = receivedMessage.serializedGroupType
 
             // Create the group in DB.
             // This call makes sure of the other group members are indeed contacts of the owned identity. It also create the first version of the administrators chain.
@@ -304,6 +305,7 @@ extension GroupV2Protocol {
             let values = try identityDelegate.createContactGroupV2AdministratedByOwnedIdentity(ownedIdentity,
                                                                                                serializedGroupCoreDetails: serializedGroupCoreDetails,
                                                                                                photoURL: photoURLManagedByTheApp,
+                                                                                               serializedGroupType: serializedGroupType,
                                                                                                ownRawPermissions: ownRawPermissions,
                                                                                                otherGroupMembers: otherGroupMembers,
                                                                                                within: obvContext)
@@ -829,6 +831,7 @@ extension GroupV2Protocol {
                     let otherMembers = Set(startState.serverBlob.getOtherGroupMembers(ownedIdentity: ownedIdentity).map({ $0.toObvGroupV2IdentityAndPermissionsAndDetails(isPending: true) }))
                     
                     let trustedDetailsAndPhoto = ObvGroupV2.DetailsAndPhoto(serializedGroupCoreDetails: startState.serverBlob.serializedGroupCoreDetails, photoURLFromEngine: .none)
+                    
                     assert(groupIdentifier.category == .server, "If we are dealing with anything else than .server, we cannot always set serializedSharedSettings to nil bellow")
                     let group = ObvGroupV2(groupIdentifier: groupIdentifier.toObvGroupV2Identifier,
                                            ownIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity),
@@ -838,7 +841,9 @@ extension GroupV2Protocol {
                                            publishedDetailsAndPhoto: nil,
                                            updateInProgress: false,
                                            serializedSharedSettings: nil,
-                                           lastModificationTimestamp: nil)
+                                           lastModificationTimestamp: nil,
+                                           serializedGroupType: startState.serverBlob.serializedGroupType)
+                    
                     let dialogType = ObvChannelDialogToSendType.freezeGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: startState.inviterIdentity), group: group)
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogFreezeGroupV2InvitationMessage(coreProtocolMessage: coreMessage)
@@ -1451,6 +1456,7 @@ extension GroupV2Protocol {
                 let trustedDetailsAndPhoto = ObvGroupV2.DetailsAndPhoto(serializedGroupCoreDetails: consolidatedServerBlob.serializedGroupCoreDetails, photoURLFromEngine: .none)
                 let otherMembers = Set(consolidatedServerBlob.getOtherGroupMembers(ownedIdentity: ownedIdentity).map({ $0.toObvGroupV2IdentityAndPermissionsAndDetails(isPending: true) }))
                 assert(groupIdentifier.category == .server, "If we are dealing with anything else than .server, we cannot always set serializedSharedSettings to nil bellow")
+                
                 let group = ObvGroupV2(groupIdentifier: groupIdentifier.toObvGroupV2Identifier,
                                        ownIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity),
                                        ownPermissions: ownPermissions,
@@ -1459,7 +1465,9 @@ extension GroupV2Protocol {
                                        publishedDetailsAndPhoto: nil,
                                        updateInProgress: false,
                                        serializedSharedSettings: nil,
-                                       lastModificationTimestamp: nil)
+                                       lastModificationTimestamp: nil,
+                                       serializedGroupType: consolidatedServerBlob.serializedGroupType)
+                
                 let dialogType = ObvChannelDialogToSendType.acceptGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: inviterIdentity), group: group)
                 let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogAcceptGroupV2InvitationMessage(coreProtocolMessage: coreMessage)
@@ -2448,6 +2456,7 @@ extension GroupV2Protocol {
                     let otherMembers = Set(startState.serverBlob.getOtherGroupMembers(ownedIdentity: ownedIdentity).map({ $0.toObvGroupV2IdentityAndPermissionsAndDetails(isPending: true) }))
                     let trustedDetailsAndPhoto = ObvGroupV2.DetailsAndPhoto(serializedGroupCoreDetails: startState.serverBlob.serializedGroupCoreDetails, photoURLFromEngine: .none)
                     assert(groupIdentifier.category == .server, "If we are dealing with anything else than .server, we cannot always set serializedSharedSettings to nil bellow")
+                    
                     let group = ObvGroupV2(groupIdentifier: groupIdentifier.toObvGroupV2Identifier,
                                            ownIdentity: ObvCryptoId(cryptoIdentity: ownedIdentity),
                                            ownPermissions: ownPermissions,
@@ -2456,7 +2465,9 @@ extension GroupV2Protocol {
                                            publishedDetailsAndPhoto: nil,
                                            updateInProgress: false,
                                            serializedSharedSettings: nil,
-                                           lastModificationTimestamp: nil)
+                                           lastModificationTimestamp: nil,
+                                           serializedGroupType: startState.serverBlob.serializedGroupType)
+                    
                     let dialogType = ObvChannelDialogToSendType.freezeGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: startState.inviterIdentity), group: group)
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogFreezeGroupV2InvitationMessage(coreProtocolMessage: coreMessage)

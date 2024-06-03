@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,7 +33,8 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
     
     public var serverURL: URL { return toIdentity.serverURL }
     public let toIdentity: ObvCryptoIdentity
-    public let ownedIdentity: ObvCryptoIdentity
+    public var ownedIdentity: ObvCryptoIdentity? { ownedCryptoId }
+    private let ownedCryptoId: ObvCryptoIdentity
     private let pushNotification: ObvPushNotificationType
     private let sessionToken: Data
     private let remoteNotificationByteIdentifierForServer: Data // One byte
@@ -50,7 +51,7 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
         self.remoteNotificationByteIdentifierForServer = remoteNotificationByteIdentifierForServer
         self.flowId = flowId
         self.toIdentity = pushNotification.ownedCryptoId
-        self.ownedIdentity = pushNotification.ownedCryptoId
+        self.ownedCryptoId = pushNotification.ownedCryptoId
         self.prng = prng
     }
 
@@ -85,7 +86,7 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
             extraInfo, // 4
             pushNotification.optionalParameter.reactivateCurrentDevice.obvEncode(), // 5
             listOfEncodedKeycloakPushTopics.obvEncode(), // 6
-            DeviceNameUtils.encrypt(deviceName: pushNotification.commonParameters.deviceNameForFirstRegistration, for: ownedIdentity, using: prng).raw.obvEncode(), // 7
+            DeviceNameUtils.encrypt(deviceName: pushNotification.commonParameters.deviceNameForFirstRegistration, for: ownedCryptoId, using: prng).raw.obvEncode(), // 7
         ]
         if pushNotification.optionalParameter.reactivateCurrentDevice, let replacedDeviceUid = pushNotification.optionalParameter.replacedDeviceUid {
             listToEncode.append(replacedDeviceUid.obvEncode()) // 8

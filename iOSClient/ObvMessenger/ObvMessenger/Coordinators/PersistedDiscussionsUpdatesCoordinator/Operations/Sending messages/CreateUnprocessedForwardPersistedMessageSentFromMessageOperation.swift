@@ -55,6 +55,12 @@ final class CreateUnprocessedForwardPersistedMessageSentFromMessageOperation: Co
                 return cancel(withReason: .couldNotFindMessageInDatabase)
             }
             
+            // Make sure the message can be forwarded
+            guard messageToForward.forwardActionCanBeMadeAvailable else {
+                assertionFailure()
+                return cancel(withReason: .cannotForwardMessage)
+            }
+            
             let forwarded: Bool
             switch messageToForward.kind {
             case .received:
@@ -90,10 +96,11 @@ enum CreateUnprocessedForwardPersistedMessageSentFromMessageOperationOperationRe
     case coreDataError(error: Error)
     case couldNotFindDiscussionInDatabase
     case couldNotFindMessageInDatabase
+    case cannotForwardMessage
 
     var logType: OSLogType {
         switch self {
-        case .contextIsNil:
+        case .contextIsNil, .cannotForwardMessage:
             return .fault
         case .coreDataError:
             return .fault
@@ -110,6 +117,7 @@ enum CreateUnprocessedForwardPersistedMessageSentFromMessageOperationOperationRe
         case .coreDataError(error: let error): return "Core Data error: \(error.localizedDescription)"
         case .couldNotFindDiscussionInDatabase: return "Could not obtain persisted discussion in database"
         case .couldNotFindMessageInDatabase: return "Could not find message in database"
+        case .cannotForwardMessage: return "Cannot forward message"
         }
     }
 

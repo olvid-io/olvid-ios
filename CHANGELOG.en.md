@@ -1,5 +1,78 @@
 # Changelog
 
+## [2.4 (778)] - 2024-06-03
+
+### macOS
+
+- Introducing group types! Creating and managing an Olvid group is now easier than ever.
+- It is no longer possible to moderate received messages unless in an advanced group configured with the appropriate permissions.
+- Two options are now available when deleting a message or discussion: delete from the local device or from all devices you own.
+- Fixed an issue where users occasionally had to force quit the app after it had been idle for a period.
+- Reacting to a message can now be done by performing a long-press on the message. Double-tap reaction option is still available.
+- Fixed a bug where carriage returns in received messages were not always properly displayed.
+- The list of available message or discussion deletion options now properly adapts to the context.
+- It is now always possible to react to a message, even in a read-only group discussion.
+- Removed the reply-to menu entry that was shown on messages in read-only discussions.
+- Enhanced user experience by refining the display of backup-related tips.
+- Improved the process of deleting messages in a group with no other members.
+- Fixed a potential crash that could occur when the app is running in the background.
+- Improved the efficiency of certain network calls by batching several calls into one.
+- Improved the preview displayed for URLs pointing to a video.
+- Fixed a bug that sometimes caused certain contacts to be relegated to the list of secondary (other) contacts.
+- Fixed a bug that occasionally prevented the proper deletion of a profile.
+- Fixed a bug that prevented proper highlighting during a search within a discussion.
+- Fixed a bug that sometimes caused received messages to be truncated.
+- Fixed a bug that impacted user notifications by removing carriage returns from the notification body.
+- Fixed a minor bug during the onboarding process.
+- Other minor bug fixes and improvements.
+
+### iOS
+
+- Introducing group types! Creating and managing an Olvid group is now easier than ever.
+- It is no longer possible to moderate received messages unless in an advanced group configured with the appropriate permissions.
+- Two options are now available when deleting a message or discussion: delete from the local device or from all devices you own.
+- Reacting to a message can now be done by performing a long-press on the message. Double-tap reaction option is still available.
+- Fixed a bug where carriage returns in received messages were not always properly displayed.
+- The list of available message or discussion deletion options now properly adapts to the context.
+- It is now always possible to react to a message, even in a read-only group discussion.
+- Removed the reply-to menu entry that was shown on messages in read-only discussions.
+- Enhanced user experience by refining the display of backup-related tips.
+- Improved the process of deleting messages in a group with no other members.
+- Fixed a potential crash that could occur when the app is running in the background.
+- Improved the efficiency of certain network calls by batching several calls into one.
+- Improved the preview displayed for URLs pointing to a video.
+- Fixed a bug that sometimes caused certain contacts to be relegated to the list of secondary (other) contacts.
+- Fixed a bug that occasionally prevented the proper deletion of a profile.
+- Fixed a bug that prevented proper highlighting during a search within a discussion.
+- Fixed a bug that sometimes caused received messages to be truncated.
+- Fixed a bug that impacted user notifications by removing carriage returns from the notification body.
+- Fixed a minor bug during the onboarding process.
+- Other minor bug fixes and improvements.
+
+## [2.3 (773)] - 2024-04-25
+
+### macOS
+
+- Added a new feature that allows users to send a message by pressing the Enter key on macOS, which can be configured in the settings to use Cmd+Enter instead.
+- Added an option to hide system messages displayed in a group discussion when the group members change.
+- For enterprise users, leaving the company directory now clears the position and company fields.
+- Sent receipts and read receipts have been made significantly more dependable.
+- When deleting a message everywhere, your other devices now simply delete the message.
+- Deleting a profile is now done from the screen showing the details about the profile.
+- Fixed a bug that sometimes prevented the proper display of a QR code.
+- Improved support for numbered lists in Markdown within messages.
+
+### iOS
+
+- Added an option to hide system messages displayed in a group discussion when the group members change.
+- For enterprise users, leaving the company directory now clears the position and company fields.
+- Sent receipts and read receipts have been made significantly more dependable.
+- When deleting a message everywhere, your other devices now simply delete the message.
+- Deleting a profile is now done from the screen showing the details about the profile.
+- Resolved an iPad display bug that occurred when minimizing the app.
+- Fixed a bug that sometimes prevented the proper display of a QR code.
+- Improved support for numbered lists in Markdown within messages.
+
 ## [2.1 (757)] - 2024-03-11
 
 ### macOS

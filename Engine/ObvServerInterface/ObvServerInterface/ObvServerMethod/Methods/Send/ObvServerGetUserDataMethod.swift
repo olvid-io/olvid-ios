@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,7 +30,7 @@ public final class ObvServerGetUserDataMethod: ObvServerDataMethod {
 
     public let pathComponent = "/getUserData"
 
-    public var ownedIdentity: ObvCryptoIdentity
+    public var ownedIdentity: ObvCryptoIdentity?
     public var isActiveOwnedIdentityRequired = true
     public var serverURL: URL { toIdentity.serverURL }
     public let toIdentity: ObvCryptoIdentity

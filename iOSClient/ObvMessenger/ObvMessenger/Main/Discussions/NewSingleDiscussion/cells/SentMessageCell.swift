@@ -87,17 +87,13 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         hardlinks.append(contentsOf: contentView.multipleImagesView.getAllShownHardLink())
         hardlinks.append(contentsOf: contentView.attachmentsView.getAllShownHardLink())
         hardlinks.append(contentsOf: contentView.audioPlayerView.getAllShownHardLink())
+        hardlinks.append(contentsOf: contentView.singlePDFView.getAllShownHardLink())
         return hardlinks
     }
+
     
     override func updateConfiguration(using state: UICellConfigurationState) {
-        // 2022-06-20: Commented out during the change of the startup process.
-        // X       guard AppStateManager.shared.currentState.isInitializedAndActive else {
-        // X           // This prevents a crash when the user hits the home button while in the discussion.
-        // X           // In that case, for some reason, this method is called and crashes because we cannot fetch faulted values once not active.
-        // X           // Note that we *cannot* call setNeedsUpdateConfiguration() here, as this creates a deadlock.
-        // X           return
-        // X       }
+
         guard let message = self.message else { assertionFailure(); return }
         guard message.managedObjectContext != nil else { return } // Happens if the message has recently been deleted. Going further would crash the app.
         var content = SentMessageCellCustomContentConfiguration().updated(for: state)
@@ -122,20 +118,14 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         // Configure the text body (determine whether we should use data detection on the text view)
         
         content.textBubbleConfiguration = nil
-        if let text = message.textBody, !message.isWiped {
-            if let dataDetected = cacheDelegate?.getCachedDataDetection(text: text) {
-                content.textBubbleConfiguration = TextBubble.Configuration(kind: .sent,
-                                                                           text: text,
-                                                                           dataDetectorTypes: dataDetected,
-                                                                           searchedTextToHighlight: searchedTextToHighlight,
-                                                                           mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
-            } else {
-                content.textBubbleConfiguration = TextBubble.Configuration(kind: .sent,
-                                                                           text: text,
-                                                                           dataDetectorTypes: [],
-                                                                           searchedTextToHighlight: searchedTextToHighlight,
-                                                                           mentionedUsers: message.mentions.mentionableIdentityTypesFromRange_WARNING_VIEW_CONTEXT)
-                cacheDelegate?.requestDataDetection(text: text) { [weak self] dataDetected in
+        if let attributedTextBody = message.displayableAttributedBody, !message.isWiped {
+            let dataDetectorMatches = cacheDelegate?.getCachedDataDetection(attributedString: attributedTextBody)
+            content.textBubbleConfiguration = TextBubble.Configuration(kind: .sent,
+                                                                       attributedText: attributedTextBody,
+                                                                       dataDetectorMatches: dataDetectorMatches ?? [],
+                                                                       searchedTextToHighlight: searchedTextToHighlight)
+            if let cacheDelegate, dataDetectorMatches == nil {
+                cacheDelegate.requestDataDetection(attributedString: attributedTextBody) { [weak self] dataDetected in
                     assert(Thread.isMainThread)
                     guard dataDetected else { return }
                     self?.setNeedsUpdateConfiguration()
@@ -199,7 +189,8 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             content.singleGifViewConfiguration = nil
         }
 
-        // configure preview tytpes of attachments
+        // Configure link-preview type of attachments
+        
         var otherAttachments = message.fyleMessageJoinWithStatusesOfOtherTypes
         let previewAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfPreviewType
         if let previewAttachment = previewAttachments.first {
@@ -208,7 +199,8 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             content.singlePreviewConfiguration = nil
         }
         
-        //We remove the previewAttachments for all cases
+        // We remove the link-preview from the attachments
+        
         otherAttachments = otherAttachments.filter { !previewAttachments.contains($0) }
 
         var audioAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfAudioType
@@ -220,9 +212,25 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         }
 
         // We choose to show audioPlayer only for the first audio song.
+        
         otherAttachments += audioAttachments
+        
+        // The first pdf/docx/... attachment must have a large preview
 
-        content.multipleAttachmentsViewConfiguration = message.isWiped ? [] : otherAttachments.map({ attachmentViewConfigurationForAttachment($0) })
+        let fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType = message.isWiped ? nil : message.fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType.first
+        if let fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType {
+            content.singlePDFViewConfiguration = attachmentViewConfigurationForAttachment(fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType,
+                                                                                          size: .cropBottom(mandatoryWidth: SinglePDFView.singlePDFViewWidth,
+                                                                                                            maxHeight: SinglePDFView.singlePDFPreviewMaxHeight))
+        } else {
+            content.singlePDFViewConfiguration = nil
+        }
+
+        // Add the remaining attachments
+        
+        content.multipleAttachmentsViewConfiguration = message.isWiped ? [] : otherAttachments
+            .filter({ $0 != fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType })
+            .map({ attachmentViewConfigurationForAttachment($0, size: .full(minSize: SingleAttachmentView.sizeForRequestingThumbnail)) })
 
         // Configure the rest
         
@@ -300,14 +308,14 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         case .uploading, .uploadable:
             assert(cacheDelegate != nil)
             if let hardlink = hardlink {
-                if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
+                if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: .full(minSize: size)) {
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: image, progress: imageAttachment.progressObject)
                 } else {
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, progress: imageAttachment.progressObject)
                     Task {
                         do {
-                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
-                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: sizeForUIDragItemPreview))
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: size))
                             if requiresCellSizing {
                                 cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: imageAttachment.sentMessage.typedObjectID.downcast)
                             } else {
@@ -323,7 +331,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             }
         case .complete:
             if let hardlink = hardlink, hardlink.hardlinkURL != nil {
-                if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
+                if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: .full(minSize: size)) {
                     cacheDelegate?.removeCachedDownsizedThumbnail(objectID: imageAttachment.typedObjectID.downcast)
                     config = .complete(downsizedThumbnail: nil, hardlink: hardlink, thumbnail: image)
                 } else {
@@ -331,8 +339,8 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                     config = .complete(downsizedThumbnail: downsizedThumbnail, hardlink: hardlink, thumbnail: nil)
                     Task {
                         do {
-                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
-                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: sizeForUIDragItemPreview))
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: size))
                             if requiresCellSizing {
                                 cellReconfigurator?.cellNeedsToBeReconfiguredAndResized(messageID: imageAttachment.sentMessage.typedObjectID.downcast)
                             } else {
@@ -369,13 +377,15 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
     }
 
     
-    private func attachmentViewConfigurationForAttachment(_ attachment: SentFyleMessageJoinWithStatus) -> AttachmentsView.Configuration {
+    private func attachmentViewConfigurationForAttachment(_ attachment: SentFyleMessageJoinWithStatus, size: ObvDiscussionThumbnailSize = .full(minSize: CGSize(width: MessageCellConstants.attachmentIconSize, height: MessageCellConstants.attachmentIconSize))) -> SingleAttachmentView.Configuration {
         let attachmentObjectID = (attachment as FyleMessageJoinWithStatus).typedObjectID
         let hardlink = cacheDelegate?.getCachedHardlinkForFyleMessageJoinWithStatus(with: attachmentObjectID)
-        let config: AttachmentsView.Configuration
-        let size = CGSize(width: MessageCellConstants.attachmentIconSize, height: MessageCellConstants.attachmentIconSize)
+        let config: SingleAttachmentView.Configuration
+        
         switch attachment.status {
+            
         case .uploading, .uploadable:
+            
             if let hardlink = hardlink {
                 if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progressObject)
@@ -383,7 +393,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                     config = .uploadableOrUploading(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, progress: attachment.progressObject)
                     Task {
                         do {
-                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: sizeForUIDragItemPreview))
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
                             setNeedsUpdateConfiguration()
                         } catch {
@@ -396,6 +406,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             }
             
         case .complete:
+            
             if let hardlink = hardlink {
                 if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
                     config = .complete(hardlink: hardlink, thumbnail: image, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, wasOpened: nil)
@@ -403,7 +414,7 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
                     config = .complete(hardlink: hardlink, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, wasOpened: nil)
                     Task {
                         do {
-                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: sizeForUIDragItemPreview)
+                            try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: sizeForUIDragItemPreview))
                             try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
                             setNeedsUpdateConfiguration()
                         } catch {
@@ -414,15 +425,24 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
             } else {
                 config = .complete(hardlink: nil, thumbnail: nil, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName, wasOpened: nil)
             }
+            
         case .cancelledByServer:
+            
             config = .cancelledByServer(fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
+            
         case .downloadable:
+            
             config = .downloadableSent(sentJoinObjectID: attachment.typedObjectID, progress: attachment.progressObject, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
+            
         case .downloading:
+            
             config = .downloadingSent(sentJoinObjectID: attachment.typedObjectID, progress: attachment.progressObject, fileSize: Int(attachment.totalByteCount), uti: attachment.uti, filename: attachment.fileName)
+            
         }
+        
         return config
     }
+    
     
     private func singlePreviewViewConfigurationForPreviewAttachment(_ previewAttachment: SentFyleMessageJoinWithStatus) -> SinglePreviewView.Configuration? {
 
@@ -517,7 +537,7 @@ extension SentMessageCell {
     var textToCopy: String? {
         guard let contentView = contentView as? SentMessageCellContentView else { assertionFailure(); return nil }
         let text: String
-        if let textBubbleText = contentView.textBubble.text, !textBubbleText.isEmpty, contentView.textBubble.showInStack {
+        if let textBubbleText = contentView.textBubble.textToCopy, !textBubbleText.isEmpty, contentView.textBubble.showInStack {
             text = textBubbleText
         } else if let emojiText = contentView.emojiOnlyBodyView.text, !emojiText.isEmpty, contentView.emojiOnlyBodyView.showInStack {
             text = emojiText
@@ -555,7 +575,7 @@ extension SentMessageCell {
             .compactMap({ $0 })
             .compactMap({ ($0, $0.uiDragItem) })
             .compactMap({ (hardLinkToFyle, uiDragItem) in
-                if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardLinkToFyle, size: sizeForUIDragItemPreview) {
+                if let image = cacheDelegate?.getCachedImageForHardlink(hardlink: hardLinkToFyle, size: .full(minSize: sizeForUIDragItemPreview)) {
                     uiDragItem?.previewProvider = {
                         UIDragPreview(view: UIImageView(image: image))
                     }
@@ -599,11 +619,12 @@ fileprivate struct SentMessageCellCustomContentConfiguration: UIContentConfigura
     var singleImageViewConfiguration: SingleImageView.Configuration?
     var singleGifViewConfiguration: SingleImageView.Configuration?
     var multipleImagesViewConfiguration = [SingleImageView.Configuration]()
-    var multipleAttachmentsViewConfiguration = [AttachmentsView.Configuration]()
+    var multipleAttachmentsViewConfiguration = [SingleAttachmentView.Configuration]()
     var audioPlayerConfiguration: AudioPlayerView.Configuration?
 
     var textBubbleConfiguration: TextBubble.Configuration?
     var singlePreviewConfiguration: SinglePreviewView.Configuration?
+    var singlePDFViewConfiguration: SingleAttachmentView.Configuration?
     var status = PersistedMessageSent.MessageStatus.unprocessed
     var reactionAndCounts = [ReactionAndCount]()
 
@@ -633,6 +654,7 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
     fileprivate let textBubble = TextBubble(expirationIndicatorSide: .leading, bubbleColor: AppTheme.shared.colorScheme.adaptiveOlvidBlue, textColor: .white)
     fileprivate let emojiOnlyBodyView = EmojiOnlyBodyView(expirationIndicatorSide: .leading)
     private let singlePreviewView = SinglePreviewView(expirationIndicatorSide: .leading)
+    fileprivate let singlePDFView = SinglePDFView(expirationIndicatorSide: .leading)
     private let statusAndDateView = SentMessageStatusAndDateView()
     fileprivate let singleImageView = SingleImageView(expirationIndicatorSide: .leading)
     fileprivate let multipleImagesView = MultipleImagesView(expirationIndicatorSide: .leading)
@@ -808,6 +830,8 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
         mainStack.addArrangedSubview(audioPlayerView)
 
+        mainStack.addArrangedSubview(singlePDFView)
+        
         mainStack.addArrangedSubview(attachmentsView)
 
         mainStack.addArrangedSubview(statusAndDateView)
@@ -886,9 +910,10 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
         // Text bubble
         
-        if let textBubbleConfiguration = newConfig.textBubbleConfiguration, let text = textBubbleConfiguration.text, !text.isEmpty {
-            if text.containsOnlyEmoji == true, text.count < 4 {
-                emojiOnlyBodyView.text = textBubbleConfiguration.text
+        if let textBubbleConfiguration = newConfig.textBubbleConfiguration, !textBubbleConfiguration.attributedText.characters.isEmpty {
+            let attributedText = textBubbleConfiguration.attributedText
+            if attributedText.containsOnlyEmoji, attributedText.characters.count < 4 {
+                emojiOnlyBodyView.text = String(attributedText.characters)
                 textBubble.showInStack = false
                 emojiOnlyBodyView.showInStack = true
             } else {
@@ -942,6 +967,15 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
             singleGifView.setConfiguration(singleGifViewConfiguration)
         } else {
             singleGifView.showInStack = false
+        }
+        
+        // Single PDF attachment
+        
+        if let singlePDFViewConfiguration = newConfig.singlePDFViewConfiguration {
+            singlePDFView.showInStack = true
+            singlePDFView.setConfiguration(singlePDFViewConfiguration)
+        } else {
+            singlePDFView.showInStack = false
         }
 
         // Non-image attachments

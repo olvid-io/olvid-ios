@@ -116,7 +116,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     private func observeChangesMadeFromOtherOwnedDevices() {
         
         ObvMessengerSettingsObservableObject.shared.$doSendReadReceipt
-            .compactMap { (doSendReadReceipt, changeMadeFromAnotherOwnedDevice, ownedCryptoId) in
+            .compactMap { (doSendReadReceipt, changeMadeFromAnotherOwnedDevice) in
                 // We only observe changes made from other owned devices
                 guard changeMadeFromAnotherOwnedDevice else { return nil }
                 return doSendReadReceipt
@@ -169,7 +169,7 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     }
 
     private func setDoSendReadReceipt(_ newValue: Bool) {
-        ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: newValue, changeMadeFromAnotherOwnedDevice: false, ownedCryptoId: ownedCryptoId)
+        ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: newValue, changeMadeFromAnotherOwnedDevice: false)
         withAnimation {
             self.changed.toggle()
         }

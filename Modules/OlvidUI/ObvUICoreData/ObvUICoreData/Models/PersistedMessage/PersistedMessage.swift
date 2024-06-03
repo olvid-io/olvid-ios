@@ -112,12 +112,13 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
         rawReactions ?? []
     }
 
+    /// Overriden in PersistedMessageReceived
     @objc(textBody)
     public var textBody: String? {
         if body == nil || body?.isEmpty == true { return nil }
-        // Override in PersistedMessageReceived
         return self.body
     }
+    
     
     public var textBodyToSend: String? { self.body }
 
@@ -132,11 +133,25 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
     /// Called when receiving a wipe request from a contact or another owned device.
     ///
     /// Shall only be called from ``PersistedMessageReceived.wipeThisMessage(requesterCryptoId:)`` and ``PersistedMessageSent.wipeThisMessage(requesterCryptoId:)``.
-    func wipeThisMessage(requesterCryptoId: ObvCryptoId) throws {
+    func wipeThisMessage(requesterCryptoId: ObvCryptoId) throws -> InfoAboutWipedOrDeletedPersistedMessage {
+        guard let discussion else {
+            throw ObvError.discussionIsNil
+        }
         self.deleteBodyAndMentions()
         self.reactions.forEach { try? $0.delete() }
         self.reactions.forEach { try? $0.delete() }
-        try addMetadata(kind: .remoteWiped(remoteCryptoId: requesterCryptoId), date: Date())
+        let infos: InfoAboutWipedOrDeletedPersistedMessage
+        if requesterCryptoId == discussion.ownedIdentity?.cryptoId {
+            // The wipe request comes from another owned device, simply delete the message
+            infos = try self.deletePersistedMessage()
+        } else {
+            // The wipe request comes from a contact, add metadata to the message allowing to identify who deleted the message
+            try addMetadata(kind: .remoteWiped(remoteCryptoId: requesterCryptoId), date: Date())
+            infos = .init(kind: .wiped,
+                          discussionPermanentID: discussion.discussionPermanentID,
+                          messagePermanentID: self.messagePermanentID)
+        }
+        return infos
     }
 
     
@@ -334,6 +349,177 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
 
 }
 
+
+// MARK: - Parsing markdown and mentions
+
+extension PersistedMessage {
+    
+    public var displayableAttributedBody: AttributedString? {
+        
+        guard var trimmedMarkdownString = textBody?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmedMarkdownString.isEmpty else { return nil }
+        
+        // Introduce custom MarkDown attributes for user mentions.
+        // The style attributes will be set by the discussion cell.
+        
+        let sortedMentionnedCryptoIdAndRange = self.mentions
+            .compactMap { mention in
+                do {
+                    let cryptoId = try mention.mentionnedCryptoId
+                    let mentionRange = try mention.mentionRange
+                    return (cryptoId: cryptoId, mentionRange: mentionRange)
+                } catch {
+                    assertionFailure("We failed to extract a mention")
+                    // In production, ignore the mention
+                    return nil
+                }
+            }
+            .sorted {
+                $0.mentionRange.lowerBound < $1.mentionRange.lowerBound
+            }
+        
+        for (mentionnedCryptoId, range) in sortedMentionnedCryptoIdAndRange.reversed() {
+            
+            guard let discussion else { assertionFailure(); continue }
+            guard let ownedIdentity = discussion.ownedIdentity else { assertionFailure(); continue }
+            let ownedCryptoId = ownedIdentity.cryptoId
+                        
+            do {
+                
+                let mentionAttribute: ObvMentionableIdentityAttribute.Value
+
+                if mentionnedCryptoId == ownedCryptoId {
+            
+                    mentionAttribute = ObvMentionableIdentityAttribute.Value.ownedIdentity(ownedCryptoId: ownedCryptoId)
+                    
+                } else if let contact = try PersistedObvContactIdentity.get(cryptoId: mentionnedCryptoId, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .any) {
+                    
+                    let contactIdentifier = try contact.obvContactIdentifier
+                    mentionAttribute = ObvMentionableIdentityAttribute.Value.contact(contactIdentifier: contactIdentifier)
+                    
+                } else if let groupV2 = (discussion as? PersistedGroupV2Discussion)?.group {
+                    
+                    guard groupV2.otherMembers.map(\.cryptoId).contains(mentionnedCryptoId) else { continue }
+                    guard try ownedCryptoId == groupV2.ownCryptoId else { continue }
+                    guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupV2.groupIdentifier) else { assertionFailure(); continue }
+                    let groupIdentifier = ObvGroupV2Identifier(ownedCryptoId: ownedCryptoId, identifier: identifier)
+                    mentionAttribute = ObvMentionableIdentityAttribute.Value.groupV2Member(groupIdentifier: groupIdentifier, memberId: mentionnedCryptoId)
+                    
+                } else {
+                    
+                    assertionFailure()
+                    continue
+                    
+                }
+                
+                let encodedMentionAttribute = try mentionAttribute.jsonEncode()
+                trimmedMarkdownString.replaceSubrange(range, with: "^[\(trimmedMarkdownString[range])](mention: \(encodedMentionAttribute))")
+
+            } catch {
+                assertionFailure("We failed to encode a mention")
+                // In production, ignore the mention
+                continue
+            }
+            
+        }
+
+        do {
+            
+            // Under iOS16+, we will respect the number of new lines of the input string by splitting the string, styling each split,
+            // then joining the splits back together
+            
+            var attributedString: AttributedString
+            
+            if #available(iOS 16.0, *) {
+                
+                // Split the markdownString using a separator made of two (or more) newline characters (possibly containing white spaces)
+                // Account for Windows' new line character, which is \n\r.
+                
+                let multipleNewLines = /(\r\n|\n)\s*(\r\n|\n)/
+
+                // Find the exact matches for the separator
+                
+                let separators = trimmedMarkdownString
+                    .ranges(of: multipleNewLines)
+                    .map { trimmedMarkdownString[$0] }
+                
+                // Split and apply the markdown style to all the strings in-between the separators
+                
+                let attributedSplits = try trimmedMarkdownString
+                    .split(separator: multipleNewLines)
+                    .map({ try AttributedString(markdown: $0.replacingOccurrences(of: "\n", with: "\n\n"), including: \.olvidApp, options: .init(allowsExtendedAttributes: true)) })
+
+                guard attributedSplits.count == separators.count + 1 else {
+                    assertionFailure()
+                    throw ObvError.parsingFailed
+                }
+                
+                guard let firstAttributedSplit = attributedSplits.first else {
+                    assertionFailure()
+                    throw ObvError.parsingFailed
+                }
+
+                var finalAttributedString = firstAttributedSplit
+                for (separator, attributedSplit) in zip(separators, attributedSplits[1...]) {
+                    finalAttributedString += AttributedString(separator)
+                    finalAttributedString += attributedSplit
+                }
+
+                attributedString = finalAttributedString
+                
+            } else {
+                
+                attributedString = try AttributedString(markdown: trimmedMarkdownString.replacingOccurrences(of: "\n", with: "\n\n"))
+                
+            }
+            
+            // Make sure the links display the appropriate URL:
+            // - Only https links
+            // - The link displayed must correspond to the underlying https link
+            
+            for (value, range) in attributedString.runs[\.link] {
+                guard let value else { continue }
+                if value.scheme?.lowercased() != "https" {
+                    attributedString[range].link = .none
+                }
+                // Although we might "loose" a few detected links, we will recover them thanks to data detection.
+                if String(attributedString.characters[range]) != value.absoluteString {
+                    attributedString[range].link = .none
+                }
+            }
+            
+            // Add new line line at the end of each blocks, unless:
+            // - the block we are considering is the last one
+            // - the block we are considering is followed by a separator (like above)
+            
+            var addNewLineAtEndOfSplit = false
+
+            for (_, intentRange) in attributedString.runs[AttributeScopes.FoundationAttributes.PresentationIntentAttribute.self].reversed() {
+                
+                if attributedString.characters[intentRange].allSatisfy({ $0.isNewline || $0.isWhitespace }) {
+                    addNewLineAtEndOfSplit = false
+                    continue
+                }
+
+                if addNewLineAtEndOfSplit {
+                    attributedString.characters.insert(contentsOf: "\n", at: intentRange.upperBound)
+                }
+                
+                addNewLineAtEndOfSplit = true
+                
+            }
+            
+            return attributedString
+            
+        } catch {
+            assertionFailure()
+            return AttributedString(trimmedMarkdownString)
+        }
+    }
+    
+    
+}
+
 // MARK: - Errors
 
 extension PersistedMessage {
@@ -350,6 +536,7 @@ extension PersistedMessage {
         case cannotGloballyDeleteWipedMessage
         case discussionIsNil
         case noMessageIdentifierForThisMessageType
+        case parsingFailed
 
         public var errorDescription: String? {
             switch self {
@@ -373,6 +560,8 @@ extension PersistedMessage {
                 return "Unexpected contact identity"
             case .noMessageIdentifierForThisMessageType:
                 return "No message identifier for this message type"
+            case .parsingFailed:
+                return "Parsing failed"
             }
         }
         
@@ -397,7 +586,8 @@ extension PersistedMessage {
         let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
         self.init(entity: entityDescription, insertInto: context)
 
-        self.body = body
+        // We remove the \0 character from the source string, as Core Data discards any content following this character.
+        self.body = body?.replacingOccurrences(of: "\0", with: "")
         self.permanentUUID = UUID()
         self.rawStatus = rawStatus
         self.sectionIdentifier = try PersistedMessage.computeSectionIdentifier(fromTimestamp: timestamp, sortIndex: sortIndex, discussion: discussion)
@@ -585,8 +775,6 @@ extension PersistedMessage {
     
     func processMessageDeletionRequestRequestedFromCurrentDevice(deletionType: DeletionType) throws -> InfoAboutWipedOrDeletedPersistedMessage {
               
-        assert(self.discussion?.status == .active || deletionType == .local, "This should have been checked already")
-        
         switch self.kind {
             
         case .none:
@@ -603,7 +791,9 @@ extension PersistedMessage {
             }
 
             switch deletionType {
-            case .local:
+                
+            case .fromThisDeviceOnly:
+                
                 switch systemMessage.category {
                 case .contactJoinedGroup,
                         .contactLeftGroup,
@@ -626,24 +816,25 @@ extension PersistedMessage {
                         .discussionIsEndToEndEncrypted:
                     throw ObvError.thisSpecificSystemMessageCannotBeDeleted
                 }
-            case .global:
+                
+            case .fromAllOwnedDevices, .fromAllOwnedDevicesAndAllContactDevices:
                 throw ObvError.cannotGloballyDeleteSystemMessage
+                
             }
 
         case .received, .sent:
 
             if isRemoteWiped {
                 switch deletionType {
-                case .local:
+                case .fromThisDeviceOnly, .fromAllOwnedDevices:
                     return try deletePersistedMessage()
-                case .global:
-                    assertionFailure()
+                case .fromAllOwnedDevicesAndAllContactDevices:
                     throw ObvError.cannotGloballyDeleteWipedMessage
                 }
             } else {
                 return try deletePersistedMessage()
             }
-
+            
         }
         
     }
@@ -694,7 +885,11 @@ extension PersistedMessage {
         guard !self.isWiped else { return }
         // Set or update the reaction
         if let reaction = reactionFromOwnedIdentity() {
-            try reaction.updateEmoji(with: emoji, at: Date())
+            if let emoji {
+                try reaction.updateEmoji(with: emoji, at: Date())
+            } else {
+                try reaction.delete()
+            }
         } else if let emoji = emoji {
             _ = try PersistedMessageReactionSent(emoji: emoji, timestamp: messageUploadTimestampFromServer ?? Date(), message: self)
         } else {
@@ -743,7 +938,11 @@ extension PersistedMessage {
     func setReactionFromContact(_ contact: PersistedObvContactIdentity, withEmoji emoji: String?, reactionTimestamp: Date) throws {
         guard !self.isWiped else { return }
         if let contactReaction = reactionFromContact(with: contact.cryptoId) {
-            try contactReaction.updateEmoji(with: emoji, at: reactionTimestamp)
+            if let emoji {
+                try contactReaction.updateEmoji(with: emoji, at: reactionTimestamp)
+            } else {
+                try contactReaction.delete()
+            }
         } else {
             _ = try PersistedMessageReactionReceived(emoji: emoji, timestamp: reactionTimestamp, message: self, contact: contact)
         }
@@ -989,6 +1188,12 @@ extension PersistedMessage {
         }
         static func whereBodyContains(searchTerm: String) -> NSPredicate {
             NSPredicate(containsText: searchTerm, forKey: Predicate.Key.body)
+        }
+        static func isSystemMessageForMembersOfGroupV2WereUpdated(within context: NSManagedObjectContext) -> NSPredicate {
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Self.isSystemMessage(within: context),
+                PersistedMessageSystem.Predicate.withCategory(.membersOfGroupV2WereUpdated),
+            ])
         }
     }
 

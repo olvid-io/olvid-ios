@@ -99,9 +99,13 @@ final class SingleDiscussionSearchView: UIInputView {
             .receive(on: OperationQueue.main)
             .sink { [weak self] results in
                 guard let self else { return }
-                if results?.isEmpty == true {
-                    label.text = NSLocalizedString("SEARCH_RETURNED_NO_RESULT", comment: "")
-                } else if results == nil {
+                if let results {
+                    if results.isEmpty {
+                        label.text = NSLocalizedString("SEARCH_RETURNED_NO_RESULT", comment: "")
+                    } else {
+                        label.text = String.localizedStringWithFormat(NSLocalizedString("RESULT_NUMBER_%d_OF_%d", comment: ""), 1, results.count)
+                    }
+                } else {
                     label.text = nil
                 }
             }

@@ -19,6 +19,7 @@
 
 import Foundation
 import os.log
+import Intents
 import CallKit
 import PushKit
 import WebRTC
@@ -91,8 +92,8 @@ final class CallProviderDelegate: NSObject {
                         messageIdentifierFromEngine: messageIdentifierFromEngine)
                 }
             },
-            ObvMessengerInternalNotification.observeUserWantsToCallAndIsAllowedTo { (ownedCryptoId, contactCryptoIds, ownedIdentityForRequestingTurnCredentials, groupId) in
-                Task { [weak self] in await self?.processUserWantsToCallNotification(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials, groupId: groupId) }
+            ObvMessengerInternalNotification.observeUserWantsToCallOrUpdateCallCapabilityAndIsAllowedTo { ownedCryptoId, contactCryptoIds, ownedIdentityForRequestingTurnCredentials, groupId, startCallIntent in
+                Task { [weak self] in await self?.processUserWantsToCallNotification(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials, groupId: groupId, startCallIntent: startCallIntent) }
             },
         ])
         
@@ -455,6 +456,16 @@ extension CallProviderDelegate {
 extension CallProviderDelegate: OlvidCallDelegate {
     
     
+    /// Called as a delegate method from the ``OlvidCall`` when we should update CallKit using a fresh ``CXCallUpdate``.
+    ///
+    /// This is for example the case when a participant activates her camera, turning the audio call (where `hasVideo` is `false`) into a video call (where `hasVideo` is `true`).
+    /// In that particular case, the call we make here to the call provider allows to change the CallKit title from "Olvid Audio" to "Olvid Video".
+    func shouldRequestCXCallUpdate(call: OlvidCall) async {
+        let upToDateCXCallUpdate = await call.createUpToDateCXCallUpdate()
+        callProviderHolder.provider.reportCall(with: call.uuidForCallKit, updated: upToDateCXCallUpdate)
+    }
+    
+    
     /// We leverage the call's state change to let the system know about certain out-of-band notifications that have happened.
     func callDidChangeState(call: OlvidCall, previousState: OlvidCall.State, newState: OlvidCall.State) {
 
@@ -622,7 +633,7 @@ extension CallProviderDelegate: OlvidCallDelegate {
 
 extension CallProviderDelegate {
     
-    private func processUserWantsToCallNotification(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?) async {
+    private func processUserWantsToCallNotification(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?, startCallIntent: INStartCallIntent?) async {
 
         let granted = await AVAudioSession.sharedInstance().requestRecordPermission()
         
@@ -636,7 +647,8 @@ extension CallProviderDelegate {
                     ownedIdentityForRequestingTurnCredentials: ownedIdentityForRequestingTurnCredentials,
                     groupId: groupId,
                     rtcPeerConnectionQueue: rtcPeerConnectionQueue,
-                    olvidCallDelegate: self)
+                    olvidCallDelegate: self,
+                    startCallIntent: startCallIntent)
             } catch {
                 os_log("☎️ Failed to create outgoing call %{public}@", log: Self.log, type: .info, error.localizedDescription)
                 assertionFailure()

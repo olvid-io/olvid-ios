@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 
-public struct ObvGroupV2Identifier: Hashable {
+public struct ObvGroupV2Identifier: Hashable, Codable {
     
     public let ownedCryptoId: ObvCryptoId
     public let identifier: ObvGroupV2.Identifier
@@ -29,6 +29,35 @@ public struct ObvGroupV2Identifier: Hashable {
         self.ownedCryptoId = ownedCryptoId
         self.identifier = identifier
     }
+}
+
+// MARK: - LosslessStringConvertible
+
+extension ObvGroupV2Identifier: LosslessStringConvertible, CustomStringConvertible {
+    
+    private static let separator: Character = "|"
+    
+    /// This serialization should **not** be used within long term storage since we may change it regularly.
+    public init?(_ description: String) {
+        let splits = description.split(maxSplits: 1, omittingEmptySubsequences: true, whereSeparator: { $0 == Self.separator })
+        guard splits.count == 2,
+              let ownedCryptoId = ObvCryptoId(String(splits[0])),
+              let appGroupIdentifier = Data(hexString: String(splits[1])),
+              let identifier = ObvGroupV2.Identifier(appGroupIdentifier: appGroupIdentifier)
+        else {
+            assertionFailure()
+            return nil
+        }
+        self = .init(ownedCryptoId: ownedCryptoId, identifier: identifier)
+    }
+    
+    
+    /// This serialization should **not** be used within long term storage since we may change it regularly.
+    public var description: String {
+        [ownedCryptoId.description, identifier.appGroupIdentifier.hexString()]
+            .joined(separator: String(Self.separator))
+    }
+    
 }
 
 

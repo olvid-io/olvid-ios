@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -62,6 +62,10 @@ extension PersistedObvContactIdentity {
 
     
     public func toStruct() throws -> Structure {
+        guard let objectPermanentID else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract objectPermanentID")
+        }
         guard let ownedIdentity = self.ownedIdentity else {
             throw Self.makeError(message: "Could not extract required relationships")
         }
@@ -69,7 +73,7 @@ extension PersistedObvContactIdentity {
             assertionFailure()
             throw Self.makeError(message: "Could not get person name components")
         }
-        return Structure(objectPermanentID: self.objectPermanentID,
+        return Structure(objectPermanentID: objectPermanentID,
                          cryptoId: self.cryptoId,
                          fullDisplayName: self.fullDisplayName,
                          customOrFullDisplayName: self.customOrFullDisplayName,

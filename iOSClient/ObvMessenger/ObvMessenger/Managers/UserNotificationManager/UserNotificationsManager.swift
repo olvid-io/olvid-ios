@@ -74,6 +74,7 @@ final class UserNotificationsManager: NSObject {
         observePersistedMessageReactionReceivedWasDeletedNotifications()
         observePersistedMessageReactionReceivedWasInsertedOrUpdatedNotifications()
         removeAllNotificationsWhenHidingProfile()
+        observeAnotherCallParticipantStartedCameraNotifications()
     }
     
     
@@ -349,9 +350,24 @@ extension UserNotificationsManager {
                         return
                     }
                 } else {
-                    _self.deleteNotificationsReaction(sentMessagePermanentID: message.objectPermanentID,
-                                                      contactPermanentID: contact.objectPermanentID)
+                    if let messageObjectPermanentID = message.objectPermanentID, let contactObjectPermanentID = contact.objectPermanentID {
+                        _self.deleteNotificationsReaction(sentMessagePermanentID: messageObjectPermanentID,
+                                                          contactPermanentID: contactObjectPermanentID)
+                    }
                 }
+            }
+        })
+    }
+    
+    
+    private func observeAnotherCallParticipantStartedCameraNotifications() {
+        observationTokens.append(ObvMessengerInternalNotification.observePostUserNotificationAsAnotherCallParticipantStartedCamera { otherParticipantNames in
+            let notificationCenter = UNUserNotificationCenter.current()
+            notificationCenter.getNotificationSettings { (settings) in
+                // Do not schedule notifications if not authorized.
+                guard settings.authorizationStatus == .authorized && settings.alertSetting == .enabled else { return }
+                let (notificationId, notificationContent) = UserNotificationCreator.createAnotherCallParticipantStartedCameraNotification(otherParticipantNames: otherParticipantNames)
+                UserNotificationsScheduler.scheduleNotification(notificationId: notificationId, notificationContent: notificationContent, notificationCenter: notificationCenter, immediately: true)
             }
         })
     }

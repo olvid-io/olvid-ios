@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -67,13 +67,13 @@ final class AttachmentCell: UICollectionViewCell {
         if let hardlink = AttachmentCell.hardlinkForDraftFyleObjectID[draftFyleJoinObjectID], let hardlinkURL = hardlink.hardlinkURL, FileManager.default.fileExists(atPath: hardlinkURL.path) {
             let size = CGSize(width: AttachmentsCollectionViewController.cellSize, height: AttachmentsCollectionViewController.cellSize)
             content.hardlink = hardlink
-            if let thumbnail = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: size) {
+            if let thumbnail = cacheDelegate?.getCachedImageForHardlink(hardlink: hardlink, size: .full(minSize: size)) {
                 content.thumbnail = thumbnail
             } else {
                 content.thumbnail = nil
                 Task {
                     do {
-                        try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: size)
+                        try await cacheDelegate?.requestImageForHardlink(hardlink: hardlink, size: .full(minSize: size))
                         setNeedsUpdateConfiguration()
                     } catch {
                         os_log("The request image for hardlink to fyle %{public}@ failed: %{public}@", log: Self.log, type: .error, hardlink.fyleURL.lastPathComponent, error.localizedDescription)

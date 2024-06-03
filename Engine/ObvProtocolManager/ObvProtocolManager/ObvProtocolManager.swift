@@ -156,8 +156,67 @@ extension ObvProtocolManager {
             delegateManager.receivedMessageDelegate.deleteObsoleteReceivedMessages(flowId: flowId)
             // Now that we cleaned the databases, we can try to re-process all protocol's `ReceivedMessage`s
             delegateManager.receivedMessageDelegate.processAllReceivedMessages(flowId: flowId)
+            // Replay the first step of all instances of the OwnedIdentityDeletionProtocol that are in the FirstDeletionStepPerformedState
+            replayFirstStepOfAllOngoingOwnedIdentityDeletionProtocol(flowId: flowId)
         }
 
+    }
+
+    
+    /// This method is called during boostrap. It fetches all ``OwnedIdentityDeletionProtocol`` instances in the ``FirstDeletionStepPerformedState`` and post a message
+    /// allowing to re-execute this first step. Eventually, the requested deletion of the owned identity will be performed.
+    ///
+    /// This boostrap is performed in case the execution of the first step of the protocol posted a server query that failed. In that case, the protocol may be "stucked" in the ``FirstDeletionStepPerformedState``.
+    /// Posting a message allowing to replay this step (and to re-post a server query to deactivate this device) allows to eventually properly delete the owned identity.
+    func replayFirstStepOfAllOngoingOwnedIdentityDeletionProtocol(flowId: FlowIdentifier) {
+        
+        let delegateManager = self.delegateManager
+        let prng = self.prng
+        let log = self.log
+
+        guard let contextCreator = delegateManager.contextCreator else {
+            os_log("The context creator is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        guard let channelDelegate = delegateManager.channelDelegate else {
+            os_log("The channel delegate is not set", log: log, type: .fault)
+            assertionFailure()
+            return
+        }
+
+        contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+            do {
+                
+                let protocolInstances = try ProtocolInstance.getAll(cryptoProtocolId: .ownedIdentityDeletionProtocol, delegateManager: delegateManager, within: obvContext)
+                    .filter({ $0.currentStateRawId == OwnedIdentityDeletionProtocol.StateId.firstDeletionStepPerformed.rawValue })
+                
+                guard !protocolInstances.isEmpty else { return }
+                
+                for protocolInstance in protocolInstances {
+                    
+                    let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: protocolInstance.ownedCryptoIdentity),
+                                                          cryptoProtocolId: .ownedIdentityDeletionProtocol,
+                                                          protocolInstanceUid: protocolInstance.uid)
+                    let replayMessage = OwnedIdentityDeletionProtocol.ReplayStartDeletionStepMessage(coreProtocolMessage: coreMessage)
+                    guard let replayMessageToSend = replayMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        continue
+                    }
+
+                    _ = try channelDelegate.postChannelMessage(replayMessageToSend, randomizedWith: prng, within: obvContext)
+                    
+                }
+
+                try obvContext.save(logOnFailure: log)
+                
+            } catch {
+                os_log("Could not replay the first step of all ongoing OwnedIdentityDeletion protocols: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+            }
+        }
+        
     }
 
     
@@ -503,8 +562,8 @@ extension ObvProtocolManager {
         return try delegateManager.protocolStarterDelegate.getInitialMessageForOneStatusSyncRequest(ownedIdentity: ownedIdentity, contactsToSync: contactsToSync)
     }
     
-    public func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
-        return try delegateManager.protocolStarterDelegate.getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, ownRawPermissions: ownRawPermissions, otherGroupMembers: otherGroupMembers, serializedGroupCoreDetails: serializedGroupCoreDetails, photoURL: photoURL, flowId: flowId)
+    public func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, serializedGroupType: Data, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+        return try delegateManager.protocolStarterDelegate.getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ownedIdentity, ownRawPermissions: ownRawPermissions, otherGroupMembers: otherGroupMembers, serializedGroupCoreDetails: serializedGroupCoreDetails, photoURL: photoURL, serializedGroupType: serializedGroupType, flowId: flowId)
     }
     
     public func getInitiateGroupUpdateMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, changeset: ObvGroupV2.Changeset, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {

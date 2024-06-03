@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -81,12 +81,15 @@ extension PersistedMessageReceived {
     }
     
     public func toStruct() throws -> Structure {
+        guard let objectPermanentID else {
+            throw Self.makeError(message: "Could not extract objectPermanentID")
+        }
         guard let contact = self.contactIdentity else {
             assertionFailure()
             throw Self.makeError(message: "Could not extract required relationships")
         }
         let abstractStructure = try toAbstractStructure()
-        return Structure(objectPermanentID: self.objectPermanentID,
+        return Structure(objectPermanentID: objectPermanentID,
                          textBody: self.textBody,
                          messageIdentifierFromEngine: self.messageIdentifierFromEngine,
                          contact: try contact.toStruct(),
@@ -117,8 +120,12 @@ extension PersistedMessageSent {
     }
     
     public func toStruct() throws -> Structure {
+        guard let objectPermanentID else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract objectPermanentID")
+        }
         let abstractStructure = try toAbstractStructure()
-        return Structure(objectPermanentID: self.objectPermanentID,
+        return Structure(objectPermanentID: objectPermanentID,
                          textBody: self.textBody,
                          isEphemeralMessageWithLimitedVisibility: self.isEphemeralMessageWithLimitedVisibility,
                          abstractStructure: abstractStructure)

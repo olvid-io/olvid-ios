@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,7 +21,7 @@ import Foundation
 import ObvCrypto
 
 
-public struct ObvContactIdentifier: Hashable, CustomStringConvertible {
+public struct ObvContactIdentifier: Hashable {
     
     public let contactCryptoId: ObvCryptoId
     public let ownedCryptoId: ObvCryptoId
@@ -41,20 +41,12 @@ public struct ObvContactIdentifier: Hashable, CustomStringConvertible {
 }
 
 
-// MARK: Implementing CustomStringConvertible
-
-extension ObvContactIdentifier {
-    public var description: String {
-        return "ObvContactIdentifier<\(contactCryptoId.description), \(ownedCryptoId.description)>"
-    }
-}
-
-
 // MARK: - Codable
 
 extension ObvContactIdentifier: Codable {
     
-    /// `ObvContactIdentifier` so that `ObvMessage` and `ObvAttachment` can also conform to Codable. This makes it possible to transfer a message from the notification service to the main app.
+    /// Making `ObvContactIdentifier` conform to `Codable` so that `ObvMessage` and `ObvAttachment` can also conform to `Codable`. 
+    /// This makes it possible to transfer a message from the notification service to the main app.
     /// This serialization should **not** be used within long term storage since we may change it regularly.
 
     enum CodingKeys: String, CodingKey {
@@ -67,8 +59,38 @@ extension ObvContactIdentifier: Codable {
         return try encoder.encode(self)
     }
     
-    public static func decodeFromJson(data: Data) throws -> ObvMessage {
+    public static func decodeFromJson(data: Data) throws -> ObvContactIdentifier {
         let decoder = JSONDecoder()
-        return try decoder.decode(ObvMessage.self, from: data)
+        return try decoder.decode(ObvContactIdentifier.self, from: data)
     }
+}
+
+
+// MARK: - LosslessStringConvertible
+
+extension ObvContactIdentifier: LosslessStringConvertible, CustomStringConvertible {
+
+    private static let separator: Character = "|"
+    
+    /// This serialization should **not** be used within long term storage since we may change it regularly.
+    public init?(_ description: String) {
+        let splits = description.split(maxSplits: 1, omittingEmptySubsequences: true, whereSeparator: { $0 == Self.separator })
+        guard splits.count == 2,
+              let ownedCryptoId = ObvCryptoId(String(splits[0])),
+              let contactCryptoId = ObvCryptoId(String(splits[1])) 
+        else {
+            assertionFailure()
+            return nil
+        }
+        self = .init(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+    }
+    
+    
+    /// This serialization should **not** be used within long term storage since we may change it regularly.
+    public var description: String {
+        [ownedCryptoId, contactCryptoId]
+            .map { $0.description }
+            .joined(separator: String(Self.separator))
+    }
+    
 }

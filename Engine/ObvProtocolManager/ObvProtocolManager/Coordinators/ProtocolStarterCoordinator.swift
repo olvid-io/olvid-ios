@@ -635,7 +635,7 @@ extension ProtocolStarterCoordinator {
     
     // MARK: - Groups V2
     
-    func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
+    func getInitiateGroupCreationMessageForGroupV2Protocol(ownedIdentity: ObvCryptoIdentity, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, serializedGroupCoreDetails: Data, photoURL: URL?, serializedGroupType: Data, flowId: FlowIdentifier) throws -> ObvChannelProtocolMessageToSend {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
@@ -647,7 +647,8 @@ extension ProtocolStarterCoordinator {
                                                                           ownRawPermissions: ownRawPermissions,
                                                                           otherGroupMembers: otherGroupMembers,
                                                                           serializedGroupCoreDetails: serializedGroupCoreDetails,
-                                                                          photoURL: photoURL)
+                                                                          photoURL: photoURL,
+                                                                          serializedGroupType: serializedGroupType)
         guard let initialMessageToSend = initialMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
             os_log("Could create generic protocol message to send", log: log, type: .fault)
             throw makeError(message: "Could create generic protocol message to send")

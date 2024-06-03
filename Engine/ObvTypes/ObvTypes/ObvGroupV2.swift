@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,6 +36,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
     public let updateInProgress: Bool
     public let serializedSharedSettings: String? // non-nil only for keycloak groups
     public let lastModificationTimestamp: Date? // non-nil only for keycloak groups
+    public let serializedGroupType: Data?
 
     public static let errorDomain = "ObvGroupV2"
 
@@ -49,10 +50,11 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         case updateInProgress = "uip"
         case serializedSharedSettings = "sss"
         case lastModificationTimestamp = "lmt"
+        case serializedGroupType = "sgt"
         var key: Data { rawValue.data(using: .utf8)! }
     }
 
-    public init(groupIdentifier: Identifier, ownIdentity: ObvCryptoId, ownPermissions: Set<Permission>, otherMembers: Set<IdentityAndPermissionsAndDetails>, trustedDetailsAndPhoto: DetailsAndPhoto, publishedDetailsAndPhoto: DetailsAndPhoto?, updateInProgress: Bool, serializedSharedSettings: String?, lastModificationTimestamp: Date?) {
+    public init(groupIdentifier: Identifier, ownIdentity: ObvCryptoId, ownPermissions: Set<Permission>, otherMembers: Set<IdentityAndPermissionsAndDetails>, trustedDetailsAndPhoto: DetailsAndPhoto, publishedDetailsAndPhoto: DetailsAndPhoto?, updateInProgress: Bool, serializedSharedSettings: String?, lastModificationTimestamp: Date?, serializedGroupType: Data?) {
         self.groupIdentifier = groupIdentifier
         self.ownIdentity = ownIdentity
         self.ownPermissions = ownPermissions
@@ -62,6 +64,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         self.updateInProgress = updateInProgress
         self.serializedSharedSettings = serializedSharedSettings
         self.lastModificationTimestamp = lastModificationTimestamp
+        self.serializedGroupType = serializedGroupType
     }
     
     public var appGroupIdentifier: GroupV2Identifier {
@@ -105,6 +108,8 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                 try obvDict.obvEncodeIfPresent(serializedSharedSettings, forKey: codingKey)
             case .lastModificationTimestamp:
                 try obvDict.obvEncodeIfPresent(lastModificationTimestamp, forKey: codingKey)
+            case .serializedGroupType:
+                try obvDict.obvEncodeIfPresent(serializedGroupType, forKey: codingKey)
             }
         }
         return obvDict.obvEncode()
@@ -123,6 +128,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             let updateInProgress = try obvDict.obvDecode(Bool.self, forKey: ObvCodingKeys.updateInProgress)
             let serializedSharedSettings = try obvDict.obvDecodeIfPresent(String.self, forKey: ObvCodingKeys.serializedSharedSettings)
             let lastModificationTimestamp = try obvDict.obvDecodeIfPresent(Date.self, forKey: ObvCodingKeys.lastModificationTimestamp)
+            let serializedGroupType = try obvDict.obvDecodeIfPresent(Data.self, forKey: ObvCodingKeys.serializedGroupType)
             self.init(groupIdentifier: groupIdentifier,
                       ownIdentity: ownIdentity,
                       ownPermissions: ownPermissions,
@@ -131,7 +137,8 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                       publishedDetailsAndPhoto: publishedDetailsAndPhoto,
                       updateInProgress: updateInProgress,
                       serializedSharedSettings: serializedSharedSettings,
-                      lastModificationTimestamp: lastModificationTimestamp)
+                      lastModificationTimestamp: lastModificationTimestamp,
+                      serializedGroupType: serializedGroupType)
         } catch {
             assertionFailure(error.localizedDescription)
             return nil
@@ -148,11 +155,13 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
 
     // MARK: - Identifier
 
-    public struct Identifier: ObvErrorMaker, ObvCodable, Equatable, Hashable {
+    /// The `Codable` conformance should **not** be used within long term storage since we may change it regularly.
+    public struct Identifier: ObvErrorMaker, ObvCodable, Equatable, Hashable, Codable {
         
         public static let errorDomain = "ObvGroupV2.Identifier"
 
-        public enum Category: Int {
+        /// The `Codable` conformance should **not** be used within long term storage since we may change it regularly.
+        public enum Category: Int, Codable {
             case server = 0
             case keycloak = 1
         }
@@ -213,7 +222,6 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
 
     }
 
-    
     // MARK: - Permission
     
     public enum Permission: String, CaseIterable, ObvCodable, ObvErrorMaker {
@@ -241,7 +249,6 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         }
         
     }
-
     
     // MARK: - IdentityAndPermissions
 
@@ -496,6 +503,16 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
     
     // MARK: - Change type for changeset
     
+    public enum ChangeValue: Int, CaseIterable {
+        case memberRemoved = 0
+        case memberAdded = 1
+        case memberChanged = 2
+        case ownPermissionsChanged = 3
+        case groupDetails = 4
+        case groupPhoto = 5
+        case groupType = 6
+    }
+    
     public enum Change: Hashable, ObvFailableCodable {
         case memberRemoved(contactCryptoId: ObvCryptoId)
         case memberAdded(contactCryptoId: ObvCryptoId, permissions: Set<Permission>)
@@ -503,16 +520,22 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         case ownPermissionsChanged(permissions: Set<Permission>) // If we are an admin, we can change our own permissions
         case groupDetails(serializedGroupCoreDetails: Data)
         case groupPhoto(photoURL: URL?)
+        case groupType(serializedGroupType: Data)
 
-        private var rawValue: Int {
+        var value: ChangeValue {
             switch self {
-            case .memberRemoved: return 0
-            case .memberAdded: return 1
-            case .memberChanged: return 2
-            case .ownPermissionsChanged: return 3
-            case .groupDetails: return 4
-            case .groupPhoto: return 5
+            case .memberRemoved: return .memberRemoved
+            case .memberAdded: return .memberAdded
+            case .memberChanged: return .memberChanged
+            case .ownPermissionsChanged: return .ownPermissionsChanged
+            case .groupDetails: return .groupDetails
+            case .groupPhoto: return .groupPhoto
+            case .groupType: return .groupType
             }
+        }
+        
+        private var rawValue: Int {
+            value.rawValue
         }
         
         public var isGroupPhotoChange: Bool {
@@ -532,6 +555,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             case .ownPermissionsChanged: return 3
             case .groupDetails: return 4
             case .groupPhoto: return 5
+            case .groupType: return 6
             }
         }
         
@@ -541,7 +565,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                     .memberAdded(let contactCryptoId, _),
                     .memberChanged(let contactCryptoId, _):
                 return contactCryptoId
-            case .groupDetails, .groupPhoto, .ownPermissionsChanged:
+            case .groupDetails, .groupPhoto, .ownPermissionsChanged, .groupType:
                 return nil
             }
         }
@@ -550,7 +574,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             switch self {
             case .memberAdded(_, let permissions), .memberChanged(_, let permissions), .ownPermissionsChanged(let permissions):
                 return permissions
-            case .memberRemoved, .groupDetails, .groupPhoto:
+            case .memberRemoved, .groupDetails, .groupPhoto, .groupType:
                 return nil
             }
         }
@@ -560,7 +584,16 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             switch self {
             case .groupDetails(let serializedGroupCoreDetails):
                 return serializedGroupCoreDetails
-            case .memberRemoved, .memberAdded, .memberChanged, .groupPhoto, .ownPermissionsChanged:
+            case .memberRemoved, .memberAdded, .memberChanged, .groupPhoto, .ownPermissionsChanged, .groupType:
+                return nil
+            }
+        }
+        
+        private var serializedGroupType: Data? {
+            switch self {
+            case .groupType(let serializedGroupType):
+                return serializedGroupType
+            case .memberRemoved, .memberAdded, .memberChanged, .groupPhoto, .ownPermissionsChanged, .groupDetails:
                 return nil
             }
         }
@@ -569,7 +602,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             switch self {
             case .groupPhoto(let photoURL):
                 return photoURL
-            case .memberRemoved, .memberAdded, .memberChanged, .groupDetails, .ownPermissionsChanged:
+            case .memberRemoved, .memberAdded, .memberChanged, .groupDetails, .ownPermissionsChanged, .groupType:
                 return nil
             }
         }
@@ -587,6 +620,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             case permissions = "p"
             case serializedGroupCoreDetails = "sgcd"
             case photoURL = "pu"
+            case serializedGroupType = "gt"
             var key: Data { rawValue.data(using: .utf8)! }
         }
         
@@ -604,6 +638,8 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                     try obvDict.obvEncodeIfPresent(serializedGroupCoreDetails, forKey: codingKey)
                 case .photoURL:
                     try obvDict.obvEncodeIfPresent(photoURL, forKey: codingKey)
+                case .serializedGroupType:
+                    try obvDict.obvEncodeIfPresent(serializedGroupType, forKey: codingKey)
                 }
             }
             return obvDict.obvEncode()
@@ -617,6 +653,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                 let permissions = try obvDict.obvDecodeIfPresent(Set<ObvGroupV2.Permission>.self, forKey: ObvCodingKeys.permissions)
                 let serializedGroupCoreDetails = try obvDict.obvDecodeIfPresent(Data.self, forKey: ObvCodingKeys.serializedGroupCoreDetails)
                 let photoURL = try obvDict.obvDecodeIfPresent(URL.self, forKey: ObvCodingKeys.photoURL)
+                let serializedGroupType = try obvDict.obvDecodeIfPresent(Data.self, forKey: ObvCodingKeys.serializedGroupType)
                 switch rawValue {
                 case 0:
                     guard let contactCryptoId = contactCryptoId else { assertionFailure(); return nil }
@@ -653,6 +690,13 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                     assert(permissions == nil)
                     assert(serializedGroupCoreDetails == nil)
                     self = .groupPhoto(photoURL: photoURL)
+                case 6:
+                    assert(contactCryptoId == nil)
+                    assert(permissions == nil)
+                    guard let serializedGroupType = serializedGroupType else { assertionFailure(); return nil }
+                    assert(photoURL == nil)
+                    assert(serializedGroupCoreDetails == nil)
+                    self = .groupType(serializedGroupType: serializedGroupType)
                 default:
                     assertionFailure()
                     return nil
@@ -681,6 +725,9 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             guard Changeset.changesetContainsAtMostOneGroupDetailsChange(changes: changes) else {
                 throw Self.makeError(message: "Invalid changeset: it contains more than one groupDetails changes")
             }
+            guard Changeset.changesetContainsAtMostOneGroupTypeChange(changes: changes) else {
+                throw Self.makeError(message: "Invalid changeset: it contains more than one groupType changes")
+            }
             guard Changeset.changesetContainsAtMostOneGroupPhotoChange(changes: changes) else {
                 throw Self.makeError(message: "Invalid changeset: it contains more than one groupPhoto changes")
             }
@@ -707,6 +754,18 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                 }
             })
             return groupDetailsChanges.count < 2
+        }
+        
+        /// When creating a `Changeset`, we do not want to have two distinct `groupType` changes.
+        /// This method returns `true` iff there 0 or 1 `groupType` change in the `changes`.
+        private static func changesetContainsAtMostOneGroupTypeChange(changes: Set<Change>) -> Bool {
+            let groupTypeChanges = changes.filter({ change in
+                switch change {
+                case .groupType: return true
+                default: return false
+                }
+            })
+            return groupTypeChanges.count < 2
         }
 
         
@@ -755,6 +814,17 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                 }
             }
             return false
+        }
+        
+        public var groupType: Data? {
+            for change in changes {
+                switch change {
+                case .groupType(serializedGroupType: let serializedGroupType):
+                    return serializedGroupType
+                default: continue
+                }
+            }
+            return nil
         }
         
         public init?(_ obvEncoded: ObvEncoded) {

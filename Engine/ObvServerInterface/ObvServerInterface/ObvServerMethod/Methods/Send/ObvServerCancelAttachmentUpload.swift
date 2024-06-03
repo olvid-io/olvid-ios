@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,7 +31,7 @@ public final class ObvServerCancelAttachmentUpload: ObvServerDataMethod {
     
     public let pathComponent = "/cancelAttachmentUpload"
     
-    public let ownedIdentity: ObvCryptoIdentity
+    public let ownedIdentity: ObvCryptoIdentity?
     public let serverURL: URL
     public let messageUidFromServer: UID
     public let attachmentNumber: Int

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,10 +29,12 @@ struct FailedFetchAttemptsCounterManager {
     
     enum Counter {
         case uploadMessage(messageId: ObvMessageIdentifier)
+        case batchUploadMessages(serverURL: URL)
         case uploadAttachment(attachmentId: ObvAttachmentIdentifier)
     }
 
     private var _uploadMessage = [ObvMessageIdentifier: Int]()
+    private var _batchUploadMessages = [URL: Int]()
     private var _uploadAttachment = [ObvAttachmentIdentifier: Int]()
 
     mutating func incrementAndGetDelay(_ counter: Counter, increment: Int = 1) -> Int {
@@ -47,11 +49,15 @@ struct FailedFetchAttemptsCounterManager {
             case .uploadAttachment(attachmentId: let attachmentId):
                 _uploadAttachment[attachmentId] = (_uploadAttachment[attachmentId] ?? 0) + increment
                 localCounter = _uploadAttachment[attachmentId] ?? 0
-
+                
+            case .batchUploadMessages(serverURL: let serverURL):
+                _batchUploadMessages[serverURL] = (_batchUploadMessages[serverURL] ?? 0) + increment
+                localCounter = _batchUploadMessages[serverURL] ?? 0
+                
             }
             
         }
-        return min(ObvConstants.standardDelay<<min(localCounter,20), ObvConstants.maximumDelay)
+        return min(ObvConstants.standardDelay<<min(localCounter, 20), ObvConstants.maximumDelay)
     }
     
     mutating func reset(counter: Counter) {
@@ -64,6 +70,9 @@ struct FailedFetchAttemptsCounterManager {
                 
             case .uploadAttachment(attachmentId: let attachmentId):
                 _uploadAttachment.removeValue(forKey: attachmentId)
+                
+            case .batchUploadMessages(serverURL: let serverURL):
+                _batchUploadMessages.removeValue(forKey: serverURL)
 
             }
         }
@@ -74,6 +83,7 @@ struct FailedFetchAttemptsCounterManager {
         queue.sync {
             _uploadMessage.removeAll()
             _uploadAttachment.removeAll()
+            _batchUploadMessages.removeAll()
         }
     }
 

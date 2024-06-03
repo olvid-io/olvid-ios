@@ -263,7 +263,7 @@ public final class ScrollToBottomButton: UIButton {
 
     @objc
     private func _scrollToBottomAction() {
-        let verticalContentOffset = scrollView.contentSize.height - scrollView.frame.height - scrollView.adjustedContentInset.top + scrollView.adjustedContentInset.bottom
+        let verticalContentOffset = scrollView.contentSize.height - scrollView.frame.height + scrollView.adjustedContentInset.bottom
 
         scrollView.setContentOffset(.init(x: 0,
                                           y: verticalContentOffset),

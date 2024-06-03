@@ -59,13 +59,11 @@ public class PersistedMessageReaction: NSManagedObject {
     }
     
     
-    func updateEmoji(with newEmoji: String?, at newTimestamp: Date) throws {
+    func updateEmoji(with newEmoji: String, at newTimestamp: Date) throws {
         
         guard self.timestamp < newTimestamp else { return }
         
-        if let newEmoji {
-            guard newEmoji.count == 1 else { throw PersistedMessageReaction.makeError(message: "Invalid emoji: \(newEmoji)") }
-        }
+        guard newEmoji.count == 1 else { throw PersistedMessageReaction.makeError(message: "Invalid emoji: \(newEmoji)") }
         if self.rawEmoji != newEmoji {
             self.rawEmoji = newEmoji
         }
@@ -159,9 +157,10 @@ public final class PersistedMessageReactionReceived: PersistedMessageReaction {
         guard managedObjectContext.concurrencyType != .mainQueueConcurrencyType else { return }
         // We keep user infos for deletion only in the case we are considering a reaction on a sent message
         guard let message = message as? PersistedMessageSent,
-              let contact = contact else { return }
-        userInfoForDeletion = [UserInfoForDeletionKeys.messagePermanentID: message.objectPermanentID,
-                               UserInfoForDeletionKeys.contactPermanentID: contact.objectPermanentID]
+              let messageObjectPermanentID = message.objectPermanentID,
+              let contactObjectPermanentID = contact?.objectPermanentID else { return }
+        userInfoForDeletion = [UserInfoForDeletionKeys.messagePermanentID: messageObjectPermanentID,
+                               UserInfoForDeletionKeys.contactPermanentID: contactObjectPermanentID]
     }
 
     public override func didSave() {

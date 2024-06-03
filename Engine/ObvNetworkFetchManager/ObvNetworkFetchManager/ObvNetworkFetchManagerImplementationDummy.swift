@@ -60,7 +60,7 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("registerPushNotification does nothing in this dummy implementation", log: log, type: .error)
     }
 
-    public func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) {
+    public func updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
         os_log("updatedListOfOwnedIdentites does nothing in this dummy implementation", log: log, type: .error)
     }
 
@@ -98,12 +98,12 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         throw Self.makeError(message: "getTurnCredentials does nothing in this dummy implementation")
     }
     
-    public func getWebSocketState(ownedIdentity: ObvCrypto.ObvCryptoIdentity) async throws -> (URLSessionTask.State, TimeInterval?) {
+    public func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (state: URLSessionTask.State, pingInterval: TimeInterval?) {
         os_log("getWebSocketState does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "getWebSocketState does nothing in this dummy implementation")
     }
 
-    public func connectWebsockets(flowId: FlowIdentifier) {
+    public func connectWebsockets(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
         os_log("connectWebsockets does nothing in this dummy implementation", log: log, type: .error)
     }
 

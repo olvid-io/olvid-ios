@@ -21,7 +21,7 @@ import UIKit
 import Platform_Base
 import ObvUI
 import ObvUICoreData
-import Discussions_Mentions_TextBubbleBuilder
+
 
 protocol TextBubbleDelegate: AnyObject {
     
@@ -29,85 +29,50 @@ protocol TextBubbleDelegate: AnyObject {
 
     /// Delegation method called whenever a user taps on a user mention within the text
     /// - Parameters:
-    ///   - textBubble: An instance of ``TextBubble``
-    ///   - mentionableIdentity: An instance of ``MentionableIdentity`` that the user tapped
-    func textBubble(_ textBubble: TextBubble, userDidTapOn mentionableIdentity: MentionableIdentity)
+    ///   - textBubble: An instance of ``TextBubble``.
+    ///   - mentionableIdentity: An instance of ``ObvMentionableIdentityAttribute.Value`` that the user tapped.
+    func textBubble(_ textBubble: TextBubble, userDidTapOn mentionableIdentity: ObvMentionableIdentityAttribute.Value) async
+    
+    
+    /// Called whenever an URL is interacted with in the ``TextBubble``.
+    func textView(_ textBubble: TextBubble, shouldInteractWith URL: URL, interaction: UITextItemInteraction) -> Bool
     
 }
 
 /// This view displays the `text` in a bubble. Both the text and bubble color can be specified.
 final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpirationIndicator {
         
+    
     struct Configuration: Equatable, Hashable {
-        /// Denotes the kind of a bubble this represents
-        ///
-        /// - `sent`: A message the user sent
-        /// - `received`: A message the user received
         enum Kind {
-            /// A message the user sent
             case sent
-
-            /// A message the user received
             case received
         }
-
         let kind: Kind
-        let text: String?
-        let dataDetectorTypes: UIDataDetectorTypes
-        let mentionedUsers: MentionableIdentityTypes.MentionableIdentityFromRange
-        /// This item exists to provide an abstract container for our `Hashable` conformance since `mentionedUsers` is not directly hashable. As a workaround, `AnyHashable` is used to provide `Hashable` conformance
-        private let mappedMentionedUsers: [Range<String.Index>: AnyHashable]
-        fileprivate let searchedTextToHighlight: String?
-
-        init(kind: TextBubble.Configuration.Kind, text: String? = nil, dataDetectorTypes: UIDataDetectorTypes, searchedTextToHighlight: String?, mentionedUsers: MentionableIdentityTypes.MentionableIdentityFromRange) {
-            self.kind = kind
-            self.text = text
-            self.dataDetectorTypes = dataDetectorTypes
-            self.mentionedUsers = mentionedUsers
-            self.searchedTextToHighlight = searchedTextToHighlight
-
-            mappedMentionedUsers = mentionedUsers.reduce(into: [:]) { accumulator, item in
-                accumulator[item.key] = AnyHashable(item.value)
-            }
-        }
-
-        static func == (lhs: TextBubble.Configuration, rhs: TextBubble.Configuration) -> Bool {
-            lhs.kind == rhs.kind && 
-            lhs.text == rhs.text && 
-            lhs.dataDetectorTypes == rhs.dataDetectorTypes &&
-            lhs.mappedMentionedUsers == rhs.mappedMentionedUsers &&
-            lhs.searchedTextToHighlight == rhs.searchedTextToHighlight
-        }
-
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(kind)
-            hasher.combine(text)
-            hasher.combine(dataDetectorTypes)
-            hasher.combine(mappedMentionedUsers)
-            hasher.combine(searchedTextToHighlight)
-        }
+        let attributedText: AttributedString
+        let dataDetectorMatches: [ObvDiscussionDataDetected]
+        let searchedTextToHighlight: String?
     }
+    
     
     private var currentConfiguration: Configuration?
     
+    
     func apply(_ newConfiguration: Configuration) {
+
         guard currentConfiguration != newConfiguration else { return }
         currentConfiguration = newConfiguration
-        if self.textView.dataDetectorTypes != newConfiguration.dataDetectorTypes {
-            self.textView.dataDetectorTypes = newConfiguration.dataDetectorTypes
+
+        let styleAttributedString = newConfiguration.attributedText
+            .withStyleAttributes(textColor: textColor, messageDirection: newConfiguration.kind, dataDetectorMatches: newConfiguration.dataDetectorMatches)
+            .withHighlightedSearchedText(newConfiguration.searchedTextToHighlight)
+        
+        let nsAttributedText = (try? NSAttributedString(styleAttributedString, including: \.olvidApp)) ?? NSAttributedString(styleAttributedString)
+        
+        if self.textView.attributedText != nsAttributedText {
+            self.textView.attributedText = nsAttributedText
         }
 
-        if let text = newConfiguration.text {
-            let attributedString = MentionsTextBubbleAttributedStringBuilder.generateAttributedString(
-                from: text,
-                messageKind: .init(newConfiguration.kind),
-                mentionedUsers: newConfiguration.mentionedUsers,
-                baseAttributes: [.font: font,
-                                 .foregroundColor: textColor])
-                .withHighlightedSearchedText(newConfiguration.searchedTextToHighlight)
-            textView.attributedText = attributedString
-        }
-        
         // Make sure the tap on links do not interfere with the double tap in the discussion
         // Note that the first time this code is executed, the delegate is nil.
         // But this code will be called again before the cell is actually displayed.
@@ -116,22 +81,7 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         }
     }
     
-    private(set) var text: String? {
-        get { textView.text }
-        set {
-            guard textView.text != newValue else { return }
-            textView.text = newValue
-        }
-    }
-    
-    private var bubbleColor: UIColor? {
-        get { bubble.backgroundColor }
-        set {
-            guard bubble.backgroundColor != newValue else { return }
-            bubble.backgroundColor = newValue
-        }
-    }
-    
+
     var maskedCorner: UIRectCorner {
         get { bubble.maskedCorner }
         set {
@@ -140,14 +90,12 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         }
     }
     
-    private var textAlignment: NSTextAlignment {
-        get { textView.textAlignment }
-        set {
-            guard textView.textAlignment != newValue else { return }
-            textView.textAlignment = newValue
-        }
+
+    var textToCopy: String? {
+        textView.text
     }
-    
+
+
     private let textView = UITextView()
     private let bubble = BubbleView()
     let expirationIndicator = ExpirationIndicatorView()
@@ -157,22 +105,19 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
     
     weak var delegate: TextBubbleDelegate?
 
-    private lazy var userMentionTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(_handleOpenUserProfileTapGestureRecognizer))..{
-        $0.delegate = self
-    }
 
     init(expirationIndicatorSide side: ExpirationIndicatorView.Side, bubbleColor: UIColor, textColor: UIColor) {
+        
         self.expirationIndicatorSide = side
         self.textColor = textColor
-        font = UIFont.preferredFont(forTextStyle: .body)
+        self.font = UIFont.preferredFont(forTextStyle: .body)
+        
         super.init(frame: .zero)
-        self.bubbleColor = bubbleColor
-        textView.textColor = textColor
-        textView.linkTextAttributes = [.foregroundColor: textColor,
-                                       .underlineStyle: NSUnderlineStyle.single.rawValue,
-                                       .underlineColor: textColor]
-
-        setupInternalViews()
+        
+        textView.delegate = self
+        
+        setupInternalViews(bubbleColor: bubbleColor, textColor: textColor)
+        
     }
     
     
@@ -196,11 +141,12 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
     }
 
     
-    private func setupInternalViews() {
+    private func setupInternalViews(bubbleColor: UIColor, textColor: UIColor) {
 
         addSubview(bubble)
         bubble.translatesAutoresizingMaskIntoConstraints = false
-        
+        bubble.backgroundColor = bubbleColor
+
         addSubview(expirationIndicator)
         expirationIndicator.translatesAutoresizingMaskIntoConstraints = false
         
@@ -212,6 +158,9 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
         textView.isEditable = false
         textView.isSelectable = true // Must be set to `true` for the data detector to work
         textView.adjustsFontForContentSizeCategory = true
+        textView.textColor = textColor
+        textView.linkTextAttributes = [:] // Do not specify any attributes for link, let the attributed string decide
+
         // Since we need to set isSelectable to true, and since we have a double tap on the cell for reactions, we disable tap gestures on the text, except the one for tapping links.
         doubleTapGesturesOnTextView.forEach({ $0.isEnabled = false })
         singeTapGesturesOnTextView.forEach({ $0.isEnabled = false })
@@ -239,88 +188,390 @@ final class TextBubble: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpira
 
         setupConstraintsForExpirationIndicator(gap: MessageCellConstants.gapBetweenExpirationViewAndBubble)
 
-        textView.addGestureRecognizer(userMentionTapGestureRecognizer)
     }
 
-    @objc
-    private func _handleOpenUserProfileTapGestureRecognizer(_ tapGestureRecognizer: UITapGestureRecognizer) {
-        guard tapGestureRecognizer.state == .ended else {
-            return
-        }
-
-        let mentionableIdentity = textView.userIdentity(for: tapGestureRecognizer.location(in: textView))!
-
-        delegate?.textBubble(self, userDidTapOn: mentionableIdentity)
-    }
 }
 
-extension UIDataDetectorTypes: Hashable {
+
+// MARK: - UITextViewDelegate
+
+extension TextBubble: UITextViewDelegate {
     
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(self.rawValue)
+    func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool {
+        guard let delegate else { assertionFailure(); return false }
+        if let mention = textView.attributedText.findFirstMention(in: characterRange) {
+            Task { await delegate.textBubble(self, userDidTapOn: mention) }
+            return false
+        } else {
+            return delegate.textView(self, shouldInteractWith: URL, interaction: interaction)
+        }
+    }
+        
+}
+
+
+// MARK: - Helpers for styling the attributed text displayed by the TextBubble
+
+private extension AttributedString {
+    
+    /// When the user performs a search in the discussion view, we want to highlight the searched term in the `TextBubble`. This helper method allows to do just that.
+    func withHighlightedSearchedText(_ searchedTextToHighlight: String?) -> AttributedString {
+        guard let searchedTextToHighlight else { return self }
+        guard let rangeToHighlight = self.range(of: searchedTextToHighlight, options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive], locale: nil) else { return self }
+        var container = AttributeContainer()
+        container.backgroundColor = .systemYellow
+        container[keyPath: \.uiKit.foregroundColor] = .black
+        var mutableSelf = self
+        mutableSelf[rangeToHighlight].mergeAttributes(container)
+        return mutableSelf
     }
     
-}
+    
+    /// The method to call to add all the style attributes to the attributed string displayed in the ``TextBubble``.
+    ///
+    /// Note that we give a style for links before giving a style for mentions: mentions will be links and will have a style different from the other "standard" links.
+    func withStyleAttributes(textColor: UIColor, messageDirection: TextBubble.Configuration.Kind, dataDetectorMatches: [ObvDiscussionDataDetected]) -> AttributedString {
+        self.withStyleForEssentialAttributes(textColor: textColor)
+            .withStyleForInlinePresentationIntents()
+            .withStyleForDataDetected(dataDetectorMatches: dataDetectorMatches, textColor: textColor, messageDirection: messageDirection)
+            .withStyleForLinks(textColor: textColor, messageDirection: messageDirection)
+            .withStyleForMentions(textColor: textColor, messageDirection: messageDirection)
+            .withStyleForListPresentationIntents()
+            .withStyleForNonListPresentationIntents()
+    }
+    
+    
+    private func withStyleForEssentialAttributes(textColor: UIColor) -> AttributedString {
+        var source = self
+        source.font = UIFont.preferredFont(forTextStyle: .body)
+        source.uiKit.foregroundColor = textColor
+        return source
+    }
+    
+    
+    private func withStyleForInlinePresentationIntents() -> AttributedString {
+        return self.replacingAttributes(attributeContainerForInlinePresentationIntent, with: attributeContainerForInlinePresentationIntent)
+    }
+    
+    
+    private func withStyleForLinks(textColor: UIColor, messageDirection: TextBubble.Configuration.Kind) -> AttributedString {
+        var source = self
+        for (link, range) in source.runs[\.link] {
+            guard link != nil else { continue }
+            switch messageDirection {
+            case .sent:
+                source[range].uiKit.foregroundColor = textColor
+                source[range].uiKit.underlineColor = textColor
+            case .received:
+                source[range].uiKit.foregroundColor = .systemBlue
+                source[range].uiKit.underlineColor = .systemBlue
+            }
+            source[range].uiKit.underlineStyle = .single
+        }
+        return source
+    }
+    
+    
+    private func withStyleForDataDetected(dataDetectorMatches: [ObvDiscussionDataDetected], textColor: UIColor, messageDirection: TextBubble.Configuration.Kind) -> AttributedString {
+        guard let source = try? NSMutableAttributedString(self, including: \.olvidApp) else { assertionFailure(); return self }
+        for match in dataDetectorMatches {
+            source.addAttribute(.link, value: match.link, range: match.range)
+        }
+        return (try? AttributedString(source, including: \.olvidApp)) ?? self // Don't loose any existing attribute
+    }
+    
+    
+    /// In addition to give a style to the attributed string, this method also turns mentions into links. This allows the user to tap on them.
+    /// The ``TextBubble`` will catch the tap in the ``TextBubble.textView(_:shouldInteractWith:in:interaction:)`` method.
+    ///
+    /// Note that all the links created must be distinct for this method to work.
+    private func withStyleForMentions(textColor: UIColor, messageDirection: TextBubble.Configuration.Kind) -> AttributedString {
+        var source = self
+        let font: UIFont = .bold(forTextStyle: .body)
+        for (counter, (mention, range)) in source.runs[\.mention].enumerated() {
+            guard mention != nil else { continue }
+            source[range].uiKit.font = font
+            switch messageDirection {
+            case .sent:
+                source[range].uiKit.foregroundColor = textColor
+                source[range].uiKit.underlineColor = textColor
+            case .received:
+                source[range].uiKit.foregroundColor = .systemBlue
+                source[range].uiKit.underlineColor = .systemBlue
+            }
+            var urlComponents = URLComponents()
+            urlComponents.scheme = "mention"
+            urlComponents.host = "\(counter)"
+            assert(urlComponents.url != nil)
+            source[range].link = urlComponents.url // Fake URL, allowing the mention to be tapped like a link
+        }
+        return source
+    }
 
-extension TextBubble: UIGestureRecognizerDelegate {
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        guard gestureRecognizer === userMentionTapGestureRecognizer else {
-            assertionFailure("unknown gesture recognizer; returning true")
-            return true
+    
+    private enum ListIntentType: Hashable {
+        case unorderedList(identity: Int)
+        case orderedList(identity: Int)
+        var identity: Int {
+            switch self {
+            case .unorderedList(let identity),
+                    .orderedList(let identity):
+                return identity
+            }
+        }
+    }
+    
+    
+    /// Leverages `NSTextList` to apply appropriate paragraph styles to the sorted and unsorted list presentation intents of the `AttributedString`.
+    private func withStyleForListPresentationIntents() -> AttributedString {
+        
+        var source = self
+        
+        // Create one NSTextList for each unorderedList/orderedList presentation intent found in the AttributedString.
+        // We store these NSTextList instances in a dictionary indexed by the intent's identity, which will allow to find
+        // the corresponding NSTextList later.
+        
+        // Note the special treatment for ordered lists under iOS 16+, where we try to make sure we respect the ordinal chosen by the user.
+        // We try to be "smart" about this:
+        // - if the numbering specified by the user is a 1., we do nothing
+        // - otherwise, we use the number she specified.
+        // This allows a user to type a list as
+        //
+        // 1. item 1
+        // 1. item 2
+        //
+        // and to obtain a result similar to
+        //
+        // 1. item 1
+        // 2. item 2
+        //
+        // while allowing the user to type
+        //
+        // 1. item 1
+        // some paragraph
+        // 2. item 2
+        //
+        // and to obtain and result that displays the specified list numbers instead of
+        //
+        // 1. item 1
+        // some paragraph
+        // 1. item 2
+        
+        var listsForIntentIdentity = [ListIntentType: NSTextList]()
+
+        for (intentAttribute, _) in source.runs[\.presentationIntent] {
+        
+            guard let intentAttribute else { continue }
+            
+            for intentType in intentAttribute.components {
+                switch intentType.kind {
+                case .unorderedList:
+                    if listsForIntentIdentity[.unorderedList(identity: intentType.identity)] == nil {
+                        listsForIntentIdentity[.unorderedList(identity: intentType.identity)] = NSTextList(markerFormat: .circle, options: 0)
+                    }
+                case .orderedList:
+                    if listsForIntentIdentity[.orderedList(identity: intentType.identity)] == nil {
+                        if #available(iOS 16, *) {
+                            if let ordinal = intentAttribute.components.extractFirstListItemOrdinal(), ordinal != 1 {
+                                listsForIntentIdentity[.orderedList(identity: intentType.identity)] = NSTextList(markerFormat: NSTextList.MarkerFormat(rawValue: "{decimal}."), startingItemNumber: ordinal)
+                            } else {
+                                listsForIntentIdentity[.orderedList(identity: intentType.identity)] = NSTextList(markerFormat: NSTextList.MarkerFormat(rawValue: "{decimal}."), options: 0)
+                            }
+                        } else {
+                            listsForIntentIdentity[.orderedList(identity: intentType.identity)] = NSTextList(markerFormat: NSTextList.MarkerFormat(rawValue: "{decimal}."), options: 0)
+                        }
+                    }
+                default:
+                    break
+                }
+            }
+            
         }
 
-        return textView.userIdentity(for: touch.location(in: textView)) != nil
-    }
-}
-
-private extension UITextView {
-    func userIdentity(for point: CGPoint) -> MentionableIdentity? {
-        return _textkit1_userIdentity(for: point)
-    }
-
-    private func _textkit1_userIdentity(for point: CGPoint) -> MentionableIdentity? {
-        let glyphIndex = layoutManager.glyphIndex(for: point, in: textContainer)
-
-        let characterIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
-
-        guard characterIndex < textStorage.length else {
-            assert(false, "we're out of bounds")
-
-            return nil
+        // We scan all the unorderedList/orderedList presentation intents a second time.
+        // To each intent's range, we associate a list of NSTextList corresponding to that range.
+        // The order in the list is important: from outermost to innermost (see `https://developer.apple.com/documentation/uikit/nstextlist`).
+        // Note that this is exactly the reverse order in which we ordered the lists in listsForIntentIdentity (we take care of that when setting
+        // the `textLists` on the paragraph styles).
+        
+        var rangesAndLists = [(intentRange: Range<AttributedString.Index>, lists: [NSTextList])]()
+        
+        for (intentAttribute, intentRange) in source.runs[\.presentationIntent] {
+        
+            guard let intentAttribute else { continue }
+            
+            var lists = [NSTextList]()
+                        
+            for intentType in intentAttribute.components {
+                switch intentType.kind {
+                case .unorderedList:
+                    lists.append(listsForIntentIdentity[.unorderedList(identity: intentType.identity)]!)
+                case .orderedList:
+                    lists.append(listsForIntentIdentity[.orderedList(identity: intentType.identity)]!)
+                default:
+                    break
+                }
+            }
+            
+            rangesAndLists.append((intentRange, lists))
+            
         }
 
-        return textStorage.attribute(.mentionableIdentity, at: characterIndex, effectiveRange: nil) as? MentionableIdentity
+        // Finally, we update the paragraph style of each range by simply specifying all the NSTextList
+        // corresponding to each range. TextKit2 does the actual layout.
+        
+        for (intentRange, textLists) in rangesAndLists {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.textLists = textLists.reversed()
+            source[intentRange][keyPath: \.paragraphStyle] = paragraphStyle
+        }
+        
+        return source
+        
     }
-}
+    
+    
+    private func withStyleForNonListPresentationIntents() -> AttributedString {
+        
+        var source = self
+        
+        for (intentAttribute, intentRange) in source.runs[\.presentationIntent] {
+            
+            guard let intentAttribute else { continue }
 
-private extension MentionsTextBubbleAttributedStringBuilder.MessageKind {
-    init(_ messageKind: TextBubble.Configuration.Kind) {
-        switch messageKind {
-        case .sent:
-            self = .sent
+            for itentType in intentAttribute.components {
+                
+                switch itentType.kind {
+                    
+                case .header(level: let level):
+                    let fontDescriptor = Self.fontDescriptorForTitle(level: level)
+                    source[intentRange].font = UIFont(descriptor: fontDescriptor, size: 0.0)
+                    switch level {
+                    case 1:
+                        source[intentRange][keyPath: \.paragraphStyle] = paragraphStyleForHeaderLevel1
+                    case 2:
+                        source[intentRange][keyPath: \.paragraphStyle] = paragraphStyleForHeaderLevel2
+                    default:
+                        source[intentRange][keyPath: \.paragraphStyle] = paragraphStyleForHeaderLevel3
+                    }
 
-        case .received:
-            self = .received
+                default:
+                    break
+
+                }
+
+            }
+                        
+        }
+
+        return source
+        
+    }
+    
+
+    /// The ``AttributeContainer`` used to give a style to the inline attributes (`.emphasized`, `.stronglyEmphasized`, etc.) of attributed text displayed by this view.
+    private var attributeContainerForInlinePresentationIntent: AttributeContainer {
+        
+        var attributeContainer = AttributeContainer()
+        
+        let inlineIntentsToStyle: [InlinePresentationIntent] = [.emphasized, .stronglyEmphasized, .strikethrough]
+
+        for inlineIntent in inlineIntentsToStyle {
+            
+            attributeContainer.inlinePresentationIntent = inlineIntent
+
+            switch inlineIntent {
+            case .emphasized:
+                attributeContainer.font = .italic(forTextStyle: .body)
+            case .stronglyEmphasized:
+                attributeContainer.font = .bold(forTextStyle: .body)
+            case .strikethrough:
+                attributeContainer.strikethroughStyle = .single
+            default:
+                assertionFailure("We should style this InlinePresentationIntent as it is part of inlineIntentsToStyle")
+            }
+            
+        }
+
+        return attributeContainer
+        
+    }
+
+    
+    private static func fontDescriptorForTitle(level: Int) -> UIFontDescriptor {
+        switch level {
+        case 1:
+            return .preferredFontDescriptor(withTextStyle: .title2).withSymbolicTraits(.traitBold) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: .title2)
+        case 2:
+            return .preferredFontDescriptor(withTextStyle: .title3).withSymbolicTraits(.traitBold) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: .title3)
+        case 3:
+            return .preferredFontDescriptor(withTextStyle: .subheadline).withSymbolicTraits(.traitBold) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: .subheadline)
+        default:
+            return .preferredFontDescriptor(withTextStyle: .subheadline)
         }
     }
+
+    
+    private var paragraphStyleForHeaderLevel1: NSParagraphStyle {
+        let paragraphStyle = NSMutableParagraphStyle()
+        let pointSize = Self.fontDescriptorForTitle(level: 1).pointSize
+        paragraphStyle.paragraphSpacingBefore = pointSize * 1.0
+        return paragraphStyle
+    }
+
+    
+    private var paragraphStyleForHeaderLevel2: NSParagraphStyle {
+        let paragraphStyle = NSMutableParagraphStyle()
+        let pointSize = Self.fontDescriptorForTitle(level: 2).pointSize
+        paragraphStyle.paragraphSpacingBefore = pointSize * 0.75
+        return paragraphStyle
+    }
+
+    
+    private var paragraphStyleForHeaderLevel3: NSParagraphStyle {
+        let paragraphStyle = NSMutableParagraphStyle()
+        let pointSize = Self.fontDescriptorForTitle(level: 3).pointSize
+        paragraphStyle.paragraphSpacingBefore = pointSize * 0.5
+        return paragraphStyle
+    }
+
 }
 
 
-/// Helpers
+// MARK: - Finding a mention in an NSAttributedString
 
 private extension NSAttributedString {
     
-    /// When the user performs a search in the discussion view, we want to highlight the searched term in the `TextBubble`. This helper method allows to do just that.
-    func withHighlightedSearchedText(_ searchedTextToHighlight: String?) -> NSAttributedString {
-        guard let searchedTextToHighlight else { return self }
-        let rangeToHighlight = NSString(string: self.string).localizedStandardRange(of: searchedTextToHighlight)
-        guard rangeToHighlight.length > 0 else { return self }
-        let mutableAttributedString = NSMutableAttributedString(attributedString: self)
-        mutableAttributedString.beginEditing()
-        mutableAttributedString.addAttribute(.backgroundColor, value: UIColor.systemYellow, range: rangeToHighlight)
-        mutableAttributedString.addAttribute(.foregroundColor, value: UIColor.black, range: rangeToHighlight)
-        mutableAttributedString.endEditing()
-        return mutableAttributedString
+    func findFirstMention(in characterRange: NSRange) -> ObvMentionableIdentityAttribute.Value? {
+        
+        var mentionFound: ObvMentionableIdentityAttribute.Value?
+        
+        self.enumerateAttributes(in: characterRange) { attributes, range, _ in
+            if let mention = attributes[.mention] as? ObvMentionableIdentityAttribute.Value {
+                mentionFound = mention
+                return
+            }
+        }
+
+        return mentionFound
+        
+    }
+    
+}
+
+
+private extension [PresentationIntent.IntentType] {
+    
+    func extractFirstListItemOrdinal() -> Int? {
+        for intentType in self {
+            switch intentType.kind {
+            case .listItem(ordinal: let ordinal):
+                return ordinal
+            default:
+                continue
+            }
+        }
+        return nil
     }
     
 }

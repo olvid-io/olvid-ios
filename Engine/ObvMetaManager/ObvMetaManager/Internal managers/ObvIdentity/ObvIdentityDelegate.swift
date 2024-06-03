@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -62,7 +62,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     func getRegisteredKeycloakAPIKey(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID?
 
-    func getOwnedIdentitiesAndCurrentDeviceUids(within obvContext: ObvContext) throws -> [(ownedCryptoIdentity: ObvCryptoIdentity, currentDeviceUid: UID)]
+    func getActiveOwnedIdentitiesAndCurrentDeviceUids(within obvContext: ObvContext) throws -> Set<OwnedCryptoIdentityAndCurrentDeviceUID>
 
     /// This method throws if the identity is not an owned identity. Otherwise it returns the display name of the owned identity.
     func getIdentityDetailsOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> (publishedIdentityDetails: ObvIdentityDetails, isActive: Bool)
@@ -96,7 +96,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     func getGroupV2PhotoURLAndServerPhotoInfofOwnedIdentityIsUploader(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, within obvContext: ObvContext) throws -> (photoURL: URL, serverPhotoInfo: GroupV2.ServerPhotoInfo)?
 
-    func createContactGroupV2AdministratedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, serializedGroupCoreDetails: Data, photoURL: URL?, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, within obvContext: ObvContext) throws -> (groupIdentifier: GroupV2.Identifier, groupAdminServerAuthenticationPublicKey: PublicKeyForAuthentication, serverPhotoInfo: GroupV2.ServerPhotoInfo?, encryptedServerBlob: EncryptedData, photoURL: URL?)
+    func createContactGroupV2AdministratedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, serializedGroupCoreDetails: Data, photoURL: URL?, serializedGroupType: Data, ownRawPermissions: Set<String>, otherGroupMembers: Set<GroupV2.IdentityAndPermissions>, within obvContext: ObvContext) throws -> (groupIdentifier: GroupV2.Identifier, groupAdminServerAuthenticationPublicKey: PublicKeyForAuthentication, serverPhotoInfo: GroupV2.ServerPhotoInfo?, encryptedServerBlob: EncryptedData, photoURL: URL?)
     
     func createContactGroupV2JoinedByOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, serverBlob: GroupV2.ServerBlob, blobKeys: GroupV2.BlobKeys, createdByMeOnOtherDevice: Bool, within obvContext: ObvContext) throws
 
@@ -201,14 +201,14 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     
     func getDeviceUidsOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> Set<UID>
 
+    func getCurrentDeviceUidOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> UID
+    
+    func getOtherDeviceUidsOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> Set<UID>
+
     /// This method throws if the UID passed is not a current device uid. Otherwise, it returns the crypto identity to whom the current device belongs.
     func getOwnedIdentityOfCurrentDeviceUid(_: UID, within: ObvContext) throws -> ObvCryptoIdentity
 
     func getOwnedIdentityOfRemoteDeviceUid(_: UID, within: ObvContext) throws -> ObvCryptoIdentity?
-
-    func getCurrentDeviceUidOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> UID
-    
-    func getOtherDeviceUidsOfOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws -> Set<UID>
 
     func addOtherDeviceForOwnedIdentity(_: ObvCryptoIdentity, withUid: UID, createdDuringChannelCreation: Bool, within: ObvContext) throws
 
@@ -233,7 +233,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     // MARK: - API related to contact identities
     
-    func addContactIdentity(_: ObvCryptoIdentity, with: ObvIdentityCoreDetails, andTrustOrigin: TrustOrigin, forOwnedIdentity: ObvCryptoIdentity, setIsOneToOneTo newOneToOneValue: Bool, within: ObvContext) throws
+    func addContactIdentity(_: ObvCryptoIdentity, with: ObvIdentityCoreDetails, andTrustOrigin: TrustOrigin, forOwnedIdentity: ObvCryptoIdentity, isKnownToBeOneToOne: Bool, within: ObvContext) throws
 
     func addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(_: TrustOrigin, toContactIdentity: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws
     
@@ -352,9 +352,9 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     func setContactForcefullyTrustedByUser(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, forcefullyTrustedByUser: Bool, within obvContext: ObvContext) throws
 
-    func isOneToOneContact(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
+    func getOneToOneStatusOfContactIdentity(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> OneToOneStatusOfContactIdentity
     
-    func resetOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, reasonToLog: String, within obvContext: ObvContext) throws
+    func setOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, reasonToLog: String, within obvContext: ObvContext) throws
 
     // MARK: - API related to contact capabilities
 

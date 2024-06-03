@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,7 +33,7 @@ public final class ObvServerGetTokenMethod: ObvServerDataMethod {
     public var serverURL: URL { return toIdentity.serverURL }
     
     public let toIdentity: ObvCryptoIdentity
-    public let ownedIdentity: ObvCryptoIdentity
+    public let ownedIdentity: ObvCryptoIdentity?
     private let response: Data
     private let nonce: Data    
     public let flowId: FlowIdentifier

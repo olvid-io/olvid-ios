@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,7 @@ struct MessageCellConstants {
     
     static let bubbleMaxWidth = CGFloat(241) // 2*120 + 1
     static let attachmentIconSize = CGFloat(50)
-    static let singleAttachmentViewWidth = CGFloat(260) // 2*120 + 1
+    static let singleAttachmentViewWidth = CGFloat(280)
     
     /// Size of the contact picture for received messages within group discussions.
     static let contactPictureSize = CGFloat(30)

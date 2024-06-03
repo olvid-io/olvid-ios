@@ -61,7 +61,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
         let serverSessionCoordinator = ServerSessionCoordinator(prng: prng, logPrefix: logPrefix)
         let downloadMessagesAndListAttachmentsCoordinator = MessagesCoordinator(logPrefix: logPrefix)
         let downloadAttachmentChunksCoordinator = DownloadAttachmentChunksCoordinator(logPrefix: logPrefix)
-        let deleteMessageAndAttachmentsFromServerCoordinator = DeleteMessageAndAttachmentsFromServerCoordinator()
+        let batchDeleteAndMarkAsListedCoordinator = BatchDeleteAndMarkAsListedCoordinator()
         let serverPushNotificationsCoordinator = ServerPushNotificationsCoordinator(
             remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer, prng: prng, logPrefix: logPrefix)
         let getTurnCredentialsCoordinator = GetTurnCredentialsCoordinator()
@@ -82,7 +82,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
             serverSessionDelegate: serverSessionCoordinator,
             downloadMessagesAndListAttachmentsDelegate: downloadMessagesAndListAttachmentsCoordinator,
             downloadAttachmentChunksDelegate: downloadAttachmentChunksCoordinator,
-            deleteMessageAndAttachmentsFromServerDelegate: deleteMessageAndAttachmentsFromServerCoordinator,
+            batchDeleteAndMarkAsListedDelegate: batchDeleteAndMarkAsListedCoordinator,
             serverPushNotificationsDelegate: serverPushNotificationsCoordinator,
             webSocketDelegate: webSocketCoordinator,
             getTurnCredentialsDelegate: getTurnCredentialsCoordinator,
@@ -98,7 +98,7 @@ public final class ObvNetworkFetchManagerImplementation: ObvNetworkFetchDelegate
         Task { await serverQueryCoordinator.setDelegateManager(delegateManager) }
         Task { await downloadMessagesAndListAttachmentsCoordinator.setDelegateManager(delegateManager) }
         Task { await downloadAttachmentChunksCoordinator.setDelegateManager(delegateManager) }
-        Task { await deleteMessageAndAttachmentsFromServerCoordinator.setDelegateManager(delegateManager) }
+        Task { await batchDeleteAndMarkAsListedCoordinator.setDelegateManager(delegateManager) }
         Task { await serverPushNotificationsCoordinator.setDelegateManager(delegateManager) }
         getTurnCredentialsCoordinator.delegateManager = delegateManager
         Task { await freeTrialQueryCoordinator.setDelegateManager(delegateManager) }
@@ -184,8 +184,8 @@ extension ObvNetworkFetchManagerImplementation {
 // MARK: - Implementing ObvNetworkFetchDelegate
 extension ObvNetworkFetchManagerImplementation {
 
-    public func updatedListOfOwnedIdentites(ownedIdentities: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws {
-        try await delegateManager.networkFetchFlowDelegate.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
+    public func updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
+        try await delegateManager.networkFetchFlowDelegate.updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: activeOwnedCryptoIdsAndCurrentDeviceUIDs, flowId: flowId)
     }
 
     public func postServerQuery(_ serverQuery: ServerQuery, within context: ObvContext) {
@@ -200,12 +200,12 @@ extension ObvNetworkFetchManagerImplementation {
         return try await getTurnCredentialsDelegate.getTurnCredentials(ownedCryptoId: ownedCryptoId, flowId: flowId)
     }
 
-    public func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (URLSessionTask.State,TimeInterval?) {
+    public func getWebSocketState(ownedIdentity: ObvCryptoIdentity) async throws -> (state: URLSessionTask.State, pingInterval: TimeInterval?) {
         return try await delegateManager.webSocketDelegate.getWebSocketState(ownedIdentity: ownedIdentity)
     }
     
-    public func connectWebsockets(flowId: FlowIdentifier) async {
-        await delegateManager.webSocketDelegate.connectAll(flowId: flowId)
+    public func connectWebsockets(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
+        try await delegateManager.webSocketDelegate.connectUpdatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: activeOwnedCryptoIdsAndCurrentDeviceUIDs, flowId: flowId)
     }
     
     public func disconnectWebsockets(flowId: FlowIdentifier) async {
@@ -368,14 +368,11 @@ extension ObvNetworkFetchManagerImplementation {
             }
         }
         
-        // Delete all pending deletes from server and all pending server queries relating to the owned identity
-        
-        let op1 = DeleteAllPendingDeleteFromServerOperation(ownedCryptoId: ownedCryptoIdentity)
-        let op2 = DeleteAllPendingServerQueryOperation(ownedCryptoId: ownedCryptoIdentity, delegateManager: delegateManager)
-        try await delegateManager.queueAndAwaitCompositionOfTwoContextualOperation(op1: op1, op2: op2, log: Self.log, flowId: flowId)
-                
         // We do not delete the server sessions now, as the owned identity deletion protocol will need them to propagate information.
         // Those session are deleted in finalizeOwnedIdentityDeletion(ownedCryptoIdentity:within:)
+        
+        // Likewise, we don't delete PendingServerQueries now, as there might be one user to deactivate the owned identity.
+        // The PendingServerQueries are deleted in finalizeOwnedIdentityDeletion(ownedCryptoIdentity:within:)
 
     }
     
@@ -403,6 +400,11 @@ extension ObvNetworkFetchManagerImplementation {
         
         try await delegateManager.serverSessionDelegate.deleteServerSession(of: ownedCryptoIdentity, flowId: flowId)
         
+        // Delete all pending all pending server queries relating to the owned identity
+
+        let op1 = DeleteAllPendingServerQueryOperation(ownedCryptoId: ownedCryptoIdentity, delegateManager: delegateManager)
+        try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+
     }
     
     
@@ -491,7 +493,7 @@ extension ObvNetworkFetchManagerImplementation {
     /// Private method used by all the methods allowing to mark a message and/or its attachments for deletion. Once marked for deletion, this method tries to process the messages (i.e., actually delete it if appropriate).
     private func markMessageAndAttachmentsForDeletion(messageId: ObvMessageIdentifier, attachmentToMarkForDeletion: InboxAttachmentsSet, flowId: FlowIdentifier) async throws {
         
-        let op1 = MarkInboxMessageAndAttachmentsForDeletionAndCreatePendingDeleteFromServerIfAppropriateOperation(messageId: messageId, attachmentToMarkForDeletion: attachmentToMarkForDeletion)
+        let op1 = MarkInboxMessageAndAttachmentsForDeletionOperation(messageId: messageId, attachmentToMarkForDeletion: attachmentToMarkForDeletion)
         do {
             try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
         } catch {
@@ -513,7 +515,7 @@ extension ObvNetworkFetchManagerImplementation {
 
         Task {
             do {
-                try await delegateManager.networkFetchFlowDelegate.processPendingDeleteIfItExistsForMessage(messageId: messageId, flowId: flowId)
+                try await delegateManager.batchDeleteAndMarkAsListedDelegate.batchDeleteAndMarkAsListed(ownedCryptoIdentity: messageId.ownedCryptoIdentity, flowId: flowId)
             } catch {
                 assertionFailure(error.localizedDescription)
             }

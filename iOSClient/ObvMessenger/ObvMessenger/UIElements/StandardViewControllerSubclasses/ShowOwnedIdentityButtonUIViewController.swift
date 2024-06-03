@@ -295,11 +295,6 @@ extension ShowOwnedIdentityButtonUIViewController {
     }
 
     
-    var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityDeletion: Bool {
-        true
-    }
-    
-    
     var ownedIdentityChooserViewControllerShouldAllowOwnedIdentityEdition: Bool {
         true
     }

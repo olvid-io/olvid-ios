@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,7 @@ import ObvCrypto
 import ObvUICoreData
 
 
-/// This method is typically called when we receive a request to delete some messages by a contact willing to globally delete these messages
+/// This method is typically called when we receive a request to delete some messages by a contact or by an owned identity willing to globally delete these messages.
 final class ProcessRemoteWipeMessagesRequestOperation: ContextualOperationWithSpecificReasonForCancel<ProcessRemoteWipeMessagesRequestOperation.ReasonForCancel> {
 
     enum Requester {

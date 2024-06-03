@@ -106,7 +106,11 @@ public final class ObvEngine: ObvManager {
         obvManagers.append(ObvDatabaseManager(name: "ObvEngine", transactionAuthor: appType.transactionAuthor, enableMigrations: true))
 
         // ObvNetworkPostDelegate
-        obvManagers.append(ObvNetworkSendManagerImplementation(outbox: outbox, sharedContainerIdentifier: sharedContainerIdentifier, appType: appType, supportBackgroundFetch: supportBackgroundTasks))
+        obvManagers.append(ObvNetworkSendManagerImplementation(outbox: outbox, 
+                                                               sharedContainerIdentifier: sharedContainerIdentifier,
+                                                               appType: appType,
+                                                               logPrefix: logPrefix,
+                                                               supportBackgroundFetch: supportBackgroundTasks))
         
         // ObvNetworkFetchDelegate
         obvManagers.append(ObvNetworkFetchManagerImplementation(inbox: inbox,
@@ -180,7 +184,7 @@ public final class ObvEngine: ObvManager {
         obvManagers.append(ObvDatabaseManager(name: "ObvEngine", transactionAuthor: appType.transactionAuthor, enableMigrations: false))
 
         // ObvNetworkPostDelegate
-        obvManagers.append(ObvNetworkSendManagerImplementation(outbox: outbox, sharedContainerIdentifier: sharedContainerIdentifier, appType: appType, supportBackgroundFetch: supportBackgroundTasks))
+        obvManagers.append(ObvNetworkSendManagerImplementation(outbox: outbox, sharedContainerIdentifier: sharedContainerIdentifier, appType: appType, logPrefix: logPrefix, supportBackgroundFetch: supportBackgroundTasks))
 
         // ObvNetworkFetchDelegate
         obvManagers.append(ObvNetworkFetchManagerImplementationDummy())
@@ -2863,7 +2867,7 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    public func startGroupV2CreationProtocol(serializedGroupCoreDetails: Data, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?) throws {
+    public func startGroupV2CreationProtocol(serializedGroupCoreDetails: Data, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, serializedGroupType: Data) throws {
 
         // The photoURL typically points to a photo stored in a cache directory managed by the app.
         // When requesting the protocol message to the protocol manager, it creates a local copy of this photo that it will manage.
@@ -2888,6 +2892,7 @@ extension ObvEngine {
                                                                                              otherGroupMembers: otherMembers,
                                                                                              serializedGroupCoreDetails: serializedGroupCoreDetails,
                                                                                              photoURL: photoURL,
+                                                                                             serializedGroupType: serializedGroupType,
                                                                                              flowId: flowId)
         
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
@@ -3240,7 +3245,7 @@ extension ObvEngine {
     }
     
     /// Start a owned device discovery protocol for all existing owned identities.
-    func performOwnedDeviceDiscoveryForAllOwnedIdentities(flowId: FlowIdentifier) async throws {
+    private func performOwnedDeviceDiscoveryForAllOwnedIdentities(flowId: FlowIdentifier) async throws {
         
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
@@ -4263,10 +4268,15 @@ extension ObvEngine {
         
         let flowId = FlowIdentifier()
         
-        await networkFetchDelegate.connectWebsockets(flowId: flowId)
-        
         var anErrorOccured: Error?
-        
+
+        let activeOwnedCryptoIdsAndCurrentDeviceUIDs = try await getActiveOwnedIdentitiesAndCurrentDeviceUids(flowId: flowId)
+        do {
+            try await networkFetchDelegate.connectWebsockets(activeOwnedCryptoIdsAndCurrentDeviceUIDs: activeOwnedCryptoIdsAndCurrentDeviceUIDs, flowId: flowId)
+        } catch {
+            anErrorOccured = error
+        }
+                
         let ownedIdentities = try await getOwnedIdentities()
         for ownedIdentity in ownedIdentities {
             do {
@@ -4284,6 +4294,22 @@ extension ObvEngine {
         
     }
     
+    
+    private func getActiveOwnedIdentitiesAndCurrentDeviceUids(flowId: FlowIdentifier) async throws -> Set<OwnedCryptoIdentityAndCurrentDeviceUID> {
+        guard let identityDelegate  else { assertionFailure(); throw ObvError.identityDelegateIsNil }
+        guard let createContextDelegate else { assertionFailure(); throw ObvError.createContextDelegateIsNil }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<OwnedCryptoIdentityAndCurrentDeviceUID>, Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let ownedCryptoIds = try identityDelegate.getActiveOwnedIdentitiesAndCurrentDeviceUids(within: obvContext)
+                    return continuation.resume(returning: ownedCryptoIds)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     
     public func disconnectWebsockets() async throws {
         guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
@@ -4873,7 +4899,6 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    
     /// Called by the app when, e.g., the user performs a modification that should be transferred to other owned devices.
     /// - Parameters:
     ///   - syncAtom: The ObvSyncAtom created by the app that the engine should transfer to all other owned devices.
@@ -4890,6 +4915,48 @@ extension ObvEngine {
         
     }
     
+    
+    /// Called by the app when, e.g., the user performs a modification that should be transferred to other owned devices of all other active owned identities on the physical device.
+    /// - Parameters:
+    ///   - syncAtom: The ObvSyncAtom created by the app that the engine should transfer to all other owned devices.
+    public func requestPropagationToOtherOwnedDevicesOfAllOwnedIdentities(of syncAtom: ObvSyncAtom) async throws {
+        
+        guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
+        guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
+
+        let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol()
+
+        let ownedCryptoIds = try await getActiveOwnedIdentitiesAndCurrentDeviceUids(flowId: flowId).map(\.ownedCryptoId)
+        
+        for ownedCryptoId in ownedCryptoIds {
+            do {
+                let otherDeviceUidsOfOwnedIdentity = try await getOtherOwnedDeviceUidsOfOwnedIdentity(ownedCryptoId, flowId: flowId)
+                guard !otherDeviceUidsOfOwnedIdentity.isEmpty else { continue }
+                let message = try protocolDelegate.getInitiateSyncAtomMessageForSynchronizationProtocol(ownedCryptoIdentity: ownedCryptoId, syncAtom: syncAtom)
+                try await postChannelMessage(message, flowId: flowId)
+            } catch {
+                assertionFailure() // In production, continue with the next owned identity
+            }
+        }
+
+    }
+    
+    
+    private func getOtherOwnedDeviceUidsOfOwnedIdentity(_ ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> Set<UID> {
+        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<UID>, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let otherDeviceUidsOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedCryptoId, within: obvContext)
+                    return continuation.resume(returning: otherDeviceUidsOfOwnedIdentity)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     
     private func postChannelMessage(_ message: ObvChannelProtocolMessageToSend, flowId: FlowIdentifier) async throws {
         

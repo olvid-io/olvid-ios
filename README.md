@@ -24,8 +24,7 @@ If you find a bug, or have any feedback about Olvid, please contact the team at 
 
 To build Olvid for iOS, you would need:
 
-  - Xcode 14.3 (installed via [`xcodes`](https://github.com/RobotsAndPencils/xcodes))
-  - Perform `xcodes install` to install the appropriate Xcode version
+  - The latest version of Xcode
   - A [free] [Apple developer account](https://developer.apple.com)
 - Git LFS
   - Make sure to run `git lfs install --system` to install the appropriate LFS hooks prior cloning

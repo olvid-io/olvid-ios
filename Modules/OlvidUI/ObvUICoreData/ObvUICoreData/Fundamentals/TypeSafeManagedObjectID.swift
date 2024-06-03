@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -100,7 +100,7 @@ public struct ObvManagedObjectPermanentID<T: NSManagedObject>: CustomStringConve
 /// Protocol allowing the `ObvManagedObjectPermanentID` type to conform to `LosslessStringConvertible`.
 public protocol ObvIdentifiableManagedObject: NSManagedObject {
     static var entityName: String { get }
-    var objectPermanentID: ObvManagedObjectPermanentID<Self> { get }
+    var objectPermanentID: ObvManagedObjectPermanentID<Self>? { get } // Expected to be non-nil, unless the NSManagedObject is deleted
 }
 
 

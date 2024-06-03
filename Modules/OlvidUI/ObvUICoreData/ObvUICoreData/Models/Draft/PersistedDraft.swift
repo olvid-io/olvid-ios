@@ -46,8 +46,10 @@ public final class PersistedDraft: NSManagedObject, ObvErrorMaker, ObvIdentifiab
 
     // MARK: Computed Properties
     
-    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedDraft> {
-        ObvManagedObjectPermanentID<PersistedDraft>(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedDraft>? {
+        guard self.managedObjectContext != nil else { assertionFailure(); return nil }
+        return ObvManagedObjectPermanentID<PersistedDraft>(uuid: self.permanentUUID)
     }
     
     public var fyleJoins: [FyleJoin] {
@@ -369,6 +371,7 @@ extension PersistedDraft {
     }
     
     private func sendNewDraftToSendNotification() {
+        guard let objectPermanentID else { assertionFailure(); return }
         ObvMessengerCoreDataNotification.newDraftToSend(draftPermanentID: objectPermanentID)
             .postOnDispatchQueue()
     }

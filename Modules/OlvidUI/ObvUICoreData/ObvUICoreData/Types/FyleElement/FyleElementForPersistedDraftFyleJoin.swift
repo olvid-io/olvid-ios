@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,13 +38,15 @@ public struct FyleElementForPersistedDraftFyleJoin: FyleElement {
     init?(_ persistedDraftFyleJoin: PersistedDraftFyleJoin) {
         guard let fyle = persistedDraftFyleJoin.fyle else { return nil }
         guard let draft = persistedDraftFyleJoin.draft else { return nil }
+        guard let draftObjectPermanentID = draft.objectPermanentID else { return nil }
+        guard let persistedDraftFyleJoinObjectPermanentID = persistedDraftFyleJoin.objectPermanentID else { return nil }
         self.fyleURL = fyle.url
         self.fileName = persistedDraftFyleJoin.fileName
         self.contentType = persistedDraftFyleJoin.contentType
         self.sha256 = fyle.sha256
         self.discussionPermanentID = draft.discussion.discussionPermanentID
-        self.draftPermanentID = draft.objectPermanentID
-        self.draftFyleJoinPermanentID = persistedDraftFyleJoin.objectPermanentID
+        self.draftPermanentID = draftObjectPermanentID
+        self.draftFyleJoinPermanentID = persistedDraftFyleJoinObjectPermanentID
         self.fullFileIsAvailable = true
     }
 

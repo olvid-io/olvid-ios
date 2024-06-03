@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,6 +31,8 @@ final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewContro
 
     weak var delegate: RecentDiscussionsViewControllerDelegate?
 
+    private var isPerformingRefreshDiscussionsAction = false
+    
     // MARK: - Switching current owned identity
 
     @MainActor
@@ -62,9 +64,9 @@ extension RecentDiscussionsViewController {
         let ellipsisButton = getConfiguredEllipsisCircleRightBarButtonItem()
         rightBarButtonItems.append(ellipsisButton)
         
-        #if DEBUG
-        rightBarButtonItems.append(UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(insertDebugMessagesInAllExistingDiscussions)))
-        #endif
+//        #if DEBUG
+//        rightBarButtonItems.append(UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(insertDebugMessagesInAllExistingDiscussions)))
+//        #endif
 
         navigationItem.rightBarButtonItems = rightBarButtonItems
     }
@@ -136,9 +138,10 @@ extension RecentDiscussionsViewController {
         delegate?.userWantsToDeleteDiscussion(discussion, completionHandler: completionHandler)
     }
     
-    func userAskedToRefreshDiscussions(completionHandler: @escaping () -> Void) {
-        delegate?.userAskedToRefreshDiscussions(completionHandler: completionHandler)
+    func userAskedToRefreshDiscussions() async throws {
+        try await delegate?.userAskedToRefreshDiscussions()
     }
+    
 }
 
 // MARK: - CanScrollToTop
@@ -179,11 +182,82 @@ extension RecentDiscussionsViewController {
             }
             
             menuElements.append(togglePinAction)
+
+            // Under macOS, add an action allowing to refresh the messages
+            
+            if ObvMessengerConstants.targetEnvironmentIsMacCatalyst {
+                
+                let refreshDiscussionsAction = UIAction(title: String(localized: "ACTION_TITLE_FETCH_NEW_MESSAGES")) { [weak self] _ in
+                    Task { [weak self] in await self?.performRefreshDiscussionsAction() }
+                }
+                
+                menuElements.append(refreshDiscussionsAction)
+
+            }
+            
             
         }
 
         let menu = UIMenu(title: "", children: menuElements)
         return menu
+    }
+    
+}
+
+
+// MARK: - Refreshing discussions under macOS
+
+extension RecentDiscussionsViewController {
+    
+    @MainActor
+    private func performRefreshDiscussionsAction() async {
+        
+        // Never refresh twice at the same time
+        
+        guard !isPerformingRefreshDiscussionsAction else { return }
+        isPerformingRefreshDiscussionsAction = true
+        defer { isPerformingRefreshDiscussionsAction = false }
+
+        addSpinnerToRightBarButtonItems()
+
+        do {
+            
+            let actionDate = Date()
+                        
+            try await delegate?.userAskedToRefreshDiscussions()
+            
+            let elapsedTime = Date.now.timeIntervalSince(actionDate)
+            try? await Task.sleep(seconds: max(0, 1.0 - elapsedTime)) // Spin for at least 1 second
+            
+        } catch {
+            assertionFailure()
+            // In production, continue any
+        }
+            
+        removeSpinnerFromRightBarButtonItems()
+        
+    }
+    
+    
+    private func addSpinnerToRightBarButtonItems() {
+        
+        let spinner = UIActivityIndicatorView(style: .medium)
+        spinner.hidesWhenStopped = true
+        spinner.startAnimating()
+
+        var currentRightBarButtonItems = navigationItem.rightBarButtonItems ?? []
+        currentRightBarButtonItems.append(.init(customView: spinner))
+        navigationItem.rightBarButtonItems = currentRightBarButtonItems
+        
+    }
+    
+    
+    private func removeSpinnerFromRightBarButtonItems() {
+        
+        var currentRightBarButtonItems = navigationItem.rightBarButtonItems
+        currentRightBarButtonItems?.removeAll(where: { $0.customView is UIActivityIndicatorView })
+        navigationItem.rightBarButtonItems = currentRightBarButtonItems
+        
     }
     
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -63,7 +63,7 @@ final class DetailedSettingForAutoAcceptGroupInvitesViewController: UITableViewC
     private func observeChangesMadeFromOtherOwnedDevices() {
         
         ObvMessengerSettingsObservableObject.shared.$autoAcceptGroupInviteFrom
-            .compactMap { (autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice, ownedCryptoId) in
+            .compactMap { (autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice) in
                 // We only observe changes made from other owned devices
                 guard changeMadeFromAnotherOwnedDevice else { return nil }
                 return autoAcceptGroupInviteFrom
@@ -123,7 +123,7 @@ extension DetailedSettingForAutoAcceptGroupInvitesViewController {
                 let acceptableAutoAcceptType = try await suggestAutoAcceptingCurrentGroupInvitationsNowIfRequired(
                     selectedAutoAcceptType: selectedAutoAcceptType,
                     currentAutoAcceptType: ObvMessengerSettings.ContactsAndGroups.autoAcceptGroupInviteFrom)
-                ObvMessengerSettings.ContactsAndGroups.setAutoAcceptGroupInviteFrom(to: acceptableAutoAcceptType, changeMadeFromAnotherOwnedDevice: false, ownedCryptoId: ownedCryptoId)
+                ObvMessengerSettings.ContactsAndGroups.setAutoAcceptGroupInviteFrom(to: acceptableAutoAcceptType, changeMadeFromAnotherOwnedDevice: false)
                 tableView.reloadData()
             } catch {
                 assertionFailure(error.localizedDescription)

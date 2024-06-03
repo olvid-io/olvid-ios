@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -138,14 +138,22 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
 
 extension AppCoordinatorsHolder {
     
+    /// Used to propagate an ``ObvSyncAtom`` when it concerns a specific owned identity (e.g., like the order of pinned discussions).
     func requestPropagationToOtherOwnedDevices(of syncAtom: ObvSyncAtom, for ownedCryptoId: ObvCryptoId) async {
-        
         do {
             try await obvEngine.requestPropagationToOtherOwnedDevices(of: syncAtom, for: ownedCryptoId)
         } catch {
             assertionFailure(error.localizedDescription)
         }
-        
+    }
+    
+    /// Used to propagate an ``ObvSyncAtom`` when it concerns a **global** setting (e.g., like the global setting allowing to send read receipts).
+    private func requestPropagationToOtherOwnedDevicesOfAllOwnedIdentities(of syncAtom: ObvSyncAtom) async {
+        do {
+            try await obvEngine.requestPropagationToOtherOwnedDevicesOfAllOwnedIdentities(of: syncAtom)
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
     }
     
     
@@ -163,42 +171,41 @@ extension AppCoordinatorsHolder {
     private func observeSettingsChangeToSyncThemWithOtherOwnedDevices() {
         
         ObvMessengerSettingsObservableObject.shared.$autoAcceptGroupInviteFrom
-            .compactMap { (autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice, ownedCryptoId) in
+            .compactMap { (autoAcceptGroupInviteFrom, changeMadeFromAnotherOwnedDevice) in
                 // Filter out changes made from another device since we don't need to sync with them
                 guard !changeMadeFromAnotherOwnedDevice else { return nil }
-                guard let ownedCryptoId else { return nil }
-                return (autoAcceptGroupInviteFrom, ownedCryptoId)
+                return autoAcceptGroupInviteFrom
             }
-            .compactMap { (autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom, ownedCryptoId: ObvCryptoId) in
+            .compactMap { (autoAcceptGroupInviteFrom: ObvMessengerSettings.ContactsAndGroups.AutoAcceptGroupInviteFrom) in
                 // Create the ObvSyncAtom
                 let category = Self.getObvSyncAtomAutoJoinGroupsCategory(from: autoAcceptGroupInviteFrom)
                 let syncAtom = ObvSyncAtom.settingAutoJoinGroups(category: category)
-                return (syncAtom, ownedCryptoId)
+                return syncAtom
             }
-            .sink { [weak self] (syncAtom: ObvSyncAtom, ownedCryptoId: ObvCryptoId) in
+            .sink { [weak self] (syncAtom: ObvSyncAtom) in
                 // Request the sync of the ObvSyncAtom to the engine
                 Task { [weak self] in
-                    await self?.requestPropagationToOtherOwnedDevices(of: syncAtom, for: ownedCryptoId)
+                    await self?.requestPropagationToOtherOwnedDevicesOfAllOwnedIdentities(of: syncAtom)
                 }
             }
             .store(in: &cancellables)
         
+
         ObvMessengerSettingsObservableObject.shared.$doSendReadReceipt
-            .compactMap { (doSendReadReceipt: Bool, changeMadeFromAnotherOwnedDevice: Bool, ownedCryptoId: ObvCryptoId?) in
+            .compactMap { (doSendReadReceipt: Bool, changeMadeFromAnotherOwnedDevice: Bool) in
                 // Filter out changes made from another device since we don't need to sync with them
                 guard !changeMadeFromAnotherOwnedDevice else { return nil }
-                guard let ownedCryptoId else { return nil }
-                return (doSendReadReceipt, ownedCryptoId)
+                return doSendReadReceipt
             }
-            .compactMap { (doSendReadReceipt: Bool, ownedCryptoId: ObvCryptoId) in
+            .compactMap { (doSendReadReceipt: Bool) in
                 // Create the ObvSyncAtom
                 let syncAtom = ObvSyncAtom.settingDefaultSendReadReceipts(sendReadReceipt: doSendReadReceipt)
-                return (syncAtom, ownedCryptoId)
+                return syncAtom
             }
-            .sink { [weak self] (syncAtom: ObvSyncAtom, ownedCryptoId: ObvCryptoId) in
+            .sink { [weak self] (syncAtom: ObvSyncAtom) in
                 // Request the sync of the ObvSyncAtom to the engine
                 Task { [weak self] in
-                    await self?.requestPropagationToOtherOwnedDevices(of: syncAtom, for: ownedCryptoId)
+                    await self?.requestPropagationToOtherOwnedDevicesOfAllOwnedIdentities(of: syncAtom)
                 }
             }
             .store(in: &cancellables)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,9 +31,10 @@ public final class VerifyReceiptServerMethod: ObvServerDataMethod {
 
     public let pathComponent = "/verifyReceipt"
 
-    public var serverURL: URL { return ownedIdentity.serverURL }
+    public var serverURL: URL { return ownedCryptoId.serverURL }
 
-    public let ownedIdentity: ObvCryptoIdentity
+    public var ownedIdentity: ObvCryptoIdentity? { ownedCryptoId }
+    private var ownedCryptoId: ObvCryptoIdentity
     private let token: Data
     private let signedAppStoreTransactionAsJWS: String
     public let flowId: FlowIdentifier
@@ -44,7 +45,7 @@ public final class VerifyReceiptServerMethod: ObvServerDataMethod {
 
     public init(ownedIdentity: ObvCryptoIdentity, token: Data, signedAppStoreTransactionAsJWS: String, identityDelegate: ObvIdentityDelegate, flowId: FlowIdentifier) {
         self.flowId = flowId
-        self.ownedIdentity = ownedIdentity
+        self.ownedCryptoId = ownedIdentity
         self.token = token
         self.signedAppStoreTransactionAsJWS = signedAppStoreTransactionAsJWS
         self.identityDelegate = identityDelegate
@@ -65,7 +66,7 @@ public final class VerifyReceiptServerMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        return [ownedIdentity.getIdentity(), token, iOSStoreId, signedAppStoreTransactionAsJWS].obvEncode().rawData
+        return [ownedCryptoId.getIdentity(), token, iOSStoreId, signedAppStoreTransactionAsJWS].obvEncode().rawData
     }()
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> Result<PossibleReturnStatus, Error> {

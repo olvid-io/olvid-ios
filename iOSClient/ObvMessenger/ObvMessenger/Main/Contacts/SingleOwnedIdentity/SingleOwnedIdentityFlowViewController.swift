@@ -279,8 +279,16 @@ final class SingleOwnedIdentityFlowViewController: UIHostingController<SingleOwn
                                           image: UIImage(systemIcon: .ellipsisRectangle)) { [weak self] _ in
             Task { await self?.showAlertForEditingCustomDisplayName() }
         }
+        let ownedCryptoId = self.ownedCryptoId
+        let deleteProfileAction = UIAction(title: String(localized: "DELETE_THIS_PROFILE"),
+                                           image: UIImage(systemIcon: .trash),
+                                           attributes: .destructive) { _ in
+            ObvMessengerInternalNotification.userWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: ownedCryptoId)
+                                            .postOnDispatchQueue()
+        }
         menuElements.append(showDetailsAction)
         menuElements.append(editNicknameAction)
+        menuElements.append(deleteProfileAction)
         let menu = UIMenu(title: "", children: menuElements)
         return menu
     }

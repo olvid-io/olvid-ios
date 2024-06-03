@@ -33,8 +33,10 @@ public enum SystemIcon: Hashable {
     case alarm
     case archivebox
     case archiveboxFill
+    case arrowLeft
     case arrow2Squarepath
     case arrowClockwise
+    case arrowClockwiseHeart
     case arrowCounterclockwise
     case arrowCounterclockwiseCircle
     case arrowCounterclockwiseCircleFill
@@ -103,12 +105,14 @@ public enum SystemIcon: Hashable {
     case envelopeBadge
     case envelopeOpenFill
     case exclamationmarkCircle
+    case exclamationmarkBubble
     case exclamationmarkShieldFill
     case eyeFill
     case eyes
     case eye
     case eyeSlash
     case eyesInverse
+    case faceSmiling
     case figureStandLineDottedFigureStand
     case flameFill
     case folder
@@ -221,6 +225,7 @@ public enum SystemIcon: Hashable {
     case timer
     case tortoise
     case trash
+    case trashSlash
     case trashFill
     case trashCircle
     case tray
@@ -237,7 +242,10 @@ public enum SystemIcon: Hashable {
     case xmarkOctagon
     case xmarkOctagonFill
     case xmarkSealFill
+    case heart
+    case heartSlash
     case heartSlashFill
+    case stopWatch
     case safari
 
     public var systemName: String {
@@ -266,6 +274,8 @@ public enum SystemIcon: Hashable {
             } else {
                 return "photo.on.rectangle"
             }
+        case .arrowLeft:
+            return "arrow.left"
         case .arrowUpCircle:
             return "arrow.up.circle"
         case .arrowUpLeftAndArrowDownRight:
@@ -330,12 +340,16 @@ public enum SystemIcon: Hashable {
             return "trash.fill"
         case .trashCircle:
             return "trash.circle"
+        case .trashSlash:
+            return "trash.slash"
         case .tray:
             return "tray"
         case .tv:
             return "tv"
         case .uiwindowSplit2x1:
             return "uiwindow.split.2x1"
+        case .stopWatch:
+            return "stopwatch"
         case .scanner:
             if #available(iOS 14, *) {
                 return "scanner"
@@ -460,6 +474,12 @@ public enum SystemIcon: Hashable {
             return "arrow.2.squarepath"
         case .arrowClockwise:
             return "arrow.clockwise"
+        case .arrowClockwiseHeart:
+            if #available(iOS 14, *) {
+                return "arrow.clockwise.heart"
+            } else {
+                return "heart"
+            }
         case .arrowCounterclockwise:
             return "arrow.counterclockwise"
         case .arrowCounterclockwiseCircle:
@@ -648,6 +668,8 @@ public enum SystemIcon: Hashable {
             } else {
                 return "eyeglasses"
             }
+        case .faceSmiling:
+            return "face.smiling"
         case .eyes:
             if #available(iOS 14, *) {
                 return "eyes"
@@ -672,6 +694,8 @@ public enum SystemIcon: Hashable {
             return "shield.fill"
         case .exclamationmarkCircle:
             return "exclamationmark.circle"
+        case .exclamationmarkBubble:
+            return "exclamationmark.bubble"
         case .exclamationmarkShieldFill:
             return "exclamationmark.shield.fill"
         case .person:
@@ -788,6 +812,10 @@ public enum SystemIcon: Hashable {
             return "star"
         case .starFill:
             return "star.fill"
+        case .heart:
+            return "heart"
+        case .heartSlash:
+            return "heart.slash"
         case .heartSlashFill:
             return "heart.slash.fill"
         case .circle:

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,16 +21,15 @@ import ObvUICoreData
 import UIKit
 
 
-@available(iOS 14, *)
 protocol DiscussionCacheDelegate: AnyObject {
     
     // Cached images for hardlinks
-    func getCachedImageForHardlink(hardlink: HardLinkToFyle, size: CGSize) -> UIImage?
-    @discardableResult func requestImageForHardlink(hardlink: HardLinkToFyle, size: CGSize) async throws -> UIImage
+    func getCachedImageForHardlink(hardlink: HardLinkToFyle, size: ObvDiscussionThumbnailSize) -> UIImage?
+    @discardableResult func requestImageForHardlink(hardlink: HardLinkToFyle, size: ObvDiscussionThumbnailSize) async throws -> UIImage
 
     // Cached data detection (used to decide wether data detection should be actived on text views)
-    func getCachedDataDetection(text: String) -> UIDataDetectorTypes?
-    func requestDataDetection(text: String, completionWhenDataDetectionCached: @escaping ((Bool) -> Void))
+    func getCachedDataDetection(attributedString: AttributedString) -> [ObvDiscussionDataDetected]?
+    func requestDataDetection(attributedString: AttributedString, completionWhenDataDetectionCached: @escaping ((Bool) -> Void))
 
     // Cached URL
     func getFirstHttpsURL(text: String) -> URL?
@@ -53,7 +52,28 @@ protocol DiscussionCacheDelegate: AnyObject {
     func requestDownsizedThumbnail(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, data: Data, completionWhenImageCached: @escaping ((Result<Void, Error>) -> Void))
     
     // Images (and thumbnails) for FyleMessageJoinWithStatus
-    func getCachedPreparedImage(for objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) -> UIImage?
-    func requestPreparedImage(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: CGSize) async throws
+    func getCachedPreparedImage(for objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: ObvDiscussionThumbnailSize) -> UIImage?
+    func requestPreparedImage(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>, size: ObvDiscussionThumbnailSize) async throws
     
+}
+
+
+enum ObvDiscussionThumbnailSize: Hashable {
+    case full(minSize: CGSize)
+    case cropBottom(mandatoryWidth: CGFloat, maxHeight: CGFloat)
+}
+
+
+/// See the comments in ``DiscussionCacheManager``
+struct ObvDiscussionDataDetected: Hashable, Equatable {
+    
+    let range: NSRange
+    let resultType: NSTextCheckingResult.CheckingType
+    let link: URL
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(range)
+        hasher.combine(resultType.rawValue)
+        hasher.combine(link)
+    }
 }

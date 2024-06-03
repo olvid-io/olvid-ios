@@ -34,34 +34,20 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     // MARK: Internal constants
     
     private static let entityName = "ContactIdentity"
-    private static let errorDomain = "ContactIdentity"
-    
-    private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
-    private func makeError(message: String) -> Error { ContactIdentity.makeError(message: message) }
-
+        
     // MARK: Attributes
     
     @NSManaged private(set) var isCertifiedByOwnKeycloak: Bool
     @NSManaged private(set) var isForcefullyTrustedByUser: Bool
     @NSManaged private(set) var isRevokedAsCompromised: Bool
-    @NSManaged private(set) var isOneToOne: Bool
     @NSManaged private(set) var ownedIdentityIdentity: Data // Unique (together with `rawIdentity`)
     @NSManaged private var rawDateOfLastBootstrappedContactDeviceDiscovery: Date?
     @NSManaged private var rawIdentity: Data // Unique (together with `ownedIdentityIdentity`)
+    @NSManaged private var rawOneToOneStatus: NSNumber? // Expected to be non-nil
     @NSManaged private var trustLevelRaw: String
     
     // MARK: Relationships
-    
-    // Expected to be non nil
-    var cryptoIdentity: ObvCryptoIdentity? {
-        guard let cryptoIdentity = ObvCryptoIdentity(from: rawIdentity) else { assertionFailure(); return nil }
-        return cryptoIdentity
-    }
-    
-    var identity: Data {
-        return rawIdentity
-    }
-    
+        
     private(set) var contactGroups: Set<ContactGroup> {
         get {
             let res = kvoSafePrimitiveValue(forKey: Predicate.Key.contactGroups.rawValue) as! Set<ContactGroup>
@@ -98,8 +84,6 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
             kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.groupMemberships.rawValue)
         }
     }
-    
-    
     
     // Unique (together with `cryptoIdentity`)
     private(set) var ownedIdentity: OwnedIdentity? {
@@ -149,9 +133,37 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
             kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.trustedIdentityDetails.rawValue)
         }
     }
+
+    // MARK: -
     
-    // MARK: Other variables
+    private(set) var oneToOneStatus: OneToOneStatusOfContactIdentity {
+        get {
+            guard let rawValue = rawOneToOneStatus?.intValue,
+                  let status = OneToOneStatusOfContactIdentity(rawValue: rawValue) else {
+                assertionFailure()
+                return .toBeDefined
+            }
+            return status
+        }
+        set {
+            guard self.rawOneToOneStatus?.intValue != newValue.rawValue else { return }
+            // If we change from .toBeDefined to .notOneToOne, we don't notify on didSave
+            doNotNotifyOnOneToOneStatusChanged = (rawOneToOneStatus?.intValue == OneToOneStatusOfContactIdentity.toBeDefined.rawValue) && (newValue == .notOneToOne)
+            self.rawOneToOneStatus = NSNumber(integerLiteral: newValue.rawValue)
+        }
+    }
     
+    // Expected to be non nil
+    var cryptoIdentity: ObvCryptoIdentity? {
+        guard let cryptoIdentity = ObvCryptoIdentity(from: rawIdentity) else { assertionFailure(); return nil }
+        return cryptoIdentity
+    }
+    
+    var identity: Data {
+        return rawIdentity
+    }
+
+
     var trustOrigins: [TrustOrigin] {
         persistedTrustOrigins.sorted(by: { $0.timestamp > $1.timestamp }).compactMap { $0.trustOrigin }
     }
@@ -160,13 +172,12 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     private var ownedIdentityCryptoIdentityOnDeletion: ObvCryptoIdentity?
     private var rawIdentityOnDeletion: Data?
     
-    private var trustLevelWasIncreased = false
-    
     weak var delegateManager: ObvIdentityDelegateManager?
     
     var obvContext: ObvContext?
 
     private var changedKeys = Set<String>()
+    private var doNotNotifyOnOneToOneStatusChanged = false
 
     var isActive: Bool {
         isForcefullyTrustedByUser || !isRevokedAsCompromised
@@ -181,7 +192,7 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     ///   - identityDetails: The identity details of the contact identity.
     ///   - ownedIdentity: The owned identity for which we add this contact.
     ///   - delegateManager: The `ObvIdentityDelegateManager`.
-    convenience init?(cryptoIdentity: ObvCryptoIdentity, identityCoreDetails: ObvIdentityCoreDetails, trustOrigin: TrustOrigin, ownedIdentity: OwnedIdentity, isOneToOne: Bool, delegateManager: ObvIdentityDelegateManager) {
+    convenience init?(cryptoIdentity: ObvCryptoIdentity, identityCoreDetails: ObvIdentityCoreDetails, trustOrigin: TrustOrigin, ownedIdentity: OwnedIdentity, isKnownToBeOneToOne: Bool, delegateManager: ObvIdentityDelegateManager) {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: "ContactIdentity")
         guard let obvContext = ownedIdentity.obvContext else {
@@ -206,7 +217,7 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         
         // Simple attributes
         self.rawIdentity = cryptoIdentity.getIdentity()
-        self.isOneToOne = isOneToOne
+        self.oneToOneStatus = isKnownToBeOneToOne ? .oneToOne : .toBeDefined
         
         // Simple relationships
         self.contactGroups = Set<ContactGroup>()
@@ -249,7 +260,11 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         self.trustLevelRaw = backupItem.trustLevelRaw
         self.isRevokedAsCompromised = backupItem.isRevokedAsCompromised
         self.isForcefullyTrustedByUser = backupItem.isForcefullyTrustedByUser
-        self.isOneToOne = backupItem.isOneToOne
+        if let isOneToOne = backupItem.isOneToOne {
+            self.oneToOneStatus = isOneToOne ? .oneToOne : .notOneToOne
+        } else {
+            self.oneToOneStatus = .toBeDefined
+        }
         self.ownedIdentityIdentity = ownedIdentityIdentity
     }
     
@@ -287,7 +302,11 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         self.trustLevelRaw = snapshotNode.trustLevelRaw ?? TrustLevel.zero.rawValue
         self.isRevokedAsCompromised = snapshotNode.isRevokedAsCompromised ?? false
         self.isForcefullyTrustedByUser = snapshotNode.isForcefullyTrustedByUser ?? false
-        self.isOneToOne = snapshotNode.isOneToOne ?? false
+        if let isOneToOne = snapshotNode.isOneToOne {
+            self.oneToOneStatus = isOneToOne ? .oneToOne : .notOneToOne
+        } else {
+            self.oneToOneStatus = .toBeDefined
+        }
         self.ownedIdentityIdentity = ownedIdentityIdentity
         self.isCertifiedByOwnKeycloak = false // This is updated later, in the restoreRelationships(associations:prng:customDeviceName:delegateManager:within:) of OwnedIdentitySyncSnapshotNode
         
@@ -299,18 +318,18 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     func delete(delegateManager: ObvIdentityDelegateManager, failIfContactIsPartOfACommonGroup: Bool, within obvContext: ObvContext) throws {
         self.delegateManager = delegateManager
         guard let ownedIdentity else {
-            throw Self.makeError(message: "The owned identity associated to the contact is nil")
+            throw ObvError.associatedOwnedIdentityIsNil
         }
-        guard let cryptoIdentity = self.cryptoIdentity else { assertionFailure(); throw makeError(message: "Could not decode identity") }
+        guard let cryptoIdentity = self.cryptoIdentity else { assertionFailure(); throw ObvError.couldNotDecodeIdentity }
         if failIfContactIsPartOfACommonGroup {
             let numberOfCommonGroupV2 = try ContactGroupV2.countAllContactGroupV2WithContact(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: cryptoIdentity, delegateManager: delegateManager, within: obvContext)
             guard numberOfCommonGroupV2 == 0 else {
                 assertionFailure()
-                throw Self.makeError(message: "Cannot delete a contact if she is part of a common group v2")
+                throw ObvError.cannotDeleteContactIfSheIsPartOfGroupV2
             }
             guard contactGroups.isEmpty && contactGroupsOwned.isEmpty else {
                 assertionFailure()
-                throw Self.makeError(message: "Cannot delete a contact if she is part of a common group v1")
+                throw ObvError.cannotDeleteContactIfSheIsPartOfGroupV1
             }
         }
         obvContext.delete(self)
@@ -318,6 +337,33 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     
     func setDateOfLastBootstrappedContactDeviceDiscovery(to newDate: Date) {
         self.rawDateOfLastBootstrappedContactDeviceDiscovery = newDate
+    }
+    
+}
+
+
+// MARK: Errors
+
+extension ContactIdentity {
+    
+    enum ObvError: Error {
+        case associatedOwnedIdentityIsNil
+        case couldNotDecodeIdentity
+        case cannotDeleteContactIfSheIsPartOfGroupV1
+        case cannotDeleteContactIfSheIsPartOfGroupV2
+        case obvContextIsNil
+        case couldNotGetIdentityDetails
+        case couldNotCreateContactIdentityDetailsPublished
+        case publishedIdentityDetailsAreNil
+        case couldNotGetTrustedIdentityDetails
+        case couldNotGetPublishedIdentityDetails
+        case couldNotCreatePersistedTrustOrigin
+        case couldNotGetPersistedTrustOriginTrustLevel
+        case contactIsInactive
+        case delegateManagerIsNil
+        case couldNotCreateContactDevice
+        case couldNotFindContactDevice
+        case couldNotFindContact
     }
     
 }
@@ -342,12 +388,12 @@ extension ContactIdentity {
 
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactIdentity.entityName)
 
-        guard let obvContext = self.obvContext else { assertionFailure(); throw makeError(message: "Could not find ObvContext") }
-        guard let cryptoIdentity = self.cryptoIdentity else { assertionFailure(); throw makeError(message: "Could not decode identity") }
+        guard let obvContext = self.obvContext else { assertionFailure(); throw ObvError.obvContextIsNil }
+        guard let cryptoIdentity = self.cryptoIdentity else { assertionFailure(); throw ObvError.couldNotDecodeIdentity }
         
         guard let ownedIdentity else {
             assertionFailure()
-            throw Self.makeError(message: "The owned identity associated to the contact is nil")
+            throw ObvError.associatedOwnedIdentityIsNil
         }
         
         guard ownedIdentity.isKeycloakManaged else {
@@ -356,7 +402,7 @@ extension ContactIdentity {
 
         let details = publishedIdentityDetails ?? trustedIdentityDetails
         guard let identityDetails = details.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else {
-            throw Self.makeError(message: "Failed to refresh trusted details certified by own keycloak as we could not get the identity details")
+            throw ObvError.couldNotGetIdentityDetails
         }
         guard let signedUserDetails = identityDetails.coreDetails.signedUserDetails else {
             return
@@ -467,10 +513,10 @@ extension ContactIdentity {
         guard isActive else { return nil }
         let details = publishedIdentityDetails ?? trustedIdentityDetails
         guard let identityDetails = details.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory) else {
-            throw Self.makeError(message: "Failed to get signed details as we could not get the contact identity details")
+            throw ObvError.couldNotGetIdentityDetails
         }
         guard let ownedIdentity else {
-            throw Self.makeError(message: "The owned identity associated to the contact is nil")
+            throw ObvError.associatedOwnedIdentityIsNil
         }
         guard let signedUserDetails = identityDetails.coreDetails.signedUserDetails else {
             return nil
@@ -505,7 +551,7 @@ extension ContactIdentity {
     
     func updateTrustedDetailsWithPublishedDetails(_ obvIdentityDetails: ObvIdentityDetails, delegateManager: ObvIdentityDelegateManager) throws {
         
-        guard let obvContext = self.obvContext else { assertionFailure(); throw makeError(message: "Could not find ObvContext") }
+        guard let obvContext = self.obvContext else { assertionFailure(); throw ObvError.obvContextIsNil }
         
         // We check that the identity details that were passed as a parameter are identical to the current published identity details of this contact
         guard let publishedIdentityDetails = self.publishedIdentityDetails else { assertionFailure(); return }
@@ -527,7 +573,7 @@ extension ContactIdentity {
             try currentPublishedDetails.updateWithNewContactIdentityDetailsElements(newContactIdentityDetailsElements, delegateManager: delegateManager)
         } else {
             guard allowVersionDowngrade || newContactIdentityDetailsElements.version > trustedIdentityDetails.version else { return }
-            guard ContactIdentityDetailsPublished(contactIdentity: self, contactIdentityDetailsElements: newContactIdentityDetailsElements, delegateManager: delegateManager) != nil else { throw makeError(message: "Could not create ContactIdentityDetailsPublished") }
+            guard ContactIdentityDetailsPublished(contactIdentity: self, contactIdentityDetailsElements: newContactIdentityDetailsElements, delegateManager: delegateManager) != nil else { throw ObvError.couldNotCreateContactIdentityDetailsPublished }
             assert(self.publishedIdentityDetails != nil)
             if self.trustedIdentityDetails.photoServerKeyAndLabel == self.publishedIdentityDetails?.photoServerKeyAndLabel {
                 // We copy the photo found in the trusted details into the published details
@@ -558,18 +604,22 @@ extension ContactIdentity {
         
         guard let publishedIdentityDetails = self.publishedIdentityDetails else {
             assertionFailure()
-            throw makeError(message: "Published details are nil although they should not be at this point. This is a bug.")
+            throw ObvError.publishedIdentityDetailsAreNil
         }
         
-        // If we reach this point, the published details have a higher version than the trusted details. We try to "auto-trust" these published details
+        // If we reach this point, the published details have a higher version than the trusted details. We try to "auto-trust" these published details.
+        // We "auto-trust" if the published details are visually identical to the trust ones of the following fields:
+        // - first name
+        // - last name
+        // - profile picture
         
         guard let trustedDetails = trustedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else {
-            throw Self.makeError(message: "Failed to try to auto-trust published details as we could not get the trusted details")
+            throw ObvError.couldNotGetTrustedIdentityDetails
         }
         guard let publishedDetails = publishedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else {
-            throw Self.makeError(message: "Failed to try to auto-trust published details as we could not get the published details")
+            throw ObvError.couldNotGetPublishedIdentityDetails
         }
-        guard publishedDetails.coreDetails.fieldsAreTheSameAndSignedDetailsAreNotConsidered(than: trustedDetails.coreDetails) else {
+        guard publishedDetails.coreDetails.hasVisuallyIdenticalFirstNameAndLastName(than: trustedDetails.coreDetails) else {
             // Since the details displayed to the user are different in the published details than in the trusted details, we cannot auto-trust them
             os_log("Fields are different", log: log, type: .info)
             return
@@ -644,15 +694,14 @@ extension ContactIdentity {
         }
         guard let persistedTrustOrigin = PersistedTrustOrigin(trustOrigin: trustOrigin, contact: self, delegateManager: delegateManager) else {
             assertionFailure()
-            throw Self.makeError(message: "Could not create PersistedTrustOrigin")
+            throw ObvError.couldNotCreatePersistedTrustOrigin
         }
         guard let trustOriginTrustLevel = persistedTrustOrigin.trustLevel else {
             assertionFailure()
-            throw Self.makeError(message: "Could not get trust level")
+            throw ObvError.couldNotGetPersistedTrustOriginTrustLevel
         }
         if self.trustLevel < trustOriginTrustLevel {
             self.trustLevelRaw = trustOriginTrustLevel.rawValue
-            trustLevelWasIncreased = true
         }
     }
 
@@ -663,18 +712,21 @@ extension ContactIdentity {
 extension ContactIdentity {
     
     func addIfNotExistDeviceWith(uid: UID, createdDuringChannelCreation: Bool, flowId: FlowIdentifier) throws {
-        guard self.isActive else { throw makeError(message: "Cannot add a device to an inactive contact") }
+        guard self.isActive else {
+            assertionFailure()
+            throw ObvError.contactIsInactive
+        }
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: "ContactIdentity")
             os_log("The delegate manager is not set (3)", log: log, type: .fault)
-            throw ContactIdentity.makeError(message: "The delegate manager is not set (3)")
+            throw ObvError.delegateManagerIsNil
         }
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: "ContactIdentity")
         let existingDeviceUids = devices.map { $0.uid }
         if !existingDeviceUids.contains(uid) {
             guard ContactDevice(uid: uid, contactIdentity: self, createdDuringChannelCreation: createdDuringChannelCreation, flowId: flowId, delegateManager: delegateManager) != nil else {
                 os_log("Could not add a contact device", log: log, type: .fault)
-                throw ContactIdentity.makeError(message: "Could not add a contact device")
+                throw ObvError.couldNotCreateContactDevice
             }
         }
     }
@@ -683,7 +735,7 @@ extension ContactIdentity {
         guard let obvContext = self.obvContext else {
             let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: "ContactIdentity")
             os_log("The obvContext is not set in removeIfExistsDeviceWith", log: log, type: .fault)
-            throw ContactIdentity.makeError(message: "The obvContext is not set in removeIfExistsDeviceWith")
+            throw ObvError.obvContextIsNil
         }
         for device in devices {
             guard device.uid == uid else { continue }
@@ -699,7 +751,7 @@ extension ContactIdentity {
     
     func setRawCapabilitiesOfDeviceWithUID(_ deviceUID: UID, newRawCapabilities: Set<String>) throws {
         guard let device = self.devices.first(where: { $0.uid == deviceUID }) else {
-            throw makeError(message: "Could not find contact device")
+            throw ObvError.couldNotFindContactDevice
         }
         device.setRawCapabilities(newRawCapabilities: newRawCapabilities)
         // Before v0.11.1, we used to call setIsOneToOne(to: true) for contacts not having the oneToneContacts capability, for legacy reasons. We don't do that anymore.
@@ -728,9 +780,10 @@ extension ContactIdentity {
 extension ContactIdentity {
     
     func setIsOneToOne(to newIsOneToOne: Bool, reasonToLog: String) {
-        if self.isOneToOne != newIsOneToOne {
-            ObvDisplayableLogs.shared.log("[🫂][ContactIdentity] Setting OneToOne to \(newIsOneToOne): \(reasonToLog)")
-            self.isOneToOne = newIsOneToOne
+        let newOneToOneStatus: OneToOneStatusOfContactIdentity = newIsOneToOne ? .oneToOne : .notOneToOne
+        if self.oneToOneStatus != newOneToOneStatus {
+            ObvDisplayableLogs.shared.log("[🫂][ContactIdentity] Setting OneToOneStatus to \(newOneToOneStatus): \(reasonToLog)")
+            self.oneToOneStatus = newOneToOneStatus
         }
     }
     
@@ -747,19 +800,19 @@ extension ContactIdentity {
             // No published details to trust, nothing left to do
             return
         }
-        // If the local published for this contact do match the details the user decided to trust on another owned device,
+        // If the local published details for this contact do match the details the user decided to trust on another owned device,
         // we trust these published now.
         // First first construct a IdentityDetailsElements struct on the basis of the local, published details of the contact
         guard let localPublishedIdentityDetailsElements = publishedIdentityDetails.getIdentityDetailsElements(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else {
             assertionFailure()
-            throw Self.makeError(message: "Could not construct local published identity details elements")
+            throw ObvError.couldNotGetPublishedIdentityDetails
         }
         // We can compare the IdentityDetailsElements that were trusted on the other owned device with the published IdentityDetailsElements on this device
         // If they are identical, we can trust the local published details
         if identityDetailsElements.fieldsAreTheSameButVersionAndSignedDetailsAreNotConsidered(than: localPublishedIdentityDetailsElements) {
             guard let obvIdentityDetails = publishedIdentityDetails.getIdentityDetails(identityPhotosDirectory: delegateManager.identityPhotosDirectory) else {
                 assertionFailure()
-                throw Self.makeError(message: "Could not construct local published identity details")
+                throw ObvError.couldNotGetPublishedIdentityDetails
             }
             try self.updateTrustedDetailsWithPublishedDetails(obvIdentityDetails, delegateManager: delegateManager)
         }
@@ -781,7 +834,7 @@ extension ContactIdentity {
             // Attributes
             case isCertifiedByOwnKeycloak = "isCertifiedByOwnKeycloak"
             case isForcefullyTrustedByUser = "isForcefullyTrustedByUser"
-            case isOneToOne = "isOneToOne"
+            case rawOneToOneStatus = "rawOneToOneStatus"
             case isRevokedAsCompromised = "isRevokedAsCompromised"
             case ownedIdentityIdentity = "ownedIdentityIdentity"
             case rawDateOfLastBootstrappedContactDeviceDiscovery = "rawDateOfLastBootstrappedContactDeviceDiscovery"
@@ -819,7 +872,7 @@ extension ContactIdentity {
         ])
         request.fetchLimit = 1
         guard let item = (try context.fetch(request)).first else {
-            throw Self.makeError(message: "Could not find contact")
+            throw ObvError.couldNotFindContact
         }
         return item.rawDateOfLastBootstrappedContactDeviceDiscovery ?? .distantPast
     }
@@ -907,6 +960,7 @@ extension ContactIdentity {
                 
         defer {
             changedKeys.removeAll()
+            doNotNotifyOnOneToOneStatusChanged = false
             isInsertedWhileRestoringSyncSnapshot = false
         }
         
@@ -936,14 +990,6 @@ extension ContactIdentity {
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
             
-            ObvIdentityNotificationNew.contactTrustLevelWasIncreased(
-                ownedIdentity: ownedIdentity.cryptoIdentity,
-                contactIdentity: cryptoIdentity,
-                trustLevelOfContactIdentity: self.trustLevel,
-                isOneToOne: self.isOneToOne,
-                flowId: flowId)
-            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
-
             ObvIdentityNotificationNew.contactIdentityOneToOneStatusChanged(
                 ownedIdentity: ownedIdentity.cryptoIdentity,
                 contactIdentity: cryptoIdentity,
@@ -989,13 +1035,17 @@ extension ContactIdentity {
 
             }
             
-            if changedKeys.contains(Predicate.Key.isOneToOne.rawValue) {
+            if changedKeys.contains(Predicate.Key.rawOneToOneStatus.rawValue) {
                 
-                ObvIdentityNotificationNew.contactIdentityOneToOneStatusChanged(
-                    ownedIdentity: ownedIdentity.cryptoIdentity,
-                    contactIdentity: cryptoIdentity,
-                    flowId: flowId)
-                .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+                if !doNotNotifyOnOneToOneStatusChanged {
+                    
+                    ObvIdentityNotificationNew.contactIdentityOneToOneStatusChanged(
+                        ownedIdentity: ownedIdentity.cryptoIdentity,
+                        contactIdentity: cryptoIdentity,
+                        flowId: flowId)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+                    
+                }
 
             }
             
@@ -1008,20 +1058,6 @@ extension ContactIdentity {
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
 
             }
-            
-        }
-
-        if trustLevelWasIncreased, let ownedIdentity, let cryptoIdentity {
-            
-            ObvIdentityNotificationNew.contactTrustLevelWasIncreased(
-                ownedIdentity: ownedIdentity.cryptoIdentity,
-                contactIdentity: cryptoIdentity,
-                trustLevelOfContactIdentity: self.trustLevel,
-                isOneToOne: self.isOneToOne,
-                flowId: flowId)
-            .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
-
-            trustLevelWasIncreased = false
             
         }
 
@@ -1042,7 +1078,7 @@ extension ContactIdentity {
                                          trustLevelRaw: trustLevelRaw,
                                          isRevokedAsCompromised: isRevokedAsCompromised,
                                          isForcefullyTrustedByUser: isForcefullyTrustedByUser,
-                                         isOneToOne: isOneToOne)
+                                         oneToOneStatus: oneToOneStatus)
     }
 
 }
@@ -1058,7 +1094,7 @@ struct ContactIdentityBackupItem: Codable, Hashable {
     fileprivate let trustLevelRaw: String
     fileprivate let isRevokedAsCompromised: Bool
     fileprivate let isForcefullyTrustedByUser: Bool
-    fileprivate let isOneToOne: Bool
+    fileprivate let isOneToOne: Bool?
 
     private static let errorDomain = String(describing: ContactIdentityBackupItem.self)
 
@@ -1067,7 +1103,7 @@ struct ContactIdentityBackupItem: Codable, Hashable {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    fileprivate init(rawIdentity: Data, persistedTrustOrigins: Set<PersistedTrustOrigin>, publishedIdentityDetails: ContactIdentityDetailsPublished?, trustedIdentityDetails: ContactIdentityDetailsTrusted, contactGroupsOwned: Set<ContactGroupJoined>, trustLevelRaw: String, isRevokedAsCompromised: Bool, isForcefullyTrustedByUser: Bool, isOneToOne: Bool) {
+    fileprivate init(rawIdentity: Data, persistedTrustOrigins: Set<PersistedTrustOrigin>, publishedIdentityDetails: ContactIdentityDetailsPublished?, trustedIdentityDetails: ContactIdentityDetailsTrusted, contactGroupsOwned: Set<ContactGroupJoined>, trustLevelRaw: String, isRevokedAsCompromised: Bool, isForcefullyTrustedByUser: Bool, oneToOneStatus: OneToOneStatusOfContactIdentity) {
         self.rawIdentity = rawIdentity
         self.persistedTrustOrigins = Set(persistedTrustOrigins.map { $0.backupItem })
         self.publishedIdentityDetails = publishedIdentityDetails?.backupItem
@@ -1076,7 +1112,14 @@ struct ContactIdentityBackupItem: Codable, Hashable {
         self.trustLevelRaw = trustLevelRaw
         self.isRevokedAsCompromised = isRevokedAsCompromised
         self.isForcefullyTrustedByUser = isForcefullyTrustedByUser
-        self.isOneToOne = isOneToOne
+        switch oneToOneStatus {
+        case .oneToOne:
+            self.isOneToOne = true
+        case .notOneToOne:
+            self.isOneToOne = false
+        case .toBeDefined:
+            self.isOneToOne = nil
+        }
     }
     
     enum CodingKeys: String, CodingKey {
@@ -1101,7 +1144,7 @@ struct ContactIdentityBackupItem: Codable, Hashable {
         try container.encode(trustLevelRaw, forKey: .trustLevelRaw)
         try container.encode(isRevokedAsCompromised, forKey: .isRevokedAsCompromised)
         try container.encode(isForcefullyTrustedByUser, forKey: .isForcefullyTrustedByUser)
-        try container.encode(isOneToOne, forKey: .isOneToOne)
+        try container.encodeIfPresent(isOneToOne, forKey: .isOneToOne)
     }
  
     init(from decoder: Decoder) throws {
@@ -1114,7 +1157,7 @@ struct ContactIdentityBackupItem: Codable, Hashable {
         self.trustLevelRaw = try values.decode(String.self, forKey: .trustLevelRaw)
         self.isRevokedAsCompromised = try values.decodeIfPresent(Bool.self, forKey: .isRevokedAsCompromised) ?? false
         self.isForcefullyTrustedByUser = try values.decodeIfPresent(Bool.self, forKey: .isForcefullyTrustedByUser) ?? false
-        self.isOneToOne = try values.decodeIfPresent(Bool.self, forKey: .isOneToOne) ?? true
+        self.isOneToOne = try values.decodeIfPresent(Bool.self, forKey: .isOneToOne)
     }
     
     func restoreInstance(within obvContext: ObvContext, ownedIdentityIdentity: Data, associations: inout BackupItemObjectAssociations) throws {
@@ -1159,7 +1202,7 @@ extension ContactIdentity {
             trustLevelRaw: trustLevelRaw,
             isRevokedAsCompromised: isRevokedAsCompromised,
             isForcefullyTrustedByUser: isForcefullyTrustedByUser,
-            isOneToOne: isOneToOne)
+            oneToOneStatus: oneToOneStatus)
     }
 
 }
@@ -1194,14 +1237,21 @@ struct ContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
     }
 
     
-    fileprivate init(persistedTrustOrigins: Set<PersistedTrustOrigin>, publishedIdentityDetails: ContactIdentityDetailsPublished?, trustedIdentityDetails: ContactIdentityDetailsTrusted, trustLevelRaw: String, isRevokedAsCompromised: Bool, isForcefullyTrustedByUser: Bool, isOneToOne: Bool) {
+    fileprivate init(persistedTrustOrigins: Set<PersistedTrustOrigin>, publishedIdentityDetails: ContactIdentityDetailsPublished?, trustedIdentityDetails: ContactIdentityDetailsTrusted, trustLevelRaw: String, isRevokedAsCompromised: Bool, isForcefullyTrustedByUser: Bool, oneToOneStatus: OneToOneStatusOfContactIdentity) {
         self.trustedIdentityDetails = trustedIdentityDetails.snapshotNode
         self.publishedIdentityDetails = publishedIdentityDetails?.snapshotNode
         self.persistedTrustOrigins = Set(persistedTrustOrigins.map { $0.snapshotItem })
         self.trustLevelRaw = trustLevelRaw
         self.isRevokedAsCompromised = isRevokedAsCompromised ? true : nil
         self.isForcefullyTrustedByUser = isForcefullyTrustedByUser ? true : nil
-        self.isOneToOne = isOneToOne ? true : nil
+        switch oneToOneStatus {
+        case .oneToOne:
+            self.isOneToOne = true
+        case .notOneToOne:
+            self.isOneToOne = false
+        case .toBeDefined:
+            self.isOneToOne = nil
+        }
         self.domain = Self.defaultDomain
     }
 

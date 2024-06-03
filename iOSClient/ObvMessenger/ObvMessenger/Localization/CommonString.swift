@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -135,6 +135,25 @@ extension CommonString.Word {
 extension CommonString {
 
     struct AlertButton {
+        static func deletionActionTitle(for deletionType: DeletionType, ownedIdentityHasHasAnotherDeviceWithChannel: Bool, multipleContacts: Bool) -> String {
+            switch deletionType {
+            case .fromThisDeviceOnly:
+                return NSLocalizedString("DELETE_FROM_THIS_DEVICE_ONLY", comment: "Alert button title")
+            case .fromAllOwnedDevices:
+                return NSLocalizedString("DELETE_FROM_ALL_OWNED_DEVICES", comment: "Alert button title")
+            case .fromAllOwnedDevicesAndAllContactDevices:
+                switch (ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts) {
+                case (false, false):
+                    return NSLocalizedString("DELETE_FROM_THIS_DEVICE_AND_CONTACT_DEVICES", comment: "Alert button title")
+                case (false, true):
+                    return NSLocalizedString("DELETE_FROM_THIS_DEVICE_AND_ALL_CONTACTS_DEVICES", comment: "Alert button title")
+                case (true, false):
+                    return NSLocalizedString("DELETE_FROM_ALL_OWNED_DEVICES_AND_CONTACT_DEVICES", comment: "Alert button title")
+                case (true, true):
+                    return NSLocalizedString("DELETE_FROM_ALL_OWNED_DEVICES_AND_ALL_CONTACTS_DEVICES", comment: "Alert button title")
+                }
+            }
+        }
         static let exportToFilesApp = NSLocalizedString("Export to File App", comment: "Alert button title")
         static let performDeletionAction = NSLocalizedString("Perform the deletion", comment: "Alert button title")
         static let performGlobalDeletionAction = NSLocalizedString("Perform the deletion for all users", comment: "Alert button title")
@@ -152,6 +171,8 @@ extension CommonString {
         static let deleteGroup = NSLocalizedString("Delete group", comment: "Title")
         static let leaveGroup = NSLocalizedString("Leave group", comment: "Title")
         static let copyText = NSLocalizedString("Copy text", comment: "Title")
+        static let addAReactionText = NSLocalizedString("Add a reaction", comment: "Title")
+        static let changeAReactionText = NSLocalizedString("CHANGE_MY_REACTION", comment: "Title")
         static let scanDocument = NSLocalizedString("Scan document", comment: "Title")
         static let sendReadRecceipts = NSLocalizedString("Send Read Receipts", comment: "Title")
         static let discussionSettings = NSLocalizedString("DISCUSSION_SETTINGS", comment: "Title")

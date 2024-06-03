@@ -347,58 +347,70 @@ actor SnackBarManager {
             os_log("⏲ The SnackBarManager did request information about the current backup", log: Self.log, type: .info)
 
             // If the owned identity
+            // - has no backup key (i.e., backupKeyInformation == nil)
             // - has at least one contact
             // - did not dismiss the OlvidSnackBarCategory.createBackupKey for the past week
-            // - has no backup key
             // Then notify that we should display a OlvidSnackBarCategory.createBackupKey snack bar.
 
-            if backupKeyInformation == nil {
-                let lastDisplayDate = OlvidSnackBarCategory.createBackupKey.lastDisplayDate ?? Date.distantPast
-                let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(days: 7)
-                guard didDismissSnackBarRecently else {
-                    ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.createBackupKey)
-                        .postOnDispatchQueue()
-                    return
+            if #available(iOS 17, *) {
+                // We use TipKip to display a tip instead of a snackbar
+            } else {
+                if backupKeyInformation == nil {
+                    let lastDisplayDate = OlvidSnackBarCategory.createBackupKey.lastDisplayDate ?? Date.distantPast
+                    let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(days: 7)
+                    guard didDismissSnackBarRecently else {
+                        ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.createBackupKey)
+                            .postOnDispatchQueue()
+                        return
+                    }
                 }
             }
 
             // If the owned identity
-            // - has a backup key
+            // - has a backup key (i.e., backupKeyInformation != nil)
             // - did not activate automatic backups
-            // - did not dismiss the OlvidSnackBarCategory.shouldPerformBackup for the past week
-            // - did not export a backup for more than a week
+            // - did not dismiss the OlvidSnackBarCategory.shouldPerformBackup for the past month
+            // - did not export a backup for more than a month
             // Then notify that we should display a OlvidSnackBarCategory.shouldPerformBackup snack bar.
 
-            if let backupKeyInformation = backupKeyInformation, !ObvMessengerSettings.Backup.isAutomaticBackupEnabled {
-                let lastBackupExportTimestamp = backupKeyInformation.lastBackupExportTimestamp ?? Date.distantPast
-                let didExportBackupRecently = abs(lastBackupExportTimestamp.timeIntervalSinceNow) < TimeInterval(days: 7)
-                let lastDisplayDate = OlvidSnackBarCategory.shouldPerformBackup.lastDisplayDate ?? Date.distantPast
-                let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(days: 7)
-                guard didDismissSnackBarRecently || didExportBackupRecently else {
-                    ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.shouldPerformBackup)
-                        .postOnDispatchQueue()
-                    return
+            if #available(iOS 17, *) {
+                // We use TipKip to display a tip instead of a snackbar
+            } else {
+                if let backupKeyInformation, !ObvMessengerSettings.Backup.isAutomaticBackupEnabled {
+                    let lastBackupExportTimestamp = backupKeyInformation.lastBackupExportTimestamp ?? Date.distantPast
+                    let didExportBackupRecently = abs(lastBackupExportTimestamp.timeIntervalSinceNow) < TimeInterval(months: 1)
+                    let lastDisplayDate = OlvidSnackBarCategory.shouldPerformBackup.lastDisplayDate ?? Date.distantPast
+                    let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(months: 1)
+                    guard didDismissSnackBarRecently || didExportBackupRecently else {
+                        ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.shouldPerformBackup)
+                            .postOnDispatchQueue()
+                        return
+                    }
                 }
             }
 
             // If the owned identity
             // - has a backup key
-            // - did not verify her backup key for the past month
+            // - did not verify her backup key for the past 3 months
             // - did generate her key more than a two weeks ago
-            // - did not dismiss the OlvidSnackBarCategory.shouldVerifyBackupKey for the past week
+            // - did not dismiss the OlvidSnackBarCategory.shouldVerifyBackupKey for the past month
             // Then notify that we should display a OlvidSnackBarCategory.shouldVerifyBackupKey snack bar.
 
-            if let backupKeyInformation = backupKeyInformation {
-                let keyGenerationTimestamp = backupKeyInformation.keyGenerationTimestamp
-                let didGenerateKeyRecently = abs(keyGenerationTimestamp.timeIntervalSinceNow) < TimeInterval(days: 14)
-                let lastSuccessfulKeyVerificationTimestamp = backupKeyInformation.lastSuccessfulKeyVerificationTimestamp ?? Date.distantPast
-                let didSuccessfullyVerifyKeyRecently = abs(lastSuccessfulKeyVerificationTimestamp.timeIntervalSinceNow) < TimeInterval(months: 1)
-                let lastDisplayDate = OlvidSnackBarCategory.shouldVerifyBackupKey.lastDisplayDate ?? Date.distantPast
-                let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(days: 7)
-                guard didGenerateKeyRecently || didSuccessfullyVerifyKeyRecently || didDismissSnackBarRecently else {
-                    ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.shouldVerifyBackupKey)
-                        .postOnDispatchQueue()
-                    return
+            if #available(iOS 17, *) {
+                // We use TipKip to display a tip instead of a snackbar
+            } else {
+                if let backupKeyInformation {
+                    let keyGenerationTimestamp = backupKeyInformation.keyGenerationTimestamp
+                    let didGenerateKeyRecently = abs(keyGenerationTimestamp.timeIntervalSinceNow) < TimeInterval(days: 14)
+                    let lastSuccessfulKeyVerificationTimestamp = backupKeyInformation.lastSuccessfulKeyVerificationTimestamp ?? Date.distantPast
+                    let didSuccessfullyVerifyKeyRecently = abs(lastSuccessfulKeyVerificationTimestamp.timeIntervalSinceNow) < TimeInterval(months: 3)
+                    let lastDisplayDate = OlvidSnackBarCategory.shouldVerifyBackupKey.lastDisplayDate ?? Date.distantPast
+                    let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(months: 7)
+                    guard didGenerateKeyRecently || didSuccessfullyVerifyKeyRecently || didDismissSnackBarRecently else {
+                        ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.shouldVerifyBackupKey)
+                            .postOnDispatchQueue()
+                        return
+                    }
                 }
             }
         } catch {

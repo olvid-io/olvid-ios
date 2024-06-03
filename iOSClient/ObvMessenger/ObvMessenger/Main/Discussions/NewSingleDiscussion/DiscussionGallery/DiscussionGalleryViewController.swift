@@ -529,7 +529,7 @@ extension JoinGalleryViewController {
 
         typicalThumbnailSize = thumbnailSize
         
-        if let thumbnail = cacheDelegate.getCachedPreparedImage(for: join.typedObjectID, size: thumbnailSize) {
+        if let thumbnail = cacheDelegate.getCachedPreparedImage(for: join.typedObjectID, size: .full(minSize: thumbnailSize)) {
             cell.updateWith(join: join, thumbnail: .computed(thumbnail))
         } else {
             cell.updateWith(join: join, thumbnail: .computing)
@@ -537,7 +537,7 @@ extension JoinGalleryViewController {
                 guard let self else { return }
                 assert(Thread.isMainThread)
                 do {
-                    try await cacheDelegate.requestPreparedImage(objectID: join.typedObjectID, size: thumbnailSize)
+                    try await cacheDelegate.requestPreparedImage(objectID: join.typedObjectID, size: .full(minSize: thumbnailSize))
                 } catch {
                     cell.updateWith(join: join, thumbnail: .error(contentType: join.contentType))
                     return
@@ -675,11 +675,11 @@ extension JoinGalleryViewController {
 
         for indexPath in indexPaths {
             let objectID = frc.object(at: indexPath).typedObjectID
-            if cacheDelegate.getCachedPreparedImage(for: objectID, size: thumbnailSize) == nil {
+            if cacheDelegate.getCachedPreparedImage(for: objectID, size: .full(minSize: thumbnailSize)) == nil {
                 Task { [weak self] in
                     guard let self else { return }
                     do {
-                        try await cacheDelegate.requestPreparedImage(objectID: objectID, size: thumbnailSize)
+                        try await cacheDelegate.requestPreparedImage(objectID: objectID, size: .full(minSize: thumbnailSize))
                     } catch {
                         os_log("The request for a prepared image failed (2): %{public}@", log: Self.log, type: .error, error.localizedDescription)
                     }
@@ -925,7 +925,6 @@ final class DocumentViewCell: UICollectionViewListCell, GalleryViewCell {
     private(set) var thumbnail: ThumbnailValue?
     private(set) var readingRequiresUserAction = false
     private(set) var isReadOnce = false
-    private let byteCountFormatter = ByteCountFormatter()
     private var viewsSetupWasPerformed = false
     let galleryImageView = GalleryImageView()
 
@@ -1010,7 +1009,7 @@ final class DocumentViewCell: UICollectionViewListCell, GalleryViewCell {
         }
         let contentType = join.contentType
         let fileSize = Int(join.totalByteCount)
-        subtitleElements.append(byteCountFormatter.string(fromByteCount: Int64(fileSize)))
+        subtitleElements.append(Int64(fileSize).formatted(.byteCount(style: .file, allowedUnits: .all, spellsOutZero: true, includesActualByteCount: false)))
         if let type = contentType.localizedDescription {
             subtitleElements.append(type)
         }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,9 +24,9 @@ import protocol OlvidUtils.ObvManagedObject
 import class OlvidUtils.ObvContext
 import protocol OlvidUtils.ObvErrorMaker
 
-/// Abstract class with two concrete subclasses: ``PersistedUserMentionInMessage`` and ``PersistedUserMentionInMessage``.
+/// Abstract class with two concrete subclasses: ``PersistedUserMentionInMessage`` and ``PersistedUserMentionInDraft``.
 @objc(PersistedUserMention)
-public class PersistedUserMention: NSManagedObject, ObvErrorMaker {
+public class PersistedUserMention: NSManagedObject {
     
     public static let errorDomain = "PersistedUserMention"
     
@@ -56,24 +56,34 @@ public class PersistedUserMention: NSManagedObject, ObvErrorMaker {
     /// The `kind` is not persisted and is only here to make sure the `PersistedUserMention` concrete subclass calling this initialiser is known to this class.
     /// The `textContainingMention` is not persisted either. Passing it in this initialiser allows to centralise the checks we want to perform on the range.
     fileprivate convenience init(mention: MessageJSON.UserMention, textContainingMention: String, kind: Kind, forEntityName entityName: String, within context: NSManagedObjectContext) throws {
-        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
-        self.init(entity: entityDescription, insertInto: context)
         // Sanity checks: we do not create the mention if the bounds clearely make no sense
         guard mention.range.lowerBound < mention.range.upperBound,
               mention.range.lowerBound >= textContainingMention.startIndex,
               mention.range.upperBound <= textContainingMention.endIndex else {
             assertionFailure()
-            return
+            throw ObvError.mentionIsOutOfBounds
         }
+        let entityDescription = NSEntityDescription.entity(forEntityName: entityName, in: context)!
+        self.init(entity: entityDescription, insertInto: context)
         self.mentionRangeLowerBound = mention.range.lowerBound.utf16Offset(in: textContainingMention)
         self.mentionRangeUpperBound = mention.range.upperBound.utf16Offset(in: textContainingMention)
         self.rawMentionnedIdentity = mention.mentionedCryptoId.getIdentity()
+    }
+    
+    
+    enum ObvError: Error {
+        case mentionIsOutOfBounds
+        case noContext
+        case cannotDetermineTextBodyContainingTheMention
+        case cannotDetermineDiscussion
+        case cannotDetermineOwnedIdentity
+        case messageHasNoBodyAndThusCannotContainMention
     }
 
     
     /// Deletes this user mention. Shall **only** be called from ``PersistedDraft`` and from ``PersistedMessage``.
     public func deleteUserMention() throws {
-        guard let managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }
+        guard let managedObjectContext else { assertionFailure(); throw ObvError.noContext }
         managedObjectContext.delete(self)
     }
 
@@ -102,7 +112,7 @@ public class PersistedUserMention: NSManagedObject, ObvErrorMaker {
             // Try to determine the text body where this mention occurs
             guard let textBodyContainingMention else {
                 assertionFailure()
-                throw Self.makeError(message: "We cannot determine the text body containing the mention")
+                throw ObvError.cannotDetermineTextBodyContainingTheMention
             }
             // Try to return a range for the mention
             return try mentionRangeInText(textBodyContainingMention)
@@ -133,7 +143,8 @@ public class PersistedUserMention: NSManagedObject, ObvErrorMaker {
               mentionRangeLowerBound >= 0,
               mentionRangeUpperBound <= text.endIndex.utf16Offset(in: text) else {
             assertionFailure()
-            throw Self.makeError(message: "Given the way we initialised this mention, it is likely that the message body was updated but we did not delete the mentions, which is an error.")
+            // Given the way we initialised this mention, it is likely that the message body was updated but we did not delete the mentions, which is an error.
+            throw ObvError.mentionIsOutOfBounds
         }
 
         let mentionRangeLowerBoundIndex = String.Index(utf16Offset: mentionRangeLowerBound, in: text)
@@ -150,7 +161,8 @@ public class PersistedUserMention: NSManagedObject, ObvErrorMaker {
         // Try to determine the discussion where this mention occurs
         guard let discussion else {
             assertionFailure()
-            throw Self.makeError(message: "We cannot determine the discussion, the rawMentionnedIdentity value alone is not enough to determine the exact identity that is mentionned")
+            // We cannot determine the discussion, the rawMentionnedIdentity value alone is not enough to determine the exact identity that is mentionned
+            throw ObvError.cannotDetermineDiscussion
         }
         // Given the discussion, we can try to return an appropriate MentionableIdentity
         return try getMentionableIdentityInDiscussion(discussion)
@@ -177,7 +189,7 @@ public class PersistedUserMention: NSManagedObject, ObvErrorMaker {
     private func getMentionableIdentityInDiscussion(_ discussion: PersistedDiscussion) throws -> MentionableIdentity? {
         guard let ownedIdentity = discussion.ownedIdentity else {
             assertionFailure()
-            throw Self.makeError(message: "We cannot determine the owned identity, the rawMentionnedIdentity value alone is not enough to determine the exact identity that is mentionned")
+            throw ObvError.cannotDetermineOwnedIdentity
         }
         let ownedCryptoId = ownedIdentity.cryptoId
         let mentionnedCryptoId = try self.mentionnedCryptoId
@@ -214,10 +226,10 @@ public final class PersistedUserMentionInMessage: PersistedUserMention {
     @NSManaged public private(set) var message: PersistedMessage?
 
     convenience init(mention: MessageJSON.UserMention, message: PersistedMessage) throws {
-        guard let context = message.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }
+        guard let context = message.managedObjectContext else { assertionFailure(); throw ObvError.noContext }
         guard let messageBody = message.body else {
             assertionFailure()
-            throw Self.makeError(message: "The message has no body and thus cannot contain any mention")
+            throw ObvError.messageHasNoBodyAndThusCannotContainMention
         }
         try self.init(mention: mention,
                       textContainingMention: messageBody,
@@ -242,10 +254,10 @@ public final class PersistedUserMentionInDraft: PersistedUserMention {
     @NSManaged public private(set) var draft: PersistedDraft?
 
     convenience init(mention: MessageJSON.UserMention, draft: PersistedDraft) throws {
-        guard let context = draft.managedObjectContext else { assertionFailure(); throw Self.makeError(message: "Could not find context") }
+        guard let context = draft.managedObjectContext else { assertionFailure(); throw ObvError.noContext }
         guard let draftBody = draft.body else {
             assertionFailure()
-            throw Self.makeError(message: "The draft has no body and thus cannot contain any mention")
+            throw ObvError.messageHasNoBodyAndThusCannotContainMention
         }
         try self.init(mention: mention,
                       textContainingMention: draftBody,

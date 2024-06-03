@@ -551,6 +551,7 @@ extension DiscussionLayout {
                 
                 // Remove the deleted item from the cache
                 
+                guard fromIndexPath.section < cachedItemInfos.count && fromIndexPath.item < cachedItemInfos[fromIndexPath.section].count else { assertionFailure(); continue }
                 let deletedItemInfos = cachedItemInfos[fromIndexPath.section].remove(at: fromIndexPath.item)
                 itemsToInsert[toIndexPath] = (deletedItemInfos.frameInSection, deletedItemInfos.usesPreferredAttributes)
                 

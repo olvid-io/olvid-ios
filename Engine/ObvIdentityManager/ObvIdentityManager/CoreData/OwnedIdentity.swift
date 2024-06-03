@@ -652,13 +652,13 @@ extension OwnedIdentity {
     
     /// If the `cryptoIdentity` is already a contact of this own identity, this method only adds a trust origin to that contact. If not, this method creates the contact with the appropriate trust origin.
     /// Note that if the contact already exists, this method does *not* update her details.
-    func addContactOrTrustOrigin(cryptoIdentity: ObvCryptoIdentity, identityCoreDetails: ObvIdentityCoreDetails, trustOrigin: TrustOrigin, isOneToOne: Bool, delegateManager: ObvIdentityDelegateManager) throws -> ContactIdentity {
+    func addContactOrTrustOrigin(cryptoIdentity: ObvCryptoIdentity, identityCoreDetails: ObvIdentityCoreDetails, trustOrigin: TrustOrigin, isKnownToBeOneToOne: Bool, delegateManager: ObvIdentityDelegateManager) throws -> ContactIdentity {
         guard let obvContext = self.obvContext else { assertionFailure(); throw Self.makeError(message: "Could not find ObvContext") }
         if let contact = try ContactIdentity.get(contactIdentity: cryptoIdentity, ownedIdentity: self.cryptoIdentity, delegateManager: delegateManager, within: obvContext) {
             try contact.addTrustOriginIfTrustWouldBeIncreased(trustOrigin, delegateManager: delegateManager)
             return contact
         } else {
-            guard let contact = ContactIdentity(cryptoIdentity: cryptoIdentity, identityCoreDetails: identityCoreDetails, trustOrigin: trustOrigin, ownedIdentity: self, isOneToOne: isOneToOne, delegateManager: delegateManager) else {
+            guard let contact = ContactIdentity(cryptoIdentity: cryptoIdentity, identityCoreDetails: identityCoreDetails, trustOrigin: trustOrigin, ownedIdentity: self, isKnownToBeOneToOne: isKnownToBeOneToOne, delegateManager: delegateManager) else {
                 throw Self.makeError(message: "Could not create contact identity")
             }
             return contact

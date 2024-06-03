@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -73,6 +73,10 @@ final class OutboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         default:
             return unsortedAttachments.sorted(by: { $0.attachmentNumber < $1.attachmentNumber })
         }
+    }
+    
+    var hasAttachments: Bool {
+        !unsortedAttachments.isEmpty
     }
 
     // MARK: Other variables
@@ -234,6 +238,10 @@ extension OutboxMessage {
             NSPredicate(Key.rawMessageIdOwnedIdentity, EqualToData: ownedCryptoIdentity.getIdentity())
         }
         
+        static func withServerURL(serverURL url: URL) -> NSPredicate {
+            NSPredicate(Key.serverURL, EqualToUrl: url)
+        }
+        
     }
     
     
@@ -264,6 +272,27 @@ extension OutboxMessage {
         request.fetchBatchSize = 500
         request.predicate = Predicate.uploaded(is: true)
         let items = try obvContext.fetch(request)
+        return items.map { $0.delegateManager = delegateManager; return $0 }
+    }
+    
+    static func getAllMessagesToUploadWithoutAttachments(serverURL: URL, fetchLimit: Int, delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> [OutboxMessage] {
+        let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
+        request.fetchLimit = fetchLimit
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.uploaded(is: false),
+            Predicate.withServerURL(serverURL: serverURL),
+        ])
+        let items = try obvContext.fetch(request)
+            .filter({ !$0.hasAttachments }) // Only keep messages without attachments
+        return items.map { $0.delegateManager = delegateManager; return $0 }
+    }
+
+    static func getAllMessagesToUploadWithAttachments(delegateManager: ObvNetworkSendDelegateManager, within obvContext: ObvContext) throws -> [OutboxMessage] {
+        let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
+        request.fetchBatchSize = 500
+        request.predicate = Predicate.uploaded(is: false)
+        let items = try obvContext.fetch(request)
+            .filter({ $0.hasAttachments }) // Only keep messages with attachments
         return items.map { $0.delegateManager = delegateManager; return $0 }
     }
 
@@ -302,6 +331,17 @@ extension OutboxMessage {
         try messages.forEach { message in
             try message.deleteThisOutboxMessage(delegateManager: delegateManager)
         }
+    }
+    
+    /// Returns a set of all the server URLs corresponding to at least one message still to upload.
+    static func getAllServerURLsForMessagesToUpload(within obvContext: ObvContext) throws -> Set<URL> {
+        let request: NSFetchRequest<OutboxMessage> = OutboxMessage.fetchRequest()
+        request.fetchBatchSize = 500
+        request.propertiesToFetch = [Predicate.Key.serverURL.rawValue]
+        request.predicate = Predicate.uploaded(is: false)
+        let messages = try obvContext.fetch(request)
+        let serverURLs = Set(messages.map(\.serverURL))
+        return serverURLs
     }
 }
 
@@ -371,9 +411,16 @@ extension OutboxMessage {
         }
 
         if isInserted, let flowId = self.obvContext?.flowId, let messageId = self.messageId {
-            DispatchQueue(label: "Queue for calling newOutboxMessage").async {
-                delegateManager.networkSendFlowDelegate.newOutboxMessage(messageId: messageId, flowId: flowId)
+            let hasAttachments = self.hasAttachments
+            let serverURL = self.serverURL
+            if hasAttachments {
+                DispatchQueue(label: "Queue for calling newOutboxMessage").async {
+                    delegateManager.networkSendFlowDelegate.newOutboxMessageWithAttachments(messageId: messageId, flowId: flowId)
+                }
+            } else {
+                Task { try? await delegateManager.networkSendFlowDelegate.requestBatchUploadMessagesWithoutAttachment(serverURL: serverURL, flowId: flowId) }
             }
+            
         }
         
     }

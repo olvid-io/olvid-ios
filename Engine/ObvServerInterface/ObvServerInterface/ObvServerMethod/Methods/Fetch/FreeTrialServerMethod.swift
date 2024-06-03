@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,9 +30,10 @@ public final class FreeTrialServerMethod: ObvServerDataMethod {
 
     public let pathComponent = "/freeTrial"
 
-    public var serverURL: URL { return ownedIdentity.serverURL }
+    public let serverURL: URL
     
-    public let ownedIdentity: ObvCryptoIdentity
+    public let ownedIdentity: ObvCryptoIdentity?
+    private let ownedIdentityIdentity: Data
     private let token: Data
     private let retrieveAPIKey: Bool
     public let flowId: FlowIdentifier
@@ -45,6 +46,8 @@ public final class FreeTrialServerMethod: ObvServerDataMethod {
         self.ownedIdentity = ownedIdentity
         self.retrieveAPIKey = retrieveAPIKey
         self.token = token
+        self.serverURL = ownedIdentity.serverURL
+        self.ownedIdentityIdentity = ownedIdentity.getIdentity()
     }
 
     public enum PossibleReturnStatus: UInt8 {
@@ -55,7 +58,7 @@ public final class FreeTrialServerMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        return [ownedIdentity.getIdentity(), token, retrieveAPIKey].obvEncode().rawData
+        return [ownedIdentityIdentity, token, retrieveAPIKey].obvEncode().rawData
     }()
     
     public static func parseObvServerResponseWhenRetrievingFreeTrialAPIKey(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, apiKey: UUID?)? {

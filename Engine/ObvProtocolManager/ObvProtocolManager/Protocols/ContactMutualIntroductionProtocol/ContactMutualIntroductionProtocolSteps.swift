@@ -119,7 +119,7 @@ extension ContactMutualIntroductionProtocol {
                     os_log("One of the contact identities is not active", log: log, type: .debug)
                     return CancelledState()
                 }
-                guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
+                guard try identityDelegate.getOneToOneStatusOfContactIdentity(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) == .oneToOne else {
                     os_log("One of the contact identities is not a OneToOne contact", log: log, type: .debug)
                     return CancelledState()
                 }
@@ -294,16 +294,16 @@ extension ContactMutualIntroductionProtocol {
             
             // Check that the mediator is a OneToOne contact. If not, we discard the invite.
             
-            guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: mediatorIdentity, within: obvContext) else {
+            guard try identityDelegate.getOneToOneStatusOfContactIdentity(ownedIdentity: ownedIdentity, contactIdentity: mediatorIdentity, within: obvContext) == .oneToOne else {
                 os_log("We received mutual introduction invite from a mediator that is not a OneToOne contact. We discard the message.", log: log, type: .error)
                 return CancelledState()
             }
             
             // Check whether the introduced contact is already a One2One contact.
             
-            let contactAlreadyTrusted = try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext)
+            let contactStatus = try identityDelegate.getOneToOneStatusOfContactIdentity(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext)
             
-            if contactAlreadyTrusted {
+            if contactStatus == .oneToOne {
                 
                 // If the introduced contact is already part of our OneToOne contacts (thust trusted), we show no dialog to the user.
                 // We automatically accept the invitation and notify our contact using a NotifyContactOfAcceptedInvitation message.
@@ -618,7 +618,7 @@ extension ContactMutualIntroductionProtocol {
                 if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
                     try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 } else {
-                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in
@@ -713,7 +713,7 @@ extension ContactMutualIntroductionProtocol {
                 if (try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
                     try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
                 } else {
-                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
                 }
                 
                 try contactDeviceUids.forEach { (contactDeviceUid) in
@@ -833,9 +833,9 @@ extension ContactMutualIntroductionProtocol {
             
             // Check whether the introduced contact is already a One2One contact.
             
-            let contactAlreadyTrusted = try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext)
+            let contactStatus = try identityDelegate.getOneToOneStatusOfContactIdentity(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext)
 
-            if contactAlreadyTrusted {
+            if contactStatus == .oneToOne {
                 
                 // If the introduced contact is now part of our OneToOne contacts, we remove any previous dialog showed to the user.
                 // We automatically accept the invitation and notify our contact using a NotifyContactOfAcceptedInvitation message.

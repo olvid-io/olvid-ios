@@ -455,7 +455,7 @@ private struct OlvidCallViewForIOS<Model: OlvidCallViewModelProtocol>: View, Oth
                 @unknown default:
                     preferredPosition = .front
                 }
-                try await actions.userWantsToStartOrStopVideoCamera(uuidForCallKit: model.uuidForCallKit, start: model.localPreviewVideoTrack != nil, preferredPosition: preferredPosition)
+                try await actions.userWantsToStartVideoCamera(uuidForCallKit: model.uuidForCallKit, preferredPosition: preferredPosition)
             } catch {
                 assertionFailure()
             }
@@ -1133,7 +1133,8 @@ protocol OngoingCallButtonsViewModelProtocol: ObservableObject, AudioMenuButtonM
 protocol OngoingCallButtonsViewActionsProtocol: AudioMenuButtonActionsProtocol {
     func userWantsToEndOngoingCall(uuidForCallKit: UUID) async throws
     func userWantsToSetMuteSelf(uuidForCallKit: UUID, muted: Bool) async throws
-    func userWantsToStartOrStopVideoCamera(uuidForCallKit: UUID, start: Bool, preferredPosition: AVCaptureDevice.Position) async throws
+    func userWantsToStartVideoCamera(uuidForCallKit: UUID, preferredPosition: AVCaptureDevice.Position) async throws
+    func userWantsToStopVideoCamera(uuidForCallKit: UUID) async
 }
 
 
@@ -1173,7 +1174,11 @@ private struct OngoingCallButtonsView<Model: OngoingCallButtonsViewModelProtocol
     private func userWantsToToggleVideoCamera() {
         Task {
             do {
-                try await actions.userWantsToStartOrStopVideoCamera(uuidForCallKit: model.uuidForCallKit, start: model.localPreviewVideoTrack == nil, preferredPosition: .front)
+                if model.localPreviewVideoTrack == nil {
+                    try await actions.userWantsToStartVideoCamera(uuidForCallKit: model.uuidForCallKit, preferredPosition: .front)
+                } else {
+                    await actions.userWantsToStopVideoCamera(uuidForCallKit: model.uuidForCallKit)
+                }
             } catch {
                 Task { await processStartOrStopVideoCameraError(error: error) }
             }
@@ -1347,7 +1352,7 @@ private struct OngoingCallButtonsView<Model: OngoingCallButtonsViewModelProtocol
         }
         .padding(.horizontal, buttonSpacing)
         .alert(titleForAlert, isPresented: $alertIsPresented, actions: {}, message: { Text(messageForAlert) })
-        
+
     }
 }
 
@@ -1857,7 +1862,8 @@ struct OlvidCallView_Previews: PreviewProvider {
         func userRejectedIncomingCall(uuidForCallKit: UUID) async {}
         func userWantsToAddParticipantToCall() {}
         func userWantsToMuteSelf() {}
-        func userWantsToStartOrStopVideoCamera(uuidForCallKit: UUID, start: Bool, preferredPosition: AVCaptureDevice.Position) async throws {}
+        func userWantsToStopVideoCamera(uuidForCallKit: UUID) async {}
+        func userWantsToStartVideoCamera(uuidForCallKit: UUID, preferredPosition: AVCaptureDevice.Position) async throws {}
     }
     
     

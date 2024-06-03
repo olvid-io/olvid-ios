@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -50,9 +50,9 @@ final class DeleteDraftFyleJoinOperation: OperationWithSpecificReasonForCancel<D
                 return cancel(withReason: .coreDataError(error: error))
             }
 
-            if let draft {
+            if let draft, let draftPermanentID = draft.objectPermanentID, let draftFyleJoinPermanentID {
                 ObvMessengerInternalNotification.draftFyleJoinWasDeleted(discussionPermanentID: draft.discussion.discussionPermanentID,
-                                                                         draftPermanentID: draft.objectPermanentID,
+                                                                         draftPermanentID: draftPermanentID,
                                                                          draftFyleJoinPermanentID: draftFyleJoinPermanentID)
                 .postOnDispatchQueue()
             }

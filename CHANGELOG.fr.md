@@ -1,5 +1,78 @@
 # Changelog
 
+## [2.4 (778)] - 2024-05-31
+
+### macOS
+
+- Bienvenue aux types de groupes ! Créer et gérer un groupe Olvid est désormais plus facile que jamais.
+- Il n'est plus possible de modérer les messages reçus, sauf dans un groupe avancé configuré avec les autorisations appropriées.
+- Deux options sont désormais disponibles lors de la suppression d'un message ou d'une discussion : supprimer du dispositif local ou de tous les dispositifs que vous possédez.
+- Correction d'un problème où les utilisateurs devaient parfois forcer la fermeture de l'application après une période d'inactivité.
+- Réagir à un message peut désormais se faire en appuyant longuement sur le message. Il est toujours possible de réagir en double-tapant sur le message.
+- Correction d'un bug où les retours chariot dans les messages reçus n'étaient pas toujours correctement affichés.
+- La liste des options de suppression de messages ou de discussions disponibles s'adapte désormais correctement au contexte.
+- Il est désormais toujours possible de réagir à un message, même dans une discussion de groupe en lecture seule.
+- Suppression de l'entrée de menu "répondre à" qui était affichée sur les messages dans une discussion en lecture seule.
+- Amélioration de l'expérience utilisateur en affinant l'affichage des conseils liés aux sauvegardes.
+- Amélioration du processus de suppression des messages dans un groupe sans autres membres.
+- Correction d'un crash potentiel pouvant survenir lorsque l'application fonctionne en arrière-plan.
+- Amélioration de l'efficacité de certains appels réseau en regroupant plusieurs appels en un seul.
+- Amélioration de l'aperçu affiché pour les URL pointant vers une vidéo.
+- Correction d'un bug qui reléguait parfois certains contacts dans la liste des contacts secondaires (autres).
+- Correction d'un bug qui empêchait parfois la suppression correcte d'un profil.
+- Correction d'un bug qui empêchait la mise en surbrillance correcte lors d'une recherche dans une discussion.
+- Correction d'un bug qui causait parfois la troncature des messages reçus.
+- Correction d'un bug qui impactait les notifications des utilisateurs en supprimant les retours chariot du corps de la notification.
+- Correction d'un bug mineur lors du processus d'onboarding.
+- Autres corrections de bugs mineurs et améliorations.
+
+### iOS
+
+- Bienvenue aux types de groupes ! Créer et gérer un groupe Olvid est désormais plus facile que jamais.
+- Il n'est plus possible de modérer les messages reçus, sauf dans un groupe avancé configuré avec les autorisations appropriées.
+- Deux options sont désormais disponibles lors de la suppression d'un message ou d'une discussion : supprimer du dispositif local ou de tous les dispositifs que vous possédez.
+- Réagir à un message peut désormais se faire en appuyant longuement sur le message. Il est toujours possible de réagir en double-tapant sur le message.
+- Correction d'un bug où les retours chariot dans les messages reçus n'étaient pas toujours correctement affichés.
+- La liste des options de suppression de messages ou de discussions disponibles s'adapte désormais correctement au contexte.
+- Il est désormais toujours possible de réagir à un message, même dans une discussion de groupe en lecture seule.
+- Suppression de l'entrée de menu "répondre à" qui était affichée sur les messages dans une discussion en lecture seule.
+- Amélioration de l'expérience utilisateur en affinant l'affichage des conseils liés aux sauvegardes.
+- Amélioration du processus de suppression des messages dans un groupe sans autres membres.
+- Correction d'un crash potentiel pouvant survenir lorsque l'application fonctionne en arrière-plan.
+- Amélioration de l'efficacité de certains appels réseau en regroupant plusieurs appels en un seul.
+- Amélioration de l'aperçu affiché pour les URL pointant vers une vidéo.
+- Correction d'un bug qui reléguait parfois certains contacts dans la liste des contacts secondaires (autres).
+- Correction d'un bug qui empêchait parfois la suppression correcte d'un profil.
+- Correction d'un bug qui empêchait la mise en surbrillance correcte lors d'une recherche dans une discussion.
+- Correction d'un bug qui causait parfois la troncature des messages reçus.
+- Correction d'un bug qui impactait les notifications des utilisateurs en supprimant les retours chariot du corps de la notification.
+- Correction d'un bug mineur lors du processus d'onboarding.
+- Autres corrections de bugs mineurs et améliorations.
+
+## [2.3 (773)] - 2024-04-25
+
+### macOS
+
+- Une nouvelle fonctionnalité permet aux utilisateurs d'envoyer un message en appuyant sur la touche Entrée sur macOS. Cette fonction peut être configurée dans les paramètres pour utiliser Cmd+Entrée à la place.
+- Une option permet de masquer les messages système affichés dans une discussion de groupe lorsque les membres du groupe changent.
+- Pour les utilisateurs d'entreprise, quitter l'annuaire de l'entreprise efface désormais les champs poste et entreprise.
+- Les accusés de réception d'envoi et de lecture ont été considérablement améliorés en termes de fiabilité.
+- Lors de la suppression d'un message partout, nos autres appareils suppriment désormais simplement le message au lieu d'afficher une invite de suppression.
+- La suppression d'un profil est désormais effectuée à partir de l'écran affichant les détails du profil.
+- Correction d'un bug qui empêchait parfois l'affichage correct d'un code QR.
+- L'utilisation des listes numérotées en Markdown dans les messages a été améliorée.
+
+### iOS
+
+- Une option permet de masquer les messages système affichés dans une discussion de groupe lorsque les membres du groupe changent.
+- Pour les utilisateurs d'entreprise, quitter l'annuaire de l'entreprise efface désormais les champs poste et entreprise.
+- Les accusés de réception d'envoi et de lecture ont été considérablement améliorés en termes de fiabilité.
+- Lors de la suppression d'un message partout, nos autres appareils suppriment désormais simplement le message au lieu d'afficher une invite de suppression.
+- La suppression d'un profil est désormais effectuée à partir de l'écran affichant les détails du profil.
+- Résolution d'un bug d'affichage sur iPad qui se produisait lors de la minimisation de l'application.
+- Correction d'un bug qui empêchait parfois l'affichage correct d'un code QR.
+- L'utilisation des listes numérotées en Markdown dans les messages a été améliorée.
+
 ## [2.1 (757)] - 2024-03-11
 
 ### macOS

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -398,11 +398,11 @@ extension ContactManagementProtocol {
             // We downgrade the contact
             
             let reasonToLog = "ContactManagementProtocol.DowngradeContactStep"
-            try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
-                                                            contactIdentity: contactIdentity,
-                                                            newIsOneToOneStatus: false, 
-                                                            reasonToLog: reasonToLog,
-                                                            within: obvContext)
+            try identityDelegate.setOneToOneContactStatus(ownedIdentity: ownedIdentity,
+                                                          contactIdentity: contactIdentity,
+                                                          newIsOneToOneStatus: false,
+                                                          reasonToLog: reasonToLog,
+                                                          within: obvContext)
             
             // Notify the contact that she has been downgraded
                         
@@ -470,21 +470,14 @@ extension ContactManagementProtocol {
                 return CancelledState()
             }
             
-            // If the contact that "downgraded" us is not a OneToOne contact, there is nothing left to do.
-
-            guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
-                os_log("The contact who downgraded us is not OneToOne, nothing left to do, we finish this protocol instance", log: log, type: .info)
-                return FinalState()
-            }
-            
-            // We can downgrade the contact too
+            // We can downgrade the contact too (this call does nothing if the contact was already notOneToOne)
             
             let reasonToLog = "ContactManagementProtocol.ProcessDowngradeStep"
-            try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
-                                                            contactIdentity: contactIdentity,
-                                                            newIsOneToOneStatus: false,
-                                                            reasonToLog: reasonToLog,
-                                                            within: obvContext)
+            try identityDelegate.setOneToOneContactStatus(ownedIdentity: ownedIdentity,
+                                                          contactIdentity: contactIdentity,
+                                                          newIsOneToOneStatus: false,
+                                                          reasonToLog: reasonToLog,
+                                                          within: obvContext)
             
             // We finish the protocol
 
@@ -515,26 +508,16 @@ extension ContactManagementProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
-            let log = OSLog(subsystem: delegateManager.logSubsystem, category: IdentityDetailsPublicationProtocol.logCategory)
-            
             let contactIdentity = receivedMessage.contactIdentity
             
-            // Check that the contact identity is indeed a OneToOne contact of the owned identity. If she is not,
-            // We can simply finish this protocol instance since there is nothing left to do.
-            
-            guard try identityDelegate.isOneToOneContact(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, within: obvContext) else {
-                os_log("The contact to downgrade is not a OneToOne contact, nothing left to do, we finish this protocol instance", log: log, type: .info)
-                return FinalState()
-            }
-            
-            // We downgrade the contact
+            // We downgrade the contact (this does noting if the contact was already notOneToOne)
             
             let reasonToLog = "ContactManagementProtocol.ProcessPropagatedDowngradeStep"
-            try identityDelegate.resetOneToOneContactStatus(ownedIdentity: ownedIdentity,
-                                                            contactIdentity: contactIdentity,
-                                                            newIsOneToOneStatus: false,
-                                                            reasonToLog: reasonToLog,
-                                                            within: obvContext)
+            try identityDelegate.setOneToOneContactStatus(ownedIdentity: ownedIdentity,
+                                                          contactIdentity: contactIdentity,
+                                                          newIsOneToOneStatus: false,
+                                                          reasonToLog: reasonToLog,
+                                                          within: obvContext)
 
             return FinalState()
             

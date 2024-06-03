@@ -19,6 +19,7 @@
 
 import UIKit
 import ObvUICoreData
+import UniformTypeIdentifiers
 
 extension UIApplication {
     
@@ -32,25 +33,47 @@ extension UIApplication {
 
         if confirmed {
 
-            guard url.scheme?.lowercased() == "https" else { assertionFailure(); return }
+            guard url.scheme?.lowercased() == "https" || url.scheme?.lowercased() == "tel" || url.scheme?.lowercased() == "calshow" else { assertionFailure(); return }
             open(url, options: [:], completionHandler: nil)
 
         } else {
 
             guard let safeURL = url.toHttpsURL else { assertionFailure(); return }
-            
-            let alert = UIAlertController(title: Strings.AlertOpenURL.title,
-                                          message: Strings.AlertOpenURL.message(safeURL),
-                                          preferredStyleForTraitCollection: viewController.traitCollection)
 
-            alert.addAction(UIAlertAction(title: Strings.AlertOpenURL.openButton, style: .default, handler: { [weak self] (action) in
-                Task { await self?.userSelectedURL(safeURL, within: viewController, confirmed: true) }
-            }))
+            switch safeURL.scheme {
+                
+            case "https":
+                
+                let alert = UIAlertController(title: Strings.AlertOpenURL.title,
+                                              message: Strings.AlertOpenURL.message(safeURL),
+                                              preferredStyleForTraitCollection: viewController.traitCollection)
 
-            alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
-            DispatchQueue.main.async {
-                viewController.present(alert, animated: true, completion: nil)
+                alert.addAction(UIAlertAction(title: Strings.AlertOpenURL.openButton, style: .default, handler: { [weak self] (action) in
+                    Task { [weak self] in await self?.userSelectedURL(safeURL, within: viewController, confirmed: true) }
+                }))
+
+                alert.addAction(.init(title: String(localized: "ACTION_TITLE_COPY_LINK"), style: .default) { _ in
+                    UIPasteboard.general.setValue(safeURL, forPasteboardType: UTType.url.identifier)
+                })
+                
+                alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
+                
+                DispatchQueue.main.async {
+                    viewController.present(alert, animated: true, completion: nil)
+                }
+
+            case "tel", "calshow":
+                
+                // Let the system request the confirmation
+                Task { [weak self] in await self?.userSelectedURL(safeURL, within: viewController, confirmed: true) }
+                
+            default:
+                
+                assertionFailure("We should conser adding this scheme")
+                return
+
             }
+            
 
         }
 

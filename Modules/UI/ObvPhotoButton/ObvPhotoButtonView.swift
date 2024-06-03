@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,6 +26,7 @@ public protocol ObvPhotoButtonViewActionsProtocol {
     func userWantsToAddProfilPictureWithCamera()
     func userWantsToAddProfilPictureWithPhotoLibrary()
     func userWantsToRemoveProfilePicture()
+    func userWantsToAddProfilePictureWithDocumentPicker()
 }
 
 
@@ -42,11 +43,14 @@ public struct ObvPhotoButtonView<Model: ObvPhotoButtonViewModelProtocol>: View {
     private let actions: ObvPhotoButtonViewActionsProtocol
     @ObservedObject private var model: Model
     @State private var isPopoverPresented = false
-    private let circleDiameter: CGFloat = 128
+    private let circleDiameter: CGFloat
+    private let backgroundColor: Color?
 
-    public init(actions: ObvPhotoButtonViewActionsProtocol, model: Model) {
+    public init(actions: ObvPhotoButtonViewActionsProtocol, model: Model, circleDiameter: CGFloat = 128, backgroundColor: Color? = nil) {
         self.actions = actions
         self.model = model
+        self.circleDiameter = circleDiameter
+        self.backgroundColor = backgroundColor
     }
     
     private func buttonTapped() {
@@ -66,6 +70,9 @@ public struct ObvPhotoButtonView<Model: ObvPhotoButtonViewModelProtocol>: View {
                     Button(action: actions.userWantsToAddProfilPictureWithPhotoLibrary, label: {
                         Label("ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_CHOOSE_PICTURE", systemIcon: .photo)
                     })
+                    Button(action: actions.userWantsToAddProfilePictureWithDocumentPicker, label: {
+                        Label("ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_CHOOSE_PICTURE_FROM_DOCUMENT_PICKER", systemIcon: .doc)
+                    })
                     if model.circledInitialsConfiguration.photo != nil && model.circledInitialsConfiguration.photo != model.photoThatCannotBeRemoved {
                         Button(action: actions.userWantsToRemoveProfilePicture, label: {
                             Label("ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_REMOVE_PICTURE", systemIcon: .trash)
@@ -73,9 +80,15 @@ public struct ObvPhotoButtonView<Model: ObvPhotoButtonViewModelProtocol>: View {
                     }
                 } label: {
                     ZStack {
-                        Circle()
-                            .fill(.background)
-                            .frame(width: circleDiameter/4+10, height: circleDiameter/4+10)
+                        if let backgroundColor {
+                            Circle()
+                                .fill(backgroundColor)
+                                .frame(width: circleDiameter/4+10, height: circleDiameter/4+10)
+                        } else {
+                            Circle()
+                                .fill(.background)
+                                .frame(width: circleDiameter/4+10, height: circleDiameter/4+10)
+                        }
                         Circle()
                             .fill(.white)
                             .frame(width: circleDiameter/4-1, height: circleDiameter/4-1)

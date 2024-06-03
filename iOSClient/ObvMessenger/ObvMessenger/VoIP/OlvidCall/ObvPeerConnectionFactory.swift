@@ -260,8 +260,6 @@ actor ObvPeerConnectionFactory {
             throw ObvError.couldNotAccessSupportedFormats
         }
         
-        os_log("♥️ Format used for sent video: %{public}@", log: Self.log, type: .info, formatToUse.debugDescription)
-        
         return formatToUse
         
     }

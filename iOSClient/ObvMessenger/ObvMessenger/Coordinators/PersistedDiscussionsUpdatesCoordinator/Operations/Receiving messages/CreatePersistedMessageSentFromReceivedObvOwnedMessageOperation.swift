@@ -27,7 +27,7 @@ import ObvTypes
 
 
 
-final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation.ReasonForCancel>, OperationProvidingMessageSentPermanentID {
+final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: ContextualOperationWithSpecificReasonForCancel<CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation.ReasonForCancel> {
     
     private static let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: "CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation")
 
@@ -42,11 +42,10 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
         super.init()
     }
 
-    private(set) var messageSentPermanentId: MessageSentPermanentID?
-    
     enum Result {
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
-        case sentMessageCreated
+        case sentMessageCreated(messageSentPermanentId: MessageSentPermanentID)
+        case remoteDeleteRequestSavedForLaterWasApplied
     }
 
     private(set) var result: Result?
@@ -66,15 +65,20 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
             
             // Create the PersistedMessageSent from that owned identity
             
-            let _messageSentPermanentId: MessageSentPermanentID?
-            
             do {
-                _messageSentPermanentId = try persistedObvOwnedIdentity.createPersistedMessageSentFromOtherOwnedDevice(
+                
+                let messageSentPermanentId = try persistedObvOwnedIdentity.createPersistedMessageSentFromOtherOwnedDevice(
                     obvOwnedMessage: obvOwnedMessage,
                     messageJSON: messageJSON,
                     returnReceiptJSON: returnReceiptJSON)
-                result = .sentMessageCreated
+                if let messageSentPermanentId {
+                    return result = .sentMessageCreated(messageSentPermanentId: messageSentPermanentId)
+                } else {
+                    return result = .remoteDeleteRequestSavedForLaterWasApplied
+                }
+                
             } catch {
+                
                 if let error = error as? ObvUICoreDataError {
                     switch error {
                     case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
@@ -91,10 +95,9 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
                     assertionFailure("We should probably add the missing if/let case")
                     return cancel(withReason: .coreDataError(error: error))
                 }
+                
             }
-            
-            messageSentPermanentId = _messageSentPermanentId
-                        
+                                    
         } catch {
             return cancel(withReason: .coreDataError(error: error))
         }
@@ -103,7 +106,6 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
 
     enum ReasonForCancel: LocalizedErrorWithLogType {
         
-        case contextIsNil
         case coreDataError(error: Error)
         case couldNotFindOwnedIdentityInDatabase
         case persistedObvOwnedIdentityObvError(error: ObvUICoreDataError)
@@ -113,8 +115,7 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
             switch self {
             case .couldNotFindOwnedIdentityInDatabase:
                 return .error
-            case .contextIsNil,
-                 .coreDataError,
+            case .coreDataError,
                  .persistedMessageSentObvError,
                  .persistedObvOwnedIdentityObvError:
                 return .fault
@@ -123,8 +124,6 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
         
         var errorDescription: String? {
             switch self {
-            case .contextIsNil:
-                return "The context is not set"
             case .coreDataError(error: let error):
                 return "Core Data error: \(error.localizedDescription)"
             case .couldNotFindOwnedIdentityInDatabase:

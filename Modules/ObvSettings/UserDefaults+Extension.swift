@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -57,6 +57,14 @@ public extension UserDefaults {
     func dateOrNil(forKey defaultName: String) -> Date? {
         guard object(forKey: defaultName) != nil else { return nil }
         return object(forKey: defaultName) as? Date
+    }
+    
+    func dateOrNil<T: RawRepresentable>(for key: T) -> Date? where T.RawValue == String {
+        dateOrNil(forKey: key.rawValue)
+    }
+    
+    func setDate<T: RawRepresentable>(_ date: Date?, for key: T) where T.RawValue == String {
+        setValue(date, forKey: key.rawValue)
     }
 
     /// Returns the String value associated with the specified key.

@@ -59,8 +59,10 @@ public final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker,
     }
 
 
-    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedGroupDiscussion> {
-        ObvManagedObjectPermanentID<PersistedGroupDiscussion>(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedGroupDiscussion>? {
+        guard self.managedObjectContext != nil else { assertionFailure(); return nil }
+        return ObvManagedObjectPermanentID<PersistedGroupDiscussion>(uuid: self.permanentUUID)
     }
 
     // MARK: - Initializer
@@ -99,6 +101,71 @@ public final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker,
         try super.setStatus(to: newStatus)
     }
 
+    
+    // MARK: - Processing delete requests from the owned identity
+
+    override func processMessageDeletionRequestRequestedFromCurrentDevice(of ownedIdentity: PersistedObvOwnedIdentity, messageToDelete: PersistedMessage, deletionType: DeletionType) throws -> InfoAboutWipedOrDeletedPersistedMessage {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+
+        switch deletionType {
+        case .fromThisDeviceOnly:
+            break
+        case .fromAllOwnedDevices:
+            guard ownedIdentity.hasAnotherDeviceWithChannel else {
+                throw ObvError.cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+            }
+        case .fromAllOwnedDevicesAndAllContactDevices:
+            guard messageToDelete is PersistedMessageSent else {
+                throw ObvError.onlySentMessagesCanBeDeletedFromContactDevicesWhenInGroupV1Discussion
+            }
+        }
+        
+        let info = try super.processMessageDeletionRequestRequestedFromCurrentDevice(of: ownedIdentity, messageToDelete: messageToDelete, deletionType: deletionType)
+        
+        return info
+        
+    }
+
+    
+    override func processDiscussionDeletionRequestFromCurrentDevice(of ownedIdentity: PersistedObvOwnedIdentity, deletionType: DeletionType) throws {
+        
+        guard self.ownedIdentity == ownedIdentity else {
+            throw ObvError.unexpectedOwnedIdentity
+        }
+
+        switch deletionType {
+        case .fromThisDeviceOnly:
+            break
+        case .fromAllOwnedDevices:
+            guard ownedIdentity.hasAnotherDeviceWithChannel else {
+                throw ObvError.cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+            }
+        case .fromAllOwnedDevicesAndAllContactDevices:
+            throw ObvError.cannotDeleteGroupV1DiscussionFromContactDevices
+        }
+
+        try super.processDiscussionDeletionRequestFromCurrentDevice(of: ownedIdentity, deletionType: deletionType)
+        
+    }
+
+}
+
+// MARK: - Errors
+
+extension PersistedGroupDiscussion {
+    
+    enum ObvError: Error {
+        case cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+        case cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+        case onlySentMessagesCanBeDeletedFromContactDevicesWhenInGroupV1Discussion
+        case unexpectedOwnedIdentity
+        case cannotDeleteGroupV1DiscussionFromContactDevices
+        case noContext
+    }
+    
 }
 
 

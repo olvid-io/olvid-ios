@@ -75,8 +75,14 @@ public final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManage
 
     // MARK: Computed variables
 
-    public var objectPermanentID: MessageSentPermanentID {
-        MessageSentPermanentID(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: MessageSentPermanentID? {
+        guard self.managedObjectContext != nil else {
+            // This happens if the object was created then deleted, which happens, e.g., when receiving a
+            // message sent from another owned device for which we have a remote deleted request
+            return nil
+        }
+        return MessageSentPermanentID(uuid: self.permanentUUID)
     }
 
     public override var kind: PersistedMessageKind { .sent }
@@ -253,11 +259,12 @@ public final class PersistedMessageSent: PersistedMessage, ObvIdentifiableManage
     // MARK: - Processing wipe requests
 
     /// Called when receiving a wipe request from a contact or another owned device. Shall only be called from ``PersistedDiscussion.processWipeMessageRequestForPersistedMessageSent(among:from:messageUploadTimestampFromServer:)``.
-    override func wipeThisMessage(requesterCryptoId: ObvCryptoId) throws {
+    override func wipeThisMessage(requesterCryptoId: ObvCryptoId) throws -> InfoAboutWipedOrDeletedPersistedMessage {
         for join in fyleMessageJoinWithStatuses {
             try join.wipe()
         }
-        try super.wipeThisMessage(requesterCryptoId: requesterCryptoId)
+        let info = try super.wipeThisMessage(requesterCryptoId: requesterCryptoId)
+        return info
     }
 
     
@@ -547,6 +554,7 @@ extension PersistedMessageSent {
     }
     
     
+    /// In addition to replying from a notification, this is also used to test (on a view context) whether it is possible to reply to a message.
     public static func createPersistedMessageSentWhenReplyingFromTheNotificationExtensionNotification(body: String, discussion: PersistedDiscussion, effectiveReplyTo: PersistedMessageReceived?) throws -> PersistedMessageSent {
         let replyTo: ReplyToType?
         if let effectiveReplyTo {
@@ -918,7 +926,7 @@ extension PersistedMessageSent {
     }
 
     var shareActionCanBeMadeAvailableForSentMessage: Bool {
-        return !readOnce
+        return !isWiped && !isEphemeralMessageWithLimitedVisibility
     }
     
     var forwardActionCanBeMadeAvailableForSentMessage: Bool {
@@ -928,15 +936,6 @@ extension PersistedMessageSent {
     var infoActionCanBeMadeAvailableForSentMessage: Bool {
         return !unsortedRecipientsInfos.isEmpty || !metadata.isEmpty
     }
-    
-    var replyToActionCanBeMadeAvailableForSentMessage: Bool {
-        guard discussion?.status == .active else { return false }
-        if readOnce {
-            return status == .read
-        }
-        return true
-    }
-    
     
     var editBodyActionCanBeMadeAvailableForSentMessage: Bool {
         assert(Thread.isMainThread)
@@ -1299,6 +1298,10 @@ extension PersistedMessageSent {
     public var fyleMessageJoinWithStatusesOfAudioType: [SentFyleMessageJoinWithStatus] {
         fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .audio) })
     }
+    
+    public var fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType: [SentFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .pdf) })
+    }
 
     /**
      * Get attachments of type `olvidLinkPreview` that are used to display preview links within a message
@@ -1366,8 +1369,8 @@ extension PersistedMessageSent {
         defer { changedKeys.removeAll() }
         
         // When a readOnce message is sent, we notify. This is catched by the coordinator that checks whether the user is in the message's discussion or not. If this is the case, nothing happens. Otherwise the coordiantor deletes this readOnce message.
-        if let discussion, changedKeys.contains(PersistedMessage.Predicate.Key.rawStatus.rawValue), self.status == .sent, self.readOnce {
-            ObvMessengerCoreDataNotification.aReadOncePersistedMessageSentWasSent(persistedMessageSentPermanentID: self.objectPermanentID,
+        if let discussion, let objectPermanentID, changedKeys.contains(PersistedMessage.Predicate.Key.rawStatus.rawValue), self.status == .sent, self.readOnce {
+            ObvMessengerCoreDataNotification.aReadOncePersistedMessageSentWasSent(persistedMessageSentPermanentID: objectPermanentID,
                                                                                   persistedDiscussionPermanentID: discussion.discussionPermanentID)
                 .postOnDispatchQueue()
         }

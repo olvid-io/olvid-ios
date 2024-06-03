@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -278,51 +278,62 @@ extension TrustEstablishmentWithSASProtocol {
             let contactDeviceUids = receivedMessage.contactDeviceUids
             let contactIdentityCoreDetails = receivedMessage.contactIdentityCoreDetails
             
-            // Send the decommitment to Bob
-            
             do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
-                let concreteProtocolMessage = AliceSendsDecommitmentMessage(coreProtocolMessage: coreMessage, decommitment: decommitment)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                
+                // Send the decommitment to Bob
+                
+                do {
+                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
+                    let concreteProtocolMessage = AliceSendsDecommitmentMessage(coreProtocolMessage: coreMessage, decommitment: decommitment)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            }
-
-            // Bob accepted the invitation. We have all the information we need to compute and show a SAS dialog to Alice.
-            
-            let sasToDisplay: Data
-            do {
-                let fullSAS = try SAS.compute(seedAlice: seedAliceForSas, seedBob: seedBobForSas, identityBob: contactIdentity, numberOfDigits: ObvConstants.defaultNumberOfDigitsForSAS * 2)
-                sasToDisplay = fullSAS.leftHalf
-            } catch let error {
-                os_log("Could not compute SAS: %{public}@", log: log, type: .fault, error.localizedDescription)
+                
+                // Bob accepted the invitation. We have all the information we need to compute and show a SAS dialog to Alice.
+                
+                let sasToDisplay: Data
+                do {
+                    let fullSAS = try SAS.compute(seedAlice: seedAliceForSas, seedBob: seedBobForSas, identityBob: contactIdentity, numberOfDigits: ObvConstants.defaultNumberOfDigitsForSAS * 2)
+                    sasToDisplay = fullSAS.leftHalf
+                } catch let error {
+                    os_log("Could not compute SAS: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                    return CancelledState()
+                }
+                
+                do {
+                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                    let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: 0)
+                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+                
+                // Return the new state
+                
+                return WaitingForUserSASState(contactIdentity: contactIdentity,
+                                              contactIdentityCoreDetails: contactIdentityCoreDetails,
+                                              contactDeviceUids: contactDeviceUids,
+                                              seedForSas: seedAliceForSas,
+                                              contactSeedForSas: seedBobForSas,
+                                              dialogUuid: dialogUuid,
+                                              isAlice: true,
+                                              numberOfBadEnteredSas: 0)
+            } catch {
+                
+                assertionFailure()
+                removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
                 return CancelledState()
+
             }
-            
-            do {
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: 0)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
-                let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
-                }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            }
-            
-            // Return the new state
-            
-            return WaitingForUserSASState(contactIdentity: contactIdentity,
-                                          contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                          contactDeviceUids: contactDeviceUids,
-                                          seedForSas: seedAliceForSas,
-                                          contactSeedForSas: seedBobForSas,
-                                          dialogUuid: dialogUuid,
-                                          isAlice: true,
-                                          numberOfBadEnteredSas: 0)
+                
         }
     }
 
@@ -352,68 +363,86 @@ extension TrustEstablishmentWithSASProtocol {
             let commitment = receivedMessage.commitment
             let dialogUuid = UUID()
 
-            // Check whether this commitment was already received in the past. In case it was, cancel.
-
             do {
-                guard !(try TrustEstablishmentCommitmentReceived.exists(ownedCryptoIdentity: ownedIdentity,
-                                                                        commitment: commitment,
-                                                                        within: obvContext)) else {
-                    os_log("The commitment received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
-                    return CancelledState()
-                }
-            } catch {
-                os_log("We could not perform check whether the commitment was already received: %{public}@", log: log, type: .fault, error.localizedDescription)
-                return CancelledState()
-            }
-            
-            guard TrustEstablishmentCommitmentReceived(ownedCryptoIdentity: ownedIdentity,
-                                                       commitment: commitment,
-                                                       within: obvContext) != nil else {
-                os_log("We could not insert a new TrustEstablishmentCommitmentReceived entry", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            // Show a dialog allowing Bob to accept or reject Alice's invitation
-            
-            do {
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .acceptInvite(contact: contact)))
-                let concreteProtocolMessage = BobDialogInvitationConfirmationMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
-                }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            }
-            
-            // Propagate Alice's invitation (with the commitment) to the other owned devices of Bob
-            
-            guard let numberOfOtherDevicesOfOwnedIdentity = try? identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count else {
-                os_log("Could not determine whether the owned identity has other (remote) devices", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                
+                // Check whether this commitment was already received in the past. In case it was, cancel.
+                
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
-                    let concreteProtocolMessage = BobPropagatesCommitmentToOtherDevicesMessage(coreProtocolMessage: coreMessage,
-                                                                                               contactIdentity: contactIdentity,
-                                                                                               contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                                                                               contactDeviceUids: contactDeviceUids,
-                                                                                               commitment: commitment)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
+                    guard !(try TrustEstablishmentCommitmentReceived.exists(ownedCryptoIdentity: ownedIdentity,
+                                                                            commitment: commitment,
+                                                                            within: obvContext)) else {
+                        os_log("The commitment received was already received in a previous protocol message. This should not happen but with a negligible probability. We cancel.", log: log, type: .fault)
+                        throw ObvError.commitmentReplay
+                    }
+                } catch {
+                    os_log("We could not perform check whether the commitment was already received: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    throw error
+                }
+                
+                guard TrustEstablishmentCommitmentReceived(ownedCryptoIdentity: ownedIdentity,
+                                                           commitment: commitment,
+                                                           within: obvContext) != nil else {
+                    os_log("We could not insert a new TrustEstablishmentCommitmentReceived entry", log: log, type: .fault)
+                    throw ObvError.couldNotInsertNewTrustEstablishmentCommitmentReceivedEntry
+                }
+                
+                // Show a dialog allowing Bob to accept or reject Alice's invitation
+                
+                do {
+                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .acceptInvite(contact: contact)))
+                    let concreteProtocolMessage = BobDialogInvitationConfirmationMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
+                    }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
+                
+                // Propagate Alice's invitation (with the commitment) to the other owned devices of Bob
+                
+                let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
+                
+                if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                    do {
+                        let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                        let concreteProtocolMessage = BobPropagatesCommitmentToOtherDevicesMessage(coreProtocolMessage: coreMessage,
+                                                                                                   contactIdentity: contactIdentity,
+                                                                                                   contactIdentityCoreDetails: contactIdentityCoreDetails,
+                                                                                                   contactDeviceUids: contactDeviceUids,
+                                                                                                   commitment: commitment)
+                        guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                            throw ObvError.generateObvChannelProtocolMessageToSend
+                        }
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                    }
+                }
+                
+                // Return the new state
+                
+                return WaitingForConfirmationState(contactIdentity: contactIdentity,
+                                                   contactIdentityCoreDetails: contactIdentityCoreDetails,
+                                                   contactDeviceUids: contactDeviceUids,
+                                                   commitment: commitment,
+                                                   dialogUuid: dialogUuid)
+                
+            } catch {
+                
+                assertionFailure()
+                removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                return CancelledState()
+
             }
-            
-            // Return the new state
-            
-            return WaitingForConfirmationState(contactIdentity: contactIdentity,
-                                               contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                               contactDeviceUids: contactDeviceUids,
-                                               commitment: commitment,
-                                               dialogUuid: dialogUuid)
+                
         }
+        
+        
+        enum ObvError: Error {
+            case commitmentReplay
+            case couldNotInsertNewTrustEstablishmentCommitmentReceivedEntry
+            case couldNotGenerateObvChannelDialogMessageToSend
+            case generateObvChannelProtocolMessageToSend
+        }
+        
     }
 
 
@@ -491,46 +520,56 @@ extension TrustEstablishmentWithSASProtocol {
             
             let invitationAccepted = receivedMessage.invitationAccepted
             
-            // Get owned identity core details
-            
-            let ownedIdentityCoreDetails: ObvIdentityCoreDetails
             do {
-                ownedIdentityCoreDetails = try identityDelegate.getIdentityDetailsOfOwnedIdentity(ownedIdentity, within: obvContext).publishedIdentityDetails.coreDetails
-            } catch {
-                os_log("Could not get owned identity core details", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            // Propagate Bob's choice to all his other devices
-            
-            guard let numberOfOtherDevicesOfOwnedIdentity = try? identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count else {
-                os_log("Could not determine whether the owned identity has other (remote) devices", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                
+                // Get owned identity core details
+                
+                let ownedIdentityCoreDetails: ObvIdentityCoreDetails
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
-                    let concreteProtocolMessage = BobPropagatesConfirmationToOtherDevicesMessage(coreProtocolMessage: coreMessage, invitationAccepted: invitationAccepted)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        assertionFailure()
-                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
-                    }
-                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                    ownedIdentityCoreDetails = try identityDelegate.getIdentityDetailsOfOwnedIdentity(ownedIdentity, within: obvContext).publishedIdentityDetails.coreDetails
                 } catch {
-                    os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
+                    os_log("Could not get owned identity core details", log: log, type: .fault)
+                    throw ObvError.couldNotGetOwnedIdentityCoreDetails
                 }
-            } else {
-                os_log("This device is the only device of the owned identity, so we don't need to propagate the accept/reject invitation", log: log, type: .debug)
-            }
-
-            // If the invitation was rejected, we terminate the protocol
-            
-            guard invitationAccepted else {
-                os_log("The user rejected the invitation", log: log, type: .debug)
+                
+                // Propagate Bob's choice to all his other devices
+                
+                guard let numberOfOtherDevicesOfOwnedIdentity = try? identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count else {
+                    os_log("Could not determine whether the owned identity has other (remote) devices", log: log, type: .fault)
+                    throw ObvError.couldNotDetermineWhetherOwnedIdentityHasOtherRemoteDevices
+                }
+                
+                if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                    do {
+                        let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                        let concreteProtocolMessage = BobPropagatesConfirmationToOtherDevicesMessage(coreProtocolMessage: coreMessage, invitationAccepted: invitationAccepted)
+                        guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                            assertionFailure()
+                            throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                        }
+                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                    } catch {
+                        os_log("Could not propagate accept/reject invitation to other devices.", log: log, type: .fault)
+                    }
+                } else {
+                    os_log("This device is the only device of the owned identity, so we don't need to propagate the accept/reject invitation", log: log, type: .debug)
+                }
+                
+                // If the invitation was rejected, we terminate the protocol
+                
+                guard invitationAccepted else {
+                    os_log("The user rejected the invitation", log: log, type: .debug)
+                    removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                    return CancelledState()
+                }
+                
+                // If we reach this point, Bob accepted Alice's invitation
+                
+                // Show a dialog informing Bob that he accepted Alice's invitation
                 
                 do {
-                    let dialogType = ObvChannelDialogToSendType.delete
+                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                    let dialogType = ObvChannelDialogToSendType.invitationAccepted(contact: contact)
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
@@ -539,65 +578,59 @@ extension TrustEstablishmentWithSASProtocol {
                     }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
-
-                return CancelledState()
-            }
-            
-            // If we reach this point, Bob accepted Alice's invitation
-            
-            // Show a dialog informing Bob that he accepted Alice's invitation
-            
-            do {
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let dialogType = ObvChannelDialogToSendType.invitationAccepted(contact: contact)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
-                let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                
+                // Send a seed for the SAS to Alice
+                
+                let seedBobForSas: Seed
+                do {
+                    guard !commitment.isEmpty else { throw Self.makeError(message: "The commitment is empty") }
+                    seedBobForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, within: obvContext)
+                } catch {
+                    os_log("Could not compute (deterministic but diversified) seed for sas", log: log, type: .error)
+                    throw ObvError.couldNotComputeDeterministicButDiversifiedSeedForSas
                 }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            }
-            
-            // Send a seed for the SAS to Alice
-            
-            let seedBobForSas: Seed
-            do {
-                guard !commitment.isEmpty else { throw Self.makeError(message: "The commitment is empty") }
-                seedBobForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, within: obvContext)
+                
+                let ownedDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
+                
+                do {
+                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
+                    let concreteProtocolMessage = BobSendsSeedMessage(
+                        coreProtocolMessage: coreMessage,
+                        seedBobForSas: seedBobForSas,
+                        contactIdentityCoreDetails: ownedIdentityCoreDetails,
+                        contactDeviceUids: [UID](ownedDeviceUids))
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+                
+                // Return the new state
+                
+                return WaitingForDecommitmentState(contactIdentity: contactIdentity,
+                                                   contactIdentityCoreDetails: contactIdentityCoreDetails,
+                                                   contactDeviceUids: contactDeviceUids,
+                                                   commitment: commitment,
+                                                   seedBobForSas: seedBobForSas,
+                                                   dialogUuid: dialogUuid)
+                
             } catch {
-                os_log("Could not compute (deterministic but diversified) seed for sas", log: log, type: .error)
+                
+                assertionFailure()
+                removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
                 return CancelledState()
-            }
-            
-            guard let ownedDeviceUids = try? identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext) else {
-                os_log("Could not determine owned device uids", log: log, type: .fault)
-                return CancelledState()
-            }
 
-            do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
-                let concreteProtocolMessage = BobSendsSeedMessage(
-                    coreProtocolMessage: coreMessage,
-                    seedBobForSas: seedBobForSas,
-                    contactIdentityCoreDetails: ownedIdentityCoreDetails,
-                    contactDeviceUids: [UID](ownedDeviceUids))
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
-                }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
-            
-            // Return the new state
-            
-            return WaitingForDecommitmentState(contactIdentity: contactIdentity,
-                                               contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                               contactDeviceUids: contactDeviceUids,
-                                               commitment: commitment,
-                                               seedBobForSas: seedBobForSas,
-                                               dialogUuid: dialogUuid)
+                
         }
+        
+        enum ObvError: Error {
+            case couldNotGetOwnedIdentityCoreDetails
+            case couldNotDetermineWhetherOwnedIdentityHasOtherRemoteDevices
+            case couldNotComputeDeterministicButDiversifiedSeedForSas
+            case couldNotGenerateObvChannelDialogMessageToSend
+        }
+        
     }
 
     
@@ -628,61 +661,69 @@ extension TrustEstablishmentWithSASProtocol {
             
             let invitationAccepted = receivedMessage.invitationAccepted
             
-            // If the invitation was rejected, we terminate the protocol
-            
-            guard invitationAccepted else {
-                os_log("The user rejected the invitation", log: log, type: .debug)
+            do {
+                
+                // If the invitation was rejected, we terminate the protocol
+                
+                guard invitationAccepted else {
+                    os_log("The user rejected the invitation", log: log, type: .debug)
+                    removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                    return CancelledState()
+                }
+                
+                // If we reach this point, Bob accepted Alice's invitation
+                
+                // Show a dialog informing Bob that he accepted Alice's invitation
                 
                 do {
-                    let dialogType = ObvChannelDialogToSendType.delete
+                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                    let dialogType = ObvChannelDialogToSendType.invitationAccepted(contact: contact)
                     let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         assertionFailure()
-                        throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
                     }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
                 
-                return CancelledState()
-            }
-            
-            // If we reach this point, Bob accepted Alice's invitation
-            
-            // Show a dialog informing Bob that he accepted Alice's invitation
-            
-            do {
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let dialogType = ObvChannelDialogToSendType.invitationAccepted(contact: contact)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
-                let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                // Compute the seed for the SAS (that was sent to Alice by the other device)
+                
+                let seedBobForSas: Seed
+                do {
+                    guard !commitment.isEmpty else { throw ObvError.emptyCommitment }
+                    seedBobForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, within: obvContext)
+                } catch {
+                    os_log("Could not compute (deterministic but diversified) seed for sas", log: log, type: .error)
+                    throw ObvError.couldNotComputeDeterministicButDiversifiedSeedForSas
                 }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            }
-
-            // Compute the seed for the SAS (that was sent to Alice by the other device)
-            
-            let seedBobForSas: Seed
-            do {
-                guard !commitment.isEmpty else { throw Self.makeError(message: "The commitment is empty") }
-                seedBobForSas = try identityDelegate.getDeterministicSeedForOwnedIdentity(ownedIdentity, diversifiedUsing: commitment, within: obvContext)
+                
+                // Return the new state
+                
+                return WaitingForDecommitmentState(contactIdentity: contactIdentity,
+                                                   contactIdentityCoreDetails: contactIdentityCoreDetails,
+                                                   contactDeviceUids: contactDeviceUids,
+                                                   commitment: commitment,
+                                                   seedBobForSas: seedBobForSas,
+                                                   dialogUuid: dialogUuid)
+                
             } catch {
-                os_log("Could not compute (deterministic but diversified) seed for sas", log: log, type: .error)
+                
+                assertionFailure()
+                removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
                 return CancelledState()
-            }
 
-            // Return the new state
-            
-            return WaitingForDecommitmentState(contactIdentity: contactIdentity,
-                                               contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                               contactDeviceUids: contactDeviceUids,
-                                               commitment: commitment,
-                                               seedBobForSas: seedBobForSas,
-                                               dialogUuid: dialogUuid)
+            }
+                
         }
+        
+        
+        enum ObvError: Error {
+            case couldNotGenerateObvChannelDialogMessageToSend
+            case emptyCommitment
+            case couldNotComputeDeterministicButDiversifiedSeedForSas
+        }
+
     }
 
     
@@ -714,56 +755,76 @@ extension TrustEstablishmentWithSASProtocol {
             
             let decommitment = receivedMessage.decommitment
             
-            // Open the commitment to recover the contact seed for the SAS
-            
-            let seedAliceForSas: Seed
             do {
-                let commitmentScheme = ObvCryptoSuite.sharedInstance.commitmentScheme()
-                guard let rawContactSeedForSAS = commitmentScheme.open(commitment: commitment, onTag: contactIdentity.getIdentity(), usingDecommitToken: decommitment) else {
-                    os_log("Could not open the commitment", log: log, type: .error)
-                    return CancelledState()
+                
+                // Open the commitment to recover the contact seed for the SAS
+                
+                let seedAliceForSas: Seed
+                do {
+                    let commitmentScheme = ObvCryptoSuite.sharedInstance.commitmentScheme()
+                    guard let rawContactSeedForSAS = commitmentScheme.open(commitment: commitment, onTag: contactIdentity.getIdentity(), usingDecommitToken: decommitment) else {
+                        os_log("Could not open the commitment", log: log, type: .error)
+                        throw ObvError.couldNotOpenDecommitment
+                    }
+                    guard let seed = Seed(with: rawContactSeedForSAS) else {
+                        os_log("Could not recover contact seed", log: log, type: .error)
+                        throw ObvError.couldNotRecoverContactSeed
+                    }
+                    seedAliceForSas = seed
                 }
-                guard let seed = Seed(with: rawContactSeedForSAS) else {
-                    os_log("Could not recover contact seed", log: log, type: .error)
-                    return CancelledState()
+                
+                // We have all the information we need to compute and show a SAS dialog to Bob
+                
+                let sasToDisplay: Data
+                do {
+                    let fullSAS = try SAS.compute(seedAlice: seedAliceForSas, seedBob: seedBobForSas, identityBob: ownedIdentity, numberOfDigits: ObvConstants.defaultNumberOfDigitsForSAS * 2)
+                    sasToDisplay = fullSAS.rightHalf
+                } catch let error {
+                    os_log("Could not compute SAS: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    throw ObvError.couldNotComputeSAS
                 }
-                seedAliceForSas = seed
-            }
-            
-            // We have all the information we need to compute and show a SAS dialog to Bob
-            
-            let sasToDisplay: Data
-            do {
-                let fullSAS = try SAS.compute(seedAlice: seedAliceForSas, seedBob: seedBobForSas, identityBob: ownedIdentity, numberOfDigits: ObvConstants.defaultNumberOfDigitsForSAS * 2)
-                sasToDisplay = fullSAS.rightHalf
-            } catch let error {
-                os_log("Could not compute SAS: %{public}@", log: log, type: .fault, error.localizedDescription)
+                
+                do {
+                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                    let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: 0)
+                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+                
+                // Return the new state
+                
+                return WaitingForUserSASState(contactIdentity: contactIdentity,
+                                              contactIdentityCoreDetails: contactIdentityCoreDetails,
+                                              contactDeviceUids: contactDeviceUids,
+                                              seedForSas: seedBobForSas,
+                                              contactSeedForSas: seedAliceForSas,
+                                              dialogUuid: dialogUuid,
+                                              isAlice: false,
+                                              numberOfBadEnteredSas: 0)
+                
+            } catch {
+                
+                assertionFailure()
+                removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
                 return CancelledState()
-            }
 
-            do {
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: 0)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
-                let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
-                    assertionFailure()
-                    throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
-                }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
-
-            // Return the new state
-            
-            return WaitingForUserSASState(contactIdentity: contactIdentity,
-                                          contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                          contactDeviceUids: contactDeviceUids,
-                                          seedForSas: seedBobForSas,
-                                          contactSeedForSas: seedAliceForSas,
-                                          dialogUuid: dialogUuid,
-                                          isAlice: false,
-                                          numberOfBadEnteredSas: 0)
+                
         }
+        
+        
+        enum ObvError: Error {
+            case couldNotOpenDecommitment
+            case couldNotRecoverContactSeed
+            case couldNotComputeSAS
+            case couldNotGenerateObvChannelDialogMessageToSend
+        }
+        
+        
     }
 
     
@@ -795,105 +856,125 @@ extension TrustEstablishmentWithSASProtocol {
             let isAlice = startState.isAlice
             let numberOfBadEnteredSas = startState.numberOfBadEnteredSas
             
-            guard let sasEnteredByUser = receivedMessage.sasEnteredByUser else {
-                os_log("Could not retrieve SAS entered by user", log: log, type: .fault)
-                return CancelledState()
-            }
-
-            // Re-compute the SAS and compare it to the SAS entered by the user
-            
-            let sasToDisplay: Data
             do {
-                let seedAlice = isAlice ? seedForSas : contactSeedForSas
-                let seedBob = isAlice ? contactSeedForSas : seedForSas
-                let identityBob = isAlice ? contactIdentity : ownedIdentity
-                let fullSAS = try SAS.compute(seedAlice: seedAlice, seedBob: seedBob, identityBob: identityBob, numberOfDigits: ObvConstants.defaultNumberOfDigitsForSAS * 2)
                 
-                sasToDisplay = isAlice ? fullSAS.leftHalf : fullSAS.rightHalf
-                let sasToCompare = isAlice ? fullSAS.rightHalf : fullSAS.leftHalf
-
-                guard sasToCompare == sasEnteredByUser else {
-                    os_log("The SAS entered by the user does not match the expected SAS.", log: log, type: .error)
+                guard let sasEnteredByUser = receivedMessage.sasEnteredByUser else {
+                    os_log("Could not retrieve SAS entered by user", log: log, type: .fault)
+                    removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                    return CancelledState()
+                }
+                
+                // Re-compute the SAS and compare it to the SAS entered by the user
+                
+                let sasToDisplay: Data
+                do {
+                    let seedAlice = isAlice ? seedForSas : contactSeedForSas
+                    let seedBob = isAlice ? contactSeedForSas : seedForSas
+                    let identityBob = isAlice ? contactIdentity : ownedIdentity
+                    let fullSAS = try SAS.compute(seedAlice: seedAlice, seedBob: seedBob, identityBob: identityBob, numberOfDigits: ObvConstants.defaultNumberOfDigitsForSAS * 2)
                     
-                    // We re-post the same dialog
-                    let newNumberOfBadEnteredSas = numberOfBadEnteredSas + 1
+                    sasToDisplay = isAlice ? fullSAS.leftHalf : fullSAS.rightHalf
+                    let sasToCompare = isAlice ? fullSAS.rightHalf : fullSAS.leftHalf
+                    
+                    guard sasToCompare == sasEnteredByUser else {
+                        os_log("The SAS entered by the user does not match the expected SAS.", log: log, type: .error)
+                        
+                        // We re-post the same dialog
+                        let newNumberOfBadEnteredSas = numberOfBadEnteredSas + 1
+                        do {
+                            let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                            let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: newNumberOfBadEnteredSas)
+                            let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                            let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
+                            guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                                assertionFailure()
+                                throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                            }
+                            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                        }
+                        
+                        // We go back to the WaitingForUserSAS state (only the number of bad entered sas changes)
+                        return WaitingForUserSASState(contactIdentity: contactIdentity,
+                                                      contactIdentityCoreDetails: contactIdentityCoreDetails,
+                                                      contactDeviceUids: contactDeviceUids,
+                                                      seedForSas: seedForSas,
+                                                      contactSeedForSas: contactSeedForSas,
+                                                      dialogUuid: dialogUuid,
+                                                      isAlice: isAlice,
+                                                      numberOfBadEnteredSas: newNumberOfBadEnteredSas)
+                    }
+                } catch {
+                    os_log("Could not re-compute the SAS and compare it to the SAS entered by the user", log: log, type: .fault)
+                    removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                    return CancelledState()
+                }
+                
+                // Propagate the sas entered by the user to all the other devices of this user
+                
+                let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
+                
+                if numberOfOtherDevicesOfOwnedIdentity > 0 {
                     do {
-                        let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                        let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: newNumberOfBadEnteredSas)
-                        let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
-                        let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
-                        guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                        let concreteProtocolMessage = PropagateEnteredSasToOtherDevicesMessage(coreProtocolMessage: coreMessage, contactSas: sasEnteredByUser)
+                        guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                             assertionFailure()
-                            throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+                            throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
                         }
                         _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                    } catch {
+                        os_log("Could not propagate sas to other devices.", log: log, type: .fault)
                     }
-
-                    // We go back to the WaitingForUserSAS state (only the number of bad entered sas changes)
-                    return WaitingForUserSASState(contactIdentity: contactIdentity,
-                                                  contactIdentityCoreDetails: contactIdentityCoreDetails,
-                                                  contactDeviceUids: contactDeviceUids,
-                                                  seedForSas: seedForSas,
-                                                  contactSeedForSas: contactSeedForSas,
-                                                  dialogUuid: dialogUuid,
-                                                  isAlice: isAlice,
-                                                  numberOfBadEnteredSas: newNumberOfBadEnteredSas)
+                } else {
+                    os_log("This device is the only device of the owned identity, so we don't need to propagate the entered sas", log: log, type: .debug)
                 }
-            } catch {
-                os_log("Could not re-compute the SAS and compare it to the SAS entered by the user", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            // Propagate the sas entered by the user to all the other devices of this user
-            
-            guard let numberOfOtherDevicesOfOwnedIdentity = try? identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count else {
-                os_log("Could not determine whether the owned identity has other (remote) devices", log: log, type: .fault)
-                return CancelledState()
-            }
-            
-            if numberOfOtherDevicesOfOwnedIdentity > 0 {
+                
+                // Send a dialog message similar to the one asking to enter the SAS, but with the entered SAS "built-in"
+                
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
-                    let concreteProtocolMessage = PropagateEnteredSasToOtherDevicesMessage(coreProtocolMessage: coreMessage, contactSas: sasEnteredByUser)
-                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
-                        assertionFailure()
-                        throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
+                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                    let dialogType = ObvChannelDialogToSendType.sasConfirmed(contact: contact, sasToDisplay: sasToDisplay, sasEntered: sasEnteredByUser)
+                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
                     }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-                } catch {
-                    os_log("Could not propagate sas to other devices.", log: log, type: .fault)
                 }
-            } else {
-                os_log("This device is the only device of the owned identity, so we don't need to propagate the entered sas", log: log, type: .debug)
-            }
+                
+                // 2020-03-02 : We used to add the contact identity to the contact database (or simply add a new trust origin if the contact already exists) and add all the contact device uids
+                // We do not do this now. Instead, this is performed within the AddAndPropagateTrustStep since, at this point, we know for sure that both users checked their respective SAS.
+                
+                // Send a confirmation message
+                
+                do {
+                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
+                    let concreteProtocolMessage = MutualTrustConfirmationMessageMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+                
+                // Return the new state
+                
+                return ContactSASCheckedState(contactIdentity: contactIdentity, contactIdentityCoreDetails: contactIdentityCoreDetails, contactDeviceUids: contactDeviceUids, dialogUuid: dialogUuid)
+                
+            } catch {
+                
+                assertionFailure()
+                removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                return CancelledState()
 
-            // Send a dialog message similar to the one asking to enter the SAS, but with the entered SAS "built-in"
-            
-            do {
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let dialogType = ObvChannelDialogToSendType.sasConfirmed(contact: contact, sasToDisplay: sasToDisplay, sasEntered: sasEnteredByUser)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
-                let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { return nil }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
-            
-            // 2020-03-02 : We used to add the contact identity to the contact database (or simply add a new trust origin if the contact already exists) and add all the contact device uids
-            // We do not do this now. Instead, this is performed within the AddAndPropagateTrustStep since, at this point, we know for sure that both users checked their respective SAS.
-            
-            // Send a confirmation message
-            
-            do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
-                let concreteProtocolMessage = MutualTrustConfirmationMessageMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            }
-            
-            // Return the new state
-            
-            return ContactSASCheckedState(contactIdentity: contactIdentity, contactIdentityCoreDetails: contactIdentityCoreDetails, contactDeviceUids: contactDeviceUids, dialogUuid: dialogUuid)
         }
+        
+        
+        enum ObvError: Error {
+            case couldNotGenerateObvChannelDialogMessageToSend
+        }
+
+        
     }
 
     
@@ -926,65 +1007,78 @@ extension TrustEstablishmentWithSASProtocol {
 
             let sasEnteredByUser = receivedMessage.contactSas
             
-            // Re-compute the SAS and compare it to the SAS entered by the user
-            
-            let sasToDisplay: Data
             do {
-                let seedAlice = isAlice ? seedForSas : contactSeedForSas
-                let seedBob = isAlice ? contactSeedForSas : seedForSas
-                let identityBob = isAlice ? contactIdentity : ownedIdentity
-                let fullSAS = try SAS.compute(seedAlice: seedAlice, seedBob: seedBob, identityBob: identityBob, numberOfDigits: ObvConstants.defaultNumberOfDigitsForSAS * 2)
                 
-                sasToDisplay = isAlice ? fullSAS.leftHalf : fullSAS.rightHalf
-                let sasToCompare = isAlice ? fullSAS.rightHalf : fullSAS.leftHalf
+                // Re-compute the SAS and compare it to the SAS entered by the user
                 
-                guard sasToCompare == sasEnteredByUser else {
-                    os_log("The SAS entered by the user does not match the expected SAS.", log: log, type: .error)
-                    // Remove the any dialog related to this protocol
-                    do {
-                        let dialogType = ObvChannelDialogToSendType.delete
-                        let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
-                        let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                        guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
-                            assertionFailure()
-                            throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
-                        }
-                        _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                let sasToDisplay: Data
+                do {
+                    let seedAlice = isAlice ? seedForSas : contactSeedForSas
+                    let seedBob = isAlice ? contactSeedForSas : seedForSas
+                    let identityBob = isAlice ? contactIdentity : ownedIdentity
+                    let fullSAS = try SAS.compute(seedAlice: seedAlice, seedBob: seedBob, identityBob: identityBob, numberOfDigits: ObvConstants.defaultNumberOfDigitsForSAS * 2)
+                    
+                    sasToDisplay = isAlice ? fullSAS.leftHalf : fullSAS.rightHalf
+                    let sasToCompare = isAlice ? fullSAS.rightHalf : fullSAS.leftHalf
+                    
+                    guard sasToCompare == sasEnteredByUser else {
+                        os_log("The SAS entered by the user does not match the expected SAS.", log: log, type: .error)
+                        // Remove any dialog related to this protocol
+                        removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                        return CancelledState()
                     }
-                    return CancelledState()
+                } catch {
+                    os_log("Could not re-compute the SAS and compare it to the SAS entered by the user", log: log, type: .fault)
+                    throw error
                 }
+                
+                // Send a dialog message similar to the one asking to enter the SAS, but with the entered SAS "built-in"
+                
+                do {
+                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                    let dialogType = ObvChannelDialogToSendType.sasConfirmed(contact: contact, sasToDisplay: sasToDisplay, sasEntered: sasEnteredByUser)
+                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+                
+                // 2020-03-02 : We used to add the contact identity to the contact database (or simply add a new trust origin if the contact already exists) and add all the contact device uids
+                // We do not do this now. Instead, this is performed within the AddAndPropagateTrustStep since, at this point, we know for sure that both users checked their respective SAS.
+                
+                // Send a confirmation message
+                
+                do {
+                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
+                    let concreteProtocolMessage = MutualTrustConfirmationMessageMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+                
+                // Return the new state
+                
+                return ContactSASCheckedState(contactIdentity: contactIdentity, contactIdentityCoreDetails: contactIdentityCoreDetails, contactDeviceUids: contactDeviceUids, dialogUuid: dialogUuid)
+                
             } catch {
-                os_log("Could not re-compute the SAS and compare it to the SAS entered by the user", log: log, type: .fault)
+                
+                assertionFailure()
+                removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
                 return CancelledState()
-            }
-
-            // Send a dialog message similar to the one asking to enter the SAS, but with the entered SAS "built-in"
-            
-            do {
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let dialogType = ObvChannelDialogToSendType.sasConfirmed(contact: contact, sasToDisplay: sasToDisplay, sasEntered: sasEnteredByUser)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
-                let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { return nil }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                
             }
             
-            // 2020-03-02 : We used to add the contact identity to the contact database (or simply add a new trust origin if the contact already exists) and add all the contact device uids
-            // We do not do this now. Instead, this is performed within the AddAndPropagateTrustStep since, at this point, we know for sure that both users checked their respective SAS.
-            
-            // Send a confirmation message
-            
-            do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
-                let concreteProtocolMessage = MutualTrustConfirmationMessageMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            }
-            
-            // Return the new state
-            
-            return ContactSASCheckedState(contactIdentity: contactIdentity, contactIdentityCoreDetails: contactIdentityCoreDetails, contactDeviceUids: contactDeviceUids, dialogUuid: dialogUuid)
         }
+        
+        
+        enum ObvError: Error {
+            case couldNotGenerateObvChannelDialogMessageToSend
+        }
+        
+        
     }
 
     
@@ -1005,27 +1099,46 @@ extension TrustEstablishmentWithSASProtocol {
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: TrustEstablishmentWithSASProtocol.logCategory)
+
             let contactIdentity = startState.contactIdentity
             let contactIdentityCoreDetails = startState.contactIdentityCoreDetails
             let dialogUuid = startState.dialogUuid
             
-            // Send a dialog message notifying the user that the mutual trust is confirmed
-            
             do {
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let dialogType = ObvChannelDialogToSendType.mutualTrustConfirmed(contact: contact)
-                let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
-                let coreMessage = getCoreMessage(for: channelType)
-                let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { return nil }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                
+                // Send a dialog message notifying the user that the mutual trust is confirmed
+                
+                do {
+                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                    let dialogType = ObvChannelDialogToSendType.mutualTrustConfirmed(contact: contact)
+                    let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
+                    let coreMessage = getCoreMessage(for: channelType)
+                    let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+                }
+                
+                // Return the new state
+                
+                return MutualTrustConfirmedState()
+                
+            } catch {
+                
+                assertionFailure()
+                removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                return CancelledState()
+
             }
             
-            // Return the new state
-            
-            return MutualTrustConfirmedState()
-            
         }
+        
+        enum ObvError: Error {
+            case couldNotGenerateObvChannelDialogMessageToSend
+        }
+
     }
 
     
@@ -1053,43 +1166,61 @@ extension TrustEstablishmentWithSASProtocol {
             let contactDeviceUids = startState.contactDeviceUids
             let dialogUuid = startState.dialogUuid
             
-            // Add the contact identity to the contact database (or simply add a new trust origin if the contact already exists) and add all the contact device uids
             do {
-                let trustOrigin = TrustOrigin.direct(timestamp: Date())
                 
-                if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
-                    try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
-                } else {
-                    try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, setIsOneToOneTo: true, within: obvContext)
+                // Add the contact identity to the contact database (or simply add a new trust origin if the contact already exists) and add all the contact device uids
+                do {
+                    let trustOrigin = TrustOrigin.direct(timestamp: Date())
+                    
+                    if (try? identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext)) == true {
+                        try identityDelegate.addTrustOriginIfTrustWouldBeIncreasedAndSetContactAsOneToOne(trustOrigin, toContactIdentity: contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
+                    } else {
+                        try identityDelegate.addContactIdentity(contactIdentity, with: contactIdentityCoreDetails, andTrustOrigin: trustOrigin, forOwnedIdentity: ownedIdentity, isKnownToBeOneToOne: true, within: obvContext)
+                    }
+                    
+                    try contactDeviceUids.forEach { (contactDeviceUid) in
+                        try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
+                    }
+                } catch {
+                    os_log("Could not add the contact identity to the contact identities database, or could not add a device uid to this contact", log: log, type: .fault)
+                    removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
+                    return CancelledState()
                 }
                 
-                try contactDeviceUids.forEach { (contactDeviceUid) in
-                    try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: contactDeviceUid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
+                // Send a dialog message notifying the user that the mutual trust is confirmed
+                
+                do {
+                    let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
+                    let dialogType = ObvChannelDialogToSendType.mutualTrustConfirmed(contact: contact)
+                    let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
+                    let coreMessage = getCoreMessage(for: channelType)
+                    let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
+                    guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                        throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
+                    }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
+                
+                // Return the new state
+                
+                return MutualTrustConfirmedState()
+                
             } catch {
-                os_log("Could not add the contact identity to the contact identities database, or could not add a device uid to this contact", log: log, type: .fault)
+                
+                assertionFailure()
+                removeAnyUserDialogRelatingToThisProtocol(dialogUuid: dialogUuid, log: log)
                 return CancelledState()
+
             }
-            
-            // Send a dialog message notifying the user that the mutual trust is confirmed
-            
-            do {
-                let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let dialogType = ObvChannelDialogToSendType.mutualTrustConfirmed(contact: contact)
-                let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
-                let coreMessage = getCoreMessage(for: channelType)
-                let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
-                guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else { return nil }
-                _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
-            }
-            
-            // Return the new state
-            
-            return MutualTrustConfirmedState()
             
         }
     }
     
+
+    enum ObvError: Error {
+        case couldNotGenerateObvChannelDialogMessageToSend
+    }
+
 }
 
 
@@ -1103,4 +1234,27 @@ fileprivate extension Data {
         return self[self.startIndex+self.count/2..<self.startIndex+self.count]
     }
 
+}
+
+
+fileprivate extension ProtocolStep {
+
+    /// Helper method allowing to remove any dialog relating to this protocol. This is typically used when the protocol fails, in order to make sure that no dialog remains visible to the user
+    /// although the protocol is finished.
+    func removeAnyUserDialogRelatingToThisProtocol(dialogUuid: UUID, log: OSLog) {
+        do {
+            let dialogType = ObvChannelDialogToSendType.delete
+            let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+            let concreteProtocolMessage = TrustEstablishmentWithSASProtocol.DialogInformativeMessage(coreProtocolMessage: coreMessage)
+            guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
+                assertionFailure()
+                throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
+            }
+            _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+        } catch {
+            // We don't want to prevent the protocol to cancel because of a dialog, so we only log the error here
+            os_log("Failed to delete all dialog relating to this protocol: %{public}@", log: log, type: .fault, error.localizedDescription)
+        }
+    }
+    
 }

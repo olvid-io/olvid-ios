@@ -25,6 +25,7 @@ import OlvidUtils
 import ObvCrypto
 import ObvUICoreData
 import ObvSettings
+import Intents
 
 fileprivate struct OptionalWrapper<T> {
 	let value: T?
@@ -42,9 +43,9 @@ enum ObvMessengerInternalNotification {
 	case externalTransactionsWereMergedIntoViewContext
 	case newMuteExpiration(expirationDate: Date)
 	case wipeAllMessagesThatExpiredEarlierThanNow(launchedByBackgroundTask: Bool, completionHandler: (Bool) -> Void)
-	case userWantsToCallAndIsAllowedTo(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?)
+	case userWantsToCallOrUpdateCallCapabilityAndIsAllowedTo(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, ownedIdentityForRequestingTurnCredentials: ObvCryptoId, groupId: GroupIdentifier?, startCallIntent: INStartCallIntent?)
 	case userWantsToSelectAndCallContacts(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?)
-	case userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?)
+	case userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?, startCallIntent: INStartCallIntent?)
 	case newWebRTCMessageWasReceived(webrtcMessage: WebRTCMessageJSON, fromOlvidUser: OlvidUserId, messageUID: UID)
 	case newObvEncryptedPushNotificationWasReceivedViaPushKitNotification(encryptedNotification: ObvEncryptedPushNotification)
 	case isIncludesCallsInRecentsEnabledSettingDidChange
@@ -125,9 +126,7 @@ enum ObvMessengerInternalNotification {
 	case userWantsToMarkAsReadMessageWithinTheNotificationExtension(contactPermanentID: ObvManagedObjectPermanentID<PersistedObvContactIdentity>, messageIdentifierFromEngine: Data, completionHandler: () -> Void)
 	case userWantsToWipeFyleMessageJoinWithStatus(ownedCryptoId: ObvCryptoId, objectIDs: Set<TypeSafeManagedObjectID<FyleMessageJoinWithStatus>>)
 	case userWantsToCreateNewGroupV1(groupName: String, groupDescription: String?, groupMembersCryptoIds: Set<ObvCryptoId>, ownedCryptoId: ObvCryptoId, photoURL: URL?)
-	case userWantsToCreateNewGroupV2(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?)
 	case userWantsToForwardMessage(messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, discussionPermanentIDs: Set<ObvManagedObjectPermanentID<PersistedDiscussion>>)
-	case userWantsToUpdateGroupV2(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset)
 	case inviteContactsToGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId, newGroupMembers: Set<ObvCryptoId>)
 	case removeContactsFromGroupOwned(groupUid: UID, ownedCryptoId: ObvCryptoId, removedContacts: Set<ObvCryptoId>)
 	case badgeForNewMessagesHasBeenUpdated(ownedCryptoId: ObvCryptoId, newCount: Int)
@@ -160,7 +159,6 @@ enum ObvMessengerInternalNotification {
 	case userWantsToUpdateDiscussionLocalConfiguration(value: PersistedDiscussionLocalConfigurationValue, localConfigurationObjectID: TypeSafeManagedObjectID<PersistedDiscussionLocalConfiguration>)
 	case userWantsToArchiveDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, completionHandler: ((Bool) -> Void)?)
 	case userWantsToUnarchiveDiscussion(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, updateTimestampOfLastMessage: Bool, completionHandler: ((Bool) -> Void)?)
-	case userWantsToRefreshDiscussions(completionHandler: (() -> Void))
 	case updateNormalizedSearchKeyOnPersistedDiscussions(ownedIdentity: ObvCryptoId, completionHandler: (() -> Void)?)
 	case aDiscussionSharedConfigurationIsNeededByContact(contactIdentifier: ObvContactIdentifier, discussionId: DiscussionIdentifier)
 	case aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice(ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier)
@@ -172,6 +170,7 @@ enum ObvMessengerInternalNotification {
 	case userWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data, newText: String?)
 	case allPersistedInvitationCanBeMarkedAsOld(ownedCryptoId: ObvCryptoId)
 	case userHasSeenPublishedDetailsOfContactGroupJoined(obvGroupIdentifier: ObvGroupV1Identifier)
+	case postUserNotificationAsAnotherCallParticipantStartedCamera(otherParticipantNames: [String])
 
 	private enum Name {
 		case messagesAreNotNewAnymore
@@ -179,9 +178,9 @@ enum ObvMessengerInternalNotification {
 		case externalTransactionsWereMergedIntoViewContext
 		case newMuteExpiration
 		case wipeAllMessagesThatExpiredEarlierThanNow
-		case userWantsToCallAndIsAllowedTo
+		case userWantsToCallOrUpdateCallCapabilityAndIsAllowedTo
 		case userWantsToSelectAndCallContacts
-		case userWantsToCallButWeShouldCheckSheIsAllowedTo
+		case userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo
 		case newWebRTCMessageWasReceived
 		case newObvEncryptedPushNotificationWasReceivedViaPushKitNotification
 		case isIncludesCallsInRecentsEnabledSettingDidChange
@@ -262,9 +261,7 @@ enum ObvMessengerInternalNotification {
 		case userWantsToMarkAsReadMessageWithinTheNotificationExtension
 		case userWantsToWipeFyleMessageJoinWithStatus
 		case userWantsToCreateNewGroupV1
-		case userWantsToCreateNewGroupV2
 		case userWantsToForwardMessage
-		case userWantsToUpdateGroupV2
 		case inviteContactsToGroupOwned
 		case removeContactsFromGroupOwned
 		case badgeForNewMessagesHasBeenUpdated
@@ -297,7 +294,6 @@ enum ObvMessengerInternalNotification {
 		case userWantsToUpdateDiscussionLocalConfiguration
 		case userWantsToArchiveDiscussion
 		case userWantsToUnarchiveDiscussion
-		case userWantsToRefreshDiscussions
 		case updateNormalizedSearchKeyOnPersistedDiscussions
 		case aDiscussionSharedConfigurationIsNeededByContact
 		case aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice
@@ -309,6 +305,7 @@ enum ObvMessengerInternalNotification {
 		case userWantsToUpdatePersonalNoteOnGroupV2
 		case allPersistedInvitationCanBeMarkedAsOld
 		case userHasSeenPublishedDetailsOfContactGroupJoined
+		case postUserNotificationAsAnotherCallParticipantStartedCamera
 
 		private var namePrefix: String { String(describing: ObvMessengerInternalNotification.self) }
 
@@ -326,9 +323,9 @@ enum ObvMessengerInternalNotification {
 			case .externalTransactionsWereMergedIntoViewContext: return Name.externalTransactionsWereMergedIntoViewContext.name
 			case .newMuteExpiration: return Name.newMuteExpiration.name
 			case .wipeAllMessagesThatExpiredEarlierThanNow: return Name.wipeAllMessagesThatExpiredEarlierThanNow.name
-			case .userWantsToCallAndIsAllowedTo: return Name.userWantsToCallAndIsAllowedTo.name
+			case .userWantsToCallOrUpdateCallCapabilityAndIsAllowedTo: return Name.userWantsToCallOrUpdateCallCapabilityAndIsAllowedTo.name
 			case .userWantsToSelectAndCallContacts: return Name.userWantsToSelectAndCallContacts.name
-			case .userWantsToCallButWeShouldCheckSheIsAllowedTo: return Name.userWantsToCallButWeShouldCheckSheIsAllowedTo.name
+			case .userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo: return Name.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo.name
 			case .newWebRTCMessageWasReceived: return Name.newWebRTCMessageWasReceived.name
 			case .newObvEncryptedPushNotificationWasReceivedViaPushKitNotification: return Name.newObvEncryptedPushNotificationWasReceivedViaPushKitNotification.name
 			case .isIncludesCallsInRecentsEnabledSettingDidChange: return Name.isIncludesCallsInRecentsEnabledSettingDidChange.name
@@ -409,9 +406,7 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToMarkAsReadMessageWithinTheNotificationExtension: return Name.userWantsToMarkAsReadMessageWithinTheNotificationExtension.name
 			case .userWantsToWipeFyleMessageJoinWithStatus: return Name.userWantsToWipeFyleMessageJoinWithStatus.name
 			case .userWantsToCreateNewGroupV1: return Name.userWantsToCreateNewGroupV1.name
-			case .userWantsToCreateNewGroupV2: return Name.userWantsToCreateNewGroupV2.name
 			case .userWantsToForwardMessage: return Name.userWantsToForwardMessage.name
-			case .userWantsToUpdateGroupV2: return Name.userWantsToUpdateGroupV2.name
 			case .inviteContactsToGroupOwned: return Name.inviteContactsToGroupOwned.name
 			case .removeContactsFromGroupOwned: return Name.removeContactsFromGroupOwned.name
 			case .badgeForNewMessagesHasBeenUpdated: return Name.badgeForNewMessagesHasBeenUpdated.name
@@ -444,7 +439,6 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToUpdateDiscussionLocalConfiguration: return Name.userWantsToUpdateDiscussionLocalConfiguration.name
 			case .userWantsToArchiveDiscussion: return Name.userWantsToArchiveDiscussion.name
 			case .userWantsToUnarchiveDiscussion: return Name.userWantsToUnarchiveDiscussion.name
-			case .userWantsToRefreshDiscussions: return Name.userWantsToRefreshDiscussions.name
 			case .updateNormalizedSearchKeyOnPersistedDiscussions: return Name.updateNormalizedSearchKeyOnPersistedDiscussions.name
 			case .aDiscussionSharedConfigurationIsNeededByContact: return Name.aDiscussionSharedConfigurationIsNeededByContact.name
 			case .aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice: return Name.aDiscussionSharedConfigurationIsNeededByAnotherOwnedDevice.name
@@ -456,6 +450,7 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToUpdatePersonalNoteOnGroupV2: return Name.userWantsToUpdatePersonalNoteOnGroupV2.name
 			case .allPersistedInvitationCanBeMarkedAsOld: return Name.allPersistedInvitationCanBeMarkedAsOld.name
 			case .userHasSeenPublishedDetailsOfContactGroupJoined: return Name.userHasSeenPublishedDetailsOfContactGroupJoined.name
+			case .postUserNotificationAsAnotherCallParticipantStartedCamera: return Name.postUserNotificationAsAnotherCallParticipantStartedCamera.name
 			}
 		}
 	}
@@ -483,12 +478,13 @@ enum ObvMessengerInternalNotification {
 				"launchedByBackgroundTask": launchedByBackgroundTask,
 				"completionHandler": completionHandler,
 			]
-		case .userWantsToCallAndIsAllowedTo(ownedCryptoId: let ownedCryptoId, contactCryptoIds: let contactCryptoIds, ownedIdentityForRequestingTurnCredentials: let ownedIdentityForRequestingTurnCredentials, groupId: let groupId):
+		case .userWantsToCallOrUpdateCallCapabilityAndIsAllowedTo(ownedCryptoId: let ownedCryptoId, contactCryptoIds: let contactCryptoIds, ownedIdentityForRequestingTurnCredentials: let ownedIdentityForRequestingTurnCredentials, groupId: let groupId, startCallIntent: let startCallIntent):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 				"contactCryptoIds": contactCryptoIds,
 				"ownedIdentityForRequestingTurnCredentials": ownedIdentityForRequestingTurnCredentials,
 				"groupId": OptionalWrapper(groupId),
+				"startCallIntent": OptionalWrapper(startCallIntent),
 			]
 		case .userWantsToSelectAndCallContacts(ownedCryptoId: let ownedCryptoId, contactCryptoIds: let contactCryptoIds, groupId: let groupId):
 			info = [
@@ -496,11 +492,12 @@ enum ObvMessengerInternalNotification {
 				"contactCryptoIds": contactCryptoIds,
 				"groupId": OptionalWrapper(groupId),
 			]
-		case .userWantsToCallButWeShouldCheckSheIsAllowedTo(ownedCryptoId: let ownedCryptoId, contactCryptoIds: let contactCryptoIds, groupId: let groupId):
+		case .userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(ownedCryptoId: let ownedCryptoId, contactCryptoIds: let contactCryptoIds, groupId: let groupId, startCallIntent: let startCallIntent):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
 				"contactCryptoIds": contactCryptoIds,
 				"groupId": OptionalWrapper(groupId),
+				"startCallIntent": OptionalWrapper(startCallIntent),
 			]
 		case .newWebRTCMessageWasReceived(webrtcMessage: let webrtcMessage, fromOlvidUser: let fromOlvidUser, messageUID: let messageUID):
 			info = [
@@ -865,23 +862,10 @@ enum ObvMessengerInternalNotification {
 				"ownedCryptoId": ownedCryptoId,
 				"photoURL": OptionalWrapper(photoURL),
 			]
-		case .userWantsToCreateNewGroupV2(groupCoreDetails: let groupCoreDetails, ownPermissions: let ownPermissions, otherGroupMembers: let otherGroupMembers, ownedCryptoId: let ownedCryptoId, photoURL: let photoURL):
-			info = [
-				"groupCoreDetails": groupCoreDetails,
-				"ownPermissions": ownPermissions,
-				"otherGroupMembers": otherGroupMembers,
-				"ownedCryptoId": ownedCryptoId,
-				"photoURL": OptionalWrapper(photoURL),
-			]
 		case .userWantsToForwardMessage(messagePermanentID: let messagePermanentID, discussionPermanentIDs: let discussionPermanentIDs):
 			info = [
 				"messagePermanentID": messagePermanentID,
 				"discussionPermanentIDs": discussionPermanentIDs,
-			]
-		case .userWantsToUpdateGroupV2(groupObjectID: let groupObjectID, changeset: let changeset):
-			info = [
-				"groupObjectID": groupObjectID,
-				"changeset": changeset,
 			]
 		case .inviteContactsToGroupOwned(groupUid: let groupUid, ownedCryptoId: let ownedCryptoId, newGroupMembers: let newGroupMembers):
 			info = [
@@ -1018,10 +1002,6 @@ enum ObvMessengerInternalNotification {
 				"updateTimestampOfLastMessage": updateTimestampOfLastMessage,
 				"completionHandler": OptionalWrapper(completionHandler),
 			]
-		case .userWantsToRefreshDiscussions(completionHandler: let completionHandler):
-			info = [
-				"completionHandler": completionHandler,
-			]
 		case .updateNormalizedSearchKeyOnPersistedDiscussions(ownedIdentity: let ownedIdentity, completionHandler: let completionHandler):
 			info = [
 				"ownedIdentity": ownedIdentity,
@@ -1076,6 +1056,10 @@ enum ObvMessengerInternalNotification {
 		case .userHasSeenPublishedDetailsOfContactGroupJoined(obvGroupIdentifier: let obvGroupIdentifier):
 			info = [
 				"obvGroupIdentifier": obvGroupIdentifier,
+			]
+		case .postUserNotificationAsAnotherCallParticipantStartedCamera(otherParticipantNames: let otherParticipantNames):
+			info = [
+				"otherParticipantNames": otherParticipantNames,
 			]
 		}
 		return info
@@ -1148,15 +1132,17 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToCallAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Set<ObvCryptoId>, ObvCryptoId, GroupIdentifier?) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToCallAndIsAllowedTo.name
+	static func observeUserWantsToCallOrUpdateCallCapabilityAndIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Set<ObvCryptoId>, ObvCryptoId, GroupIdentifier?, INStartCallIntent?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToCallOrUpdateCallCapabilityAndIsAllowedTo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let contactCryptoIds = notification.userInfo!["contactCryptoIds"] as! Set<ObvCryptoId>
 			let ownedIdentityForRequestingTurnCredentials = notification.userInfo!["ownedIdentityForRequestingTurnCredentials"] as! ObvCryptoId
 			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifier>
 			let groupId = groupIdWrapper.value
-			block(ownedCryptoId, contactCryptoIds, ownedIdentityForRequestingTurnCredentials, groupId)
+			let startCallIntentWrapper = notification.userInfo!["startCallIntent"] as! OptionalWrapper<INStartCallIntent>
+			let startCallIntent = startCallIntentWrapper.value
+			block(ownedCryptoId, contactCryptoIds, ownedIdentityForRequestingTurnCredentials, groupId, startCallIntent)
 		}
 	}
 
@@ -1171,14 +1157,16 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToCallButWeShouldCheckSheIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Set<ObvCryptoId>, GroupIdentifier?) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToCallButWeShouldCheckSheIsAllowedTo.name
+	static func observeUserWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Set<ObvCryptoId>, GroupIdentifier?, INStartCallIntent?) -> Void) -> NSObjectProtocol {
+		let name = Name.userWantsToCallOrUpdateCallCapabilityButWeShouldCheckSheIsAllowedTo.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let contactCryptoIds = notification.userInfo!["contactCryptoIds"] as! Set<ObvCryptoId>
 			let groupIdWrapper = notification.userInfo!["groupId"] as! OptionalWrapper<GroupIdentifier>
 			let groupId = groupIdWrapper.value
-			block(ownedCryptoId, contactCryptoIds, groupId)
+			let startCallIntentWrapper = notification.userInfo!["startCallIntent"] as! OptionalWrapper<INStartCallIntent>
+			let startCallIntent = startCallIntentWrapper.value
+			block(ownedCryptoId, contactCryptoIds, groupId, startCallIntent)
 		}
 	}
 
@@ -1887,34 +1875,12 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToCreateNewGroupV2(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (GroupV2CoreDetails, Set<ObvGroupV2.Permission>, Set<ObvGroupV2.IdentityAndPermissions>, ObvCryptoId, URL?) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToCreateNewGroupV2.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let groupCoreDetails = notification.userInfo!["groupCoreDetails"] as! GroupV2CoreDetails
-			let ownPermissions = notification.userInfo!["ownPermissions"] as! Set<ObvGroupV2.Permission>
-			let otherGroupMembers = notification.userInfo!["otherGroupMembers"] as! Set<ObvGroupV2.IdentityAndPermissions>
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let photoURLWrapper = notification.userInfo!["photoURL"] as! OptionalWrapper<URL>
-			let photoURL = photoURLWrapper.value
-			block(groupCoreDetails, ownPermissions, otherGroupMembers, ownedCryptoId, photoURL)
-		}
-	}
-
 	static func observeUserWantsToForwardMessage(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvManagedObjectPermanentID<PersistedMessage>, Set<ObvManagedObjectPermanentID<PersistedDiscussion>>) -> Void) -> NSObjectProtocol {
 		let name = Name.userWantsToForwardMessage.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let messagePermanentID = notification.userInfo!["messagePermanentID"] as! ObvManagedObjectPermanentID<PersistedMessage>
 			let discussionPermanentIDs = notification.userInfo!["discussionPermanentIDs"] as! Set<ObvManagedObjectPermanentID<PersistedDiscussion>>
 			block(messagePermanentID, discussionPermanentIDs)
-		}
-	}
-
-	static func observeUserWantsToUpdateGroupV2(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedGroupV2>, ObvGroupV2.Changeset) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToUpdateGroupV2.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let groupObjectID = notification.userInfo!["groupObjectID"] as! TypeSafeManagedObjectID<PersistedGroupV2>
-			let changeset = notification.userInfo!["changeset"] as! ObvGroupV2.Changeset
-			block(groupObjectID, changeset)
 		}
 	}
 
@@ -2195,14 +2161,6 @@ enum ObvMessengerInternalNotification {
 		}
 	}
 
-	static func observeUserWantsToRefreshDiscussions(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (@escaping (() -> Void)) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToRefreshDiscussions.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let completionHandler = notification.userInfo!["completionHandler"] as! (() -> Void)
-			block(completionHandler)
-		}
-	}
-
 	static func observeUpdateNormalizedSearchKeyOnPersistedDiscussions(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, (() -> Void)?) -> Void) -> NSObjectProtocol {
 		let name = Name.updateNormalizedSearchKeyOnPersistedDiscussions.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -2304,6 +2262,14 @@ enum ObvMessengerInternalNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let obvGroupIdentifier = notification.userInfo!["obvGroupIdentifier"] as! ObvGroupV1Identifier
 			block(obvGroupIdentifier)
+		}
+	}
+
+	static func observePostUserNotificationAsAnotherCallParticipantStartedCamera(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping ([String]) -> Void) -> NSObjectProtocol {
+		let name = Name.postUserNotificationAsAnotherCallParticipantStartedCamera.name
+		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
+			let otherParticipantNames = notification.userInfo!["otherParticipantNames"] as! [String]
+			block(otherParticipantNames)
 		}
 	}
 

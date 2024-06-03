@@ -61,12 +61,10 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
     private var userInfoForDeletion: [String: Any]?
     private var changedKeys = Set<String>()
 
-    /**
-     * get object permanent Id
-     - Returns objectPermanentID
-     */
-    public var objectPermanentID: MessageReceivedPermanentID {
-        MessageReceivedPermanentID(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: MessageReceivedPermanentID? {
+        guard self.managedObjectContext != nil else { assertionFailure(); return nil }
+        return MessageReceivedPermanentID(uuid: self.permanentUUID)
     }
 
     public override var kind: PersistedMessageKind { .received }
@@ -144,11 +142,12 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
     // MARK: - Processing wipe requests
     
     /// Called when receiving a wipe request from a contact or another owned device. Shall only be called from ``PersistedDiscussion.processWipeMessageRequestForPersistedMessageReceived(among:from:messageUploadTimestampFromServer:)``.
-    override func wipeThisMessage(requesterCryptoId: ObvCryptoId) throws {
+    override func wipeThisMessage(requesterCryptoId: ObvCryptoId) throws -> InfoAboutWipedOrDeletedPersistedMessage {
         for join in fyleMessageJoinWithStatuses {
             try join.wipe()
         }
-        try super.wipeThisMessage(requesterCryptoId: requesterCryptoId)
+        let info = try super.wipeThisMessage(requesterCryptoId: requesterCryptoId)
+        return info
     }
 
     // MARK: - Updating a message
@@ -586,8 +585,7 @@ extension PersistedMessageReceived {
     }
 
     var shareActionCanBeMadeAvailableForReceivedMessage: Bool {
-        guard !readingRequiresUserAction else { return false }
-        return !isEphemeralMessageWithUserAction
+        return !isWiped && !readingRequiresUserAction && !isEphemeralMessageWithUserAction
     }
     
     var forwardActionCanBeMadeAvailableForReceivedMessage: Bool {
@@ -598,15 +596,6 @@ extension PersistedMessageReceived {
         return !metadata.isEmpty
     }
 
-    var replyToActionCanBeMadeAvailableForReceivedMessage: Bool {
-        guard let discussion else { return false }
-        guard discussion.status == .active else { return false }
-        if readOnce {
-            return status == .read
-        }
-        return true
-    }
-    
     var deleteOwnReactionActionCanBeMadeAvailableForReceivedMessage: Bool {
         return reactions.contains { $0 is PersistedMessageReactionSent }
     }
@@ -1225,6 +1214,10 @@ extension PersistedMessageReceived {
 
     public var fyleMessageJoinWithStatusesOfAudioType: [ReceivedFyleMessageJoinWithStatus] {
         fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .audio) })
+    }
+
+    public var fyleMessageJoinWithStatusesOfPDFOrOtherDocumentLikeType: [ReceivedFyleMessageJoinWithStatus] {
+        fyleMessageJoinWithStatuses.filter({ $0.contentType.conforms(to: .pdf) })
     }
 
     /**

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,7 +37,7 @@ protocol AttachmentChunkDownloadProgressTracker: AnyObject {
 }
 
 
-/// An instance of this class servers as a delegate for an URLSession allowing to download an attachment chunk. As a consequence, this class cannot have any strong reference to other classes, like the delegate manager for example.
+/// An instance of this class serves as a delegate for an URLSession allowing to download an attachment chunk. As a consequence, this class cannot have any strong reference to other classes, like the delegate manager for example.
 /// This is also the reason why we receive a context in the initializer.
 final class DownloadAttachmentChunksSessionDelegate: NSObject {
 

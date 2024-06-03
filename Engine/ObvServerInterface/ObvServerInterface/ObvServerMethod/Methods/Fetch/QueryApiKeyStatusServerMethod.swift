@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,8 +31,9 @@ public final class QueryApiKeyStatusServerMethod: ObvServerDataMethod {
 
     public let pathComponent = "/queryApiKeyStatus"
 
-    public var serverURL: URL { return ownedIdentity.serverURL }
-    public let ownedIdentity: ObvCryptoIdentity
+    public var serverURL: URL { return ownedCryptoId.serverURL }
+    public var ownedIdentity: ObvCryptoIdentity? { ownedCryptoId }
+    private let ownedCryptoId: ObvCryptoIdentity
     public let apiKey: UUID
     public let flowId: FlowIdentifier
     public let isActiveOwnedIdentityRequired = false
@@ -40,7 +41,7 @@ public final class QueryApiKeyStatusServerMethod: ObvServerDataMethod {
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
     public init(ownedIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) {
-        self.ownedIdentity = ownedIdentity
+        self.ownedCryptoId = ownedIdentity
         self.apiKey = apiKey
         self.flowId = flowId
     }
@@ -56,7 +57,7 @@ public final class QueryApiKeyStatusServerMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        return [ownedIdentity.getIdentity(),
+        return [ownedCryptoId.getIdentity(),
                 apiKey].obvEncode().rawData
     }()
     

@@ -1073,14 +1073,14 @@ extension OwnedIdentityTransferProtocol {
                     // identity manager's database
 
                     do {
-                        let allOwnedIdentities = try identityDelegate.getOwnedIdentities(within: obvContext)
+                        let activeOwnedCryptoIdsAndCurrentDeviceUIDs = try identityDelegate.getActiveOwnedIdentitiesAndCurrentDeviceUids(within: obvContext)
                         let flowId = obvContext.flowId
                         let networkFetchDelegate = self.networkFetchDelegate
                         try obvContext.addContextDidSaveCompletionHandler { error in
                             guard error == nil else { return }
                             Task {
                                 do {
-                                    try await networkFetchDelegate.updatedListOfOwnedIdentites(ownedIdentities: allOwnedIdentities, flowId: flowId)
+                                    try await networkFetchDelegate.updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: activeOwnedCryptoIdsAndCurrentDeviceUIDs, flowId: flowId)
                                 } catch {
                                     assertionFailure(error.localizedDescription)
                                 }

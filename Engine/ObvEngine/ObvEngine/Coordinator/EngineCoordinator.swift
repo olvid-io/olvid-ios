@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -85,7 +85,7 @@ final class EngineCoordinator {
                 Task { [weak self] in await self?.processNewRemoteOwnedDevice(ownedCryptoId: ownedCryptoId, remoteDeviceUid: remoteDeviceUid, createdDuringChannelCreation: createdDuringChannelCreation) }
             },
             ObvIdentityNotificationNew.observeOwnedIdentityWasDeleted(within: notificationDelegate) { [weak self] ownedCryptoId in
-                self?.processOwnedIdentityWasDeleted(ownedCryptoId: ownedCryptoId)
+                Task { [weak self] in await self?.processOwnedIdentityWasDeleted(ownedCryptoId: ownedCryptoId) }
             }
         ])
         
@@ -217,7 +217,12 @@ extension EngineCoordinator {
             os_log("Could not download all user data after restoring backup: %{public}@", log: log, type: .fault, error.localizedDescription)
             assertionFailure()
         }
-        await informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
+        do {
+            try await informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
+        } catch {
+            os_log("Failed to inform the network fetch manager about the latest owned identities: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure()
+        }
     }
     
     
@@ -637,13 +642,20 @@ extension EngineCoordinator {
 
         
     /// Almost all the owned identity deletion work is performed in the OwnedIdentityDeletionProtocol (including deleting messages from the Inbox/Outbox).
-    /// Here, we simply clean the PersistedEngineDialog database.
-    private func processOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoIdentity) {
+    /// Here, we simply clean the PersistedEngineDialog database and inform the network fetch manager about the new list of active owned identities (this essentially makes sure the appropriate WebSockets are connected).
+    private func processOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoIdentity) async {
      
         guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
         guard let appNotificationCenter = self.appNotificationCenter else { return }
         
         let log = self.log
+        
+        do {
+            try await informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
+        } catch {
+            os_log("Failed inform the fetch manager about the deleted owned identity: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure() // In production, continue anyway
+        }
 
         createContextDelegate.performBackgroundTask(flowId: FlowIdentifier()) { obvContext in
             
@@ -829,27 +841,33 @@ extension EngineCoordinator {
     }
 
     
-    private func informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities() async {
+    private func informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities() async throws {
         
-        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
-        guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
         guard let networkFetchDelegate = delegateManager?.networkFetchDelegate else { assertionFailure(); return }
         
         let flowId = FlowIdentifier()
-        var _ownedIdentities: Set<ObvCryptoIdentity>?
-        createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
-            _ownedIdentities = try? identityDelegate.getOwnedIdentities(within: obvContext)
+        let activeOwnedCryptoIdsAndCurrentDeviceUIDs = try await getActiveOwnedIdentitiesAndCurrentDeviceUids(flowId: flowId)
+        try await networkFetchDelegate.updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: activeOwnedCryptoIdsAndCurrentDeviceUIDs, flowId: flowId)
+
+    }
+    
+    
+    private func getActiveOwnedIdentitiesAndCurrentDeviceUids(flowId: FlowIdentifier) async throws -> Set<OwnedCryptoIdentityAndCurrentDeviceUID> {
+        guard let delegateManager else { assertionFailure(); throw ObvError.delegateManagerIsNotSet }
+        guard let identityDelegate = delegateManager.identityDelegate else { assertionFailure(); throw ObvError.theIdentityDelegateIsNotSet }
+        guard let createContextDelegate = delegateManager.createContextDelegate else { assertionFailure(); throw ObvError.theCreateContextDelegateIsNotSet }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<OwnedCryptoIdentityAndCurrentDeviceUID>, Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let ownedCryptoIds = try identityDelegate.getActiveOwnedIdentitiesAndCurrentDeviceUids(within: obvContext)
+                    return continuation.resume(returning: ownedCryptoIds)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
         }
-        guard let ownedIdentities = _ownedIdentities else {
-            os_log("Could not get set of all owned identities", log: log, type: .fault)
-            assertionFailure()
-            return
-        }
-        do {
-            try await networkFetchDelegate.updatedListOfOwnedIdentites(ownedIdentities: ownedIdentities, flowId: flowId)
-        } catch {
-            assertionFailure(error.localizedDescription)
-        }
+        
+        
     }
     
     

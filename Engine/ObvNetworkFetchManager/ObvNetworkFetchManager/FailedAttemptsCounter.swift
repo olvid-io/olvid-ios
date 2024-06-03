@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,26 +33,34 @@ struct FailedAttemptsCounterManager {
         case registerPushNotification(ownedIdentity: ObvCryptoIdentity)
         case downloadMessagesAndListAttachments(ownedIdentity: ObvCryptoIdentity)
         case downloadAttachment(attachmentId: ObvAttachmentIdentifier)
-        case processPendingDeleteFromServer(messageId: ObvMessageIdentifier)
         case serverQuery(objectID: NSManagedObjectID)
         case serverUserData(input: ServerUserDataInput)
         case queryServerWellKnown(serverURL: URL)
         case freeTrialQuery(ownedIdentity: ObvCryptoIdentity)
         case downloadOfExtendedMessagePayload(messageId: ObvMessageIdentifier)
+        case sendingWebSocketRegisterMessage
+        case webSocketTask(webSocketServerURL: URL?)
+        case batchDeleteAndMarkAsListed(ownedCryptoIdentity: ObvCryptoIdentity)
     }
     
     private var _downloadMessagesAndListAttachments = [ObvCryptoIdentity: Int]()
     private var _sessionCreation = [ObvCryptoIdentity: Int]()
     private var _registerPushNotification = [ObvCryptoIdentity: Int]()
     private var _downloadAttachment = [ObvAttachmentIdentifier: Int]()
-    private var _processPendingDeleteFromServer = [ObvMessageIdentifier: Int]()
     private var _serverQuery = [NSManagedObjectID: Int]()
     private var _serverUserData = [ServerUserDataInput: Int]()
     private var _queryServerWellKnown = [URL: Int]()
     private var _freeTrialQuery = [ObvCryptoIdentity: Int]()
     private var _downloadOfExtendedMessagePayload = [ObvMessageIdentifier: Int]()
+    private var _sendingWebSocketRegisterMessage: Int?
+    private var _webSocketTask = [URL?: Int]()
+    private var _batchDeleteAndMarkAsListed = [ObvCryptoIdentity: Int]()
 
     private var count: Int = 0
+    
+    mutating func getCurrentDelay(_ counter: Counter) -> Int {
+        return incrementAndGetDelay(counter, increment: 0)
+    }
     
     mutating func incrementAndGetDelay(_ counter: Counter, increment: Int = 1) -> Int {
         var localCounter = 0
@@ -79,10 +87,6 @@ struct FailedAttemptsCounterManager {
                 localCounter = (_downloadAttachment[attachmentId] ?? 0) + increment
                 _downloadAttachment[attachmentId] = localCounter
                 
-            case .processPendingDeleteFromServer(messageId: let messageId):
-                localCounter = (_processPendingDeleteFromServer[messageId] ?? 0) + increment
-                _processPendingDeleteFromServer[messageId] = localCounter
-
             case .serverQuery(objectID: let objectID):
                 _serverQuery[objectID] = (_serverQuery[objectID] ?? 0) + increment
                 localCounter = _serverQuery[objectID] ?? 0
@@ -98,6 +102,18 @@ struct FailedAttemptsCounterManager {
             case .downloadOfExtendedMessagePayload(messageId: let messageId):
                 _downloadOfExtendedMessagePayload[messageId] = (_downloadOfExtendedMessagePayload[messageId] ?? 0) + increment
                 localCounter = _downloadOfExtendedMessagePayload[messageId] ?? 0
+                
+            case .sendingWebSocketRegisterMessage:
+                _sendingWebSocketRegisterMessage = (_sendingWebSocketRegisterMessage ?? 0) + increment
+                localCounter = _sendingWebSocketRegisterMessage ?? 0
+                
+            case .webSocketTask(webSocketServerURL: let webSocketServerURL):
+                _webSocketTask[webSocketServerURL] = (_webSocketTask[webSocketServerURL] ?? 0) + increment
+                localCounter = _webSocketTask[webSocketServerURL] ?? 0
+                
+            case .batchDeleteAndMarkAsListed(ownedCryptoIdentity: let ownedCryptoIdentity):
+                _batchDeleteAndMarkAsListed[ownedCryptoIdentity] = _batchDeleteAndMarkAsListed[ownedCryptoIdentity, default: 0] + increment
+                localCounter = _batchDeleteAndMarkAsListed[ownedCryptoIdentity] ?? 0
 
             }
 
@@ -123,9 +139,6 @@ struct FailedAttemptsCounterManager {
             case .downloadAttachment(attachmentId: let attachmentId):
                 _downloadAttachment.removeValue(forKey: attachmentId)
                 
-            case .processPendingDeleteFromServer(messageId: let messageId):
-                _processPendingDeleteFromServer.removeValue(forKey: messageId)
-
             case .serverQuery(objectID: let objectID):
                 _serverQuery.removeValue(forKey: objectID)
 
@@ -137,6 +150,15 @@ struct FailedAttemptsCounterManager {
                 
             case .downloadOfExtendedMessagePayload(messageId: let messageId):
                 _downloadOfExtendedMessagePayload.removeValue(forKey: messageId)
+                
+            case .sendingWebSocketRegisterMessage:
+                _sendingWebSocketRegisterMessage = nil
+                
+            case .webSocketTask(webSocketServerURL: let webSocketServerURL):
+                _webSocketTask.removeValue(forKey: webSocketServerURL)
+                
+            case .batchDeleteAndMarkAsListed(ownedCryptoIdentity: let ownedCryptoIdentity):
+                _batchDeleteAndMarkAsListed.removeValue(forKey: ownedCryptoIdentity)
                 
             }
         }
@@ -150,11 +172,13 @@ struct FailedAttemptsCounterManager {
             _sessionCreation.removeAll()
             _registerPushNotification.removeAll()
             _downloadAttachment.removeAll()
-            _processPendingDeleteFromServer.removeAll()
             _serverQuery.removeAll()
             _serverUserData.removeAll()
             _queryServerWellKnown.removeAll()
             _downloadOfExtendedMessagePayload.removeAll()
+            _sendingWebSocketRegisterMessage = nil
+            _webSocketTask.removeAll()
+            _batchDeleteAndMarkAsListed.removeAll()
         }
     }
 

@@ -31,14 +31,13 @@ import ObvDesignSystem
 
 /// First table view controller shown when navigating to the backup settings.
 @MainActor
-final class BackupTableViewController: UITableViewController, ObvErrorMaker {
+final class BackupTableViewController: UITableViewController {
 
     private var notificationTokens = [NSObjectProtocol]()
 
     private var backupKeyInformationState: BackupKeyInformationState
 
     private let log = OSLog(subsystem: ObvMessengerConstants.logSubsystem, category: String(describing: BackupTableViewController.self))
-    static let errorDomain = "BackupTableViewController"
     private var lastCloudBackupState: LastCloudBackupState?
     private var ckRecordCountState: CKRecordCountState?
     private let obvEngine: ObvEngine
@@ -591,7 +590,7 @@ extension BackupTableViewController {
                     if let creationDate = latestBackup.creationDate {
                         self.lastCloudBackupState = .lastBackup(creationDate)
                     } else {
-                        self.lastCloudBackupState = .error(.operationError(Self.makeError(message: "Cannot get last backup creationDate")))
+                        self.lastCloudBackupState = .error(.operationError(ObvError.cannotGetLastBackupCreationDate))
                     }
                 } else {
                     self.lastCloudBackupState = .noBackups
@@ -714,7 +713,7 @@ extension BackupTableViewController {
         }
         guard let (title, message) = AppBackupManager.CKAccountStatusMessage(accountStatus) else {
             assertionFailure()
-            throw Self.makeError(message: "Cannot compute error title and message")
+            throw ObvError.cannotComputeErrorTitleAndMessage
         }
         DispatchQueue.main.async {
             let alert = UIAlertController(title: title,
@@ -724,7 +723,7 @@ extension BackupTableViewController {
             })
             self.present(alert, animated: true)
         }
-        throw Self.makeError(message: message)
+        throw ObvError.ckAccountStatusMessageError(message: message)
     }
 
     
@@ -810,6 +809,19 @@ extension BackupTableViewController {
     }
 
 
+}
+
+
+// MARK: - Errors
+
+extension BackupTableViewController {
+    
+    enum ObvError: Error {
+        case cannotGetLastBackupCreationDate
+        case cannotComputeErrorTitleAndMessage
+        case ckAccountStatusMessageError(message: String)
+    }
+    
 }
 
 

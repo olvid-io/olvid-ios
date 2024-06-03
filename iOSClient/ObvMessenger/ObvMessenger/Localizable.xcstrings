@@ -37,6 +37,16 @@
         }
       }
     },
+    "(%lld)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        }
+      }
+    },
     "%@" : {
       "localizations" : {
         "en" : {
@@ -327,6 +337,22 @@
         }
       }
     },
+    "A_PARTICIPANT_STARTED_THEIR_CAMERA" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video call started"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appel vidéo en cours"
+          }
+        }
+      }
+    },
     "Abort" : {
       "comment" : "Abort word, capitalized",
       "localizations" : {
@@ -410,6 +436,38 @@
         }
       }
     },
+    "ACTION_TITLE_COPY_LINK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy the link"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier le lien"
+          }
+        }
+      }
+    },
+    "ACTION_TITLE_FETCH_NEW_MESSAGES" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get new messages"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chercher les nouveaux messages"
+          }
+        }
+      }
+    },
     "Actions" : {
       "comment" : "Actions word, capitalized",
       "localizations" : {
@@ -472,6 +530,24 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Active"
+          }
+        }
+      }
+    },
+    "Add a reaction" : {
+      "comment" : "Title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a reaction"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une réaction"
           }
         }
       }
@@ -556,34 +632,18 @@
         }
       }
     },
-    "ADD_GROUP_MEMBERS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add group members"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter des membres"
-          }
-        }
-      }
-    },
     "ADD_MEMBER_BY_TAPPING_EDIT_GROUP_MEMBERS_BUTTON" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You are the only member of this group 😅. Start adding group members by tapping the \"Edit members\" button above ☝️."
+            "value" : "You are the only member of this group 😅. Start adding group members by tapping the **Edit group** button above ☝️."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vous êtes le seul membre de ce groupe 😅. Ajoutez des membres en touchant le bouton \"Modifier les membres\" ☝️."
+            "value" : "Vous êtes le seul membre de ce groupe 😅. Ajoutez des membres en touchant le bouton **Modifier le groupe** ☝️."
           }
         }
       }
@@ -2144,6 +2204,22 @@
         }
       }
     },
+    "By default, pressing Enter sends your message. You can customize this shortcut to use Cmd+Enter instead." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By default, pressing Enter sends your message. You can customize this shortcut to use Cmd+Enter instead."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyer sur Entrée envoie votre message par défaut. Vous pouvez configurer le raccourci pour utiliser Cmd+Entrée à la place."
+          }
+        }
+      }
+    },
     "Cache management" : {
       "localizations" : {
         "en" : {
@@ -2441,7 +2517,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "CANCEL"
+            "value" : "Cancel"
           }
         },
         "fr" : {
@@ -2561,6 +2637,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Certifiée par un fournisseur d'identité"
+          }
+        }
+      }
+    },
+    "CHANGE_MY_REACTION" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change my reaction"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changer ma réaction"
           }
         }
       }
@@ -2723,23 +2816,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supprimer sur tous mes appareils"
-          }
-        }
-      }
-    },
-    "CHOOSE_GROUP_CUSTOM_NAME_AND_PHOTO_TITLE" : {
-      "comment" : "View controller title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Custom photo and group name"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Photo et nom personnalisés"
           }
         }
       }
@@ -2953,6 +3029,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Participants choisis"
+          }
+        }
+      }
+    },
+    "CHOSEN_MEMBERS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chosen members"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membres choisis"
           }
         }
       }
@@ -3356,6 +3449,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Paramétrer les sauvegardes"
+          }
+        }
+      }
+    },
+    "CONFIGURE_KEYBOARD_SHORTCUT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure keyboard shortcut"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurer le raccourci clavier"
           }
         }
       }
@@ -4576,23 +4685,6 @@
         }
       }
     },
-    "Delete all messages" : {
-      "comment" : "Alert action title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete all messages"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer tous les messages"
-          }
-        }
-      }
-    },
     "Delete all messages for all users" : {
       "comment" : "Alert action title",
       "localizations" : {
@@ -4623,23 +4715,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supprimer tous les messages chez tous les utilisateurs ?"
-          }
-        }
-      }
-    },
-    "Delete all messages?" : {
-      "comment" : "Alert title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete all messages?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer tous les messages ?"
           }
         }
       }
@@ -4712,6 +4787,23 @@
         }
       }
     },
+    "DELETE_ALL_MESSAGES" : {
+      "comment" : "Alert title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete all messages"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer tous les messages"
+          }
+        }
+      }
+    },
     "DELETE_ALL_MSGS_ON_ALL_DEVICES__ACTION_IRREVERSIBLE" : {
       "comment" : "Alert message",
       "localizations" : {
@@ -4741,6 +4833,210 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supprimer le contact"
+          }
+        }
+      }
+    },
+    "DELETE_DISCUSSION_FROM_ALL_OWNED_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From all my devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tous mes appareils"
+          }
+        }
+      }
+    },
+    "DELETE_DISCUSSION_FROM_ALL_OWNED_DEVICES_AND_ALL_CONTACTS_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From all my devices and other members' devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tous mes appareils et de ceux des autres membres"
+          }
+        }
+      }
+    },
+    "DELETE_DISCUSSION_FROM_ALL_OWNED_DEVICES_AND_CONTACT_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From all my devices and my contact's devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tous mes appareils et de ceux de mon contact"
+          }
+        }
+      }
+    },
+    "DELETE_DISCUSSION_FROM_THIS_DEVICE_AND_ALL_CONTACTS_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this device and other group members' devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De cet appareil et de ceux des autres membres"
+          }
+        }
+      }
+    },
+    "DELETE_DISCUSSION_FROM_THIS_DEVICE_AND_CONTACT_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this device and my contact's devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De cet appareil et de ceux de mon contact"
+          }
+        }
+      }
+    },
+    "DELETE_DISCUSSION_FROM_THIS_DEVICE_ONLY" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De cet appareil"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_ALL_OWNED_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From all my devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tous mes appareils"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_ALL_OWNED_DEVICES_AND_ALL_CONTACTS_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From all my devices and other members' devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tous mes appareils et de ceux des autres membres"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_ALL_OWNED_DEVICES_AND_CONTACT_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From all my devices and my contact's devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tous mes appareils et de ceux de mon contact"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_THIS_DEVICE_AND_ALL_CONTACTS_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this device and other group members' devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De cet appareil et de ceux des autres membres"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_THIS_DEVICE_AND_CONTACT_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this device and my contact's devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De cet appareil et de ceux de mon contact"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_THIS_DEVICE_ONLY" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De cet appareil"
           }
         }
       }
@@ -4874,6 +5170,22 @@
         }
       }
     },
+    "DELETE_THIS_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer ce profil"
+          }
+        }
+      }
+    },
     "DELETE_USER_ACTION_TITLE" : {
       "comment" : "Action title",
       "localizations" : {
@@ -4970,6 +5282,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Distribué"
+          }
+        }
+      }
+    },
+    "DESELECT_ALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deselect all"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout désélectionner"
           }
         }
       }
@@ -5428,7 +5756,42 @@
         }
       }
     },
+    "DISCUSSION_ADMIN_CHOICE" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin's choice"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choix des admins"
+          }
+        }
+      }
+    },
+    "DISCUSSION_EPHEMERAL_MESSAGES" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parameters of ephemeral messages"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paramètres des messages éphémères"
+          }
+        }
+      }
+    },
     "DISCUSSION_LAYOUT_TYPE" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5440,6 +5803,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Layout de discussion"
+          }
+        }
+      }
+    },
+    "DISCUSSION_MODERATION" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Messages' moderation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modération des messages"
           }
         }
       }
@@ -5456,6 +5836,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Emoji rapide pour cette discussion"
+          }
+        }
+      }
+    },
+    "DISCUSSION_READ_ONLY" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture seule"
           }
         }
       }
@@ -5695,23 +6092,6 @@
         }
       }
     },
-    "Do you wish to delete all the messages within this discussion? This action is irreversible." : {
-      "comment" : "Alert message",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Do you wish to delete all the messages within this discussion? This action is irreversible."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voulez-vous supprimer tous les messages de cette discussion ? Attention, cette opération est irréversible."
-          }
-        }
-      }
-    },
     "Do you wish to open %@ in Safari?" : {
       "comment" : "Alert message",
       "localizations" : {
@@ -5807,6 +6187,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Documents"
+          }
+        }
+      }
+    },
+    "DONT_TURN_ON" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Don't turn on"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne pas activer"
           }
         }
       }
@@ -5975,34 +6371,36 @@
         }
       }
     },
-    "EDIT_GROUP_DETAILS_AS_ADMINISTRATOR_BUTTON_TITLE" : {
+    "EDIT_GROUP_AS_ADMINISTRATOR_BUTTON_TITLE" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Edit title"
+            "value" : "Edit group"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifier le titre"
+            "value" : "Modifier le groupe"
           }
         }
       }
     },
-    "EDIT_GROUP_MEMBERS_AS_ADMINISTRATOR_BUTTON_TITLE" : {
+    "EDIT_GROUP_PARAMETERS" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Edit members"
+            "value" : "Edit parameters"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifier les membres"
+            "value" : "Modifier les paramètres"
           }
         }
       }
@@ -6880,7 +7278,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les achats n'ont pas pu être restaurés : %@."
+            "value" : "Générer des aperçus de liens s'ils sont manquants"
           }
         }
       }
@@ -7588,6 +7986,40 @@
         }
       }
     },
+    "GROUP_PARAMETERS_TITLE" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group's parameters"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paramètres de discussion"
+          }
+        }
+      }
+    },
+    "GROUP_TYPE_TITLE" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group types"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Types de discussion"
+          }
+        }
+      }
+    },
     "GROUP_UPDATE_IN_PROGRESS_EXPLANATION_BODY" : {
       "localizations" : {
         "en" : {
@@ -7732,6 +8164,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cacher le contenu"
+          }
+        }
+      }
+    },
+    "HIDE_GROUP_MEMBER_CHANGE_MESSAGES_CELL_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When activated, messages indicating that a group member joined or left a group will not be displayed in your discussions."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une fois cette option activée, les messages indiquant qu'un membre à rejoint ou quitté un groupe ne seront plus affichés dans vos discussions."
+          }
+        }
+      }
+    },
+    "HIDE_GROUP_MEMBER_CHANGE_MESSAGES_CELL_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide group member change messages"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masquer les messages de modification de groupe"
           }
         }
       }
@@ -9313,6 +9777,22 @@
         }
       }
     },
+    "KEYBOARD_SHORTCUT_FOR_SENDING_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keyboard shortcut for sending a message"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raccourci clavier pour envoyer un message"
+          }
+        }
+      }
+    },
     "KEYCLOAK_AUTHENTICATION_FAILED_ALERT" : {
       "localizations" : {
         "en" : {
@@ -9525,6 +10005,134 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utiliser un serveur d'identités"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_ADVANCED_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unleash the full power of Olvid groups!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Libérez toute la puissance des groupes Olvid !"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_ADVANCED_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avancé"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_MANAGED_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only administrators can invite new members."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seuls les administrateurs peuvent inviter de nouveaux membres."
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_MANAGED_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controlled"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maîtrisé"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_READ_ONLY_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only administrators can post messages."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seuls les administrateurs peuvent écrire des messages."
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_READ_ONLY_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture seule"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_STANDARD_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All group members can invite new members."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les membres peuvent inviter de nouveaux membres."
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_STANDARD_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard"
           }
         }
       }
@@ -11150,6 +11758,38 @@
         }
       }
     },
+    "NAME_OF_COMMAND_PLUS_ENTER_KEYBOARD_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cmd+Enter"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cmd+Entrée"
+          }
+        }
+      }
+    },
+    "NAME_OF_ENTER_KEYBOARD_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrée"
+          }
+        }
+      }
+    },
     "Never" : {
       "comment" : "Never word, capitalized",
       "localizations" : {
@@ -11380,6 +12020,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nouvel appareil"
+          }
+        }
+      }
+    },
+    "NEW_GROUP" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveau groupe"
           }
         }
       }
@@ -13756,6 +14413,22 @@
         }
       }
     },
+    "PERFORM_MANUAL_BACKUP_NOW" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make a backup now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faire une sauvegarde maintenant"
+          }
+        }
+      }
+    },
     "PERMUTE_DEVICE_EXPIRATION_CONFIRMATION_ALERT_TITLE" : {
       "localizations" : {
         "en" : {
@@ -14078,7 +14751,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce code n'est utilisable qu'une seul fois."
+            "value" : "Ce code n'est utilisable qu'une seule fois."
           }
         }
       }
@@ -14127,6 +14800,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Veuillez lancer l'app Olvid afin de terminer la mise à jour 🚀. Vous pourrez à nouveau partager du contenu une fois que ce sera fait 😉."
+          }
+        }
+      }
+    },
+    "PLEASE_WAIT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please wait..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez patienter..."
           }
         }
       }
@@ -14287,6 +14976,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Abonnement premium"
+          }
+        }
+      }
+    },
+    "Pressing Enter sends your message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pressing Enter sends your message"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appuyez sur Entrée pour envoyer votre message"
+          }
+        }
+      }
+    },
+    "PREV_DISCUSSION_REMOTE_DELETE_TITLE" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Who can \"delete everywhere\" messages from other users?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qui peut «supprimer partout» les messages d'autres utilisateurs ?"
           }
         }
       }
@@ -14599,6 +15321,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lu"
+          }
+        }
+      }
+    },
+    "Read receipts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read receipts"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmations de lecture"
           }
         }
       }
@@ -15944,6 +16682,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choisir"
+          }
+        }
+      }
+    },
+    "SELECT_ALL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select all"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout sélectionner"
           }
         }
       }
@@ -17557,13 +18312,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Please choose who to add to this group. Can't find the user you are looking for? Please ask them to upgrade to the latest version of Olvid 🚀."
+            "value" : "Please choose who to add to this group."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choisissez qui ajouter à ce groupe. Vous ne trouvez pas la personne que vous cherchez ? Demandez-lui de mettre à jour Olvid 🚀 !"
+            "value" : "Choisissez qui ajouter à ce groupe."
           }
         }
       }
@@ -17876,6 +18631,22 @@
         }
       }
     },
+    "TAP_HERE_TO_SEE_THE_PARTICIPANT_VIDEO" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "👉 Tap to view the participant's video"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "👉 Touchez pour voir la vidéo du participant"
+          }
+        }
+      }
+    },
     "TAP_TO_SEE_THE_REACTION" : {
       "localizations" : {
         "en" : {
@@ -17936,6 +18707,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre serveur d'identités indique qu'un ID Olvid est déjà associé avec votre compte utilisateur. Si vous continuez, cet ID Olvid sera révoqué et remplacé par votre nouvel ID.\nVeuillez contacter votre administrateur si vous désirez plus d'informations."
+          }
+        }
+      }
+    },
+    "TEXT_GROUP_REMOTE_DELETE_SETTING_ADMINS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admins only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les administrateurs uniquement"
+          }
+        }
+      }
+    },
+    "TEXT_GROUP_REMOTE_DELETE_SETTING_EVERYONE" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everyone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout le monde"
+          }
+        }
+      }
+    },
+    "TEXT_GROUP_REMOTE_DELETE_SETTING_NOBODY" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personne"
           }
         }
       }
@@ -18318,6 +19140,23 @@
         }
       }
     },
+    "THIS_ACTION_IS_IRREVERSIBLE" : {
+      "comment" : "Alert message",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This action is irreversible!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette action est irréversible !"
+          }
+        }
+      }
+    },
     "THIS_ID_IS_THE_ONE_YOU_OWN" : {
       "localizations" : {
         "en" : {
@@ -18411,6 +19250,102 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Minuteur"
+          }
+        }
+      }
+    },
+    "TIP_CREATE_BACKUP_KEY_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backups are crucial as they remain the sole method for recovering your profile and contacts in case of losing device access."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les sauvegardes sont le seul moyen de récupérer votre profil et les contacts en cas de perte d'accès à l'appareil."
+          }
+        }
+      }
+    },
+    "TIP_CREATE_BACKUP_KEY_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup your profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauvegarder votre profil"
+          }
+        }
+      }
+    },
+    "TIP_SHOULD_PERFORM_BACKUP_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Making a backup ensures you won't lose your profile if you lose access to your device."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faire une sauvegarde garantit que vous ne perdrez pas votre profil si vous perdez l'accès à votre appareil."
+          }
+        }
+      }
+    },
+    "TIP_SHOULD_PERFORM_BACKUP_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It's backup time!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il est temps de faire une sauvegarde !"
+          }
+        }
+      }
+    },
+    "TIP_SHOULD_VERIFY_BACKUP_KEY_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your backup key is crucial as it is required to restore your profiles' backups in case of losing device access."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre clé de sauvegarde est essentielle car elle est nécessaire pour restaurer les sauvegardes de vos profils en cas de perte d'accès à votre dispositif."
+          }
+        }
+      }
+    },
+    "TIP_SHOULD_VERIFY_BACKUP_KEY_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do you remember your backup key?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous souvenez-vous de votre clé de sauvegarde ?"
           }
         }
       }
@@ -18614,6 +19549,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Essayez les appels sécurisés gratuitement pendant 30 jours. Cette offre d'essai ne peut être activée qu'une seule fois."
+          }
+        }
+      }
+    },
+    "Turn on read receipts to let your contacts know when you've read their messages. You can adjust this setting anytime." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on read receipts to let your contacts know when you've read their messages. You can adjust this setting anytime."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activez les confirmations de lecture pour informer vos contacts lorsque vous avez lu leurs messages. Vous pouvez ajuster ce paramètre à tout moment."
+          }
+        }
+      }
+    },
+    "TURN_ON" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer"
           }
         }
       }
@@ -19122,6 +20089,23 @@
         }
       }
     },
+    "UPDATE_GROUP" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modification du groupe"
+          }
+        }
+      }
+    },
     "UPDATE_YOUR_ALREADY_SENT_MESSAGE" : {
       "localizations" : {
         "en" : {
@@ -19392,6 +20376,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vérifier la clé de sauvegarde"
+          }
+        }
+      }
+    },
+    "VERIFY_BACKUP_KEY_NOW" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify my backup key now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifier ma clé de sauvegarde maintenant"
           }
         }
       }

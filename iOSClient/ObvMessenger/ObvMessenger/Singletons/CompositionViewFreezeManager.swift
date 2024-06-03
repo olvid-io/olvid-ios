@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -67,7 +67,7 @@ final class CompositionViewFreezeManager {
     /// Called by all `NewComposeMessageView` at init
     func register(_ composeView: NewComposeMessageView) -> (freezeId: UUID?, progress: Progress?) {
 
-        let draftPermanentID = composeView.draft.objectPermanentID
+        guard let draftPermanentID = composeView.draft.objectPermanentID else { assertionFailure(); return (nil, nil)}
 
         var freezeId: UUID? = nil
         var progress: Progress? = nil
@@ -91,7 +91,7 @@ final class CompositionViewFreezeManager {
     
     
     func unregister(_ composeView: NewComposeMessageView) {
-        let draftPermanentID = composeView.draft.objectPermanentID
+        guard let draftPermanentID = composeView.draft.objectPermanentID else { assertionFailure(); return }
         internalQueue.sync {
             cleanCurrentFreezeIds(for: draftPermanentID)
         }
@@ -112,7 +112,7 @@ final class CompositionViewFreezeManager {
     
     /// Called by a `NewComposeMessageView` when it shall freeze
     func freeze(_ composeView: NewComposeMessageView) throws {
-        let draftPermanentID = composeView.draft.objectPermanentID
+        guard let draftPermanentID = composeView.draft.objectPermanentID else { assertionFailure(); return }
         internalQueue.sync {
             cleanCurrentFreezeIds(for: draftPermanentID)
             guard let existingValues = currentFreezeIds.removeValue(forKey: draftPermanentID) else {

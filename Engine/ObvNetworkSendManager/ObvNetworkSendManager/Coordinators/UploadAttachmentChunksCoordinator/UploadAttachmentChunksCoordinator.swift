@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -44,22 +44,10 @@ final class UploadAttachmentChunksCoordinator: NSObject {
     
     private let localQueue = DispatchQueue(label: "UploadAttachmentChunksCoordinatorQueue")
     
-    private let internalOperationQueue: OperationQueue
-    
     init(appType: AppType, sharedContainerIdentifier: String, outbox: URL) {
         self.currentAppType = appType
         self.sharedContainerIdentifier = sharedContainerIdentifier
         self.outbox = outbox
-        self.internalOperationQueue = OperationQueue()
-        self.internalOperationQueue.name = "Queue for UploadAttachmentChunksCoordinator operations"
-        // We limit the number of concurrent operations in the queue to reduce the memory footprint.
-        // This is particularly important in the case of the share extension, which is limited to 120MB of memory.
-        switch appType {
-        case .mainApp:
-            internalOperationQueue.maxConcurrentOperationCount = 4
-        case .shareExtension, .notificationExtension:
-            internalOperationQueue.maxConcurrentOperationCount = 1
-        }
         super.init()
     }
     
@@ -262,8 +250,8 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
             }
             
             // We prevent any interference with previous operations
-            internalOperationQueue.addBarrierBlock({})
-            internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: false)
+            //internalOperationQueue.addBarrierBlock({})
+            delegateManager.queueSharedAmongCoordinators.addOperations(operationsToQueue, waitUntilFinished: false)
 
         }
         
@@ -331,14 +319,14 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
             }
             
             // We prevent any interference with previous operations
-            internalOperationQueue.addBarrierBlock({})
+            //internalOperationQueue.addBarrierBlock({})
             /* Waiting for the operation to be finished is important:
              * - Waiting for ReCreateURLSessionWithNewDelegateForAttachmentUploadOperation to be finished is important since it is the existence
              *   of the session for a given attachment that allows to decide whether it shall be resumed or not
              * - Waiting for the tasks to be passed to the system is important especially in the background. Failing to do so would lead to
              *   an "early" call of the completion handler that would prevent the resume of missing tasks for an upload
              */
-            internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
+            delegateManager.queueSharedAmongCoordinators.addOperations(operationsToQueue, waitUntilFinished: true)
             
         } /* end of localQueue.sync */
                 
@@ -390,8 +378,8 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
                                                                                           flowId: flowId,
                                                                                           contextCreator: contextCreator,
                                                                                           attachmentChunkUploadProgressTracker: self)
-            internalOperationQueue.addBarrierBlock({})
-            internalOperationQueue.addOperation(operation)
+            //internalOperationQueue.addBarrierBlock({})
+            delegateManager.queueSharedAmongCoordinators.addOperation(operation)
 
         } /* end of localQueue.sync */
 
@@ -422,7 +410,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
             return
         }
 
-        let internalOperationQueue = self.internalOperationQueue
+        //let internalOperationQueue = self.internalOperationQueue
         let sharedContainerIdentifier = self.sharedContainerIdentifier
         
         localQueue.async {
@@ -448,8 +436,8 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
                                                                                                           sharedContainerIdentifier: sharedContainerIdentifier)
             }
 
-            internalOperationQueue.addBarrierBlock({})
-            internalOperationQueue.addOperations(operationsToQueue, waitUntilFinished: true)
+            //internalOperationQueue.addBarrierBlock({})
+            delegateManager.queueSharedAmongCoordinators.addOperations(operationsToQueue, waitUntilFinished: true)
             
         }
         
@@ -489,11 +477,11 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
         
         let opToQueue = QueryServerForAttachmentsProgressesSentByShareExtensionOperation(flowId: flowId, tracker: self, delegateManager: delegateManager)
         
-        let internalOperationQueue = self.internalOperationQueue
+        //let internalOperationQueue = self.internalOperationQueue
 
         localQueue.async {
 
-            internalOperationQueue.addBarrierBlock({})
+            //internalOperationQueue.addBarrierBlock({})
             
             opToQueue.completionBlock = {
                 guard opToQueue.reasonForCancel == nil else {
@@ -504,7 +492,7 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
                 }
             }
             
-            internalOperationQueue.addOperations([opToQueue], waitUntilFinished: false)
+            delegateManager.queueSharedAmongCoordinators.addOperations([opToQueue], waitUntilFinished: false)
 
         }
         
@@ -551,23 +539,23 @@ extension UploadAttachmentChunksCoordinator: UploadAttachmentChunksDelegate {
                 addStillUploadingCancelledAttachmentsOfMessage(message)
                 
                 // We prevent any interference with previous operations
-                internalOperationQueue.addBarrierBlock({})
+                //internalOperationQueue.addBarrierBlock({})
 
                 for attachment in message.attachments {
                     let op1 = MarkAttachmentAsCancelledOperation(attachmentId: attachment.attachmentId, logSubsystem: delegateManager.logSubsystem, contextCreator: contextCreator, flowId: flowId)
-                    internalOperationQueue.addOperation(op1)
+                    delegateManager.queueSharedAmongCoordinators.addOperation(op1)
                     if let session = attachment.session, let urlSession = findURLSession(withIdentifier: session.sessionIdentifier) {
                         let op2 = CancelAllTasksAndInvalidateURLSessionOperation(urlSession: urlSession)
                         op2.addDependency(op1)
-                        internalOperationQueue.addOperation(op2)
+                        delegateManager.queueSharedAmongCoordinators.addOperation(op2)
                         op2.waitUntilFinished()
                         let op3 = DeleteOutboxAttachmentSessionOperation(attachmentId: attachment.attachmentId, logSubsystem: delegateManager.logSubsystem, contextCreator: contextCreator, flowId: flowId)
                         op3.addDependency(op2)
-                        internalOperationQueue.addOperation(op3)
+                        delegateManager.queueSharedAmongCoordinators.addOperation(op3)
                     }
                 }
 
-                internalOperationQueue.waitUntilAllOperationsAreFinished()
+                delegateManager.queueSharedAmongCoordinators.waitUntilAllOperationsAreFinished()
                                 
             }
             
@@ -813,7 +801,7 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
             if let attachmentSession = attachment.session {
                 removeURLSession(withIdentifier: attachmentSession.sessionIdentifier)
                 let op = DeleteOutboxAttachmentSessionOperation(attachmentId: attachmentId, logSubsystem: delegateManager.logSubsystem, contextCreator: contextCreator, flowId: flowId)
-                internalOperationQueue.addOperations([op], waitUntilFinished: true)
+                delegateManager.queueSharedAmongCoordinators.addOperations([op], waitUntilFinished: true)
                 op.logReasonIfCancelled(log: log)
             }
         }
@@ -874,8 +862,8 @@ extension UploadAttachmentChunksCoordinator: AttachmentChunkUploadProgressTracke
         let log = OSLog(subsystem: ObvNetworkSendDelegateManager.defaultLogSubsystem, category: logCategory)
         os_log("🌊 urlSessionDidFinishEventsForSessionWithIdentifier", log: log, type: .info)
         guard let handler = removeHandlerForIdentifier(identifier) else { return }
-        internalOperationQueue.addBarrierBlock({})
-        internalOperationQueue.addOperation {
+        //internalOperationQueue.addBarrierBlock({})
+        delegateManager?.queueSharedAmongCoordinators.addOperation {
             DispatchQueue.main.async {
                 os_log("🌊 Calling the handler for identifier: %{public}@", log: log, type: .info, identifier.debugDescription)
                 handler()

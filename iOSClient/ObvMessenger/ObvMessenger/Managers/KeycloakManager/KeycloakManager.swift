@@ -30,7 +30,7 @@ import ObvUICoreData
 
 
 @MainActor
-final class KeycloakManagerSingleton: ObvErrorMaker {
+final class KeycloakManagerSingleton {
     
     static var shared = KeycloakManagerSingleton()
     private init() {
@@ -50,8 +50,6 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
             },
         ]
     }
-    
-    static let errorDomain = "KeycloakManagerSingleton"
     
     fileprivate weak var manager: KeycloakManager?
     
@@ -77,7 +75,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     func resumeExternalUserAgentFlow(with url: URL) async throws -> Bool {
         guard let manager = manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         return await manager.resumeExternalUserAgentFlow(with: url)
     }
@@ -86,7 +84,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     func forceSyncManagedIdentitiesAssociatedWithPushTopics(_ receivedPushTopic: String, failedAttempts: Int = 0) async throws {
         guard let manager = manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         try await manager.forceSyncManagedIdentitiesAssociatedWithPushTopics(receivedPushTopic)
     }
@@ -96,7 +94,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     func uploadOwnIdentity(ownedCryptoId: ObvCryptoId) async throws {
         guard let manager = manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         try await manager.uploadOwnIdentity(ownedCryptoId: ownedCryptoId)
     }
@@ -105,7 +103,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     func unregisterKeycloakManagedOwnedIdentity(ownedCryptoId: ObvCryptoId) async throws {
         guard let manager = manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         try await manager.unregisterKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoId)
     }
@@ -114,7 +112,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     func discoverKeycloakServer(for serverURL: URL) async throws -> (ObvJWKSet, OIDServiceConfiguration) {
         guard let manager = manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         return try await manager.discoverKeycloakServer(for: serverURL)
     }
@@ -123,7 +121,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     func authenticate(configuration: OIDServiceConfiguration, clientId: String, clientSecret: String?, ownedCryptoId: ObvCryptoId?) async throws -> OIDAuthState {
         guard let manager = manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         return try await manager.authenticate(configuration: configuration, clientId: clientId, clientSecret: clientSecret, ownedCryptoId: ownedCryptoId)
     }
@@ -133,7 +131,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     func getOwnDetails(keycloakServer: URL, authState: OIDAuthState, clientSecret: String?, jwks: ObvJWKSet, latestLocalRevocationListTimestamp: Date?) async throws -> (keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff) {
         guard let manager = manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         return try await manager.getOwnDetails(keycloakServer: keycloakServer, authState: authState, clientSecret: clientSecret, jwks: jwks, latestLocalRevocationListTimestamp: latestLocalRevocationListTimestamp)
     }
@@ -143,7 +141,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
     func addContact(ownedCryptoId: ObvCryptoId, userIdOrSignedDetails: KeycloakAddContactInfo, userIdentity: Data) async throws {
         guard let manager = manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         try await manager.addContact(ownedCryptoId: ownedCryptoId, userIdOrSignedDetails: userIdOrSignedDetails, userIdentity: userIdentity)
     }
@@ -154,7 +152,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
         assert(Thread.isMainThread)
         guard let manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         return try await manager.search(ownedCryptoId: ownedCryptoId, searchQuery: searchQuery)
     }
@@ -164,7 +162,7 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
         assert(Thread.isMainThread)
         guard let manager else {
             assertionFailure()
-            throw Self.makeError(message: "The internal manager is not set")
+            throw ObvError.theInternalManagerIsNotSet
         }
         return try await manager.syncAllManagedIdentities(ignoreSynchronizationInterval: true)
     }
@@ -179,6 +177,17 @@ final class KeycloakManagerSingleton: ObvErrorMaker {
         } catch {
             os_log("🧥🛜 Call to syncAllManagedIdentities failed: %{public}@", log: KeycloakManager.log, type: .error, error.localizedDescription)
         }
+    }
+    
+}
+
+
+// MARK: - Errors
+
+extension KeycloakManagerSingleton {
+    
+    enum ObvError: Error {
+        case theInternalManagerIsNotSet
     }
     
 }

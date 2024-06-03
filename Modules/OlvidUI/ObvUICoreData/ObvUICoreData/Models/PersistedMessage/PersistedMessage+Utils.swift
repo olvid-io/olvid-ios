@@ -85,11 +85,28 @@ extension PersistedMessage {
 
 extension PersistedMessage {
     
-    private static func getFetchRequestForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>) -> FetchRequestControllerModel<PersistedMessage> {
+    public static func getFetchRequestPredicateForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, includeMembersOfGroupV2WereUpdated: Bool, within context: NSManagedObjectContext) -> NSPredicate {
+        
+        if includeMembersOfGroupV2WereUpdated {
+            return Predicate.withinDiscussion(discussionObjectID)
+        } else {
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withinDiscussion(discussionObjectID),
+                NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.isSystemMessageForMembersOfGroupV2WereUpdated(within: context))
+            ])
+        }
+
+    }
+
+    
+    private static func getFetchRequestForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, includeMembersOfGroupV2WereUpdated: Bool, within context: NSManagedObjectContext) -> FetchRequestControllerModel<PersistedMessage> {
         
         let fetchRequest: NSFetchRequest<PersistedMessage> = PersistedMessage.fetchRequest()
         
-        fetchRequest.predicate = Predicate.withinDiscussion(discussionObjectID)
+        fetchRequest.predicate = Self.getFetchRequestPredicateForAllMessagesWithinDiscussion(
+            discussionObjectID: discussionObjectID,
+            includeMembersOfGroupV2WereUpdated: includeMembersOfGroupV2WereUpdated,
+            within: context)
         
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortIndex.rawValue, ascending: true)]
         fetchRequest.fetchBatchSize = 500
@@ -113,8 +130,11 @@ extension PersistedMessage {
 
     
     /// Method used when navigating to a single discussion, to populate all the cells of a single discussion collection view.
-    public static func getFetchedResultsControllerForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessage> {
-        let fetchRequestModel = Self.getFetchRequestForAllMessagesWithinDiscussion(discussionObjectID: discussionObjectID)
+    public static func getFetchedResultsControllerForAllMessagesWithinDiscussion(discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, includeMembersOfGroupV2WereUpdated: Bool, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedMessage> {
+        let fetchRequestModel = Self.getFetchRequestForAllMessagesWithinDiscussion(
+            discussionObjectID: discussionObjectID,
+            includeMembersOfGroupV2WereUpdated: includeMembersOfGroupV2WereUpdated,
+            within: context)
         let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequestModel.fetchRequest,
                                                                   managedObjectContext: context,
                                                                   sectionNameKeyPath: fetchRequestModel.sectionNameKeyPath,
@@ -216,13 +236,43 @@ extension PersistedMessage {
     }
     
     public var replyToActionCanBeMadeAvailable: Bool {
-        if let receivedMessage = self as? PersistedMessageReceived {
-            return receivedMessage.replyToActionCanBeMadeAvailableForReceivedMessage
-        } else if let sentMessage = self as? PersistedMessageSent {
-            return sentMessage.replyToActionCanBeMadeAvailableForSentMessage
-        } else {
+        assert(Thread.isMainThread)
+        
+        guard !self.isWiped else { return false }
+        
+        do {
+            
+            guard let context = self.managedObjectContext else {
+                assertionFailure()
+                return false
+            }
+            guard context.concurrencyType == .mainQueueConcurrencyType else {
+                assertionFailure()
+                return false
+            }
+
+            let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+            childViewContext.parent = context
+            
+            guard let selfInChildViewContext = try? PersistedMessage.get(with: self.typedObjectID, within: childViewContext) else {
+                assertionFailure()
+                return false
+            }
+            
+            guard let discussionInChildViewContext = selfInChildViewContext.discussion else {
+                assertionFailure()
+                return false
+            }
+            
+            // Simulate the creation of a reply to make sure we are allowed to do so.
+            _ = try PersistedMessageSent.createPersistedMessageSentWhenReplyingFromTheNotificationExtensionNotification(body: "", discussion: discussionInChildViewContext, effectiveReplyTo: selfInChildViewContext as? PersistedMessageReceived)
+            
+        } catch {
             return false
         }
+        
+        return true
+
     }
 
     /// Returns `true` iff the edit body action can be made available for this message. This is expected to be called on the main thread to allow the UI to determine if the edit action can be shown to the user.
@@ -255,76 +305,52 @@ extension PersistedMessage {
         }
     }
     
-
-    /// Returns `true` iff the owned identity is allowed to locally delete this message.
+    
+    /// This is expected to be called from the UI in order to determine which deletion types can be shown.
     ///
-    /// This is expected to be called on the main thread, from the UI, in order to determine if the delete action can be made available for this message.
-    /// We return `true` iff the call to the deletion method would succeed. To do so, we create a child view context on which we simulate the call.
-    public var deleteMessageActionCanBeMadeAvailable: Bool {
+    /// This is implemented by creating a child context in which we simulate the deletion of the message.
+    /// Of course, the child context is not saved to prevent any side-effect (view contexts are never saved anyway).
+    public var deletionTypesThatCanBeMadeAvailableForThisMessage: Set<DeletionType> {
         assert(Thread.isMainThread)
         
         guard let context = self.managedObjectContext else {
             assertionFailure()
-            return false
+            return Set()
         }
         guard context.concurrencyType == .mainQueueConcurrencyType else {
             assertionFailure()
-            return false
+            return Set()
         }
         
-        let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-        childViewContext.parent = context
-        guard let messageInChildViewContext = try? PersistedMessage.get(with: self.typedObjectID, within: childViewContext) else {
-            assertionFailure()
-            return false
-        }
-        guard let ownedIdentity = messageInChildViewContext.discussion?.ownedIdentity else {
-            assertionFailure()
-            return false
-        }
+        var acceptableDeletionTypes = Set<DeletionType>()
+        
+        for deletionType in DeletionType.allCases {
+            
+            let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+            childViewContext.parent = context
+            guard let messageInChildViewContext = try? PersistedMessage.get(with: self.typedObjectID, within: childViewContext) else {
+                assertionFailure()
+                return Set()
+            }
+            guard let discussionInChildViewContext = messageInChildViewContext.discussion else {
+                assertionFailure()
+                return Set()
+            }
+            guard let ownedIdentityInChildViewContext = discussionInChildViewContext.ownedIdentity else {
+                assertionFailure()
+                return Set()
+            }
 
-        do {
-            _ = try ownedIdentity.processMessageDeletionRequestRequestedFromCurrentDeviceOfThisOwnedIdentity(persistedMessageObjectID: messageInChildViewContext.objectID, deletionType: .local)
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    
-    /// Returns `true` iff the owned identity is allowed to perform a remote (global) delete of this message.
-    ///
-    /// This is expected to be called on the main thread, from the UI, in order to determine if the global delete action can be made available for this message.
-    /// We return `true` iff the call to the global deletion method would succeed. To do so, we create a child view context on which we simulate the call.
-    public var globalDeleteMessageActionCanBeMadeAvailable: Bool {
-        assert(Thread.isMainThread)
-
-        guard let context = self.managedObjectContext else {
-            assertionFailure()
-            return false
-        }
-        guard context.concurrencyType == .mainQueueConcurrencyType else {
-            assertionFailure()
-            return false
+            do {
+                _ = try ownedIdentityInChildViewContext.processMessageDeletionRequestRequestedFromCurrentDeviceOfThisOwnedIdentity(persistedMessageObjectID: messageInChildViewContext.objectID, deletionType: deletionType)
+                acceptableDeletionTypes.insert(deletionType)
+            } catch {
+                continue
+            }
+            
         }
         
-        let childViewContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-        childViewContext.parent = context
-        guard let messageInChildViewContext = try? PersistedMessage.get(with: self.typedObjectID, within: childViewContext) else {
-            assertionFailure()
-            return false
-        }
-        guard let ownedIdentity = messageInChildViewContext.discussion?.ownedIdentity else {
-            assertionFailure()
-            return false
-        }
-
-        do {
-            _ = try ownedIdentity.processMessageDeletionRequestRequestedFromCurrentDeviceOfThisOwnedIdentity(persistedMessageObjectID: messageInChildViewContext.objectID, deletionType: .global)
-            return true
-        } catch {
-            return false
-        }
+        return acceptableDeletionTypes
     }
-    
+
 }

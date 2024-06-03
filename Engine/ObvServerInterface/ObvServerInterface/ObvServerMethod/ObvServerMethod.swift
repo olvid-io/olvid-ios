@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,7 +31,7 @@ public protocol ObvServerMethod {
     var pathComponent: String { get }
     var isActiveOwnedIdentityRequired: Bool { get }
     var isDeletedOwnedIdentitySufficient: Bool { get }
-    var ownedIdentity: ObvCryptoIdentity { get }
+    var ownedIdentity: ObvCryptoIdentity? { get }
     var identityDelegate: ObvIdentityDelegate? { get set }
     var flowId: FlowIdentifier { get }
     
@@ -50,15 +50,17 @@ public extension ObvServerMethod {
                 assertionFailure()
                 throw ObvServerMethodError.ownedIdentityIsActiveCheckerDelegateIsNotSet
             }
-            do {
-                guard try identityDelegate.isOwnedIdentityActive(ownedIdentity: self.ownedIdentity, flowId: flowId) else {
-                    throw ObvServerMethodError.ownedIdentityIsNotActive
-                }
-            } catch {
-                if isDeletedOwnedIdentitySufficient, let identityManagerError = error as? ObvIdentityManagerError, identityManagerError == .ownedIdentityNotFound {
-                    // The owned identity cannot be found but, since isDeletedOwnedIdentitySufficient is true, we continue
-                } else {
-                    throw error
+            if let ownedIdentity {
+                do {
+                    guard try identityDelegate.isOwnedIdentityActive(ownedIdentity: ownedIdentity, flowId: flowId) else {
+                        throw ObvServerMethodError.ownedIdentityIsNotActive
+                    }
+                } catch {
+                    if isDeletedOwnedIdentitySufficient, let identityManagerError = error as? ObvIdentityManagerError, identityManagerError == .ownedIdentityNotFound {
+                        // The owned identity cannot be found but, since isDeletedOwnedIdentitySufficient is true, we continue
+                    } else {
+                        throw error
+                    }
                 }
             }
         }

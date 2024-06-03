@@ -193,8 +193,10 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
         }
     }
     
-    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedMessageSystem> {
-        ObvManagedObjectPermanentID<PersistedMessageSystem>(uuid: self.permanentUUID)
+    /// Expected to be non-nil, unless this `NSManagedObject` is deleted.
+    public var objectPermanentID: ObvManagedObjectPermanentID<PersistedMessageSystem>? {
+        guard self.managedObjectContext != nil else { assertionFailure(); return nil }
+        return ObvManagedObjectPermanentID<PersistedMessageSystem>(uuid: self.permanentUUID)
     }
 
     public override var kind: PersistedMessageKind { .system }

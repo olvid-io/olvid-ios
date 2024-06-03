@@ -138,7 +138,7 @@ struct NewAutorisationRequesterView: View {
                 .padding(.bottom)
             }
 
-        }
+        }.navigationBarBackButtonHidden(true)
     }
     
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,20 +32,31 @@ public struct ObvIdentityCoreDetails: Equatable {
     
     private static func makeError(message: String) -> Error { NSError(domain: errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
 
-    public func removingSignedUserDetails() throws -> ObvIdentityCoreDetails {
+    /// When removing the signed details (typically, as we are leaving a company's keycloak), we also remove the position and company from the details.
+    public func removingSignedUserDetailsAndPositionAndCompany() throws -> ObvIdentityCoreDetails {
         try ObvIdentityCoreDetails(firstName: firstName,
                                    lastName: lastName,
-                                   company: company,
-                                   position: position,
+                                   company: nil,
+                                   position: nil,
                                    signedUserDetails: nil)
     }
     
+    
+    /// Called when comparing published contact details that were trusted on another owned device with those present on this device.
     public func fieldsAreTheSameAndSignedDetailsAreNotConsidered(than other: ObvIdentityCoreDetails) -> Bool {
         firstName == other.firstName &&
-            lastName == other.lastName &&
-            company == other.company &&
-            position == other.position
-    }    
+        lastName == other.lastName &&
+        company == other.company &&
+        position == other.position
+    }
+
+    
+    /// Called when comparing published contact details with trusted contact details. If the first name and last name match, we only need to consider the photo when auto-trusting the details.
+    public func hasVisuallyIdenticalFirstNameAndLastName(than other: ObvIdentityCoreDetails) -> Bool {
+        self.firstName == other.firstName &&
+        self.lastName == other.lastName
+    }
+    
     
     public init(firstName: String?, lastName: String?, company: String?, position: String?, signedUserDetails: String?) throws {
         guard ObvIdentityCoreDetails.areAcceptable(firstName: firstName, lastName: lastName) else {

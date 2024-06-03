@@ -23,6 +23,7 @@ import ObvEngine
 import ObvTypes
 import ObvUI
 import ObvUICoreData
+import ObvSettings
 import ObvDesignSystem
 
 
@@ -154,8 +155,12 @@ extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
                 self?.present(groupCreationFlowVC, animated: true)
             }))
             alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V2", comment: ""), style: .default, handler: { [weak self] (action) in
-                let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV2, obvEngine: obvEngine)
-                self?.present(groupCreationFlowVC, animated: true)
+                guard let self else { return }
+                let groupCreationFlowVC = NewGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId,
+                                                                            editionType: .createGroup(delegate: self),
+                                                                            logSubsystem: ObvMessengerConstants.logSubsystem,
+                                                                            directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url)
+                self.present(groupCreationFlowVC, animated: true)
             }))
             alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
             
@@ -167,8 +172,12 @@ extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
 
         } else {
             
-            // Starting with version 0.12.0, we only allow the creation of groups v2
-            let groupCreationFlowVC = GroupEditionFlowViewController(ownedCryptoId: ownedCryptoId, editionType: .createGroupV2, obvEngine: obvEngine)
+            // Starting with version 0.12.0, we only allow the creation of groups v2.
+            // The group creation flow was completely refactored in version 2.4
+            let groupCreationFlowVC = NewGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId,
+                                                                        editionType: .createGroup(delegate: self),
+                                                                        logSubsystem: ObvMessengerConstants.logSubsystem,
+                                                                        directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url)
             present(groupCreationFlowVC, animated: true)
             
         }

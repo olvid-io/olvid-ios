@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,19 +39,19 @@ final class MultipleContactsHostingViewController: UIHostingController<ContactsV
     
     weak var delegate: MultipleContactsHostingViewControllerDelegate?
     
-    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, textAboveContactList: String?, floatingButtonModel: FloatingButtonModel? = nil, delegate: MultiContactChooserViewControllerDelegate? = nil) throws {
+    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, textAboveContactList: String?, floatingButtonModel: FloatingButtonModel? = nil, delegate: MultiContactChooserViewControllerDelegate? = nil) {
         if allowMultipleSelection { assert(delegate != nil) }
         self.searchController = UISearchController(searchResultsController: nil)
         self.searchController.obscuresBackgroundDuringPresentation = false
         self.searchController.hidesNavigationBarDuringPresentation = true
-        let store = try ContactsViewStore(ownedCryptoId: ownedCryptoId,
-                                          mode: mode,
-                                          disableContactsWithoutDevice: disableContactsWithoutDevice,
-                                          allowMultipleSelection: allowMultipleSelection,
-                                          showExplanation: showExplanation,
-                                          selectionStyle: selectionStyle,
-                                          textAboveContactList: textAboveContactList,
-                                          floatingButtonModel: floatingButtonModel)
+        let store = ContactsViewStore(ownedCryptoId: ownedCryptoId,
+                                      mode: mode,
+                                      disableContactsWithoutDevice: disableContactsWithoutDevice,
+                                      allowMultipleSelection: allowMultipleSelection,
+                                      showExplanation: showExplanation,
+                                      selectionStyle: selectionStyle,
+                                      textAboveContactList: textAboveContactList,
+                                      floatingButtonModel: floatingButtonModel)
         self.store = store
         self.searchController.searchResultsUpdater = store
         store.multiContactChooserDelegate = delegate
@@ -194,18 +194,15 @@ final class MultipleContactsViewController: UIViewController, MultiContactChoose
         super.viewDidLoad()
 
         setUserContactSelection(to: defaultSelectedContacts)
-        guard let vc = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId,
-                                                                  mode: mode,
-                                                                  disableContactsWithoutDevice: disableContactsWithoutDevice,
-                                                                  allowMultipleSelection: true,
-                                                                  showExplanation: false,
-                                                                  selectionStyle: .checkmark,
-                                                                  textAboveContactList: textAboveContactList,
-                                                                  floatingButtonModel: floatingButtonModel,
-                                                                  delegate: self)
-        else {
-            return
-        }
+        let vc = MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId,
+                                                       mode: mode,
+                                                       disableContactsWithoutDevice: disableContactsWithoutDevice,
+                                                       allowMultipleSelection: true,
+                                                       showExplanation: false,
+                                                       selectionStyle: .checkmark,
+                                                       textAboveContactList: textAboveContactList,
+                                                       floatingButtonModel: floatingButtonModel,
+                                                       delegate: self)
         contactsViewController = vc
         self.navigationItem.searchController = vc.searchController
         switch button {
@@ -329,19 +326,16 @@ struct MultipleContactsView: UIViewControllerRepresentable {
                 self.doneAction(context.coordinator.selectedContacts)
             }
         }
-        guard let ownedCryptoId = ownedCryptoId,
-              let vc = try? MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId,
-                                                                  mode: mode,
-                                                                  disableContactsWithoutDevice: disableContactsWithoutDevice,
-                                                                  allowMultipleSelection: allowMultipleSelection,
-                                                                  showExplanation: showExplanation,
-                                                                  selectionStyle: selectionStyle,
-                                                                  textAboveContactList: textAboveContactList,
-                                                                  floatingButtonModel: floatingButtonModel,
-                                                                  delegate: context.coordinator)
-        else {
-            return UINavigationController()
-        }
+        guard let ownedCryptoId = ownedCryptoId else { return UINavigationController() }
+        let vc = MultipleContactsHostingViewController(ownedCryptoId: ownedCryptoId,
+                                                       mode: mode,
+                                                       disableContactsWithoutDevice: disableContactsWithoutDevice,
+                                                       allowMultipleSelection: allowMultipleSelection,
+                                                       showExplanation: showExplanation,
+                                                       selectionStyle: selectionStyle,
+                                                       textAboveContactList: textAboveContactList,
+                                                       floatingButtonModel: floatingButtonModel,
+                                                       delegate: context.coordinator)
         context.coordinator.doneButtonItem = doneButtonItem
         context.coordinator.contactsViewController = vc
 
@@ -413,7 +407,7 @@ protocol ContactsViewStoreDelegate: AnyObject {
 
 
 
-fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResultsUpdating {
+public class ContactsViewStore: NSObject, ObservableObject, UISearchResultsUpdating {
 
     @Published var fetchRequest: NSFetchRequest<PersistedObvContactIdentity>
     @Published var changed: Bool // This allows to "force" the refresh of the view
@@ -440,7 +434,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
 
     private var notificationTokens = [NSObjectProtocol]()
 
-    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, textAboveContactList: String?, floatingButtonModel: FloatingButtonModel? = nil) throws {
+    init(ownedCryptoId: ObvCryptoId, mode: MultipleContactsMode, disableContactsWithoutDevice: Bool, allowMultipleSelection: Bool, showExplanation: Bool, selectionStyle: SelectionStyle? = nil, textAboveContactList: String?, floatingButtonModel: FloatingButtonModel? = nil) {
         assert(Thread.isMainThread)
         self.disableContactsWithoutDevice = disableContactsWithoutDevice
         self.mode = mode
@@ -512,7 +506,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
     }
     
     private func setSelectedContacts(_ selection: Set<PersistedObvContactIdentity>) {
-        assert(delegate != nil)
+        assert(multiContactChooserDelegate != nil)
         multiContactChooserDelegate?.setUserContactSelection(to: selection)
         withAnimation {
             changed.toggle()
@@ -543,7 +537,7 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
 
     // UISearchResultsUpdating
     
-    func updateSearchResults(for searchController: UISearchController) {
+    public func updateSearchResults(for searchController: UISearchController) {
         if let searchedText = searchController.searchBar.text, !searchedText.isEmpty {
             refreshFetchRequest(searchText: searchedText)
         } else {
@@ -555,11 +549,11 @@ fileprivate class ContactsViewStore: NSObject, ObservableObject, UISearchResults
 
 
 
-struct ContactsView: View {
+public struct ContactsView: View {
     
-    @ObservedObject fileprivate var store: ContactsViewStore
+    @ObservedObject public var store: ContactsViewStore
     
-    var body: some View {
+    public var body: some View {
         ContactsScrollingViewOrExplanationView(store: store)
             .environment(\.managedObjectContext, ObvStack.shared.viewContext)
     }

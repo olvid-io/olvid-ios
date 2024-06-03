@@ -25,8 +25,21 @@ import UIKit
 /// from a rounded rectangle.
 final class BubbleView: ViewForOlvidStack {
 
-    private let largeCornerRadius = MessageCellConstants.BubbleView.largeCornerRadius
-    private let smallCornerRadius = MessageCellConstants.BubbleView.smallCornerRadius
+    private let largeCornerRadius: CGFloat
+    private let smallCornerRadius: CGFloat
+    private let neverRoundedCorners: UIRectCorner
+    
+    init(smallCornerRadius: CGFloat = MessageCellConstants.BubbleView.smallCornerRadius, largeCornerRadius: CGFloat = MessageCellConstants.BubbleView.largeCornerRadius, neverRoundedCorners: UIRectCorner = []) {
+        self.smallCornerRadius = max(0, smallCornerRadius)
+        self.largeCornerRadius = max(0, largeCornerRadius)
+        self.neverRoundedCorners = neverRoundedCorners
+        super.init(frame: .zero)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
 
     var maskedCorner = UIRectCorner.allCorners {
         didSet {
@@ -58,10 +71,10 @@ final class BubbleView: ViewForOlvidStack {
         let maxX = bounds.maxX
         let maxY = bounds.maxY
 
-        let topLeftRadius = maskedCorner.contains(.topLeft) ? largeCornerRadius : smallCornerRadius
-        let topRightRadius = maskedCorner.contains(.topRight) ? largeCornerRadius : smallCornerRadius
-        let bottomRightRadius = maskedCorner.contains(.bottomRight) ? largeCornerRadius : smallCornerRadius
-        let bottomLeftRadius = maskedCorner.contains(.bottomLeft) ? largeCornerRadius : smallCornerRadius
+        let topLeftRadius = neverRoundedCorners.contains(.topLeft) ? 0.0 : maskedCorner.contains(.topLeft) ? largeCornerRadius : smallCornerRadius
+        let topRightRadius = neverRoundedCorners.contains(.topRight) ? 0.0 : maskedCorner.contains(.topRight) ? largeCornerRadius : smallCornerRadius
+        let bottomRightRadius = neverRoundedCorners.contains(.bottomRight) ? 0.0 : maskedCorner.contains(.bottomRight) ? largeCornerRadius : smallCornerRadius
+        let bottomLeftRadius = neverRoundedCorners.contains(.bottomLeft) ? 0.0 : maskedCorner.contains(.bottomLeft) ? largeCornerRadius : smallCornerRadius
         
         let path = UIBezierPath()
         path.move(to: CGPoint(x: topLeftRadius, y: 0))

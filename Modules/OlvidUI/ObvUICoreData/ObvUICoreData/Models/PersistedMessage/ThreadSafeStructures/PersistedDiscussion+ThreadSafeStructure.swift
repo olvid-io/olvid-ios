@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -146,7 +146,7 @@ extension PersistedOneToOneDiscussion {
     }
     
     public func toStruct() throws -> Structure {
-        guard let contactIdentity = self.contactIdentity else {
+        guard let contactIdentity = self.contactIdentity, let objectPermanentID else {
             assertionFailure()
             throw Self.makeError(message: "Could not extract required relationships")
         }
@@ -184,7 +184,7 @@ public extension PersistedGroupDiscussion {
     
     
     func toStruct() throws -> Structure {
-        guard let groupUID = self.rawGroupUID else {
+        guard let groupUID = self.rawGroupUID, let objectPermanentID else {
             assertionFailure()
             throw Self.makeError(message: "Could not extract required attributes")
         }
@@ -194,7 +194,7 @@ public extension PersistedGroupDiscussion {
             throw Self.makeError(message: "Could not extract required relationships")
         }
         let discussionStruct = try toAbstractStruct()
-        return Structure(objectPermanentID: self.objectPermanentID,
+        return Structure(objectPermanentID: objectPermanentID,
                          groupUID: groupUID,
                          ownerIdentity: try ownerIdentity.toStruct(),
                          contactGroup: try contactGroup.toStruct(),
@@ -230,6 +230,10 @@ public extension PersistedGroupV2Discussion {
     
     
     func toStruct() throws -> Structure {
+        guard let objectPermanentID else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not extract value")
+        }
         guard let group = self.group else {
             assertionFailure()
             throw Self.makeError(message: "Could not extract required relationships")

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,7 +31,8 @@ public final class ObvServerCreateGroupBlobServerMethod: ObvServerDataMethod {
 
     public let pathComponent = "/groupBlobCreate"
 
-    public let ownedIdentity: ObvCryptoIdentity
+    public var ownedIdentity: ObvCryptoIdentity? { ownedCryptoId }
+    private let ownedCryptoId: ObvCryptoIdentity
     public let token: Data
     public let serverURL: URL
     public let groupUID: UID
@@ -43,7 +44,7 @@ public final class ObvServerCreateGroupBlobServerMethod: ObvServerDataMethod {
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
     public init(ownedIdentity: ObvCryptoIdentity, token: Data, groupIdentifier: GroupV2.Identifier, newGroupAdminServerAuthenticationPublicKey: PublicKeyForAuthentication, encryptedBlob: EncryptedData, flowId: FlowIdentifier) {
-        self.ownedIdentity = ownedIdentity
+        self.ownedCryptoId = ownedIdentity
         self.token = token
         self.serverURL = groupIdentifier.serverURL
         self.groupUID = groupIdentifier.groupUID
@@ -72,7 +73,7 @@ public final class ObvServerCreateGroupBlobServerMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        return [ownedIdentity, token, groupUID, newGroupAdminServerAuthenticationPublicKey, encryptedBlob].obvEncode().rawData
+        return [ownedCryptoId, token, groupUID, newGroupAdminServerAuthenticationPublicKey, encryptedBlob].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> Result<PossibleReturnStatus, Error> {

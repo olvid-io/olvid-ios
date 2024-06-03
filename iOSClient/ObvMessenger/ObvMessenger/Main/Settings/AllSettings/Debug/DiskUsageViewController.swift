@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -141,7 +141,6 @@ fileprivate struct DirectoryInfo {
 
 struct DiskUsageView: View {
 
-    private let byteCountFormatter = ByteCountFormatter()
     private func compareURL(url1: URL, url2: URL) -> Bool {
         return url1.absoluteString < url2.absoluteString
     }
@@ -154,7 +153,6 @@ struct DiskUsageView: View {
 
     fileprivate func diskInfoView(_ info: DirectoryInfo) -> some View {
         DiskInfoView(info: info,
-                     byteCountFormatter: byteCountFormatter,
                      elementCountFormatter: elementCountFormatter)
     }
 
@@ -169,7 +167,7 @@ struct DiskUsageView: View {
                         .foregroundColor(.secondary)
                 }
                 Section(header: Text("REFERENCED_BY_DATABASE")) {
-                    DiskInfoView(info: model.databaseInfo, byteCountFormatter: byteCountFormatter, elementCountFormatter: elementCountFormatter)
+                    DiskInfoView(info: model.databaseInfo, elementCountFormatter: elementCountFormatter)
                 }
                 Section(header: Text("APP_DIRECTORIES")) {
                     ForEach(model.appDirectoryInfos.keys.sorted(by: compareURL), id: \.self) { url in
@@ -199,7 +197,6 @@ struct DiskUsageView: View {
 private struct DiskInfoView: View {
 
     let info: DirectoryInfo
-    let byteCountFormatter: ByteCountFormatter
     let elementCountFormatter: (Int) -> String
     
     private var titleView: some View {
@@ -223,7 +220,7 @@ private struct DiskInfoView: View {
             Image(systemIcon: .exclamationmarkCircle)
         case .computed(size: let size, count: let count):
             VStack(alignment: .trailing) {
-                Text(byteCountFormatter.string(fromByteCount: size))
+                Text(size.formatted(.byteCount(style: .file, allowedUnits: .all, spellsOutZero: true, includesActualByteCount: false)))
                 if let count = count {
                     Text(elementCountFormatter(count))
                 }

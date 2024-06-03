@@ -104,7 +104,8 @@ internal extension ObvContactIdentity {
         }
         let isOneToOne: Bool
         do {
-            isOneToOne = try identityDelegate.isOneToOneContact(ownedIdentity: ownedCryptoIdentity, contactIdentity: contactCryptoIdentity, within: obvContext)
+            let contactStatus = try identityDelegate.getOneToOneStatusOfContactIdentity(ownedIdentity: ownedCryptoIdentity, contactIdentity: contactCryptoIdentity, within: obvContext)
+            isOneToOne = (contactStatus == .oneToOne)
         } catch {
             return nil
         }

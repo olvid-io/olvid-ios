@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,7 +28,7 @@ public extension GlobalSettingsBackupItem {
         // Contacts and groups
 
         if let value = self.autoAcceptGroupInviteFrom {
-            ObvMessengerSettings.ContactsAndGroups.setAutoAcceptGroupInviteFrom(to: value, changeMadeFromAnotherOwnedDevice: false, ownedCryptoId: nil)
+            ObvMessengerSettings.ContactsAndGroups.setAutoAcceptGroupInviteFrom(to: value, changeMadeFromAnotherOwnedDevice: false)
         }
 
         // Downloads
@@ -49,7 +49,7 @@ public extension GlobalSettingsBackupItem {
         // Discussions
 
         if let value = self.sendReadReceipt {
-            ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: value, changeMadeFromAnotherOwnedDevice: false, ownedCryptoId: nil)
+            ObvMessengerSettings.Discussions.setDoSendReadReceipt(to: value, changeMadeFromAnotherOwnedDevice: false)
         }
         if let value = self.attachLinkPreviewToMessageSent {
             ObvMessengerSettings.Discussions.attachLinkPreviewToMessageSent = value

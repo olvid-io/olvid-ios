@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,14 +31,15 @@ public final class GetTurnCredentialsServerMethod: ObvServerDataMethod {
 
     public let pathComponent = "/getTurnCredentials"
 
-    public let ownedIdentity: ObvCryptoIdentity
+    public let ownedIdentity: ObvCryptoIdentity?
+    private let ownedIdentityIdentity: Data
     private let token: Data
     private let username1: String
     private let username2: String
     public let isActiveOwnedIdentityRequired = true
     public let flowId: FlowIdentifier
 
-    public var serverURL: URL { return ownedIdentity.serverURL }
+    public let serverURL: URL
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
 
@@ -49,6 +50,8 @@ public final class GetTurnCredentialsServerMethod: ObvServerDataMethod {
         self.username2 = username2
         self.identityDelegate = identityDelegate
         self.flowId = flowId
+        self.serverURL = ownedIdentity.serverURL
+        self.ownedIdentityIdentity = ownedIdentity.getIdentity()
     }
     
     public enum PossibleReturnStatus: UInt8 {
@@ -59,7 +62,7 @@ public final class GetTurnCredentialsServerMethod: ObvServerDataMethod {
     }
 
     lazy public var dataToSend: Data? = {
-        return [ownedIdentity.getIdentity(), token, username1, username2].obvEncode().rawData
+        return [ownedIdentityIdentity, token, username1, username2].obvEncode().rawData
     }()
 
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> (status: PossibleReturnStatus, output: TurnCredentials?)? {
