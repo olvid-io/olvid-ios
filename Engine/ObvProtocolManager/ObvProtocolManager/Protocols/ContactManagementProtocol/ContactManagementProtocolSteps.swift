@@ -84,7 +84,7 @@ extension ContactManagementProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -103,34 +103,25 @@ extension ContactManagementProtocol {
             }
             
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
-                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                 let concreteProtocolMessage = PropagateContactDeletionMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     return CancelledState()
                 }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
             }
-
-            // Notify contact (we need the oblivious channel --> before deleting the contact). Do so only if we still have a confirmed oblivious channel with this contact.
             
-            let confirmedObliviousChannelExistsWithContact: Bool
             do {
-                confirmedObliviousChannelExistsWithContact = try channelDelegate.aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity,
-                                                                                                                                           andRemoteIdentity: contactIdentity,
-                                                                                                                                           within: obvContext)
-            } catch {
-                os_log("Could not determine if we still have a confirmed oblivious channel with the contact", log: log, type: .error)
-                return CancelledState()
-            }
-
-            
-            if confirmedObliviousChannelExistsWithContact {
-                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = ContactDeletionNotificationMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     return CancelledState()
                 }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
+            } catch {
+                // This can happen if we have no oblivious channel and no pre-key with the contact. We could not notify her, but we continue anyway
+                os_log("Failed to notify the contact that we deleted her on our device: %{public}@. We continue anyway.", log: log, type: .error, error.localizedDescription)
+                assertionFailure()
             }
 
             // Delete all channels
@@ -169,7 +160,7 @@ extension ContactManagementProtocol {
                     return CancelledState()
                 }
                 
-                let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                                       cryptoProtocolId: .groupManagement,
                                                       protocolInstanceUid: groupInformationWithPhoto.associatedProtocolUid)
                 let concreteProtocolMessage = GroupManagementProtocol.RemoveGroupMembersMessage(coreProtocolMessage: coreMessage,
@@ -205,7 +196,7 @@ extension ContactManagementProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -298,7 +289,7 @@ extension ContactManagementProtocol {
                         return CancelledState()
                     }
                     
-                    let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                    let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                                           cryptoProtocolId: .groupManagement,
                                                           protocolInstanceUid: groupInformationWithPhoto.associatedProtocolUid)
                     let concreteProtocolMessage = GroupManagementProtocol.RemoveGroupMembersMessage(coreProtocolMessage: coreMessage,
@@ -335,7 +326,7 @@ extension ContactManagementProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -381,7 +372,7 @@ extension ContactManagementProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -407,7 +398,7 @@ extension ContactManagementProtocol {
             // Notify the contact that she has been downgraded
                         
             do {
-                let channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
+                let channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
                 let coreMessage = getCoreMessage(for: channelType)
                 let concreteProtocolMessage = DowngradeNotificationMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -422,7 +413,7 @@ extension ContactManagementProtocol {
 
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateDowngradeMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -454,7 +445,7 @@ extension ContactManagementProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -501,7 +492,7 @@ extension ContactManagementProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -539,7 +530,7 @@ extension ContactManagementProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }

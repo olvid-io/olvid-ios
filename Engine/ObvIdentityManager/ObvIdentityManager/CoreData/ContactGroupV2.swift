@@ -345,6 +345,7 @@ final class ContactGroupV2: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         self.rawVerifiedAdministratorsChain = backupItem.rawVerifiedAdministratorsChain
         self.serializedSharedSettings = backupItem.serializedSharedSettings
         self.rawLastModificationTimestamp = backupItem.lastModificationTimestamp
+        self.serializedGroupType = backupItem.serializedGroupType?.data(using: .utf8)
 
         if let groupIdentifier {
             switch groupIdentifier.category {
@@ -401,7 +402,7 @@ final class ContactGroupV2: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         self.rawVerifiedAdministratorsChain = snapshotNode.rawVerifiedAdministratorsChain
         self.serializedSharedSettings = snapshotNode.serializedSharedSettings
         self.rawLastModificationTimestamp = snapshotNode.lastModificationTimestamp // Set iff keycloak group
-        self.serializedGroupType = snapshotNode.serializedGroupType
+        self.serializedGroupType = snapshotNode.serializedGroupType?.data(using: .utf8)
 
         switch groupIdentifier.category {
         case .keycloak:
@@ -1712,6 +1713,12 @@ extension ContactGroupV2 {
         guard let rawTrustedDetails = self.rawTrustedDetails else { assertionFailure(); return nil }
         if let rawBlobMainSeed = self.rawBlobMainSeed, let rawBlobVersionSeed = self.rawBlobVersionSeed, let rawVerifiedAdministratorsChain = self.rawVerifiedAdministratorsChain {
             // Non-keycloak group v2
+            let serializedGroupTypeAsString: String?
+            if let serializedGroupType {
+                serializedGroupTypeAsString = String(data: serializedGroupType, encoding: .utf8)
+            } else {
+                serializedGroupTypeAsString = nil
+            }
             return ContactGroupV2BackupItem(groupVersion: self.groupVersion,
                                             ownGroupInvitationNonce: self.ownGroupInvitationNonce,
                                             rawBlobMainSeed: rawBlobMainSeed,
@@ -1726,7 +1733,7 @@ extension ContactGroupV2 {
                                             rawPendingMembers: self.rawPendingMembers,
                                             rawPublishedDetails: self.rawPublishedDetails,
                                             rawTrustedDetails: rawTrustedDetails,
-                                            serializedGroupeType: self.serializedGroupType)
+                                            serializedGroupeType: serializedGroupTypeAsString)
         } else if let rawLastModificationTimestamp {
             // Keycloak group
             assert(groupIdentifier?.category == .keycloak)
@@ -1769,7 +1776,7 @@ struct ContactGroupV2BackupItem: Codable, Hashable, ObvErrorMaker {
     fileprivate let rawServerURL: URL
     fileprivate let rawVerifiedAdministratorsChain: Data?
     fileprivate let serializedSharedSettings: String?
-    fileprivate let serializedGroupType: Data?
+    fileprivate let serializedGroupType: String?
     fileprivate let lastModificationTimestamp: Date?
     fileprivate let rawOtherMembers: Set<ContactGroupV2MemberBackupItem>
     fileprivate let rawPendingMembers: Set<ContactGroupV2PendingMemberBackupItem>
@@ -1783,7 +1790,7 @@ struct ContactGroupV2BackupItem: Codable, Hashable, ObvErrorMaker {
     static let errorDomain = "ContactGroupV2BackupItem"
 
     // Backuping a server group
-    fileprivate init(groupVersion: Int, ownGroupInvitationNonce: Data, rawBlobMainSeed: Data, rawBlobVersionSeed: Data, rawCategory: Int, rawGroupUID: Data, rawOwnPermissions: String, rawServerURL: URL, rawGroupAdminServerAuthenticationPrivateKey: Data?, rawVerifiedAdministratorsChain: Data, rawOtherMembers: Set<ContactGroupV2Member>, rawPendingMembers: Set<ContactGroupV2PendingMember>, rawPublishedDetails: ContactGroupV2Details?, rawTrustedDetails: ContactGroupV2Details, serializedGroupeType: Data?) {
+    fileprivate init(groupVersion: Int, ownGroupInvitationNonce: Data, rawBlobMainSeed: Data, rawBlobVersionSeed: Data, rawCategory: Int, rawGroupUID: Data, rawOwnPermissions: String, rawServerURL: URL, rawGroupAdminServerAuthenticationPrivateKey: Data?, rawVerifiedAdministratorsChain: Data, rawOtherMembers: Set<ContactGroupV2Member>, rawPendingMembers: Set<ContactGroupV2PendingMember>, rawPublishedDetails: ContactGroupV2Details?, rawTrustedDetails: ContactGroupV2Details, serializedGroupeType: String?) {
         assert(rawCategory == GroupV2.Identifier.Category.server.rawValue)
         self.groupVersion = groupVersion
         self.ownGroupInvitationNonce = ownGroupInvitationNonce
@@ -1910,7 +1917,7 @@ struct ContactGroupV2BackupItem: Codable, Hashable, ObvErrorMaker {
         self.rawVerifiedAdministratorsChain = try values.decodeIfPresent(Data.self, forKey: .rawVerifiedAdministratorsChain)
         self.serializedSharedSettings = try values.decodeIfPresent(String.self, forKey: .serializedSharedSettings)
         
-        self.serializedGroupType = try values.decodeIfPresent(Data.self, forKey: .serializedGroupType)
+        self.serializedGroupType = try values.decodeIfPresent(String.self, forKey: .serializedGroupType)
         
         self.rawOtherMembers = try values.decode(Set<ContactGroupV2MemberBackupItem>.self, forKey: .rawOtherMembers)
         do {
@@ -1979,6 +1986,12 @@ extension ContactGroupV2 {
     var snapshotNode: ContactGroupV2SyncSnapshotNode? {
         guard let category = self.groupIdentifier?.category else { return nil }
         guard let rawTrustedDetails else { assertionFailure(); return nil }
+        let serializedGroupTypeAsString: String?
+        if let serializedGroupType {
+            serializedGroupTypeAsString = String(data: serializedGroupType, encoding: .utf8)
+        } else {
+            serializedGroupTypeAsString = nil
+        }
         switch category {
         case .server:
             guard let rawBlobMainSeed, let rawBlobVersionSeed, let rawVerifiedAdministratorsChain else { assertionFailure(); return nil }
@@ -1991,7 +2004,7 @@ extension ContactGroupV2 {
                          rawVerifiedAdministratorsChain: rawVerifiedAdministratorsChain,
                          rawOtherMembers: rawOtherMembers,
                          rawPendingMembers: rawPendingMembers,
-                         serializedGroupType: serializedGroupType,
+                         serializedGroupType: serializedGroupTypeAsString,
                          rawPublishedDetails: rawPublishedDetails,
                          rawTrustedDetails: rawTrustedDetails)
         case .keycloak:
@@ -2028,7 +2041,7 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
     fileprivate let lastModificationTimestamp: Date?
     fileprivate let rawPushTopic: String?
     fileprivate let serializedSharedSettings: String?
-    fileprivate let serializedGroupType: Data?
+    fileprivate let serializedGroupType: String?
     private let rawPublishedDetails: ContactGroupV2DetailsSyncSnapshotNode?
     private let rawTrustedDetails: ContactGroupV2DetailsSyncSnapshotNode?
     private let rawOtherMembers: [ObvCryptoIdentity: ContactGroupV2MemberSyncSnapshotItem]
@@ -2080,7 +2093,7 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
 
 
     /// Snapshoting a server group
-    fileprivate init(groupVersion: Int, ownGroupInvitationNonce: Data, rawBlobMainSeed: Data, rawBlobVersionSeed: Data, rawOwnPermissions: String, rawGroupAdminServerAuthenticationPrivateKey: Data?, rawVerifiedAdministratorsChain: Data, rawOtherMembers: Set<ContactGroupV2Member>, rawPendingMembers: Set<ContactGroupV2PendingMember>, serializedGroupType: Data?, rawPublishedDetails: ContactGroupV2Details?, rawTrustedDetails: ContactGroupV2Details) {
+    fileprivate init(groupVersion: Int, ownGroupInvitationNonce: Data, rawBlobMainSeed: Data, rawBlobVersionSeed: Data, rawOwnPermissions: String, rawGroupAdminServerAuthenticationPrivateKey: Data?, rawVerifiedAdministratorsChain: Data, rawOtherMembers: Set<ContactGroupV2Member>, rawPendingMembers: Set<ContactGroupV2PendingMember>, serializedGroupType: String?, rawPublishedDetails: ContactGroupV2Details?, rawTrustedDetails: ContactGroupV2Details) {
         self.groupVersion = groupVersion
         self.ownGroupInvitationNonce = ownGroupInvitationNonce
         self.rawBlobMainSeed = rawBlobMainSeed
@@ -2212,7 +2225,7 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
             self.rawPushTopic = try values.decodeIfPresent(String.self, forKey: .rawPushTopic)
             self.rawVerifiedAdministratorsChain = try values.decodeIfPresent(Data.self, forKey: .rawVerifiedAdministratorsChain)
             self.serializedSharedSettings = try values.decodeIfPresent(String.self, forKey: .serializedSharedSettings)
-            self.serializedGroupType = try values.decodeIfPresent(Data.self, forKey: .serializedGroupType)
+            self.serializedGroupType = try values.decodeIfPresent(String.self, forKey: .serializedGroupType)
             
             // rawOtherMembers
             do {

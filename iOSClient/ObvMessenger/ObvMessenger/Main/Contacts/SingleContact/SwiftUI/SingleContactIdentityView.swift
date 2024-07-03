@@ -93,6 +93,11 @@ struct SingleContactIdentityInnerView: View {
                     ContactIsNotActiveExplanationView(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
                 }
                 
+                if contact.persistedContact?.wasRecentlyOnline == false {
+                    ContactWasNotRecentlyOnlineExplanationView()
+                        .padding(.top, 16)
+                }
+
                 if let persistedContact = contact.persistedContact, let textOfNote = persistedContact.note, !textOfNote.isEmpty {
                     PersonalNoteView(model: persistedContact)
                         .padding(.top, 16)
@@ -621,6 +626,35 @@ fileprivate struct ContactIsNotActiveExplanationView: View {
         }
     }
 
+}
+
+
+
+fileprivate struct ContactWasNotRecentlyOnlineExplanationView: View {
+
+    var body: some View {
+        ObvCardView {
+            VStack(spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("CONTACT_WAS_NOT_RECENTLY_ONLINE_TITLE")
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Image(systemIcon: .zzz)
+                        .foregroundColor(.secondary)
+                }
+                .font(.headline)
+                HStack {
+                    Text("CONTACT_WAS_NOT_RECENTLY_ONLINE_BODY")
+                        .lineLimit(nil)
+                        .font(.body)
+                        .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                        .fixedSize(horizontal: false, vertical: /*@START_MENU_TOKEN@*/true/*@END_MENU_TOKEN@*/)
+                    Spacer()
+                }
+            }
+        }
+    }
+    
 }
 
 

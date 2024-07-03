@@ -308,6 +308,9 @@ extension ObvEngine {
             ObvIdentityNotificationNew.observeContactObvCapabilitiesWereUpdated(within: notificationDelegate) { [weak self] ownedIdentity, contactIdentity, flowId in
                 self?.processContactObvCapabilitiesWereUpdated(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: flowId)
             },
+            ObvIdentityNotificationNew.observeUpdatedContactDevice(within: notificationDelegate) { [weak self] deviceIdentifier, flowId in
+                self?.processUpdatedContactDevice(deviceIdentifier: deviceIdentifier, flowId: flowId)
+            },
             ObvIdentityNotificationNew.observeOwnedIdentityCapabilitiesWereUpdated(within: notificationDelegate) { [weak self] ownedIdentity, flowId in
                 self?.processOwnedIdentityCapabilitiesWereUpdated(ownedIdentity: ownedIdentity, flowId: flowId)
             },
@@ -451,7 +454,7 @@ extension ObvEngine {
     /// In that case, the registration method will return a ``ObvNetworkFetchError.RegisterPushNotificationError.anotherDeviceIsAlreadyRegistered`` error, and this device will be deactivated.
     private func processTheCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults(ownedCryptoIdentity: ObvCryptoIdentity) {
         let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
-        ObvEngineNotificationNew.engineRequiresOwnedIdentityToRegisterToPushNotifications(ownedCryptoId: ownedCryptoId)
+        ObvEngineNotificationNew.engineRequiresOwnedIdentityToRegisterToPushNotifications(ownedCryptoId: ownedCryptoId, performOwnedDeviceDiscoveryOnFinish: true)
             .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
     }
 
@@ -851,7 +854,7 @@ extension ObvEngine {
     /// When a the push topic of a keycloak group is created/updated, we want to re-register to push notification to make sure we inform the server we are interested by this new push topic.
     private func processPushTopicOfKeycloakGroupWasUpdated(ownedIdentity: ObvCryptoIdentity) {
         let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedIdentity)
-        ObvEngineNotificationNew.engineRequiresOwnedIdentityToRegisterToPushNotifications(ownedCryptoId: ownedCryptoId)
+        ObvEngineNotificationNew.engineRequiresOwnedIdentityToRegisterToPushNotifications(ownedCryptoId: ownedCryptoId, performOwnedDeviceDiscoveryOnFinish: false)
             .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
     }
 
@@ -884,6 +887,12 @@ extension ObvEngine {
         }
 
         
+    }
+    
+    
+    private func processUpdatedContactDevice(deviceIdentifier: ObvContactDeviceIdentifier, flowId: FlowIdentifier) {
+        ObvEngineNotificationNew.updatedContactDevice(deviceIdentifier: deviceIdentifier)
+            .postOnBackgroundQueue(within: appNotificationCenter)
     }
 
     

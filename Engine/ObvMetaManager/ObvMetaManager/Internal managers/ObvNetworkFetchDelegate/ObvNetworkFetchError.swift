@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,6 +31,7 @@ public struct ObvNetworkFetchError {
         case deviceToReplaceIsNotRegistered
         case invalidServerResponse
         case theDelegateManagerIsNotSet
+        case failedToCreateServerMethod
         
         private static let descriptionPrefix = "[RegisterPushNotificationError]"
 
@@ -47,6 +48,8 @@ public struct ObvNetworkFetchError {
                 description = "Invalid server response"
             case .theDelegateManagerIsNotSet:
                 description = "The delegate manager is not set"
+            case .failedToCreateServerMethod:
+                description = "Failed to create server method"
             }
             return [ObvNetworkFetchError.descriptionPrefix, Self.descriptionPrefix, description].joined(separator: " ")
         }

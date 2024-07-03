@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.0 (793)] - 2024-06-28
+
+- Amélioration de la fiabilité: Des améliorations significatives dans les paramètres multi-appareils, garantissant une expérience plus fluide sur tous les appareils.
+- Connexions instantanées: Lors de l'ajout d'un nouveau contact, vous pouvez maintenant démarrer une conversation immédiatement, sans délai aucun.
+- Raffinement de l'aperçu URL: Lorsqu'un prévisualisation est disponible, les URLs en fin des messages sont maintenant cachées.
+- Synchronisation des messages lus: Correction d'un problème où les messages marqués comme lus sur un appareil restaient incorrectement non lus sur d'autres appareils.
+- Stabilité des appels sécurisés: Résolution d'un problème rare avec les appels sécurisés dans les paramètres multi-appareils, où les appels pouvaient occasionnellement être coupés après 30 secondes.
+- Fiabilité améliorée des notifications: Amélioration des notifications pour les messages reçus dans les groupes récemment joints, garantissant une livraison cohérente sur tous les appareils.
+- Correction de brouillon: Résolution d'un problème où les brouillons avec des pièces jointes mais sans texte ne pouvaient pas être envoyés à l'aide du raccourci clavier.
+- Suppression de discussion multi-appareil: Correction de divers problèmes liés à la suppression de discussions sur plusieurs appareils.
+- Administrateur préservé lors du clonage de groupe: Le clonage d'un groupe conserve maintenant les paramètres choisis par l'administrateur.
+- Correction de l'affichage et de la modification des durées: Correction d'un bug empêchant l'affichage et la modification des durées d'existence ou de visibilité en dehors des valeurs énumérées.
+- Récupération après erreur de migration de base de données: Amélioration des stratégies pour récupérer d'éventuelles erreurs de migration de base de données.
+- Autres améliorations et corrections de bugs mineures: Diverses améliorations et corrections de bugs mineures pour améliorer l'expérience utilisateur globale.
+
+## [2.5 (782)] - 2024-06-06
+
+- Résolution d'un problème intermittent lors du transfert d'un profil depuis un autre appareil.
+- Amélioration de la bibliothèque cryptographique.
+- Diverses améliorations mineures et corrections de bugs.
+
 ## [2.4 (778)] - 2024-05-31
 
 ### macOS

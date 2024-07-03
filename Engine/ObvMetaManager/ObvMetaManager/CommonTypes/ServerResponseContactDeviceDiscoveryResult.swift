@@ -23,10 +23,10 @@ import ObvCrypto
 
 
 /// This type is used for a specific type of response of a server query, namely for the `deviceDiscovery` response.
-public enum ContactDeviceDiscoveryResult: ObvCodable {
+public enum ServerResponseContactDeviceDiscoveryResult: ObvCodable {
     
     case failure
-    case success(deviceUIDs: [UID])
+    case success(result: ContactDeviceDiscoveryResult)
     
     private enum RawKind: Int, CaseIterable, ObvCodable {
         
@@ -58,9 +58,8 @@ public enum ContactDeviceDiscoveryResult: ObvCodable {
         switch self {
         case .failure:
             return [rawKind.obvEncode()].obvEncode()
-        case .success(deviceUIDs: let deviceUIDs):
-            let listOfEncodedDeviceUIDs = deviceUIDs.map({ $0.obvEncode() })
-            return [rawKind.obvEncode(), listOfEncodedDeviceUIDs.obvEncode()].obvEncode()
+        case .success(result: let result):
+            return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
         }
     }
     
@@ -73,12 +72,9 @@ public enum ContactDeviceDiscoveryResult: ObvCodable {
             self = .failure
         case .success:
             guard listOfEncoded.count == 2 else { assertionFailure(); return nil }
-            guard let listOfEncodedDeviceUIDs = [ObvEncoded](listOfEncoded[1]) else { assertionFailure(); return nil }
-            let deviceUIDs = listOfEncodedDeviceUIDs.compactMap({ UID($0) })
-            guard deviceUIDs.count == listOfEncodedDeviceUIDs.count else { assertionFailure(); return nil }
-            self = .success(deviceUIDs: deviceUIDs)
+            guard let result = ContactDeviceDiscoveryResult(listOfEncoded[1]) else { assertionFailure(); return nil }
+            self = .success(result: result)
         }
     }
 
 }
-

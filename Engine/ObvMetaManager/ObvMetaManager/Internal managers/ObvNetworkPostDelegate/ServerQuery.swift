@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -53,7 +53,8 @@ extension ServerQuery {
                 .ownedDeviceDiscovery,
                 .setOwnedDeviceName,
                 .deactivateOwnedDevice,
-                .setUnexpiringOwnedDevice:
+                .setUnexpiringOwnedDevice,
+                .uploadPreKeyForCurrentDevice:
             return false
         case .sourceGetSessionNumber,
                 .sourceWaitForTargetConnection,
@@ -91,6 +92,8 @@ extension ServerQuery {
         case transferRelay(protocolInstanceUID: UID, connectionIdentifier: String, payload: Data, thenCloseWebSocket: Bool)
         case transferWait(protocolInstanceUID: UID, connectionIdentifier: String)
         case closeWebsocketConnection(protocolInstanceUID: UID)
+        case uploadPreKeyForCurrentDevice(deviceBlobOnServerToUpload: DeviceBlobOnServer)
+
 
         
         public var isCheckKeycloakRevocation: Bool {
@@ -146,6 +149,8 @@ extension ServerQuery {
                 return 19
             case .closeWebsocketConnection:
                 return 20
+            case .uploadPreKeyForCurrentDevice:
+                return 21
             }
         }
         
@@ -193,6 +198,8 @@ extension ServerQuery {
                 return [rawValue, protocolInstanceUID, connectionIdentifier].obvEncode()
             case .closeWebsocketConnection(protocolInstanceUID: let protocolInstanceUID):
                 return [rawValue, protocolInstanceUID].obvEncode()
+            case .uploadPreKeyForCurrentDevice(deviceBlobOnServerToUpload: let deviceBlobOnServerToUpload):
+                return [rawValue, deviceBlobOnServerToUpload].obvEncode()
             }
         }
         
@@ -308,6 +315,10 @@ extension ServerQuery {
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let protocolInstanceUID = UID(listOfEncoded[1]) else { assertionFailure(); return nil }
                 self = .closeWebsocketConnection(protocolInstanceUID: protocolInstanceUID)
+            case 21:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let deviceBlobOnServerToUpload = DeviceBlobOnServer(listOfEncoded[1]) else { assertionFailure(); return nil }
+                self = .uploadPreKeyForCurrentDevice(deviceBlobOnServerToUpload: deviceBlobOnServerToUpload)
             default:
                 assertionFailure()
                 return nil
@@ -365,6 +376,8 @@ extension ServerQuery.QueryType: CustomDebugStringConvertible {
             return "transferWait"
         case .closeWebsocketConnection:
             return "closeWebsocketConnection"
+        case .uploadPreKeyForCurrentDevice:
+            return "uploadPreKeyForCurrentDevice"
         }
     }
     

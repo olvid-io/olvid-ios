@@ -104,9 +104,14 @@ final class DiscussionExpirationSettingsViewModel: ObservableObject {
             assertionFailure()
             return
         }
-        _ = try? ownedIdentityInViewContext.replaceDiscussionSharedConfigurationSentByThisOwnedIdentity(
-            with: value.toExpirationJSON(overriding: sharedConfigurationInScratchViewContext),
-            inDiscussionWithId: discussionId)
+        do {
+            _ = try ownedIdentityInViewContext.replaceDiscussionSharedConfigurationSentByThisOwnedIdentity(
+                with: value.toExpirationJSON(overriding: sharedConfigurationInScratchViewContext),
+                inDiscussionWithId: discussionId)
+        } catch {
+            assertionFailure()
+            return
+        }
         withAnimation {
             self.changed.toggle()
         }
@@ -187,31 +192,20 @@ extension PersistedDiscussionSharedConfiguration {
         model.updateSharedConfiguration(with: .readOnce(readOnce: value))
     }
 
-    static func toDurationOption(_ timeInterval: TimeInterval?, setValue: (DurationOption) -> Void) -> DurationOption {
-        guard let timeInterval = timeInterval else { return .none }
-        if let option = DurationOption(rawValue: Int(timeInterval)) {
-            return option
-        } else {
-            // Set the value of the configuration to none since we are not able to build a DurationOption from the stored value.
-            setValue(.none)
-            return .none
-        }
+    func getVisibilityDurationOption(model: DiscussionExpirationSettingsViewModel) -> TimeInterval? {
+        visibilityDuration
     }
 
-    func getVisibilityDurationOption(model: DiscussionExpirationSettingsViewModel) -> DurationOption {
-        return Self.toDurationOption(visibilityDuration) { setVisibilityDurationOption(model: model, to: $0) }
+    func setVisibilityDurationOption(model: DiscussionExpirationSettingsViewModel, to value: TimeInterval?) {
+        model.updateSharedConfiguration(with: .visibilityDuration(visibilityDuration: value))
     }
 
-    func setVisibilityDurationOption(model: DiscussionExpirationSettingsViewModel, to value: DurationOption) {
-        model.updateSharedConfiguration(with: .visibilityDuration(visibilityDuration: value.timeInterval))
+    func getExistenceDurationOption(model: DiscussionExpirationSettingsViewModel) -> TimeInterval? {
+        existenceDuration
     }
 
-    func getExistenceDurationOption(model: DiscussionExpirationSettingsViewModel) -> DurationOption {
-        return Self.toDurationOption(existenceDuration) { setExistenceDurationOption(model: model, to: $0) }
-    }
-
-    func setExistenceDurationOption(model: DiscussionExpirationSettingsViewModel, to value: DurationOption) {
-        model.updateSharedConfiguration(with: .existenceDuration(existenceDuration: value.timeInterval))
+    func setExistenceDurationOption(model: DiscussionExpirationSettingsViewModel, to value: TimeInterval?) {
+        model.updateSharedConfiguration(with: .existenceDuration(existenceDuration: value))
     }
 
 }
@@ -336,8 +330,8 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     @Binding var changed: Bool
     let readOnce: ValueWithBinding<PersistedDiscussionSharedConfiguration, Bool>
     let autoRead: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
-    let visibilityDurationOption: ValueWithBinding<PersistedDiscussionSharedConfiguration, DurationOption>
-    let existenceDurationOption: ValueWithBinding<PersistedDiscussionSharedConfiguration, DurationOption>
+    let visibilityDurationOption: ValueWithBinding<PersistedDiscussionSharedConfiguration, TimeInterval?>
+    let existenceDurationOption: ValueWithBinding<PersistedDiscussionSharedConfiguration, TimeInterval?>
     let retainWipedOutboundMessages: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
     let doSendReadReceipt: ValueWithBinding<PersistedDiscussionLocalConfiguration, OptionalBoolType>
     let mentionNotificationMode: ValueWithBinding<PersistedDiscussionLocalConfiguration, DiscussionMentionNotificationMode>
@@ -580,18 +574,30 @@ fileprivate struct DiscussionExpirationSettingsView: View {
                         }.disabled(!sharedConfigCanBeModified)
                     }
                     Section(footer: Text("LIMITED_VISIBILITY_SECTION_FOOTER")) {
-                        Picker(selection: visibilityDurationOption.binding, label: Label("LIMITED_VISIBILITY_LABEL", systemImage: "eyes")) {
-                            ForEach(DurationOption.allCases) { duration in
-                                Text(duration.description).tag(duration)
+                        NavigationLink {
+                            ExistenceOrVisibilityDurationView(timeInverval: visibilityDurationOption.binding)
+                        } label: {
+                            HStack(alignment: .firstTextBaseline) {
+                                Label("LIMITED_VISIBILITY_LABEL", systemIcon: .eyes)
+                                Spacer()
+                                Text(verbatim: TimeInterval.formatForExistenceOrVisibilityDuration(timeInterval: visibilityDurationOption.binding.wrappedValue, unitsStyle: .short))
+                                    .foregroundStyle(.secondary)
                             }
-                        }.disabled(!sharedConfigCanBeModified)
+                        }
+                        .disabled(!sharedConfigCanBeModified)
                     }
                     Section(footer: Text("LIMITED_EXISTENCE_SECTION_FOOTER")) {
-                        Picker(selection: existenceDurationOption.binding, label: Label("LIMITED_EXISTENCE_SECTION_LABEL", systemImage: "timer")) {
-                            ForEach(DurationOption.allCases) { duration in
-                                Text(duration.description).tag(duration)
+                        NavigationLink {
+                            ExistenceOrVisibilityDurationView(timeInverval: existenceDurationOption.binding)
+                        } label: {
+                            HStack(alignment: .firstTextBaseline) {
+                                Label("LIMITED_EXISTENCE_SECTION_LABEL", systemIcon: .timer)
+                                Spacer()
+                                Text(verbatim: TimeInterval.formatForExistenceOrVisibilityDuration(timeInterval: existenceDurationOption.binding.wrappedValue, unitsStyle: .short))
+                                    .foregroundStyle(.secondary)
                             }
-                        }.disabled(!sharedConfigCanBeModified)
+                        }
+                        .disabled(!sharedConfigCanBeModified)
                     }
                 }
             }
@@ -599,7 +605,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
             .navigationBarItems(leading:
                                     Button(action: { dismissAction(nil) },
                                            label: {
-                Image(systemName: "xmark.circle.fill")
+                Image(systemIcon: .xmarkCircleFill)
                     .font(Font.system(size: 24, weight: .semibold, design: .default))
                     .foregroundColor(Color(AppTheme.shared.colorScheme.tertiaryLabel))
             })
@@ -638,7 +644,8 @@ fileprivate struct DiscussionExpirationSettingsView: View {
     }
 }
 
-@available(iOS 15, *)
+
+
 struct ChangeDefaultEmojiView: View {
 
     @Binding var defaultEmoji: String?
@@ -683,8 +690,8 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 changed: .constant(false),
                 readOnce: ValueWithBinding(constant: false),
                 autoRead: ValueWithBinding(constant: .falseValue),
-                visibilityDurationOption: ValueWithBinding(constant: .none),
-                existenceDurationOption: ValueWithBinding(constant: .ninetyDays),
+                visibilityDurationOption: ValueWithBinding(constant: nil),
+                existenceDurationOption: ValueWithBinding(constant: .init(days: 90)),
                 retainWipedOutboundMessages: ValueWithBinding(constant: .falseValue),
                 doSendReadReceipt: ValueWithBinding(constant: .none),
                 mentionNotificationMode: ValueWithBinding(constant: .globalDefault),
@@ -703,8 +710,8 @@ struct DiscussionExpirationSettingsView_Previews: PreviewProvider {
                 changed: .constant(false),
                 readOnce: ValueWithBinding(constant: true),
                 autoRead: ValueWithBinding(constant: .falseValue),
-                visibilityDurationOption: ValueWithBinding(constant: .oneHour),
-                existenceDurationOption: ValueWithBinding(constant: .none),
+                visibilityDurationOption: ValueWithBinding(constant: .init(hours: 1)),
+                existenceDurationOption: ValueWithBinding(constant: nil),
                 retainWipedOutboundMessages: ValueWithBinding(constant: .trueValue),
                 doSendReadReceipt: ValueWithBinding(constant: .trueValue),
                 mentionNotificationMode: ValueWithBinding(constant: .alwaysNotifyWhenMentionned),

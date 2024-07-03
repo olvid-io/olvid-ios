@@ -113,7 +113,8 @@ actor ServerQueryWebSocketCoordinator: ServerQueryWebSocketDelegate {
                 .ownedDeviceDiscovery,
                 .setOwnedDeviceName,
                 .deactivateOwnedDevice,
-                .setUnexpiringOwnedDevice:
+                .setUnexpiringOwnedDevice,
+                .uploadPreKeyForCurrentDevice:
             assertionFailure("This serverquery is handled by another coordinator. This one should not have been called.")
             return
             

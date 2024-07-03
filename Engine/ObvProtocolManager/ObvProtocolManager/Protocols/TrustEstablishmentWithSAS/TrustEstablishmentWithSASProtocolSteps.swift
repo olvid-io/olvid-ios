@@ -110,7 +110,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -142,7 +142,7 @@ extension TrustEstablishmentWithSASProtocol {
             
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = AlicePropagatesHerInviteToOtherDevicesMessage(coreProtocolMessage: coreMessage,
                                                                                                 contactIdentity: contactIdentity,
                                                                                                 contactIdentityFullDisplayName: contactIdentityFullDisplayName,
@@ -168,7 +168,7 @@ extension TrustEstablishmentWithSASProtocol {
             }
             
             do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannelBroadcast(to: contactIdentity, fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .asymmetricChannelBroadcast(to: contactIdentity, fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = AliceSendsCommitmentMessage(coreProtocolMessage: coreMessage,
                                                                           contactIdentityCoreDetails: ownIdentityCoreDetails,
                                                                           contactIdentity: ownedIdentity,
@@ -185,7 +185,7 @@ extension TrustEstablishmentWithSASProtocol {
             
             do {
                 let contact = CryptoIdentityWithFullDisplayName(cryptoIdentity: contactIdentity, fullDisplayName: contactIdentityFullDisplayName)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .inviteSent(contact: contact)))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .inviteSent(contact: contact)))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     assertionFailure()
@@ -214,7 +214,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -231,7 +231,7 @@ extension TrustEstablishmentWithSASProtocol {
             
             do {
                 let contact = CryptoIdentityWithFullDisplayName(cryptoIdentity: contactIdentity, fullDisplayName: contactIdentityFullDisplayName)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .inviteSent(contact: contact)))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .inviteSent(contact: contact)))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     assertionFailure()
@@ -260,7 +260,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -283,7 +283,7 @@ extension TrustEstablishmentWithSASProtocol {
                 // Send the decommitment to Bob
                 
                 do {
-                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = AliceSendsDecommitmentMessage(coreProtocolMessage: coreMessage, decommitment: decommitment)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         assertionFailure()
@@ -307,7 +307,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                     let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: 0)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         assertionFailure()
@@ -348,7 +348,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -390,7 +390,7 @@ extension TrustEstablishmentWithSASProtocol {
                 
                 do {
                     let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .acceptInvite(contact: contact)))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .acceptInvite(contact: contact)))
                     let concreteProtocolMessage = BobDialogInvitationConfirmationMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
@@ -404,7 +404,7 @@ extension TrustEstablishmentWithSASProtocol {
                 
                 if numberOfOtherDevicesOfOwnedIdentity > 0 {
                     do {
-                        let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                        let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                         let concreteProtocolMessage = BobPropagatesCommitmentToOtherDevicesMessage(coreProtocolMessage: coreMessage,
                                                                                                    contactIdentity: contactIdentity,
                                                                                                    contactIdentityCoreDetails: contactIdentityCoreDetails,
@@ -456,7 +456,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -473,7 +473,7 @@ extension TrustEstablishmentWithSASProtocol {
             
             do {
                 let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .acceptInvite(contact: contact)))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: .acceptInvite(contact: contact)))
                 let concreteProtocolMessage = BobDialogInvitationConfirmationMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     assertionFailure()
@@ -503,7 +503,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -541,7 +541,7 @@ extension TrustEstablishmentWithSASProtocol {
                 
                 if numberOfOtherDevicesOfOwnedIdentity > 0 {
                     do {
-                        let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                        let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                         let concreteProtocolMessage = BobPropagatesConfirmationToOtherDevicesMessage(coreProtocolMessage: coreMessage, invitationAccepted: invitationAccepted)
                         guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                             assertionFailure()
@@ -570,7 +570,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                     let dialogType = ObvChannelDialogToSendType.invitationAccepted(contact: contact)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         assertionFailure()
@@ -593,7 +593,7 @@ extension TrustEstablishmentWithSASProtocol {
                 let ownedDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 
                 do {
-                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = BobSendsSeedMessage(
                         coreProtocolMessage: coreMessage,
                         seedBobForSas: seedBobForSas,
@@ -644,7 +644,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -678,7 +678,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                     let dialogType = ObvChannelDialogToSendType.invitationAccepted(contact: contact)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         assertionFailure()
@@ -737,7 +737,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -787,7 +787,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                     let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: 0)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
@@ -838,7 +838,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -884,7 +884,7 @@ extension TrustEstablishmentWithSASProtocol {
                         do {
                             let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                             let dialogType = ObvChannelDialogToSendType.sasExchange(contact: contact, sasToDisplay: sasToDisplay, numberOfBadEnteredSas: newNumberOfBadEnteredSas)
-                            let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                            let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                             let concreteProtocolMessage = DialogSasExchangeMessage(coreProtocolMessage: coreMessage)
                             guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                                 assertionFailure()
@@ -915,7 +915,7 @@ extension TrustEstablishmentWithSASProtocol {
                 
                 if numberOfOtherDevicesOfOwnedIdentity > 0 {
                     do {
-                        let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                        let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                         let concreteProtocolMessage = PropagateEnteredSasToOtherDevicesMessage(coreProtocolMessage: coreMessage, contactSas: sasEnteredByUser)
                         guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                             assertionFailure()
@@ -934,7 +934,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                     let dialogType = ObvChannelDialogToSendType.sasConfirmed(contact: contact, sasToDisplay: sasToDisplay, sasEntered: sasEnteredByUser)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
@@ -948,7 +948,7 @@ extension TrustEstablishmentWithSASProtocol {
                 // Send a confirmation message
                 
                 do {
-                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = MutualTrustConfirmationMessageMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
@@ -988,7 +988,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -1037,7 +1037,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                     let dialogType = ObvChannelDialogToSendType.sasConfirmed(contact: contact, sasToDisplay: sasToDisplay, sasEntered: sasEnteredByUser)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
@@ -1051,7 +1051,7 @@ extension TrustEstablishmentWithSASProtocol {
                 // Send a confirmation message
                 
                 do {
-                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = MutualTrustConfirmationMessageMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw ObvError.couldNotGenerateObvChannelDialogMessageToSend
@@ -1092,7 +1092,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -1112,7 +1112,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                     let dialogType = ObvChannelDialogToSendType.mutualTrustConfirmed(contact: contact)
-                    let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
+                    let channelType = ObvChannelSendChannelType.userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
                     let coreMessage = getCoreMessage(for: channelType)
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
@@ -1152,7 +1152,7 @@ extension TrustEstablishmentWithSASProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -1192,7 +1192,7 @@ extension TrustEstablishmentWithSASProtocol {
                 do {
                     let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                     let dialogType = ObvChannelDialogToSendType.mutualTrustConfirmed(contact: contact)
-                    let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
+                    let channelType = ObvChannelSendChannelType.userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
                     let coreMessage = getCoreMessage(for: channelType)
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
@@ -1244,7 +1244,7 @@ fileprivate extension ProtocolStep {
     func removeAnyUserDialogRelatingToThisProtocol(dialogUuid: UUID, log: OSLog) {
         do {
             let dialogType = ObvChannelDialogToSendType.delete
-            let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+            let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
             let concreteProtocolMessage = TrustEstablishmentWithSASProtocol.DialogInformativeMessage(coreProtocolMessage: coreMessage)
             guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                 assertionFailure()

@@ -58,7 +58,7 @@ extension DownloadGroupV2PhotoProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -68,7 +68,7 @@ extension DownloadGroupV2PhotoProtocol {
             let groupIdentifier = receivedMessage.groupIdentifier
             let serverPhotoInfo = receivedMessage.serverPhotoInfo
             
-            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ServerQuery(ownedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.serverQuery(ownedIdentity: ownedIdentity))
             let concreteMessage = ServerGetPhotoMessage.init(coreProtocolMessage: coreMessage)
 
             let serverQueryType: ObvChannelServerQueryMessageToSend.QueryType
@@ -106,7 +106,7 @@ extension DownloadGroupV2PhotoProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }

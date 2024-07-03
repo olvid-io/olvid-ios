@@ -39,7 +39,7 @@ final class ProcessPersistedMessagesAsTheyTurnsNotNewOperation: ContextualOperat
     }
     
     var ownedCryptoId: ObvCryptoId? { _ownedCryptoId }
-    private(set) var ownedIdentityHasAnotherDeviceWithChannel = false
+    private(set) var ownedIdentityHasAnotherReachableDevice = false
     private(set) var discussionReadJSONToSend: DiscussionReadJSON?
 
     
@@ -51,7 +51,7 @@ final class ProcessPersistedMessagesAsTheyTurnsNotNewOperation: ContextualOperat
                 return cancel(withReason: .couldNotFindOwnedIdentity)
             }
             
-            self.ownedIdentityHasAnotherDeviceWithChannel = ownedIdentity.hasAnotherDeviceWithChannel
+            self.ownedIdentityHasAnotherReachableDevice = ownedIdentity.hasAnotherDeviceWhichIsReachable
             
             let dateWhenMessageTurnedNotNew = Date()
 

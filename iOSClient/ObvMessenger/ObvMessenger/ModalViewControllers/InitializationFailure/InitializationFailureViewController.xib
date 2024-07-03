@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="16097.3" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="32700.99.1234" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="16087"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22685"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
-        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="InitializationFailureViewController" customModule="ObvMessenger" customModuleProvider="target">
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="InitializationFailureViewController" customModule="Olvid" customModuleProvider="target">
             <connections>
                 <outlet property="errorMessageLabel" destination="49v-MK-CoT" id="na2-f2-gEg"/>
-                <outlet property="shareButton" destination="tLy-pY-7Ue" id="YaO-n4-eI0"/>
+                <outlet property="shareButton" destination="6zb-sx-LGv" id="phe-3c-vEW"/>
                 <outlet property="shareErrorMessageExplanationLabel" destination="sas-u7-M1m" id="ctE-VY-vyJ"/>
                 <outlet property="standardErrorMessage" destination="uG3-yo-8g8" id="U1u-ja-B3x"/>
                 <outlet property="thankYouLabel" destination="b1I-VH-LNv" id="Tzt-wq-tUn"/>
@@ -24,10 +25,10 @@
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
                 <scrollView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="KzS-vI-dOG">
-                    <rect key="frame" x="0.0" y="44" width="414" height="852"/>
+                    <rect key="frame" x="0.0" y="48" width="414" height="848"/>
                     <subviews>
                         <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="bJy-dU-gxM">
-                            <rect key="frame" x="24" y="24" width="366" height="308"/>
+                            <rect key="frame" x="24" y="24" width="366" height="308.5"/>
                             <subviews>
                                 <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="uG3-yo-8g8" userLabel="standardErrorMessage">
                                     <rect key="frame" x="0.0" y="0.0" width="366" height="20.5"/>
@@ -41,15 +42,16 @@
                                     <nil key="textColor"/>
                                     <nil key="highlightedColor"/>
                                 </label>
-                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="tLy-pY-7Ue" customClass="ObvImageButton" customModule="ObvMessenger" customModuleProvider="target">
-                                    <rect key="frame" x="0.0" y="73" width="366" height="34"/>
+                                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="6zb-sx-LGv">
+                                    <rect key="frame" x="0.0" y="73" width="366" height="34.5"/>
                                     <state key="normal" title="Button"/>
+                                    <buttonConfiguration key="configuration" style="plain" title="Button"/>
                                     <connections>
-                                        <action selector="shareButtonTapped:" destination="-1" eventType="touchUpInside" id="8qH-Bt-sgJ"/>
+                                        <action selector="shareButtonTapped:" destination="-1" eventType="touchUpInside" id="Lrz-FQ-muG"/>
                                     </connections>
                                 </button>
                                 <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="Bgy-Jn-CD6">
-                                    <rect key="frame" x="0.0" y="123" width="366" height="41"/>
+                                    <rect key="frame" x="0.0" y="123.5" width="366" height="41"/>
                                     <subviews>
                                         <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="b1I-VH-LNv">
                                             <rect key="frame" x="0.0" y="0.0" width="366" height="41"/>
@@ -59,17 +61,17 @@
                                         </label>
                                     </subviews>
                                 </stackView>
-                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="sln-MH-jnD" customClass="ObvRoundedRectView" customModule="ObvMessenger" customModuleProvider="target">
-                                    <rect key="frame" x="0.0" y="180" width="366" height="128"/>
+                                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="sln-MH-jnD" customClass="ObvRoundedRectView" customModule="Olvid" customModuleProvider="target">
+                                    <rect key="frame" x="0.0" y="180.5" width="366" height="128"/>
                                     <subviews>
                                         <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Label" textAlignment="natural" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="49v-MK-CoT" userLabel="errorMessageLabel">
                                             <rect key="frame" x="16" y="16" width="334" height="96"/>
                                             <fontDescription key="fontDescription" style="UICTFontTextStyleFootnote"/>
-                                            <color key="textColor" systemColor="secondaryLabelColor" red="0.23529411759999999" green="0.23529411759999999" blue="0.26274509800000001" alpha="0.59999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
+                                            <color key="textColor" systemColor="secondaryLabelColor"/>
                                             <nil key="highlightedColor"/>
                                         </label>
                                     </subviews>
-                                    <color key="backgroundColor" systemColor="secondarySystemBackgroundColor" red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                    <color key="backgroundColor" systemColor="secondarySystemBackgroundColor"/>
                                     <constraints>
                                         <constraint firstItem="49v-MK-CoT" firstAttribute="top" secondItem="sln-MH-jnD" secondAttribute="top" constant="16" id="Db1-1G-4Lx"/>
                                         <constraint firstItem="49v-MK-CoT" firstAttribute="leading" secondItem="sln-MH-jnD" secondAttribute="leading" constant="16" id="gFn-Z2-yo8"/>
@@ -90,7 +92,8 @@
                     <viewLayoutGuide key="frameLayoutGuide" id="uH1-fZ-730"/>
                 </scrollView>
             </subviews>
-            <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+            <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
+            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
             <constraints>
                 <constraint firstItem="KzS-vI-dOG" firstAttribute="top" secondItem="fnl-2z-Ty3" secondAttribute="top" id="Imz-hq-312"/>
                 <constraint firstItem="bJy-dU-gxM" firstAttribute="width" secondItem="fnl-2z-Ty3" secondAttribute="width" constant="-48" id="Lro-Lr-bLc"/>
@@ -98,8 +101,18 @@
                 <constraint firstItem="KzS-vI-dOG" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" id="acc-br-gN7"/>
                 <constraint firstAttribute="bottom" secondItem="KzS-vI-dOG" secondAttribute="bottom" id="xRr-Ex-7oX"/>
             </constraints>
-            <viewLayoutGuide key="safeArea" id="fnl-2z-Ty3"/>
             <point key="canvasLocation" x="131.8840579710145" y="153.34821428571428"/>
         </view>
     </objects>
+    <resources>
+        <systemColor name="secondaryLabelColor">
+            <color red="0.23529411764705882" green="0.23529411764705882" blue="0.2627450980392157" alpha="0.59999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+        <systemColor name="secondarySystemBackgroundColor">
+            <color red="0.94901960784313721" green="0.94901960784313721" blue="0.96862745098039216" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
 </document>

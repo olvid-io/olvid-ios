@@ -40,6 +40,16 @@ final class SinglePreviewView: ViewForOlvidStack {
                 return false
             }
         }
+        
+        var preview: ObvLinkMetadata? {
+            switch self {
+            case .downloadable, .downloadingOrDecoding, .completeButReadRequiresUserInteraction, .cancelledByServer:
+                return nil
+            case .complete(let preview):
+                return preview
+            }
+        }
+        
     }
     
     //MARK: attributes - public

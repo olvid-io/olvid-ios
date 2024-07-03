@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvCrypto
 import ObvTypes
 import ObvMetaManager
 import OlvidUtils
+import ObvEncoder
 
 
 @objc(ContactDevice)
@@ -35,11 +36,14 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
 
     // MARK: Attributes
     
+    @NSManaged private(set) var latestChannelCreationPingTimestamp: Date?
     @NSManaged private(set) var uid: UID
     @NSManaged private var rawCapabilities: String?
 
 
     // MARK: Relationships
+    
+    @NSManaged private var preKeyForContactDevice: PreKeyForContactDevice? // May be non-nil. Set in the init of PreKeyForContactDevice
     
     private(set) var contactIdentity: ContactIdentity? {
         get {
@@ -62,6 +66,10 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
     private var contactCryptoIdentityOnDeletion: ObvCryptoIdentity?
     
     private var changedKeys = Set<String>()
+    
+    var hasPreKey: Bool {
+        preKeyForContactDevice != nil
+    }
 
     /// This is only set while inserting a new `ContactDevice`. This is `true` iff the inserted instance was performed during a `ChannelCreationWithContactDeviceProtocol`.
     ///
@@ -108,6 +116,102 @@ final class ContactDevice: NSManagedObject, ObvManagedObject {
 }
 
 
+// MARK: - Updating using a contact device discovery result
+
+extension ContactDevice {
+    
+    func updateWithContactDeviceDiscoveryResultDevice(_ deviceOnServer: ContactDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date, log: OSLog) throws {
+        
+        // No need to delete expired pre-keys, it will be deleted anyway if the key on server is expired
+        
+        guard self.uid == deviceOnServer.uid else {
+            assertionFailure()
+            throw ObvError.unexpectedUID
+        }
+        
+        if let deviceBlobOnServer = deviceOnServer.deviceBlobOnServer {
+            
+            // Note that the signature on the deviceBlobOnServer has already been verified
+            
+            if deviceBlobOnServer.deviceBlob.devicePreKey.expirationTimestamp > serverCurrentTimestamp {
+                let devicePreKey = deviceBlobOnServer.deviceBlob.devicePreKey
+                do {
+                    // If the prekey is identical to the one we already have, do nothing. Otherwise, delete the current one and create a new one.
+                    if self.preKeyForContactDevice?.cryptoKeyId == devicePreKey.keyId {
+                        // Do nothing
+                    } else {
+                        try self.preKeyForContactDevice?.deletePreKeyForContactDevice()
+                        _ = try PreKeyForContactDevice(deviceBlobOnServer: deviceBlobOnServer, forContactDevice: self)
+                    }
+                } catch {
+                    os_log("Failed to save preKey on server for a contact device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                }
+            } else {
+                do {
+                    try self.preKeyForContactDevice?.deletePreKeyForContactDevice()
+                } catch {
+                    os_log("Failed to delete preKey on server for a contact device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                }
+            }
+            
+            let deviceCapabilitiesFromServer = deviceBlobOnServer.deviceBlob.deviceCapabilities
+            if self.rawCapabilities == nil {
+                self.setRawCapabilities(newRawCapabilities: Set(deviceCapabilitiesFromServer.map(\.rawValue)))
+            }
+            
+        }
+        
+    }
+    
+}
+
+
+// MARK: - Latest Channel Creation Ping Timestamp
+
+extension ContactDevice {
+    
+    func setLatestChannelCreationPingTimestamp(to newValue: Date) {
+        if self.latestChannelCreationPingTimestamp != newValue {
+            self.latestChannelCreationPingTimestamp = newValue
+        }
+    }
+    
+}
+
+
+// MARK: - Encryption leveraging the preKey
+
+extension ContactDevice {
+    
+    func wrap(_ messageKey: any AuthenticatedEncryptionKey, with ownedPrivateKeyForAuthentication: any PrivateKeyForAuthentication, and ownedPublicKeyForAuthentication: any PublicKeyForAuthentication, prng: any PRNGService) throws -> EncryptedData? {
+        
+        guard let preKeyForContactDevice else { return nil }
+        
+        let wrappedMessageKey = try preKeyForContactDevice.wrap(messageKey,
+                                                                with: ownedPrivateKeyForAuthentication,
+                                                                and: ownedPublicKeyForAuthentication,
+                                                                prng: prng)
+        
+        return wrappedMessageKey
+        
+    }
+    
+}
+
+
+// MARK: - Errors
+
+extension ContactDevice {
+    
+    enum ObvError: Error {
+        case unexpectedUID
+    }
+    
+}
+
+
 // MARK: - Capabilities
 
 extension ContactDevice {
@@ -120,7 +224,10 @@ extension ContactDevice {
     }
 
     func setRawCapabilities(newRawCapabilities: Set<String>) {
-        self.rawCapabilities = newRawCapabilities.sorted().joined(separator: "|")
+        let newCapabilitiesJoined = newRawCapabilities.sorted().joined(separator: "|")
+        if self.rawCapabilities != newCapabilitiesJoined {
+            self.rawCapabilities = newCapabilitiesJoined
+        }
     }
     
 }
@@ -139,6 +246,14 @@ extension ContactDevice {
             case uid = "uid"
             case rawCapabilities = "rawCapabilities"
             case contactIdentity = "contactIdentity"
+            case preKeyForContactDevice = "preKeyForContactDevice"
+            case latestChannelCreationPingTimestamp = "latestChannelCreationPingTimestamp"
+        }
+        fileprivate static func withLatestChannelCreationPingTimestamp(earlierThan date: Date) -> NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(withNilValueForKey: Key.latestChannelCreationPingTimestamp),
+                NSPredicate(Key.latestChannelCreationPingTimestamp, earlierThan: date),
+            ])
         }
     }
 
@@ -146,6 +261,21 @@ extension ContactDevice {
     static func getAllContactDeviceUids(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
         let request: NSFetchRequest<ContactDevice> = ContactDevice.fetchRequest()
         let items = try obvContext.fetch(request)
+        let values: Set<ObliviousChannelIdentifier> = Set(items.compactMap {
+            guard let contactIdentity = $0.contactIdentity else { return nil }
+            guard let ownedIdentity = contactIdentity.ownedIdentity else { return nil }
+            guard let remoteCryptoIdentity = contactIdentity.cryptoIdentity else { assertionFailure(); return nil }
+            return ObliviousChannelIdentifier(currentDeviceUid: ownedIdentity.currentDeviceUid, remoteCryptoIdentity: remoteCryptoIdentity, remoteDeviceUid: $0.uid)
+        })
+        return values
+    }
+    
+    
+    static func getAllContactDeviceUidsWithLatestChannelCreationPingTimestamp(earlierThan date: Date, within context: NSManagedObjectContext) throws -> Set<ObliviousChannelIdentifier> {
+        let request: NSFetchRequest<ContactDevice> = ContactDevice.fetchRequest()
+        request.predicate = Predicate.withLatestChannelCreationPingTimestamp(earlierThan: date)
+        request.fetchBatchSize = 500
+        let items = try context.fetch(request)
         let values: Set<ObliviousChannelIdentifier> = Set(items.compactMap {
             guard let contactIdentity = $0.contactIdentity else { return nil }
             guard let ownedIdentity = contactIdentity.ownedIdentity else { return nil }
@@ -236,12 +366,19 @@ extension ContactDevice {
         } else if let ownedIdentity = contactIdentity?.ownedIdentity {
             
             guard let contactIdentity = self.contactIdentity else { assertionFailure(); return }
+            
             if changedKeys.contains(Predicate.Key.rawCapabilities.rawValue), let contactIdentity = contactIdentity.cryptoIdentity {
                 ObvIdentityNotificationNew.contactObvCapabilitiesWereUpdated(
                     ownedIdentity: ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(),
                     contactIdentity: contactIdentity,
                     flowId: flowId)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+            }
+            
+            if changedKeys.contains(Predicate.Key.preKeyForContactDevice.rawValue), let contactIdentity = contactIdentity.cryptoIdentity {
+                let contactDeviceIdentifier = ObvContactDeviceIdentifier(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity.cryptoIdentity), contactCryptoId: ObvCryptoId(cryptoIdentity: contactIdentity), deviceUID: self.uid)
+                ObvIdentityNotificationNew.updatedContactDevice(deviceIdentifier: contactDeviceIdentifier, flowId: flowId)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
             }
             
         }

@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.0 (793)] - 2024-06-28
+
+- Reliability Boost: Significant improvements in multi-device settings, ensuring a smoother experience across all devices.
+- Instant Connections: When adding a new contact, you can now start chatting immediately, with no waiting time whatsoever.
+- URL Preview Refinement: When a preview is available, URLs at the end of messages are now hidden.
+- Read Message Sync: Fixed an issue where messages marked as read on one device would incorrectly remain unread on other devices.
+- Secure Call Stability: Resolved a rare issue with secure calls in multi-device settings, where calls could occasionally hang up after 30 seconds.
+- Enhanced Notification Reliability: Improved notifications for messages received in recently joined groups, ensuring consistent delivery across all devices.
+- Draft Fix: Resolved an issue where drafts with attachments but no text couldn't be sent using the keyboard shortcut.
+- Multi-Device Discussion Deletion: Fixed various issues related to deleting discussions across multiple devices.
+- Admin Preserved in Group Cloning: Cloning a group now retains the admin's chosen settings.
+- Duration Display and Modification Fix: Fixed a bug preventing the display and modification of existence or visibility durations outside of enum values.
+- Database Migration Recovery: Improved strategies to recover from certain database migration errors.
+- Miscellaneous Improvements and Bug Fixes: Various minor enhancements and bug fixes to further enhance the overall user experience.
+
+## [2.5 (782)] - 2024-06-06
+
+- Resolved an intermittent issue with profile transfers from other devices.
+- Enhanced the cryptographic library.
+- Various minor improvements and bug fixes.
+
 ## [2.4 (778)] - 2024-06-03
 
 ### macOS

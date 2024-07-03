@@ -36,8 +36,8 @@ public final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker,
     
     // MARK: Attributes
     
-    @NSManaged public var rawGroupUID: Data?
-    @NSManaged private var rawOwnerIdentityIdentity: Data?
+    @NSManaged private(set) var rawGroupUID: Data?
+    @NSManaged private(set) var rawOwnerIdentityIdentity: Data?
 
     // MARK: Relationships
 
@@ -114,8 +114,8 @@ public final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker,
         case .fromThisDeviceOnly:
             break
         case .fromAllOwnedDevices:
-            guard ownedIdentity.hasAnotherDeviceWithChannel else {
-                throw ObvError.cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+            guard ownedIdentity.hasAnotherDeviceWhichIsReachable else {
+                throw ObvError.cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
             }
         case .fromAllOwnedDevicesAndAllContactDevices:
             guard messageToDelete is PersistedMessageSent else {
@@ -140,8 +140,8 @@ public final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker,
         case .fromThisDeviceOnly:
             break
         case .fromAllOwnedDevices:
-            guard ownedIdentity.hasAnotherDeviceWithChannel else {
-                throw ObvError.cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+            guard ownedIdentity.hasAnotherDeviceWhichIsReachable else {
+                throw ObvError.cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
             }
         case .fromAllOwnedDevicesAndAllContactDevices:
             throw ObvError.cannotDeleteGroupV1DiscussionFromContactDevices
@@ -158,12 +158,13 @@ public final class PersistedGroupDiscussion: PersistedDiscussion, ObvErrorMaker,
 extension PersistedGroupDiscussion {
     
     enum ObvError: Error {
-        case cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
-        case cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+        case cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
+        case cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
         case onlySentMessagesCanBeDeletedFromContactDevicesWhenInGroupV1Discussion
         case unexpectedOwnedIdentity
         case cannotDeleteGroupV1DiscussionFromContactDevices
         case noContext
+        case discussionIsNotLocked
     }
     
 }
@@ -242,6 +243,20 @@ extension PersistedGroupDiscussion {
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
+    
+    
+    static func deleteLockedPersistedGroupV1Discussion(ownedIdentity: PersistedObvOwnedIdentity, groupV1Identifier: GroupV1Identifier) throws {
+        guard let discussion = try getPersistedGroupDiscussion(ownedIdentity: ownedIdentity, groupV1DiscussionId: .groupV1Identifier(groupV1Identifier: groupV1Identifier)) else {
+            return
+        }
+        switch discussion.status {
+        case .preDiscussion, .active:
+            throw ObvError.discussionIsNotLocked
+        case .locked:
+            try discussion.deletePersistedDiscussion()
+        }
+    }
+
 
 }
 

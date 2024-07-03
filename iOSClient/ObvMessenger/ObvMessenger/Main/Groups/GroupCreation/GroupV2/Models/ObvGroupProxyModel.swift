@@ -121,17 +121,19 @@ final class ObvGroupProxyModel {
             self.groupIdentifier = nil
             
             var selectedGroupMembers = Array<PersistedObvContactIdentity>()
+            var admins = Set<PersistedObvContactIdentity>()
             
             for member in initialGroupMembers {
-                if let contact = try? PersistedObvContactIdentity.get(contactCryptoId: member, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext), contact.supportsCapability(.groupsV2) {
+                if let contact = try? PersistedObvContactIdentity.get(contactCryptoId: member.cryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext), contact.supportsCapability(.groupsV2) {
                     selectedGroupMembers.append(contact)
+                    if member.isAdmin { admins.insert(contact) }
                 } else {
                     assertionFailure()
                 }
             }
 
             self.selectedContacts = Set(selectedGroupMembers)
-            self.admins = Set()
+            self.admins = admins
             self.groupName = initialGroupName
             self.groupDescription = initialGroupDescription
             if let photoURL = initialPhotoURL, let photoData = try? Data(contentsOf: photoURL), let photo = UIImage(data: photoData) {

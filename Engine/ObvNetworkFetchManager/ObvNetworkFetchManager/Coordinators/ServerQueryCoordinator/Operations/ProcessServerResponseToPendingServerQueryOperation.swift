@@ -99,10 +99,10 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
 
                 switch status {
 
-                case .ok(deviceUids: let deviceUids):
-                    os_log("The ObvServerDeviceDiscoveryMethod returned %d device uids", log: log, type: .debug, deviceUids.count)
+                case .ok(result: let result):
+                    os_log("The ObvServerDeviceDiscoveryMethod returned %d devices", log: log, type: .debug, result.devices.count)
 
-                    let serverResponseType = ServerResponse.ResponseType.deviceDiscovery(result: .success(deviceUIDs: deviceUids))
+                    let serverResponseType = ServerResponse.ResponseType.deviceDiscovery(result: .success(result: result))
                     serverQuery.responseType = serverResponseType
 
                     return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
@@ -581,6 +581,44 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
 
                 }
                 
+            case .uploadPreKeyForCurrentDevice(deviceBlobOnServerToUpload: _):
+                
+                guard let status = UploadPreKeyServerMethod.parseObvServerResponse(responseData: responseData, using: log) else {
+                    assertionFailure()
+                    os_log("Could not parse the server response for the UploadPreKeyServerMethod task of pending server query %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
+                }
+                
+                switch status {
+                                        
+                case .invalidSession:
+                    guard let sessionTokenUsed else {
+                        assertionFailure()
+                        return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
+                    }
+                    return postOperationAction = .retryAsSessionIsInvalid(
+                        pendingServerQueryObjectID: pendingServerQueryObjectID,
+                        ownedCryptoId: ownedCryptoId,
+                        invalidToken: sessionTokenUsed)
+
+                case .generalError:
+                    os_log("Server reported general error during the UploadPreKeyServerMethod task for pending server query %@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
+                    return postOperationAction = .retryLater(pendingServerQueryObjectID: pendingServerQueryObjectID)
+
+                case .deviceNotRegistered:
+                    serverQuery.responseType = .uploadPreKeyForCurrentDevice(result: .deviceNotRegistered)
+                    return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
+
+                case .invalidSignature:
+                    serverQuery.responseType = .uploadPreKeyForCurrentDevice(result: .invalidSignature)
+                    return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
+
+                case .ok:
+                    serverQuery.responseType = .uploadPreKeyForCurrentDevice(result: .success)
+                    return postOperationAction = .postResponseAndDeleteServerQuery(pendingServerQueryObjectID: pendingServerQueryObjectID)
+
+                }
+
             case .sourceGetSessionNumber, .sourceWaitForTargetConnection, .targetSendEphemeralIdentity, .transferRelay, .transferWait, .closeWebsocketConnection:
                 
                 assertionFailure("This case should never happen as this type of server query is handled by the ServerQueryWebSocketCoordinator")

@@ -401,8 +401,8 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
     let readOnce: Bool?
     let attachLinkPreviewToMessageSent: Bool?
     let fetchMissingLinkPreviewFromMessageReceived: Bool?
-    let visibilityDuration: DurationOption?
-    let existenceDuration: DurationOption?
+    let visibilityDuration: TimeInterval?
+    let existenceDuration: TimeInterval?
     let countBasedRetentionPolicy: Int?
     let timeBasedRetentionPolicy: DurationOptionAlt?
     let autoRead: Bool?
@@ -505,8 +505,8 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         try container.encodeIfPresent(readOnce, forKey: .readOnce)
         try container.encodeIfPresent(attachLinkPreviewToMessageSent, forKey: .attachLinkPreviewToMessageSent)
         try container.encodeIfPresent(fetchMissingLinkPreviewFromMessageReceived, forKey: .fetchMissingLinkPreviewFromMessageReceived)
-        try container.encodeIfPresent(visibilityDuration?.timeInterval?.toSeconds ?? 0, forKey: .visibilityDuration)
-        try container.encodeIfPresent(existenceDuration?.timeInterval?.toSeconds ?? 0, forKey: .existenceDuration)
+        try container.encodeIfPresent(visibilityDuration?.toSeconds ?? 0, forKey: .visibilityDuration)
+        try container.encodeIfPresent(existenceDuration?.toSeconds ?? 0, forKey: .existenceDuration)
         try container.encodeIfPresent(countBasedRetentionPolicy, forKey: .countBasedRetentionPolicy)
         try container.encodeIfPresent(timeBasedRetentionPolicy?.timeInterval?.toSeconds, forKey: .timeBasedRetentionPolicy)
         try container.encodeIfPresent(autoRead, forKey: .autoRead)
@@ -544,12 +544,12 @@ public struct GlobalSettingsBackupItem: Codable, Hashable {
         self.attachLinkPreviewToMessageSent = try values.decodeIfPresent(Bool.self, forKey: .attachLinkPreviewToMessageSent)
         self.fetchMissingLinkPreviewFromMessageReceived = try values.decodeIfPresent(Bool.self, forKey: .fetchMissingLinkPreviewFromMessageReceived)
         if let raw = try values.decodeIfPresent(Int.self, forKey: .visibilityDuration) {
-            self.visibilityDuration = DurationOption(rawValue: raw)
+            self.visibilityDuration = TimeInterval(raw)
         } else {
             self.visibilityDuration = nil
         }
         if let raw = try values.decodeIfPresent(Int.self, forKey: .existenceDuration) {
-            self.existenceDuration = DurationOption(rawValue: raw)
+            self.existenceDuration = TimeInterval(raw)
         } else {
             self.existenceDuration = nil
         }

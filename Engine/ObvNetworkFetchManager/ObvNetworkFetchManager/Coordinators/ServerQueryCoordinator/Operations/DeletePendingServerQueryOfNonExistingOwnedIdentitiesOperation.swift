@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,7 +38,7 @@ final class DeletePendingServerQueryOfNonExistingOwnedIdentitiesOperation: Conte
         
         do {
             
-            let existingOwnedIdentities = try identityDelegate.getOwnedIdentities(within: obvContext)
+            let existingOwnedIdentities = try identityDelegate.getOwnedIdentities(restrictToActive: false, within: obvContext)
             let serverQueries = try PendingServerQuery.getAllServerQuery(
                 isWebSocket: .any,
                 delegateManager: delegateManager,

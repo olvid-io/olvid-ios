@@ -928,14 +928,14 @@ extension PersistedMessageSystem {
     }
 
     
-    static func markAllAsNotNew(within discussion: PersistedDiscussion, untilDate: Date?) throws -> Date? {
+    static func markAllAsNotNew(within discussion: PersistedDiscussion, dateWhenMessageTurnedNotNew: Date?) throws -> Date? {
         os_log("Call to markAllAsNotNew in PersistedMessageSystem for discussion %{public}@", log: log, type: .debug, discussion.objectID.debugDescription)
         guard let context = discussion.managedObjectContext else { return nil }
         let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
         request.includesSubentities = true
         let untilDatePredicate: NSPredicate
-        if let untilDate {
-            untilDatePredicate = Predicate.createdBefore(date: untilDate)
+        if let dateWhenMessageTurnedNotNew {
+            untilDatePredicate = Predicate.createdBefore(date: dateWhenMessageTurnedNotNew)
         } else {
             untilDatePredicate = NSPredicate(value: true)
         }

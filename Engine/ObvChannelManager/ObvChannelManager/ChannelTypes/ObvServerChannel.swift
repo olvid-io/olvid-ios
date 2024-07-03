@@ -111,6 +111,8 @@ extension ObvServerChannel {
                 serverQueryType = .transferWait(protocolInstanceUID: protocolInstanceUID, connectionIdentifier: connectionIdentifier)
             case .closeWebsocketConnection(protocolInstanceUID: let protocolInstanceUID):
                 serverQueryType = .closeWebsocketConnection(protocolInstanceUID: protocolInstanceUID)
+            case .uploadPreKeyForCurrentDevice(deviceBlobOnServerToUpload: let deviceBlobOnServerToUpload):
+                serverQueryType = .uploadPreKeyForCurrentDevice(deviceBlobOnServerToUpload: deviceBlobOnServerToUpload)
             }
             
             let serverQuery = ServerQuery(ownedIdentity: ownedIdentity, queryType: serverQueryType, encodedElements: message.encodedElements)
@@ -142,7 +144,7 @@ extension ObvServerChannel {
         
         switch message.channelType {
             
-        case .ServerQuery(ownedIdentity: let ownedIdentity):
+        case .serverQuery(ownedIdentity: let ownedIdentity):
             // Only server query messages may be sent through the server channel
             guard message.messageType == .ServerQuery else {
                 throw ObvServerChannel.makeError(message: "Wrong message type")

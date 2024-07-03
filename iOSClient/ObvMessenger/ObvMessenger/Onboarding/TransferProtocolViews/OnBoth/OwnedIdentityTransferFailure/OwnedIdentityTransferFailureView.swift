@@ -67,7 +67,9 @@ struct OwnedIdentityTransferFailureView: View {
                 .incorrectSAS,
                 .connectionIdsDoNotMatch,
                 .couldNotOpenCommitment,
-                .couldNotComputeSeed:
+                .couldNotComputeSeed,
+                .couldNotEncryptPayload,
+                .couldNotEncryptDecommitment:
             return nil
         }
     }

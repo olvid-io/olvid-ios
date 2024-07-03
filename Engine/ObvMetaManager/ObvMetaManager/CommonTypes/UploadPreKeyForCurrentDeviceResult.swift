@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,19 +20,22 @@
 import Foundation
 import ObvEncoder
 
-protocol CryptographicKeyForDH: CryptographicKey {
-    var algorithmImplementationByteId: DHImplementationByteId { get }
-}
-
-
-extension CryptographicKeyForDH {
+public enum UploadPreKeyForCurrentDeviceResult: Int, ObvCodable {
     
-    var algorithmClass: CryptographicAlgorithmClassByteId {
-        return CryptographicAlgorithmClassByteId.DH
+    case success = 0
+    case deviceNotRegistered = 1
+    case invalidSignature = 2
+    case permanentFailure = 3
+    
+    public func obvEncode() -> ObvEncoded {
+        self.rawValue.obvEncode()
     }
     
-    var algorithmImplementationByteId: DHImplementationByteId {
-        return DHImplementationByteId(rawValue: self.algorithmImplementationByteIdValue)!
+    public init?(_ obvEncoded: ObvEncoded) {
+        guard let rawValue = Int(obvEncoded) else { assertionFailure(); return nil }
+        guard let value = UploadPreKeyForCurrentDeviceResult(rawValue: rawValue) else { assertionFailure(); return nil }
+        self = value
     }
-    
+
 }
+

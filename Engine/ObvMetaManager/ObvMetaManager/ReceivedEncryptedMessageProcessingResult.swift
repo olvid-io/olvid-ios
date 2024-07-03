@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,4 +33,7 @@ public enum ReceivedEncryptedMessageProcessingResult {
     case remoteIdentityToSetOnReceivedMessage(messageId: ObvMessageIdentifier, remoteCryptoIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayloadKey: AuthenticatedEncryptionKey?, attachmentsInfos: [ObvNetworkFetchAttachmentInfos])
     case applicationMessageCouldNotBeParsed(messageId: ObvMessageIdentifier)
     case unexpectedMessageType(messageId: ObvMessageIdentifier)
+    case messageKeyDoesNotSupportGKMV2AlthoughItShould(messageId: ObvMessageIdentifier)
+    case unwrapSucceededButRemoteCryptoIdIsUnknown(messageId: ObvMessageIdentifier, remoteCryptoIdentity: ObvCryptoIdentity) // Only used by PreKey channel
+    case messageReceivedFromContactThatIsRevokedAsCompromised(messageId: ObvMessageIdentifier)
 }

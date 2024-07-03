@@ -33,7 +33,7 @@ public struct ObvChannelServerQueryMessageToSend: ObvChannelMessageToSend {
 
     // The toIdentity is one of our own, used to receive the server response
     public init(ownedIdentity: ObvCryptoIdentity, serverQueryType: QueryType, encodedElements: ObvEncoded) {
-        self.channelType = .ServerQuery(ownedIdentity: ownedIdentity)
+        self.channelType = .serverQuery(ownedIdentity: ownedIdentity)
         self.encodedElements = encodedElements
         self.queryType = serverQueryType
     }
@@ -68,6 +68,8 @@ extension ObvChannelServerQueryMessageToSend {
         case transferRelay(protocolInstanceUID: UID, connectionIdentifier: String, payload: Data, thenCloseWebSocket: Bool)
         case transferWait(protocolInstanceUID: UID, connectionIdentifier: String)
         case closeWebsocketConnection(protocolInstanceUID: UID)
+        // For PreKeys
+        case uploadPreKeyForCurrentDevice(deviceBlobOnServerToUpload: DeviceBlobOnServer)
     }
     
 }

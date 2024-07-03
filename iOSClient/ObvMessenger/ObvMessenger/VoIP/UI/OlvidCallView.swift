@@ -1082,9 +1082,12 @@ private struct AcceptOrRejectButtonsView<Model: AcceptOrRejectButtonsViewModelPr
     @ObservedObject var model: Model
     let actions: AcceptOrRejectButtonsViewActionsProtocol
     
+    @State private var isViewDisabled = false
+    
     private let buttonImageFontSize: CGFloat = 20
 
     private func userRejectedIncomingCall() {
+        withAnimation { isViewDisabled = true }
         Task {
             do {
                 try await actions.userRejectedIncomingCall(uuidForCallKit: model.uuidForCallKit)
@@ -1095,6 +1098,7 @@ private struct AcceptOrRejectButtonsView<Model: AcceptOrRejectButtonsViewModelPr
     }
     
     private func userAcceptedIncomingCall() {
+        withAnimation { isViewDisabled = true }
         Task {
             do {
                 try await actions.userAcceptedIncomingCall(uuidForCallKit: model.uuidForCallKit)
@@ -1116,6 +1120,7 @@ private struct AcceptOrRejectButtonsView<Model: AcceptOrRejectButtonsViewModelPr
                        background: .systemBlue)
             
         }
+        .disabled(isViewDisabled)
     }
 }
 

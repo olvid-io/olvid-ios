@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -283,7 +283,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -321,7 +321,7 @@ extension GroupV2Protocol {
             var uploadingPhoto = false
             if let photoURLManagedByTheIdentityManager = photoURLManagedByTheIdentityManager, let serverPhotoInfo = serverPhotoInfo {
                 
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = UploadGroupPhotoMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: serverPhotoInfo.photoServerKeyAndLabel.label, dataURL: photoURLManagedByTheIdentityManager, dataKey: serverPhotoInfo.photoServerKeyAndLabel.key)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -333,7 +333,7 @@ extension GroupV2Protocol {
             // Upload the encrypted blob
             
             do {
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = UploadGroupBlobMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.createGroupBlob(groupIdentifier: groupIdentifier, serverAuthenticationPublicKey: groupAdminServerAuthenticationPublicKey, encryptedBlob: encryptedServerBlob)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -367,12 +367,12 @@ extension GroupV2Protocol {
             switch receivedMessage {
             case .uploadGroupPhoto(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .uploadGroupBlob(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -412,7 +412,7 @@ extension GroupV2Protocol {
             // If there is nothing left to upload, post a (local) message to initiate the finalization of the group creation
             
             if !waitingForBlobUpload && !waitingForPhotoUpload {
-                let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .local(ownedIdentity: ownedIdentity))
                 let concreteMessage = FinalizeGroupCreationMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate FinalizeGroupCreationMessage") }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -476,7 +476,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -506,24 +506,31 @@ extension GroupV2Protocol {
             }
             
             // Fetch all group pending members and their permissions (used later).
-            // For each pending member, determine the set of device UIDs with whom the current device has a confirmed Oblivious channel
+            // For each pending member, determine the set of device UIDs with whom the current device has a confirmed Oblivious channel or a PreKey
             
             let pendingMembersAndPermissions: Set<GroupV2.IdentityAndPermissions>
+            let deviceUidsOfRemoteIdentity: [ObvCryptoIdentity : Set<UID>]
             do {
                 pendingMembersAndPermissions = try identityDelegate.getPendingMembersAndPermissionsOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                let identitesOfPendingMembers = Set(pendingMembersAndPermissions.map({ $0.identity }))
+                deviceUidsOfRemoteIdentity = try Utils.fetchDeviceUIDsHavingObliviousChannelOrPreKeyWithCurrentDevice(
+                    ownedIdentity: ownedIdentity,
+                    remoteIdentities: identitesOfPendingMembers,
+                    channelDelegate: channelDelegate,
+                    identityDelegate: identityDelegate,
+                    within: obvContext)
             } catch {
                 try deleteGroupBlobFromServer(groupIdentifier: groupIdentifier, groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
                 try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                 return FinalState()
             }
-            let identitesOfPendingMembers = Set(pendingMembersAndPermissions.map({ $0.identity }))
-            let deviceUidsOfRemoteIdentity = try channelDelegate.getDeviceUidsOfRemoteIdentitiesHavingConfirmedObliviousChannelWithTheCurrentDeviceOfOwnedIdentity(ownedIdentity, remoteIdentities: identitesOfPendingMembers, within: obvContext)
-
-            // Make sure we have at least one confirmed oblivious channel with each pending member
             
-            let aConfirmedChannelExistsWithEveryPendingMember = deviceUidsOfRemoteIdentity.allSatisfy({ !$0.value.isEmpty })
-            guard aConfirmedChannelExistsWithEveryPendingMember else {
-                // We have a problem, we invited a member with whom we do not have a channel...
+            // Make sure all pending members can be reached
+
+            let everyPendingMemberCanBeReached = deviceUidsOfRemoteIdentity.values.allSatisfy { !$0.isEmpty }
+
+            guard everyPendingMemberCanBeReached else {
+                // We have a problem, we invited a member with whom we do not have a channel nor a prekey...
                 // Rollback everything and delete the group
                 try deleteGroupBlobFromServer(groupIdentifier: groupIdentifier, groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
                 try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
@@ -545,11 +552,12 @@ extension GroupV2Protocol {
             
             do {
                 try deviceUidsOfRemoteIdentity.forEach { (pendingMember, deviceUids) in
-                    let channelType: ObvChannelSendChannelType = .ObliviousChannel(
+                    let channelType: ObvChannelSendChannelType = .obliviousChannel(
                         to: pendingMember,
                         remoteDeviceUids: Array(deviceUids),
                         fromOwnedIdentity: ownedIdentity,
-                        necessarilyConfirmed: true)
+                        necessarilyConfirmed: true,
+                        usePreKeyIfRequired: true)
                     let coreMessage = CoreProtocolMessage(
                         channelType: channelType,
                         cryptoProtocolId: .groupV2,
@@ -578,11 +586,12 @@ extension GroupV2Protocol {
                 let currentDeviceUID = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
                 let allOwnedDeviceUids = Set(otherDeviceUIDs + [currentDeviceUID])
                 if !otherDeviceUIDs.isEmpty {
-                    let channelType: ObvChannelSendChannelType = .ObliviousChannel(
+                    let channelType: ObvChannelSendChannelType = .obliviousChannel(
                         to: ownedIdentity,
                         remoteDeviceUids: Array(otherDeviceUIDs),
                         fromOwnedIdentity: ownedIdentity,
-                        necessarilyConfirmed: true)
+                        necessarilyConfirmed: true,
+                        usePreKeyIfRequired: true)
                     let coreMessage = CoreProtocolMessage(
                         channelType: channelType,
                         cryptoProtocolId: .groupV2,
@@ -598,12 +607,22 @@ extension GroupV2Protocol {
                     }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 }
+            } catch {
+                try deleteGroupBlobFromServer(groupIdentifier: groupIdentifier, groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
+                try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                return FinalState()
             }
 
             // Unfreeze the group
             
-            try identityDelegate.unfreezeGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
-            
+            do {
+                try identityDelegate.unfreezeGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+            } catch {
+                try deleteGroupBlobFromServer(groupIdentifier: groupIdentifier, groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
+                try identityDelegate.deleteGroupV2(withGroupIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
+                return FinalState()
+            }
+
             // Return the new state
 
             return FinalState()
@@ -611,7 +630,7 @@ extension GroupV2Protocol {
         }
         
         private func deleteGroupBlobFromServer(groupIdentifier: GroupV2.Identifier, groupAdminServerAuthenticationPrivateKey: PrivateKeyForAuthentication) throws {
-            let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
             let concreteMessage = DeleteGroupBlobFromServerMessage(coreProtocolMessage: coreMessage)
             guard let signature = ObvSolveChallengeStruct.solveChallenge(.groupDelete, with: groupAdminServerAuthenticationPrivateKey, using: prng) else { assertionFailure(); throw Self.makeError(message: "Could not compute signature for deleting group") }
             let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.deleteGroupBlob(groupIdentifier: groupIdentifier, signature: signature)
@@ -648,62 +667,62 @@ extension GroupV2Protocol {
             switch (startState, receivedMessage) {
             case (.initial, .invitationOrMembersUpdateMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.initial, .invitationOrMembersUpdateBroadcastMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AsymmetricChannel,
+                           expectedReceptionChannelInfo: .asymmetricChannel,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.initial, .invitationOrMembersUpdatePropagatedMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.initial, .blobKeysAfterChannelCreationMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.iNeedMoreSeed, .invitationOrMembersUpdateMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.iNeedMoreSeed, .invitationOrMembersUpdateBroadcastMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AsymmetricChannel,
+                           expectedReceptionChannelInfo: .asymmetricChannel,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.iNeedMoreSeed, .invitationOrMembersUpdatePropagatedMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.iNeedMoreSeed, .blobKeysAfterChannelCreationMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.invitationReceived, .invitationOrMembersUpdateMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.invitationReceived, .invitationOrMembersUpdateBroadcastMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AsymmetricChannel,
+                           expectedReceptionChannelInfo: .asymmetricChannel,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.invitationReceived, .invitationOrMembersUpdatePropagatedMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.invitationReceived, .blobKeysAfterChannelCreationMessage(let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -798,7 +817,12 @@ extension GroupV2Protocol {
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 let notNotifiedDeviceUIDs = otherDeviceUIDs.subtracting(notifiedDeviceUIDs)
                 if !notNotifiedDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(notNotifiedDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                                 remoteDeviceUids: Array(notNotifiedDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = InvitationOrMembersUpdatePropagatedMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupVersion: groupVersion, blobKeys: receivedBlobKeys, inviter: inviter)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -845,7 +869,7 @@ extension GroupV2Protocol {
                                            serializedGroupType: startState.serverBlob.serializedGroupType)
                     
                     let dialogType = ObvChannelDialogToSendType.freezeGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: startState.inviterIdentity), group: group)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogFreezeGroupV2InvitationMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -882,7 +906,7 @@ extension GroupV2Protocol {
                             let ownGroupInvitationNonce = try identityDelegate.getOwnGroupInvitationNonceOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                             let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: inviter)
                             let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
-                            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: inviter, fromOwnedIdentity: ownedIdentity))
+                            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: inviter, fromOwnedIdentity: ownedIdentity))
                             let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
                             guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                             _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -936,7 +960,7 @@ extension GroupV2Protocol {
             
             let internalServerQueryIdentifier = Int.random(in: 0..<Int.max)
             do {
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = DownloadGroupBlobMessage(coreProtocolMessage: coreMessage, internalServerQueryIdentifier: internalServerQueryIdentifier)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getGroupBlob(groupIdentifier: groupIdentifier)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -1211,7 +1235,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -1253,7 +1277,7 @@ extension GroupV2Protocol {
                     
                     do {
                         let dialogType = ObvChannelDialogToSendType.delete
-                        let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                        let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                         let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                         guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                             throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -1270,7 +1294,7 @@ extension GroupV2Protocol {
 
                     do {
                         let dialogType = ObvChannelDialogToSendType.delete
-                        let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                        let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                         let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                         guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                             throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -1370,7 +1394,7 @@ extension GroupV2Protocol {
                     for identityToPing in identitiesToPing {
                         let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: identityToPing)
                         let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
-                        let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: identityToPing, fromOwnedIdentity: ownedIdentity))
+                        let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: identityToPing, fromOwnedIdentity: ownedIdentity))
                         let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
                         guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                         _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -1433,7 +1457,7 @@ extension GroupV2Protocol {
                 // We want to auto-accept the invitation, without prompting the user.
                 // To do so, we post a local message that will immeditaly be processed from the InvitationReceivedState.
                 
-                let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .local(ownedIdentity: ownedIdentity))
                 let concreteMessage = AutoAcceptInvitationMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate FinalizeGroupCreationMessage") }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -1442,7 +1466,7 @@ extension GroupV2Protocol {
 
                 do {
                     let dialogType = ObvChannelDialogToSendType.delete
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     if let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() {
                         _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -1469,7 +1493,7 @@ extension GroupV2Protocol {
                                        serializedGroupType: consolidatedServerBlob.serializedGroupType)
                 
                 let dialogType = ObvChannelDialogToSendType.acceptGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: inviterIdentity), group: group)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogAcceptGroupV2InvitationMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -1554,7 +1578,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -1588,12 +1612,12 @@ extension GroupV2Protocol {
             switch receivedMessage {
             case .pingMessage(receivedMessage: let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AsymmetricChannel,
+                           expectedReceptionChannelInfo: .asymmetricChannel,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .propagatedPingMessage(receivedMessage: let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -1640,7 +1664,7 @@ extension GroupV2Protocol {
                 let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
                 if numberOfOtherDevicesOfOwnedIdentity > 0 {
                     do {
-                        let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                        let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                         let concreteProtocolMessage = PropagatedPingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: groupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity, isReponse: isReponse)
                         guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                             throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -1694,7 +1718,7 @@ extension GroupV2Protocol {
                 let ownGroupInvitationNonce = try identityDelegate.getOwnGroupInvitationNonceOfGroupV2(withGroupWithIdentifier: groupIdentifier, of: ownedIdentity, within: obvContext)
                 let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: memberWhoSignedTheNonce.identity)
                 let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
-                let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: memberWhoSignedTheNonce.identity, fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: memberWhoSignedTheNonce.identity, fromOwnedIdentity: ownedIdentity))
                 let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: true)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -1769,17 +1793,17 @@ extension GroupV2Protocol {
             switch receivedMessage {
             case .dialogAcceptGroupV2InvitationMessage(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .propagateInvitationDialogResponseMessage(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .autoAcceptInvitationFromOwnedIdentityMessage(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -1847,7 +1871,7 @@ extension GroupV2Protocol {
                 
                 if let dialogUuidFromMessage = dialogUuidFromMessage {
                     let dialogType = ObvChannelDialogToSendType.delete
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuidFromMessage, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuidFromMessage, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -1944,7 +1968,12 @@ extension GroupV2Protocol {
             if !propagated && !autoAccepted {
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = PropagateInvitationDialogResponseMessage(coreProtocolMessage: coreMessage, invitationAccepted: invitationAccepted, ownGroupInvitationNonce: ownGroupInvitationNonce)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -1957,7 +1986,7 @@ extension GroupV2Protocol {
                 
                 do {
                     let leaveSignature = try solveChallengeDelegate.solveChallenge(.groupLeaveNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce), for: ownedIdentity, using: prng, within: obvContext)
-                    let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                     let concreteMessage = PutGroupLogOnServerMessage(coreProtocolMessage: coreMessage)
                     let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putGroupLog(groupIdentifier: groupIdentifier, querySignature: leaveSignature)
                     guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -1966,7 +1995,7 @@ extension GroupV2Protocol {
                 
                 do {
                     let dialogType = ObvChannelDialogToSendType.delete
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -2038,7 +2067,7 @@ extension GroupV2Protocol {
                 for identity in identitiesToPing {
                     let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: identity)
                     let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: identity, fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: identity, fromOwnedIdentity: ownedIdentity))
                     let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -2049,7 +2078,7 @@ extension GroupV2Protocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -2066,7 +2095,7 @@ extension GroupV2Protocol {
         
         private func postObvChannelDialogToSendTypeDelete(dialogUuid: UUID) throws {
             let dialogType = ObvChannelDialogToSendType.delete
-            let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+            let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
             let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
             guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                 throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -2272,7 +2301,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -2286,7 +2315,7 @@ extension GroupV2Protocol {
             
             for groupMember in groupMembersToNotify {
                 // Send rejection update message
-                let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: groupMember, fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: groupMember, fromOwnedIdentity: ownedIdentity))
                 let concreteMessage = InvitationRejectedBroadcastMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -2323,17 +2352,17 @@ extension GroupV2Protocol {
             switch receivedMessage {
             case .initiateGroupReDownload(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .invitationRejectedBroadcast(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AsymmetricChannel,
+                           expectedReceptionChannelInfo: .asymmetricChannel,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .propagateInvitationRejected(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -2384,7 +2413,12 @@ extension GroupV2Protocol {
             if propagationNeeded {
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity,
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = PropagateInvitationRejectedMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -2434,7 +2468,7 @@ extension GroupV2Protocol {
                     for identity in identitiesToPing {
                         let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: identity)
                         let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
-                        let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: identity, fromOwnedIdentity: ownedIdentity))
+                        let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: identity, fromOwnedIdentity: ownedIdentity))
                         let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
                         guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                         _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -2469,7 +2503,7 @@ extension GroupV2Protocol {
                                            serializedGroupType: startState.serverBlob.serializedGroupType)
                     
                     let dialogType = ObvChannelDialogToSendType.freezeGroupV2Invite(inviter: ObvCryptoId(cryptoIdentity: startState.inviterIdentity), group: group)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogFreezeGroupV2InvitationMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -2492,7 +2526,7 @@ extension GroupV2Protocol {
 
             let internalServerQueryIdentifier = Int.random(in: 0..<Int.max)
             do {
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = DownloadGroupBlobMessage(coreProtocolMessage: coreMessage, internalServerQueryIdentifier: internalServerQueryIdentifier)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getGroupBlob(groupIdentifier: groupIdentifier)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -2624,7 +2658,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -2671,7 +2705,7 @@ extension GroupV2Protocol {
 
             // Request a group lock to the server
             
-            let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
             let concreteMessage = RequestServerLockMessage(coreProtocolMessage: coreMessage)
             let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.requestGroupBlobLock(groupIdentifier: groupIdentifier, lockNonce: lockNonce, signature: lockNonceSignature)
             guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -2770,7 +2804,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -2860,11 +2894,18 @@ extension GroupV2Protocol {
             
             // Check that we have a channel with all the members that we invite.
             // Also check that we have a channel with the members to whom we will need to send a new invitation nonce
-            
             do {
                 let membersToInvite = newServerBlob.groupMembers.subtracting(previousServerBlob.groupMembers)
                 for memberToInvite in membersToInvite {
-                    guard try channelDelegate.aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andRemoteIdentity: memberToInvite.identity, within: obvContext) else {
+                    let memberCanBeReached: Bool
+                    if try channelDelegate.aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andRemoteIdentity: memberToInvite.identity, within: obvContext) {
+                        memberCanBeReached = true
+                    } else if try !identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ownedIdentity, remoteCryptoId: memberToInvite.identity, within: obvContext).isEmpty {
+                        memberCanBeReached = true
+                    } else {
+                        memberCanBeReached = false
+                    }
+                    guard memberCanBeReached else {
                         // We are trying to invite a member with whom we have no oblivious channel. We discard the changeset and notify the app.
                         try unfreezeTheGroupAndNotifyThatTheGroupUpdateFailed(groupIdentifier: groupIdentifier, within: obvContext)
                         return FinalState()
@@ -2877,7 +2918,15 @@ extension GroupV2Protocol {
                     }
                 }
                 for membersWithNewInvitationSeed in membersWithNewInvitationSeed {
-                    guard try channelDelegate.aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andRemoteIdentity: membersWithNewInvitationSeed, within: obvContext) else {
+                    let memberCanBeReached: Bool
+                    if try channelDelegate.aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ownedIdentity, andRemoteIdentity: membersWithNewInvitationSeed, within: obvContext) {
+                        memberCanBeReached = true
+                    } else if try !identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ownedIdentity, remoteCryptoId: membersWithNewInvitationSeed, within: obvContext).isEmpty {
+                        memberCanBeReached = true
+                    } else {
+                        memberCanBeReached = false
+                    }
+                    guard memberCanBeReached else {
                         // We are trying to invite a member with whom we have no oblivious channel. We discard the changeset and notify the app.
                         try unfreezeTheGroupAndNotifyThatTheGroupUpdateFailed(groupIdentifier: groupIdentifier, within: obvContext)
                         return FinalState()
@@ -2916,7 +2965,7 @@ extension GroupV2Protocol {
             // Upload the encrypted blob (using the same nonce we created when locking the group on the server)
             
             do {
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = UploadGroupBlobMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.updateGroupBlob(
                     groupIdentifier: groupIdentifier,
@@ -2991,7 +3040,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -3054,7 +3103,7 @@ extension GroupV2Protocol {
 
                 // Request a new group lock to the server
                 
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = RequestServerLockMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.requestGroupBlobLock(groupIdentifier: groupIdentifier, lockNonce: lockNonce, signature: lockNonceSignature)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -3080,14 +3129,14 @@ extension GroupV2Protocol {
             let serverPhotoInfoOfNewUploadedPhoto: GroupV2.ServerPhotoInfo?
             if let groupPhotoURL = changeset.photoURL, let serverPhotoInfo = uploadedServerBlob.serverPhotoInfo, FileManager.default.fileExists(atPath: groupPhotoURL.path) {
                 assert(groupPhotoURL.path.starts(with: delegateManager.uploadingUserData.path)) // At this point, we expect the URL to be managed by the protocol manager
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = UploadGroupPhotoMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: serverPhotoInfo.photoServerKeyAndLabel.label, dataURL: groupPhotoURL, dataKey: serverPhotoInfo.photoServerKeyAndLabel.key)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 serverPhotoInfoOfNewUploadedPhoto = serverPhotoInfo
             } else {
-                let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .local(ownedIdentity: ownedIdentity))
                 let concreteMessage = FinalizeGroupUpdateMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate FinalizeGroupUpdateMessage") }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -3132,7 +3181,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -3149,7 +3198,7 @@ extension GroupV2Protocol {
             let updatedBlobVersionSeed = startState.updatedBlobVersionSeed
             let serverPhotoInfoOfNewUploadedPhoto = startState.serverPhotoInfoOfNewUploadedPhoto
 
-            let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .local(ownedIdentity: ownedIdentity))
             let concreteMessage = FinalizeGroupUpdateMessage(coreProtocolMessage: coreMessage)
             guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate FinalizeGroupUpdateMessage") }
             _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -3180,7 +3229,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -3266,14 +3315,23 @@ extension GroupV2Protocol {
                                             groupAdminServerAuthenticationPrivateKey: groupAdminServerAuthenticationPrivateKey)
                 }
             }
-            
-            let otherGroupMembersIdentities = Set(otherGroupMembers.map({ $0.identity }))
-            let deviceUidsOfRemoteIdentity = try channelDelegate.getDeviceUidsOfRemoteIdentitiesHavingConfirmedObliviousChannelWithTheCurrentDeviceOfOwnedIdentity(ownedIdentity, remoteIdentities: otherGroupMembersIdentities, within: obvContext)
-            
+
+            let otherGroupMembersIdentities = Set(otherGroupMembers.map(\.identity))
+            let deviceUidsOfRemoteIdentity = try Utils.fetchDeviceUIDsHavingObliviousChannelOrPreKeyWithCurrentDevice(
+                ownedIdentity: ownedIdentity,
+                remoteIdentities: otherGroupMembersIdentities,
+                channelDelegate: channelDelegate,
+                identityDelegate: identityDelegate,
+                within: obvContext)
+
             for member in otherGroupMembers {
                 if let memberDeviceUids = deviceUidsOfRemoteIdentity[member.identity], !memberDeviceUids.isEmpty {
                     let keysToSend = keysToSend(member.hasGroupAdminPermission, true)
-                    let channelType = ObvChannelSendChannelType.ObliviousChannel(to: member.identity, remoteDeviceUids: Array(memberDeviceUids), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true)
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: member.identity,
+                                                                                 remoteDeviceUids: Array(memberDeviceUids),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
                     let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
                     let concreteMessage = InvitationOrMembersUpdateMessage(coreProtocolMessage: coreMessage,
                                                                            groupIdentifier: groupIdentifier,
@@ -3284,7 +3342,7 @@ extension GroupV2Protocol {
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
                 } else {
                     let keysToSend = keysToSend(member.hasGroupAdminPermission, false)
-                    let channelType = ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: member.identity, fromOwnedIdentity: ownedIdentity)
+                    let channelType = ObvChannelSendChannelType.asymmetricChannelBroadcast(to: member.identity, fromOwnedIdentity: ownedIdentity)
                     let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
                     let concreteMessage = InvitationOrMembersUpdateBroadcastMessage(coreProtocolMessage: coreMessage,
                                                                                     groupIdentifier: groupIdentifier,
@@ -3299,7 +3357,11 @@ extension GroupV2Protocol {
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
                     let keysToSend = keysToSend(true, true) // We have admin permissions, and we send the keys through an Oblivious channel
-                    let channelType = ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true)
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
                     let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
                     let concreteMessage = InvitationOrMembersUpdateMessage(coreProtocolMessage: coreMessage,
                                                                            groupIdentifier: groupIdentifier,
@@ -3325,7 +3387,7 @@ extension GroupV2Protocol {
                 for member in membersToKick {
                     let challenge = ChallengeType.groupKick(encryptedAdministratorChain: encryptedAdministratorChain, groupInvitationNonce: member.groupInvitationNonce)
                     let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
-                    let channelType = ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: member.identity, fromOwnedIdentity: ownedIdentity)
+                    let channelType = ObvChannelSendChannelType.asymmetricChannelBroadcast(to: member.identity, fromOwnedIdentity: ownedIdentity)
                     let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
                     let concreteMessage = KickMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, encryptedAdministratorChain: encryptedAdministratorChain, signature: signature)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -3391,12 +3453,12 @@ extension GroupV2Protocol {
             switch receivedMessage {
             case .kickMessage(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AsymmetricChannel,
+                           expectedReceptionChannelInfo: .asymmetricChannel,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .propagatedKickMessage(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -3456,7 +3518,12 @@ extension GroupV2Protocol {
             if propagationNeeded {
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity,
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = PropagatedKickMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, encryptedAdministratorChain: encryptedAdministratorChain, signature: signature)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -3562,7 +3629,7 @@ extension GroupV2Protocol {
             
             if let dialogUuid = dialogUuid {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -3800,12 +3867,12 @@ extension GroupV2Protocol {
             switch receivedMessage {
             case .initiateGroupLeaveMessage(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .propagatedGroupLeaveMessage(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -3894,7 +3961,12 @@ extension GroupV2Protocol {
 
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity,
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = PropagatedGroupLeaveMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -3903,7 +3975,7 @@ extension GroupV2Protocol {
                 // Put a group left log on server
                 
                 let leaveSignature = try solveChallengeDelegate.solveChallenge(.groupLeaveNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce), for: ownedIdentity, using: prng, within: obvContext)
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = PutGroupLogOnServerMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putGroupLog(groupIdentifier: groupIdentifier, querySignature: leaveSignature)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -4102,12 +4174,12 @@ extension GroupV2Protocol {
             switch receivedMessage {
             case .initiateGroupDisband(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .propagateGroupDisband(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -4182,7 +4254,7 @@ extension GroupV2Protocol {
                 
                 // Delete the group from the server
                 
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = DeleteGroupBlobFromServerMessage(coreProtocolMessage: coreMessage)
                 guard let signature = ObvSolveChallengeStruct.solveChallenge(.groupDelete, with: groupAdminServerAuthenticationPrivateKey, using: prng) else {
                     assertionFailure()
@@ -4315,7 +4387,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -4349,7 +4421,12 @@ extension GroupV2Protocol {
             do {
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = PropagateGroupDisbandMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -4371,7 +4448,7 @@ extension GroupV2Protocol {
                 for member in membersToKick {
                     let challenge = ChallengeType.groupKick(encryptedAdministratorChain: encryptedAdministratorChain, groupInvitationNonce: member.groupInvitationNonce)
                     let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
-                    let channelType = ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: member.identity, fromOwnedIdentity: ownedIdentity)
+                    let channelType = ObvChannelSendChannelType.asymmetricChannelBroadcast(to: member.identity, fromOwnedIdentity: ownedIdentity)
                     let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
                     let concreteMessage = KickMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, encryptedAdministratorChain: encryptedAdministratorChain, signature: signature)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -4407,7 +4484,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -4437,7 +4514,11 @@ extension GroupV2Protocol {
             // Send the information to the contact
 
             if !allIdentifierVersionAndKeys.isEmpty {
-                let channelType = ObvChannelSendChannelType.ObliviousChannel(to: remoteIdentity, remoteDeviceUids: [remoteDeviceUID], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: false)
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: remoteIdentity,
+                                                                             remoteDeviceUids: [remoteDeviceUID],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: true)
                 let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUid)
                 let concreteMessage = BlobKeysBatchAfterChannelCreationMessage(coreProtocolMessage: coreMessage, groupInfos: allIdentifierVersionAndKeys)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -4465,7 +4546,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -4489,7 +4570,7 @@ extension GroupV2Protocol {
                     return FinalState()
                 }
                 
-                let channelType = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let channelType = ObvChannelSendChannelType.local(ownedIdentity: ownedIdentity)
                 let coreMessage = CoreProtocolMessage(channelType: channelType, cryptoProtocolId: .groupV2, protocolInstanceUid: protocolInstanceUID)
                 let concreteMessage = BlobKeysAfterChannelCreationMessage(coreProtocolMessage: coreMessage,
                                                                           groupIdentifier: groupIdentifierVersionAndKeys.groupIdentifier,
@@ -4524,7 +4605,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -4580,7 +4661,7 @@ extension GroupV2Protocol {
                     let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: output.ownGroupInvitationNonce, recipientIdentity: identityToPing)
                     let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
                     let coreMessage = getCoreMessageForSameProtocolButOtherProtocolInstanceUid(
-                        for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: identityToPing, fromOwnedIdentity: ownedIdentity),
+                        for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: identityToPing, fromOwnedIdentity: ownedIdentity),
                         otherProtocolInstanceUid: otherProtocolInstanceUid)
                     let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -4610,7 +4691,7 @@ extension GroupV2Protocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -4651,7 +4732,7 @@ extension GroupV2Protocol {
             
             let challenge = ChallengeType.groupJoinNonce(groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, recipientIdentity: pendingMemberIdentity)
             let signature = try solveChallengeDelegate.solveChallenge(challenge, for: ownedIdentity, using: prng, within: obvContext)
-            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AsymmetricChannelBroadcast(to: pendingMemberIdentity, fromOwnedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.asymmetricChannelBroadcast(to: pendingMemberIdentity, fromOwnedIdentity: ownedIdentity))
             let concreteMessage = PingMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier, groupInvitationNonce: ownGroupInvitationNonce, signatureOnGroupIdentifierAndInvitationNonceAndRecipientIdentity: signature, isReponse: false)
             guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
             _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -4662,4 +4743,33 @@ extension GroupV2Protocol {
         }
         
     }
+    
+    
+    // MARK: - Utils
+
+    private struct Utils {
+        
+        /// Returns a dictionary mapping remote identities to their corresponding device UIDs, restricted to those which have established oblivious channel or pre-key.
+        static func fetchDeviceUIDsHavingObliviousChannelOrPreKeyWithCurrentDevice(ownedIdentity: ObvCryptoIdentity, remoteIdentities: Set<ObvCryptoIdentity>, channelDelegate: any ObvChannelDelegate, identityDelegate: any ObvIdentityDelegate, within obvContext: ObvContext) throws -> [ObvCryptoIdentity : Set<UID>] {
+
+            let devicesWithChannel = try channelDelegate.getDeviceUidsOfRemoteIdentitiesHavingConfirmedObliviousChannelWithTheCurrentDeviceOfOwnedIdentity(
+                ownedIdentity,
+                remoteIdentities: remoteIdentities,
+                within: obvContext)
+            
+            let devicesWithPreKey = try identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(
+                ownedCryptoId: ownedIdentity,
+                remoteCryptoIds: remoteIdentities,
+                within: obvContext)
+
+            let devicesWithChannelOrPreKey = devicesWithChannel.merging(devicesWithPreKey, uniquingKeysWith: { (withChannel, withPreKey) in
+                return withChannel.union(withPreKey)
+            })
+            
+            return devicesWithChannelOrPreKey
+            
+        }
+        
+    }
+
 }

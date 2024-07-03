@@ -266,6 +266,7 @@ extension CallProviderDelegate {
             
             switch messageType {
             case .startCall:
+                os_log("☎️ [%{public}@] Call to processReceivedWebRTCMessage for a startCall message type", log: Self.log, type: .debug, Date.now.debugDescription)
                 guard let messageIdentifierFromEngine else { assertionFailure(); return }
                 guard let contactIdentifier = fromOlvidUser.contactIdentifier else { assertionFailure(); return }
                 guard ObvMessengerSettings.VoIP.receiveCallsOnThisDevice else {
@@ -423,7 +424,6 @@ extension CallProviderDelegate {
             Self.report(call: outgoingCall, report: .acceptedOutgoingCall(from: participantInfo))
         } catch {
             os_log("☎️ Failed to answer call: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-            assertionFailure()
             throw error
         }
     }
@@ -573,6 +573,22 @@ extension CallProviderDelegate: OlvidCallDelegate {
             Self.report(call: call, report: callReport)
         }
         
+    }
+    
+    
+    func outgoingWasNotAnsweredToAndTimedOut(call: OlvidCall) async {
+        
+        let (callReport, cxCallEndedReason) = await callManager.outgoingWasNotAnsweredToAndTimedOut(uuidForCallKit: call.uuidForCallKit)
+
+        if let cxCallEndedReason {
+            assert(cxCallEndedReason == .unanswered)
+            callProviderHolder.provider.reportCall(with: call.uuidForCallKit, endedAt: Date(), reason: cxCallEndedReason)
+        }
+
+        if let callReport {
+            Self.report(call: call, report: callReport)
+        }
+
     }
     
     

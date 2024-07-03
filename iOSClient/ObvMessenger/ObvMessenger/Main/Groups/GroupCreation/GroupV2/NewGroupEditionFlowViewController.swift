@@ -42,14 +42,21 @@ protocol NewGroupEditionFlowViewControllerGroupCreationDelegate: AnyObject {
 final class NewGroupEditionFlowViewController: UIViewController {
 
     enum EditionType {
+        
         case modifyGroup(delegate: NewGroupEditionFlowViewControllerGroupModificationDelegate, groupIdentifier: Data)
         case createGroup(delegate: NewGroupEditionFlowViewControllerGroupCreationDelegate)
         case cloneGroup(delegate: NewGroupEditionFlowViewControllerGroupCreationDelegate,
-                        initialGroupMembers: Set<ObvCryptoId>,
+                        initialGroupMembers: Set<InitialGroupMember>,
                         initialGroupName: String?,
                         initialGroupDescription: String?,
                         initialPhotoURL: URL?,
                         initialGroupType: PersistedGroupV2.GroupType?)
+
+        struct InitialGroupMember: Hashable {
+            let cryptoId: ObvCryptoId
+            let isAdmin: Bool
+        }
+        
     }
 
     //MARK: Attributes - Private - Group infos

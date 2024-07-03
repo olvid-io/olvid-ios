@@ -56,13 +56,13 @@ struct CoreProtocolMessage {
     /// Exclusively used by ``getLocalCoreProtocolMessageForSimulatingReceivedMessage()``
     private init(localOrServerQueryType: ObvChannelSendChannelType, cryptoProtocolId: CryptoProtocolId, protocolInstanceUid: UID) {
         switch localOrServerQueryType {
-        case .Local, .ServerQuery:
+        case .local, .serverQuery:
             break
         default:
             assertionFailure()
         }
         self.channelType = localOrServerQueryType
-        self.receptionChannelInfo = .Local
+        self.receptionChannelInfo = .local
         self.toOwnedIdentity = localOrServerQueryType.fromOwnedIdentity
         self.cryptoProtocolId = cryptoProtocolId
         self.protocolInstanceUid = protocolInstanceUid
@@ -75,14 +75,14 @@ struct CoreProtocolMessage {
     /// This method is used, e.g., in the protocol allowing to delete and owned identity, in order to, e.g., execute the step allowing to leave a group from the group management protocol.
     static func getLocalCoreProtocolMessageForSimulatingReceivedMessage(ownedIdentity: ObvCryptoIdentity, cryptoProtocolId: CryptoProtocolId, protocolInstanceUid: UID) -> CoreProtocolMessage {
         return CoreProtocolMessage(
-            localOrServerQueryType: .Local(ownedIdentity: ownedIdentity),
+            localOrServerQueryType: .local(ownedIdentity: ownedIdentity),
             cryptoProtocolId: cryptoProtocolId,
             protocolInstanceUid: protocolInstanceUid)
     }
     
     static func getServerQueryCoreProtocolMessageForSimulatingReceivedMessage(ownedIdentity: ObvCryptoIdentity, cryptoProtocolId: CryptoProtocolId, protocolInstanceUid: UID) -> CoreProtocolMessage {
         return CoreProtocolMessage(
-            localOrServerQueryType: .ServerQuery(ownedIdentity: ownedIdentity),
+            localOrServerQueryType: .serverQuery(ownedIdentity: ownedIdentity),
             cryptoProtocolId: cryptoProtocolId,
             protocolInstanceUid: protocolInstanceUid)
     }

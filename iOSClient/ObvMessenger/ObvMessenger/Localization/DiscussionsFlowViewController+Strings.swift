@@ -29,14 +29,14 @@ extension DiscussionsFlowViewController {
             struct ConfirmAllDeletionOfAllMessages {
                 static let title = NSLocalizedString("DELETE_ALL_MESSAGES", comment: "Alert title")
                 static let message = NSLocalizedString("THIS_ACTION_IS_IRREVERSIBLE", comment: "Alert message")
-                static func actionTitle(for deletionType: DeletionType, ownedIdentityHasHasAnotherDeviceWithChannel: Bool, multipleContacts: Bool) -> String {
+                static func actionTitle(for deletionType: DeletionType, ownedIdentityHasHasAnotherReachableDevice: Bool, multipleContacts: Bool) -> String {
                     switch deletionType {
                     case .fromThisDeviceOnly:
                         return NSLocalizedString("DELETE_DISCUSSION_FROM_THIS_DEVICE_ONLY", comment: "Alert button title")
                     case .fromAllOwnedDevices:
                         return NSLocalizedString("DELETE_DISCUSSION_FROM_ALL_OWNED_DEVICES", comment: "Alert button title")
                     case .fromAllOwnedDevicesAndAllContactDevices:
-                        switch (ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts) {
+                        switch (ownedIdentityHasHasAnotherReachableDevice, multipleContacts) {
                         case (false, false):
                             return NSLocalizedString("DELETE_DISCUSSION_FROM_THIS_DEVICE_AND_CONTACT_DEVICES", comment: "Alert button title")
                         case (false, true):

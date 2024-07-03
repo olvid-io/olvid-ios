@@ -293,10 +293,10 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
                 (nsError.domain == NSCocoaErrorDomain && nsError.code == NSPersistentStoreInvalidTypeError) {
                 // If the database is corrupted, we know we won't be able to do anything with the file.
                 // Before giving up, we look for another (not corrupted) .sqlite file in the same directory.
-                // If non is found, we have no choice but to throw an error.
+                // If none is found, we have no choice but to throw an error.
                 // If one or more are found, we keep the one with the latest version, use it to replace the corrupted .sqlite file, and try again.
                 migrationRunningLog.addEvent(message: "[RECOVERY] Since the database is corrupted, we try to recover")
-                if let urlOfLatestUsableSQLiteFile = getURLOfLatestUsableSQLiteFile(distinctFrom: storeURL) {
+                if let urlOfLatestUsableSQLiteFile = getURLOfLatestUsableSQLiteFileDistinctFromStoreURL() {
                     
                     migrationRunningLog.addEvent(message: "[RECOVERY] We found a candidate for the database replacement: \(urlOfLatestUsableSQLiteFile.lastPathComponent)")
                     
@@ -371,7 +371,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
     }()
     
     
-    private func getURLOfLatestUsableSQLiteFile(distinctFrom urlToSkip: URL) -> URL? {
+    private func getURLOfLatestUsableSQLiteFileDistinctFromStoreURL() -> URL? {
         migrationRunningLog.addEvent(message: "[RECOVERY] Looking for the latest temporary SQLite file")
         var urlOfLatestSQLiteFile: URL?
         var modelVersionOfLatestSQLiteFile: String?
@@ -381,7 +381,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
             migrationRunningLog.addEvent(message: "[RECOVERY] Looking for the latest temporary SQLite file in \(storeDirectory.path)")
             if let directoryContents = try? FileManager.default.contentsOfDirectory(at: storeDirectory, includingPropertiesForKeys: nil) {
                 for file in directoryContents {
-                    guard file.pathExtension == "sqlite" && file != urlToSkip else { continue }
+                    guard file.pathExtension == "sqlite" && file.lastPathComponent != storeURL.lastPathComponent else { continue }
                     migrationRunningLog.addEvent(message: "[RECOVERY] Found an sqlite file: \(file.lastPathComponent)")
                     guard let sourceStoreMetadata = try? getSourceStoreMetadata(storeURL: file) else {
                         migrationRunningLog.addEvent(message: "[RECOVERY] Could not get metadata of file: \(file.lastPathComponent)")
@@ -414,6 +414,7 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
 
     
     /// As for now, this method is called when we fail to obtain (metada) information about the current version of the database and thus, fail to migrate to a new version.
+    /// Also called when a migration fails
     private func logDebugInformation() {
         
         migrationRunningLog.addEvent(message: "[DEBUG] Source Store URL: \(storeURL.debugDescription)")
@@ -701,20 +702,114 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
             })
             DataMigrationManagerNotification.migrationManagerWillMigrateStore(observableProgress: migrationProgress, storeName: storeName)
                 .postOnDispatchQueue()
+            
             do {
+                
+                migrationRunningLog.addEvent(message: "Will call migrateStore with from: \(storeURL)")
+                migrationRunningLog.addEvent(message: "Will call migrateStore with to:   \(destinationStoreURL)")
+                
                 try migrationManager.migrateStore(from: storeURL,
-                                                  sourceType: NSSQLiteStoreType,
+                                                  type: .sqlite,
                                                   options: sourceOptions,
-                                                  with: mappingModel,
-                                                  toDestinationURL: destinationStoreURL,
-                                                  destinationType: NSSQLiteStoreType,
-                                                  destinationOptions: destinationOptions)
+                                                  mapping: mappingModel,
+                                                  to: destinationStoreURL,
+                                                  type: .sqlite,
+                                                  options: destinationOptions)
+                
             } catch {
+                
+                migrationRunningLog.addEvent(message: "The call to migrateStore failed: \(error.localizedDescription)")
+                logDebugInformation()
                 if FileManager.default.isDeletableFile(atPath: destinationStoreURL.path) {
+                    migrationRunningLog.addEvent(message: "Will delete destinationStoreURL: \(destinationStoreURL)")
                     try? FileManager.default.removeItem(at: destinationStoreURL)
                 }
-                migrationRunningLog.addEvent(message: "The call to migrateStore failed: \(error.localizedDescription))")
-                throw error
+                Self.addMigrateStoreNSErrorValues(of: error as NSError, to: migrationRunningLog)
+                
+                // Before throwing an error, we try to recover, but only if the error is a very specific one
+                
+                migrationRunningLog.addEvent(message: "[RECOVERY] Will try to recover from the failed migration...")
+
+                let nsError = error as NSError
+                assert(NSMigrationError == 134110)
+                assert(SQLITE_CORRUPT == 11)
+                guard nsError.domain == NSCocoaErrorDomain && nsError.code == NSMigrationError else {
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Could not recover, unexpected domain \(nsError.domain) or code \(nsError.code)")
+                    throw error
+                }
+                let hasUnderlyingSqliteCorruptError = nsError.underlyingErrors.contains { error in
+                    let nsError = error as NSError
+                    guard let sqliteError = nsError.userInfo[NSSQLiteErrorDomain] as? Int else { return false }
+                    return sqliteError == SQLITE_CORRUPT
+                }
+                guard hasUnderlyingSqliteCorruptError else {
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Could not recover, there is no underlying SQLite corrupt error")
+                    throw error
+                }
+                
+                // In case the underlying database is corrupted, we might be in the situation where a previous migration was performed,
+                // a temporary sqlite file was created for the migration, but the call to `replacePersistentStore` failed, potentially
+                // corrupting the source database. In that case, when launching the application again, we are in a situation where we try
+                // to migrate the same database again, and fail to do so. We can potentially recover by finding the migrated version of the
+                // database, and use it the retry the call to replacePersistentStore.
+                // With this in mind, we try to find this (previously created) temporary sqlite file.
+                
+                guard let urlOfLatestUsableSQLiteFile = getURLOfLatestUsableSQLiteFileDistinctFromStoreURL() else {
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Could not recover, we could not find an URL of latest usable SQLite file")
+                    throw error
+                }
+                migrationRunningLog.addEvent(message: "[RECOVERY] We found the following latest usable SQLite file: \(urlOfLatestUsableSQLiteFile)")
+                
+                guard let modelOfLatestUsableSQLiteFile = try? getStoreManagedObjectModel(storeURL: urlOfLatestUsableSQLiteFile) else {
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Could not recover, we could not determine the model of the latest usable SQLite file")
+                    throw error
+                }
+                migrationRunningLog.addEvent(message: "[RECOVERY] The model of the latest usable SQLite file is \(modelOfLatestUsableSQLiteFile)")
+
+                guard modelOfLatestUsableSQLiteFile == currentStoreModel || modelOfLatestUsableSQLiteFile == (try? getNextManagedObjectModelVersion(from: currentStoreModel))?.destinationModel else {
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Could not recover, because of the model of the latest usable SQLite file")
+                    throw error
+                }
+                
+                migrationRunningLog.addEvent(message: "[RECOVERY] Will replace persistent store at \(storeURL) with \(urlOfLatestUsableSQLiteFile)")
+
+                let psc = NSPersistentStoreCoordinator(managedObjectModel: modelOfLatestUsableSQLiteFile)
+                do {
+                    try psc.replacePersistentStore(at: storeURL,
+                                                   destinationOptions: nil,
+                                                   withPersistentStoreFrom: urlOfLatestUsableSQLiteFile,
+                                                   sourceOptions: nil,
+                                                   type: .sqlite)
+                    
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Did replace persistent store at \(storeURL) with \(urlOfLatestUsableSQLiteFile)")
+
+                    try? psc.destroyPersistentStore(at: urlOfLatestUsableSQLiteFile,
+                                                   type: .sqlite,
+                                                   options: nil)
+                    if FileManager.default.isDeletableFile(atPath: urlOfLatestUsableSQLiteFile.path) {
+                        try? FileManager.default.removeItem(at: urlOfLatestUsableSQLiteFile)
+                    }
+                    
+                    migrationRunningLog.addEvent(message: "[RECOVERY] Determining the new store model...")
+                    currentStoreModel = try getStoreManagedObjectModel(storeURL: self.storeURL)
+                    
+                    migrationRunningLog.addEvent(message: "[RECOVERY] The (new) store model on disk is \(currentStoreModel.versionIdentifier)")
+
+                    migrationRunningLog.addEvent(message: "--- [RECOVERY] Ending migration step")
+
+                    if try !managedObjectModelIsLatestVersion(currentStoreModel) {
+                        migrationRunningLog.addEvent(message: "--- [RECOVERY] We probably recovered successfully. Yet, we did not reach the latest version of the model. Looping.")
+                        continue
+                    } else {
+                        migrationRunningLog.addEvent(message: "--- [RECOVERY] We probably recovered successfully. Since we did reach the latest version of the model, we return now")
+                        return
+                    }
+
+                } catch let newError {
+                    migrationRunningLog.addEvent(message: "[RECOVERY] We could not recover, the store replacement failed: \((newError as NSError))")
+                    throw error
+                }
+
             }
 
             migrationRunningLog.addEvent(message: "The store was migrated from \(currentStoreModel.versionIdentifier) to \(destinationModel.versionIdentifier)")
@@ -759,6 +854,47 @@ open class DataMigrationManager<PersistentContainerType: NSPersistentContainer> 
         }
         
         migrationRunningLog.addEvent(message: "We reached the latest version of the model: \(currentStoreModel.versionIdentifier)")
+
+    }
+    
+    
+    private static func addMigrateStoreNSErrorValues(of error: NSError, to migrationRunningLog: RunningLogError) {
+        
+        var messages = [String]()
+        messages += ["code: \(error.code)"]
+        messages += ["domain: \(error.domain)"]
+
+        messages += ["userInfo count: \(error.userInfo.keys.count)"]
+        for (key, value) in error.userInfo {
+            messages += ["userInfo[\(key)]: \(value)"]
+        }
+
+        messages += ["localizedDescription: \(error.localizedDescription)"]
+
+        if let localizedRecoveryOptions = error.localizedRecoveryOptions, !localizedRecoveryOptions.isEmpty {
+            for (index, option) in localizedRecoveryOptions.enumerated() {
+                messages += ["localizedRecoveryOption #\(index): \(option)"]
+            }
+        } else {
+            messages += ["no localizedRecoveryOptions"]
+        }
+
+        messages += ["localizedRecoverySuggestion: \(error.localizedRecoverySuggestion ?? "nil")"]
+        messages += ["localizedFailureReason: \(error.localizedFailureReason ?? "nil")"]
+
+        messages += ["Number of underlying errors: \(error.underlyingErrors.count)"]
+
+        let prefix = "[migrateStore error][\(UUID().uuidString.prefix(4))]"
+
+        messages.forEach { message in
+            migrationRunningLog.addEvent(message: "\(prefix) \(message)")
+        }
+
+        // Recusrsive call on all underlying errors
+        
+        for underlyingError in error.underlyingErrors {
+            Self.addMigrateStoreNSErrorValues(of: underlyingError as NSError, to: migrationRunningLog)
+        }
 
     }
     

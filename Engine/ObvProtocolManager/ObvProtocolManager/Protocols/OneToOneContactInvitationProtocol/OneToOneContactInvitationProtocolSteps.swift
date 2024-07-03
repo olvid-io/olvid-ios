@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -93,7 +93,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -118,7 +118,7 @@ extension OneToOneContactInvitationProtocol {
                 break
             case .notOneToOne, .toBeDefined:
                 let dialogType = ObvChannelDialogToSendType.oneToOneInvitationSent(contact: contactIdentity, ownedIdentity: ownedIdentity)
-                let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
+                let channelType = ObvChannelSendChannelType.userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
                 let coreMessage = getCoreMessage(for: channelType)
                 let concreteProtocolMessage = DialogInvitationSentMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
@@ -130,7 +130,7 @@ extension OneToOneContactInvitationProtocol {
             // Send a OneToOne invitation to Bob
             
             do {
-                let channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
+                let channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
                 let coreMessage = getCoreMessage(for: channelType)
                 let concreteProtocolMessage = OneToOneInvitationMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -164,7 +164,7 @@ extension OneToOneContactInvitationProtocol {
 
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateOneToOneInvitationMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -196,7 +196,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -221,7 +221,7 @@ extension OneToOneContactInvitationProtocol {
             case .oneToOne:
                 
                 do {
-                    let channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
+                    let channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
                     let coreMessage = getCoreMessage(for: channelType)
                     let concreteProtocolMessage = OneToOneResponseMessage(coreProtocolMessage: coreMessage, invitationAccepted: true)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -266,7 +266,7 @@ extension OneToOneContactInvitationProtocol {
                     // Accept the invitation
                     
                     do {
-                        let channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
+                        let channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
                         let coreMessage = getCoreMessage(for: channelType)
                         let concreteProtocolMessage = OneToOneResponseMessage(coreProtocolMessage: coreMessage, invitationAccepted: true)
                         guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -288,7 +288,7 @@ extension OneToOneContactInvitationProtocol {
             let dialogUuid = UUID()
             do {
                 let dialogType = ObvChannelDialogToSendType.oneToOneInvitationReceived(contact: contactIdentity, ownedIdentity: ownedIdentity)
-                let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
+                let channelType = ObvChannelSendChannelType.userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
                 let coreMessage = getCoreMessage(for: channelType)
                 let concreteProtocolMessage = DialogAcceptOneToOneInvitationMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
@@ -336,7 +336,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -354,7 +354,7 @@ extension OneToOneContactInvitationProtocol {
             guard try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) else {
                 
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -367,7 +367,7 @@ extension OneToOneContactInvitationProtocol {
             // Send Bob response to Alice
             
             do {
-                let channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
+                let channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
                 let coreMessage = getCoreMessage(for: channelType)
                 let concreteProtocolMessage = OneToOneResponseMessage(coreProtocolMessage: coreMessage, invitationAccepted: invitationAccepted)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -389,7 +389,7 @@ extension OneToOneContactInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -403,7 +403,7 @@ extension OneToOneContactInvitationProtocol {
 
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateOneToOneResponseMessage(coreProtocolMessage: coreMessage, invitationAccepted: invitationAccepted)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -435,7 +435,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -475,7 +475,7 @@ extension OneToOneContactInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -503,7 +503,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -521,7 +521,7 @@ extension OneToOneContactInvitationProtocol {
             guard try identityDelegate.isIdentity(contactIdentity, aContactIdentityOfTheOwnedIdentity: ownedIdentity, within: obvContext) else {
                 
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -541,7 +541,7 @@ extension OneToOneContactInvitationProtocol {
             // Send an abort message to Bob
             
             do {
-                let channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
+                let channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity)
                 let coreMessage = getCoreMessage(for: channelType)
                 let concreteProtocolMessage = AbortMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -554,7 +554,7 @@ extension OneToOneContactInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -568,7 +568,7 @@ extension OneToOneContactInvitationProtocol {
 
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateAbortMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -600,7 +600,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -628,7 +628,7 @@ extension OneToOneContactInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -655,7 +655,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -685,7 +685,7 @@ extension OneToOneContactInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -712,7 +712,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -743,7 +743,7 @@ extension OneToOneContactInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -770,7 +770,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -794,7 +794,7 @@ extension OneToOneContactInvitationProtocol {
             let dialogUuid = UUID()
             do {
                 let dialogType = ObvChannelDialogToSendType.oneToOneInvitationSent(contact: contactIdentity, ownedIdentity: ownedIdentity)
-                let channelType = ObvChannelSendChannelType.UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
+                let channelType = ObvChannelSendChannelType.userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
                 let coreMessage = getCoreMessage(for: channelType)
                 let concreteProtocolMessage = DialogInvitationSentMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
@@ -841,7 +841,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -865,7 +865,7 @@ extension OneToOneContactInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -894,7 +894,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -908,7 +908,7 @@ extension OneToOneContactInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -937,7 +937,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -996,7 +996,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -1028,7 +1028,7 @@ extension OneToOneContactInvitationProtocol {
                         // Don't request a sync if we do not have a strong opinion on the one2one status of the contact
                         return
                     }
-                    let channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contact]), fromOwnedIdentity: ownedIdentity)
+                    let channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contact]), fromOwnedIdentity: ownedIdentity)
                     let coreMessage = getCoreMessage(for: channelType)
                     let concreteProtocolMessage = OneToOneStatusSyncRequestMessage(coreProtocolMessage: coreMessage, aliceConsidersBobAsOneToOne: contactIsOneToOne)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -1060,7 +1060,7 @@ extension OneToOneContactInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -1140,7 +1140,7 @@ extension OneToOneContactInvitationProtocol {
                 // She could process one, and delete all the others. This is why we create a subprotocol here.
                 
                 let newProtocolInstanceUid = UID.gen(with: prng)
-                let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity),
+                let coreMessage = CoreProtocolMessage(channelType: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity),
                                                       cryptoProtocolId: .oneToOneContactInvitation,
                                                       protocolInstanceUid: newProtocolInstanceUid)
                 let concreteProtocolMessage = OneToOneStatusSyncRequestMessage(coreProtocolMessage: coreMessage, aliceConsidersBobAsOneToOne: false)

@@ -395,6 +395,10 @@ final public class BigInt: Comparable, Hashable, CustomDebugStringConvertible, D
     public func isNonNegative() -> Bool {
         return self.readVal._mp_size >= 0
     }
+    
+    public func isPositive() -> Bool {
+        return self.readVal._mp_size > 0
+    }
 
     public class func cmp(op1: BigInt, op2: BigInt) -> Int {
         return Int(__gmpz_cmp(&op1.readVal, &op2.readVal))

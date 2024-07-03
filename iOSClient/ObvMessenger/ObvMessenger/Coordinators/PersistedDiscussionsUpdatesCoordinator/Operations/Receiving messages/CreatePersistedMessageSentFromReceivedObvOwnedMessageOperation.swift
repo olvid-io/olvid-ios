@@ -44,6 +44,7 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
 
     enum Result {
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
+        case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case sentMessageCreated(messageSentPermanentId: MessageSentPermanentID)
         case remoteDeleteRequestSavedForLaterWasApplied
     }
@@ -83,6 +84,9 @@ final class CreatePersistedMessageSentFromReceivedObvOwnedMessageOperation: Cont
                     switch error {
                     case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
                         result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+                        return
+                    case .couldNotFindContactWithId(contactIdentifier: let contactIdentifier):
+                        result = .couldNotFindContactInDatabase(contactCryptoId: contactIdentifier.contactCryptoId)
                         return
                     default:
                         assertionFailure()

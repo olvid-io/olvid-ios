@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,9 +24,9 @@ import ObvEncoder
 // MARK: Protocols
 
 public protocol AuthenticationCommon {
-    static func solve(_: Data, prefixedWith: Data, with: PrivateKeyForAuthentication, and: PublicKeyForAuthentication, using: PRNGService) -> Data?
-    static func solve(_: Data, prefixedWith: Data, with: PrivateKeyForAuthentication, using: PRNGService) -> Data?
-    static func check(response: Data, toChallenge: Data, prefixedWith: Data, using: PublicKeyForAuthentication) -> Bool
+    static func solve(_: Data, prefixedWith: Data, with: PrivateKeyForAuthentication, and: PublicKeyForAuthentication, using: PRNGService) throws -> Data?
+    static func solve(_: Data, prefixedWith: Data, with: PrivateKeyForAuthentication, using: PRNGService) throws -> Data?
+    static func check(response: Data, toChallenge: Data, prefixedWith: Data, using: PublicKeyForAuthentication) throws -> Bool
     static func areKeysMatching(publicKey: PublicKeyForAuthentication, privateKey: PrivateKeyForAuthentication) -> Bool
 }
 
@@ -37,8 +37,8 @@ public protocol AuthenticationConcrete: AuthenticationCommon {
 
 protocol AuthenticationGeneric: AuthenticationCommon {
     static func generateKeyPair(for: AuthenticationImplementationByteId, with: PRNGService) -> (PublicKeyForAuthentication, PrivateKeyForAuthentication)
-    static func solve(_: Data, prefixedWith: Data, for: ObvOwnedCryptoIdentity, using: PRNGService) -> Data?
-    static func check(response: Data, toChallenge: Data, prefixedWith: Data, from: ObvCryptoIdentity) -> Bool
+    static func solve(_: Data, prefixedWith: Data, for: ObvOwnedCryptoIdentity, using: PRNGService) throws -> Data?
+    static func check(response: Data, toChallenge: Data, prefixedWith: Data, from: ObvCryptoIdentity) throws -> Bool
 }
 
 // MARK: Classes
@@ -49,27 +49,27 @@ public final class Authentication: AuthenticationGeneric {
         return implemByteId.algorithmImplementation.generateKeyPair(with: prng)
     }
     
-    public static func solve(_ challenge: Data, prefixedWith prefix: Data, with privateKey: PrivateKeyForAuthentication, and publicKey: PublicKeyForAuthentication, using prng: PRNGService) -> Data? {
+    public static func solve(_ challenge: Data, prefixedWith prefix: Data, with privateKey: PrivateKeyForAuthentication, and publicKey: PublicKeyForAuthentication, using prng: PRNGService) throws -> Data? {
         let algorithmImplementation = privateKey.algorithmImplementationByteId.algorithmImplementation
-        return algorithmImplementation.solve(challenge, prefixedWith: prefix, with: privateKey, and: publicKey, using: prng)
+        return try algorithmImplementation.solve(challenge, prefixedWith: prefix, with: privateKey, and: publicKey, using: prng)
     }
     
-    public static func solve(_ challenge: Data, prefixedWith prefix: Data, for ownedIdentity: ObvOwnedCryptoIdentity, using prng: PRNGService) -> Data? {
-        return solve(challenge, prefixedWith: prefix, with: ownedIdentity.privateKeyForAuthentication, and: ownedIdentity.publicKeyForAuthentication, using: prng)
+    public static func solve(_ challenge: Data, prefixedWith prefix: Data, for ownedIdentity: ObvOwnedCryptoIdentity, using prng: PRNGService) throws -> Data? {
+        return try solve(challenge, prefixedWith: prefix, with: ownedIdentity.privateKeyForAuthentication, and: ownedIdentity.publicKeyForAuthentication, using: prng)
     }
     
-    public static func solve(_ challenge: Data, prefixedWith prefix: Data, with privateKey: PrivateKeyForAuthentication, using prng: PRNGService) -> Data? {
+    public static func solve(_ challenge: Data, prefixedWith prefix: Data, with privateKey: PrivateKeyForAuthentication, using prng: PRNGService) throws -> Data? {
         let algorithmImplementation = privateKey.algorithmImplementationByteId.algorithmImplementation
-        return algorithmImplementation.solve(challenge, prefixedWith: prefix, with: privateKey, using: prng)
+        return try algorithmImplementation.solve(challenge, prefixedWith: prefix, with: privateKey, using: prng)
     }
     
-    public static func check(response: Data, toChallenge challenge: Data, prefixedWith prefix: Data, using pk: PublicKeyForAuthentication) -> Bool {
+    public static func check(response: Data, toChallenge challenge: Data, prefixedWith prefix: Data, using pk: PublicKeyForAuthentication) throws -> Bool {
         let algorithmImplementation = pk.algorithmImplementationByteId.algorithmImplementation
-        return algorithmImplementation.check(response: response, toChallenge: challenge, prefixedWith: prefix, using: pk)
+        return try algorithmImplementation.check(response: response, toChallenge: challenge, prefixedWith: prefix, using: pk)
     }
 
-    public static func check(response: Data, toChallenge challenge: Data, prefixedWith prefix: Data, from identity: ObvCryptoIdentity) -> Bool {
-        return check(response: response, toChallenge: challenge, prefixedWith: prefix, using: identity.publicKeyForAuthentication)
+    public static func check(response: Data, toChallenge challenge: Data, prefixedWith prefix: Data, from identity: ObvCryptoIdentity) throws -> Bool {
+        return try check(response: response, toChallenge: challenge, prefixedWith: prefix, using: identity.publicKeyForAuthentication)
     }
 
     public static func areKeysMatching(publicKey: PublicKeyForAuthentication, privateKey: PrivateKeyForAuthentication) -> Bool {
@@ -92,7 +92,7 @@ protocol AuthenticationFromSignatureOnEdwardsCurve: AuthenticationConcrete {
 extension AuthenticationFromSignatureOnEdwardsCurve {
     
     static func generateKeyPair(with prng: PRNGService) -> (PublicKeyForAuthentication, PrivateKeyForAuthentication) {
-        let (scalar, point) = curve.generateRandomScalarAndPoint(withPRNG: prng)
+        let (scalar, point) = curve.generateRandomScalarAndHighOrderPoint(withPRNG: prng)
         let publicKey = PublicKeyForAuthenticationFromSignatureOnEdwardsCurve(point: point)!
         let privateKey = PrivateKeyForAuthenticationFromSignatureOnEdwardsCurve(scalar: scalar, curveByteId: curve.byteId)
         return (publicKey, privateKey)
@@ -101,6 +101,10 @@ extension AuthenticationFromSignatureOnEdwardsCurve {
     static func solve(_ challenge: Data, prefixedWith prefix: Data, with _privateKey: PrivateKeyForAuthentication, and _publicKey: PublicKeyForAuthentication, using prng: PRNGService) -> Data? {
         guard let publicKey = _publicKey as? PublicKeyForAuthenticationFromSignatureOnEdwardsCurve else { return nil }
         guard let privateKey = _privateKey as? PrivateKeyForAuthenticationFromSignatureOnEdwardsCurve else { return nil }
+        guard !publicKey.isLowOrderPoint else {
+            assertionFailure()
+            return nil
+        }
         let randomSuffix = prng.genBytes(count: AuthenticationFromSignatureOnEdwardsCurveConstants.lengthOfRandomFormattedChallengeSuffix)
         var formattedChallenge = prefix
         formattedChallenge.append(challenge)
@@ -111,23 +115,27 @@ extension AuthenticationFromSignatureOnEdwardsCurve {
         return response
     }
 
-    static func solve(_ challenge: Data, prefixedWith prefix: Data, with _privateKey: PrivateKeyForAuthentication, using prng: PRNGService) -> Data? {
+    static func solve(_ challenge: Data, prefixedWith prefix: Data, with _privateKey: PrivateKeyForAuthentication, using prng: PRNGService) throws -> Data? {
         guard let privateKey = _privateKey as? PrivateKeyForAuthenticationFromSignatureOnEdwardsCurve,
               let point = curve.scalarMultiplication(scalar: privateKey.scalar, point: privateKey.curve.parameters.G),
               let publicKey = PublicKeyForAuthenticationFromSignatureOnEdwardsCurve(point: point) else { assertionFailure(); return nil }
-        let response = solve(challenge, prefixedWith: prefix, with: privateKey, and: publicKey, using: prng)
+        let response = try solve(challenge, prefixedWith: prefix, with: privateKey, and: publicKey, using: prng)
         return response
     }
 
     static func check(response: Data, toChallenge challenge: Data, prefixedWith prefix: Data, using _publicKey: PublicKeyForAuthentication) -> Bool {
         guard let publicKey = _publicKey as? PublicKeyForAuthenticationFromSignatureOnEdwardsCurve else { return false }
+        guard !publicKey.isLowOrderPoint else {
+            assertionFailure()
+            return false
+        }
         guard response.count > AuthenticationFromSignatureOnEdwardsCurveConstants.lengthOfRandomFormattedChallengeSuffix else { return false }
         let randomSuffix = response[response.startIndex..<response.startIndex + AuthenticationFromSignatureOnEdwardsCurveConstants.lengthOfRandomFormattedChallengeSuffix]
         var formattedChallenge = prefix
         let signature = response[response.startIndex + AuthenticationFromSignatureOnEdwardsCurveConstants.lengthOfRandomFormattedChallengeSuffix..<response.endIndex]
         formattedChallenge.append(challenge)
         formattedChallenge.append(randomSuffix)
-        return Signature.verify(signature, on: formattedChallenge, with: publicKey.publicKeyForSignatureOnEdwardsCurve) ?? false
+        return (try? Signature.verify(signature, on: formattedChallenge, with: publicKey.publicKeyForSignatureOnEdwardsCurve)) ?? false
     }
 
     static func areKeysMatching(publicKey: PublicKeyForAuthentication, privateKey: PrivateKeyForAuthentication) -> Bool {

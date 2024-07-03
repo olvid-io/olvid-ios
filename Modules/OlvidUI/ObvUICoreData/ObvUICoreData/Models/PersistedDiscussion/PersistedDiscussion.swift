@@ -56,6 +56,7 @@ public class PersistedDiscussion: NSManagedObject {
     @NSManaged public private(set) var permanentUUID: UUID
     @NSManaged private var rawPinnedIndex: NSNumber?
     @NSManaged private(set) var pinnedSectionKeyPath: String // Shall only be modified in the setter of pinnedIndex
+    @NSManaged private var rawServerTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?
     @NSManaged private var rawStatus: Int
     @NSManaged private(set) var senderThreadIdentifier: UUID // Of the owned identity, on this device (it is different for the same owned identity on her other owned devices)
     @NSManaged public private(set) var timestampOfLastMessage: Date
@@ -238,6 +239,21 @@ public class PersistedDiscussion: NSManagedObject {
             }
         }
     }
+    
+    
+    var serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date {
+        get {
+            rawServerTimestampWhenDiscussionReadOnAnotherOwnedDevice ?? .distantPast
+        }
+        set {
+            if let rawServerTimestampWhenDiscussionReadOnAnotherOwnedDevice {
+                guard newValue > rawServerTimestampWhenDiscussionReadOnAnotherOwnedDevice else { return }
+                self.rawServerTimestampWhenDiscussionReadOnAnotherOwnedDevice = newValue
+            } else {
+                self.rawServerTimestampWhenDiscussionReadOnAnotherOwnedDevice = newValue
+            }
+        }
+    }
 
     
     // MARK: - Initializer
@@ -316,7 +332,7 @@ public class PersistedDiscussion: NSManagedObject {
     
     // MARK: Performing deletions
         
-    private func deletePersistedDiscussion() throws {
+    func deletePersistedDiscussion() throws {
         guard let context = managedObjectContext else {
             throw ObvError.noContext
         }
@@ -694,10 +710,6 @@ public class PersistedDiscussion: NSManagedObject {
         // The owned identity can only globally delete a discussion when it is active.
         switch status {
             
-        case .locked:
-            
-            throw ObvError.ownedIdentityCannotGloballyDeleteLockedDiscussion
-            
         case .preDiscussion:
             
             throw ObvError.ownedIdentityCannotGloballyDeletePrediscussion
@@ -705,13 +717,12 @@ public class PersistedDiscussion: NSManagedObject {
         case .active:
             
             self.messages.removeAll()
-
-            do {
-                try self.insertSystemMessagesIfDiscussionIsEmpty(markAsRead: false, messageTimestamp: messageUploadTimestampFromServer)
-                _ = try PersistedMessageSystem(.discussionWasRemotelyWiped, optionalContactIdentity: nil, optionalOwnedCryptoId: ownedIdentity.cryptoId, optionalCallLogItem: nil, discussion: self, timestamp: messageUploadTimestampFromServer)
-            } catch {
-                assertionFailure(error.localizedDescription)
-            }
+            try self.archive()
+            
+        case .locked:
+            
+            self.messages.removeAll()
+            try self.deletePersistedDiscussion()
 
         }
         
@@ -737,8 +748,8 @@ public class PersistedDiscussion: NSManagedObject {
         case .fromAllOwnedDevices:
             // Throw if we have no other owned devices. This is handy when using the method to determine if the option
             // to delete from all other owned devices is pertinent
-            guard ownedIdentity.hasAnotherDeviceWithChannel else {
-                throw ObvError.ownedIdentityDoesNotHaveAnotherDeviceWithChannel
+            guard ownedIdentity.hasAnotherDeviceWhichIsReachable else {
+                throw ObvError.ownedIdentityDoesNotHaveAnotherReachableDevice
             }
         case .fromAllOwnedDevicesAndAllContactDevices:
             switch self.status {
@@ -853,6 +864,19 @@ public class PersistedDiscussion: NSManagedObject {
             try RemoteRequestSavedForLater.applyRemoteRequestsSavedForLater(for: createdOrUpdatedMessage)
         } catch {
             assertionFailure(error.localizedDescription) // Continue anyway
+        }
+        
+        // If the server timestamp of the message is less than the discussion's serverTimestampWhenDiscussionReadOnAnotherOwnedDevice, immediately mark
+        // this message as read.
+        // This situation happens because we might receive a message from another owned device indicating that all this discussion messages have been read until a certain date
+        // **before** receiving the messages themselves.
+        
+        if obvMessage.messageUploadTimestampFromServer <= self.serverTimestampWhenDiscussionReadOnAnotherOwnedDevice {
+            do {
+                _ = try createdOrUpdatedMessage.markAsNotNew(dateWhenMessageTurnedNotNew: self.serverTimestampWhenDiscussionReadOnAnotherOwnedDevice)
+            } catch {
+                assertionFailure(error.localizedDescription) // In production, continue anyway
+            }
         }
 
         let messageReceivedPermanentId = createdOrUpdatedMessage.objectPermanentID
@@ -1879,7 +1903,7 @@ extension PersistedDiscussion {
         guard !isArchived else { return }
         isArchived = true
 
-        _ = try markAllMessagesAsNotNew(untilDate: nil, dateWhenMessageTurnedNotNew: Date())
+        _ = try markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: nil, dateWhenMessageTurnedNotNew: .now)
         
         self.pinnedIndex = nil
 
@@ -1997,15 +2021,18 @@ extension PersistedDiscussion {
     }
 
     
-    func markAllMessagesAsNotNew(untilDate: Date?, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
+    func markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
         
         let lastReadReceivedMessageServerTimestamp: Date?
-        if let untilDate {
-            lastReadReceivedMessageServerTimestamp = try PersistedMessageReceived.markAllAsNotNew(within: self, untilDate: untilDate, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+        if let serverTimestampWhenDiscussionReadOnAnotherOwnedDevice {
+            self.serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = serverTimestampWhenDiscussionReadOnAnotherOwnedDevice
+            lastReadReceivedMessageServerTimestamp = try PersistedMessageReceived.markAllAsNotNew(within: self,
+                                                                                                  serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
+                                                                                                  dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
         } else {
             lastReadReceivedMessageServerTimestamp = try PersistedMessageReceived.markAllAsNotNew(within: self, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
         }
-        let lastReadSystemMessageServerTimestamp = try PersistedMessageSystem.markAllAsNotNew(within: self, untilDate: untilDate)
+        let lastReadSystemMessageServerTimestamp = try PersistedMessageSystem.markAllAsNotNew(within: self, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
 
         switch (lastReadReceivedMessageServerTimestamp, lastReadSystemMessageServerTimestamp) {
         case (.some(let date1), .some(let date2)):
@@ -2627,7 +2654,6 @@ extension PersistedDiscussion {
         case aContactRequestedUpdateOnMessageFromSomeoneElse
         case aContactCannotDeleteAllMessagesWithinLockedDiscussion
         case aContactCannotDeleteAllMessagesWithinPreDiscussion
-        case ownedIdentityCannotGloballyDeleteLockedDiscussion
         case ownedIdentityCannotGloballyDeletePrediscussion
         case cannotGloballyDeleteLockedOrPrediscussion
         case unexpectedDiscussionForMessageToEdit
@@ -2637,7 +2663,8 @@ extension PersistedDiscussion {
         case incoherentDiscussionKind
         case couldNotFindMessage
         case unexpectedMessageKind
-        case ownedIdentityDoesNotHaveAnotherDeviceWithChannel
+        case ownedIdentityDoesNotHaveAnotherReachableDevice
+        case discussionIsNotLocked
 
         var localizedDescription: String {
             switch self {
@@ -2675,8 +2702,6 @@ extension PersistedDiscussion {
                 return "A message cannot be delete all messages within a locked discussion"
             case .aContactCannotDeleteAllMessagesWithinPreDiscussion:
                 return "A message cannot be delete all messages within a prediscussion"
-            case .ownedIdentityCannotGloballyDeleteLockedDiscussion:
-                return "Owned identity cannot globally delete a locked discussion"
             case .ownedIdentityCannotGloballyDeletePrediscussion:
                 return "Owned identity cannot globally delete a prediscussion"
             case .cannotGloballyDeleteLockedOrPrediscussion:
@@ -2693,8 +2718,10 @@ extension PersistedDiscussion {
                 return "Incoherent discussion kind"
             case .couldNotFindMessage:
                 return "Could not find message"
-            case .ownedIdentityDoesNotHaveAnotherDeviceWithChannel:
-                return "Owned identity does not have another device with a channel"
+            case .ownedIdentityDoesNotHaveAnotherReachableDevice:
+                return "Owned identity does not have another reachable device"
+            case .discussionIsNotLocked:
+                return "Discussion is not locked"
             }
         }
         

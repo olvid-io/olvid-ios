@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -153,12 +153,12 @@ struct ContactDevicesListView_Previews: PreviewProvider {
     [
         ContactDeviceViewModelForPreviews(
             contactIdentifier: contactIdentifier,
-            secureChannelStatus: .creationInProgress,
+            secureChannelStatus: .creationInProgress(preKeyAvailable: true),
             deviceIdentifier: Data(repeating: 0, count: 16),
             name: String("1234")),
         ContactDeviceViewModelForPreviews(
             contactIdentifier: contactIdentifier,
-            secureChannelStatus: .created,
+            secureChannelStatus: .created(preKeyAvailable: false),
             deviceIdentifier: Data(repeating: 1, count: 16),
             name: String("5678")),
         ContactDeviceViewModelForPreviews(

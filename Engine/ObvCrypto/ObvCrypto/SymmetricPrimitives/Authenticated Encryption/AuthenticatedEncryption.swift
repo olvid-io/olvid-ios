@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,6 +33,8 @@ public protocol AuthenticatedEncryptionConcrete: AuthenticatedEncryptionCommon {
     static var algorithmImplementationByteId: AuthenticatedEncryptionImplementationByteId { get }
     static func generateKey(with: PRNG?) -> AuthenticatedEncryptionKey
     static func generateKey(with: Seed) -> AuthenticatedEncryptionKey
+    static func generateMessageKey(with prng: PRNG, message: Data) -> AuthenticatedEncryptionKey
+    static func verifyMessageKey(messageKey: AuthenticatedEncryptionKey, message: Data) -> Bool
     static func ciphertextLength(forPlaintextLength length: Int) -> Int
     static func plaintexLength(forCiphertextLength length: Int) throws -> Int
     static var keyLength: Int { get }
@@ -117,9 +119,9 @@ final class AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256: Authenticate
         let prng = _prng ?? ObvCryptoSuite.sharedInstance.prngService()
         // Encrypt...
         let iv = prng.genBytes(count: SymmetricEncryptionWithAES256CTR.ivLength)
-        let ciphertext = try! SymmetricEncryptionWithAES256CTR.encrypt(plaintext, with: key.aes256CTRKey, andIv: iv)
+        let ciphertext = try SymmetricEncryptionWithAES256CTR.encrypt(plaintext, with: key.aes256CTRKey, andIv: iv)
         // And then authenticate
-        let mac = try! HMACWithSHA256.compute(forData: ciphertext, withKey: key.hmacWithSHA256Key)
+        let mac = try HMACWithSHA256.compute(forData: ciphertext, withKey: key.hmacWithSHA256Key)
         let authenticatedCiphertext = EncryptedData.byAppending(c1: ciphertext, c2: EncryptedData(data: mac))
         return authenticatedCiphertext
     }
@@ -253,8 +255,8 @@ final class AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256: Authenticate
         let macRange = ciphertext.endIndex - HMACWithSHA256.outputLength..<ciphertext.endIndex
         let innerCiphertext = ciphertext[ciphertextRange]
         let mac = Data(encryptedData: ciphertext[macRange])
-        guard try! HMACWithSHA256.verify(mac: mac, forData: innerCiphertext, withKey: key.hmacWithSHA256Key) else { throw AuthenticatedEncryptionError.integrityCheckFailed }
-        let plaintext = try! SymmetricEncryptionWithAES256CTR.decrypt(innerCiphertext, with: key.aes256CTRKey)
+        guard try HMACWithSHA256.verify(mac: mac, forData: innerCiphertext, withKey: key.hmacWithSHA256Key) else { throw AuthenticatedEncryptionError.integrityCheckFailed }
+        let plaintext = try SymmetricEncryptionWithAES256CTR.decrypt(innerCiphertext, with: key.aes256CTRKey)
         return plaintext
     }
 
@@ -269,7 +271,7 @@ final class AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256: Authenticate
             throw AuthenticatedEncryptionError.ciphertextIsNotLongEnough
         }
         let innerCiphertextLength = length - HMACWithSHA256.outputLength
-        let plaintextLength = try! SymmetricEncryptionWithAES256CTR.plaintexLength(forCiphertextLength: innerCiphertextLength)
+        let plaintextLength = try SymmetricEncryptionWithAES256CTR.plaintexLength(forCiphertextLength: innerCiphertextLength)
         return plaintextLength
     }
     
@@ -283,6 +285,29 @@ final class AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256: Authenticate
         let key = KDFFromPRNGWithHMACWithSHA256.generate(from: seed, { AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key(data: $0)! })!
         return key
     }
+    
+    /// This key generation takes the message to encrypt as a parameter. The encryption key is random, while the authentication key is derived from the encryption key **and** the message, allowing to
+    /// inject the context into the key generation
+    static func generateMessageKey(with prng: PRNG, message: Data) -> AuthenticatedEncryptionKey {
+        let seedForEncryptionKey = prng.genSeed()
+        let aes256CTRKey = KDFFromPRNGWithHMACWithSHA256.generate(from: seedForEncryptionKey, { SymmetricEncryptionAES256CTRKey(data: $0)! })!
+        // Concatenate the encryption key and the message to generate a seed for the symmetric authentication key
+        let concatenation = aes256CTRKey.data + message
+        let seedForAuthKey = Seed(with: concatenation)!
+        let hmacWithSHA256Key = KDFFromPRNGWithHMACWithSHA256.generate(from: seedForAuthKey, { HMACWithSHA256Key(data: $0)! })!
+        return AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key(aes256CTRKey: aes256CTRKey, hmacWithSHA256Key: hmacWithSHA256Key)
+    }
+    
+    
+    /// Returns `true` iff the `messageKey` was certainly generated with ``static generateMessageKey(with:message:)`` for the given `message`.
+    static func verifyMessageKey(messageKey: AuthenticatedEncryptionKey, message: Data) -> Bool {
+        guard let messageKey = messageKey as? AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key else { assertionFailure(); return false }
+        let concatenation = messageKey.aes256CTRKey.data + message
+        let seedForAuthKey = Seed(with: concatenation)!
+        let hmacWithSHA256Key = KDFFromPRNGWithHMACWithSHA256.generate(from: seedForAuthKey, { HMACWithSHA256Key(data: $0)! })!
+        return hmacWithSHA256Key == messageKey.hmacWithSHA256Key
+    }
+    
 }
 
 // AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key is Equatable

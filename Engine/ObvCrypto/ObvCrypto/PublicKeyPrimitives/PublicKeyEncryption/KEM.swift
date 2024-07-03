@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -41,7 +41,7 @@ extension KEM_ECIES256KEM512 {
     
     static func generateKeyPair(with _prng: PRNGService?) -> (PublicKeyForPublicKeyEncryption, PrivateKeyForPublicKeyEncryption) {
         let prng = _prng ?? ObvCryptoSuite.sharedInstance.prngService()
-        let (scalar, point) = curve.generateRandomScalarAndPoint(withPRNG: prng)
+        let (scalar, point) = curve.generateRandomScalarAndHighOrderPoint(withPRNG: prng)
         let publicKey = PublicKeyForPublicKeyEncryptionOnEdwardsCurve(point: point)!
         let privateKey = PrivateKeyForPublicKeyEncryptionOnEdwardsCurve(scalar: scalar, curveByteId: curve.byteId)
         return (publicKey, privateKey)
@@ -58,6 +58,8 @@ extension KEM_ECIES256KEM512 {
         guard let publicKey = _publicKey as? PublicKeyForPublicKeyEncryptionOnEdwardsCurve,
             publicKey.curveByteId == curve.byteId
             else { return nil }
+        // Check the public key
+        guard !publicKey.isLowOrderPoint else { assertionFailure(); return nil }
         let prng = _prng ?? ObvCryptoSuite.sharedInstance.prngService()
         let r = BigInt(0)
         while r == BigInt(0) {
@@ -84,12 +86,13 @@ extension KEM_ECIES256KEM512 {
         guard let privateKey = _privateKey as? PrivateKeyForPublicKeyEncryptionOnEdwardsCurve else { return nil }
         guard ciphertext.count == privateKey.curve.parameters.p.byteSize() else { return nil }
         let nu = curve.parameters.nu
+        let nuInv = curve.parameters.nuInv
         let q = curve.parameters.q
         let ciphertextAsData = Data(encryptedData: ciphertext)
         let yCoordinate = BigInt(ciphertextAsData)
         guard yCoordinate != BigInt(1) else { return nil }
         guard let By = curve.scalarMultiplication(scalar: nu, yCoordinate: yCoordinate) else { return nil }
-        let a = BigInt(privateKey.scalar).mul(try! BigInt(nu).invert(modulo: q), modulo: q)
+        let a = BigInt(privateKey.scalar).mul(nuInv, modulo: q)
         let Dy = curve.scalarMultiplication(scalar: a, yCoordinate: By)!
         var rawSeed = ciphertextAsData
         let pLength = curve.parameters.p.byteSize()

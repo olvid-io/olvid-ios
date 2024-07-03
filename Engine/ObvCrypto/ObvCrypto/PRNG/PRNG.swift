@@ -29,6 +29,7 @@ public protocol PRNG {
 
 public protocol ConcretePRNG: PRNG {
     init(with: Seed)
+    func reseed(with seed: Seed)
 }
 
 extension PRNG {
@@ -77,7 +78,6 @@ class PRNGWithHMACWithSHA256: ConcretePRNG {
     
     private var k = HMACWithSHA256Key(data: Data(repeating: 0, count: PRNGWithHMACWithSHA256.hashOutputLength))!
     private var v = Data(repeating: 1, count: PRNGWithHMACWithSHA256.hashOutputLength)
-    private var s = Data()
 
     required init(with seed: Seed) {
         update(withData: seed.raw)
@@ -108,6 +108,10 @@ class PRNGWithHMACWithSHA256: ConcretePRNG {
         }
         update()
         return generatedBytes.prefix(count)
+    }
+    
+    func reseed(with seed: Seed) {
+        update(withData: seed.raw)
     }
     
 }

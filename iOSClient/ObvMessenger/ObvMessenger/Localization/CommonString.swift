@@ -135,14 +135,14 @@ extension CommonString.Word {
 extension CommonString {
 
     struct AlertButton {
-        static func deletionActionTitle(for deletionType: DeletionType, ownedIdentityHasHasAnotherDeviceWithChannel: Bool, multipleContacts: Bool) -> String {
+        static func deletionActionTitle(for deletionType: DeletionType, ownedIdentityHasHasAnotherReachableDevice: Bool, multipleContacts: Bool) -> String {
             switch deletionType {
             case .fromThisDeviceOnly:
                 return NSLocalizedString("DELETE_FROM_THIS_DEVICE_ONLY", comment: "Alert button title")
             case .fromAllOwnedDevices:
                 return NSLocalizedString("DELETE_FROM_ALL_OWNED_DEVICES", comment: "Alert button title")
             case .fromAllOwnedDevicesAndAllContactDevices:
-                switch (ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts) {
+                switch (ownedIdentityHasHasAnotherReachableDevice, multipleContacts) {
                 case (false, false):
                     return NSLocalizedString("DELETE_FROM_THIS_DEVICE_AND_CONTACT_DEVICES", comment: "Alert button title")
                 case (false, true):

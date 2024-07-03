@@ -70,7 +70,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -107,7 +107,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             
             if !previousOwnCapabilities.contains(.oneToOneContacts) && newOwnCapabilities.contains(.oneToOneContacts) {
                 let allContactIdentities = try identityDelegate.getContactsOfOwnedIdentity(ownedIdentity, within: obvContext)
-                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let channel = ObvChannelSendChannelType.local(ownedIdentity: ownedIdentity)
                 let newProtocolInstanceUid = UID.gen(with: prng)
                 let coreMessage = CoreProtocolMessage(channelType: channel,
                                                       cryptoProtocolId: .oneToOneContactInvitation,
@@ -130,7 +130,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             do {
                 let contactIdentites = try identityDelegate.getContactsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !contactIdentites.isEmpty {
-                    let channel = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: contactIdentites, fromOwnedIdentity: ownedIdentity)
+                    let channel = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: contactIdentites, fromOwnedIdentity: ownedIdentity)
                     let coreMessage = getCoreMessage(for: channel)
                     let concreteMessage = OwnCapabilitiesToContactMessage(coreProtocolMessage: coreMessage,
                                                                           ownCapabilities: newOwnCapabilities,
@@ -153,7 +153,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             do {
                 let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
                 if numberOfOtherDevicesOfOwnedIdentity > 0 {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteMessage = OwnCapabilitiesToSelfMessage(coreProtocolMessage: coreMessage,
                                                                        ownCapabilities: newOwnCapabilities,
                                                                        isReponse: false)
@@ -184,7 +184,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -206,7 +206,12 @@ extension DeviceCapabilitiesDiscoveryProtocol {
 
             // We send all the capabilities of the current device of the owned identity to the device of the contact
 
-            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+            let channelType = ObvChannelSendChannelType.obliviousChannel(to: contactIdentity, 
+                                                                         remoteDeviceUids: [contactDeviceUid],
+                                                                         fromOwnedIdentity: ownedIdentity,
+                                                                         necessarilyConfirmed: true,
+                                                                         usePreKeyIfRequired: true)
+            let coreMessage = getCoreMessage(for: channelType)
             let concreteMessage = OwnCapabilitiesToContactMessage(coreProtocolMessage: coreMessage,
                                                                   ownCapabilities: currentCapabilities,
                                                                   isReponse: isResponse)
@@ -240,7 +245,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -261,7 +266,12 @@ extension DeviceCapabilitiesDiscoveryProtocol {
 
             // We send all the capabilities of the current device of the owned identity to the other owned device
 
-            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: [otherOwnedDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+            let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity,
+                                                                         remoteDeviceUids: [otherOwnedDeviceUid],
+                                                                         fromOwnedIdentity: ownedIdentity,
+                                                                         necessarilyConfirmed: true,
+                                                                         usePreKeyIfRequired: true)
+            let coreMessage = getCoreMessage(for: channelType)
             let concreteMessage = OwnCapabilitiesToSelfMessage(coreProtocolMessage: coreMessage,
                                                                ownCapabilities: currentCapabilities,
                                                                isReponse: isResponse)
@@ -296,7 +306,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -336,7 +346,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
                                                                                                          within: obvContext)
             if !isResponse && (currentContactObvCapabilities == nil || currentContactObvCapabilities?.isEmpty == true) {
                 
-                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let channel = ObvChannelSendChannelType.local(ownedIdentity: ownedIdentity)
                 let coreMessage = getCoreMessage(for: channel)
                 let message = InitialSingleContactDeviceMessage(coreProtocolMessage: coreMessage, contactIdentity: remoteIdentity, contactDeviceUid: remoteDeviceUid, isResponse: true)
                 guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -379,7 +389,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -412,7 +422,7 @@ extension DeviceCapabilitiesDiscoveryProtocol {
             
             if !isResponse && (currentCapabilitiesOfOtherOwnDevice == nil || currentCapabilitiesOfOtherOwnDevice?.isEmpty == true) {
 
-                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let channel = ObvChannelSendChannelType.local(ownedIdentity: ownedIdentity)
                 let coreMessage = getCoreMessage(for: channel)
                 let message = InitialSingleOwnedDeviceMessage(coreProtocolMessage: coreMessage, otherOwnedDeviceUid: otherOwnedDeviceUid, isResponse: true)
                 guard let messageToSend = message.generateObvChannelProtocolMessageToSend(with: prng) else {

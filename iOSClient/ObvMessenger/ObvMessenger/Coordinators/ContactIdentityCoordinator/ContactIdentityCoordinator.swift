@@ -125,6 +125,9 @@ final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker {
             ObvEngineNotificationNew.observeContactObvCapabilitiesWereUpdated(within: NotificationCenter.default) { [weak self] obvContactIdentity in
                 Task { [weak self] in await self?.processContactObvCapabilitiesWereUpdated(obvContactIdentity: obvContactIdentity) }
             },
+            ObvEngineNotificationNew.observeUpdatedContactDevice(within: NotificationCenter.default) { [weak self] deviceIdentifier in
+                Task { [weak self] in await self?.processUpdatedContactDevice(deviceIdentifier: deviceIdentifier) }
+            },
             ObvMessengerCoreDataNotification.observePersistedContactWasInserted { [weak self] contactPermanentID, _, _ in
                 Task { [weak self] in await self?.processPersistedContactWasInsertedNotification(contactPermanentID: contactPermanentID) }
             },
@@ -461,6 +464,13 @@ extension ContactIdentityCoordinator {
     
     private func processContactObvCapabilitiesWereUpdated(obvContactIdentity: ObvContactIdentity) async {
         let op1 = SyncPersistedObvContactIdentityWithEngineOperation(syncType: .syncWithEngine(contactIdentifier: obvContactIdentity.contactIdentifier, isRestoringSyncSnapshotOrBackup: false), obvEngine: obvEngine)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+    }
+
+    
+    private func processUpdatedContactDevice(deviceIdentifier: ObvContactDeviceIdentifier) async {
+        let op1 = SyncPersistedObvContactDeviceWithEngineOperation(syncType: .syncWithEngine(contactDeviceIdentifier: deviceIdentifier, isRestoringSyncSnapshotOrBackup: false), obvEngine: obvEngine)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         await coordinatorsQueue.addAndAwaitOperation(composedOp)
     }

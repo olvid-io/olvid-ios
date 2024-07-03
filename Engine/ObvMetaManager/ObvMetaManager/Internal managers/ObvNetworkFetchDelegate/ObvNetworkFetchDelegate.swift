@@ -73,5 +73,7 @@ public protocol ObvNetworkFetchDelegate: ObvManager {
     func finalizeOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws
 
     func performOwnedDeviceDiscoveryNow(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> EncryptedData
+    
+    func remoteIdentityIsNowAContact(contactIdentifier: ObvContactIdentifier, flowId: FlowIdentifier) async throws
 
 }

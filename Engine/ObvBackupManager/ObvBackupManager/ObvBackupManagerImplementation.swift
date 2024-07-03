@@ -609,7 +609,10 @@ extension ObvBackupManagerImplementation {
 
                     os_log("Encrypting the full backup for backupRequestIdentifier %{public}@", log: log, type: .info, backupRequestIdentifier.description)
                     
-                    let encryptedBackup = PublicKeyEncryption.encrypt(fullBackupData, using: derivedKeysForBackup.publicKeyForEncryption, and: prng)
+                    guard let encryptedBackup = PublicKeyEncryption.encrypt(fullBackupData, using: derivedKeysForBackup.publicKeyForEncryption, and: prng) else {
+                        assertionFailure()
+                        throw Self.makeError(message: "Failed to encrypt full backup data")
+                    }
                     let macOfEncryptedBackup = try MAC.compute(forData: encryptedBackup, withKey: derivedKeysForBackup.macKey)
                     let authenticatedEncryptedBackup = EncryptedData(data: encryptedBackup.raw + macOfEncryptedBackup)
                     

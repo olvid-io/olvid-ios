@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,14 +33,16 @@ extension OwnedDeviceDiscoveryProtocol {
         case initial = 0
         case waitingForServerQueryResult = 1
         case serverQueryProcessed = 2 // Final
+        case waitingForUploadOfCurrentDevicePreKey = 3
         case cancelled = 100 // Final
         
         var concreteProtocolStateType: ConcreteProtocolState.Type {
             switch self {
-            case .initial                     : return ConcreteProtocolInitialState.self
-            case .waitingForServerQueryResult : return WaitingForServerQueryResultState.self
-            case .serverQueryProcessed        : return ServerQueryProcessedState.self
-            case .cancelled                   : return CancelledState.self
+            case .initial                              : return ConcreteProtocolInitialState.self
+            case .waitingForServerQueryResult          : return WaitingForServerQueryResultState.self
+            case .serverQueryProcessed                 : return ServerQueryProcessedState.self
+            case .waitingForUploadOfCurrentDevicePreKey: return WaitingForUploadOfCurrentDevicePreKeyState.self
+            case .cancelled                            : return CancelledState.self
             }
         }
     }
@@ -79,6 +81,21 @@ extension OwnedDeviceDiscoveryProtocol {
     // MARK: - CancelledState
     
     struct CancelledState: TypeConcreteProtocolState {
+        
+        let id: ConcreteProtocolStateId = StateId.cancelled
+        
+        init(_: ObvEncoded) {}
+        
+        init() {}
+        
+        func obvEncode() -> ObvEncoded { return 0.obvEncode() }
+        
+    }
+
+    
+    // MARK: - WaitingForUploadOfCurrentDevicePreKeyState
+    
+    struct WaitingForUploadOfCurrentDevicePreKeyState: TypeConcreteProtocolState {
         
         let id: ConcreteProtocolStateId = StateId.cancelled
         

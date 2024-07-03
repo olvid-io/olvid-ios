@@ -74,7 +74,7 @@ extension GroupInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -111,7 +111,7 @@ extension GroupInvitationProtocol {
             
             // Post an invitation to contactIdentity
             
-            let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentity]), fromOwnedIdentity: ownedIdentity))
             // Note that the GroupInvitationMessage denotes the members and pending members as 'pending' only. This is because, from the point of view of the recipient, all members are 'pending' at this point
             let concreteProtocolMessage = GroupInvitationMessage(coreProtocolMessage: coreMessage,
                                                                  groupInformation: groupInformation,
@@ -143,7 +143,7 @@ extension GroupInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -227,7 +227,7 @@ extension GroupInvitationProtocol {
                 // Notifiy the group owner that we accepted the invitation
                 
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([groupInformation.groupOwnerIdentity]), fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([groupInformation.groupOwnerIdentity]), fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = InvitationResponseMessage(coreProtocolMessage: coreMessage, groupUid: groupInformation.groupUid, invitationAccepted: true)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -243,7 +243,7 @@ extension GroupInvitationProtocol {
                 }
                 
                 if numberOfOtherDevicesOfOwnedIdentity > 0 {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateInvitationResponseMessage(coreProtocolMessage: coreMessage, invitationAccepted: true)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                         throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -261,7 +261,7 @@ extension GroupInvitationProtocol {
                 
                 let dialogUuid = UUID()
                 do {
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: ObvChannelDialogToSendType.acceptGroupInvite(groupInformation: groupInformation, pendingGroupMembers: pendingGroupMembers, receivedMessageTimestamp: receivedMessage.timestamp)))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: ObvChannelDialogToSendType.acceptGroupInvite(groupInformation: groupInformation, pendingGroupMembers: pendingGroupMembers, receivedMessageTimestamp: receivedMessage.timestamp)))
                     let concreteProtocolMessage = DialogAcceptGroupInvitationMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -293,7 +293,7 @@ extension GroupInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -316,7 +316,7 @@ extension GroupInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -334,7 +334,7 @@ extension GroupInvitationProtocol {
             // Notifiy the group owner that we accepted the invitation (or not)
             
             do {
-                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([groupInformation.groupOwnerIdentity]), fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([groupInformation.groupOwnerIdentity]), fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = InvitationResponseMessage(coreProtocolMessage: coreMessage, groupUid: groupInformation.groupUid, invitationAccepted: invitationAccepted)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -350,7 +350,7 @@ extension GroupInvitationProtocol {
             }
             
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
-                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                 let concreteProtocolMessage = PropagateInvitationResponseMessage(coreProtocolMessage: coreMessage, invitationAccepted: invitationAccepted)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -402,7 +402,7 @@ extension GroupInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -420,7 +420,7 @@ extension GroupInvitationProtocol {
             
             do {
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -479,7 +479,7 @@ extension GroupInvitationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -510,7 +510,7 @@ extension GroupInvitationProtocol {
                     let dummyGroupInformation = try GroupInformation.createDummyGroupInformation(groupOwnerIdentity: ownedIdentity, groupUid: groupUid)
                     
                     let protocolInstanceUidForGroupManagement = dummyGroupInformation.associatedProtocolUid
-                    let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([remoteIdentity]), fromOwnedIdentity: ownedIdentity),
+                    let coreMessage = CoreProtocolMessage(channelType: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([remoteIdentity]), fromOwnedIdentity: ownedIdentity),
                                                           cryptoProtocolId: .groupManagement,
                                                           protocolInstanceUid: protocolInstanceUidForGroupManagement)
                     let concreteProtocolMessage = GroupManagementProtocol.KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: dummyGroupInformation)
@@ -546,7 +546,7 @@ extension GroupInvitationProtocol {
                 }
                 
                 let protocolInstanceUidForGroupManagement = groupInformationWithPhoto.associatedProtocolUid
-                let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([remoteIdentity]), fromOwnedIdentity: ownedIdentity),
+                let coreMessage = CoreProtocolMessage(channelType: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([remoteIdentity]), fromOwnedIdentity: ownedIdentity),
                                                       cryptoProtocolId: .groupManagement,
                                                       protocolInstanceUid: protocolInstanceUidForGroupManagement)
                 let concreteProtocolMessage = GroupManagementProtocol.KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
@@ -580,7 +580,7 @@ extension GroupInvitationProtocol {
                     // In that case, we know that the member reset the group member list number back to zero. We now send her the latest version of this list.
                     
                     let protocolInstanceUidForGroupManagement = groupInformationWithPhoto.associatedProtocolUid
-                    let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+                    let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                                           cryptoProtocolId: .groupManagement,
                                                           protocolInstanceUid: protocolInstanceUidForGroupManagement)
                     let concreteProtocolMessage = GroupManagementProtocol.TriggerUpdateMembersMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation, memberIdentity: remoteIdentity)
@@ -625,7 +625,7 @@ extension GroupInvitationProtocol {
                     // Send a kick message to this demoted member. This is message is only usefull in the case where we received the responses from this member in the wrong order (i.e., she sent 'reject' then 'accept' and we received 'accept' then 'reject'.).
 
                     let protocolInstanceUidForGroupManagement = groupInformationWithPhoto.associatedProtocolUid
-                    let coreMessage = CoreProtocolMessage(channelType: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([remoteIdentity]), fromOwnedIdentity: ownedIdentity),
+                    let coreMessage = CoreProtocolMessage(channelType: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([remoteIdentity]), fromOwnedIdentity: ownedIdentity),
                                                           cryptoProtocolId: .groupManagement,
                                                           protocolInstanceUid: protocolInstanceUidForGroupManagement)
                     let concreteProtocolMessage = GroupManagementProtocol.KickFromGroupMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
@@ -717,7 +717,7 @@ extension GroupInvitationProtocol {
             }
             
             let childProtocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
-            let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+            let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                                   cryptoProtocolId: .groupManagement,
                                                   protocolInstanceUid: childProtocolInstanceUid)
             let childProtocolInitialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage,

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,36 +19,35 @@
 
 import Foundation
 import CoreData
-
 import ObvCrypto
 import ObvTypes
 
 
 public enum ObvChannelSendChannelType {
     
-    case Local(ownedIdentity: ObvCryptoIdentity) // Send from/to this owned identity
-    case AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set<ObvCryptoIdentity>, fromOwnedIdentity: ObvCryptoIdentity)
-    case AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity)
-    case AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity(contactIdentities: Set<ObvCryptoIdentity>, fromOwnedIdentity: ObvCryptoIdentity)
-    case ObliviousChannel(to: ObvCryptoIdentity, remoteDeviceUids: [UID], fromOwnedIdentity: ObvCryptoIdentity, necessarilyConfirmed: Bool)
-    case AsymmetricChannel(to: ObvCryptoIdentity, remoteDeviceUids: [UID], fromOwnedIdentity: ObvCryptoIdentity)
-    case AsymmetricChannelBroadcast(to: ObvCryptoIdentity, fromOwnedIdentity: ObvCryptoIdentity)
-    case UserInterface(uuid: UUID, ownedIdentity: ObvCryptoIdentity, dialogType: ObvChannelDialogToSendType)
-    case ServerQuery(ownedIdentity: ObvCryptoIdentity) // The identity is one of our own, used to receive the server response
+    case local(ownedIdentity: ObvCryptoIdentity) // Send from/to this owned identity
+    case allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set<ObvCryptoIdentity>, fromOwnedIdentity: ObvCryptoIdentity)
+    case allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ObvCryptoIdentity)
+    case allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices(contactIdentities: Set<ObvCryptoIdentity>, fromOwnedIdentity: ObvCryptoIdentity)
+    case obliviousChannel(to: ObvCryptoIdentity, remoteDeviceUids: [UID], fromOwnedIdentity: ObvCryptoIdentity, necessarilyConfirmed: Bool, usePreKeyIfRequired: Bool)
+    case asymmetricChannel(to: ObvCryptoIdentity, remoteDeviceUids: [UID], fromOwnedIdentity: ObvCryptoIdentity)
+    case asymmetricChannelBroadcast(to: ObvCryptoIdentity, fromOwnedIdentity: ObvCryptoIdentity)
+    case userInterface(uuid: UUID, ownedIdentity: ObvCryptoIdentity, dialogType: ObvChannelDialogToSendType)
+    case serverQuery(ownedIdentity: ObvCryptoIdentity) // The identity is one of our own, used to receive the server response
     
     
     /// Only owned identities can "send" on a channel. Note that when sending a message to self, the `fromOwnedIdentity` is identical to the `toIdentity`
     public var fromOwnedIdentity: ObvCryptoIdentity {
         switch self {
-        case .Local(ownedIdentity: let fromOwnedIdentity),
-             .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: let fromOwnedIdentity),
-             .ObliviousChannel(to: _, remoteDeviceUids: _, fromOwnedIdentity: let fromOwnedIdentity, necessarilyConfirmed: _),
-             .AsymmetricChannel(to: _, remoteDeviceUids: _, fromOwnedIdentity: let fromOwnedIdentity),
-             .AsymmetricChannelBroadcast(to: _, fromOwnedIdentity: let fromOwnedIdentity),
-             .UserInterface(uuid: _, ownedIdentity: let fromOwnedIdentity, dialogType: _),
-             .ServerQuery(ownedIdentity: let fromOwnedIdentity),
-             .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: _, fromOwnedIdentity: let fromOwnedIdentity),
-             .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity(contactIdentities: _, fromOwnedIdentity: let fromOwnedIdentity):
+        case .local(ownedIdentity: let fromOwnedIdentity),
+             .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: let fromOwnedIdentity),
+             .obliviousChannel(to: _, remoteDeviceUids: _, fromOwnedIdentity: let fromOwnedIdentity, necessarilyConfirmed: _, usePreKeyIfRequired: _),
+             .asymmetricChannel(to: _, remoteDeviceUids: _, fromOwnedIdentity: let fromOwnedIdentity),
+             .asymmetricChannelBroadcast(to: _, fromOwnedIdentity: let fromOwnedIdentity),
+             .userInterface(uuid: _, ownedIdentity: let fromOwnedIdentity, dialogType: _),
+             .serverQuery(ownedIdentity: let fromOwnedIdentity),
+             .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: _, fromOwnedIdentity: let fromOwnedIdentity),
+             .allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices(contactIdentities: _, fromOwnedIdentity: let fromOwnedIdentity):
             return fromOwnedIdentity
         }
     }
@@ -57,16 +56,16 @@ public enum ObvChannelSendChannelType {
     /// The toIdentity can be a contact identity, or an owned identity, depending on the case.
     public var toIdentity: ObvCryptoIdentity? {
         switch self {
-        case .Local(ownedIdentity: let toIdentity),
-             .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: let toIdentity),
-             .ObliviousChannel(to: let toIdentity, remoteDeviceUids: _, fromOwnedIdentity: _, necessarilyConfirmed: _),
-             .AsymmetricChannel(to: let toIdentity, remoteDeviceUids: _, fromOwnedIdentity: _),
-             .AsymmetricChannelBroadcast(to: let toIdentity, fromOwnedIdentity: _),
-             .UserInterface(uuid: _, ownedIdentity: let toIdentity, dialogType: _),
-             .ServerQuery(ownedIdentity: let toIdentity):
+        case .local(ownedIdentity: let toIdentity),
+             .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: let toIdentity),
+             .obliviousChannel(to: let toIdentity, remoteDeviceUids: _, fromOwnedIdentity: _, necessarilyConfirmed: _, usePreKeyIfRequired: _),
+             .asymmetricChannel(to: let toIdentity, remoteDeviceUids: _, fromOwnedIdentity: _),
+             .asymmetricChannelBroadcast(to: let toIdentity, fromOwnedIdentity: _),
+             .userInterface(uuid: _, ownedIdentity: let toIdentity, dialogType: _),
+             .serverQuery(ownedIdentity: let toIdentity):
             return toIdentity
-        case .AllConfirmedObliviousChannelsWithContactIdentities,
-                .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity:
+        case .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts,
+                .allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices:
             return nil
         }
     }
@@ -74,16 +73,16 @@ public enum ObvChannelSendChannelType {
     
     public var toIdentities: Set<ObvCryptoIdentity>? {
         switch self {
-        case .Local,
-             .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity,
-             .ObliviousChannel,
-             .AsymmetricChannel,
-             .AsymmetricChannelBroadcast,
-             .UserInterface,
-             .ServerQuery:
+        case .local,
+             .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices,
+             .obliviousChannel,
+             .asymmetricChannel,
+             .asymmetricChannelBroadcast,
+             .userInterface,
+             .serverQuery:
             return nil
-        case .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: let toIdentities, fromOwnedIdentity: _),
-                .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity(contactIdentities: let toIdentities, fromOwnedIdentity: _):
+        case .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: let toIdentities, fromOwnedIdentity: _),
+                .allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices(contactIdentities: let toIdentities, fromOwnedIdentity: _):
             return toIdentities
         }
     }

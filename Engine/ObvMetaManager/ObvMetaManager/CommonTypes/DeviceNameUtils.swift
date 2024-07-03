@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,7 @@ import ObvEncoder
 
 public struct DeviceNameUtils {
     
-    public static func encrypt(deviceName: String, for ownedIdentity: ObvCryptoIdentity, using prng: PRNGService) -> EncryptedData {
+    public static func encrypt(deviceName: String, for ownedIdentity: ObvCryptoIdentity, using prng: PRNGService) -> EncryptedData? {
         
         let encodedDeviceName = [deviceName.trimmingWhitespacesAndNewlines().obvEncode()].obvEncode()
         let unpaddedLength = encodedDeviceName.rawData.count

@@ -182,6 +182,7 @@ extension ObvNetworkFetchManagerImplementation {
 
 
 // MARK: - Implementing ObvNetworkFetchDelegate
+
 extension ObvNetworkFetchManagerImplementation {
 
     public func updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
@@ -435,6 +436,15 @@ extension ObvNetworkFetchManagerImplementation {
         }
         
     }
+    
+    
+    public func remoteIdentityIsNowAContact(contactIdentifier: ObvContactIdentifier, flowId: FlowIdentifier) async throws {
+        
+        try await delegateManager.messagesDelegate.removeExpectedContactForReProcessingOperationThenProcessUnprocessedMessages(
+            expectedContactsThatAreNowContacts: Set([contactIdentifier]),
+            flowId: flowId)
+
+    }
 
 }
 
@@ -565,6 +575,8 @@ extension ObvNetworkFetchManagerImplementation {
                     throw ObvNetworkFetchError.RegisterPushNotificationError.invalidServerResponse
                 case .theDelegateManagerIsNotSet:
                     throw ObvNetworkFetchError.RegisterPushNotificationError.theDelegateManagerIsNotSet
+                case .failedToCreateServerMethod:
+                    throw ObvNetworkFetchError.RegisterPushNotificationError.failedToCreateServerMethod
                 }
             } else {
                 assertionFailure("Unrecognized error that should be casted to an ObvNetworkFetchError or dealt with earlier")
@@ -585,7 +597,7 @@ extension ObvNetworkFetchManagerImplementation {
 
             contextCreator.performBackgroundTask(flowId: flowId) { (obvContext) in
                                 
-                guard let identities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
+                guard let identities = try? identityDelegate.getOwnedIdentities(restrictToActive: true, within: obvContext) else {
                     os_log("Could not get owned identities", log: Self.log, type: .fault)
                     assertionFailure()
                     return

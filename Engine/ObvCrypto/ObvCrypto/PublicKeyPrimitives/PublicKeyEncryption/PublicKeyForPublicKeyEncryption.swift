@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -47,6 +47,11 @@ final public class PublicKeyForPublicKeyEncryptionDecoder: ObvDecoder {
         case .KEM_ECIES_Curve25519_and_DEM_CTR_AES_256_then_HMAC_SHA_256:
             return PublicKeyForPublicKeyEncryptionOnEdwardsCurve(obvDictionaryOfInternalElements: obvDic, curveByteId: .Curve25519ByteId)
         }
+    }
+    public static func obvDecodeCompactKey(_ encodedCompactPublicKey: ObvEncoded) -> PublicKeyForPublicKeyEncryption? {
+        guard let compactKey: Data = try? encodedCompactPublicKey.obvDecode() else { assertionFailure(); return nil }
+        guard let encryptionKey = CompactPublicKeyForPublicKeyEncryptionExpander.expand(compactKey: compactKey) else { assertionFailure(); return nil }
+        return encryptionKey
     }
 }
 
@@ -98,14 +103,14 @@ struct PublicKeyForPublicKeyEncryptionOnEdwardsCurve: PublicKeyForPublicKeyEncry
     }
     
     init?(point: PointOnCurve) {
-        guard PublicKeyForPublicKeyEncryptionOnEdwardsCurve.isAcceptable(point: point) else { return nil }
+        //guard !PublicKeyForDHOnEdwardsCurve.isLowOrderPoint(point) else { return nil }
         self.point = point
         self._yCoordinate = point.y
         self._curveByteId = point.onCurveWithByteId
     }
 
     init?(yCoordinate y: BigInt, curveByteId: EdwardsCurveByteId) {
-        guard PublicKeyForPublicKeyEncryptionOnEdwardsCurve.isAcceptable(yCoordinate: y, onCurveWithByteId: curveByteId) else { return nil }
+        //guard !PublicKeyForDHOnEdwardsCurve.isLowOrderPoint(yCoordinate: y, onCurveWithByteId: curveByteId) else { return nil }
         self._yCoordinate = y
         self._curveByteId = curveByteId
         point = nil

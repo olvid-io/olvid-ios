@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,9 +33,9 @@ public struct ObvChannelApplicationMessageToSend: ObvChannelMessageToSend {
     
     public init(toContactIdentities: Set<ObvCryptoIdentity>, fromIdentity: ObvCryptoIdentity, messagePayload: Data, extendedMessagePayload: Data?, withUserContent: Bool, isVoipMessageForStartingCall: Bool, attachments: [Attachment], alsoPostToOtherOwnedDevices: Bool) {
         if alsoPostToOtherOwnedDevices {
-            self.channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity(contactIdentities: toContactIdentities, fromOwnedIdentity: fromIdentity)
+            self.channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices(contactIdentities: toContactIdentities, fromOwnedIdentity: fromIdentity)
         } else {
-            self.channelType = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: toContactIdentities, fromOwnedIdentity: fromIdentity)
+            self.channelType = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: toContactIdentities, fromOwnedIdentity: fromIdentity)
         }
         self.attachments = attachments
         self.messagePayload = messagePayload

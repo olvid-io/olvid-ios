@@ -43,7 +43,7 @@ public struct ServerResponse {
 extension ServerResponse {
         
     public enum ResponseType {
-        case deviceDiscovery(result: ContactDeviceDiscoveryResult)
+        case deviceDiscovery(result: ServerResponseContactDeviceDiscoveryResult)
         case putUserData
         case getUserData(result: GetUserDataResult)
         case checkKeycloakRevocation(verificationSuccessful: Bool)
@@ -61,6 +61,8 @@ extension ServerResponse {
         case transferRelay(result: OwnedIdentityTransferRelayMessageResult)
         case transferWait(result: OwnedIdentityTransferWaitResult)
         case sourceWaitForTargetConnection(result: SourceWaitForTargetConnectionResult)
+        // For PreKeys
+        case uploadPreKeyForCurrentDevice(result: UploadPreKeyForCurrentDeviceResult)
 
         
         private enum RawKind: Int, CaseIterable, ObvCodable {
@@ -83,6 +85,7 @@ extension ServerResponse {
             case transferRelay = 15
             case transferWait = 16
             case sourceWaitForTargetConnection = 17
+            case uploadPreKeyForCurrentDevice = 18
             
             func obvEncode() -> ObvEncoder.ObvEncoded {
                 self.rawValue.obvEncode()
@@ -116,6 +119,7 @@ extension ServerResponse {
             case .transferRelay: return .transferRelay
             case .transferWait: return .transferWait
             case .sourceWaitForTargetConnection: return .sourceWaitForTargetConnection
+            case .uploadPreKeyForCurrentDevice: return .uploadPreKeyForCurrentDevice
             }
         }
         
@@ -157,6 +161,8 @@ extension ServerResponse {
                 return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             case .sourceWaitForTargetConnection(result: let result):
                 return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
+            case .uploadPreKeyForCurrentDevice(result: let result):
+                return [rawKind.obvEncode(), result.obvEncode()].obvEncode()
             }
         }
         
@@ -167,23 +173,9 @@ extension ServerResponse {
             guard let rawKind = RawKind(rawValue: rawValue) else { assertionFailure(); return nil }
             switch rawKind {
             case .deviceDiscovery:
-                if listOfEncoded.count == 2 {
-                    guard let result = ContactDeviceDiscoveryResult(listOfEncoded[1]) else { assertionFailure(); return nil }
-                    self = .deviceDiscovery(result: result)
-                } else if listOfEncoded.count == 3 {
-                    // Legacy decoding
-                    // guard let identity = ObvCryptoIdentity(listOfEncoded[1]) else { return nil }
-                    guard let listOfEncodedDeviceUids = [ObvEncoded](listOfEncoded[2]) else { return nil }
-                    var deviceUids = [UID]()
-                    for encoded in listOfEncodedDeviceUids {
-                        guard let deviceUid = UID(encoded) else { return nil }
-                        deviceUids.append(deviceUid)
-                    }
-                    self = .deviceDiscovery(result: .success(deviceUIDs: deviceUids))
-                } else {
-                    assertionFailure()
-                    return nil
-                }
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = ServerResponseContactDeviceDiscoveryResult(listOfEncoded[1]) else { assertionFailure(); return nil }
+                self = .deviceDiscovery(result: result)
             case .putUserData:
                 self = .putUserData
             case .getUserData:
@@ -256,6 +248,10 @@ extension ServerResponse {
                 guard listOfEncoded.count == 2 else { return nil }
                 guard let result = SourceWaitForTargetConnectionResult(listOfEncoded[1]) else { return nil }
                 self = .sourceWaitForTargetConnection(result: result)
+            case .uploadPreKeyForCurrentDevice:
+                guard listOfEncoded.count == 2 else { return nil }
+                guard let result = UploadPreKeyForCurrentDeviceResult(listOfEncoded[1]) else { return nil }
+                self = .uploadPreKeyForCurrentDevice(result: result)
             }
         }
         

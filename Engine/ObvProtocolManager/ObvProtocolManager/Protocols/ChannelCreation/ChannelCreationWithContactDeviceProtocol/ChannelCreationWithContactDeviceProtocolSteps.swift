@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -84,7 +84,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -167,7 +167,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             // Send the ping message containing the signature
             
             do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = PingMessage(coreProtocolMessage: coreMessage, contactIdentity: ownedIdentity, contactDeviceUid: currentDeviceUid, signature: signature)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     return CancelledState()
@@ -177,6 +177,17 @@ extension ChannelCreationWithContactDeviceProtocol {
             } catch {
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingStep] Could not post message", log: log, type: .fault)
                 return CancelledState()
+            }
+            
+            // Inform the identity manager about the ping sent to the contact device
+            
+            do {
+                let contactDeviceIdentifier = ObvContactDeviceIdentifier(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity), contactCryptoId: ObvCryptoId(cryptoIdentity: contactIdentity), deviceUID: contactDeviceUid)
+                try identityDelegate.setLatestChannelCreationPingTimestampOfContactDevice(withIdentifier: contactDeviceIdentifier, to: Date.now, within: obvContext)
+            } catch {
+                os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingStep] Failed to set the latest channel creation ping timestamp of contact device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                // In production continue anyway
             }
             
             // Return the new state
@@ -203,7 +214,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -324,7 +335,7 @@ extension ChannelCreationWithContactDeviceProtocol {
                 // Send the ping message containing the signature
                 
                 do {
-                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PingMessage(coreProtocolMessage: coreMessage, contactIdentity: ownedIdentity, contactDeviceUid: currentDeviceUid, signature: ownSignature)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -333,6 +344,17 @@ extension ChannelCreationWithContactDeviceProtocol {
                     return CancelledState()
                 }
                 
+                // Inform the identity manager about the ping sent to the contact device
+                
+                do {
+                    let contactDeviceIdentifier = ObvContactDeviceIdentifier(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity), contactCryptoId: ObvCryptoId(cryptoIdentity: contactIdentity), deviceUID: contactDeviceUid)
+                    try identityDelegate.setLatestChannelCreationPingTimestampOfContactDevice(withIdentifier: contactDeviceIdentifier, to: Date.now, within: obvContext)
+                } catch {
+                    os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingStep] Failed to set the latest channel creation ping timestamp of contact device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                    // In production continue anyway
+                }
+
                 // Return the new state
                 
                 os_log("🛟 [%{public}@] [ChannelCreationWithContactDeviceProtocol,SendPingOrEphemeralKeyStep] ChannelCreationWithContactDeviceProtocol: ending SendPingOrEphemeralKeyStep", log: log, type: .debug)
@@ -360,7 +382,7 @@ extension ChannelCreationWithContactDeviceProtocol {
                 // Send the public key to Bob, together with our own identity and current device uid
                 
                 do {
-                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = AliceIdentityAndEphemeralKeyMessage(coreProtocolMessage: coreMessage,
                                                                                       contactIdentity: ownedIdentity,
                                                                                       contactDeviceUid: currentDeviceUid,
@@ -394,7 +416,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -497,12 +519,16 @@ extension ChannelCreationWithContactDeviceProtocol {
 
             // Generate k1
             
-            let (c1, k1) = PublicKeyEncryption.kemEncrypt(using: contactEphemeralPublicKey, with: prng)
+            guard let (c1, k1) = PublicKeyEncryption.kemEncrypt(using: contactEphemeralPublicKey, with: prng) else {
+                assertionFailure()
+                os_log("Could not perform encryption using contact ephemeral public key", log: log, type: .error)
+                return nil
+            }
             
             // Send the ephemeral public key and k1 to Alice
             
             do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = BobEphemeralKeyAndK1Message(coreProtocolMessage: coreMessage,
                                                                           contactEphemeralPublicKey: ephemeralPublicKey,
                                                                           c1: c1)
@@ -532,7 +558,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -559,7 +585,11 @@ extension ChannelCreationWithContactDeviceProtocol {
 
             // Generate k2
             
-            let (c2, k2) = PublicKeyEncryption.kemEncrypt(using: contactEphemeralPublicKey, with: prng)
+            guard let (c2, k2) = PublicKeyEncryption.kemEncrypt(using: contactEphemeralPublicKey, with: prng) else {
+                assertionFailure()
+                os_log("Could not perform encryption using contact ephemeral public key", log: log, type: .error)
+                return nil
+            }
 
             // Check the contact is not revoked
             
@@ -617,7 +647,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             // Send the k2 to Bob
             
             do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = K2Message(coreProtocolMessage: coreMessage, c2: c2)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -653,7 +683,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -739,7 +769,12 @@ extension ChannelCreationWithContactDeviceProtocol {
             // Send the message trigerring the next step, where we check that the contact identity is trusted and create the oblivious channel if this is the case
                         
             do {
-                let coreMessage = getCoreMessage(for: .ObliviousChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: false))
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: contactIdentity,
+                                                                             remoteDeviceUids: [contactDeviceUid],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: false,
+                                                                             usePreKeyIfRequired: false)
+                let coreMessage = getCoreMessage(for: channelType)
                 let (ownedIdentityDetailsElements, _) = try identityDelegate.getPublishedIdentityDetailsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 let concreteProtocolMessage = FirstAckMessage(coreProtocolMessage: coreMessage, contactIdentityDetailsElements: ownedIdentityDetailsElements)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
@@ -779,7 +814,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .ObliviousChannel(remoteCryptoIdentity: startState.contactIdentity,
+                       expectedReceptionChannelInfo: .obliviousChannel(remoteCryptoIdentity: startState.contactIdentity,
                                                                        remoteDeviceUid: startState.contactDeviceUid),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
@@ -851,10 +886,11 @@ extension ChannelCreationWithContactDeviceProtocol {
             // Send ack to Bob
             
             do {
-                let channelType = ObvChannelSendChannelType.ObliviousChannel(to: contactIdentity,
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: contactIdentity,
                                                                              remoteDeviceUids: [contactDeviceUid],
                                                                              fromOwnedIdentity: ownedIdentity,
-                                                                             necessarilyConfirmed: true)
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: false)
                 let coreMessage = getCoreMessage(for: channelType)
                 let (ownedIdentityDetailsElements, _) = try identityDelegate.getPublishedIdentityDetailsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 let concreteProtocolMessage = SecondAckMessage(coreProtocolMessage: coreMessage, contactIdentityDetailsElements: ownedIdentityDetailsElements)
@@ -869,7 +905,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             do {
                 
-                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let channel = ObvChannelSendChannelType.local(ownedIdentity: ownedIdentity)
                 let newProtocolInstanceUid = UID.gen(with: prng)
                 let coreMessage = CoreProtocolMessage(channelType: channel,
                                                       cryptoProtocolId: .contactCapabilitiesDiscovery,
@@ -897,7 +933,7 @@ extension ChannelCreationWithContactDeviceProtocol {
 
             do {
                 
-                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let channel = ObvChannelSendChannelType.local(ownedIdentity: ownedIdentity)
                 let newProtocolInstanceUid = UID.gen(with: prng)
                 let coreMessage = CoreProtocolMessage(channelType: channel,
                                                       cryptoProtocolId: .oneToOneContactInvitation,
@@ -940,7 +976,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .ObliviousChannel(remoteCryptoIdentity: startState.contactIdentity,
+                       expectedReceptionChannelInfo: .obliviousChannel(remoteCryptoIdentity: startState.contactIdentity,
                                                                        remoteDeviceUid: startState.contactDeviceUid),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
@@ -1013,7 +1049,7 @@ extension ChannelCreationWithContactDeviceProtocol {
             
             do {
                 
-                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let channel = ObvChannelSendChannelType.local(ownedIdentity: ownedIdentity)
                 let newProtocolInstanceUid = UID.gen(with: prng)
                 let coreMessage = CoreProtocolMessage(channelType: channel,
                                                       cryptoProtocolId: .contactCapabilitiesDiscovery,

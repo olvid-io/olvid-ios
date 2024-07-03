@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,19 +23,19 @@ import Foundation
 
 /// This protocol is intended to be implemented by the class PublicKeyEncryption. The objective is to allow the outside world to call the encrypt and decrypt method directly on the class PublicKeyEncryption. Thanks to the fact the public and private keys know which concrete implementation of PublicKeyEncryption they correspond to, the concrete implementation can be transparently called.
 public protocol PublicKeyEncryptionCommon {
-    static func kemEncrypt(using: PublicKeyForPublicKeyEncryption, with: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey)
+    static func kemEncrypt(using: PublicKeyForPublicKeyEncryption, with: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey)?
     static func kemDecrypt(_: EncryptedData, using: PrivateKeyForPublicKeyEncryption) -> AuthenticatedEncryptionKey?
-    static func kemEncrypt(for: ObvCryptoIdentity, with prng: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey)
+    static func kemEncrypt(for: ObvCryptoIdentity, with prng: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey)?
     static func kemDecrypt(_: EncryptedData, for: ObvOwnedCryptoIdentity) -> AuthenticatedEncryptionKey?
-    static func encrypt(_: Data, using: PublicKeyForPublicKeyEncryption, and: PRNGService) -> EncryptedData
+    static func encrypt(_: Data, using: PublicKeyForPublicKeyEncryption, and: PRNGService) -> EncryptedData?
     static func decrypt(_: EncryptedData, using: PrivateKeyForPublicKeyEncryption) -> Data?
-    static func encrypt(_: Data, for: ObvCryptoIdentity, randomizedWith: PRNGService) -> EncryptedData
+    static func encrypt(_: Data, for: ObvCryptoIdentity, randomizedWith: PRNGService) -> EncryptedData?
     static func decrypt(_: EncryptedData, for: ObvOwnedCryptoIdentity) -> Data?
 }
 
 extension PublicKeyEncryptionCommon {
     
-    public static func encrypt(_ plaintext: Data, for identity: ObvCryptoIdentity, randomizedWith prng: PRNGService) -> EncryptedData {
+    public static func encrypt(_ plaintext: Data, for identity: ObvCryptoIdentity, randomizedWith prng: PRNGService) -> EncryptedData? {
         return encrypt(plaintext, using: identity.publicKeyForPublicKeyEncryption, and: prng)
     }
     
@@ -43,7 +43,7 @@ extension PublicKeyEncryptionCommon {
         return decrypt(ciphertext, using: identity.privateKeyForPublicKeyEncryption)
     }
 
-    public static func kemEncrypt(for identity: ObvCryptoIdentity, with prng: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey) {
+    public static func kemEncrypt(for identity: ObvCryptoIdentity, with prng: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey)? {
         return kemEncrypt(using: identity.publicKeyForPublicKeyEncryption, with: prng)
     }
     
@@ -73,7 +73,7 @@ public final class PublicKeyEncryption: PublicKeyEncryptionGeneric {
         return implemByteId.algorithmImplementation.generateKeyPair(with: prng)
     }
     
-    public static func kemEncrypt(using publicKey: PublicKeyForPublicKeyEncryption, with prng: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey) {
+    public static func kemEncrypt(using publicKey: PublicKeyForPublicKeyEncryption, with prng: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey)? {
         return publicKey.algorithmImplementationByteId.algorithmImplementation.kemEncrypt(using: publicKey, with: prng)
     }
     
@@ -81,7 +81,7 @@ public final class PublicKeyEncryption: PublicKeyEncryptionGeneric {
         return privateKey.algorithmImplementationByteId.algorithmImplementation.kemDecrypt(ciphertext, using: privateKey)
     }
     
-    public static func encrypt(_ plaintext: Data, using publicKey: PublicKeyForPublicKeyEncryption, and prng: PRNGService) -> EncryptedData {
+    public static func encrypt(_ plaintext: Data, using publicKey: PublicKeyForPublicKeyEncryption, and prng: PRNGService) -> EncryptedData? {
         return publicKey.algorithmImplementationByteId.algorithmImplementation.encrypt(plaintext, using: publicKey, and: prng)
     }
 
@@ -113,17 +113,22 @@ extension ECIESwithEdwardsCurveandDEMwithCTRAES256thenHMACSHA256 {
         return KEM.generateKeyPairForBackupKey(with: prng)
     }
 
-    static func kemEncrypt(using publicKey: PublicKeyForPublicKeyEncryption, with prng: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey) {
-        let (c, key) = KEM.encrypt(using: publicKey, with: prng) { AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key(data: $0)! }!
-        return (c, key as AuthenticatedEncryptionKey)
+    static func kemEncrypt(using publicKey: PublicKeyForPublicKeyEncryption, with prng: PRNGService) -> (EncryptedData, AuthenticatedEncryptionKey)? {
+        let result = KEM.encrypt(using: publicKey, with: prng) {
+            AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key(data: $0)!
+        }
+        guard let result else { assertionFailure(); return nil }
+        return (result.0, result.1 as AuthenticatedEncryptionKey)
     }
     
     static func kemDecrypt(_ ciphertext: EncryptedData, using privateKey: PrivateKeyForPublicKeyEncryption) -> AuthenticatedEncryptionKey? {
         return KEM.decrypt(ciphertext, using: privateKey, { AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key(data: $0)! })
     }
     
-    static func encrypt(_ plaintext: Data, using publicKey: PublicKeyForPublicKeyEncryption, and prng: PRNGService) -> EncryptedData {
-        let (c0, key) = KEM.encrypt(using: publicKey, with: prng) { AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key(data: $0)! }!
+    static func encrypt(_ plaintext: Data, using publicKey: PublicKeyForPublicKeyEncryption, and prng: PRNGService) -> EncryptedData? {
+        let result = KEM.encrypt(using: publicKey, with: prng) { AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key(data: $0)! }
+        guard let result else { assertionFailure(); return nil }
+        let (c0, key) = (result.0, result.1)
         let c1 = try! AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256.encrypt(plaintext, with: key, and: prng)
         let ciphertext = EncryptedData.byAppending(c1: c0, c2: c1)
         return ciphertext

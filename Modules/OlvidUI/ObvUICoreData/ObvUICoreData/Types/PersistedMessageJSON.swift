@@ -1175,8 +1175,8 @@ public struct DeleteDiscussionJSON: Codable {
             self.groupV1Identifier = nil
             self.groupV2Identifier = nil
         case .groupV1(withContactGroup: let contactGroup):
-            guard let groupUid = contactGroup?.groupUid,
-                  let groupOwnerIdentity = contactGroup?.ownerIdentity,
+            guard let groupUid = contactGroup?.groupUid ?? (discussion as? PersistedGroupDiscussion)?.rawGroupUID?.toUID(),
+                  let groupOwnerIdentity = contactGroup?.ownerIdentity ?? (discussion as? PersistedGroupDiscussion)?.rawOwnerIdentityIdentity,
                   let groupOwner = try? ObvCryptoId(identity: groupOwnerIdentity) else {
                 throw DeleteDiscussionJSON.makeError(message: "Could not determine group v1 id")
             }
@@ -1184,7 +1184,7 @@ public struct DeleteDiscussionJSON: Codable {
             self.groupV1Identifier = GroupV1Identifier(groupUid: groupUid, groupOwner: groupOwner)
             self.groupV2Identifier = nil
         case .groupV2(withGroup: let group):
-            guard let groupV2Identifier = group?.groupIdentifier else {
+            guard let groupV2Identifier = group?.groupIdentifier ?? (discussion as? PersistedGroupV2Discussion)?.groupIdentifier else {
                 throw DeleteDiscussionJSON.makeError(message: "Could not determine group v2 id")
             }
             self.oneToOneIdentifier = nil
@@ -2012,4 +2012,16 @@ public struct DiscussionReadJSON: Codable {
         case doesNotReferenceReceivedMessage
     }
 
+}
+
+
+
+// MARK: - Private Helpers
+
+private extension Data {
+    
+    func toUID() -> UID? {
+        return UID(uid: self)
+    }
+    
 }

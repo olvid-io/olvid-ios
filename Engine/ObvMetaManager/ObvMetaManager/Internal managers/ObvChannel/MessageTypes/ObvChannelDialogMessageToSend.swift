@@ -34,7 +34,7 @@ public struct ObvChannelDialogMessageToSend: ObvChannelMessageToSend {
     public let uuid: UUID
     
     public init(uuid: UUID, ownedIdentity: ObvCryptoIdentity, dialogType: ObvChannelDialogToSendType, encodedElements: ObvEncoded) {
-        self.channelType = .UserInterface(uuid: uuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
+        self.channelType = .userInterface(uuid: uuid, ownedIdentity: ownedIdentity, dialogType: dialogType)
         self.encodedElements = encodedElements
         self.uuid = uuid
     }

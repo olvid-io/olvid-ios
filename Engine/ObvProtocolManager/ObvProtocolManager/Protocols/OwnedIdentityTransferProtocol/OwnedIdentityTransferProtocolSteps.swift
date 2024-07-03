@@ -125,7 +125,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -138,7 +138,7 @@ extension OwnedIdentityTransferProtocol {
                 
                 do {
                     let type = ObvChannelServerQueryMessageToSend.QueryType.sourceGetSessionNumber(protocolInstanceUID: protocolInstanceUid)
-                    let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                    let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                     let concrete = SourceGetSessionNumberMessage(coreProtocolMessage: core)
                     guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                         throw OwnedIdentityTransferError.couldNotGenerateObvChannelServerQueryMessageToSend
@@ -191,7 +191,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -225,7 +225,7 @@ extension OwnedIdentityTransferProtocol {
                     
                     do {
                         let type = ObvChannelServerQueryMessageToSend.QueryType.sourceWaitForTargetConnection(protocolInstanceUID: protocolInstanceUid)
-                        let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                        let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                         let concrete = SourceWaitForTargetConnectionMessage(coreProtocolMessage: core)
                         guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                             throw OwnedIdentityTransferError.couldNotGenerateObvChannelServerQueryMessageToSend
@@ -279,7 +279,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -327,14 +327,18 @@ extension OwnedIdentityTransferProtocol {
                             ownedIdentity.obvEncode(),
                             commitment.obvEncode(),
                         ].obvEncode().rawData
-                        payload = PublicKeyEncryption.encrypt(cleartextPayload, for: targetEphemeralIdentity, randomizedWith: prng)
+                        guard let _payload = PublicKeyEncryption.encrypt(cleartextPayload, for: targetEphemeralIdentity, randomizedWith: prng) else {
+                            assertionFailure()
+                            throw OwnedIdentityTransferError.couldNotEncryptPayload
+                        }
+                        payload = _payload
                     }
                     
                     // Send the encrypted payload
                     
                     do {
                         let type = ObvChannelServerQueryMessageToSend.QueryType.transferRelay(protocolInstanceUID: protocolInstanceUid, connectionIdentifier: targetConnectionId, payload: payload.raw, thenCloseWebSocket: false)
-                        let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                        let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                         let concrete = SourceSendCommitmentMessage(coreProtocolMessage: core)
                         guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                             throw OwnedIdentityTransferError.couldNotGenerateObvChannelServerQueryMessageToSend
@@ -387,7 +391,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -437,9 +441,12 @@ extension OwnedIdentityTransferProtocol {
                     // Send the decommitment to the target device
                     
                     do {
-                        let payload = PublicKeyEncryption.encrypt(decommitment, for: targetEphemeralIdentity, randomizedWith: prng)
+                        guard let payload = PublicKeyEncryption.encrypt(decommitment, for: targetEphemeralIdentity, randomizedWith: prng) else {
+                            assertionFailure()
+                            throw OwnedIdentityTransferError.couldNotEncryptDecommitment
+                        }
                         let type = ObvChannelServerQueryMessageToSend.QueryType.transferRelay(protocolInstanceUID: protocolInstanceUid, connectionIdentifier: targetConnectionId, payload: payload.raw, thenCloseWebSocket: false)
-                        let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                        let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                         let concrete = SourceDecommitmentMessage(coreProtocolMessage: core)
                         guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                             throw OwnedIdentityTransferError.couldNotGenerateObvChannelServerQueryMessageToSend
@@ -516,7 +523,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -557,13 +564,16 @@ extension OwnedIdentityTransferProtocol {
 
                 // Encrypt using the target device ephemeral identity
                 
-                let ciphertext = PublicKeyEncryption.encrypt(cleartext, for: targetEphemeralIdentity, randomizedWith: prng)
+                guard let ciphertext = PublicKeyEncryption.encrypt(cleartext, for: targetEphemeralIdentity, randomizedWith: prng) else {
+                    assertionFailure()
+                    throw OwnedIdentityTransferError.couldNotEncryptPayload
+                }
                 
                 // Post the message
                 
                 do {
                     let type = ObvChannelServerQueryMessageToSend.QueryType.transferRelay(protocolInstanceUID: protocolInstanceUid, connectionIdentifier: targetConnectionId, payload: ciphertext.raw, thenCloseWebSocket: true)
-                    let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                    let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                     let concrete = SourceSnapshotMessage(coreProtocolMessage: core)
                     guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                         throw OwnedIdentityTransferError.couldNotGenerateObvChannelServerQueryMessageToSend
@@ -616,7 +626,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -635,7 +645,7 @@ extension OwnedIdentityTransferProtocol {
                 do {
                     let payload = ownedIdentity.obvEncode().rawData // This is an ephemeral identity generated for this protocol only
                     let type = ObvChannelServerQueryMessageToSend.QueryType.targetSendEphemeralIdentity(protocolInstanceUID: protocolInstanceUid, transferSessionNumber: transferSessionNumber, payload: payload)
-                    let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                    let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                     let concrete = TargetSendEphemeralIdentityMessage(coreProtocolMessage: core)
                     guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                         throw OwnedIdentityTransferError.couldNotGenerateObvChannelServerQueryMessageToSend
@@ -687,7 +697,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -783,7 +793,10 @@ extension OwnedIdentityTransferProtocol {
                             currentDeviceName.obvEncode(),
                             seedTargetForSas.obvEncode(),
                         ].obvEncode()
-                        let encryptedPayload = PublicKeyEncryption.encrypt(dataToSend.rawData, using: transferredIdentity.publicKeyForPublicKeyEncryption, and: prng)
+                        guard let encryptedPayload = PublicKeyEncryption.encrypt(dataToSend.rawData, using: transferredIdentity.publicKeyForPublicKeyEncryption, and: prng) else {
+                            assertionFailure()
+                            throw OwnedIdentityTransferError.couldNotEncryptPayload
+                        }
                         payload = encryptedPayload.raw
                     }
                     
@@ -791,7 +804,7 @@ extension OwnedIdentityTransferProtocol {
                     
                     do {
                         let type = ObvChannelServerQueryMessageToSend.QueryType.transferRelay(protocolInstanceUID: protocolInstanceUid, connectionIdentifier: otherConnectionId, payload: payload, thenCloseWebSocket: false)
-                        let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                        let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                         let concrete = TargetSeedMessage(coreProtocolMessage: core)
                         guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                             throw OwnedIdentityTransferError.couldNotGenerateObvChannelServerQueryMessageToSend
@@ -852,7 +865,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -921,7 +934,7 @@ extension OwnedIdentityTransferProtocol {
                     
                     do {
                         let type = ObvChannelServerQueryMessageToSend.QueryType.transferWait(protocolInstanceUID: protocolInstanceUid, connectionIdentifier: otherConnectionIdentifier)
-                        let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                        let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                         let concrete = TargetWaitForSnapshotMessage(coreProtocolMessage: core)
                         guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                             throw OwnedIdentityTransferError.couldNotGenerateObvChannelServerQueryMessageToSend
@@ -976,7 +989,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -1151,7 +1164,7 @@ extension OwnedIdentityTransferProtocol {
                     
                     do {
                         let type = ObvChannelServerQueryMessageToSend.QueryType.closeWebsocketConnection(protocolInstanceUID: protocolInstanceUid)
-                        let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                        let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                         let concrete = CloseWebsocketConnectionMessage(coreProtocolMessage: core)
                         guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                             throw OwnedIdentityTransferError.couldNotGenerateObvChannelServerQueryMessageToSend
@@ -1355,7 +1368,7 @@ extension OwnedIdentityTransferProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -1366,7 +1379,7 @@ extension OwnedIdentityTransferProtocol {
             
             do {
                 let type = ObvChannelServerQueryMessageToSend.QueryType.closeWebsocketConnection(protocolInstanceUID: protocolInstanceUid)
-                let core = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let core = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concrete = CloseWebsocketConnectionMessage(coreProtocolMessage: core)
                 guard let message = concrete.generateObvChannelServerQueryMessageToSend(serverQueryType: type) else {
                     assertionFailure()

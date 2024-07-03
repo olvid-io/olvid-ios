@@ -39,6 +39,7 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
     @NSManaged public private(set) var latestRegistrationDate: Date?
     @NSManaged private(set) var objectInsertionDate: Date
     @NSManaged private(set) var rawOwnedIdentityIdentity: Data // Required for core data constraints
+    @NSManaged private var rawPreKeyAvailable: Bool // Always false for the current device
     @NSManaged private(set) var rawSecureChannelStatus: Int
     @NSManaged private var specifiedName: String?
 
@@ -71,19 +72,60 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
         }
     }
 
-    public enum SecureChannelStatus: Int {
+    
+    private enum SecureChannelStatusRaw: Int {
         case currentDevice = 0
         case creationInProgress = 1
         case created = 2
+    }
+
+    public enum SecureChannelStatus: Equatable {
         
+        case currentDevice
+        case creationInProgress(preKeyAvailable: Bool)
+        case created(preKeyAvailable: Bool)
+        
+        fileprivate var rawValue: Int {
+            switch self {
+            case .currentDevice:
+                return SecureChannelStatusRaw.currentDevice.rawValue
+            case .creationInProgress:
+                return SecureChannelStatusRaw.creationInProgress.rawValue
+            case .created:
+                return SecureChannelStatusRaw.created.rawValue
+            }
+        }
+        
+        public var isPreKeyAvailable: Bool? {
+            switch self {
+            case .currentDevice:
+                return nil
+            case .creationInProgress(preKeyAvailable: let preKeyAvailable),
+                    .created(preKeyAvailable: let preKeyAvailable):
+                return preKeyAvailable
+            }
+        }
+
+        public var isReachable: Bool {
+            switch self {
+            case .currentDevice:
+                return true
+            case .creationInProgress(preKeyAvailable: let preKeyAvailable):
+                return preKeyAvailable
+            case .created:
+                return true
+            }
+        }
+
+
         init(_ status: ObvOwnedDevice.SecureChannelStatus) {
             switch status {
             case .currentDevice:
                 self = .currentDevice
-            case .creationInProgress:
-                self = .creationInProgress
-            case .created:
-                self = .created
+            case .creationInProgress(preKeyAvailable: let preKeyAvailable):
+                self = .creationInProgress(preKeyAvailable: preKeyAvailable)
+            case .created(preKeyAvailable: let preKeyAvailable):
+                self = .created(preKeyAvailable: preKeyAvailable)
             }
         }
     }
@@ -91,11 +133,25 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
     // Expected to be non-nil
     public private(set) var secureChannelStatus: SecureChannelStatus? {
         get {
-            return SecureChannelStatus(rawValue: rawSecureChannelStatus)
+            guard let secureChannelStatusRaw = SecureChannelStatusRaw(rawValue: rawSecureChannelStatus) else { assertionFailure(); return nil }
+            let preKeyAvailable = self.rawPreKeyAvailable
+            switch secureChannelStatusRaw {
+            case .currentDevice:
+                return .currentDevice
+            case .creationInProgress:
+                return .creationInProgress(preKeyAvailable: preKeyAvailable)
+            case .created:
+                return .created(preKeyAvailable: preKeyAvailable)
+            }
         }
         set {
             guard let newValue else { assertionFailure(); return }
-            self.rawSecureChannelStatus = newValue.rawValue
+            if self.rawSecureChannelStatus != newValue.rawValue {
+                self.rawSecureChannelStatus = newValue.rawValue
+            }
+            if self.rawPreKeyAvailable != newValue.isPreKeyAvailable ?? false {
+                self.rawPreKeyAvailable = newValue.isPreKeyAvailable ?? false
+            }
         }
     }
 
@@ -173,10 +229,10 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
         switch secureChannelStatus {
         case .currentDevice:
             return .currentDevice
-        case .creationInProgress:
-            return .creationInProgress
-        case .created:
-            return .created
+        case .creationInProgress(preKeyAvailable: let preKeyAvailable):
+            return .creationInProgress(preKeyAvailable: preKeyAvailable)
+        case .created(preKeyAvailable: let preKeyAvailable):
+            return .created(preKeyAvailable: preKeyAvailable)
         }
     }
     

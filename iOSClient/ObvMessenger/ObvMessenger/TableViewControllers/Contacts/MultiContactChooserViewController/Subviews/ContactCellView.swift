@@ -34,6 +34,7 @@ protocol ContactCellViewModelProtocol: ObservableObject, SpinnerViewForContactCe
 struct ContactCellViewTypes {
     
     enum ContactDetailsStatus {
+        case wasNotRecentlyOnline
         case noNewPublishedDetails
         case unseenPublishedDetails
         case seenPublishedDetails
@@ -75,6 +76,9 @@ struct ContactCellView<Model: ContactCellViewModelProtocol>: View {
                 switch model.detailsStatus {
                 case .noNewPublishedDetails:
                     EmptyView()
+                case .wasNotRecentlyOnline:
+                    Image(systemIcon: .zzz)
+                        .foregroundColor(.secondary)
                 case .unseenPublishedDetails:
                     Image(systemIcon: .personCropRectangle)
                         .foregroundColor(.red)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -69,7 +69,7 @@ extension IdentityDetailsPublicationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -115,7 +115,7 @@ extension IdentityDetailsPublicationProtocol {
 
                 // Send the encrypted photo
                 
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = ServerPutPhotoMessage.init(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.putUserData(label: photoServerKeyAndLabel.label, dataURL: photoURL, dataKey: photoServerKeyAndLabel.key)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -136,7 +136,7 @@ extension IdentityDetailsPublicationProtocol {
                 
                 for contactIndentity in contactIdentites {
                     
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: [contactIndentity], fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: [contactIndentity], fromOwnedIdentity: ownedIdentity))
                     let concreteMessage = SendDetailsMessage(coreProtocolMessage: coreMessage,
                                                              contactIdentityDetailsElements: ownedIdentityDetailsElements)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
@@ -152,7 +152,12 @@ extension IdentityDetailsPublicationProtocol {
                 
                 let otherDeviceUids = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUids.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUids), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity,
+                                                                                 remoteDeviceUids: Array(otherDeviceUids),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = PropagateOwnDetailsMessage(coreProtocolMessage: coreMessage,
                                                                      ownedIdentityDetailsElements: ownedIdentityDetailsElements)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -179,7 +184,7 @@ extension IdentityDetailsPublicationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -199,7 +204,7 @@ extension IdentityDetailsPublicationProtocol {
             
             for contactIdentity in contactIdentites {
                 
-                let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: [contactIdentity], fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: [contactIdentity], fromOwnedIdentity: ownedIdentity))
                 let concreteMessage = SendDetailsMessage(coreProtocolMessage: coreMessage,
                                                          contactIdentityDetailsElements: ownedIdentityDetailsElements)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
@@ -215,7 +220,12 @@ extension IdentityDetailsPublicationProtocol {
             
             let otherDeviceUids = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
             if !otherDeviceUids.isEmpty {
-                let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUids), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                             remoteDeviceUids: Array(otherDeviceUids),
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: true)
+                let coreMessage = getCoreMessage(for: channelType)
                 let concreteMessage = PropagateOwnDetailsMessage(coreProtocolMessage: coreMessage,
                                                                  ownedIdentityDetailsElements: ownedIdentityDetailsElements)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -242,7 +252,7 @@ extension IdentityDetailsPublicationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -327,7 +337,7 @@ extension IdentityDetailsPublicationProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }

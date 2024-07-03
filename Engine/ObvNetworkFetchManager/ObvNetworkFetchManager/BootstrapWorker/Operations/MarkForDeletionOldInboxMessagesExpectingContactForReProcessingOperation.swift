@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,17 +18,25 @@
  */
 
 import Foundation
+import CoreData
+import OlvidUtils
 
-public enum DHImplementationByteId: UInt8 {
-    case DH_on_MDC = 0x00
-    case DH_on_Curve25519 = 0x01
+
+final class MarkForDeletionOldInboxMessagesExpectingContactForReProcessingOperation: ContextualOperationWithSpecificReasonForCancel<CoreDataOperationReasonForCancel> {
     
-    var algorithmImplementation: DHConcrete.Type {
-        switch self {
-        case .DH_on_MDC:
-            return DH_over_MDC.self as DHConcrete.Type
-        case .DH_on_Curve25519:
-            return DH_over_Curve25519.self as DHConcrete.Type
+    
+    override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
+        
+        do {
+            
+            try InboxMessage.markMessagesAndAttachmentsForDeletionIfOldAndExpectingContactForReProcessing(with: obvContext)
+            
+        } catch {
+            assertionFailure()
+            return cancel(withReason: .coreDataError(error: error))
         }
+        
     }
+    
+    
 }

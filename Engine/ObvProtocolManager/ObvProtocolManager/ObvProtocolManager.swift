@@ -196,7 +196,7 @@ extension ObvProtocolManager {
                 
                 for protocolInstance in protocolInstances {
                     
-                    let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: protocolInstance.ownedCryptoIdentity),
+                    let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: protocolInstance.ownedCryptoIdentity),
                                                           cryptoProtocolId: .ownedIdentityDeletionProtocol,
                                                           protocolInstanceUid: protocolInstance.uid)
                     let replayMessage = OwnedIdentityDeletionProtocol.ReplayStartDeletionStepMessage(coreProtocolMessage: coreMessage)
@@ -291,7 +291,7 @@ extension ObvProtocolManager {
                                                                                  aliceDeviceUid: currentDeviceUid,
                                                                                  bobDeviceUid: remoteDeviceUid)
 
-            let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+            let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                                   cryptoProtocolId: .fullRatchet,
                                                   protocolInstanceUid: protocolInstanceUid)
 

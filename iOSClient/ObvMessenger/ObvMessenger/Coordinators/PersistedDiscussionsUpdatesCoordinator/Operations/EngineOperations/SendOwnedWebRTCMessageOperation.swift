@@ -48,7 +48,7 @@ final class SendOwnedWebRTCMessageOperation: ContextualOperationWithSpecificReas
                 return cancel(withReason: .couldNotFindOwnedIdentity)
             }
             
-            guard ownedIdentity.hasAnotherDeviceWithChannel else {
+            guard ownedIdentity.hasAnotherDeviceWhichIsReachable else {
                 return
             }
                         

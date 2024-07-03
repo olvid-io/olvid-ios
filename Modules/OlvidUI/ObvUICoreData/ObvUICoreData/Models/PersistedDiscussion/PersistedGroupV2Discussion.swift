@@ -165,6 +165,19 @@ public final class PersistedGroupV2Discussion: PersistedDiscussion, ObvErrorMake
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
+    
+    
+    static func deleteLockedPersistedGroupV2Discussion(ownedIdentity: PersistedObvOwnedIdentity, groupIdentifier: GroupV2Identifier) throws {
+        guard let discussion = try getPersistedGroupV2Discussion(ownedIdentity: ownedIdentity, groupV2DiscussionId: .groupV2Identifier(groupV2Identifier: groupIdentifier)) else {
+            return
+        }
+        switch discussion.status {
+        case .preDiscussion, .active:
+            throw ObvError.discussionIsNotLocked
+        case .locked:
+            try discussion.deletePersistedDiscussion()
+        }
+    }
         
     
     static func getPersistedGroupV2Discussion(ownedIdentity: PersistedObvOwnedIdentity, groupV2DiscussionId: GroupV2DiscussionIdentifier) throws -> PersistedGroupV2Discussion? {

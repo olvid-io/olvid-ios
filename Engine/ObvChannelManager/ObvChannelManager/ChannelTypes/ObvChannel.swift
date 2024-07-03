@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,13 +36,25 @@ protocol ObvChannel {
     
 }
 
+/// Only relevant for an `ObvObliviousChannel`.
+typealias UpdateGKMV2SupportOnMessageContentAvailable = (Data) throws -> Void
+
 protocol ObvNetworkChannel: ObvChannel {
     
-    func wrapMessageKey(_ messageKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend.Header
+    func wrapMessageKey(_ messageKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend.Header?
     
-    static func unwrapMessageKey(wrappedKey: EncryptedData, toOwnedIdentity: ObvCryptoIdentity, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> (AuthenticatedEncryptionKey, ObvProtocolReceptionChannelInfo)?
+    static func unwrapMessageKey(wrappedKey: EncryptedData, toOwnedIdentity: ObvCryptoIdentity, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> UnwrapMessageKeyResult
 
 }
+
+
+enum UnwrapMessageKeyResult {
+    case unwrapSucceeded(messageKey: AuthenticatedEncryptionKey, receptionChannelInfo: ObvProtocolReceptionChannelInfo, updateOrCheckGKMV2SupportOnMessageContentAvailable: UpdateGKMV2SupportOnMessageContentAvailable?)
+    case unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: ObvCryptoIdentity) // Only used by PreKey channel
+    case couldNotUnwrap
+    case contactIsRevokedAsCompromised
+}
+
 
 extension ObvNetworkChannel {
     
@@ -53,25 +65,15 @@ extension ObvNetworkChannel {
         return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
     }
 
-    private static func generateMessageKeyAndHeaders(using acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService) -> (AuthenticatedEncryptionKey, [ObvNetworkMessageToSend.Header])? {
-        let cryptoSuiteVersion = acceptableChannels.reduce(ObvCryptoSuite.sharedInstance.latestVersion) { min($0, $1.cryptoSuiteVersion) }
-        guard let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption(forSuiteVersion: cryptoSuiteVersion) else {
-            return nil
-        }
-        let messageKey = authEnc.generateKey(with: prng)
-        let headers = acceptableChannels.map { $0.wrapMessageKey(messageKey, randomizedWith: prng) }
-        return (messageKey, headers)
-    }
-
     /// Generates one or more `ObvNetworkMessageToSend` for the given `ObvChannelMessageToSend`. The reasons why multiple messages can be returned is that we generate one message for server URL found in the destination identities.
-    private static func generateObvNetworkMessagesToSend(from message: ObvChannelMessageToSend, messageKey: AuthenticatedEncryptionKey, headers: [ObvNetworkMessageToSend.Header], randomizedWith prng: PRNGService) throws -> [ObvNetworkMessageToSend] {
+    private static func generateObvNetworkMessagesToSend(from message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog) throws -> [ObvNetworkMessageToSend] {
         
         let wrapperMessage: ObvChannelMessageToSendWrapper?
         switch message.messageType {
         case .ProtocolMessage:
-            wrapperMessage = ObvChannelProtocolMessageToSendWrapper(message: message, messageKey: messageKey, headers: headers, randomizedWith: prng)
+            wrapperMessage = ObvChannelProtocolMessageToSendWrapper(message: message, acceptableChannels: acceptableChannels, randomizedWith: prng, log: log)
         case .ApplicationMessage:
-            wrapperMessage = ObvChannelApplicationMessageToSendWrapper(message: message, messageKey: messageKey, headers: headers, randomizedWith: prng)
+            wrapperMessage = ObvChannelApplicationMessageToSendWrapper(message: message, acceptableChannels: acceptableChannels, randomizedWith: prng, log: log)
         case .DialogMessage,
              .DialogResponseMessage,
              .ServerQuery,
@@ -102,11 +104,7 @@ extension ObvNetworkChannel {
             return [:]
         }
         
-        guard let (messageKey, headers) = generateMessageKeyAndHeaders(using: acceptableChannels, randomizedWith: prng) else {
-            throw Self.makeError(message: "Could not generate message key and headers")
-        }
-        
-        let networkMessages = try generateObvNetworkMessagesToSend(from: message, messageKey: messageKey, headers: headers, randomizedWith: prng)
+        let networkMessages = try generateObvNetworkMessagesToSend(from: message, acceptableChannels: acceptableChannels, randomizedWith: prng, log: log)
         guard !networkMessages.isEmpty else {
             throw Self.makeError(message: "Could not generate obv network message to send")
         }

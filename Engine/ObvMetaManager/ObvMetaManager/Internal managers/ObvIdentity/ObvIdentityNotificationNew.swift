@@ -39,6 +39,7 @@ public enum ObvIdentityNotificationNew {
 	case ownedIdentityWasReactivated(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier)
 	case deletedContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, flowId: FlowIdentifier)
 	case newContactDevice(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, contactDeviceUid: UID, createdDuringChannelCreation: Bool, flowId: FlowIdentifier)
+	case updatedContactDevice(deviceIdentifier: ObvContactDeviceIdentifier, flowId: FlowIdentifier)
 	case serverLabelHasBeenDeleted(ownedIdentity: ObvCryptoIdentity, label: UID)
 	case contactWasDeleted(ownedCryptoIdentity: ObvCryptoIdentity, contactCryptoIdentity: ObvCryptoIdentity)
 	case latestPhotoOfContactGroupOwnedHasBeenUpdated(groupUid: UID, ownedIdentity: ObvCryptoIdentity)
@@ -73,6 +74,7 @@ public enum ObvIdentityNotificationNew {
 		case ownedIdentityWasReactivated
 		case deletedContactDevice
 		case newContactDevice
+		case updatedContactDevice
 		case serverLabelHasBeenDeleted
 		case contactWasDeleted
 		case latestPhotoOfContactGroupOwnedHasBeenUpdated
@@ -117,6 +119,7 @@ public enum ObvIdentityNotificationNew {
 			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
 			case .deletedContactDevice: return Name.deletedContactDevice.name
 			case .newContactDevice: return Name.newContactDevice.name
+			case .updatedContactDevice: return Name.updatedContactDevice.name
 			case .serverLabelHasBeenDeleted: return Name.serverLabelHasBeenDeleted.name
 			case .contactWasDeleted: return Name.contactWasDeleted.name
 			case .latestPhotoOfContactGroupOwnedHasBeenUpdated: return Name.latestPhotoOfContactGroupOwnedHasBeenUpdated.name
@@ -182,6 +185,11 @@ public enum ObvIdentityNotificationNew {
 				"contactIdentity": contactIdentity,
 				"contactDeviceUid": contactDeviceUid,
 				"createdDuringChannelCreation": createdDuringChannelCreation,
+				"flowId": flowId,
+			]
+		case .updatedContactDevice(deviceIdentifier: let deviceIdentifier, flowId: let flowId):
+			info = [
+				"deviceIdentifier": deviceIdentifier,
 				"flowId": flowId,
 			]
 		case .serverLabelHasBeenDeleted(ownedIdentity: let ownedIdentity, label: let label):
@@ -388,6 +396,15 @@ public enum ObvIdentityNotificationNew {
 			let createdDuringChannelCreation = notification.userInfo!["createdDuringChannelCreation"] as! Bool
 			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
 			block(ownedIdentity, contactIdentity, contactDeviceUid, createdDuringChannelCreation, flowId)
+		}
+	}
+
+	public static func observeUpdatedContactDevice(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvContactDeviceIdentifier, FlowIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.updatedContactDevice.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let deviceIdentifier = notification.userInfo!["deviceIdentifier"] as! ObvContactDeviceIdentifier
+			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
+			block(deviceIdentifier, flowId)
 		}
 	}
 

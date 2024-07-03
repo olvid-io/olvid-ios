@@ -28,6 +28,7 @@ struct EdwardsCurveParameters {
     let G: PointOnCurve
     let q: BigInt
     let nu: BigInt
+    let nuInv: BigInt
     let cardinality: BigInt
 }
 
@@ -284,23 +285,26 @@ extension EdwardsCurve {
         return (resultPoint1, resultPoint2)
     }
     
-    func generateRandomScalarAndPoint(withPRNG: PRNGService?) -> (BigInt, PointOnCurve) {
+    
+    func generateRandomScalarAndHighOrderPoint(withPRNG: PRNGService?) -> (BigInt, PointOnCurve) {
         let prng = withPRNG ?? ObvCryptoSuite.sharedInstance.prngService()
-        let scalar = BigInt(0)
-        while scalar == BigInt(0) || scalar == BigInt(1) {
-            scalar.set(prng.genBigInt(smallerThan: self.parameters.q))
-        }
-        let point = self.scalarMultiplication(scalar: scalar, point: self.parameters.G)!
-        return (scalar, point)
+        return generateRandomScalarAndPointForBackupKey(withPRNG: prng)
     }
+
     
     func generateRandomScalarAndPointForBackupKey(withPRNG prng: PRNG) -> (BigInt, PointOnCurve) {
         let scalar = BigInt(0)
-        while scalar == BigInt(0) || scalar == BigInt(1) {
-            scalar.set(prng.genBigInt(smallerThan: self.parameters.q))
+        var point: PointOnCurve?
+        while point == nil {
+            scalar.set(0)
+            while scalar == BigInt(0) || scalar == BigInt(1) {
+                scalar.set(prng.genBigInt(smallerThan: self.parameters.q))
+            }
+            guard let _point = self.scalarMultiplication(scalar: scalar, point: self.parameters.G) else { continue }
+            if _point.isLowOrderPoint { continue }
+            point = _point
         }
-        let point = self.scalarMultiplication(scalar: scalar, point: self.parameters.G)!
-        return (scalar, point)
+        return (scalar, point!)
     }
 
 }
@@ -312,15 +316,25 @@ struct Curve25519: EdwardsCurve {
         return .Curve25519ByteId
     }
     
-    let parameters = EdwardsCurveParameters(p: try! BigInt("57896044618658097711785492504343953926634992332820282019728792003956564819949"),
-                                            d: try! BigInt("20800338683988658368647408995589388737092878452977063003340006470870624536394"),
-                                            G: PointOnCurve(x: try! BigInt("9771384041963202563870679428059935816164187996444183106833894008023910952347"),
-                                                            y: try! BigInt("46316835694926478169428394003475163141307993866256225615783033603165251855960"),
-                                                            onCurveWithByteId: EdwardsCurveByteId.Curve25519ByteId,
-                                                            checkPointIsOnCurve: false)!,
-                                            q: try! BigInt("7237005577332262213973186563042994240857116359379907606001950938285454250989"), // Order
-                                            nu: BigInt(8),
-                                            cardinality: try! BigInt("57896044618658097711785492504343953926856930875039260848015607506283634007912"))
+    private static let _parameters = {
+        let q = try! BigInt("7237005577332262213973186563042994240857116359379907606001950938285454250989")
+        let nu = BigInt(8)
+        let nuInv = try! BigInt(nu).invert(modulo: q)
+        return EdwardsCurveParameters(p: try! BigInt("57896044618658097711785492504343953926634992332820282019728792003956564819949"),
+                                      d: try! BigInt("20800338683988658368647408995589388737092878452977063003340006470870624536394"),
+                                      G: PointOnCurve(x: try! BigInt("9771384041963202563870679428059935816164187996444183106833894008023910952347"),
+                                                      y: try! BigInt("46316835694926478169428394003475163141307993866256225615783033603165251855960"),
+                                                      onCurveWithByteId: EdwardsCurveByteId.Curve25519ByteId,
+                                                      checkPointIsOnCurve: false)!,
+                                      q: q, // Order
+                                      nu: nu,
+                                      nuInv: nuInv,
+                                      cardinality: try! BigInt("57896044618658097711785492504343953926856930875039260848015607506283634007912"))
+    }()
+    
+    var parameters: EdwardsCurveParameters {
+        Self._parameters
+    }
     
 }
 
@@ -330,16 +344,26 @@ struct CurveMDC: EdwardsCurve {
         return .MDCByteId
     }
     
-    let parameters = EdwardsCurveParameters(p: try! BigInt("109112363276961190442711090369149551676330307646118204517771511330536253156371"),
-                                            d: try! BigInt("39384817741350628573161184301225915800358770588933756071948264625804612259721"),
-                                            G: PointOnCurve(x: try! BigInt("82549803222202399340024462032964942512025856818700414254726364205096731424315"),
-                                                            y: try! BigInt("91549545637415734422658288799119041756378259523097147807813396915125932811445"),
-                                                            onCurveWithByteId: EdwardsCurveByteId.MDCByteId,
-                                                            checkPointIsOnCurve: false)!,
-                                            q: try! BigInt("27278090819240297610677772592287387918930509574048068887630978293185521973243"), // Order
-                                            nu: BigInt(4),
-                                            cardinality: try! BigInt("109112363276961190442711090369149551675722038296192275550523913172742087892972"))
+    private static let _parameters = {
+        let q = try! BigInt("27278090819240297610677772592287387918930509574048068887630978293185521973243")
+        let nu = BigInt(4)
+        let nuInv = try! BigInt(nu).invert(modulo: q)
+        return EdwardsCurveParameters(p: try! BigInt("109112363276961190442711090369149551676330307646118204517771511330536253156371"),
+                                      d: try! BigInt("39384817741350628573161184301225915800358770588933756071948264625804612259721"),
+                                      G: PointOnCurve(x: try! BigInt("82549803222202399340024462032964942512025856818700414254726364205096731424315"),
+                                                      y: try! BigInt("91549545637415734422658288799119041756378259523097147807813396915125932811445"),
+                                                      onCurveWithByteId: EdwardsCurveByteId.MDCByteId,
+                                                      checkPointIsOnCurve: false)!,
+                                      q: q, // Order
+                                      nu: nu,
+                                      nuInv: nuInv,
+                                      cardinality: try! BigInt("109112363276961190442711090369149551675722038296192275550523913172742087892972"))
+    }()
     
+    var parameters: EdwardsCurveParameters {
+        Self._parameters
+    }
+
 }
 
 
@@ -353,6 +377,8 @@ final class PointOnCurve: Equatable, NSCopying, CustomDebugStringConvertible {
     var onCurve: EdwardsCurve {
         return onCurveWithByteId.curve
     }
+    
+    private var _isLowOrderPoint: Bool?
 
     init?(x: BigInt, y: BigInt, onCurveWithByteId byteId: EdwardsCurveByteId, checkPointIsOnCurve: Bool = true) {
         if checkPointIsOnCurve {
@@ -389,12 +415,23 @@ final class PointOnCurve: Equatable, NSCopying, CustomDebugStringConvertible {
         return lhs == rhs
     }
     
+    var isLowOrderPoint: Bool {
+        if let _isLowOrderPoint { return _isLowOrderPoint }
+        let result = (onCurve.scalarMultiplication(scalar: onCurve.parameters.nu, point: self) == onCurve.getPointAtInfinity())
+        _isLowOrderPoint = result
+        return result
+    }
+    
     static func == (lhs: PointOnCurve, rhs: PointOnCurve) -> Bool {
         return lhs.x == rhs.x && lhs.y == rhs.y && lhs.onCurveWithByteId == rhs.onCurveWithByteId
     }
     
     func copy(with zone: NSZone? = nil) -> Any {
         return PointOnCurve(with: self)
+    }
+    
+    enum ObvError: Error {
+        case isLowOrderPoint
     }
     
 }

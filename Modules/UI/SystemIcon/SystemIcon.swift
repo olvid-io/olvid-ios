@@ -136,6 +136,8 @@ public enum SystemIcon: Hashable {
     case iphone
     case iphoneGen3CircleFill
     case laptopcomputerAndIphone
+    case key
+    case keySlash
     case link
     case lock(_: SystemIconFillOption = .none, _: SystemIconShieldOption = .none)
     case network
@@ -247,6 +249,7 @@ public enum SystemIcon: Hashable {
     case heartSlashFill
     case stopWatch
     case safari
+    case zzz
 
     public var systemName: String {
         switch self {
@@ -402,6 +405,14 @@ public enum SystemIcon: Hashable {
         } else {
             return "desktopcomputer"
         }
+        case .key:
+            return "key"
+        case .keySlash:
+            if #available(iOS 17, *) {
+                return "key.slash"
+            } else {
+                return "key"
+            }
         case .personFillQuestionmark:
             if #available(iOS 14, *) {
                 return "person.fill.questionmark"
@@ -911,6 +922,8 @@ public enum SystemIcon: Hashable {
                 return "eyeglasses"
             }
         case .safari: return "safari"
+        case .zzz:
+            return "zzz"
         }
     }
 }

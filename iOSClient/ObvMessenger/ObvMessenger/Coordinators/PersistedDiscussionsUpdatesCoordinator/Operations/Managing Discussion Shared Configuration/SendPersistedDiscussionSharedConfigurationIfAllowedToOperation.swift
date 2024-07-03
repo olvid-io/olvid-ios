@@ -62,12 +62,12 @@ final class SendPersistedDiscussionSharedConfigurationIfAllowedToOperation: Oper
             // Get the persisted discussion
             
             let discussion: PersistedDiscussion
-            let ownedIdentityHasAnotherDeviceWithChannel: Bool
+            let ownedIdentityHasAnotherReachableDevice: Bool
             do {
                 guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context) else {
                     return cancel(withReason: .couldNotFindOwnedIdentity)
                 }
-                ownedIdentityHasAnotherDeviceWithChannel = ownedIdentity.hasAnotherDeviceWithChannel
+                ownedIdentityHasAnotherReachableDevice = ownedIdentity.hasAnotherDeviceWhichIsReachable
                 discussion = try ownedIdentity.getPersistedDiscussion(withDiscussionId: discussionId)
             } catch {
                 if let error = error as? ObvUICoreDataError {
@@ -151,10 +151,10 @@ final class SendPersistedDiscussionSharedConfigurationIfAllowedToOperation: Oper
             switch sendTo {
             case .allContactsAndOtherOwnedDevices:
                 toContactIdentitiesWithCryptoId = contactCryptoIds
-                alsoPostToOtherOwnedDevices = ownedIdentityHasAnotherDeviceWithChannel
+                alsoPostToOtherOwnedDevices = ownedIdentityHasAnotherReachableDevice
             case .otherOwnedDevices:
                 toContactIdentitiesWithCryptoId = Set()
-                alsoPostToOtherOwnedDevices = ownedIdentityHasAnotherDeviceWithChannel
+                alsoPostToOtherOwnedDevices = ownedIdentityHasAnotherReachableDevice
             case .specificContact(contactCryptoId: let contactCryptoId):
                 guard contactCryptoIds.contains(contactCryptoId) else { return }
                 toContactIdentitiesWithCryptoId = Set([contactCryptoId])

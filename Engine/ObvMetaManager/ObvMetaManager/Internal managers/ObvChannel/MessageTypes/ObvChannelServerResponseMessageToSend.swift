@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -34,7 +34,7 @@ public struct ObvChannelServerResponseMessageToSend: ObvChannelMessageToSend {
     public let serverTimestamp: Date
 
     public init(toOwnedIdentity ownedIdentity: ObvCryptoIdentity, serverTimestamp: Date, responseType: ResponseType, encodedElements: ObvEncoded, flowId: FlowIdentifier) {
-        self.channelType = .Local(ownedIdentity: ownedIdentity)
+        self.channelType = .local(ownedIdentity: ownedIdentity)
         self.encodedElements = encodedElements
         self.responseType = responseType
         self.flowId = flowId
@@ -48,7 +48,7 @@ public struct ObvChannelServerResponseMessageToSend: ObvChannelMessageToSend {
 extension ObvChannelServerResponseMessageToSend {
 
     public enum ResponseType {
-        case deviceDiscovery(result: ContactDeviceDiscoveryResult)
+        case deviceDiscovery(result: ServerResponseContactDeviceDiscoveryResult)
         case putUserData
         case getUserData(result: GetUserDataResult)
         case checkKeycloakRevocation(verificationSuccessful: Bool)
@@ -66,12 +66,10 @@ extension ObvChannelServerResponseMessageToSend {
         case transferRelay(result: OwnedIdentityTransferRelayMessageResult)
         case transferWait(result: OwnedIdentityTransferWaitResult)
         case sourceWaitForTargetConnection(result: SourceWaitForTargetConnectionResult)
+        case uploadPreKeyForCurrentDevice(result: UploadPreKeyForCurrentDeviceResult)
 
         public func getEncodedInputs() -> [ObvEncoded] {
             switch self {
-//            case .deviceDiscovery(of: _, deviceUids: let deviceUids):
-//                let listOfEncodedUids = deviceUids.map { $0.obvEncode() }
-//                return [listOfEncodedUids.obvEncode()]
             case .deviceDiscovery(result: let result):
                 return [result.obvEncode()]
             case .putUserData:
@@ -107,6 +105,8 @@ extension ObvChannelServerResponseMessageToSend {
             case .transferWait(result: let result):
                 return [result.obvEncode()]
             case .sourceWaitForTargetConnection(result: let result):
+                return [result.obvEncode()]
+            case .uploadPreKeyForCurrentDevice(result: let result):
                 return [result.obvEncode()]
             }
         }

@@ -25,19 +25,19 @@ extension ObvChannelSendChannelType {
     
     var obvChannelType: ObvChannel.Type {
         switch self {
-        case .AllConfirmedObliviousChannelsWithContactIdentities,
-             .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity,
-             .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity,
-             .ObliviousChannel:
+        case .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts,
+             .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices,
+             .allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices,
+             .obliviousChannel:
             return ObvObliviousChannel.self
-        case .AsymmetricChannel,
-             .AsymmetricChannelBroadcast:
+        case .asymmetricChannel,
+             .asymmetricChannelBroadcast:
             return ObvAsymmetricChannel.self
-        case .Local:
+        case .local:
             return ObvLocalChannel.self
-        case .UserInterface:
+        case .userInterface:
             return ObvUserInterfaceChannel.self
-        case .ServerQuery:
+        case .serverQuery:
             return ObvServerChannel.self
         }
     }

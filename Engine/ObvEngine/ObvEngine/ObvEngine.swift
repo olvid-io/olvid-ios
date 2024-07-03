@@ -533,7 +533,7 @@ extension ObvEngine {
     }
     
     
-    public func getOwnedIdentities() throws -> Set<ObvOwnedIdentity> {
+    public func getOwnedIdentities(restrictToActive: Bool) throws -> Set<ObvOwnedIdentity> {
         
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
@@ -542,7 +542,7 @@ extension ObvEngine {
         var ownedObvIdentities: Set<ObvOwnedIdentity>!
         var error: Error? = nil
         createContextDelegate.performBackgroundTaskAndWait(flowId: randomFlowId) { (obvContext) in
-            guard let cryptoIdentities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
+            guard let cryptoIdentities = try? identityDelegate.getOwnedIdentities(restrictToActive: restrictToActive, within: obvContext) else {
                 error = makeError(message: "Could not get owned identities")
                 return
             }
@@ -983,6 +983,8 @@ extension ObvEngine {
                 case .invalidServerResponse:
                     break
                 case .theDelegateManagerIsNotSet:
+                    break
+                case .failedToCreateServerMethod:
                     break
                 }
                 throw error
@@ -1536,6 +1538,7 @@ extension ObvEngine {
             ownedDevices.insert(currentDevice)
             // Deal with remote owned devices
             let otherDeviceUids = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedCryptoIdentity, within: obvContext)
+            let otherDeviceUidsWithPreKey = try identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ownedCryptoIdentity, remoteCryptoId: ownedCryptoIdentity, within: obvContext)
             for otherDeviceUid in otherDeviceUids {
                 // Check if a channel exists between the current device and the remote owned device
                 let channelExists = try channelDelegate.aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(
@@ -1543,7 +1546,8 @@ extension ObvEngine {
                     andRemoteIdentity: ownedCryptoIdentity,
                     withRemoteDeviceUid: otherDeviceUid,
                     within: obvContext)
-                let secureChannelStatus = channelExists ? ObvOwnedDevice.SecureChannelStatus.created : .creationInProgress
+                let preKeyAvailable = otherDeviceUidsWithPreKey.contains(otherDeviceUid)
+                let secureChannelStatus = channelExists ? ObvOwnedDevice.SecureChannelStatus.created(preKeyAvailable: preKeyAvailable) : .creationInProgress(preKeyAvailable: preKeyAvailable)
                 let infos = try identityDelegate.getInfosAboutOwnedDevice(withUid: otherDeviceUid, ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext)
                 let otherOwnedDevice = ObvOwnedDevice(
                     identifier: otherDeviceUid.raw,
@@ -1601,7 +1605,9 @@ extension ObvEngine {
                     andRemoteIdentity: ownedCryptoIdentity,
                     withRemoteDeviceUid: otherDeviceUid,
                     within: obvContext)
-                let secureChannelStatus = channelExists ? ObvOwnedDevice.SecureChannelStatus.created : .creationInProgress
+                let otherDeviceUidsWithPreKey = try identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ownedCryptoIdentity, remoteCryptoId: ownedCryptoIdentity, within: obvContext)
+                let preKeyAvailable = otherDeviceUidsWithPreKey.contains(otherDeviceUid)
+                let secureChannelStatus = channelExists ? ObvOwnedDevice.SecureChannelStatus.created(preKeyAvailable: preKeyAvailable) : .creationInProgress(preKeyAvailable: preKeyAvailable)
                 let infos = try identityDelegate.getInfosAboutOwnedDevice(withUid: otherDeviceUid, ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext)
                 let otherOwnedDevice = ObvOwnedDevice(
                     identifier: otherDeviceUid.raw,
@@ -1620,9 +1626,9 @@ extension ObvEngine {
         
     }
     
-    public func getAllOwnedDevices() async throws -> Set<ObvOwnedDevice> {
+    public func getAllOwnedDevices(restrictToActiveOwnedIdentities: Bool) async throws -> Set<ObvOwnedDevice> {
         
-        let ownedCryptoIdentities = try await getOwnedIdentities()
+        let ownedCryptoIdentities = try await getOwnedIdentities(restrictToActive: restrictToActiveOwnedIdentities)
         
         var ownedDevices = Set<ObvOwnedDevice>()
         
@@ -1884,13 +1890,15 @@ extension ObvEngine {
             let allDeviceUids = try identityDelegate.getDeviceUidsOfContactIdentity(contactIdentifier.contactCryptoId.cryptoIdentity, ofOwnedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, within: obvContext)
             let deviceUidsWithChannel = try channelDelegate.getRemoteDeviceUidsOfRemoteIdentity(
                 contactIdentifier.contactCryptoId.cryptoIdentity, forWhichAConfirmedObliviousChannelExistsWithTheCurrentDeviceOfOwnedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, within: obvContext)
+            let deviceUidsWithPreKey = try identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: contactIdentifier.ownedCryptoId.cryptoIdentity, remoteCryptoId: contactIdentifier.contactCryptoId.cryptoIdentity, within: obvContext)
             
             contactDevices = Set(allDeviceUids.compactMap { deviceUid in
                 let secureChannelStatus: ObvContactDevice.SecureChannelStatus
+                let preKeyAvailable = deviceUidsWithPreKey.contains(where: { $0 == deviceUid })
                 if deviceUidsWithChannel.contains(where: { $0 == deviceUid }) {
-                    secureChannelStatus = .created
+                    secureChannelStatus = .created(preKeyAvailable: preKeyAvailable)
                 } else {
-                    secureChannelStatus = .creationInProgress
+                    secureChannelStatus = .creationInProgress(preKeyAvailable: preKeyAvailable)
                 }
                 return ObvContactDevice(remoteDeviceUid: deviceUid, contactIdentifier: contactIdentifier, secureChannelStatus: secureChannelStatus)
             })
@@ -1928,7 +1936,13 @@ extension ObvEngine {
                 withRemoteDeviceUid: contactDeviceIdentifier.deviceUID,
                 within: obvContext)
             
-            let secureChannelStatus: ObvContactDevice.SecureChannelStatus = confirmedChannelExists ? .created : .creationInProgress
+            let deviceUidsWithPreKey = try identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(
+                ownedCryptoId: contactDeviceIdentifier.ownedCryptoId.cryptoIdentity,
+                remoteCryptoId: contactDeviceIdentifier.contactCryptoId.cryptoIdentity,
+                within: obvContext)
+            let preKeyAvailable = deviceUidsWithPreKey.contains(where: { $0 == contactDeviceIdentifier.deviceUID })
+
+            let secureChannelStatus: ObvContactDevice.SecureChannelStatus = confirmedChannelExists ? .created(preKeyAvailable: preKeyAvailable) : .creationInProgress(preKeyAvailable: preKeyAvailable)
 
             contactDevice = .init(remoteDeviceUid: contactDeviceIdentifier.deviceUID,
                                   contactIdentifier: .init(contactCryptoId: contactDeviceIdentifier.contactCryptoId, ownedCryptoId: contactDeviceIdentifier.ownedCryptoId),
@@ -1957,12 +1971,18 @@ extension ObvEngine {
                         let allDeviceUids = try identityDelegate.getDeviceUidsOfContactIdentity(contactCryptoId, ofOwnedIdentity: ownedCryptoIdentity, within: obvContext)
                         let deviceUidsWithChannel = try channelDelegate.getRemoteDeviceUidsOfRemoteIdentity(
                             contactCryptoId, forWhichAConfirmedObliviousChannelExistsWithTheCurrentDeviceOfOwnedIdentity: ownedCryptoIdentity, within: obvContext)
+                        let deviceUidsWithPreKey = try identityDelegate.getUIDsOfRemoteDevicesForWhichHavePreKeys(
+                            ownedCryptoId: ownedCryptoIdentity,
+                            remoteCryptoId: contactCryptoId,
+                            within: obvContext)
+
                         let contactDevices = Set(allDeviceUids.compactMap { deviceUid in
+                            let preKeyAvailable = deviceUidsWithPreKey.contains(where: { $0 == deviceUid })
                             let secureChannelStatus: ObvContactDevice.SecureChannelStatus
                             if deviceUidsWithChannel.contains(where: { $0 == deviceUid }) {
-                                secureChannelStatus = .created
+                                secureChannelStatus = .created(preKeyAvailable: preKeyAvailable)
                             } else {
-                                secureChannelStatus = .creationInProgress
+                                secureChannelStatus = .creationInProgress(preKeyAvailable: preKeyAvailable)
                             }
                             return ObvContactDevice(remoteDeviceUid: deviceUid, contactIdentifier: .init(contactCryptoIdentity: contactCryptoId, ownedCryptoIdentity: ownedCryptoIdentity), secureChannelStatus: secureChannelStatus)
                         })
@@ -2202,7 +2222,7 @@ extension ObvEngine {
         createContextDelegate.performBackgroundTask(flowId: randomFlowId) { obvContext in
             
             do {
-                let ownedIdentities = try identityDelegate.getOwnedIdentities(within: obvContext)
+                let ownedIdentities = try identityDelegate.getOwnedIdentities(restrictToActive: true, within: obvContext)
                 try ownedIdentities.forEach { ownedIdentity in
                     let message = try protocolDelegate.getInitialMessageForAddingOwnCapabilities(
                         ownedIdentity: ownedIdentity,
@@ -3252,7 +3272,7 @@ extension ObvEngine {
 
         var allOwnedIdentities = Set<ObvCryptoIdentity>()
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-            allOwnedIdentities = try identityDelegate.getOwnedIdentities(within: obvContext)
+            allOwnedIdentities = try identityDelegate.getOwnedIdentities(restrictToActive: true, within: obvContext)
         }
         
         for ownedIdentity in allOwnedIdentities {
@@ -3260,7 +3280,40 @@ extension ObvEngine {
         }
 
     }
+    
 
+    /// Called during bootstrap to ensure we regularly perform a contact device discovery for all the contacts of all the active owned identities.
+    private func performContactDeviceDiscoveryForAppropriateContactsOfAllOwnedIdentites(flowId: FlowIdentifier) async throws {
+                
+        let contacts = try await getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(flowId: flowId)
+        
+        for contact in contacts {
+            do {
+                try performContactDeviceDiscovery(contactIdentifier: contact)
+            } catch {
+                os_log("Could not perform contact discovery for a contact that requires one: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure() // In production, continue with the next contact
+            }
+        }
+        
+    }
+    
+    
+    private func getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(flowId: FlowIdentifier) async throws -> Set<ObvContactIdentifier> {
+        guard let identityDelegate else { assertionFailure(); throw ObvError.identityDelegateIsNil }
+        guard let createContextDelegate else { assertionFailure(); throw ObvError.createContextDelegateIsNil }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<ObvContactIdentifier>, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let contacts = try identityDelegate.getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(within: obvContext)
+                    return continuation.resume(returning: contacts)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
     
     public func performDisbandOfGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) throws {
 
@@ -4055,7 +4108,7 @@ extension ObvEngine {
         guard let networkFetchDelegate else { assertionFailure(); return }
         guard let flowDelegate else { assertionFailure(); return }
 
-        let ownedIdentities = try await getOwnedIdentities()
+        let ownedIdentities = try await getOwnedIdentities(restrictToActive: true)
         
         var anErrorOccurred: Error?
         
@@ -4251,6 +4304,7 @@ extension ObvEngine {
         if forTheFirstTime {
             do {
                 try await performOwnedDeviceDiscoveryForAllOwnedIdentities(flowId: flowId)
+                try await performContactDeviceDiscoveryForAppropriateContactsOfAllOwnedIdentites(flowId: flowId)
                 // try await sendTriggerSyncSnapshotMessageToAllExistingSynchronizationProtocolInstances(flowId: flowId)
                 // try await initiateIfRequiredSynchronizationProtocolInstanceForEachChannelWithAnotherOwnedDevice(flowId: flowId)
             } catch {
@@ -4277,7 +4331,7 @@ extension ObvEngine {
             anErrorOccured = error
         }
                 
-        let ownedIdentities = try await getOwnedIdentities()
+        let ownedIdentities = try await getOwnedIdentities(restrictToActive: true)
         for ownedIdentity in ownedIdentities {
             do {
                 let (_, completion) = try flowDelegate.startBackgroundActivityForDownloadingMessages(ownedIdentity: ownedIdentity)
@@ -4441,7 +4495,7 @@ extension ObvEngine {
 
         // Get a set of owned identities that exist before the backup restore
         
-        let preExistingOwnedCryptoIds = try await getOwnedIdentities()
+        let preExistingOwnedCryptoIds = try await getOwnedIdentities(restrictToActive: false)
         
         // Restore the backup
         
@@ -4449,7 +4503,7 @@ extension ObvEngine {
         
         // Get the set of restore owned identities
         
-        let restoredOwnedIdentities = try await getOwnedIdentities().subtracting(preExistingOwnedCryptoIds)
+        let restoredOwnedIdentities = try await getOwnedIdentities(restrictToActive: false).subtracting(preExistingOwnedCryptoIds)
         
         // If we reach this point, the backup was successfully restored
         // We perform post-restore tasks
@@ -4477,18 +4531,18 @@ extension ObvEngine {
     }
     
     
-    /// Helper method used during a backup restore
-    private func getOwnedIdentities() async throws -> Set<ObvCryptoIdentity> {
+    /// Helper method used, e.g. during a backup restore
+    private func getOwnedIdentities(restrictToActive: Bool) async throws -> Set<ObvCryptoIdentity> {
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         return try await withCheckedThrowingContinuation { continuation in
             do {
                 try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: FlowIdentifier()) { obvContext in
-                    let ownedCryptoIds = try identityDelegate.getOwnedIdentities(within: obvContext)
-                    continuation.resume(returning: ownedCryptoIds)
+                    let ownedCryptoIds = try identityDelegate.getOwnedIdentities(restrictToActive: restrictToActive, within: obvContext)
+                    return continuation.resume(returning: ownedCryptoIds)
                 }
             } catch {
-                continuation.resume(throwing: error)
+                return continuation.resume(throwing: error)
             }
         }
     }
@@ -4520,7 +4574,7 @@ extension ObvEngine {
 
         var allGroupsV2 = [ObvCryptoIdentity: Set<ObvGroupV2>]()
         try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: backupRequestIdentifier) { obvContext in
-            let allOwnedIdentities = try identityDelegate.getOwnedIdentities(within: obvContext)
+            let allOwnedIdentities = try identityDelegate.getOwnedIdentities(restrictToActive: true, within: obvContext)
             for identity in allOwnedIdentities {
                 allGroupsV2[identity] = try identityDelegate.getAllObvGroupV2(of: identity, within: obvContext)
                     .filter { obvGroupV2 in
@@ -4698,7 +4752,7 @@ extension ObvEngine: ObvUserInterfaceChannelDelegate {
         do {
             
             switch obvChannelDialogMessageToSend.channelType {
-            case .UserInterface(uuid: let uuid, ownedIdentity: let ownedCryptoIdentity, dialogType: let obvChannelDialogToSendType):
+            case .userInterface(uuid: let uuid, ownedIdentity: let ownedCryptoIdentity, dialogType: let obvChannelDialogToSendType):
                 
                 // Construct an ObvOwnedIdentity
                 

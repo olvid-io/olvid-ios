@@ -103,7 +103,7 @@ extension LinkBetweenProtocolInstances {
         let encodedInputs = try ChildToParentProtocolMessageInputs(childProtocolInstanceUid: childUid,
                                                                    childProtocolInstanceReachedState: childState).toListOfEncoded()
         let messages: [GenericProtocolMessageToSend] = links.map { link in
-            return GenericProtocolMessageToSend(channelType: .Local(ownedIdentity: link.parentProtocolInstance.ownedCryptoIdentity),
+            return GenericProtocolMessageToSend(channelType: .local(ownedIdentity: link.parentProtocolInstance.ownedCryptoIdentity),
                                                 cryptoProtocolId: link.parentProtocolInstance.cryptoProtocolId,
                                                 protocolInstanceUid: link.parentProtocolInstance.uid,
                                                 protocolMessageRawId: link.messageToSendRawId,

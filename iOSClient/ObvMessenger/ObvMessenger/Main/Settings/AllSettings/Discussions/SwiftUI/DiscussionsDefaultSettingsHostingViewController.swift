@@ -61,8 +61,8 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
     var attachLinkPreviewtoMessageSent: Binding<Bool>!
     var fetchMissingLinkPreviewFromMessagereceived: Binding<Bool>!
     var readOnce: Binding<Bool>!
-    var visibilityDuration: Binding<DurationOption>!
-    var existenceDuration: Binding<DurationOption>!
+    var visibilityDuration: Binding<TimeInterval?>!
+    var existenceDuration: Binding<TimeInterval?>!
     var countBasedRetentionIsActive: Binding<Bool>!
     var countBasedRetention: Binding<Int>!
     var timeBasedRetention: Binding<DurationOptionAlt>!
@@ -96,8 +96,8 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
         self.readOnce = Binding<Bool>(get: getReadOnce, set: setReadOnce)
         self.attachLinkPreviewtoMessageSent = Binding<Bool>(get: getAttachLinkPreviewtoMessageSent, set: setAttachLinkPreviewtoMessageSent)
         self.fetchMissingLinkPreviewFromMessagereceived = Binding<Bool>(get: getFetchMissingLinkPreviewFromMessagereceived, set: setFetchMissingLinkPreviewFromMessagereceived)
-        self.visibilityDuration = Binding<DurationOption>(get: getVisibilityDuration, set: setVisibilityDuration)
-        self.existenceDuration = Binding<DurationOption>(get: getExistenceDuration, set: setExistenceDuration)
+        self.visibilityDuration = Binding<TimeInterval?>(get: getVisibilityDuration, set: setVisibilityDuration)
+        self.existenceDuration = Binding<TimeInterval?>(get: getExistenceDuration, set: setExistenceDuration)
         self.countBasedRetention = Binding<Int>(get: getCountBasedRetention, set: setCountBasedRetention)
         self.countBasedRetentionIsActive = Binding<Bool>(get: getCountBasedRetentionIsActive, set: setCountBasedRetentionIsActive)
         self.timeBasedRetention = Binding<DurationOptionAlt>(get: getTimeBasedRetention, set: setTimeBasedRetention)
@@ -208,22 +208,22 @@ final fileprivate class DiscussionsDefaultSettingsViewModel: ObservableObject {
         }
     }
     
-    private func getVisibilityDuration() -> DurationOption {
+    private func getVisibilityDuration() -> TimeInterval? {
         ObvMessengerSettings.Discussions.visibilityDuration
     }
     
-    private func setVisibilityDuration(_ newValue: DurationOption) {
+    private func setVisibilityDuration(_ newValue: TimeInterval?) {
         ObvMessengerSettings.Discussions.visibilityDuration = newValue
         withAnimation {
             self.changed.toggle()
         }
     }
 
-    private func getExistenceDuration() -> DurationOption {
+    private func getExistenceDuration() -> TimeInterval? {
         ObvMessengerSettings.Discussions.existenceDuration
     }
     
-    private func setExistenceDuration(_ newValue: DurationOption) {
+    private func setExistenceDuration(_ newValue: TimeInterval?) {
         ObvMessengerSettings.Discussions.existenceDuration = newValue
         withAnimation {
             self.changed.toggle()
@@ -313,8 +313,8 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
     @Binding var readOnce: Bool
     @Binding var attachLinkPreviewtoMessageSent: Bool
     @Binding var fetchMissingLinkPreviewFromMessagereceived: Bool
-    @Binding var visibilityDuration: DurationOption
-    @Binding var existenceDuration: DurationOption
+    @Binding var visibilityDuration: TimeInterval?
+    @Binding var existenceDuration: TimeInterval?
     @Binding var countBasedRetentionIsActive: Bool
     @Binding var countBasedRetention: Int
     @Binding var timeBasedRetention: DurationOptionAlt
@@ -462,16 +462,26 @@ fileprivate struct DiscussionsDefaultSettingsView: View {
                     }
                 }
                 Section(footer: Text("LIMITED_VISIBILITY_SECTION_FOOTER")) {
-                    Picker(selection: $visibilityDuration, label: Label("LIMITED_VISIBILITY_LABEL", systemIcon: .eyes)) {
-                        ForEach(DurationOption.allCases) { duration in
-                            Text(duration.description).tag(duration)
+                    NavigationLink {
+                        ExistenceOrVisibilityDurationView(timeInverval: $visibilityDuration)
+                    } label: {
+                        HStack(alignment: .firstTextBaseline) {
+                            Label("LIMITED_VISIBILITY_LABEL", systemIcon: .eyes)
+                            Spacer()
+                            Text(verbatim: TimeInterval.formatForExistenceOrVisibilityDuration(timeInterval: $visibilityDuration.wrappedValue, unitsStyle: .short))
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
                 Section(footer: Text("LIMITED_EXISTENCE_SECTION_FOOTER")) {
-                    Picker(selection: $existenceDuration, label: Label("LIMITED_EXISTENCE_SECTION_LABEL", systemImage: "timer")) {
-                        ForEach(DurationOption.allCases) { duration in
-                            Text(duration.description).tag(duration)
+                    NavigationLink {
+                        ExistenceOrVisibilityDurationView(timeInverval: $existenceDuration)
+                    } label: {
+                        HStack(alignment: .firstTextBaseline) {
+                            Label("LIMITED_EXISTENCE_SECTION_LABEL", systemIcon: .timer)
+                            Spacer()
+                            Text(verbatim: TimeInterval.formatForExistenceOrVisibilityDuration(timeInterval: $existenceDuration.wrappedValue, unitsStyle: .short))
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -494,8 +504,8 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            readOnce: .constant(false),
                                            attachLinkPreviewtoMessageSent: .constant(false),
                                            fetchMissingLinkPreviewFromMessagereceived: .constant(false),
-                                           visibilityDuration: .constant(.none),
-                                           existenceDuration: .constant(.none),
+                                           visibilityDuration: .constant(nil),
+                                           existenceDuration: .constant(nil),
                                            countBasedRetentionIsActive: .constant(false),
                                            countBasedRetention: .constant(0),
                                            timeBasedRetention: .constant(.none),
@@ -509,8 +519,8 @@ struct DiscussionsDefaultSettingsView_Previews: PreviewProvider {
                                            readOnce: .constant(false),
                                            attachLinkPreviewtoMessageSent: .constant(false),
                                            fetchMissingLinkPreviewFromMessagereceived: .constant(false),
-                                           visibilityDuration: .constant(.oneHour),
-                                           existenceDuration: .constant(.oneDay),
+                                           visibilityDuration: .constant(.init(hours: 1)),
+                                           existenceDuration: .constant(.init(days: 1)),
                                            countBasedRetentionIsActive: .constant(true),
                                            countBasedRetention: .constant(50),
                                            timeBasedRetention: .constant(.sevenDays),

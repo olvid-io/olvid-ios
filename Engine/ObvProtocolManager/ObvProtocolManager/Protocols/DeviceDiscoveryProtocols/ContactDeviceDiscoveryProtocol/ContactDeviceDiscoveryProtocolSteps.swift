@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -56,7 +56,7 @@ extension ContactDeviceDiscoveryProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -128,7 +128,7 @@ extension ContactDeviceDiscoveryProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -150,47 +150,10 @@ extension ContactDeviceDiscoveryProtocol {
                 contactIdentity = expectedContactIdentity
             }
 
-            let latestSetOfDeviceUids = Set(receivedMessage.deviceUidsSentState.deviceUids)
+            let contactDeviceDiscoveryResult = receivedMessage.deviceUidsSentState.result
 
-            // Get the list of previously known device uids
-            
-            let previousSetOfDeviceUids: Set<UID>
-            do {
-                previousSetOfDeviceUids = try identityDelegate.getDeviceUidsOfContactIdentity(contactIdentity, ofOwnedIdentity: ownedIdentity, within: obvContext)
-            } catch {
-                os_log("Could not delete obsolete devices for a contact", log: log, type: .fault)
-                assertionFailure()
-                previousSetOfDeviceUids = Set<UID>()
-                // We continue anyway
-            }
-
-            // Remove any obsolete device uid
-            
-            do {
-                let obsoleteDeviceUids = previousSetOfDeviceUids.subtracting(latestSetOfDeviceUids)
-                for deviceUid in obsoleteDeviceUids {
-                    do {
-                        try identityDelegate.removeDeviceForContactIdentity(contactIdentity, withUid: deviceUid, ofOwnedIdentity: ownedIdentity, within: obvContext)
-                    } catch {
-                        os_log("Could not remove one of the obsolete devices of a contact identity", log: log, type: .fault)
-                        assertionFailure()
-                        // We continue anyway
-                    }
-                }
-            }
-            
-            // We can safely store the device uids as contact device uids of the contact identity
-            
-            for deviceUid in latestSetOfDeviceUids {
-                do {
-                    try identityDelegate.addDeviceForContactIdentity(contactIdentity, withUid: deviceUid, ofOwnedIdentity: ownedIdentity, createdDuringChannelCreation: false, within: obvContext)
-                } catch {
-                    os_log("Could not add a device to a contact identity", log: log, type: .fault)
-                    assertionFailure()
-                    // We continue anyway
-                }
-            }
-            
+            try identityDelegate.processContactDeviceDiscoveryResult(contactDeviceDiscoveryResult, forContactCryptoId: contactIdentity, ofOwnedCryptoId: ownedIdentity, within: obvContext)
+                        
             // Return the new state
             
             return ChildProtocolStateProcessedState()

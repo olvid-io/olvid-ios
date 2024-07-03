@@ -51,7 +51,7 @@ public final class ObvServerDeviceDiscoveryMethod: ObvServerDataMethod {
     }
 
     public enum PossibleReturnStatus {
-        case ok(deviceUids: [UID])
+        case ok(result: ContactDeviceDiscoveryResult)
         case generalError
     }
 
@@ -79,21 +79,13 @@ public final class ObvServerDeviceDiscoveryMethod: ObvServerDataMethod {
                 os_log("The server did not return the expected number of elements", log: log, type: .error)
                 return nil
             }
-            let encodedListOfDeviceUids = listOfReturnedDatas[0]
-            guard let listOfEncodedDeviceUids = [ObvEncoded](encodedListOfDeviceUids) else {
-                os_log("We could not decode the list of device uids returned by the server", log: log, type: .error)
+            guard let result = ContactDeviceDiscoveryResult(listOfReturnedDatas[0]) else {
+                assertionFailure()
+                os_log("We could not decode the contact device discovery result returned by the server", log: log, type: .error)
                 return nil
             }
-            var deviceUids = [UID]()
-            for encodedDeviceUid in listOfEncodedDeviceUids {
-                guard let uid = UID(encodedDeviceUid) else {
-                    os_log("We could not decode one of the device uids returned by the server", log: log, type: .error)
-                    return nil
-                }
-                deviceUids.append(uid)
-            }
-            os_log("We received a list of %d device uids from the server", log: log, type: .debug, deviceUids.count)
-            return .ok(deviceUids: deviceUids)
+            os_log("We received a list of %d device uids from the server", log: log, type: .debug, result.devices.count)
+            return .ok(result: result)
             
         case .generalError:
             os_log("The server reported a general error", log: log, type: .error)

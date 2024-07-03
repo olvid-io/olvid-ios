@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -63,7 +63,7 @@ struct ContactDeviceView<Model: ContactDeviceViewModelProtocol>: View {
         }
     }
     
-    
+
     private var systemIconForSecureChannelStatus: SystemIcon {
         switch model.secureChannelStatus {
         case .creationInProgress, .none:
@@ -73,6 +73,31 @@ struct ContactDeviceView<Model: ContactDeviceViewModelProtocol>: View {
         }
     }
     
+    
+    private var textForPreKeyStatus: LocalizedStringKey {
+        if model.secureChannelStatus?.isPreKeyAvailable == true {
+            return "PRE_KEY_IS_AVAILABLE_FOR_CONTACT_DEVICE"
+        } else {
+            return "PRE_KEY_IS_NOT_AVAILABLE_FOR_CONTACT_DEVICE"
+        }
+    }
+    
+
+    private var systemIconForPreKeyStatus: SystemIcon {
+        if model.secureChannelStatus?.isPreKeyAvailable == true {
+            return .key
+        } else {
+            return .keySlash
+        }
+    }
+    
+    private var systemIconColorForPreKeyStatus: Color {
+        if model.secureChannelStatus?.isPreKeyAvailable == true {
+            return Color(UIColor.systemGreen)
+        } else {
+            return .primary
+        }
+    }
     
     private var colorForSecureChannelStatus: Color {
         switch model.secureChannelStatus {
@@ -95,6 +120,7 @@ struct ContactDeviceView<Model: ContactDeviceViewModelProtocol>: View {
         
     var body: some View {
         VStack(alignment: .leading) {
+            
             HStack {
                 Text("DEVICE \(model.name)")
                     .font(.headline)
@@ -102,6 +128,7 @@ struct ContactDeviceView<Model: ContactDeviceViewModelProtocol>: View {
                 Spacer()
             }
             .padding(.bottom, 4.0)
+            
             HStack {
                 Label {
                     Text(textForSecureChannelStatus)
@@ -113,6 +140,20 @@ struct ContactDeviceView<Model: ContactDeviceViewModelProtocol>: View {
                 }
             }
             .padding(.bottom, 2.0)
+            
+            HStack {
+                Label {
+                    Text(textForPreKeyStatus)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                } icon: {
+                    Image(systemIcon: systemIconForPreKeyStatus)
+                        .foregroundColor(systemIconColorForPreKeyStatus)
+                }
+            }
+            .padding(.bottom, 2.0)
+
+            
             Button(action: userWantsToRestartChannelCreationWithThisDevice) {
                 Label(LocalizedStringKey("RECREATE_SECURE_CHANNEL_WITH_THIS_DEVICE"), systemIcon: .restartCircle)
             }
@@ -170,12 +211,12 @@ struct ContactDeviceView_Previews: PreviewProvider {
     [
         ContactDeviceViewModelForPreviews(
             contactIdentifier: contactIdentifier,
-            secureChannelStatus: .creationInProgress,
+            secureChannelStatus: .creationInProgress(preKeyAvailable: false),
             deviceIdentifier: Data(repeating: 0, count: 16),
             name: String("1234")),
         ContactDeviceViewModelForPreviews(
             contactIdentifier: contactIdentifier,
-            secureChannelStatus: .created,
+            secureChannelStatus: .created(preKeyAvailable: true),
             deviceIdentifier: Data(repeating: 0, count: 16),
             name: String("5678")),
         ContactDeviceViewModelForPreviews(
@@ -193,7 +234,8 @@ struct ContactDeviceView_Previews: PreviewProvider {
                 actions: ContactDeviceViewActionsForPreviews())
             .previewLayout(PreviewLayout.sizeThatFits)
             .previewDisplayName("Creation in progress")
-
+            .environment(\.locale, .init(identifier: "fr"))
+            
             ContactDeviceView(
                 model: models[1],
                 actions: ContactDeviceViewActionsForPreviews())

@@ -31,12 +31,14 @@ extension OwnedDeviceDiscoveryProtocol {
         case initiateOwnedDeviceDiscovery = 0
         case serverQuery = 1
         case initiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDevice = 2
+        case uploadPreKeyForCurrentDeviceServerQuery = 3
         
         var concreteProtocolMessageType: ConcreteProtocolMessage.Type {
             switch self {
             case .initiateOwnedDeviceDiscovery                             : return InitiateOwnedDeviceDiscoveryMessage.self
             case .serverQuery                                              : return ServerQueryMessage.self
             case .initiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDevice: return InitiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDeviceMessage.self
+            case .uploadPreKeyForCurrentDeviceServerQuery                  : return UploadPreKeyForCurrentDeviceServerQueryMessage.self
             }
         }
 
@@ -67,6 +69,8 @@ extension OwnedDeviceDiscoveryProtocol {
     }
 
     
+    // MARK: - ServerQueryMessage
+
     struct ServerQueryMessage: ConcreteProtocolMessage {
         
         let id: ConcreteProtocolMessageId = MessageId.serverQuery
@@ -102,6 +106,37 @@ extension OwnedDeviceDiscoveryProtocol {
             self.coreProtocolMessage = coreProtocolMessage
             self.ownedDeviceDiscoveryResult = nil
         }
+    }
+    
+    
+    // MARK: - UploadPreKeyForCurrentDeviceServerQueryMessage
+    
+    struct UploadPreKeyForCurrentDeviceServerQueryMessage: ConcreteProtocolMessage {
+        
+        let id: ConcreteProtocolMessageId = MessageId.uploadPreKeyForCurrentDeviceServerQuery
+        let coreProtocolMessage: CoreProtocolMessage
+        
+        // Properties specific to this concrete protocol message
+
+        let uploadPreKeyForCurrentDeviceResult: UploadPreKeyForCurrentDeviceResult? // Only set when the message is sent to this protocol, not when sending this message to the server
+        
+        var encodedInputs: [ObvEncoded] { return [] }
+        
+        // Initializers
+
+        init(with message: ReceivedMessage) throws {
+            self.coreProtocolMessage = CoreProtocolMessage(with: message)
+            let encodedElements = message.encodedInputs
+            guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
+            guard let result = UploadPreKeyForCurrentDeviceResult(encodedElements[0]) else { assertionFailure(); throw Self.makeError(message: "Could not decode UploadPreKeyForCurrentDeviceResult") }
+            self.uploadPreKeyForCurrentDeviceResult = result
+        }
+        
+        init(coreProtocolMessage: CoreProtocolMessage) {
+            self.coreProtocolMessage = coreProtocolMessage
+            self.uploadPreKeyForCurrentDeviceResult = nil
+        }
+        
     }
     
     

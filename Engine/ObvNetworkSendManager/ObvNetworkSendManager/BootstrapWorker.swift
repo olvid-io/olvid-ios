@@ -80,6 +80,7 @@ final class BootstrapWorker {
                 delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.mainApp, flowId: flowId)
                 self?.rescheduleAllOutboxMessagesAndAttachments(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
                 self?.pruneOldOutboxMessages(flowId: flowId, log: log, contextCreator: contextCreator, delegateManager: delegateManager)
+                self?.rePostOutboxMessageWasUploadedNotificationsAndTryToDeleteUploadedMessages(flowId: flowId, log: log, delegateManager: delegateManager)
             }
             // 2020-06-29 Added this to make sure we always send attachments
             delegateManager.uploadAttachmentChunksDelegate.cleanExistingOutboxAttachmentSessionsCreatedBy(.shareExtension, flowId: flowId)
@@ -380,7 +381,7 @@ extension BootstrapWorker {
 
 extension BootstrapWorker {
     
-    private func rePostOutboxMessageWasUploadedNotifications(flowId: FlowIdentifier, log: OSLog, delegateManager: ObvNetworkSendDelegateManager) {
+    private func rePostOutboxMessageWasUploadedNotificationsAndTryToDeleteUploadedMessages(flowId: FlowIdentifier, log: OSLog, delegateManager: ObvNetworkSendDelegateManager) {
         
         guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); return }
         
@@ -402,6 +403,9 @@ extension BootstrapWorker {
                                                                     isVoipMessage: msg.isVoipMessage,
                                                                     flowId: flowId)
                 .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+                Task {
+                    delegateManager.tryToDeleteMessageAndAttachmentsDelegate.tryToDeleteMessageAndAttachments(messageId: messageId, flowId: flowId)
+                }
             }
         })
         

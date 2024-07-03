@@ -62,7 +62,7 @@ final class ComputeHintsAboutRequiredOwnedDevicesSyncWithEngineOperation: AsyncO
             let obvOwnedDevicesWithinEngine: Set<ObvOwnedDevice>
             switch scope {
             case .allOwnedDevices:
-                obvOwnedDevicesWithinEngine = try await obvEngine.getAllOwnedDevices()
+                obvOwnedDevicesWithinEngine = try await obvEngine.getAllOwnedDevices(restrictToActiveOwnedIdentities: true)
             case .ownedDevicesOfOwnedIdentity(ownedCryptoId: let ownedCryptoId):
                 obvOwnedDevicesWithinEngine = try obvEngine.getAllOwnedDevicesOfOwnedIdentity(ownedCryptoId)
             }

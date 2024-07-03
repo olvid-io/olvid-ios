@@ -51,6 +51,11 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         self.log = OSLog(subsystem: ObvNetworkFetchManagerImplementationDummy.defaultLogSubsystem, category: "ObvNetworkFetchManagerImplementationDummy")
     }
     
+    public func remoteIdentityIsNowAContact(contactIdentifier: ObvContactIdentifier, flowId: FlowIdentifier) async throws {
+        os_log("remoteIdentityIsNowAContact does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "remoteIdentityIsNowAContact does nothing in this dummy implementation")
+    }
+    
     public func registerOwnedAPIKeyOnServerNow(ownedCryptoIdentity: ObvCryptoIdentity, apiKey: UUID, flowId: FlowIdentifier) async throws -> ObvRegisterApiKeyResult {
         os_log("registerOwnedAPIKeyOnServerNow does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "registerOwnedAPIKeyOnServerNow does nothing in this dummy implementation")

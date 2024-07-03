@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -73,14 +73,14 @@ struct PublicKeyForSignatureOnEdwardsCurve: PublicKeyForSignature, PublicKeyFrom
     }
     
     init?(point: PointOnCurve) {
-        guard PublicKeyForSignatureOnEdwardsCurve.isAcceptable(point: point) else { return nil }
+        //guard !PublicKeyForDHOnEdwardsCurve.isLowOrderPoint(point) else { return nil }
         self.point = point
         self._yCoordinate = point.y
         self._curveByteId = point.onCurveWithByteId
     }
     
     init?(yCoordinate y: BigInt, curveByteId: EdwardsCurveByteId) {
-        guard PublicKeyForSignatureOnEdwardsCurve.isAcceptable(yCoordinate: y, onCurveWithByteId: curveByteId) else { return nil }
+        //guard !PublicKeyForDHOnEdwardsCurve.isLowOrderPoint(yCoordinate: y, onCurveWithByteId: curveByteId) else { return nil }
         self._yCoordinate = y
         self._curveByteId = curveByteId
         point = nil

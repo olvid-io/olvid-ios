@@ -60,7 +60,7 @@ extension DownloadGroupPhotoChildProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -76,7 +76,7 @@ extension DownloadGroupPhotoChildProtocol {
 
             // Get the encrypted photo
 
-            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ServerQuery(ownedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.serverQuery(ownedIdentity: ownedIdentity))
             let concreteMessage = ServerGetPhotoMessage.init(coreProtocolMessage: coreMessage)
             let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getUserData(of: receivedMessage.groupInformation.groupOwnerIdentity, label: label)
             guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -101,7 +101,7 @@ extension DownloadGroupPhotoChildProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }

@@ -2061,7 +2061,7 @@ extension NewSingleDiscussionViewController {
             guard let persistedMessage = try? PersistedMessage.get(with: objectId, within: ObvStack.shared.viewContext) else { return }
             guard let discussion = persistedMessage.discussion else { return }
             guard discussion.typedObjectID == self.discussionObjectID else { return }
-            let ownedIdentityHasHasAnotherDeviceWithChannel = discussion.ownedIdentity?.hasAnotherDeviceWithChannel ?? false
+            let ownedIdentityHasHasAnotherReachableDevice = discussion.ownedIdentity?.hasAnotherDeviceWhichIsReachable ?? false
             
             let multipleContacts: Bool
             do {
@@ -2108,7 +2108,7 @@ extension NewSingleDiscussionViewController {
             let alert = UIAlertController(title: userAlertTitle, message: userAlertMessage, preferredStyle: .actionSheet)
             
             for deletionType in persistedMessage.deletionTypesThatCanBeMadeAvailableForThisMessage.sorted() {
-                let title = CommonString.AlertButton.deletionActionTitle(for: deletionType, ownedIdentityHasHasAnotherDeviceWithChannel: ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts: multipleContacts)
+                let title = CommonString.AlertButton.deletionActionTitle(for: deletionType, ownedIdentityHasHasAnotherReachableDevice: ownedIdentityHasHasAnotherReachableDevice, multipleContacts: multipleContacts)
                 alert.addAction(UIAlertAction(title: title, style: .destructive, handler: { [weak self] (action) in
                     self?.deletePersistedMessage(objectId: objectId, confirmedDeletionType: deletionType, withinCell: cell)
                 }))

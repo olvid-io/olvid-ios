@@ -171,7 +171,7 @@ class ProtocolStep {
     }
     
     func getCoreMessageForOtherLocalProtocol(otherCryptoProtocolId: CryptoProtocolId, otherProtocolInstanceUid: UID) -> CoreProtocolMessage {
-        return CoreProtocolMessage(channelType: .Local(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+        return CoreProtocolMessage(channelType: .local(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                                    cryptoProtocolId: otherCryptoProtocolId,
                                    protocolInstanceUid: otherProtocolInstanceUid)
     }

@@ -40,6 +40,7 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable, Obv
     @NSManaged public private(set) var identifier: Data
     @NSManaged private var rawIdentityIdentity: Data // Required for core data constraints
     @NSManaged private var rawOwnedIdentityIdentity: Data // Required for core data constraints
+    @NSManaged private var rawPreKeyAvailable: Bool
     @NSManaged private var rawSecureChannelStatus: Int
 
     // MARK: Relationships
@@ -88,16 +89,48 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable, Obv
         }
     }
     
-    public enum SecureChannelStatus: Int {
+    private enum SecureChannelStatusRaw: Int {
         case creationInProgress = 0
         case created = 1
+    }
+    
+    public enum SecureChannelStatus: Equatable {
+        
+        case creationInProgress(preKeyAvailable: Bool)
+        case created(preKeyAvailable: Bool)
+        
+        fileprivate var rawValue: Int {
+            switch self {
+            case .creationInProgress:
+                return SecureChannelStatusRaw.creationInProgress.rawValue
+            case .created:
+                return SecureChannelStatusRaw.created.rawValue
+            }
+        }
+        
+        public var isPreKeyAvailable: Bool {
+            switch self {
+            case .creationInProgress(preKeyAvailable: let preKeyAvailable),
+                    .created(preKeyAvailable: let preKeyAvailable):
+                return preKeyAvailable
+            }
+        }
+        
+        public var isReachable: Bool {
+            switch self {
+            case .creationInProgress(preKeyAvailable: let preKeyAvailable):
+                return preKeyAvailable
+            case .created:
+                return true
+            }
+        }
         
         init(_ status: ObvContactDevice.SecureChannelStatus) {
             switch status {
-            case .creationInProgress:
-                self = .creationInProgress
-            case .created:
-                self = .created
+            case .creationInProgress(preKeyAvailable: let preKeyAvailable):
+                self = .creationInProgress(preKeyAvailable: preKeyAvailable)
+            case .created(preKeyAvailable: let preKeyAvailable):
+                self = .created(preKeyAvailable: preKeyAvailable)
             }
         }
     }
@@ -106,11 +139,23 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable, Obv
     // Expected to be non-nil
     public private(set) var secureChannelStatus: SecureChannelStatus? {
         get {
-            return SecureChannelStatus(rawValue: rawSecureChannelStatus)
+            guard let secureChannelStatusRaw = SecureChannelStatusRaw(rawValue: rawSecureChannelStatus) else { assertionFailure(); return nil }
+            let preKeyAvailable = self.rawPreKeyAvailable
+            switch secureChannelStatusRaw {
+            case .creationInProgress:
+                return .creationInProgress(preKeyAvailable: preKeyAvailable)
+            case .created:
+                return .created(preKeyAvailable: preKeyAvailable)
+            }
         }
         set {
             guard let newValue else { assertionFailure(); return }
-            self.rawSecureChannelStatus = newValue.rawValue
+            if self.rawSecureChannelStatus != newValue.rawValue {
+                self.rawSecureChannelStatus = newValue.rawValue
+            }
+            if self.rawPreKeyAvailable != newValue.isPreKeyAvailable {
+                self.rawPreKeyAvailable = newValue.isPreKeyAvailable
+            }
         }
     }
 

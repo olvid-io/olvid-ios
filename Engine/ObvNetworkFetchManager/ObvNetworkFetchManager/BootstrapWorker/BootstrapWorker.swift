@@ -99,8 +99,10 @@ final class BootstrapWorker {
         if forTheFirstTime {
             Task { [weak self] in
                 guard let self else { return }
-                // We cannot call this method in the finalizeInitialization method because the generated notifications would not be received by the app
-                rescheduleAllInboxMessagesAndAttachments(flowId: flowId, log: Self.log, contextCreator: contextCreator, notificationDelegate: notificationDelegate, delegateManager: delegateManager)
+                await removeExpectedContactForReProcessingIfAppropriate(flowId: flowId, contextCreator: contextCreator, identityDelegate: identityDelegate, delegateManager: delegateManager)
+                await deleteOldInboxMessagesExpectingContactForReProcessing(delegateManager: delegateManager, flowId: flowId)
+                resumeAttachmentsDownloadNotAlreadyDownloading(delegateManager: delegateManager, flowId: flowId)
+                reNotifyAboutDecryptedApplicationMessage(flowId: flowId, contextCreator: contextCreator, notificationDelegate: notificationDelegate, delegateManager: delegateManager)
                 await deleteAllWebSocketServerQueries(delegateManager: delegateManager, flowId: flowId, logOnFailure: Self.log)
 
                 do { try await delegateManager.wellKnownCacheDelegate.downloadAndUpdateCache(flowId: flowId) } catch { assertionFailure(error.localizedDescription) }
@@ -195,7 +197,7 @@ extension BootstrapWorker {
         contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
 
             do {
-                let ownedCryptoIds = try identityDelegate.getOwnedIdentities(within: obvContext)
+                let ownedCryptoIds = try identityDelegate.getOwnedIdentities(restrictToActive: true, within: obvContext)
                 for ownedCryptoId in ownedCryptoIds {
                     Task {
                         do {
@@ -214,10 +216,8 @@ extension BootstrapWorker {
 
     }
     
-
-    /// This method is called on init and reschedules all messages by calling the newOutboxMessage() method on the flow coordinator.
-    private func rescheduleAllInboxMessagesAndAttachments(flowId: FlowIdentifier, log: OSLog, contextCreator: ObvCreateContextDelegate, notificationDelegate: ObvNotificationDelegate, delegateManager: ObvNetworkFetchDelegateManager) {
-        
+    
+    private func resumeAttachmentsDownloadNotAlreadyDownloading(delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) {
         Task {
             do {
                 try await delegateManager.downloadAttachmentChunksDelegate.resumeDownloadOfAttachmentsNotAlreadyDownloading(downloadKind: .allDownloadableAttachmentsWithoutSession, flowId: flowId)
@@ -225,12 +225,16 @@ extension BootstrapWorker {
                 assertionFailure(error.localizedDescription)
             }
         }
+    }
 
-        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-
+    
+    private func reNotifyAboutDecryptedApplicationMessage(flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, notificationDelegate: ObvNotificationDelegate, delegateManager: ObvNetworkFetchDelegateManager) {
+        
+        contextCreator.performBackgroundTaskAndWait(flowId: flowId) { obvContext in
+            
             let messages: [InboxMessage]
             do {
-                messages = try InboxMessage.fetchMessagesThatCannotBeDeletedFromServer(within: obvContext)
+                messages = try InboxMessage.fetchApplicationMessagesToReNotify(within: obvContext)
                 assert(messages.allSatisfy({ !$0.canBeDeletedFromServer }))
             } catch {
                 os_log("Could not get inbox messages", log: Self.log, type: .fault)
@@ -239,9 +243,25 @@ extension BootstrapWorker {
             }
 
             os_log("Number of InboxMessage instances that cannot be deleted from server during bootstrap: %d", log: Self.log, type: .info, messages.count)
-            
-            do {
-                for msg in messages {
+
+            // Re-send a notification that will eventually allow the app to process the message
+
+            for msg in messages {
+                
+                guard let messageId = msg.messageId else { assert(msg.isDeleted); continue }
+                let attachmentIds = msg.attachmentIds
+                let hasEncryptedExtendedMessagePayload = msg.hasEncryptedExtendedMessagePayload && msg.extendedMessagePayloadKey != nil
+
+                if !msg.markedForDeletion {
+                    
+                    ObvNetworkFetchNotificationNew.applicationMessageDecrypted(messageId: messageId,
+                                                                               attachmentIds: attachmentIds,
+                                                                               hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload,
+                                                                               flowId: flowId)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
+                    
+                } else {
+                    
                     for attachment in msg.attachments {
                         guard let attachmentId = attachment.attachmentId else { assertionFailure(); continue }
                         switch attachment.status {
@@ -258,21 +278,69 @@ extension BootstrapWorker {
                             continue
                         }
                     }
-                    guard let messageId = msg.messageId else { assert(msg.isDeleted); continue }
-                    let attachmentIds = msg.attachmentIds
-                    let hasEncryptedExtendedMessagePayload = msg.hasEncryptedExtendedMessagePayload && msg.extendedMessagePayloadKey != nil
-                    
-                    // Re-send a notification that will eventually allow the app to process the message
-                    
-                    ObvNetworkFetchNotificationNew.applicationMessageDecrypted(messageId: messageId,
-                                                                               attachmentIds: attachmentIds,
-                                                                               hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload,
-                                                                               flowId: flowId)
-                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
-                    
+
                 }
+                
             }
             
+        }
+        
+    }
+    
+    
+    /// Fetches all ``InboxMessage`` instances with a non-nil expected contact for reprocessing. For each remote identity found, we check if this remote identity is now a contact.
+    /// If this is the case, we remove this expected remote identity and re-process the messages. This is only required in the case we missed the notification about the fact that a remote
+    /// identity is now a contact.
+    private func removeExpectedContactForReProcessingIfAppropriate(flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, identityDelegate: ObvIdentityDelegate, delegateManager: ObvNetworkFetchDelegateManager) async {
+
+        do {
+            
+            let expectedContactsThatAreNowContacts = try await determineExpectedContactsThatAreNowContacts(flowId: flowId, contextCreator: contextCreator, identityDelegate: identityDelegate)
+
+            os_log("Number of expected contacts that can be re-processed inbox messages during bootstrap: %d", log: Self.log, type: .info, expectedContactsThatAreNowContacts.count)
+            
+            guard !expectedContactsThatAreNowContacts.isEmpty else { return }
+            
+            try await delegateManager.messagesDelegate.removeExpectedContactForReProcessingOperationThenProcessUnprocessedMessages(expectedContactsThatAreNowContacts: expectedContactsThatAreNowContacts, flowId: flowId)
+            
+        } catch {
+            assertionFailure()
+        }
+        
+    }
+    
+    
+    /// ``InboxMessage`` instances that expect a contact before re-processing (a situation that only occurs when the message was sent using a pre-key) shall be deleted after a certain retention period.
+    private func deleteOldInboxMessagesExpectingContactForReProcessing(delegateManager: ObvNetworkFetchDelegateManager, flowId: FlowIdentifier) async {
+        
+        let op1 = MarkForDeletionOldInboxMessagesExpectingContactForReProcessingOperation()
+        do {
+            try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+
+    }
+    
+    
+    private func determineExpectedContactsThatAreNowContacts(flowId: FlowIdentifier, contextCreator: ObvCreateContextDelegate, identityDelegate: ObvIdentityDelegate) async throws -> Set<ObvContactIdentifier> {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<ObvContactIdentifier>, any Error>) in
+            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    var expectedContactsThatAreNowContacts = Set<ObvContactIdentifier>()
+                    let expectedContactsForReProcessing = try InboxMessage.getExpectedContactsForReProcessing(within: obvContext.context)
+                    os_log("Number of expected contacts for re-processing inbox messages during bootstrap: %d", log: Self.log, type: .info, expectedContactsForReProcessing.count)
+                    for contact in expectedContactsForReProcessing {
+                        if try identityDelegate.isIdentity(contact.contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: contact.ownedCryptoId.cryptoIdentity, within: obvContext) {
+                            expectedContactsThatAreNowContacts.insert(contact)
+                        }
+                    }
+
+                    return continuation.resume(returning: expectedContactsThatAreNowContacts)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
         }
     }
     

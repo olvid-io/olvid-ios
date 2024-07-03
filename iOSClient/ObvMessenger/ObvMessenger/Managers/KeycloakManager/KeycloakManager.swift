@@ -310,7 +310,7 @@ actor KeycloakManager: NSObject {
     func syncAllManagedIdentities(failedAttempts: Int = 0, ignoreSynchronizationInterval: Bool) async throws {
         os_log("🧥 Call to syncAllManagedIdentities", log: KeycloakManager.log, type: .info)
         do {
-            let ownedIdentities = (try obvEngine.getOwnedIdentities()).filter({ $0.isKeycloakManaged })
+            let ownedIdentities = (try obvEngine.getOwnedIdentities(restrictToActive: true)).filter({ $0.isKeycloakManaged })
             for ownedIdentity in ownedIdentities {
                 await synchronizeOwnedIdentityWithKeycloakServer(ownedCryptoId: ownedIdentity.cryptoId, ignoreSynchronizationInterval: ignoreSynchronizationInterval)
             }

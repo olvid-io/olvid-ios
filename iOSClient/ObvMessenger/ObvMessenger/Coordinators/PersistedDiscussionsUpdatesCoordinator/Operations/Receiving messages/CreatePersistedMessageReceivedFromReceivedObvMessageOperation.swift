@@ -45,6 +45,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
 
     enum Result {
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
+        case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case messageCreated(discussionPermanentID: DiscussionPermanentID)
     }
     
@@ -53,7 +54,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
     
     var discussionPermanentID: ObvUICoreData.DiscussionPermanentID? {
         switch result {
-        case .couldNotFindGroupV2InDatabase, nil:
+        case .couldNotFindGroupV2InDatabase, .couldNotFindContactInDatabase, nil:
             return nil
         case .messageCreated(discussionPermanentID: let discussionPermanentID):
             return discussionPermanentID
@@ -92,6 +93,9 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                     switch error {
                     case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
                         result = .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+                        return
+                    case .couldNotFindContact:
+                        result = .couldNotFindContactInDatabase(contactCryptoId: obvMessage.fromContactIdentity.contactCryptoId)
                         return
                     default:
                         return cancel(withReason: .persistedObvContactIdentityObvError(error: error))

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,20 +21,20 @@ import UIKit
 import MessageUI
 import ObvUI
 
-class InitializationFailureViewController: UIViewController {
+final class InitializationFailureViewController: UIViewController {
 
     @IBOutlet weak var standardErrorMessage: UILabel!
     @IBOutlet weak var errorMessageLabel: UILabel!
     @IBOutlet weak var shareErrorMessageExplanationLabel: UILabel!
-    @IBOutlet weak var shareButton: ObvImageButton!
+    @IBOutlet weak var shareButton: UIButton!
     @IBOutlet weak var thankYouLabel: UILabel!
     
     enum Category {
-        case failure
+        case initializationFailed
         case initializationTakesTooLong
     }
     
-    var category = Category.failure
+    var category = Category.initializationFailed
     
     var error: Error? {
         didSet {
@@ -73,6 +73,8 @@ class InitializationFailureViewController: UIViewController {
         }
         if !MFMailComposeViewController.canSendMail() {
             self.shareButton.isHidden = true
+        } else {
+            self.shareButton.isHidden = false
         }
         
         let copyButton = UIBarButtonItem(image: UIImage(systemName: "doc.on.doc"), style: .plain, target: self, action: #selector(copyErrorMessageClipboardButtonTapped))
@@ -138,7 +140,7 @@ extension InitializationFailureViewController {
         static let title = NSLocalizedString("Sorry...", comment: "Title")
         static func stdErrorMsgForCategory(_ category: Category) -> String {
             switch category {
-            case .failure:
+            case .initializationFailed:
                 return NSLocalizedString("Olvid failed to start properly. This is a terrible experience, we deeply appologize about this.", comment: "Body text")
             case .initializationTakesTooLong:
                 return NSLocalizedString("STD_MSG_OLVID_TAKES_TOO_LONG_TO_START", comment: "Body text")
@@ -147,7 +149,7 @@ extension InitializationFailureViewController {
         static let shareButtonTitle = NSLocalizedString("Send this to the development team", comment: "Button title")
         static func shareErrorMessageExplanation(_ category: Category) -> String {
             switch category {
-            case .failure:
+            case .initializationFailed:
                 return NSLocalizedString("If you wish, you can help the development team by tapping the button below. This will share (only) the above message with them.", comment: "Body text")
             case .initializationTakesTooLong:
                 return NSLocalizedString("SHARE_MSG_OLVID_TAKES_TOO_LONG_TO_START", comment: "Body text")

@@ -29,7 +29,7 @@ extension ObvLinkMetadata {
     public static func from(linkMetadata: LPLinkMetadata) async -> ObvLinkMetadata {
         
         let title = linkMetadata.title
-        let url = linkMetadata.url
+        let url = linkMetadata.originalURL
         let desc = linkMetadata.value(forKey: "summary") as? String
         let remoteVideoURL = linkMetadata.remoteVideoURL
         

@@ -251,6 +251,7 @@ final class NotificationService: UNNotificationServiceExtension {
         var contactStructure: PersistedObvContactIdentity.Structure?
         var discussionKind: PersistedDiscussion.StructureKind?
         var messageRepliedToStructure: PersistedMessage.AbstractStructure?
+        var shouldShowMinimalNotification = false
         
         ObvStack.shared.performBackgroundTaskAndWait { context in
             
@@ -302,7 +303,11 @@ final class NotificationService: UNNotificationServiceExtension {
                         return
                     }
                     guard let group = try PersistedGroupV2.get(ownIdentity: ownedIdentity.cryptoId, appGroupIdentifier: groupV2Identifier, within: context) else {
-                        throw Self.makeError(message: "Could not find group v2")
+                        // We are receiving a message from a known contact, within a group we don't know. It is likely that we accepted this group invitation from another
+                        // owned device (otherwise, we would be a pending member and the contact would not have sent this message). Yet, we don't display the message,
+                        // and only show a minimal notification. The may incite the local user to launch the app, which will create the group and receive the message.
+                        shouldShowMinimalNotification = true
+                        return
                     }
                     guard let _discussion = group.discussion else {
                         throw Self.makeError(message: "Could not find discussion of group v2")
@@ -347,6 +352,11 @@ final class NotificationService: UNNotificationServiceExtension {
                 return
             }
 
+        }
+        
+        guard !shouldShowMinimalNotification else {
+            self.fullAttemptContent = UserNotificationCreator.createMinimalNotification(badge: nil).notificationContent
+            return true
         }
         
         guard let contactStructure, let discussionKind else {

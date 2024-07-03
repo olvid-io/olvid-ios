@@ -128,12 +128,14 @@ extension ObvServerBatchUploadMessages {
     
     private enum PossibleReturnRawStatus: UInt8 {
         case ok = 0x00
+        case payloadTooLarge = 0x18
         case generalError = 0xff
     }
 
     public enum PossibleReturnStatus {
         case ok([(uidFromServer: UID, nonce: Data, timestampFromServer: Date)])
         case generalError
+        case payloadTooLarge
     }
     
     public static func parseObvServerResponse(responseData: Data, using log: OSLog) -> PossibleReturnStatus? {
@@ -199,6 +201,12 @@ extension ObvServerBatchUploadMessages {
             }
             
             return .ok(returnedValues)
+            
+        case .payloadTooLarge:
+            
+            assertionFailure()
+            
+            return .payloadTooLarge
 
         case .generalError:
             

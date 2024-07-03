@@ -45,7 +45,9 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     @NSManaged private var rawIdentity: Data // Unique (together with `ownedIdentityIdentity`)
     @NSManaged private var rawOneToOneStatus: NSNumber? // Expected to be non-nil
     @NSManaged private var trustLevelRaw: String
-    
+    @NSManaged private var rawWasContactRecentlyOnline: NSNumber? // Expected to be non-nil
+    @NSManaged private var serverTimestampOfLastContactDiscovery: Date? // May be nil
+        
     // MARK: Relationships
         
     private(set) var contactGroups: Set<ContactGroup> {
@@ -136,6 +138,20 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
 
     // MARK: -
     
+    private(set) var wasContactRecentlyOnline: Bool {
+        get {
+            guard let rawWasContactRecentlyOnline else { assertionFailure(); return true }
+            return rawWasContactRecentlyOnline.boolValue
+        }
+        set {
+            let new = NSNumber(booleanLiteral: newValue)
+            if self.rawWasContactRecentlyOnline != new {
+                self.rawWasContactRecentlyOnline = new
+            }
+        }
+    }
+    
+    
     private(set) var oneToOneStatus: OneToOneStatusOfContactIdentity {
         get {
             guard let rawValue = rawOneToOneStatus?.intValue,
@@ -163,6 +179,13 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         return rawIdentity
     }
 
+    
+    // Expected to be non nil
+    var contactIdentifier: ObvContactIdentifier? {
+        guard let cryptoIdentity, let ownedCryptoId = ObvCryptoIdentity(from: ownedIdentityIdentity) else { assertionFailure(); return nil }
+        return ObvContactIdentifier(contactCryptoIdentity: cryptoIdentity, ownedCryptoIdentity: ownedCryptoId)
+    }
+    
 
     var trustOrigins: [TrustOrigin] {
         persistedTrustOrigins.sorted(by: { $0.timestamp > $1.timestamp }).compactMap { $0.trustOrigin }
@@ -179,7 +202,7 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     private var changedKeys = Set<String>()
     private var doNotNotifyOnOneToOneStatusChanged = false
 
-    var isActive: Bool {
+    var isRevokedAsCompromisedAndNotForcefullyTrustedByUser: Bool {
         isForcefullyTrustedByUser || !isRevokedAsCompromised
     }
     
@@ -218,6 +241,8 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         // Simple attributes
         self.rawIdentity = cryptoIdentity.getIdentity()
         self.oneToOneStatus = isKnownToBeOneToOne ? .oneToOne : .toBeDefined
+        self.rawWasContactRecentlyOnline = NSNumber(booleanLiteral: true)
+        self.serverTimestampOfLastContactDiscovery = nil
         
         // Simple relationships
         self.contactGroups = Set<ContactGroup>()
@@ -260,6 +285,8 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         self.trustLevelRaw = backupItem.trustLevelRaw
         self.isRevokedAsCompromised = backupItem.isRevokedAsCompromised
         self.isForcefullyTrustedByUser = backupItem.isForcefullyTrustedByUser
+        self.rawWasContactRecentlyOnline = NSNumber(booleanLiteral: true)
+        self.serverTimestampOfLastContactDiscovery = nil
         if let isOneToOne = backupItem.isOneToOne {
             self.oneToOneStatus = isOneToOne ? .oneToOne : .notOneToOne
         } else {
@@ -302,6 +329,8 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
         self.trustLevelRaw = snapshotNode.trustLevelRaw ?? TrustLevel.zero.rawValue
         self.isRevokedAsCompromised = snapshotNode.isRevokedAsCompromised ?? false
         self.isForcefullyTrustedByUser = snapshotNode.isForcefullyTrustedByUser ?? false
+        self.rawWasContactRecentlyOnline = NSNumber(booleanLiteral: true)
+        self.serverTimestampOfLastContactDiscovery = nil
         if let isOneToOne = snapshotNode.isOneToOne {
             self.oneToOneStatus = isOneToOne ? .oneToOne : .notOneToOne
         } else {
@@ -359,7 +388,7 @@ extension ContactIdentity {
         case couldNotGetPublishedIdentityDetails
         case couldNotCreatePersistedTrustOrigin
         case couldNotGetPersistedTrustOriginTrustLevel
-        case contactIsInactive
+        case contactIsRevokedAsCompromisedAndNotForcefullyTrustedByUser
         case delegateManagerIsNil
         case couldNotCreateContactDevice
         case couldNotFindContactDevice
@@ -510,7 +539,7 @@ extension ContactIdentity {
     
     
     func getSignedUserDetails(identityPhotosDirectory: URL) throws -> SignedObvKeycloakUserDetails? {
-        guard isActive else { return nil }
+        guard isRevokedAsCompromisedAndNotForcefullyTrustedByUser else { return nil }
         let details = publishedIdentityDetails ?? trustedIdentityDetails
         guard let identityDetails = details.getIdentityDetails(identityPhotosDirectory: identityPhotosDirectory) else {
             throw ObvError.couldNotGetIdentityDetails
@@ -662,7 +691,7 @@ extension ContactIdentity {
     func setForcefullyTrustedByUser(to newValue: Bool, delegateManager: ObvIdentityDelegateManager) {
         guard self.isForcefullyTrustedByUser != newValue else { return }
         self.isForcefullyTrustedByUser = newValue
-        if !isActive {
+        if !isRevokedAsCompromisedAndNotForcefullyTrustedByUser {
             self.devices.forEach { contactDevice in
                 let log = OSLog(subsystem: delegateManager.logSubsystem, category: ContactIdentity.entityName)
                 do {
@@ -712,9 +741,9 @@ extension ContactIdentity {
 extension ContactIdentity {
     
     func addIfNotExistDeviceWith(uid: UID, createdDuringChannelCreation: Bool, flowId: FlowIdentifier) throws {
-        guard self.isActive else {
+        guard self.isRevokedAsCompromisedAndNotForcefullyTrustedByUser else {
             assertionFailure()
-            throw ObvError.contactIsInactive
+            throw ObvError.contactIsRevokedAsCompromisedAndNotForcefullyTrustedByUser
         }
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: "ContactIdentity")
@@ -731,7 +760,8 @@ extension ContactIdentity {
         }
     }
     
-    func removeIfExistsDeviceWith(uid: UID, flowId: FlowIdentifier) throws {
+    
+    private func removeIfExistsDeviceWith(uid: UID, flowId: FlowIdentifier) throws {
         guard let obvContext = self.obvContext else {
             let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: "ContactIdentity")
             os_log("The obvContext is not set in removeIfExistsDeviceWith", log: log, type: .fault)
@@ -742,6 +772,70 @@ extension ContactIdentity {
             obvContext.delete(device)
         }
     }
+    
+    
+    private func updateIfExistsDeviceWith(with deviceOnServer: ContactDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date, log: OSLog) throws {
+        guard let device = self.devices.first(where: { $0.uid == deviceOnServer.uid }) else { assertionFailure(); return }
+        if let deviceBlobOnServer = deviceOnServer.deviceBlobOnServer {
+            guard let cryptoIdentity else { assertionFailure(); return }
+            try deviceBlobOnServer.checkChallengeResponse(for: cryptoIdentity)
+        }
+        try device.updateWithContactDeviceDiscoveryResultDevice(deviceOnServer, serverCurrentTimestamp: serverCurrentTimestamp, log: log)
+    }
+    
+    
+    func processContactDeviceDiscoveryResult(_ contactDeviceDiscoveryResult: ContactDeviceDiscoveryResult, log: OSLog, flowId: FlowIdentifier) throws {
+        
+        if self.wasContactRecentlyOnline != contactDeviceDiscoveryResult.wasContactRecentlyOnline {
+            self.wasContactRecentlyOnline = contactDeviceDiscoveryResult.wasContactRecentlyOnline
+        }
+        
+        if self.serverTimestampOfLastContactDiscovery != contactDeviceDiscoveryResult.serverCurrentTimestamp {
+            self.serverTimestampOfLastContactDiscovery = contactDeviceDiscoveryResult.serverCurrentTimestamp
+        }
+        
+        // Delete, create, and update devices
+        
+        let knownDeviceUIDs = Set(self.devices.map(\.uid))
+        let correctDeviceUIDs = Set(contactDeviceDiscoveryResult.devices.map(\.uid))
+        let deviceUIDsToRemove = knownDeviceUIDs.subtracting(correctDeviceUIDs)
+        let deviceUIDsToAdd = correctDeviceUIDs.subtracting(knownDeviceUIDs)
+        
+        try deviceUIDsToRemove.forEach { try removeIfExistsDeviceWith(uid: $0, flowId: flowId) }
+        try deviceUIDsToAdd.forEach { try addIfNotExistDeviceWith(uid: $0, createdDuringChannelCreation: false, flowId: flowId) }
+        try contactDeviceDiscoveryResult.devices.forEach {
+            try updateIfExistsDeviceWith(with: $0, serverCurrentTimestamp: contactDeviceDiscoveryResult.serverCurrentTimestamp, log: log)
+        }
+        
+    }
+    
+    
+    func markAsRecentlyOnline() {
+        if !self.wasContactRecentlyOnline {
+            self.wasContactRecentlyOnline = true
+        }
+    }
+    
+}
+
+// MARK: - Latest Channel Creation Ping Timestamp for contact devices
+
+extension ContactIdentity {
+    
+    func getLatestChannelCreationPingTimestampOfContactDevice(withUID uid: UID) throws -> Date? {
+        guard let device = self.devices.first(where: { $0.uid == uid }) else {
+            assertionFailure()
+            throw ObvError.couldNotFindContactDevice
+        }
+        return device.latestChannelCreationPingTimestamp
+    }
+    
+    
+    func setLatestChannelCreationPingTimestampOfContactDevice(withUID uid: UID, to date: Date) throws {
+        guard let device = self.devices.first(where: { $0.uid == uid }) else { return }
+        device.setLatestChannelCreationPingTimestamp(to: date)
+    }
+    
 }
 
 
@@ -821,6 +915,29 @@ extension ContactIdentity {
 }
 
 
+// MARK: - Using pre-keys for encryption
+
+extension ContactIdentity {
+    
+    func wrap(_ messageKey: any AuthenticatedEncryptionKey, forContactDeviceUID uid: UID, with ownedPrivateKeyForAuthentication: any PrivateKeyForAuthentication, and ownedPublicKeyForAuthentication: any PublicKeyForAuthentication, prng: any PRNGService) throws -> EncryptedData? {
+        
+        guard let contactDevice = self.devices.first(where: { $0.uid == uid }) else {
+            assertionFailure()
+            throw ObvError.couldNotFindContactDevice
+        }
+        
+        let wrappedMessageKey = try contactDevice.wrap(messageKey,
+                                                       with: ownedPrivateKeyForAuthentication,
+                                                       and: ownedPublicKeyForAuthentication,
+                                                       prng: prng)
+        
+        return wrappedMessageKey
+        
+    }
+    
+}
+
+
 // MARK: - Convenience DB getters
 
 extension ContactIdentity {
@@ -839,6 +956,7 @@ extension ContactIdentity {
             case ownedIdentityIdentity = "ownedIdentityIdentity"
             case rawDateOfLastBootstrappedContactDeviceDiscovery = "rawDateOfLastBootstrappedContactDeviceDiscovery"
             case rawIdentity = "rawIdentity"
+            case serverTimestampOfLastContactDiscovery = "serverTimestampOfLastContactDiscovery"
             case trustLevelRaw = "trustLevelRaw"
             // Relationships
             case contactGroups = "contactGroups"
@@ -861,6 +979,16 @@ extension ContactIdentity {
         }
         fileprivate static var withoutDevice: NSPredicate {
             NSPredicate(withZeroCountForKey: Key.devices)
+        }
+        fileprivate static func withServerTimestampOfLastContactDiscovery(earlierThan date: Date) -> NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(withNilValueForKey: Key.serverTimestampOfLastContactDiscovery),
+                NSPredicate(Key.serverTimestampOfLastContactDiscovery, earlierThan: date),
+            ])
+        }
+        fileprivate static var withActiveOwnedIdentity: NSPredicate {
+            let key = [Key.ownedIdentity.rawValue, OwnedIdentity.Predicate.Key.isActive.rawValue].joined(separator: ".")
+            return NSPredicate(key, is: true)
         }
     }
     
@@ -928,6 +1056,25 @@ extension ContactIdentity {
         ])
         return try obvContext.count(for: request) != 0
     }
+    
+    
+    static func getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(within context: NSManagedObjectContext) throws -> Set<ObvContactIdentifier> {
+        let request: NSFetchRequest<ContactIdentity> = ContactIdentity.fetchRequest()
+        let dateLimit = Date.now.addingTimeInterval(-ObvConstants.contactDeviceDiscoveryTimeInterval)
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withActiveOwnedIdentity,
+            Predicate.withServerTimestampOfLastContactDiscovery(earlierThan: dateLimit),
+        ])
+        request.propertiesToFetch = [
+            Predicate.Key.rawIdentity.rawValue,
+            Predicate.Key.ownedIdentityIdentity.rawValue,
+        ]
+        request.fetchBatchSize = 500
+        let items = try context.fetch(request)
+        let contactIdentifiers = items.compactMap({ $0.contactIdentifier })
+        return Set(contactIdentifiers)
+    }
+    
 }
 
 
@@ -1019,7 +1166,7 @@ extension ContactIdentity {
                 ObvIdentityNotificationNew.contactIsActiveChanged(
                     ownedIdentity: ownedIdentity.cryptoIdentity,
                     contactIdentity: cryptoIdentity,
-                    isActive: isActive,
+                    isActive: isRevokedAsCompromisedAndNotForcefullyTrustedByUser,
                     flowId: flowId)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
 

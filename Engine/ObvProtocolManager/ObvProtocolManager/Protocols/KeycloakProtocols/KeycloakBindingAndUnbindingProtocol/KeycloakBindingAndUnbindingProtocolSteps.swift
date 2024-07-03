@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -78,12 +78,12 @@ extension KeycloakBindingAndUnbindingProtocol {
             switch receivedMessage {
             case .ownedIdentityKeycloakBinding(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .propagateKeycloakBinding(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -122,7 +122,12 @@ extension KeycloakBindingAndUnbindingProtocol {
                 
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = PropagateKeycloakBindingMessage(
                         coreProtocolMessage: coreMessage,
                         keycloakUserId: keycloakUserId,
@@ -214,12 +219,12 @@ extension KeycloakBindingAndUnbindingProtocol {
             switch receivedMessage {
             case .ownedIdentityKeycloakUnbinding(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .propagateKeycloakUnbinding(let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -250,7 +255,12 @@ extension KeycloakBindingAndUnbindingProtocol {
                 
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = PropagateKeycloakUnbindingMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)

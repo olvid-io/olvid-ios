@@ -144,6 +144,9 @@ struct ContactDetailedInfosView: View {
                         ObvSimpleListItemView(
                             title: Text("CERTIFIED_BY_IDENTITY_PROVIDER"),
                             value: contact.isCertifiedByOwnKeycloak ? CommonString.Word.Yes : CommonString.Word.No)
+                        ObvSimpleListItemView(
+                            title: Text("WAS_RECENTLY_ONLINE"),
+                            value: contact.wasRecentlyOnline ? CommonString.Word.Yes : CommonString.Word.No)
                     } header: {
                         Text("Details")
                     }

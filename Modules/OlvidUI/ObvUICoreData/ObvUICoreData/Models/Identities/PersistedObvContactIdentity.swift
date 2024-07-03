@@ -53,6 +53,7 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
     @NSManaged public private(set) var photoURL: URL?
     @NSManaged private var rawOwnedIdentityIdentity: Data // Required for core data constraints
     @NSManaged private var rawStatus: Int
+    @NSManaged private var rawWasRecentlyOnline: NSNumber? // Expected to be non-nil
     @NSManaged private var serializedIdentityCoreDetails: Data
     @NSManaged public private(set) var sortDisplayName: String // Should be renamed normalizedSortAndSearchKey
 
@@ -313,6 +314,19 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvErrorMaker, 
     /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
     private var isInsertedWhileRestoringSyncSnapshot = false
 
+    
+    public private(set) var wasRecentlyOnline: Bool {
+        get {
+            return rawWasRecentlyOnline?.boolValue ?? true
+        }
+        set {
+            let new = NSNumber(booleanLiteral: newValue)
+            if self.rawWasRecentlyOnline != new {
+                self.rawWasRecentlyOnline = new
+            }
+        }
+    }
+
 }
 
 
@@ -347,6 +361,7 @@ extension PersistedObvContactIdentity {
         self.contactGroups = Set<PersistedContactGroup>()
         self.rawOwnedIdentityIdentity = persistedObvOwnedIdentity.cryptoId.getIdentity()
         self.ownedIdentity = persistedObvOwnedIdentity
+        self.wasRecentlyOnline = contactIdentity.wasRecentlyOnline
         if contactIdentity.isOneToOne {
             if let discussion = try PersistedOneToOneDiscussion.getWithContactCryptoId(contactIdentity.cryptoId, ofOwnedCryptoId: contactIdentity.ownedIdentity.cryptoId, within: context) {
                 try discussion.setStatus(to: .active)
@@ -472,6 +487,9 @@ extension PersistedObvContactIdentity {
         } else {
             try self.rawOneToOneDiscussion?.setStatus(to: .locked)
         }
+        if self.wasRecentlyOnline != contactIdentity.wasRecentlyOnline {
+            self.wasRecentlyOnline = contactIdentity.wasRecentlyOnline
+        }
         // Note that we do not reset the discussion title.
         // Instead, we send a notification in the didSave method that will be catched by the appropriate coordinator, allowing to properly synchronize the title change.
         let selfHadToBeUpdated = !self.changedValues().isEmpty
@@ -537,7 +555,7 @@ extension PersistedObvContactIdentity {
 extension PersistedObvContactIdentity {
     
     private func resetValueOfAtLeastOneDeviceAllowsThisContactToReceiveMessages() {
-        let newValue = !devices.filter({ !$0.isDeleted }).filter({ $0.secureChannelStatus == .created }).isEmpty
+        let newValue = !devices.filter({ !$0.isDeleted }).filter({ $0.secureChannelStatus?.isReachable == true }).isEmpty
         if self.atLeastOneDeviceAllowsThisContactToReceiveMessages != newValue {
             self.atLeastOneDeviceAllowsThisContactToReceiveMessages = newValue
         }

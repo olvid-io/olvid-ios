@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,10 +31,10 @@ public struct ObvOwnedDevice: Hashable, CustomStringConvertible {
     public let expirationDate: Date?
     public let latestRegistrationDate: Date?
 
-    public enum SecureChannelStatus {
+    public enum SecureChannelStatus: Equatable, Hashable {
         case currentDevice
-        case creationInProgress
-        case created
+        case creationInProgress(preKeyAvailable: Bool)
+        case created(preKeyAvailable: Bool)
     }
     
     var isCurrentDevice: Bool {

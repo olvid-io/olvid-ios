@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,13 +25,14 @@ import ObvMetaManager
 import CoreData
 
 
-/// This operation deletes all devices found within the identity manager if they have no associated channel and no oingoing channel creation protocol with the current device. For each (owned or contact) identity corresponding to a deleted device, we start a device discovery.
-final class DeleteContactDevicesWithNoChannelAndNoChannelCreationThenPerformAppropriateDeviceDiscoveriesOperation: ContextualOperationWithSpecificReasonForCancel<DeleteContactDevicesWithNoChannelAndNoChannelCreationThenPerformAppropriateDeviceDiscoveriesOperation.ReasonForCancel> {
+final class PingAppropriateRemoteDevicesWithoutChannelOperation: ContextualOperationWithSpecificReasonForCancel<PingAppropriateRemoteDevicesWithoutChannelOperation.ReasonForCancel> {
+    
     
     private let identityDelegate: ObvIdentityDelegate
     private let channelDelegate: ObvChannelDelegate
     private let protocolDelegate: ObvProtocolDelegate
     private let prng: PRNGService
+
     
     init(identityDelegate: ObvIdentityDelegate, channelDelegate: ObvChannelDelegate, protocolDelegate: ObvProtocolDelegate, prng: PRNGService) {
         self.identityDelegate = identityDelegate
@@ -40,17 +41,22 @@ final class DeleteContactDevicesWithNoChannelAndNoChannelCreationThenPerformAppr
         self.prng = prng
         super.init()
     }
+
     
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
         
-        // Get all existing devices within the identity manager
+        // Get all devices within the identity manager that haven't been pinged for a "long" time
         
         let existingDevices: Set<ObliviousChannelIdentifier>
         do {
-            existingDevices = try identityDelegate.getAllRemoteOwnedDevicesUidsAndContactDeviceUids(within: obvContext)
+            existingDevices = try identityDelegate.getAllRemoteOwnedDevicesUidsAndContactDeviceUidsWithLatestChannelCreationPingTimestamp(
+                earlierThan: .now.addingTimeInterval(-ObvConstants.channelCreationPingInterval),
+                within: obvContext)
         } catch {
             return cancel(withReason: .identityDelegateError(error: error))
         }
+
+        guard !existingDevices.isEmpty else { return }
         
         // Get all existing channels
         
@@ -60,14 +66,14 @@ final class DeleteContactDevicesWithNoChannelAndNoChannelCreationThenPerformAppr
         } catch {
             return cancel(withReason: .channelDelegate(error: error))
         }
-        
-        // Find devices with no channel and no channel creation protocol
+
+        // Find devices with no channel
         
         let devicesWithNoChannel = existingDevices
             .subtracting(existingChannels)
         
         guard !devicesWithNoChannel.isEmpty else { return }
-        
+
         // At this point, we know there is at least one (owned or contact) device with no channel.
         
         // Find all channel creation protocols
@@ -80,77 +86,65 @@ final class DeleteContactDevicesWithNoChannelAndNoChannelCreationThenPerformAppr
         } catch {
             return cancel(withReason: .protocolDelegate(error: error))
         }
-        
+
         // For each device with no channel, we check whether there is a channel creation protocol already handling this situation.
-        // We delete all devices with no channel and no ongoing channel creation protocol, and keep track of the corresponding identities:
-        // we will start a device discovery for them.
-        
-        var deviceDiscoveriesToStart = Set<ObliviousChannelIdentifierAlt>()
+        // If not, we start one.
         
         for deviceWithNoChannel in devicesWithNoChannel {
             
-            let ownedCryptoIdentity: ObvCryptoIdentity
             do {
-                ownedCryptoIdentity = try identityDelegate.getOwnedIdentityOfCurrentDeviceUid(deviceWithNoChannel.currentDeviceUid, within: obvContext)
-            } catch {
-                assertionFailure()
-                continue
-            }
-            
-            let channelCreationToFind = ObliviousChannelIdentifierAlt(ownedCryptoIdentity: ownedCryptoIdentity,
-                                                                      remoteCryptoIdentity: deviceWithNoChannel.remoteCryptoIdentity,
-                                                                      remoteDeviceUid: deviceWithNoChannel.remoteDeviceUid)
-            
-            if channelCreationProtocols.contains(channelCreationToFind) { continue }
-            
-            deviceDiscoveriesToStart.insert(channelCreationToFind)
-            
-            // If we reach this point, we found a device with no channel and with no ongoing channel creation protocol.
-            // We delete this device and add the corresponding remote identity to the set of identities for which we want to perform a device discovery.
-            
-            do {
-                if deviceWithNoChannel.remoteCryptoIdentity == ownedCryptoIdentity {
-                    try identityDelegate.removeOtherDeviceForOwnedIdentity(ownedCryptoIdentity,
-                                                                           otherDeviceUid: deviceWithNoChannel.remoteDeviceUid,
-                                                                           within: obvContext)
-                } else {
-                    try identityDelegate.removeDeviceForContactIdentity(deviceWithNoChannel.remoteCryptoIdentity,
-                                                                        withUid: deviceWithNoChannel.remoteDeviceUid,
-                                                                        ofOwnedIdentity: ownedCryptoIdentity,
-                                                                        within: obvContext)
+                
+                let ownedCryptoIdentity: ObvCryptoIdentity
+                do {
+                    ownedCryptoIdentity = try identityDelegate.getOwnedIdentityOfCurrentDeviceUid(deviceWithNoChannel.currentDeviceUid, within: obvContext)
+                } catch {
+                    assertionFailure()
+                    continue
                 }
+                
+                guard try identityDelegate.isOwnedIdentityActive(ownedIdentity: ownedCryptoIdentity, within: obvContext) else { continue }
+                
+                let channelCreationToFind = ObliviousChannelIdentifierAlt(ownedCryptoIdentity: ownedCryptoIdentity,
+                                                                          remoteCryptoIdentity: deviceWithNoChannel.remoteCryptoIdentity,
+                                                                          remoteDeviceUid: deviceWithNoChannel.remoteDeviceUid)
+                
+                if channelCreationProtocols.contains(channelCreationToFind) { continue }
+                
+                // If we reach this point, no channel creation protocol is started, we start one by pinging the remote device
+                
+                let msg: ObvChannelProtocolMessageToSend
+                
+                if channelCreationToFind.ownedCryptoIdentity == channelCreationToFind.remoteCryptoIdentity {
+                    
+                    msg = try protocolDelegate.getInitialMessageForChannelCreationWithOwnedDeviceProtocol(
+                        ownedIdentity: channelCreationToFind.ownedCryptoIdentity,
+                        remoteDeviceUid: channelCreationToFind.remoteDeviceUid)
+                    
+                } else {
+                
+                    msg = try protocolDelegate.getInitialMessageForChannelCreationWithContactDeviceProtocol(
+                        betweenTheCurrentDeviceOfOwnedIdentity: ownedCryptoIdentity,
+                        andTheDeviceUid: deviceWithNoChannel.remoteDeviceUid,
+                        ofTheContactIdentity: deviceWithNoChannel.remoteCryptoIdentity)
+
+                }
+                                
+                _ = try channelDelegate.postChannelMessage(msg, randomizedWith: prng, within: obvContext)
+                
             } catch {
                 assertionFailure()
                 continue
             }
             
         }
+
+
         
-        // Finally, we start the required channel creations
-        
-        for deviceDiscoveryToStart in deviceDiscoveriesToStart {
-            
-            do {
-                
-                let message: ObvChannelProtocolMessageToSend
-                if deviceDiscoveryToStart.ownedCryptoIdentity == deviceDiscoveryToStart.remoteCryptoIdentity {
-                    message = try protocolDelegate.getInitiateOwnedDeviceDiscoveryMessage(ownedCryptoIdentity: deviceDiscoveryToStart.ownedCryptoIdentity)
-                } else {
-                    message = try protocolDelegate.getInitialMessageForContactDeviceDiscoveryProtocol(ownedIdentity: deviceDiscoveryToStart.ownedCryptoIdentity, contactIdentity: deviceDiscoveryToStart.remoteCryptoIdentity)
-                }
-                
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                
-            } catch {
-                assertionFailure(error.localizedDescription)
-                // continue
-            }
-            
-        }
-        
+
     }
-        
     
+    
+    // MARK: ReasonForCancel
     
     enum ReasonForCancel: LocalizedErrorWithLogType {
         
@@ -184,6 +178,5 @@ final class DeleteContactDevicesWithNoChannelAndNoChannelCreationThenPerformAppr
         
         
     }
-    
-}
 
+}

@@ -62,6 +62,7 @@ final class InboxMessage: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     @NSManaged private(set) var markedForDeletion: Bool // If true, a message will be deleted asap (i.e., when all its attachments are also marked for deletion)
     @NSManaged private(set) var markedAsListedOnServer: Bool // Set to true after having notified the server that we are aware of a message. Once this Boolean is true, this message won't appear again when listing messages.
     @NSManaged private(set) var messagePayload: Data? // Not set at download time, but at the same time than the attachments' infos
+    @NSManaged private var rawExpectedContactForReProcessing: Data? // Non-nil iff the received message could be decrypted using a PreKey, but sent by an unknown remote identity
     @NSManaged private var rawMessageIdOwnedIdentity: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
     @NSManaged private var rawMessageIdUid: Data? // Expected to be non-nil. Non nil in the model. This is just to make sure we do not crash when accessing this attribute on a deleted instance.
     @NSManaged private(set) var messageUploadTimestampFromServer: Date
@@ -285,7 +286,16 @@ extension InboxMessage {
     }
     
     
-    var isProcessed: Bool { self.fromCryptoIdentity != nil && self.messagePayload != nil }
+    //var isProcessed: Bool { self.fromCryptoIdentity != nil && self.messagePayload != nil }
+    
+    
+    private var expectedContactForReProcessing: ObvContactIdentifier? {
+        guard let rawExpectedContactForReProcessing else { return nil }
+        guard let rawMessageIdOwnedIdentity else { return nil }
+        guard let contactCryptoIdentity = ObvCryptoIdentity(from: rawExpectedContactForReProcessing) else { assertionFailure(); return nil }
+        guard let ownedCryptoIdentity = ObvCryptoIdentity(from: rawMessageIdOwnedIdentity) else { assertionFailure(); return nil }
+        return ObvContactIdentifier(contactCryptoIdentity: contactCryptoIdentity, ownedCryptoIdentity: ownedCryptoIdentity)
+    }
     
     // MARK: - Setters
     
@@ -308,7 +318,6 @@ extension InboxMessage {
     
     
     private func markAsListedOnServer() {
-        assert(fromCryptoIdentity != nil, "We should be marking a message as 'listed' until whe determined who is the sender.")
         guard !markedAsListedOnServer else { return }
         markedAsListedOnServer = true
     }
@@ -330,6 +339,16 @@ extension InboxMessage {
         hasEncryptedExtendedMessagePayload = false
         extendedMessagePayloadKey = nil
     }
+    
+    
+    /// If this message was sent through a PreKey channel by a remote identity that is not a contact (yet), we keep the message in the inbox until the
+    /// remote identity becomes a contact. This method is called to indicate which remote identity we should wait for.
+    func unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: ObvCryptoIdentity) {
+        if self.rawExpectedContactForReProcessing != remoteCryptoIdentity.getIdentity() {
+            self.rawExpectedContactForReProcessing = remoteCryptoIdentity.getIdentity()
+        }
+    }
+    
 }
 
 
@@ -348,6 +367,7 @@ extension InboxMessage {
             case encryptedContentKey = "encryptedContent"
             case fromCryptoIdentityKey = "fromCryptoIdentity"
             case messagePayloadKey = "messagePayload"
+            case rawExpectedContactForReProcessing = "rawExpectedContactForReProcessing"
             case rawMessageIdOwnedIdentityKey = "rawMessageIdOwnedIdentity"
             case rawMessageIdUidKey = "rawMessageIdUid"
             case downloadTimestampFromServer = "downloadTimestampFromServer"
@@ -369,14 +389,12 @@ extension InboxMessage {
                 withMessageIdUid(messageId.uid),
             ])
         }
-        static var isUnprocessed: NSPredicate {
-            NSCompoundPredicate(orPredicateWithSubpredicates: [
-                NSPredicate(withNilValueForKey: Key.fromCryptoIdentityKey),
-                NSPredicate(withNilValueForKey: Key.messagePayloadKey),
+        static var isProcessable: NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                isNotMarkedForDeletion,
+                isNotExpectingContactForReProcessing,
+                hasNoFromIdentityOrNoMessagePayload,
             ])
-        }
-        static var isProcessed: NSPredicate {
-            NSCompoundPredicate(notPredicateWithSubpredicate: Self.isUnprocessed)
         }
         static var isMarkedForDeletion: NSPredicate {
             NSPredicate(Key.markedForDeletion, is: true)
@@ -398,15 +416,47 @@ extension InboxMessage {
                 Predicate.allDBAttachmentsAreMarkedForDeletion,
             ])
         }
+        static var cannotBeDeletedFromServer: NSPredicate {
+            NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.canBeDeletedFromServer)
+        }
+        private static var isNotExpectingContactForReProcessing: NSPredicate {
+            NSPredicate(withNilValueForKey: Key.rawExpectedContactForReProcessing)
+        }
+        static var isExpectingContactForReProcessing: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.rawExpectedContactForReProcessing)
+        }
+        private static var hasNoFromIdentityOrNoMessagePayload: NSPredicate {
+            NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.hasFromIdentityAndMessagePayload)
+        }
+        static var hasFromIdentityAndMessagePayload: NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.fromCryptoIdentityKey),
+                NSPredicate(withNonNilValueForKey: Key.messagePayloadKey),
+            ])
+        }
+        static func withExpectedContactForReProcessing(contactIdentifier: ObvContactIdentifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withMessageIdOwnedCryptoId(contactIdentifier.ownedCryptoId.cryptoIdentity),
+                NSPredicate(Key.rawExpectedContactForReProcessing, EqualToData: contactIdentifier.contactCryptoId.getIdentity()),
+            ])
+        }
+        static var hasSomeExpectedContactForReProcessing: NSPredicate {
+            NSPredicate(withNonNilValueForKey: Key.rawExpectedContactForReProcessing)
+        }
+        fileprivate static func downloadTimestampFromServer(earlierThan date: Date) -> NSPredicate {
+            NSPredicate(Key.downloadTimestampFromServer, earlierThan: date)
+        }
     }
+
     
-    
+    /// Called during bootstrap, to delete orphaned directories, and during an owned identity deletion.
     static func getAll(forIdentity cryptoIdentity: ObvCryptoIdentity? = nil, within obvContext: ObvContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         if let cryptoIdentity = cryptoIdentity {
             request.predicate = Predicate.withMessageIdOwnedCryptoId(cryptoIdentity)
         }
-        // Make sure we fetch the properties requires to compute the messageId. This ensure we don't crash if the message gets deleted concurrently.
+        request.fetchBatchSize = 500
+        // Make sure we fetch the properties requires to compute the messageId. This ensures we don't crash if the message gets deleted concurrently.
         request.propertiesToFetch = [
             Predicate.Key.rawMessageIdUidKey.rawValue,
             Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue,
@@ -415,24 +465,21 @@ extension InboxMessage {
     }
     
     
-    static func getBatchOfUnprocessedMessages(ownedCryptoIdentity: ObvCryptoIdentity, batchSize: Int, within obvContext: ObvContext) throws -> [InboxMessage] {
+    static func getBatchOfProcessableMessages(ownedCryptoIdentity: ObvCryptoIdentity, fetchLimit: Int, within obvContext: ObvContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withMessageIdOwnedCryptoId(ownedCryptoIdentity),
-            Predicate.isUnprocessed,
-            Predicate.isNotMarkedForDeletion,
+            Predicate.isProcessable,
         ])
-        
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: true)]
-        request.fetchLimit = batchSize
+        request.fetchLimit = fetchLimit
         return try obvContext.fetch(request)
     }
     
 
     /// This method returns all the ``InboxMessage`` instances that can be marked as listed on the server for the given owned identity.
     ///
-    /// An ``InboxMessage`` can be marked as listed from server when:
-    /// - it is "processed" (i.e., when ``fromCryptoIdentity`` and ``messagePayload`` are set),
+    /// An ``InboxMessage`` can be marked as listed from server when it is:
     /// - not marked for deletion,
     /// - and not yet marked as listed on the server.
     private static func getAllMessagesThatCanBeMarkedAsListedOnServer(ownedCryptoIdentity: ObvCryptoIdentity, fetchLimit: Int, within context: NSManagedObjectContext) throws -> [ObvMessageIdentifier] {
@@ -443,7 +490,6 @@ extension InboxMessage {
         request.resultType = .dictionaryResultType
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             Predicate.withMessageIdOwnedCryptoId(ownedCryptoIdentity),
-            Predicate.isProcessed,
             Predicate.isNotMarkedForDeletion,
             Predicate.markedAsListedOnServerIs(false),
         ])
@@ -456,7 +502,7 @@ extension InboxMessage {
 
         guard let results = try context.fetch(request) as? [[String: Data]] else { assertionFailure(); throw makeError(message: "Could cast fetched result") }
 
-        let valueToReturn: [ObvMessageIdentifier] = results.compactMap { dict in
+        let valuesToReturn: [ObvMessageIdentifier] = results.compactMap { dict in
             guard let rawMessageIdOwnedIdentity = dict[Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue] else {
                 assertionFailure(); return nil
             }
@@ -466,7 +512,7 @@ extension InboxMessage {
             return ObvMessageIdentifier(rawOwnedCryptoIdentity: rawMessageIdOwnedIdentity, rawUid: rawMessageIdUid)
         }
         
-        return valueToReturn
+        return valuesToReturn
         
     }
 
@@ -538,20 +584,24 @@ extension InboxMessage {
     }
     
     
-    /// This method is used by the ``BootstrapWorker`` in order to re-notify the app.
-    static func fetchMessagesThatCannotBeDeletedFromServer(within obvContext: ObvContext) throws -> [InboxMessage] {
+    /// Used during bootstrap to notify the app about decrypted application messages (either ones that were never notified, or about attachments' statuses of notified ones).
+    static func fetchApplicationMessagesToReNotify(within obvContext: ObvContext) throws -> [InboxMessage] {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
-        request.predicate = NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.canBeDeletedFromServer)
         request.fetchBatchSize = 500
-        // Make sure we fetch the properties requires to compute the messageId. This ensure we don't crash if the message gets deleted concurrently.
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.messageUploadTimestampFromServer.rawValue, ascending: true)]
+        // Make sure we fetch the properties required to compute the messageId. This ensure we don't crash if the message gets deleted concurrently.
         request.propertiesToFetch = [
             Predicate.Key.rawMessageIdUidKey.rawValue,
             Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue,
         ]
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.hasFromIdentityAndMessagePayload,
+            Predicate.cannotBeDeletedFromServer,
+        ])
         return try obvContext.fetch(request)
     }
-
     
+
     static func get(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws -> InboxMessage? {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
         request.predicate = Predicate.withMessageIdentifier(messageId)
@@ -579,6 +629,7 @@ extension InboxMessage {
         try message.deleteInboxMessage(inbox: inbox, obvContext: obvContext)
     }
     
+
     /// Marks the message and all this attachments for deletion. Since they are all marked for deletion, we expect ``canBeDeletedFromServer`` to `true`.
     static func markMessageAndAttachmentsForDeletion(messageId: ObvMessageIdentifier, within obvContext: ObvContext) throws {
         let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
@@ -590,6 +641,53 @@ extension InboxMessage {
         assert(message.canBeDeletedFromServer)
     }
     
+    
+    /// Returns a set of all the remote identities we are waiting to become contacts before re-processing messages. This is used during bootstrap so as to make
+    /// sure those remote identities did not become contacts.
+    static func getExpectedContactsForReProcessing(within context: NSManagedObjectContext) throws -> Set<ObvContactIdentifier> {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.fetchBatchSize = 500
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.isExpectingContactForReProcessing,
+            Predicate.cannotBeDeletedFromServer,
+        ])
+        request.propertiesToFetch = [
+            Predicate.Key.rawMessageIdOwnedIdentityKey.rawValue,
+            Predicate.Key.rawExpectedContactForReProcessing.rawValue,
+        ]
+        let messages = try context.fetch(request)
+        return Set(messages.compactMap({ $0.expectedContactForReProcessing }))
+    }
+    
+    
+    static func removeExpectedContactForReProcessing(contactIdentifier: ObvContactIdentifier, within context: NSManagedObjectContext) throws -> Bool {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.fetchBatchSize = 500
+        request.predicate = Predicate.withExpectedContactForReProcessing(contactIdentifier: contactIdentifier)
+        request.propertiesToFetch = []
+        let messages = try context.fetch(request)
+        messages.forEach { $0.rawExpectedContactForReProcessing = nil }
+        let didRemoveExpectedContactForReProcessing = !messages.isEmpty
+        return didRemoveExpectedContactForReProcessing
+    }
+    
+    
+    /// Inbox messages expecting a contact before re-processing shall be deleted after a certain retention period.
+    static func markMessagesAndAttachmentsForDeletionIfOldAndExpectingContactForReProcessing(with obvContext: ObvContext) throws {
+        let request: NSFetchRequest<InboxMessage> = InboxMessage.fetchRequest()
+        request.fetchBatchSize = 500
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.hasSomeExpectedContactForReProcessing,
+            Predicate.downloadTimestampFromServer(earlierThan: Date.now.addingTimeInterval(-ObvConstants.inboxMessageRetentionWhenContactIsExpected))
+        ])
+        request.propertiesToFetch = [Predicate.Key.markedForDeletion.rawValue]
+        let messages = try obvContext.fetch(request)
+        try messages.forEach { message in
+            assertionFailure("During development, it is unlikely to reach this point")
+            try message.markMessageAndAttachmentsForDeletion(attachmentToMarkForDeletion: .all, within: obvContext)
+        }
+    }
+
 }
 
 

@@ -62,10 +62,10 @@ extension OwnedIdentityDeletionProtocol {
                 
             case .processContactOwnedIdentityWasDeletedMessage:
                 switch receivedMessage.receptionChannelInfo {
-                case .AsymmetricChannel:
+                case .asymmetricChannel:
                     let step = ProcessContactOwnedIdentityWasDeletedMessageReceivedFromContactStep(from: concreteProtocol, and: receivedMessage)
                     return step
-                case .AnyObliviousChannelWithOwnedDevice:
+                case .anyObliviousChannelOrPreKeyWithOwnedDevice:
                     let step = ProcessProcessContactOwnedIdentityWasDeletedMessagePropagatedStep(from: concreteProtocol, and: receivedMessage)
                     return step
                 default:
@@ -104,17 +104,17 @@ extension OwnedIdentityDeletionProtocol {
             switch (startState, receivedMessage) {
             case (.initial, .initiateOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.initial, .propagateGlobalOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case (.firstDeletionStepPerformedState, .replayStartDeletionStepMessage(receivedMessage: let receivedMessage)):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             default:
@@ -170,7 +170,12 @@ extension OwnedIdentityDeletionProtocol {
             if propagationNeeded && ownedIdentityIsActive && globalOwnedIdentityDeletion {
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = PropagateGlobalOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -187,7 +192,7 @@ extension OwnedIdentityDeletionProtocol {
             if ownedIdentityIsActive {
                                 
                 let currentDeviceUID = try identityDelegate.getCurrentDeviceUidOfOwnedIdentity(ownedIdentity, within: obvContext)
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = DeactivateOwnedDeviceServerQueryMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.deactivateOwnedDevice(
                     ownedDeviceUID: currentDeviceUID,
@@ -197,7 +202,7 @@ extension OwnedIdentityDeletionProtocol {
                 
             } else {
                 
-                let coreMessage = getCoreMessage(for: .Local(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .local(ownedIdentity: ownedIdentity))
                 let concreteMessage = FinalizeOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Could not generate ContinueOwnedIdentityDeletionMessage") }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: concreteCryptoProtocol.prng, within: obvContext)
@@ -310,12 +315,12 @@ extension OwnedIdentityDeletionProtocol {
             switch receivedMessage {
             case .deactivateOwnedDeviceServerQueryMessage(receivedMessage: let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .finalizeOwnedIdentityDeletionMessage(receivedMessage: let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -334,10 +339,12 @@ extension OwnedIdentityDeletionProtocol {
             if propagationNeeded && ownedIdentityIsActive && !globalOwnedIdentityDeletion {
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessageForOtherProtocol(
-                        for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true),
-                        otherCryptoProtocolId: .ownedDeviceDiscovery,
-                        otherProtocolInstanceUid: UID.gen(with: prng))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true, 
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessageForOtherProtocol(for: channelType, otherCryptoProtocolId: .ownedDeviceDiscovery, otherProtocolInstanceUid: UID.gen(with: prng))
                     let concreteMessage = OwnedDeviceDiscoveryProtocol.InitiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDeviceMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -682,7 +689,7 @@ extension OwnedIdentityDeletionProtocol {
                                 signature = sig
                             }
                             
-                            let coreMessage = getCoreMessage(for: .AsymmetricChannelBroadcast(to: contact, fromOwnedIdentity: ownedIdentity))
+                            let coreMessage = getCoreMessage(for: .asymmetricChannelBroadcast(to: contact, fromOwnedIdentity: ownedIdentity))
                             let concreteMessage = ContactOwnedIdentityWasDeletedMessage(coreProtocolMessage: coreMessage, deletedContactOwnedIdentity: ownedIdentity, signature: signature)
                             guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                             _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -693,7 +700,7 @@ extension OwnedIdentityDeletionProtocol {
                 } else {
                     
                     if !allContacts.isEmpty {
-                        let channel = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: allContacts, fromOwnedIdentity: ownedIdentity)
+                        let channel = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: allContacts, fromOwnedIdentity: ownedIdentity)
                         let coreMessage = getCoreMessageForOtherProtocol(for: channel, otherCryptoProtocolId: .contactManagement, otherProtocolInstanceUid: UID.gen(with: prng))
                         let concreteMessage = ContactManagementProtocol.PerformContactDeviceDiscoveryMessage(coreProtocolMessage: coreMessage)
                         guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
@@ -795,12 +802,12 @@ extension OwnedIdentityDeletionProtocol {
             switch receivedMessage {
             case .fromContactMessage(receivedMessage: let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AsymmetricChannel,
+                           expectedReceptionChannelInfo: .asymmetricChannel,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .propagatedMessage(receivedMessage: let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -848,7 +855,12 @@ extension OwnedIdentityDeletionProtocol {
             if !propagated {
                 let otherDeviceUIDs = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 if !otherDeviceUIDs.isEmpty {
-                    let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity, remoteDeviceUids: Array(otherDeviceUIDs), fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true))
+                    let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                                 remoteDeviceUids: Array(otherDeviceUIDs),
+                                                                                 fromOwnedIdentity: ownedIdentity,
+                                                                                 necessarilyConfirmed: true,
+                                                                                 usePreKeyIfRequired: true)
+                    let coreMessage = getCoreMessage(for: channelType)
                     let concreteMessage = ContactOwnedIdentityWasDeletedMessage(coreProtocolMessage: coreMessage, deletedContactOwnedIdentity: deletedContactOwnedIdentity, signature: signature)
                     guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else { assertionFailure(); throw Self.makeError(message: "Implementation error") }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)

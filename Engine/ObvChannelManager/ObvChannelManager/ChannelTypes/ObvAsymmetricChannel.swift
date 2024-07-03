@@ -47,8 +47,9 @@ final class ObvAsymmetricChannel: ObvNetworkChannel {
     // MARK: Init
     
     init(to identity: ObvCryptoIdentity, deviceUid: UID, delegateManager: ObvChannelDelegateManager) throws {
-        guard let delegate =  delegateManager.keyWrapperForIdentityDelegate else {
-            throw ObvAsymmetricChannel.makeError(message: "The key wrapper delegate is not set")
+        guard let delegate = delegateManager.keyWrapperForIdentityDelegate else {
+            assertionFailure()
+            throw ObvError.keyWrapperForIdentityDelegateIsNil
         }
         self.keyWrapperForIdentityDelegate = delegate
         self.identity = identity
@@ -59,26 +60,38 @@ final class ObvAsymmetricChannel: ObvNetworkChannel {
     
     // MARK: Encryption/Wrapping method and helpers
     
-    func wrapMessageKey(_ messageKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend.Header {
-        let wrappedMessageKey = keyWrapperForIdentityDelegate.wrap(messageKey, for: identity, randomizedWith: prng)
+    func wrapMessageKey(_ messageKey: AuthenticatedEncryptionKey, randomizedWith prng: PRNGService) -> ObvNetworkMessageToSend.Header? {
+        guard let wrappedMessageKey = keyWrapperForIdentityDelegate.wrap(messageKey, for: identity, randomizedWith: prng) else {
+            assertionFailure()
+            return nil
+        }
         let header = ObvNetworkMessageToSend.Header(toIdentity: identity, deviceUid: deviceUid, wrappedMessageKey: wrappedMessageKey)
         return header
     }
     
     // MARK: Decryption/Unwrapping method and helpers
     
-    static func unwrapMessageKey(wrappedKey: EncryptedData, toOwnedIdentity: ObvCryptoIdentity, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) -> (AuthenticatedEncryptionKey, ObvProtocolReceptionChannelInfo)? {
+    static func unwrapMessageKey(wrappedKey: EncryptedData, toOwnedIdentity: ObvCryptoIdentity, delegateManager: ObvChannelDelegateManager, within obvContext: ObvContext) throws -> UnwrapMessageKeyResult {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ObvAsymmetricChannel.logCategory)
 
         guard let keyWrapperForIdentityDelegate = delegateManager.keyWrapperForIdentityDelegate else {
             os_log("The key wrapper for identity delegate is not set", log: log, type: .fault)
-            return nil
+            assertionFailure()
+            throw ObvError.keyWrapperForIdentityDelegateIsNil
         }
         
-        guard let messageKey = keyWrapperForIdentityDelegate.unwrap(wrappedKey, for: toOwnedIdentity, within: obvContext) else { return nil }
-        return (messageKey, ObvProtocolReceptionChannelInfo.AsymmetricChannel)
+        guard let messageKey = keyWrapperForIdentityDelegate.unwrap(wrappedKey, for: toOwnedIdentity, within: obvContext) else { return .couldNotUnwrap }
+        return .unwrapSucceeded(messageKey: messageKey,
+                                receptionChannelInfo: .asymmetricChannel,
+                                updateOrCheckGKMV2SupportOnMessageContentAvailable: nil)
     }
+    
+    
+    enum ObvError: Error {
+        case keyWrapperForIdentityDelegateIsNil
+    }
+    
 }
 
 extension ObvAsymmetricChannel {
@@ -91,7 +104,7 @@ extension ObvAsymmetricChannel {
         
         switch message.channelType {
             
-        case .AsymmetricChannel(to: let toIdentity, remoteDeviceUids: let remoteDeviceUids, fromOwnedIdentity: _):
+        case .asymmetricChannel(to: let toIdentity, remoteDeviceUids: let remoteDeviceUids, fromOwnedIdentity: _):
             // Only protocol messages may be sent through AsymmetricChannel channels
             guard message.messageType == .ProtocolMessage else {
                 throw ObvAsymmetricChannel.makeError(message: "Only protocol messages may be sent through AsymmetricChannel channels")
@@ -101,7 +114,7 @@ extension ObvAsymmetricChannel {
                 try ObvAsymmetricChannel(to: toIdentity, deviceUid: $0, delegateManager: delegateManager)
             }
             
-        case .AsymmetricChannelBroadcast(to: let toIdentity, fromOwnedIdentity: _):
+        case .asymmetricChannelBroadcast(to: let toIdentity, fromOwnedIdentity: _):
             // Only protocol messages may be sent through AsymmetricChannel channels
             guard message.messageType == .ProtocolMessage else {
                 throw ObvAsymmetricChannel.makeError(message: "Only protocol messages may be sent through AsymmetricChannel channels")

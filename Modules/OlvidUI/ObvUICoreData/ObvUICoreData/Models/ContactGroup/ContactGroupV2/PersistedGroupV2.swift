@@ -1442,7 +1442,8 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
     }
 
     
-    func processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws {
+    /// Return the number of "new" messages that were deleted
+    func processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> Int {
         
         guard self.ownedIdentityIdentity == ownedIdentity.identity else {
             throw ObvError.ownedIdentityIsNotPartOfThisGroup
@@ -1453,6 +1454,8 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         }
 
         try discussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return discussion.numberOfNewMessages
 
     }
     
@@ -1471,8 +1474,8 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         case .fromThisDeviceOnly:
             break
         case .fromAllOwnedDevices:
-            guard ownedIdentity.hasAnotherDeviceWithChannel else {
-                throw ObvError.cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+            guard ownedIdentity.hasAnotherDeviceWhichIsReachable else {
+                throw ObvError.cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
             }
         case .fromAllOwnedDevicesAndAllContactDevices:
             guard !otherMembers.isEmpty else {
@@ -1651,7 +1654,7 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
         case ownedIdentityIsNotAllowedToEditOrRemoteDeleteOwnMessages
         case requestToDeleteAllMessagesWithinThisGroupDiscussionFromContactNotAllowedToDoSo
         case ownedIdentityIsNotAllowedToDeleteDiscussion
-        case cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+        case cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
         case deleteRequestMakesNoSenseAsGroupHasNoOtherMembers
         
         public var errorDescription: String? {
@@ -1678,8 +1681,8 @@ public final class PersistedGroupV2: NSManagedObject, ObvErrorMaker {
                 return "Request to delete all messages within this group discussion received from a contact who is not allowed to do so"
             case .ownedIdentityIsNotAllowedToDeleteDiscussion:
                 return "Owned identity is not allowed to delete this group discussion"
-            case .cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel:
-                return "Cannot delete discussion from all owned devices as the owned identity has no other device with channel"
+            case .cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice:
+                return "Cannot delete discussion from all owned devices as the owned identity has no other reachable device"
             case .deleteRequestMakesNoSenseAsGroupHasNoOtherMembers:
                 return "Delete request makes no sens as this group has no other members"
             }

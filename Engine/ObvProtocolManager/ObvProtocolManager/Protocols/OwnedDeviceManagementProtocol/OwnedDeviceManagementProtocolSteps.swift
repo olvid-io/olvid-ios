@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -75,13 +75,15 @@ extension OwnedDeviceManagementProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
             
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: OwnedDeviceManagementProtocol.logCategory)
+
             let request = receivedMessage.request
 
             switch request {
@@ -102,11 +104,15 @@ extension OwnedDeviceManagementProtocol {
                 
                 // Encrypt the device name
                 
-                let encryptedOwnedDeviceName = DeviceNameUtils.encrypt(deviceName: ownedDeviceName, for: ownedIdentity, using: prng)
+                guard let encryptedOwnedDeviceName = DeviceNameUtils.encrypt(deviceName: ownedDeviceName, for: ownedIdentity, using: prng) else {
+                    assertionFailure()
+                    os_log("Failed to encrypt device name", log: log, type: .fault)
+                    return CancelledState()
+                }
                             
                 // Send the server query
                 
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = SetOwnedDeviceNameServerQueryMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.setOwnedDeviceName(
                     ownedDeviceUID: ownedDeviceUID,
@@ -141,7 +147,7 @@ extension OwnedDeviceManagementProtocol {
                 
                 // Send the server query
                 
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = DeactivateOwnedDeviceServerQueryMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.deactivateOwnedDevice(
                     ownedDeviceUID: ownedDeviceUID,
@@ -159,7 +165,7 @@ extension OwnedDeviceManagementProtocol {
                 
                 // Send the server query
                 
-                let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
                 let concreteMessage = SetUnexpiringOwnedDeviceServerQueryMessage(coreProtocolMessage: coreMessage)
                 let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.setUnexpiringOwnedDevice(ownedDeviceUID: ownedDeviceUID)
                 guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -188,7 +194,7 @@ extension OwnedDeviceManagementProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -222,7 +228,7 @@ extension OwnedDeviceManagementProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -240,7 +246,7 @@ extension OwnedDeviceManagementProtocol {
             
             let contactIdentites = try identityDelegate.getContactsOfOwnedIdentity(ownedIdentity, within: obvContext)
             if !contactIdentites.isEmpty {
-                let channel = ObvChannelSendChannelType.AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: contactIdentites, fromOwnedIdentity: ownedIdentity)
+                let channel = ObvChannelSendChannelType.allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: contactIdentites, fromOwnedIdentity: ownedIdentity)
                 let coreMessage = getCoreMessageForOtherProtocol(for: channel, otherCryptoProtocolId: .contactManagement, otherProtocolInstanceUid: UID.gen(with: prng))
                 let concreteMessage = ContactManagementProtocol.PerformContactDeviceDiscoveryMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -272,7 +278,7 @@ extension OwnedDeviceManagementProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }

@@ -72,6 +72,32 @@ struct OwnedDeviceView<Model: OwnedDeviceViewModelProtocol>: View {
     }
 
     
+    private var textForPreKeyStatus: LocalizedStringKey {
+        if ownedDevice.secureChannelStatus?.isPreKeyAvailable == true {
+            return "PRE_KEY_IS_AVAILABLE_FOR_OWNED_DEVICE"
+        } else {
+            return "PRE_KEY_IS_NOT_AVAILABLE_FOR_OWNED_DEVICE"
+        }
+    }
+
+    
+    private var systemIconForPreKeyStatus: SystemIcon {
+        if ownedDevice.secureChannelStatus?.isPreKeyAvailable == true {
+            return .key
+        } else {
+            return .keySlash
+        }
+    }
+    
+    private var systemIconColorForPreKeyStatus: Color {
+        if ownedDevice.secureChannelStatus?.isPreKeyAvailable == true {
+            return Color(UIColor.systemGreen)
+        } else {
+            return .primary
+        }
+    }
+
+    
     private func userWantsToRestartChannelCreationWithThisOwnedDevice() {
         guard let ownedCryptoId = try? ownedDevice.ownedCryptoId else { assertionFailure(); return }
         guard ownedDevice.secureChannelStatus != .currentDevice else { assertionFailure(); return }
@@ -244,7 +270,7 @@ struct OwnedDeviceView<Model: OwnedDeviceViewModelProtocol>: View {
 
             }
 
-            // Secure channel informations and actions (for other owned devices)
+            // Secure channel & PreKey informations and actions (for other owned devices)
             
             switch ownedDevice.secureChannelStatus {
             case .currentDevice:
@@ -257,6 +283,9 @@ struct OwnedDeviceView<Model: OwnedDeviceViewModelProtocol>: View {
                         .padding(.leading, heuristicIconSize + 8)
                         .padding(.vertical, 4.0)
                     
+                    InternalLabel(textForPreKeyStatus, systemIcon: systemIconForPreKeyStatus, systemIconIconWidth: heuristicIconSize, systemIconColor: systemIconColorForPreKeyStatus)
+                        .padding(.bottom, 4.0)
+
                     // Secure channel status (for other owned devices)
                     
                     InternalLabel(textForSecureChannelStatus, systemIcon: systemIconForSecureChannelStatus, systemIconIconWidth: heuristicIconSize, systemIconColor: colorForSecureChannelStatus)
@@ -388,7 +417,7 @@ struct OwnedDeviceView_Previews: PreviewProvider {
                     ownedCryptoId: ownedCryptoIds[1],
                     deviceIdentifier: Data(repeating: 1, count: 16),
                     name: "iPad pro",
-                    secureChannelStatus: .created,
+                    secureChannelStatus: .created(preKeyAvailable: true),
                     expirationDate: Date(timeIntervalSinceNow: 1_000),
                     latestRegistrationDate: Date(timeIntervalSinceNow: -500),
                     ownedIdentityIsActive: true),

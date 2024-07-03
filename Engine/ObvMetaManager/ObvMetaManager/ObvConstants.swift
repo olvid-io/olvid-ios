@@ -88,5 +88,20 @@ public struct ObvConstants {
     }
 
     public static let transferMaxPayloadSize = 10_000 // in Bytes
+    
+    // PreKeys related constants
+    
+    public static let preKeyValidityTimeInterval = TimeInterval(days: 60)
+    public static let preKeyForCurrentDeviceRenewTimeInterval = TimeInterval(days: 7)
+    public static let preKeyForCurrentDeviceConservationGracePeriod = TimeInterval(days: 60)
+    public static let inboxMessageRetentionWhenContactIsExpected = TimeInterval(days: 14)
+
+    // Performing a contact device discovery regularly
+    
+    public static let contactDeviceDiscoveryTimeInterval = TimeInterval(days: 7)
+    
+    // Channel creation ping interval for remote devices without channel
+
+    public static let channelCreationPingInterval = TimeInterval(days: 3)
 
 }

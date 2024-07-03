@@ -56,6 +56,10 @@ public extension NSPredicate {
         self.init(format: "%K < %d", key.rawValue, int)
     }
 
+    convenience init<T: RawRepresentable>(_ key: T, LessOrEqualThanInt int: Int) where T.RawValue == String {
+        self.init(format: "%K <= %d", key.rawValue, int)
+    }
+
     convenience init<T: RawRepresentable>(_ key: T, LargerThanInt int: Int) where T.RawValue == String {
         self.init(format: "%K > %d", key.rawValue, int)
     }

@@ -34,6 +34,7 @@ protocol OlvidCallDelegate: AnyObject {
     func receivedHangedUpMessage(call: OlvidCall, serializedMessagePayload: String, uuidForWebRTC: UUID, fromOlvidUser: OlvidUserId) async
     func requestTurnCredentialsForCall(call: OlvidCall, ownedIdentityForRequestingTurnCredentials: ObvCryptoId) async throws -> ObvTurnCredentials
     func incomingWasNotAnsweredToAndTimedOut(call: OlvidCall) async
+    func outgoingWasNotAnsweredToAndTimedOut(call: OlvidCall) async
     func callDidChangeState(call: OlvidCall, previousState: OlvidCall.State, newState: OlvidCall.State)
     func shouldRequestCXCallUpdate(call: OlvidCall) async
 }
@@ -87,7 +88,7 @@ final class OlvidCall: ObservableObject {
     private var cancellablesForWatchingOtherParticipants = Set<AnyCancellable>()
 
     /// When receiving an incoming call, we let some time to the user to answer the call. After that, we end it automatically.
-    private static let ringingTimeoutInterval: TimeInterval = 30 // 30 seconds
+    private static let ringingTimeoutInterval: TimeInterval = 50
 
     /// This task allows to implement the mechanism allowing to wait until ``currentlyCreatingPeerConnection``
     /// is set back to false before proceeding with a negotiation.
@@ -929,7 +930,23 @@ extension OlvidCall {
         assert(values.cxCallEndedReason == .unanswered)
         return values
     }
+
     
+    /// Called from the ``OlvidCallManager`` when an outgoing call times out because the remote user did not answer it
+    func endOutgoingCallAsItTimedOut() async -> (callReport: CallReport?, cxCallEndedReason: CXCallEndedReason?) {
+        guard direction == .outgoing else {
+            assertionFailure()
+            return (nil, nil)
+        }
+        guard state == .ringing else {
+            assertionFailure()
+            return (nil, nil)
+        }
+        let values = await endWebRTCCall(reason: .callTimedOut)
+        assert(values.cxCallEndedReason == .unanswered)
+        return values
+    }
+
     
     /// This method is eventually called when ending a call, either because the local user requested to end the call, or the remote user hanged up,
     /// Or because some error occured, etc. It perfoms final important steps before settting the call into an appropriate final state.
@@ -1042,7 +1059,7 @@ extension OlvidCall {
         switch reason {
 
         case .callTimedOut:
-            await sendLocalUserHangedUpMessageToAllParticipants()
+            break // 2024-06-25 We used to call sendLocalUserHangedUpMessageToAllParticipants() here
             
         case .localUserRequest:
             switch direction {
@@ -1874,22 +1891,22 @@ extension OlvidCall {
             }
         }
 
-        var localizedString: String {
-            switch self {
-            case .initial: return NSLocalizedString("CALL_STATE_NEW", comment: "")
-            case .gettingTurnCredentials: return NSLocalizedString("CALL_STATE_GETTING_TURN_CREDENTIALS", comment: "")
-            case .kicked: return NSLocalizedString("CALL_STATE_KICKED", comment: "")
-            case .userAnsweredIncomingCall, .initializingCall: return NSLocalizedString("CALL_STATE_INITIALIZING_CALL", comment: "")
-            case .ringing: return NSLocalizedString("CALL_STATE_RINGING", comment: "")
-            case .callRejected: return NSLocalizedString("CALL_STATE_CALL_REJECTED", comment: "")
-            case .callInProgress: return NSLocalizedString("SECURE_CALL_IN_PROGRESS", comment: "")
-            case .hangedUp: return NSLocalizedString("CALL_STATE_HANGED_UP", comment: "")
-            case .unanswered: return NSLocalizedString("UNANSWERED", comment: "")
-            case .answeredOnAnotherDevice: return NSLocalizedString("ANSWERED_ON_ANOTHER_OWNED_DEVICE", comment: "")
-            case .outgoingCallIsConnecting: return NSLocalizedString("OUTGOING_CALL_IS_CONNECTING", comment: "")
-            case .reconnecting: return NSLocalizedString("RECONNECTING", comment: "")
-            }
-        }
+//        var localizedString: String {
+//            switch self {
+//            case .initial: return NSLocalizedString("CALL_STATE_NEW", comment: "")
+//            case .gettingTurnCredentials: return NSLocalizedString("CALL_STATE_GETTING_TURN_CREDENTIALS", comment: "")
+//            case .kicked: return NSLocalizedString("CALL_STATE_KICKED", comment: "")
+//            case .userAnsweredIncomingCall, .initializingCall: return NSLocalizedString("CALL_STATE_INITIALIZING_CALL", comment: "")
+//            case .ringing: return NSLocalizedString("CALL_STATE_RINGING", comment: "")
+//            case .callRejected: return NSLocalizedString("CALL_STATE_CALL_REJECTED", comment: "")
+//            case .callInProgress: return NSLocalizedString("SECURE_CALL_IN_PROGRESS", comment: "")
+//            case .hangedUp: return NSLocalizedString("CALL_STATE_HANGED_UP", comment: "")
+//            case .unanswered: return NSLocalizedString("UNANSWERED", comment: "")
+//            case .answeredOnAnotherDevice: return NSLocalizedString("ANSWERED_ON_ANOTHER_OWNED_DEVICE", comment: "")
+//            case .outgoingCallIsConnecting: return NSLocalizedString("OUTGOING_CALL_IS_CONNECTING", comment: "")
+//            case .reconnecting: return NSLocalizedString("RECONNECTING", comment: "")
+//            }
+//        }
     }
     
 
@@ -1902,6 +1919,9 @@ extension OlvidCall {
         let previousState = state
 
         if previousState == .callInProgress && newState == .ringing { return }
+        
+        // Going back to the initializingCall state from the ringing state is not allowed
+        if previousState == .ringing && newState == .initializingCall { return }
         
         // An outgoing call can move to the outgoingCallIsConnecting state from the ringing state only.
         if newState == .outgoingCallIsConnecting && previousState != .ringing { return }
@@ -1921,6 +1941,27 @@ extension OlvidCall {
     
     
     private func performPostStateChangeActions(previousState: State, newState: State) async {
+        
+        if newState == .ringing {
+            assert(self.direction == .outgoing)
+            // Schedule a timeout after which this outgoing call should be automatically ended
+            Task { [weak self] in
+                os_log("☎️ Calling outgoingWasNotAnsweredToAndTimedOut", log: Self.log, type: .debug)
+                try? await Task.sleep(for: Self.ringingTimeoutInterval)
+                os_log("☎️ Ending ringingTimeoutInterval for outgoing call", log: Self.log, type: .debug)
+                guard let self else {
+                    return
+                }
+                guard state == .ringing else {
+                    os_log("☎️ The incoming is not in the ringing state anymore, but in the %{public}@ state", log: Self.log, type: .debug, state.debugDescription)
+                    return
+                }
+                // The following call will eventually call us back, with the endOutgoingCallAsItTimedOut() method.
+                // We don't call it directly since ending the call is not enough (we have to remove it from the call manager, etc.)
+                os_log("☎️ Calling outgoingWasNotAnsweredToAndTimedOut", log: Self.log, type: .debug)
+                await delegate?.outgoingWasNotAnsweredToAndTimedOut(call: self)
+            }
+        }
         
         if newState == .callInProgress && self.dateWhenCallSwitchedToInProgress == nil {
             Task { await setDateWhenCallSwitchedToInProgressToNow() }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,6 @@ public protocol ObvSolveChallengeDelegate: ObvManager {
     
     func solveChallenge(_ challengeType: ChallengeType, for: ObvCryptoIdentity, using: PRNGService, within obvContext: ObvContext) throws -> Data
     
-    // func getApiKeyForOwnedIdentity(_: ObvCryptoIdentity, within obvContext: ObvContext) throws -> UUID?
 }
 
 
@@ -35,17 +34,32 @@ public struct ObvSolveChallengeStruct {
     
     public static func checkResponse(_ response: Data, to challengeType: ChallengeType, from identity: ObvCryptoIdentity) -> Bool {
         let serverAuth = ObvCryptoSuite.sharedInstance.authentication()
-        return serverAuth.check(response: response, toChallenge: challengeType.challenge, prefixedWith: challengeType.challengePrefix, using: identity.publicKeyForAuthentication)
+        do {
+            return try serverAuth.check(response: response, toChallenge: challengeType.challenge, prefixedWith: challengeType.challengePrefix, using: identity.publicKeyForAuthentication)
+        } catch {
+            assertionFailure()
+            return false
+        }
     }
 
     public static func solveChallenge(_ challengeType: ChallengeType, with privateKey: PrivateKeyForAuthentication, using prng: PRNGService) -> Data? {
         let serverAuth = ObvCryptoSuite.sharedInstance.authentication()
-        return serverAuth.solve(challengeType.challenge, prefixedWith: challengeType.challengePrefix, with: privateKey, using: prng)
+        do {
+            return try serverAuth.solve(challengeType.challenge, prefixedWith: challengeType.challengePrefix, with: privateKey, using: prng)
+        } catch {
+            assertionFailure()
+            return nil
+        }
     }
 
     public static func solveChallenge(_ challengeType: ChallengeType, with privateKey: PrivateKeyForAuthentication, and publicKey: PublicKeyForAuthentication, using prng: PRNGService) -> Data? {
         let serverAuth = ObvCryptoSuite.sharedInstance.authentication()
-        return serverAuth.solve(challengeType.challenge, prefixedWith: challengeType.challengePrefix, with: privateKey, and: publicKey, using: prng)
+        do {
+            return try serverAuth.solve(challengeType.challenge, prefixedWith: challengeType.challengePrefix, with: privateKey, and: publicKey, using: prng)
+        } catch {
+            assertionFailure()
+            return nil
+        }
     }
 
 }
@@ -67,6 +81,8 @@ public enum ChallengeType {
     case groupUpdate(lockNonce: Data, encryptedBlob: EncryptedData, encodedServerAdminPublicKey: ObvEncoded)
     case groupKick(encryptedAdministratorChain: EncryptedData, groupInvitationNonce: Data)
     case ownedIdentityDeletion(notifiedContactIdentity: ObvCryptoIdentity)
+    case devicePreKey(deviceBlobEncoded: Data)
+    case encryptionWithPreKey(encodedToSend: ObvEncoded, toIdentity: ObvCryptoIdentity, toDeviceUID: UID, preKeyId: CryptoKeyId)
 
     public var challengePrefix: Data {
         switch self {
@@ -96,6 +112,10 @@ public enum ChallengeType {
             return "groupKick".data(using: .utf8)!
         case .ownedIdentityDeletion:
             return "ownedIdentityDeletion".data(using: .utf8)!
+        case .devicePreKey:
+            return "devicePreKey".data(using: .utf8)!
+        case .encryptionWithPreKey:
+            return "encryptionWithPreKey".data(using: .utf8)!
         }
     }
     
@@ -127,6 +147,15 @@ public enum ChallengeType {
             return encryptedAdministratorChain.raw + groupInvitationNonce
         case .ownedIdentityDeletion(notifiedContactIdentity: let notifiedContactIdentity):
             return notifiedContactIdentity.getIdentity()
+        case .devicePreKey(deviceBlobEncoded: let deviceBlobEncoded):
+            return deviceBlobEncoded
+        case .encryptionWithPreKey(encodedToSend: let encodedToSend, toIdentity: let toIdentity, toDeviceUID: let toDeviceUID, preKeyId: let preKeyId):
+            return [
+                encodedToSend,
+                toIdentity.obvEncode(),
+                toDeviceUID.obvEncode(),
+                preKeyId.obvEncode(),
+            ].obvEncode().rawData
         }
     }
 

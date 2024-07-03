@@ -889,13 +889,13 @@ extension PersistedMessageReceived {
     }
 
     
-    static func markAllAsNotNew(within discussion: PersistedDiscussion, untilDate: Date, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
+    static func markAllAsNotNew(within discussion: PersistedDiscussion, serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
         os_log("Call to markAllAsNotNew in PersistedMessageReceived for discussion %{public}@", log: log, type: .debug, discussion.objectID.debugDescription)
         guard let context = discussion.managedObjectContext else { assertionFailure(); return nil }
         let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
         request.includesSubentities = true
         request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.createdBeforeOrAt(date: untilDate),
+            Predicate.createdBeforeOrAt(date: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice),
             Predicate.withinDiscussion(discussion),
             Predicate.isNew,
         ])

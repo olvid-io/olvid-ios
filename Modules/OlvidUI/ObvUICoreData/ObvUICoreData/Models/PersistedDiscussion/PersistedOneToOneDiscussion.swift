@@ -259,8 +259,8 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
         case .fromThisDeviceOnly:
             break
         case .fromAllOwnedDevices:
-            guard ownedIdentity.hasAnotherDeviceWithChannel else {
-                throw ObvError.cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+            guard ownedIdentity.hasAnotherDeviceWhichIsReachable else {
+                throw ObvError.cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
             }
         case .fromAllOwnedDevicesAndAllContactDevices:
             guard messageToDelete is PersistedMessageSent else {
@@ -285,8 +285,8 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvErrorMak
         case .fromThisDeviceOnly:
             break
         case .fromAllOwnedDevices:
-            guard ownedIdentity.hasAnotherDeviceWithChannel else {
-                throw ObvError.cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+            guard ownedIdentity.hasAnotherDeviceWhichIsReachable else {
+                throw ObvError.cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
             }
         case .fromAllOwnedDevicesAndAllContactDevices:
             throw ObvError.cannotDeleteOneToOneDiscussionFromContactDevices
@@ -572,9 +572,9 @@ extension PersistedOneToOneDiscussion {
         case unexpectedDiscussionForMessageToDelete
         case noContext
         case unexpectedDiscussionKind
-        case cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+        case cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
         case onlySentMessagesCanBeDeletedFromContactDevicesWhenInOneToOneDiscussion
-        case cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel
+        case cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
         case cannotDeleteOneToOneDiscussionFromContactDevices
 
         var localizedDescription: String {
@@ -593,12 +593,12 @@ extension PersistedOneToOneDiscussion {
                 return "No context"
             case .unexpectedDiscussionKind:
                 return "Unexpected discussion kind"
-            case .cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel:
-                return "Cannot delete message from all owned devices as the owned identity has no other device with channel"
+            case .cannotDeleteMessageFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice:
+                return "Cannot delete message from all owned devices as the owned identity has no other reachable device"
             case .onlySentMessagesCanBeDeletedFromContactDevicesWhenInOneToOneDiscussion:
                 return "Only sent messages can be deleted from contact devices when in a oneToOne discussion"
-            case .cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherDeviceWithChannel:
-                return "Cannot delete discussion from all owned devices as the owned identity has no other device with channel"
+            case .cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice:
+                return "Cannot delete discussion from all owned devices as the owned identity has no other reachable device"
             case .cannotDeleteOneToOneDiscussionFromContactDevices:
                 return "Cannot delete one2one discussion from contact devices"
             }

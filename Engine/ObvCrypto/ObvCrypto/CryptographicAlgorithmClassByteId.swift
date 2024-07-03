@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,7 +28,7 @@ public enum CryptographicAlgorithmClassByteId: UInt8 {
     case authenticatedEncryption = 0x02
     case blockCipher = 0x03
     // Assymmetric primitives
-    case DH = 0x10
+    //case DH = 0x10
     case signature = 0x11
     case publicKeyEncryption = 0x12
     case authentication = 0x14

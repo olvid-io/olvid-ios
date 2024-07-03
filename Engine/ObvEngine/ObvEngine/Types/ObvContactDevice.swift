@@ -39,9 +39,9 @@ public struct ObvContactDevice: Hashable, CustomStringConvertible {
         .init(contactIdentifier: contactIdentifier, deviceUID: deviceUID)
     }
     
-    public enum SecureChannelStatus {
-        case creationInProgress
-        case created
+    public enum SecureChannelStatus: Equatable, Hashable {
+        case creationInProgress(preKeyAvailable: Bool)
+        case created(preKeyAvailable: Bool)
     }
 
     init(remoteDeviceUid: UID, contactIdentifier: ObvContactIdentifier, secureChannelStatus: SecureChannelStatus) {

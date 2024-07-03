@@ -96,29 +96,42 @@ fileprivate extension PersistedDraft {
         readOnce || model.sharedConfigurationInViewContext.readOnce
     }
 
-    func getVisibilityDurationOption(model: DraftExpirationSettingsViewModel) -> DurationOption {
-        if let visibilityDuration = visibilityDuration {
-            return PersistedDiscussionSharedConfiguration.toDurationOption(visibilityDuration) { setVisibilityDurationOption(model: model, to: $0) }
+    func getVisibilityDurationOption(model: DraftExpirationSettingsViewModel) -> TimeInterval? {
+        visibilityDuration ?? model.sharedConfigurationInViewContext.visibilityDuration
+    }
+
+    func setVisibilityDurationOption(model: DraftExpirationSettingsViewModel, to value: TimeInterval?) {
+        switch (value, model.sharedConfigurationInViewContext.visibilityDuration) {
+        case let (.some(requestedDuration), .some(sharedDuration)):
+            guard requestedDuration < sharedDuration else { return }
+            model.updateConfiguration(with: .visibilityDuration(visibilityDuration: requestedDuration))
+        case (.none, .none):
+            model.updateConfiguration(with: .visibilityDuration(visibilityDuration: nil))
+        case let (.some(requestedDuration), .none):
+            model.updateConfiguration(with: .visibilityDuration(visibilityDuration: requestedDuration))
+        case (.none, .some):
+            return
         }
-        return PersistedDiscussionSharedConfiguration.toDurationOption(model.sharedConfigurationInViewContext.visibilityDuration) { _ in }
     }
 
-    func setVisibilityDurationOption(model: DraftExpirationSettingsViewModel, to value: DurationOption) {
-        guard value.le(model.sharedConfigurationInViewContext.visibilityDuration) else { return }
-        model.updateConfiguration(with: .visibilityDuration(visibilityDuration: value.timeInterval))
+    func getExistenceDurationOption(model: DraftExpirationSettingsViewModel) -> TimeInterval? {
+        existenceDuration ?? model.sharedConfigurationInViewContext.existenceDuration
     }
 
-    func getExistenceDurationOption(model: DraftExpirationSettingsViewModel) -> DurationOption {
-        if let existenceDuration = existenceDuration {
-            return PersistedDiscussionSharedConfiguration.toDurationOption(existenceDuration) { setExistenceDurationOption(model: model, to: $0) }
+    func setExistenceDurationOption(model: DraftExpirationSettingsViewModel, to value: TimeInterval?) {
+        switch (value, model.sharedConfigurationInViewContext.existenceDuration) {
+        case let (.some(requestedDuration), .some(sharedDuration)):
+            guard requestedDuration < sharedDuration else { return }
+            model.updateConfiguration(with: .existenceDuration(existenceDuration: requestedDuration))
+        case (.none, .none):
+            model.updateConfiguration(with: .existenceDuration(existenceDuration: nil))
+        case let (.some(requestedDuration), .none):
+            model.updateConfiguration(with: .existenceDuration(existenceDuration: requestedDuration))
+        case (.none, .some):
+            return
         }
-        return PersistedDiscussionSharedConfiguration.toDurationOption(model.sharedConfigurationInViewContext.existenceDuration) { _ in }
     }
-
-    func setExistenceDurationOption(model: DraftExpirationSettingsViewModel, to value: DurationOption) {
-        guard value.le(model.sharedConfigurationInViewContext.existenceDuration) else { return }
-        model.updateConfiguration(with: .existenceDuration(existenceDuration: value.timeInterval))
-    }
+    
 }
 
 
@@ -207,18 +220,14 @@ fileprivate struct DraftExpirationSettingsView: View {
 
     let readOnce: ValueWithBinding<PersistedDraft, Bool>
 
-    let visibilityDurationOption: ValueWithBinding<PersistedDraft, DurationOption>
+    let visibilityDurationOption: ValueWithBinding<PersistedDraft, TimeInterval?>
     let maximumVisiblityDuration: TimeInterval?
 
-    let existenceDurationOption: ValueWithBinding<PersistedDraft, DurationOption>
+    let existenceDurationOption: ValueWithBinding<PersistedDraft, TimeInterval?>
     let maximumExistenceDuration: TimeInterval?
 
     let reset: () -> Void
     let dismiss: () -> Void
-
-    func filterDuration(maximum: TimeInterval?) -> [DurationOption] {
-        return DurationOption.allCases.filter { $0.le(maximum) }
-    }
 
     private var disableReset: Bool {
         readOnce.value == false &&
@@ -254,19 +263,13 @@ fileprivate struct DraftExpirationSettingsView: View {
 
                 Section {
                     Toggle(isOn: readOnce.binding) {
-                        Label("READ_ONCE_LABEL", systemImage: "flame.fill")
+                        Label("READ_ONCE_LABEL", systemIcon: .flameFill)
                     }.disabled(discussionReadOnce)
-
-                    Picker(selection: visibilityDurationOption.binding, label: Label("LIMITED_VISIBILITY_LABEL", systemImage: "eyes")) {
-                        ForEach(filterDuration(maximum: maximumVisiblityDuration)) { duration in
-                            Text(duration.description).tag(duration)
-                        }
+                    ExistenceOrVisibilityDurationPicker(timeInverval: visibilityDurationOption.binding, maxTimeInterval: maximumVisiblityDuration) {
+                        Label("LIMITED_VISIBILITY_LABEL", systemIcon: .eyes)
                     }
-
-                    Picker(selection: existenceDurationOption.binding, label: Label("LIMITED_EXISTENCE_SECTION_LABEL", systemImage: "timer")) {
-                        ForEach(filterDuration(maximum: maximumExistenceDuration)) { duration in
-                            Text(duration.description).tag(duration)
-                        }
+                    ExistenceOrVisibilityDurationPicker(timeInverval: existenceDurationOption.binding, maxTimeInterval: maximumExistenceDuration) {
+                        Label("LIMITED_EXISTENCE_SECTION_LABEL", systemIcon: .timer)
                     }
                 } footer: {
                     VStack {
@@ -292,11 +295,11 @@ struct DraftExpirationSettingsView_Previews: PreviewProvider {
         DraftExpirationSettingsView(
             discussionReadOnce: false,
             discussionExistenceDuration: nil,
-            discussionVisibilityDuration: DurationOption.sixHour.timeInterval,
+            discussionVisibilityDuration: .init(hours: 6),
             readOnce: ValueWithBinding(constant: false),
             visibilityDurationOption: ValueWithBinding(constant: .none),
-            maximumVisiblityDuration: DurationOption.oneHour.timeInterval,
-            existenceDurationOption: ValueWithBinding(constant: .oneHour),
+            maximumVisiblityDuration: .init(hours: 1),
+            existenceDurationOption: ValueWithBinding(constant: .init(hours: 1)),
             maximumExistenceDuration: nil,
             reset: {},
             dismiss: {})

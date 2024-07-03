@@ -150,3 +150,20 @@ extension Seed {
     }
     
 }
+
+
+// MARK: -
+
+extension Seed {
+    
+    static func generateFromSecRandomCopyBytes() -> Seed {
+        let seedBytes = UnsafeMutablePointer<UInt8>.allocate(capacity: Seed.minLength)
+        defer { seedBytes.deallocate() }
+        let res = SecRandomCopyBytes(kSecRandomDefault, Seed.minLength, seedBytes)
+        guard res == errSecSuccess else { exit(-1) }
+        let rawSeed = Data(bytes: seedBytes, count: Seed.minLength)
+        let seed = Seed(with: rawSeed)!
+        return seed
+    }
+    
+}

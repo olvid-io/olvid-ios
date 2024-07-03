@@ -28,7 +28,6 @@ import ObvSettings
 import ObvDesignSystem
 
 
-@available(iOS 14.0, *)
 final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellShowingHardLinks, UIViewWithTappableStuff, CellWithPersistedMessageSent {
         
     private(set) var message: PersistedMessageSent?
@@ -115,24 +114,6 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         content.scheduledExistenceDestructionDate = message.expirationForSentLimitedExistence?.expirationDate
         content.scheduledVisibilityDestructionDate = message.expirationForSentLimitedVisibility?.expirationDate
 
-        // Configure the text body (determine whether we should use data detection on the text view)
-        
-        content.textBubbleConfiguration = nil
-        if let attributedTextBody = message.displayableAttributedBody, !message.isWiped {
-            let dataDetectorMatches = cacheDelegate?.getCachedDataDetection(attributedString: attributedTextBody)
-            content.textBubbleConfiguration = TextBubble.Configuration(kind: .sent,
-                                                                       attributedText: attributedTextBody,
-                                                                       dataDetectorMatches: dataDetectorMatches ?? [],
-                                                                       searchedTextToHighlight: searchedTextToHighlight)
-            if let cacheDelegate, dataDetectorMatches == nil {
-                cacheDelegate.requestDataDetection(attributedString: attributedTextBody) { [weak self] dataDetected in
-                    assert(Thread.isMainThread)
-                    guard dataDetected else { return }
-                    self?.setNeedsUpdateConfiguration()
-                }
-            }
-        }
-
         // Wiped view configuration
         
         if message.isLocallyWiped {
@@ -193,11 +174,13 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         
         var otherAttachments = message.fyleMessageJoinWithStatusesOfOtherTypes
         let previewAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfPreviewType
+        let singlePreviewConfiguration: SinglePreviewView.Configuration?
         if let previewAttachment = previewAttachments.first {
-            content.singlePreviewConfiguration = singlePreviewViewConfigurationForPreviewAttachment(previewAttachment)
+            singlePreviewConfiguration = singlePreviewViewConfigurationForPreviewAttachment(previewAttachment)
         } else {
-            content.singlePreviewConfiguration = nil
+            singlePreviewConfiguration = nil
         }
+        content.singlePreviewConfiguration = singlePreviewConfiguration
         
         // We remove the link-preview from the attachments
         
@@ -246,10 +229,33 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         content.isReplyToActionAvailable = message.replyToActionCanBeMadeAvailable
         content.forwarded = message.forwarded
         
+        // Configure the text body (determine whether we should use data detection on the text view)
+        
+        content.textBubbleConfiguration = nil
+        let previewURLToRemove = ObvMessengerSettings.Interface.hideTrailingURLInMessagesWhenPreviewIsAvailable ? singlePreviewConfiguration?.preview?.url : nil
+        if let attributedTextBody = message.getDisplayableAttributedBody(removingTrailingURL: previewURLToRemove), !message.isWiped {
+            
+            let dataDetectorMatches = cacheDelegate?.getCachedDataDetection(attributedString: attributedTextBody)
+            content.textBubbleConfiguration = TextBubble.Configuration(kind: .sent,
+                                                                       attributedText: attributedTextBody,
+                                                                       dataDetectorMatches: dataDetectorMatches ?? [],
+                                                                       searchedTextToHighlight: searchedTextToHighlight)
+            if let cacheDelegate, dataDetectorMatches == nil {
+                cacheDelegate.requestDataDetection(attributedString: attributedTextBody) { [weak self] dataDetected in
+                    assert(Thread.isMainThread)
+                    guard dataDetected else { return }
+                    self?.setNeedsUpdateConfiguration()
+                }
+            }
+
+        }
+
+        // Set the configuration
+        
         if self.contentConfiguration as? SentMessageCellCustomContentConfiguration != content {
             self.contentConfiguration = content
         }
-
+        
         registerDelegate()
 
         startAnimating()
@@ -523,7 +529,6 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
 
 // MARK: - Implementing CellWithMessage
 
-@available(iOS 14.0, *)
 extension SentMessageCell {
      
     var persistedMessage: PersistedMessage? { message }
@@ -603,7 +608,6 @@ extension SentMessageCell {
 // MARK: - SentMessageCellCustomContentConfiguration
 
 
-@available(iOS 14.0, *)
 fileprivate struct SentMessageCellCustomContentConfiguration: UIContentConfiguration, Hashable {
     
     var draftObjectID: TypeSafeManagedObjectID<PersistedDraft>?
@@ -644,7 +648,6 @@ fileprivate struct SentMessageCellCustomContentConfiguration: UIContentConfigura
 }
 
 
-@available(iOS 14.0, *)
 fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGestureRecognizerDelegate, UIViewWithTappableStuff {
     
     private let mainStack = OlvidVerticalStackView(gap: MessageCellConstants.mainStackGap,
@@ -1071,7 +1074,6 @@ fileprivate final class SentMessageCellContentView: UIView, UIContentView, UIGes
 
 
 
-@available(iOS 14.0, *)
 fileprivate final class SentMessageCellBackgroundView: UIView {
 
     private let imageView = UIImageView()

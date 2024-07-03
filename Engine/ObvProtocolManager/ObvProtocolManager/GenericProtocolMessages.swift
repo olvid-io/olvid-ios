@@ -150,26 +150,26 @@ struct GenericProtocolMessageToSend {
     
     func generateObvChannelProtocolMessageToSend(with prng: PRNGService) -> ObvChannelProtocolMessageToSend? {
         switch channelType {
-        case .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity,
-             .AllConfirmedObliviousChannelsWithContactIdentities,
-             .AllConfirmedObliviousChannelsWithContactIdentitiesAndWithOtherDevicesOfOwnedIdentity,
-             .AsymmetricChannel,
-             .AsymmetricChannelBroadcast,
-             .Local,
-             .ObliviousChannel:
+        case .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices,
+             .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts,
+             .allConfirmedObliviousChannelsOrPreKeyChannelsWithContactsAndWithOtherOwnedDevices,
+             .asymmetricChannel,
+             .asymmetricChannelBroadcast,
+             .local,
+             .obliviousChannel:
             return ObvChannelProtocolMessageToSend(channelType: channelType,
                                                    timestamp: timestamp,
                                                    encodedElements: encodedElements,
                                                    partOfFullRatchetProtocolOfTheSendSeed: partOfFullRatchetProtocolOfTheSendSeed)
-        case .UserInterface,
-             .ServerQuery:
+        case .userInterface,
+             .serverQuery:
             return nil
         }
     }
     
     func generateObvChannelDialogMessageToSend() -> ObvChannelDialogMessageToSend? {
         switch channelType {
-        case .UserInterface(uuid: let uuid, ownedIdentity: let ownedIdentity, dialogType: let dialogType):
+        case .userInterface(uuid: let uuid, ownedIdentity: let ownedIdentity, dialogType: let dialogType):
             return ObvChannelDialogMessageToSend(uuid: uuid,
                                                  ownedIdentity: ownedIdentity,
                                                  dialogType: dialogType,
@@ -181,7 +181,7 @@ struct GenericProtocolMessageToSend {
     
     func generateObvChannelServerQueryMessageToSend(serverQueryType: ObvChannelServerQueryMessageToSend.QueryType) -> ObvChannelServerQueryMessageToSend? {
         switch channelType {
-        case .ServerQuery(ownedIdentity: let ownedIdentity):
+        case .serverQuery(ownedIdentity: let ownedIdentity):
             return ObvChannelServerQueryMessageToSend(ownedIdentity: ownedIdentity,
                                                       serverQueryType: serverQueryType,
                                                       encodedElements: encodedElements)

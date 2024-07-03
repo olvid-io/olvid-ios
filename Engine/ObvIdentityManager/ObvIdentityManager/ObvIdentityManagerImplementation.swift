@@ -117,6 +117,66 @@ extension ObvIdentityManagerImplementation: ObvSnapshotable {
 }
 
 
+// MARK: - Other pre-keys related methods
+
+extension ObvIdentityManagerImplementation {
+    
+    public func getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ObvCryptoIdentity, remoteCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<UID> {
+        
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoId, delegateManager: delegateManager, within: obvContext) else {
+            assertionFailure()
+            throw ObvIdentityManagerError.ownedIdentityNotFound
+        }
+        
+        if remoteCryptoId == ownedCryptoId {
+            
+            let uids = ownedIdentity.otherDevices
+                .filter({ $0.remoteOwnedDeviceHasPrekey })
+                .map(\.uid)
+            
+            return Set(uids)
+            
+        } else {
+            
+            guard let contactIdentity = try ContactIdentity.get(contactIdentity: remoteCryptoId, ownedIdentity: ownedIdentity, delegateManager: delegateManager) else {
+                assertionFailure()
+                return Set<UID>()
+            }
+            
+            let uids = contactIdentity.devices
+                .filter({ $0.hasPreKey })
+                .map(\.uid)
+            
+            return Set(uids)
+            
+        }
+        
+    }
+    
+    
+    public func getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ObvCryptoIdentity, remoteCryptoIds: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<UID>] {
+        
+        return try remoteCryptoIds.reduce(into: [ObvCryptoIdentity: Set<UID>]()) { partialResult, remoteCryptoId in
+            partialResult[remoteCryptoId] = try getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ownedCryptoId, remoteCryptoId: remoteCryptoId, within: obvContext)
+        }
+                
+    }
+    
+    
+    public func deleteCurrentDeviceExpiredPreKeysOfOwnedIdentity(ownedCryptoId: ObvCryptoIdentity, downloadTimestampFromServer: Date, within obvContext: ObvContext) throws {
+        
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoId, delegateManager: delegateManager, within: obvContext) else {
+            assertionFailure()
+            return
+        }
+
+        try ownedIdentity.deleteCurrentOwnedDeviceExpiredPreKeys(downloadTimestampFromServer: downloadTimestampFromServer)
+        
+    }
+
+}
+
+
 // MARK: - Implementing ObvIdentityDelegate
 
 extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
@@ -301,6 +361,14 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
+    public func isOwnedIdentityActive(ownedIdentity identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound
+        }
+        return ownedIdentity.isActive
+    }
+    
+    
     public func deactivateOwnedIdentityAndDeleteContactDevices(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         os_log("Deactivating owned identity %{public}@", log: log, type: .info, ownedIdentity.debugDescription)
         guard let ownedIdentityObj = try OwnedIdentity.get(ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
@@ -348,8 +416,8 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func getOwnedIdentities(within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
-        return try OwnedIdentity.getAllCryptoIds(within: obvContext.context)
+    public func getOwnedIdentities(restrictToActive: Bool, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
+        return try OwnedIdentity.getAllCryptoIds(restrictToActive: restrictToActive, within: obvContext.context)
     }
     
     
@@ -1035,8 +1103,25 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         return Set(appropriateOwnedIdentities.map { $0.cryptoIdentity })
     }
     
+    
     // MARK: - API related to owned devices
     
+    public func getLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withIdentifier ownedDeviceIdentifier: ObvOwnedDeviceIdentifier, within obvContext: ObvContext) throws -> Date? {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedDeviceIdentifier.ownedCryptoId.cryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound
+        }
+        return try ownedIdentity.getLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withUID: ownedDeviceIdentifier.deviceUID)
+    }
+
+    
+    public func setLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withIdentifier ownedDeviceIdentifier: ObvOwnedDeviceIdentifier, to date: Date, within obvContext: ObvContext) throws {
+        guard let ownedIdentity = try OwnedIdentity.get(ownedDeviceIdentifier.ownedCryptoId.cryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw ObvIdentityManagerError.ownedIdentityNotFound
+        }
+        try ownedIdentity.setLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withUID: ownedDeviceIdentifier.deviceUID, to: date)
+    }
+    
+
     public func getDeviceUidsOfOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<UID> {
         guard let ownedIdentity = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
@@ -1110,12 +1195,33 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
+    /// Method used when determining which channel creation protocol should be re-started
+    public func getAllRemoteOwnedDevicesUidsAndContactDeviceUidsWithLatestChannelCreationPingTimestamp(earlierThan date: Date, within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
+        let ownedRemoteDevices = try OwnedDevice.getAllOwnedRemoteDeviceUidsWithLatestChannelCreationPingTimestamp(earlierThan: date, within: obvContext.context)
+        let contactDevices = try ContactDevice.getAllContactDeviceUidsWithLatestChannelCreationPingTimestamp(earlierThan: date, within: obvContext.context)
+        return ownedRemoteDevices.union(contactDevices)
+    }
+
+    
+    public func processContactDeviceDiscoveryResult(_ contactDeviceDiscoveryResult: ContactDeviceDiscoveryResult, forContactCryptoId contactCryptoId: ObvCryptoIdentity, ofOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        guard let contact = try ContactIdentity.get(contactIdentity: contactCryptoId, ownedIdentity: ownedCryptoId, delegateManager: delegateManager, within: obvContext) else {
+            // The contact cannot be found, there is nothing to process
+            return
+        }
+        try contact.processContactDeviceDiscoveryResult(contactDeviceDiscoveryResult, log: log, flowId: obvContext.flowId)
+    }
+    
+    
     /// Returns a Boolean indicating whether the current device is part of the owned device discovery results.
-    public func processEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+    public func processEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> OwnedDeviceDiscoveryPostProcessingTask {
         guard let ownedIdentityObj = try OwnedIdentity.get(ownedCryptoId, delegateManager: delegateManager, within: obvContext) else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
         }
-        let currentDeviceIsPartOfOwnedDeviceDiscoveryResult = try ownedIdentityObj.processEncryptedOwnedDeviceDiscoveryResult(encryptedOwnedDeviceDiscoveryResult, delegateManager: delegateManager)
+        let currentDeviceIsPartOfOwnedDeviceDiscoveryResult = try ownedIdentityObj.processEncryptedOwnedDeviceDiscoveryResult(encryptedOwnedDeviceDiscoveryResult,
+                                                                                                                              prng: prng,
+                                                                                                                              solveChallengeDelegate: self,
+                                                                                                                              delegateManager: delegateManager,
+                                                                                                                              within: obvContext)
         return currentDeviceIsPartOfOwnedDeviceDiscoveryResult
     }
     
@@ -1324,7 +1430,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     public func isContactIdentityActive(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
         guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact identity") }
-        return contactIdentityObject.isActive
+        return contactIdentityObject.isRevokedAsCompromisedAndNotForcefullyTrustedByUser
     }
     
     
@@ -1342,9 +1448,46 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         guard let contactIdentityObject = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else { throw makeError(message: "Could not find contact identity") }
         contactIdentityObject.setIsOneToOne(to: newIsOneToOneStatus, reasonToLog: reasonToLog)
     }
+    
+    
+    public func getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(within obvContext: ObvContext) throws -> Set<ObvContactIdentifier> {
+        return try ContactIdentity.getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(within: obvContext.context)
+    }
+    
+    
+    public func checkIfContactWasRecentlyOnline(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        guard let contact = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find contact identity")
+        }
+        return contact.wasContactRecentlyOnline
+    }
+    
+    
+    public func markContactAsRecentlyOnline(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        guard let contact = try ContactIdentity.get(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find contact identity")
+        }
+        contact.markAsRecentlyOnline()
+    }
+    
 
     // MARK: - API related to contact devices
     
+    public func getLatestChannelCreationPingTimestampOfContactDevice(withIdentifier contactDeviceIdentifier: ObvContactDeviceIdentifier, within obvContext: ObvContext) throws -> Date? {
+        guard let contact = try ContactIdentity.get(contactIdentity: contactDeviceIdentifier.contactCryptoId.cryptoIdentity, ownedIdentity: contactDeviceIdentifier.ownedCryptoId.cryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find contact identity")
+        }
+        return try contact.getLatestChannelCreationPingTimestampOfContactDevice(withUID: contactDeviceIdentifier.deviceUID)
+    }
+
+    
+    public func setLatestChannelCreationPingTimestampOfContactDevice(withIdentifier contactDeviceIdentifier: ObvContactDeviceIdentifier, to date: Date, within obvContext: ObvContext) throws {
+        guard let contact = try ContactIdentity.get(contactIdentity: contactDeviceIdentifier.contactCryptoId.cryptoIdentity, ownedIdentity: contactDeviceIdentifier.ownedCryptoId.cryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+            throw makeError(message: "Could not find contact identity")
+        }
+        try contact.setLatestChannelCreationPingTimestampOfContactDevice(withUID: contactDeviceIdentifier.deviceUID, to: date)
+    }
+
     
     public func addDeviceForContactIdentity(_ contactIdentity: ObvCryptoIdentity, withUid uid: UID, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, createdDuringChannelCreation: Bool, within obvContext: ObvContext) throws {
         guard let contactIdentity = try ContactIdentity.get(contactIdentity: contactIdentity,
@@ -1354,18 +1497,6 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
             throw ObvIdentityManagerImplementation.makeError(message: "Could not find contact identity")
         }
         try contactIdentity.addIfNotExistDeviceWith(uid: uid, createdDuringChannelCreation: createdDuringChannelCreation, flowId: obvContext.flowId)
-    }
-    
-    
-    public func removeDeviceForContactIdentity(_ contactIdentity: ObvCryptoIdentity, withUid uid: UID, ofOwnedIdentity ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        guard let contactIdentity = try ContactIdentity.get(contactIdentity: contactIdentity,
-                                                            ownedIdentity: ownedIdentity,
-                                                            delegateManager: delegateManager,
-                                                            within: obvContext)
-        else {
-            throw ObvIdentityManagerImplementation.makeError(message: "Could not get contact identity")
-        }
-        try contactIdentity.removeIfExistsDeviceWith(uid: uid, flowId: obvContext.flowId)
     }
     
     
@@ -1992,7 +2123,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
 
 extension ObvIdentityManagerImplementation: ObvKeyWrapperForIdentityDelegate {
     
-    public func wrap(_ key: AuthenticatedEncryptionKey, for identity: ObvCryptoIdentity, randomizedWith prng: PRNGService) -> EncryptedData {
+    public func wrap(_ key: AuthenticatedEncryptionKey, for identity: ObvCryptoIdentity, randomizedWith prng: PRNGService) -> EncryptedData? {
         return PublicKeyEncryption.encrypt(key.obvEncode().rawData, for: identity, randomizedWith: prng)
     }
     
@@ -2021,6 +2152,37 @@ extension ObvIdentityManagerImplementation: ObvKeyWrapperForIdentityDelegate {
         }
         return key
     }
+    
+    
+    public func wrap(_ messageKey: any AuthenticatedEncryptionKey, forRemoteDeviceUID uid: UID, ofRemoteCryptoId remoteCryptoId: ObvCryptoIdentity, ofOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, randomizedWith prng: any PRNGService, within obvContext: ObvContext) throws -> EncryptedData? {
+        
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoId, delegateManager: delegateManager, within: obvContext) else {
+            assertionFailure()
+            return nil
+        }
+        
+        let wrappedMessageKeys = try ownedIdentity.wrap(messageKey,
+                                                        forRemoteDeviceUID: uid,
+                                                        ofRemoteCryptoId: remoteCryptoId,
+                                                        prng: prng,
+                                                        delegateManager: delegateManager)
+        
+        return wrappedMessageKeys
+        
+    }
+    
+    
+    public func unwrapWithPreKey(_ wrappedMessageKey: EncryptedData, forOwnedIdentity ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ResultOfUnwrapWithPreKey {
+        
+        guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoId, delegateManager: delegateManager, within: obvContext) else {
+            assertionFailure()
+            return .couldNotUnwrap
+        }
+
+        return try ownedIdentity.unwrapForCurrentOwnedDevice(wrappedMessageKey, delegateManager: delegateManager, within: obvContext)
+        
+    }
+    
 }
 
 

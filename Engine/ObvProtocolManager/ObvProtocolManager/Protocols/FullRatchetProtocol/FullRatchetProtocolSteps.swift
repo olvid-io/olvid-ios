@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvCrypto
 import ObvEncoder
 import ObvTypes
 import OlvidUtils
+import ObvMetaManager
 
 
 // MARK: - Protocol Steps
@@ -67,7 +68,7 @@ extension FullRatchetProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -95,7 +96,12 @@ extension FullRatchetProtocol {
             // Send the public key to Bob, together with our current device uid
             
             do {
-                let coreMessage = getCoreMessage(for: .ObliviousChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true), partOfFullRatchetProtocolOfTheSendSeed: true)
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: contactIdentity, 
+                                                                             remoteDeviceUids: [contactDeviceUid],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: false)
+                let coreMessage = getCoreMessage(for: channelType, partOfFullRatchetProtocolOfTheSendSeed: true)
                 let concreteProtocolMessage = AliceEphemeralKeyMessage(coreProtocolMessage: coreMessage,
                                                                        contactEphemeralPublicKey: ephemeralPublicKey,
                                                                        restartCounter: restartCounter)
@@ -129,7 +135,7 @@ extension FullRatchetProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -167,7 +173,12 @@ extension FullRatchetProtocol {
             // Send the public key to Bob, together with our current device uid
             
             do {
-                let coreMessage = getCoreMessage(for: .ObliviousChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true), partOfFullRatchetProtocolOfTheSendSeed: true)
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: contactIdentity, 
+                                                                             remoteDeviceUids: [contactDeviceUid],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: false)
+                let coreMessage = getCoreMessage(for: channelType, partOfFullRatchetProtocolOfTheSendSeed: true)
                 let concreteProtocolMessage = AliceEphemeralKeyMessage(coreProtocolMessage: coreMessage,
                                                                        contactEphemeralPublicKey: ephemeralPublicKey,
                                                                        restartCounter: restartCounter)
@@ -201,7 +212,7 @@ extension FullRatchetProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -239,7 +250,12 @@ extension FullRatchetProtocol {
             // Send the public key to Bob, together with our current device uid
             
             do {
-                let coreMessage = getCoreMessage(for: .ObliviousChannel(to: contactIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true), partOfFullRatchetProtocolOfTheSendSeed: true)
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: contactIdentity, 
+                                                                             remoteDeviceUids: [contactDeviceUid],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: false)
+                let coreMessage = getCoreMessage(for: channelType, partOfFullRatchetProtocolOfTheSendSeed: true)
                 let concreteProtocolMessage = AliceEphemeralKeyMessage(coreProtocolMessage: coreMessage,
                                                                        contactEphemeralPublicKey: ephemeralPublicKey,
                                                                        restartCounter: restartCounter)
@@ -260,7 +276,7 @@ extension FullRatchetProtocol {
         
     }
 
-    
+
     final class BobSendEphemeralKeyAndK1FromInitialStateStep: ProtocolStep, TypedConcreteProtocolStep {
 
         let startState: ConcreteProtocolInitialState
@@ -270,9 +286,8 @@ extension FullRatchetProtocol {
 
             self.startState = startState
             self.receivedMessage = receivedMessage
-
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -301,7 +316,12 @@ extension FullRatchetProtocol {
             // Send c1 to Alice
             
             do {
-                let coreMessage = getCoreMessage(for: .ObliviousChannel(to: remoteIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true), partOfFullRatchetProtocolOfTheSendSeed: false)
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: remoteIdentity,
+                                                                             remoteDeviceUids: [contactDeviceUid],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: false)
+                let coreMessage = getCoreMessage(for: channelType, partOfFullRatchetProtocolOfTheSendSeed: false)
                 let concreteProtocolMessage = BobEphemeralKeyAndK1Message(coreProtocolMessage: coreMessage,
                                                                           contactEphemeralPublicKey: ephemeralPublicKey,
                                                                           c1: c1,
@@ -333,7 +353,7 @@ extension FullRatchetProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .ObliviousChannel(remoteCryptoIdentity: startState.contactIdentity, remoteDeviceUid: startState.contactDeviceUid),
+                       expectedReceptionChannelInfo: .obliviousChannel(remoteCryptoIdentity: startState.contactIdentity, remoteDeviceUid: startState.contactDeviceUid),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -371,7 +391,12 @@ extension FullRatchetProtocol {
             // Send c1 to Alice
             
             do {
-                let coreMessage = getCoreMessage(for: .ObliviousChannel(to: remoteIdentity, remoteDeviceUids: [contactDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true), partOfFullRatchetProtocolOfTheSendSeed: false)
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: remoteIdentity,
+                                                                             remoteDeviceUids: [contactDeviceUid],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: false)
+                let coreMessage = getCoreMessage(for: channelType, partOfFullRatchetProtocolOfTheSendSeed: false)
                 let concreteProtocolMessage = BobEphemeralKeyAndK1Message(coreProtocolMessage: coreMessage,
                                                                           contactEphemeralPublicKey: ephemeralPublicKey,
                                                                           c1: c1,
@@ -405,7 +430,7 @@ extension FullRatchetProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .ObliviousChannel(remoteCryptoIdentity: startState.contactIdentity, remoteDeviceUid: startState.contactDeviceUid),
+                       expectedReceptionChannelInfo: .obliviousChannel(remoteCryptoIdentity: startState.contactIdentity, remoteDeviceUid: startState.contactDeviceUid),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -453,7 +478,11 @@ extension FullRatchetProtocol {
 
             // Generate k2
             
-            let (c2, k2) = PublicKeyEncryption.kemEncrypt(using: contactEphemeralPublicKey, with: prng)
+            guard let (c2, k2) = PublicKeyEncryption.kemEncrypt(using: contactEphemeralPublicKey, with: prng) else {
+                assertionFailure()
+                os_log("Could not perform encryption using contact ephemeral public key", log: log, type: .error)
+                return CancelledState()
+            }
 
             // Compute a seed from k1 and k2
             
@@ -465,7 +494,12 @@ extension FullRatchetProtocol {
             // Send a message back to Bob
             
             do {
-                let coreMessage = getCoreMessage(for: .ObliviousChannel(to: remoteIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true), partOfFullRatchetProtocolOfTheSendSeed: true)
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: remoteIdentity, 
+                                                                             remoteDeviceUids: [remoteDeviceUid],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: false)
+                let coreMessage = getCoreMessage(for: channelType, partOfFullRatchetProtocolOfTheSendSeed: true)
                 let concreteProtocolMessage = AliceK2Message(coreProtocolMessage: coreMessage, c2: c2, restartCounter: localRestartCounter)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -494,7 +528,7 @@ extension FullRatchetProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .ObliviousChannel(remoteCryptoIdentity: startState.contactIdentity, remoteDeviceUid: startState.contactDeviceUid),
+                       expectedReceptionChannelInfo: .obliviousChannel(remoteCryptoIdentity: startState.contactIdentity, remoteDeviceUid: startState.contactDeviceUid),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -563,7 +597,12 @@ extension FullRatchetProtocol {
             // Send ack to Alice
             
             do {
-                let coreMessage = getCoreMessage(for: .ObliviousChannel(to: remoteIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: true), partOfFullRatchetProtocolOfTheSendSeed: false)
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: remoteIdentity, 
+                                                                             remoteDeviceUids: [remoteDeviceUid],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: false)
+                let coreMessage = getCoreMessage(for: channelType, partOfFullRatchetProtocolOfTheSendSeed: false)
                 let concreteProtocolMessage = BobAckMessage(coreProtocolMessage: coreMessage, restartCounter: localRestartCounter)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -592,7 +631,7 @@ extension FullRatchetProtocol {
             self.receivedMessage = receivedMessage
 
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .ObliviousChannel(remoteCryptoIdentity: startState.contactIdentity, remoteDeviceUid: startState.contactDeviceUid),
+                       expectedReceptionChannelInfo: .obliviousChannel(remoteCryptoIdentity: startState.contactIdentity, remoteDeviceUid: startState.contactDeviceUid),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
 
@@ -727,7 +766,11 @@ extension FullRatchetProtocol {
 
         // Generate k1
         
-        let (c1, k1) = PublicKeyEncryption.kemEncrypt(using: contactEphemeralPublicKey, with: prng)
+        guard let (c1, k1) = PublicKeyEncryption.kemEncrypt(using: contactEphemeralPublicKey, with: prng) else {
+            assertionFailure()
+            os_log("Could not perform encryption using contact ephemeral public key", log: log, type: .error)
+            return nil
+        }
 
         // Return values
         

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -116,8 +116,8 @@ extension PersistedDiscussionSharedConfiguration {
     
     func setValuesUsingSettings() {
         self.readOnce = ObvMessengerSettings.Discussions.readOnce
-        self.existenceDuration = ObvMessengerSettings.Discussions.existenceDuration.timeInterval
-        self.visibilityDuration = ObvMessengerSettings.Discussions.visibilityDuration.timeInterval
+        self.existenceDuration = ObvMessengerSettings.Discussions.existenceDuration
+        self.visibilityDuration = ObvMessengerSettings.Discussions.visibilityDuration
     }
 
     
@@ -258,6 +258,18 @@ extension PersistedDiscussionSharedConfiguration {
         static func persistedDiscussionSharedConfiguration(withObjectID objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(withObjectID: objectID)
         }
+        fileprivate static var withExistenceLessOrEqualToZero: NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.rawExistenceDuration),
+                NSPredicate(Key.rawExistenceDuration, LessOrEqualThanInt: 0),
+            ])
+        }
+        fileprivate static var withVisiblityLessOrEqualToZero: NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.rawVisibilityDuration),
+                NSPredicate(Key.rawVisibilityDuration, LessOrEqualThanInt: 0),
+            ])
+        }
     }
 
     @nonobjc private static func fetchRequest() -> NSFetchRequest<PersistedDiscussionSharedConfiguration> {
@@ -271,6 +283,25 @@ extension PersistedDiscussionSharedConfiguration {
         return try context.fetch(request).first
     }
 
+    
+    public static func resetInconsistentDiscussionExistenceAndVisibilityDurations(within context: NSManagedObjectContext) throws {
+        let request: NSFetchRequest<PersistedDiscussionSharedConfiguration> = PersistedDiscussionSharedConfiguration.fetchRequest()
+        request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+            Predicate.withVisiblityLessOrEqualToZero,
+            Predicate.withExistenceLessOrEqualToZero,
+        ])
+        request.fetchBatchSize = 500
+        let configurations = try context.fetch(request)
+        configurations.forEach { configuration in
+            if let existenceDuration = configuration.existenceDuration, existenceDuration <= 0 {
+                configuration.existenceDuration = nil
+            }
+            if let visibilityDuration = configuration.visibilityDuration, visibilityDuration <= 0 {
+                configuration.visibilityDuration = nil
+            }
+        }
+    }
+    
 }
 
 

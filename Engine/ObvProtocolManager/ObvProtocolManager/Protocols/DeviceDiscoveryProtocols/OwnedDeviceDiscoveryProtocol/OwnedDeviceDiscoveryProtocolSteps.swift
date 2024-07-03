@@ -36,6 +36,7 @@ extension OwnedDeviceDiscoveryProtocol {
         
         case sendServerQuery = 0
         case processServerQuery = 1
+        case processUploadPreKeyForCurrentDevice = 2
         
         func getConcreteProtocolStep(_ concreteProtocol: ConcreteCryptoProtocol, _ receivedMessage: ConcreteProtocolMessage) -> ConcreteProtocolStep? {
             switch self {
@@ -53,6 +54,10 @@ extension OwnedDeviceDiscoveryProtocol {
                 let step = ProcessServerQueryStep(from: concreteProtocol, and: receivedMessage)
                 return step
                 
+            case .processUploadPreKeyForCurrentDevice:
+                let step = ProcessUploadPreKeyForCurrentDeviceStep(from: concreteProtocol, and: receivedMessage)
+                return step
+
             }
         }
     }
@@ -77,12 +82,12 @@ extension OwnedDeviceDiscoveryProtocol {
             switch receivedMessage {
             case .initiateOwnedDeviceDiscoveryMessage(receivedMessage: let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .Local,
+                           expectedReceptionChannelInfo: .local,
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             case .initiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDeviceMessage(receivedMessage: let receivedMessage):
                 super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                           expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                           expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                            receivedMessage: receivedMessage,
                            concreteCryptoProtocol: concreteCryptoProtocol)
             }
@@ -92,7 +97,7 @@ extension OwnedDeviceDiscoveryProtocol {
             
             // Send the server query
             
-            let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
             let concreteMessage = ServerQueryMessage(coreProtocolMessage: coreMessage)
             let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.ownedDeviceDiscovery
             guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -165,7 +170,7 @@ extension OwnedDeviceDiscoveryProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -187,11 +192,32 @@ extension OwnedDeviceDiscoveryProtocol {
                 
             case .success(encryptedOwnedDeviceDiscoveryResult: let encryptedOwnedDeviceDiscoveryResult):
                 
-                let currentDeviceIsPartOfOwnedDeviceDiscoveryResult = try identityDelegate.processEncryptedOwnedDeviceDiscoveryResult(encryptedOwnedDeviceDiscoveryResult, forOwnedCryptoId: ownedIdentity, within: obvContext)
+                let postProcessingTask = try identityDelegate.processEncryptedOwnedDeviceDiscoveryResult(encryptedOwnedDeviceDiscoveryResult, forOwnedCryptoId: ownedIdentity, within: obvContext)
                 
-                if !currentDeviceIsPartOfOwnedDeviceDiscoveryResult {
+                switch postProcessingTask {
+                    
+                case .none:
+                    
+                    break
+                    
+                case .currentDeviceMustRegister:
+                    
+                    // We send a notification that will eventually trigger a register to push notification and thus, register the current device.
+                    // Note that this notification will then trigger a new owned device discovery protocol, the processing of which will indicate that
+                    // we must upload a pre-key.
                     ObvProtocolNotification.theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults(ownedIdentity: ownedIdentity)
                         .postOnBackgroundQueue(within: notificationDelegate)
+                    
+                case .currentDeviceMustUploadPreKey(deviceBlobOnServerToUpload: let deviceBlobOnServerToUpload):
+                    
+                    let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
+                    let concreteMessage = UploadPreKeyForCurrentDeviceServerQueryMessage(coreProtocolMessage: coreMessage)
+                    let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.uploadPreKeyForCurrentDevice(deviceBlobOnServerToUpload: deviceBlobOnServerToUpload)
+                    guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
+                    _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: concreteCryptoProtocol.prng, within: obvContext)
+
+                    return WaitingForServerQueryResultState()
+                    
                 }
                 
                 // Return the new state
@@ -203,5 +229,66 @@ extension OwnedDeviceDiscoveryProtocol {
         }
         
     }
+    
+    
+    
+    // MARK: - ProcessUploadPreKeyForCurrentDeviceStep
 
+    final class ProcessUploadPreKeyForCurrentDeviceStep: ProtocolStep, TypedConcreteProtocolStep {
+        
+        let startState: WaitingForServerQueryResultState
+        let receivedMessage: UploadPreKeyForCurrentDeviceServerQueryMessage
+        
+        init?(startState: WaitingForServerQueryResultState, receivedMessage: UploadPreKeyForCurrentDeviceServerQueryMessage, concreteCryptoProtocol: ConcreteCryptoProtocol) {
+            
+            self.startState = startState
+            self.receivedMessage = receivedMessage
+            
+            super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .local,
+                       receivedMessage: receivedMessage,
+                       concreteCryptoProtocol: concreteCryptoProtocol)
+        }
+        
+        override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            let log = OSLog(subsystem: delegateManager.logSubsystem, category: OwnedDeviceDiscoveryProtocol.logCategory)
+            
+            guard let uploadPreKeyForCurrentDeviceResult = receivedMessage.uploadPreKeyForCurrentDeviceResult else {
+                assertionFailure()
+                os_log("The UploadPreKeyForCurrentDeviceServerQueryMessage has no uploadPreKeyForCurrentDeviceResult. This is a bug.", log: log, type: .fault)
+                return CancelledState()
+            }
+
+            switch uploadPreKeyForCurrentDeviceResult {
+                
+            case .success:
+                return ServerQueryProcessedState()
+
+            case .deviceNotRegistered:
+                
+                // We send a notification that will eventually trigger a register to push notification and thus, register the current device.
+                // Note that this notification will then trigger a new owned device discovery protocol, the processing of which will indicate that
+                // we must upload a pre-key.
+                ObvProtocolNotification.theCurrentDeviceWasNotPartOfTheLastOwnedDeviceDiscoveryResults(ownedIdentity: ownedIdentity)
+                    .postOnBackgroundQueue(within: notificationDelegate)
+                
+                return CancelledState()
+
+            case .invalidSignature:
+                os_log("The server reported that the signature on the pre-key we uploaded for the current device is invalid", log: log, type: .fault)
+                assertionFailure()
+                return CancelledState()
+
+            case .permanentFailure:
+                os_log("Permanent failure of the upload of the pre-key for the current device", log: log, type: .fault)
+                assertionFailure()
+                return CancelledState()
+
+            }
+            
+        }
+        
+    }
+    
 }

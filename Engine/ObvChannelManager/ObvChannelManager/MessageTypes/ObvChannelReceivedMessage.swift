@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,6 +31,7 @@ struct ReceivedMessage {
     let channelType: ObvProtocolReceptionChannelInfo
     let extendedMessagePayload: Data? // Available only when the message was received in a notification. Not available during a "normal" reception as the extended payload is downloaded asynchronously
     private let message: ObvNetworkReceivedMessageEncrypted
+    let contentForMessageKey: Data
 
     var messageId: ObvMessageIdentifier { return message.messageId }
     var knownAttachmentCount: Int? { return message.knownAttachmentCount }
@@ -38,8 +39,9 @@ struct ReceivedMessage {
     
     init?(with message: ObvNetworkReceivedMessageEncrypted, decryptedWith messageKey: AuthenticatedEncryptionKey, obtainedUsing channelType: ObvProtocolReceptionChannelInfo) {
         
-        guard let content = ReceivedMessage.decryptToObvEncoded(message.encryptedContent, with: messageKey) else { return nil }
-        guard let (type, encodedElements) = ReceivedMessage.parse(content) else { return nil }
+        guard let (encodedContent, rawDecryptedContentForMessageKey) = ReceivedMessage.decryptToObvEncoded(message.encryptedContent, with: messageKey) else { return nil }
+        self.contentForMessageKey = rawDecryptedContentForMessageKey
+        guard let (type, encodedElements) = ReceivedMessage.parse(encodedContent) else { return nil }
         self.type = type
         self.encodedElements = encodedElements
         self.message = message
@@ -68,10 +70,10 @@ struct ReceivedMessage {
         return rawEncodedElements
     }
 
-    private static func decryptToObvEncoded(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) -> ObvEncoded? {
+    private static func decryptToObvEncoded(_ encryptedContent: EncryptedData, with messageKey: AuthenticatedEncryptionKey) -> (obvEncoded: ObvEncoded, rawDecryptedContentForMessageKey: Data)? {
         guard let rawEncodedElements = decryptToData(encryptedContent, with: messageKey) else { return nil }
-        let content = ObvEncoded(withPaddedRawData: rawEncodedElements)
-        return content
+        guard let content = ObvEncoded(withPaddedRawData: rawEncodedElements) else { return nil }
+        return (content, rawEncodedElements)
     }
     
     private static func parse(_ content: ObvEncoded) -> (messageType: ObvChannelMessageType, encodedElements: ObvEncoded)? {
@@ -99,13 +101,17 @@ struct ReceivedApplicationMessage {
     init?(with message: ReceivedMessage) {
         guard message.type == .ApplicationMessage else { return nil }
         switch message.channelType {
-        case .AsymmetricChannel,
-             .Local,
-             .AnyObliviousChannelWithOwnedDevice,
-             .AnyObliviousChannel:
+        case .asymmetricChannel,
+             .local,
+             .anyObliviousChannelOrPreKeyWithOwnedDevice,
+             .anyObliviousChannelOrPreKeyChannel,
+             .anyObliviousChannel:
             return nil
-        case .ObliviousChannel(remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: let remoteDeviceUid):
+        case .obliviousChannel(remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: let remoteDeviceUid):
             // We do not check whether the channel is confirmed or not. This does not matter when receiving a message.
+            self.remoteCryptoIdentity = remoteCryptoIdentity
+            self.remoteDeviceUid = remoteDeviceUid
+        case .preKeyChannel(remoteCryptoIdentity: let remoteCryptoIdentity, remoteDeviceUid: let remoteDeviceUid):
             self.remoteCryptoIdentity = remoteCryptoIdentity
             self.remoteDeviceUid = remoteDeviceUid
         }

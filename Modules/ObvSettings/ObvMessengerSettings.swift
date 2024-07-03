@@ -100,6 +100,7 @@ public struct ObvMessengerSettings {
             case preferredComposeMessageViewActions = "preferredComposeMessageViewActions"
             case discussionLayoutType = "discussionLayoutType"
             case sendMessageShortcutType = "sendMessageShortcutType"
+            case hideTrailingURLInMessagesWhenPreviewIsAvailable = "hideTrailingURLInMessagesWhenPreviewIsAvailable"
             
             private var kInterface: String { "interface" }
             
@@ -119,6 +120,16 @@ public struct ObvMessengerSettings {
         public enum SendMessageShortcutType: Int, CaseIterable {
             case enter
             case commandEnter
+        }
+        
+        
+        public static var hideTrailingURLInMessagesWhenPreviewIsAvailable: Bool {
+            get {
+                return userDefaults.boolOrNil(forKey: Key.hideTrailingURLInMessagesWhenPreviewIsAvailable.path) ?? true
+            }
+            set {
+                userDefaults.set(newValue, forKey: Key.hideTrailingURLInMessagesWhenPreviewIsAvailable.path)
+            }
         }
         
         
@@ -275,26 +286,34 @@ public struct ObvMessengerSettings {
         
         // MARK: Ephemeral messages: visibility duration
         
-        public static var visibilityDuration: DurationOption {
+        public static var visibilityDuration: TimeInterval? {
             get {
-                let raw = userDefaults.integerOrNil(forKey: Key.visibilityDuration.path) ?? DurationOption.none.rawValue
-                return DurationOption(rawValue: raw) ?? .none
+                guard let raw = userDefaults.integerOrNil(forKey: Key.visibilityDuration.path) else { return nil }
+                return TimeInterval(raw)
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: Key.visibilityDuration.path)
+                if let newValue {
+                    userDefaults.set(Int(newValue), forKey: Key.visibilityDuration.path)
+                } else {
+                    userDefaults.set(nil, forKey: Key.visibilityDuration.path)
+                }
             }
         }
         
         
         // MARK: Ephemeral messages: existence duration
         
-        public static var existenceDuration: DurationOption {
+        public static var existenceDuration: TimeInterval? {
             get {
-                let raw = userDefaults.integerOrNil(forKey: Key.existenceDuration.path) ?? DurationOption.none.rawValue
-                return DurationOption(rawValue: raw) ?? .none
+                guard let raw = userDefaults.integerOrNil(forKey: Key.existenceDuration.path) else { return nil }
+                return TimeInterval(raw)
             }
             set {
-                userDefaults.set(newValue.rawValue, forKey: Key.existenceDuration.path)
+                if let newValue {
+                    userDefaults.set(Int(newValue), forKey: Key.existenceDuration.path)
+                } else {
+                    userDefaults.set(nil, forKey: Key.existenceDuration.path)
+                }
             }
         }
         

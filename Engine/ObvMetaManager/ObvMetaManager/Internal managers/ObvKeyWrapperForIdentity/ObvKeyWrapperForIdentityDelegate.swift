@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,13 @@ import OlvidUtils
 
 /// This protocol will typically be implemented by the Identity Manager
 public protocol ObvKeyWrapperForIdentityDelegate: ObvManager {
-    func wrap(_: AuthenticatedEncryptionKey, for: ObvCryptoIdentity, randomizedWith: PRNGService) -> EncryptedData
+    
+    // For the asymmetric channel
+    func wrap(_: AuthenticatedEncryptionKey, for: ObvCryptoIdentity, randomizedWith: PRNGService) -> EncryptedData?
     func unwrap(_: EncryptedData, for: ObvCryptoIdentity, within: ObvContext) -> AuthenticatedEncryptionKey?
+    
+    // For the pre-key channel
+    func wrap(_ messageKey: any AuthenticatedEncryptionKey, forRemoteDeviceUID uid: UID, ofRemoteCryptoId remoteCryptoId: ObvCryptoIdentity, ofOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, randomizedWith prng: any ObvCrypto.PRNGService, within obvContext: ObvContext) throws -> EncryptedData?
+    func unwrapWithPreKey(_ wrappedMessageKey: EncryptedData, forOwnedIdentity ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ResultOfUnwrapWithPreKey
+
 }

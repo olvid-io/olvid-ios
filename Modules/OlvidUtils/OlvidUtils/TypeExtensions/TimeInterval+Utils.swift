@@ -40,5 +40,5 @@ public extension TimeInterval {
     var toSeconds: Int {
         Int(self)
     }
-    
+
 }

@@ -35,12 +35,16 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     // MARK: Attributes
     
     @NSManaged private var expirationDate: Date?
+    @NSManaged private(set) var latestChannelCreationPingTimestamp: Date? // Always nil for the current device, may be non-nil for a remote owned device
     @NSManaged private var latestRegistrationDate: Date?
     @NSManaged private(set) var name: String?
     @NSManaged private var rawCapabilities: String?
     @NSManaged private(set) var uid: UID // Unique (not enforced)
 
     // MARK: Relationships
+    
+    @NSManaged private var preKeyForRemoteOwnedDevice: PreKeyForRemoteOwnedDevice? // Always nil for the current device, may be non-nil for a remote owned device. Set in the init of PreKeyForRemoteOwnedDevice
+    @NSManaged private var preKeysForCurrentDevice: Set<PreKeyForCurrentOwnedDevice> // Always empty for a remote owned device. New elements are added by calling ``static createPreKeyForCurrentOwnedDevice(forCurrentOwnedDevice:withExpirationTimestamp:prng:)`` on ``PreKeyForCurrentOwnedDevice``
     
     /// If this device the current device of an owned identity, then currentDeviceIdentity is not nil and remoteDeviceIdentity is nil. If this device is a remote device of an owned identity (thus the current device of this identity on some other physical device), then currentDeviceIdentity is nil and remoteDeviceIdentity is not nil. In both cases, one (and only one) of these two relationships is not nil. This is captured by the computed variable `identity`.
     private(set) var currentDeviceIdentity: OwnedIdentity? {
@@ -62,6 +66,18 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         }
         set {
             kvoSafeSetPrimitiveValue(newValue, forKey: Predicate.Key.remoteDeviceIdentity.rawValue)
+        }
+    }
+    
+    private var isCurrentDevice: Bool {
+        get throws {
+            if currentDeviceIdentity != nil && remoteDeviceIdentity == nil {
+                return true
+            } else  if currentDeviceIdentity == nil && remoteDeviceIdentity != nil {
+                return false
+            } else {
+                throw ObvError.unexpectedValuesForCurrentDevice
+            }
         }
     }
     
@@ -88,6 +104,10 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     private var ownedCryptoIdentityOnDeletion: ObvCryptoIdentity?
 
     private var changedKeys = Set<String>()
+    
+    var remoteOwnedDeviceHasPrekey: Bool {
+        preKeyForRemoteOwnedDevice != nil
+    }
 
     /// This is only set while inserting a new `OwnedDevice`. This is `true` iff the inserted instance was performed during a `ChannelCreationWithOwnedDeviceProtocol`.
     ///
@@ -224,7 +244,10 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
     }
     
 
-    func updateThisDevice(with device: OwnedDeviceDiscoveryResult.Device) throws {
+    func updateThisDevice(with device: OwnedDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date, delegateManager: ObvIdentityDelegateManager) throws -> DevicePreKey? {
+        
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: Self.entityName)
+
         guard self.uid == device.uid else {
             assertionFailure()
             throw Self.makeError(message: "Unexpected UID")
@@ -241,14 +264,234 @@ final class OwnedDevice: NSManagedObject, ObvManagedObject {
         if self.latestRegistrationDate != device.latestRegistrationDate {
             self.latestRegistrationDate = device.latestRegistrationDate
         }
+        
+        // If self is a remote owned device, we save the current pre-key value if the server returned one
+        
+        if try self.isCurrentDevice {
+            
+            let preKeyToUploadForCurrentDevice = try updateThisCurrentOwnedDevicePreKey(device: device,
+                                                                                        serverCurrentTimestamp: serverCurrentTimestamp,
+                                                                                        delegateManager: delegateManager)
+            return preKeyToUploadForCurrentDevice
+                        
+        } else {
+            
+            updateThisRemoteOwnedDevicePreKey(device: device,
+                                              serverCurrentTimestamp: serverCurrentTimestamp,
+                                              log: log)
+            
+            return nil
+            
+        }
+        
     }
     
     
+    /// Helper method for ``updateThisDevice(with:serverCurrentTimestamp:delegateManager:)``. It is called during the processing of a ``OwnedDeviceDiscoveryResult.Device`` in case the concerned device is a remote owned device.
+    private func updateThisRemoteOwnedDevicePreKey(device: OwnedDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date, log: OSLog) {
+        
+        deleteThisRemoteOwnedDevicePreKeyIfExpired(serverCurrentTimestamp: serverCurrentTimestamp)
+        
+        if let deviceBlobOnServer = device.deviceBlobOnServer {
+            
+            // Note that the signature on the deviceBlobOnServer has already been verified
+
+            if deviceBlobOnServer.deviceBlob.devicePreKey.expirationTimestamp > serverCurrentTimestamp {
+                do {
+                    let devicePreKey = deviceBlobOnServer.deviceBlob.devicePreKey
+                    // If the prekey is identical to the one we already have, do nothing. Otherwise, delete the current one and create a new one.
+                    if self.preKeyForRemoteOwnedDevice?.cryptoKeyId == devicePreKey.keyId {
+                        // Do nothing
+                    } else {
+                        try self.preKeyForRemoteOwnedDevice?.deletePreKeyForRemoteOwnedDevice()
+                        _ = try PreKeyForRemoteOwnedDevice(deviceBlobOnServer: deviceBlobOnServer, forRemoteOwnedDevice: self)
+                    }
+                } catch {
+                    os_log("Failed to save preKey on server for a remote owned device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                }
+            } else {
+                do {
+                    try self.preKeyForRemoteOwnedDevice?.deletePreKeyForRemoteOwnedDevice()
+                } catch {
+                    os_log("Failed to delete preKey on server for a remote owned device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                }
+            }
+            
+            if self.rawCapabilities == nil {
+                setCapabilities(newCapabilities: deviceBlobOnServer.deviceBlob.deviceCapabilities)
+            }
+            
+        }
+                        
+    }
+    
+    
+    /// Helper method for ``updateThisDevice(with:serverCurrentTimestamp:delegateManager:)``. It is called during the processing of a ``OwnedDeviceDiscoveryResult.Device`` in case the concerned device is the current owned device.
+    /// This method returns a `DevicePreKey` iff it should be uploaded to the server.
+    private func updateThisCurrentOwnedDevicePreKey(device: OwnedDeviceDiscoveryResult.Device, serverCurrentTimestamp: Date, delegateManager: ObvIdentityDelegateManager) throws -> DevicePreKey? {
+
+        // Note that we do not delete expired pre-keys for the current device. This is not performed during the processing of an owned device discovery, but only after a successful
+        // not-truncated list on the server.
+
+        enum CreateOrReturnPreKeyForCurrentOwnedDevice {
+            case no
+            case createPreKey
+            case returnPreKey(devicePreKey: DevicePreKey)
+        }
+
+        // Check whether we locally have a pre-key for the server
+        let appropriateKeyForServer = self.preKeysForCurrentDevice
+            .filter({ !$0.isDeleted })
+            .filter({ $0.serverTimestampOnCreation.addingTimeInterval(ObvConstants.preKeyForCurrentDeviceRenewTimeInterval) > serverCurrentTimestamp }) // keep keys that don't need to be renewed
+            .compactMap(\.preKey)
+            .filter({ $0.expirationTimestamp > serverCurrentTimestamp }) // keep non-expired keys
+            .max(by: { $0.expirationTimestamp < $1.expirationTimestamp })
+
+        let createOrReturnPreKeyForCurrentOwnedDevice: CreateOrReturnPreKeyForCurrentOwnedDevice
+        
+        if let deviceBlobOnServer = device.deviceBlobOnServer {
+            
+            let devicePreKey = deviceBlobOnServer.deviceBlob.devicePreKey
+            
+            // There is a pre-key on the server. We check if it is appropriate.
+            
+            if let appropriateKeyForServer {
+                
+                if appropriateKeyForServer.keyId == devicePreKey.keyId {
+                    // We already created an appropriate key for the server, and it corresponds to the one on the server. There is nothing to do
+                    createOrReturnPreKeyForCurrentOwnedDevice = .no
+                } else {
+                    // We already created an appropriate key for the server, but it does not correspond to the one on the server. We should update the key on the server.
+                    if appropriateKeyForServer.expirationTimestamp > devicePreKey.expirationTimestamp {
+                        createOrReturnPreKeyForCurrentOwnedDevice = .returnPreKey(devicePreKey: appropriateKeyForServer)
+                    } else {
+                        createOrReturnPreKeyForCurrentOwnedDevice = .createPreKey
+                    }
+                }
+                
+            } else {
+                
+                // We don't have an (local) appropriate key for the server, we need to create a new one as the one on the server cannot be appropriate
+                
+                createOrReturnPreKeyForCurrentOwnedDevice = .createPreKey
+                
+            }
+            
+        } else {
+            
+            // There is no pre-key on the server
+            
+            if let appropriateKeyForServer {
+                createOrReturnPreKeyForCurrentOwnedDevice = .returnPreKey(devicePreKey: appropriateKeyForServer)
+            } else {
+                createOrReturnPreKeyForCurrentOwnedDevice = .createPreKey
+            }
+            
+        }
+        
+        // Depending on createOrReturnPreKeyForCurrentOwnedDevice, we might need to create a pre-key or to return an existing one
+        
+        switch createOrReturnPreKeyForCurrentOwnedDevice {
+
+        case .no:
+            
+            return nil
+            
+        case .createPreKey:
+            
+            let devicePreKey = try PreKeyForCurrentOwnedDevice.createPreKeyForCurrentOwnedDevice(forCurrentOwnedDevice: self, serverCurrentTimestamp: serverCurrentTimestamp, prng: delegateManager.prng)
+            return devicePreKey
+
+        case .returnPreKey(devicePreKey: let devicePreKey):
+            
+            return devicePreKey
+            
+        }
+        
+    }
+    
+    
+    /// Helper method for ``updateThisRemoteOwnedDevicePreKey(device:serverCurrentTimestamp:log:)``
+    private func deleteThisRemoteOwnedDevicePreKeyIfExpired(serverCurrentTimestamp: Date) {
+        assert((try? isCurrentDevice) == false)
+        guard let expirationTimestamp = self.preKeyForRemoteOwnedDevice?.expirationTimestamp else { return }
+        if expirationTimestamp < serverCurrentTimestamp {
+            do {
+                try self.preKeyForRemoteOwnedDevice?.deletePreKeyForRemoteOwnedDevice()
+                self.preKeyForRemoteOwnedDevice = nil
+            } catch {
+                assertionFailure()
+            }
+        }
+    }
+    
+    
+    func deleteThisCurrentOwnedDeviceExpiredPreKeys(downloadTimestampFromServer: Date) throws {
+        assert((try? isCurrentDevice) == true)
+        try PreKeyForCurrentOwnedDevice.deleteExpiredPreKeysForCurrentOwnedDevice(self, downloadTimestampFromServer: downloadTimestampFromServer)
+    }
+    
+        
     func deleteThisDevice(delegateManager: ObvIdentityDelegateManager) throws {
         guard let context = managedObjectContext else { throw Self.makeError(message: "No context") }
         ownedCryptoIdentityOnDeletion = identity?.cryptoIdentity
         self.delegateManager = delegateManager
         context.delete(self)
+    }
+    
+}
+
+
+// MARK: - Latest Channel Creation Ping Timestamp
+
+extension OwnedDevice {
+    
+    func setLatestChannelCreationPingTimestamp(to newValue: Date) {
+        if self.latestChannelCreationPingTimestamp != newValue {
+            self.latestChannelCreationPingTimestamp = newValue
+        }
+    }
+    
+}
+
+
+// MARK: - Using pre-keys for encryption
+
+extension OwnedDevice {
+    
+    func wrapForRemoteOwnedDevice(_ messageKey: any AuthenticatedEncryptionKey, with ownedPrivateKeyForAuthentication: any PrivateKeyForAuthentication, and ownedPublicKeyForAuthentication: any PublicKeyForAuthentication, prng: any PRNGService) throws -> EncryptedData? {
+
+        guard let preKeyForRemoteOwnedDevice else { return nil }
+        
+        let wrappedMessageKey = try preKeyForRemoteOwnedDevice.wrap(messageKey,
+                                                                    with: ownedPrivateKeyForAuthentication,
+                                                                    and: ownedPublicKeyForAuthentication,
+                                                                    prng: prng)
+        
+        return wrappedMessageKey
+
+    }
+    
+    
+    func unwrapForCurrentOwnedDevice(_ wrappedMessageKey: EncryptedData) throws -> (messageKey: any AuthenticatedEncryptionKey, remoteCryptoId: ObvCryptoIdentity, remoteDeviceUID: UID)? {
+        
+        guard try isCurrentDevice else { assertionFailure(); return nil }
+        
+        return try PreKeyForCurrentOwnedDevice.unwrapMessageKey(wrappedMessageKey, forCurrentOwnedDevice: self)
+        
+    }
+    
+}
+
+
+// MARK: - Errors
+
+extension OwnedDevice {
+    
+    enum ObvError: Error {
+        case unexpectedValuesForCurrentDevice
     }
     
 }
@@ -291,9 +534,16 @@ extension OwnedDevice {
             case rawCapabilities = "rawCapabilities"
             case currentDeviceIdentity = "currentDeviceIdentity"
             case remoteDeviceIdentity = "remoteDeviceIdentity"
+            case latestChannelCreationPingTimestamp = "latestChannelCreationPingTimestamp"
         }
         static func withUid(_ uid: UID) -> NSPredicate {
             NSPredicate(format: "%K == %@", Key.uid.rawValue, uid)
+        }
+        fileprivate static func withLatestChannelCreationPingTimestamp(earlierThan date: Date) -> NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(withNilValueForKey: Key.latestChannelCreationPingTimestamp),
+                NSPredicate(Key.latestChannelCreationPingTimestamp, earlierThan: date),
+            ])
         }
     }
 
@@ -326,6 +576,19 @@ extension OwnedDevice {
     static func getAllOwnedRemoteDeviceUids(within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier> {
         let request: NSFetchRequest<OwnedDevice> = OwnedDevice.fetchRequest()
         let items = try obvContext.fetch(request)
+        let values: Set<ObliviousChannelIdentifier> = Set(items.compactMap {
+            guard let identity = $0.identity, identity.currentDeviceUid != $0.uid else { return nil }
+            return ObliviousChannelIdentifier(currentDeviceUid: identity.currentDeviceUid, remoteCryptoIdentity: identity.cryptoIdentity, remoteDeviceUid: $0.uid)
+        })
+        return values
+    }
+    
+    
+    static func getAllOwnedRemoteDeviceUidsWithLatestChannelCreationPingTimestamp(earlierThan date: Date, within context: NSManagedObjectContext) throws -> Set<ObliviousChannelIdentifier> {
+        let request: NSFetchRequest<OwnedDevice> = OwnedDevice.fetchRequest()
+        request.predicate = Predicate.withLatestChannelCreationPingTimestamp(earlierThan: date)
+        request.fetchBatchSize = 500
+        let items = try context.fetch(request)
         let values: Set<ObliviousChannelIdentifier> = Set(items.compactMap {
             guard let identity = $0.identity, identity.currentDeviceUid != $0.uid else { return nil }
             return ObliviousChannelIdentifier(currentDeviceUid: identity.currentDeviceUid, remoteCryptoIdentity: identity.cryptoIdentity, remoteDeviceUid: $0.uid)

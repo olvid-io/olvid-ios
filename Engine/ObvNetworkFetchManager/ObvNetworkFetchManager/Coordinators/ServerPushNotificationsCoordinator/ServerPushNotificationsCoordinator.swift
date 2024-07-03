@@ -134,12 +134,15 @@ actor ServerPushNotificationsCoordinator: ServerPushNotificationsDelegate {
                 
         let task = Task {
             
-            let method = ObvServerRegisterRemotePushNotificationMethod(
+            guard let method = ObvServerRegisterRemotePushNotificationMethod(
                 pushNotification: pushNotification,
                 sessionToken: sessionToken,
                 remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer,
                 flowId: flowId,
-                prng: prng)
+                prng: prng) else {
+                assertionFailure()
+                throw ObvError.failedToCreateServerMethod
+            }
             
             os_log("🫸[%{public}@] Performing server query using session token %{public}@", log: Self.log, type: .info, requestUUID.debugDescription, sessionToken.hexString())
 
@@ -189,6 +192,7 @@ actor ServerPushNotificationsCoordinator: ServerPushNotificationsDelegate {
         case couldNotParseReturnStatusFromServer
         case anotherDeviceIsAlreadyRegistered
         case deviceToReplaceIsNotRegistered
+        case failedToCreateServerMethod
         
         var errorDescription: String? {
             switch self {
@@ -202,6 +206,8 @@ actor ServerPushNotificationsCoordinator: ServerPushNotificationsDelegate {
                 return "Another device is already registered"
             case .deviceToReplaceIsNotRegistered:
                 return "Device to replace is not registered"
+            case .failedToCreateServerMethod:
+                return "Failed to create server method"
             }
         }
     }

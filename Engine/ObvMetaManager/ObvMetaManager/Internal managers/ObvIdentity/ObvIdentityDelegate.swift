@@ -39,6 +39,8 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     func isOwnedIdentityActive(ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> Bool
 
+    func isOwnedIdentityActive(ownedIdentity identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
+    
     func deactivateOwnedIdentityAndDeleteContactDevices(ownedIdentity: ObvCryptoIdentity, within: ObvContext) throws
 
     func reactivateOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within: ObvContext) throws
@@ -52,7 +54,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     
     func deleteOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws
 
-    func getOwnedIdentities(within: ObvContext) throws -> Set<ObvCryptoIdentity>
+    func getOwnedIdentities(restrictToActive: Bool, within: ObvContext) throws -> Set<ObvCryptoIdentity>
     
     func getActiveOwnedIdentitiesAndCurrentDeviceName(within obvContext: ObvContext) throws -> [ObvCryptoIdentity: String?]
     
@@ -221,7 +223,7 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     func deleteAllDevicesOfContactIdentity(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
 
-    func processEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
+    func processEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> OwnedDeviceDiscoveryPostProcessingTask
     
     func decryptEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> OwnedDeviceDiscoveryResult
     
@@ -230,6 +232,10 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     func getInfosAboutOwnedDevice(withUid uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (name: String?, expirationDate: Date?, latestRegistrationDate: Date?)
     
     func setCurrentDeviceNameOfOwnedIdentityAfterBackupRestore(ownedCryptoIdentity: ObvCryptoIdentity, nameForCurrentDevice: String, within obvContext: ObvContext) throws
+
+    func getLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withIdentifier ownedDeviceIdentifier: ObvOwnedDeviceIdentifier, within obvContext: ObvContext) throws -> Date?
+    
+    func setLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withIdentifier ownedDeviceIdentifier: ObvOwnedDeviceIdentifier, to date: Date, within obvContext: ObvContext) throws
 
     // MARK: - API related to contact identities
     
@@ -266,11 +272,13 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     func setDateOfLastBootstrappedContactDeviceDiscovery(forContactCryptoId contactCryptoId: ObvCryptoIdentity, ofOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, to newDate: Date, within obvContext: ObvContext) throws
     
+    func checkIfContactWasRecentlyOnline(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
+    
+    func markContactAsRecentlyOnline(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws
+
     // MARK: - API related to contact devices
     
     func addDeviceForContactIdentity(_: ObvCryptoIdentity, withUid: UID, ofOwnedIdentity: ObvCryptoIdentity, createdDuringChannelCreation: Bool, within: ObvContext) throws
-    
-    func removeDeviceForContactIdentity(_: ObvCryptoIdentity, withUid: UID, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws
     
     func getDeviceUidsOfContactIdentity(_: ObvCryptoIdentity, ofOwnedIdentity: ObvCryptoIdentity, within: ObvContext) throws -> Set<UID>
 
@@ -279,6 +287,15 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     /// This method returns a set of all the device uids known within the identity manager. This includes *both* owned device and contact devices.
     func getAllRemoteOwnedDevicesUidsAndContactDeviceUids(within: ObvContext) throws -> Set<ObliviousChannelIdentifier>
+    
+    /// This method returns a set of all the device uids known within the identity manager, with an "old" `latestChannelCreationPingTimestamp`. This includes *both* owned device and contact devices.
+    func getAllRemoteOwnedDevicesUidsAndContactDeviceUidsWithLatestChannelCreationPingTimestamp(earlierThan date: Date, within obvContext: ObvContext) throws -> Set<ObliviousChannelIdentifier>
+    
+    func processContactDeviceDiscoveryResult(_ contactDeviceDiscoveryResult: ContactDeviceDiscoveryResult, forContactCryptoId contactCryptoId: ObvCryptoIdentity, ofOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws
+    
+    func getLatestChannelCreationPingTimestampOfContactDevice(withIdentifier contactDeviceIdentifier: ObvContactDeviceIdentifier, within obvContext: ObvContext) throws -> Date?
+
+    func setLatestChannelCreationPingTimestampOfContactDevice(withIdentifier contactDeviceIdentifier: ObvContactDeviceIdentifier, to date: Date, within obvContext: ObvContext) throws
     
     // MARK: - API related to contact groups
     
@@ -355,6 +372,8 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     func getOneToOneStatusOfContactIdentity(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> OneToOneStatusOfContactIdentity
     
     func setOneToOneContactStatus(ownedIdentity: ObvCryptoIdentity, contactIdentity: ObvCryptoIdentity, newIsOneToOneStatus: Bool, reasonToLog: String, within obvContext: ObvContext) throws
+    
+    func getContactsOfAllActiveOwnedIdentitiesRequiringContactDeviceDiscovery(within obvContext: ObvContext) throws -> Set<ObvContactIdentifier>
 
     // MARK: - API related to contact capabilities
 
@@ -408,4 +427,12 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     
     func restoreObvSyncSnapshotNode(_ syncSnapshotNode: any ObvSyncSnapshotNode, customDeviceName: String, within obvContext: ObvContext) throws
     
+    // MARK: - Other pre-keys related methods
+    
+    func getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ObvCryptoIdentity, remoteCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<UID>
+
+    func getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ObvCryptoIdentity, remoteCryptoIds: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<UID>]
+    
+    func deleteCurrentDeviceExpiredPreKeysOfOwnedIdentity(ownedCryptoId: ObvCryptoIdentity, downloadTimestampFromServer: Date, within obvContext: ObvContext) throws
+
 }

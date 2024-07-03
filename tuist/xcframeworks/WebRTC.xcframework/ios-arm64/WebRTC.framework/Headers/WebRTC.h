@@ -69,9 +69,12 @@
 #import <WebRTC/RTCPeerConnectionFactory.h>
 #import <WebRTC/RTCPeerConnectionFactoryOptions.h>
 #import <WebRTC/RTCRtcpParameters.h>
+#import <WebRTC/RTCRtpCapabilities.h>
+#import <WebRTC/RTCRtpCodecCapability.h>
 #import <WebRTC/RTCRtpCodecParameters.h>
 #import <WebRTC/RTCRtpEncodingParameters.h>
 #import <WebRTC/RTCRtpHeaderExtension.h>
+#import <WebRTC/RTCRtpHeaderExtensionCapability.h>
 #import <WebRTC/RTCRtpParameters.h>
 #import <WebRTC/RTCRtpReceiver.h>
 #import <WebRTC/RTCRtpSender.h>

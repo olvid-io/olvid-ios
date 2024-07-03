@@ -52,7 +52,7 @@ final class ComputeHintsAboutRequiredOwnedIdentitiesSyncWithEngineOperation: Asy
             
             // Get all owned identities within the engine
             
-            let obvOwnedIdentitiesWithinEngine = try obvEngine.getOwnedIdentities()
+            let obvOwnedIdentitiesWithinEngine = try obvEngine.getOwnedIdentities(restrictToActive: true)
             let cryptoIdsWithinEngine = Set(obvOwnedIdentitiesWithinEngine.map { $0.cryptoId })
             
             // Get the owned identities within the app

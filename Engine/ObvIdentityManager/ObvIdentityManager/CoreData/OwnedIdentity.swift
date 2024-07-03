@@ -561,21 +561,38 @@ extension OwnedIdentity {
 
 
     /// Returns a Boolean indicating whether the current device is part of the owned device discovery results.
-    func processEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, delegateManager: ObvIdentityDelegateManager) throws -> Bool {
+    func processEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, prng: PRNGService, solveChallengeDelegate: ObvSolveChallengeDelegate, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> OwnedDeviceDiscoveryPostProcessingTask {
+        
+        guard self.managedObjectContext == obvContext.context else {
+            assertionFailure()
+            throw ObvError.unexpectedContext
+        }
+
+        let log = OSLog(subsystem: delegateManager.logSubsystem, category: Self.entityName)
 
         let ownedDeviceDiscoveryResult = try OwnedDeviceDiscoveryResult.decrypt(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult, for: self.ownedCryptoIdentity)
 
         // Update existing devices and add missing devices
         
+        var currentDevicePreKeyToUpload: DevicePreKey?
+        
         for device in ownedDeviceDiscoveryResult.devices {
+            
+            if let deviceBlobOnServer = device.deviceBlobOnServer {
+                try deviceBlobOnServer.checkChallengeResponse(for: cryptoIdentity)
+            }
             
             if let existingRemoteDevice = self.otherDevices.first(where: { $0.uid == device.uid }) {
                 
-                try existingRemoteDevice.updateThisDevice(with: device)
+                _ = try existingRemoteDevice.updateThisDevice(with: device,
+                                                              serverCurrentTimestamp: ownedDeviceDiscoveryResult.serverCurrentTimestamp,
+                                                              delegateManager: delegateManager)
                 
             } else if self.currentDevice.uid == device.uid {
                 
-                try self.currentDevice.updateThisDevice(with: device)
+                currentDevicePreKeyToUpload = try self.currentDevice.updateThisDevice(with: device,
+                                                                                      serverCurrentTimestamp: ownedDeviceDiscoveryResult.serverCurrentTimestamp,
+                                                                                      delegateManager: delegateManager)
                 
             } else {
                 
@@ -583,7 +600,7 @@ extension OwnedIdentity {
                                 ownedIdentity: self,
                                 createdDuringChannelCreation: false,
                                 delegateManager: delegateManager)
-                
+                                
             }
             
         }
@@ -605,7 +622,41 @@ extension OwnedIdentity {
         
         // We don't care about the ownedDeviceDiscoveryResult.isMultidevice Boolean
         
-        return currentDeviceIsPartOfOwnedDeviceDiscoveryResult
+        if !currentDeviceIsPartOfOwnedDeviceDiscoveryResult {
+
+            return .currentDeviceMustRegister
+
+        } else {
+
+            if let currentDevicePreKeyToUpload {
+                
+                assert(currentDevice.allCapabilities != nil)
+                let deviceCapabilities = currentDevice.allCapabilities ?? Set<ObvCapability>()
+                
+                do {
+                    let deviceBlobOnServerToUpload = try DeviceBlobOnServer.createDevicePreKeyToUploadOnServer(
+                        devicePreKey: currentDevicePreKeyToUpload,
+                        deviceCapabilities: deviceCapabilities,
+                        ownedCryptoId: self.ownedCryptoIdentity.getObvCryptoIdentity(),
+                        prng: prng,
+                        solveChallengeDelegate: solveChallengeDelegate,
+                        within: obvContext)
+                    return .currentDeviceMustUploadPreKey(deviceBlobOnServerToUpload: deviceBlobOnServerToUpload)
+                } catch {
+                    os_log("Failed to create a device prekey for the current device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                    // We don't want to abort the complete process when we fail to generate a prekey
+                    return .none
+                }
+                                
+            } else {
+            
+                return .none
+                
+            }
+            
+        }
+        
     }
     
     
@@ -642,6 +693,18 @@ extension OwnedIdentity {
         currentDevice.setCurrentDeviceNameAfterBackupRestore(newName: newName)
     }
     
+    
+}
+
+
+// MARK: - Errors
+
+extension OwnedIdentity {
+    
+    enum ObvError: Error {
+        case unexpectedContext
+        case couldNotFindRemoteOwnedDevice
+    }
     
 }
 
@@ -767,6 +830,118 @@ extension OwnedIdentity {
 }
 
 
+// MARK: - Using Pre-keys
+
+extension OwnedIdentity {
+    
+    func wrap(_ messageKey: any ObvCrypto.AuthenticatedEncryptionKey, forRemoteDeviceUID uid: UID, ofRemoteCryptoId remoteCryptoId: ObvCryptoIdentity, prng: any PRNGService, delegateManager: ObvIdentityDelegateManager) throws -> EncryptedData? {
+        
+        let wrappedMessageKey: EncryptedData?
+
+        if ownedCryptoIdentity.getObvCryptoIdentity() == remoteCryptoId {
+            
+            guard let remoteOwnedDevice = self.otherDevices.first(where: { $0.uid == uid }) else {
+                assertionFailure()
+                throw ObvError.couldNotFindRemoteOwnedDevice
+            }
+            
+            wrappedMessageKey = try remoteOwnedDevice.wrapForRemoteOwnedDevice(messageKey,
+                                                                               with: self.ownedCryptoIdentity.privateKeyForAuthentication,
+                                                                               and: self.cryptoIdentity.publicKeyForAuthentication,
+                                                                               prng: prng)
+            
+        } else {
+            
+            guard let contact = try ContactIdentity.get(contactIdentity: remoteCryptoId, ownedIdentity: self, delegateManager: delegateManager) else {
+                assertionFailure()
+                return nil
+            }
+            
+            wrappedMessageKey = try contact.wrap(messageKey,
+                                                 forContactDeviceUID: uid,
+                                                 with: self.ownedCryptoIdentity.privateKeyForAuthentication,
+                                                 and: self.cryptoIdentity.publicKeyForAuthentication,
+                                                 prng: prng)
+                        
+        }
+            
+        return wrappedMessageKey
+
+    }
+    
+    
+    func unwrapForCurrentOwnedDevice(_ wrappedMessageKey: EncryptedData, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws -> ResultOfUnwrapWithPreKey {
+        
+        guard let (messageKey, remoteCryptoId, remoteDeviceUID) = try self.currentDevice.unwrapForCurrentOwnedDevice(wrappedMessageKey) else {
+            return .couldNotUnwrap
+        }
+        
+        let receptionChannelInfo = ObvProtocolReceptionChannelInfo.preKeyChannel(remoteCryptoIdentity: remoteCryptoId, remoteDeviceUid: remoteDeviceUID)
+
+        // Make sure the remoteCryptoId either is the ownedCryptoId or corresponds to a contact
+        
+        if remoteCryptoId == ownedCryptoIdentity.getObvCryptoIdentity() {
+            
+            // Add the remote device UID in case we don't know about it yet, note that this will trigger an owned device discovery
+            
+            if self.otherDevices.first(where: { $0.uid == remoteDeviceUID }) == nil {
+                try self.addIfNotExistRemoteDeviceWith(uid: remoteDeviceUID, createdDuringChannelCreation: false)
+            }
+                        
+            return .unwrapSucceeded(messageKey: messageKey, receptionChannelInfo: receptionChannelInfo)
+            
+        } else if let contact = try ContactIdentity.get(contactIdentity: remoteCryptoId, ownedIdentity: self, delegateManager: delegateManager) {
+            
+            guard contact.isRevokedAsCompromisedAndNotForcefullyTrustedByUser else {
+                return .contactIsRevokedAsCompromised
+            }
+            
+            // Add the remote device UID in case we don't know about it yet, note that this will trigger a contact device discovery
+
+            if contact.devices.first(where: { $0.uid == remoteDeviceUID }) == nil {
+                try contact.addIfNotExistDeviceWith(uid: remoteDeviceUID, createdDuringChannelCreation: false, flowId: obvContext.flowId)
+            }
+            
+            return .unwrapSucceeded(messageKey: messageKey, receptionChannelInfo: receptionChannelInfo)
+
+        } else {
+            
+            return .unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: remoteCryptoId)
+            
+        }
+
+    }
+    
+    
+    func deleteCurrentOwnedDeviceExpiredPreKeys(downloadTimestampFromServer: Date) throws {
+        try currentDevice.deleteThisCurrentOwnedDeviceExpiredPreKeys(downloadTimestampFromServer: downloadTimestampFromServer)
+    }
+    
+}
+
+
+// MARK: - Latest Channel Creation Ping Timestamp for remote owned devices
+
+extension OwnedIdentity {
+    
+    func getLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withUID uid: UID) throws -> Date? {
+        guard let device = self.otherDevices.first(where: { $0.uid == uid }) else {
+            assertionFailure()
+            throw ObvError.couldNotFindRemoteOwnedDevice
+        }
+        return device.latestChannelCreationPingTimestamp
+    }
+    
+    
+    func setLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withUID uid: UID, to date: Date) throws {
+        guard let device = self.otherDevices.first(where: { $0.uid == uid }) else { return }
+        device.setLatestChannelCreationPingTimestamp(to: date)
+    }
+    
+}
+
+
+
 // MARK: - Convenience DB getters
 
 extension OwnedIdentity {
@@ -798,6 +973,9 @@ extension OwnedIdentity {
                 return NSPredicate(withNilValueForKey: Key.keycloakServer)
             }
         }
+        static var isActive: NSPredicate {
+            NSPredicate(Key.isActive, is: true)
+        }
     }
     
     @nonobjc class func fetchRequest() -> NSFetchRequest<OwnedIdentity> {
@@ -826,11 +1004,14 @@ extension OwnedIdentity {
     }
 
     
-    static func getAllCryptoIds(within context: NSManagedObjectContext) throws -> Set<ObvCryptoIdentity> {
+    static func getAllCryptoIds(restrictToActive: Bool, within context: NSManagedObjectContext) throws -> Set<ObvCryptoIdentity> {
         let request: NSFetchRequest<OwnedIdentity> = OwnedIdentity.fetchRequest()
         request.propertiesToFetch = [
             Predicate.Key.cryptoIdentity.rawValue,
         ]
+        if restrictToActive {
+            request.predicate = Predicate.isActive
+        }
         let items = try context.fetch(request)
         return Set(items.map(\.cryptoIdentity))
     }

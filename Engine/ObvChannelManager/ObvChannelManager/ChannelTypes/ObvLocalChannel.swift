@@ -79,7 +79,7 @@ final class ObvLocalChannel: ObvChannel {
 
             let receivedMessage = ObvProtocolReceivedMessage(messageId: messageId,
                                                              timestamp: message.timestamp,
-                                                             receptionChannelInfo: .Local,
+                                                             receptionChannelInfo: .local,
                                                              encodedElements: message.encodedElements)
                         
             os_log("Processing a posted protocol message with a (just created) messageId %{public}@", log: log, type: .info, messageId.debugDescription)
@@ -109,7 +109,7 @@ final class ObvLocalChannel: ObvChannel {
 
             let receivedMessage = ObvProtocolReceivedDialogResponse(toOwnedIdentity: ownedIdentity,
                                                                     timestamp: message.timestamp,
-                                                                    receptionChannelInfo: .Local,
+                                                                    receptionChannelInfo: .local,
                                                                     encodedElements: message.encodedElements,
                                                                     encodedUserDialogResponse: message.encodedUserDialogResponse,
                                                                     dialogUuid: message.uuid)
@@ -131,7 +131,7 @@ final class ObvLocalChannel: ObvChannel {
             
             let receivedMessage = ObvProtocolReceivedServerResponse(toOwnedIdentity: ownedIdentity,
                                                                     serverTimestamp: message.serverTimestamp,
-                                                                    receptionChannelInfo: .Local,
+                                                                    receptionChannelInfo: .local,
                                                                     encodedElements: message.encodedElements,
                                                                     serverResponseType: message.responseType)
 
@@ -162,7 +162,7 @@ extension ObvLocalChannel {
         let acceptableChannels: [ObvChannel]
         
         switch message.channelType {
-        case .Local(ownedIdentity: let ownedIdentity):
+        case .local(ownedIdentity: let ownedIdentity):
             
             guard message.messageType == .ProtocolMessage || message.messageType == .DialogResponseMessage || message.messageType == .ServerResponse else {
                 throw ObvLocalChannel.makeError(message: "Wrong message type")

@@ -62,7 +62,7 @@ extension DownloadIdentityPhotoChildProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -78,7 +78,7 @@ extension DownloadIdentityPhotoChildProtocol {
             
             // Get the encrypted photo
 
-            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.ServerQuery(ownedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: ObvChannelSendChannelType.serverQuery(ownedIdentity: ownedIdentity))
             let concreteMessage = ServerGetPhotoMessage(coreProtocolMessage: coreMessage)
             let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.getUserData(of: receivedMessage.contactIdentity, label: label)
             guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -103,7 +103,7 @@ extension DownloadIdentityPhotoChildProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }

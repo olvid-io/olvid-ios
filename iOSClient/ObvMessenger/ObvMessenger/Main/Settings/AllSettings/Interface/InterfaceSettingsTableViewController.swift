@@ -23,7 +23,7 @@ import ObvUICoreData
 import ObvSettings
 
 
-class InterfaceSettingsTableViewController: UITableViewController {
+final class InterfaceSettingsTableViewController: UITableViewController {
 
     let ownedCryptoId: ObvCryptoId
     
@@ -50,8 +50,7 @@ class InterfaceSettingsTableViewController: UITableViewController {
     
     private enum Section: CaseIterable {
         
-        case customizeMessageComposeArea
-        case sendMessageShortcut
+        case discussion
         case identityColorStyle
         case singleDiscussionLayoutTests
         
@@ -59,14 +58,13 @@ class InterfaceSettingsTableViewController: UITableViewController {
             if ObvMessengerConstants.showExperimentalFeature {
                 return Self.allCases
             } else {
-                return [.customizeMessageComposeArea, .sendMessageShortcut, .identityColorStyle]
+                return [.discussion, .identityColorStyle]
             }
         }
         
         var numberOfItems: Int {
             switch self {
-            case .customizeMessageComposeArea: return CustomizeMessageComposeAreaItem.shown.count
-            case .sendMessageShortcut: return SendMessageShortcutItem.shown.count
+            case .discussion: return DiscussionItem.shown.count
             case .identityColorStyle: return IdentityColorStyleItem.shown.count
             case .singleDiscussionLayoutTests: return SingleDiscussionLayoutTestsItem.shown.count
             }
@@ -78,13 +76,12 @@ class InterfaceSettingsTableViewController: UITableViewController {
         
     }
     
-    
-    private enum CustomizeMessageComposeAreaItem: CaseIterable {
+    private enum DiscussionItem: CaseIterable {
         case customizeMessageComposeArea
+        case sendMessageShortcut
+        case hideLinks
         static var shown: [Self] {
-            var result = [Self]()
-            result += [customizeMessageComposeArea]
-            return result
+            return Self.allCases
         }
         static func shownItemAt(item: Int) -> Self? {
             return shown[safe: item]
@@ -92,31 +89,12 @@ class InterfaceSettingsTableViewController: UITableViewController {
         var cellIdentifier: String {
             switch self {
             case .customizeMessageComposeArea: return "customizeMessageComposeArea"
-            }
-        }
-    }
-    
-    
-    private enum SendMessageShortcutItem: CaseIterable {
-        
-        case sendMessageShortcut
-        
-        static var shown: [Self] {
-            Self.allCases
-        }
-        
-        static func shownItemAt(item: Int) -> Self? {
-            return shown[safe: item]
-        }
-
-        var cellIdentifier: String {
-            switch self {
             case .sendMessageShortcut: return "SendMessageShortcutCell"
+            case .hideLinks: return "hideLinks"
             }
         }
-        
     }
-
+    
     
     private enum IdentityColorStyleItem: CaseIterable {
         case identityColorStyle
@@ -177,9 +155,9 @@ extension InterfaceSettingsTableViewController {
 
         switch section {
             
-        case .customizeMessageComposeArea:
+        case .discussion:
             
-            guard let item = CustomizeMessageComposeAreaItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
+            guard let item = DiscussionItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
             
             switch item {
                 
@@ -191,14 +169,6 @@ extension InterfaceSettingsTableViewController {
                 cell.accessoryType = .disclosureIndicator
                 return cell
                 
-            }
-            
-        case .sendMessageShortcut:
-
-            guard let item = SendMessageShortcutItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
-
-            switch item {
-                
             case .sendMessageShortcut:
                 let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) ?? UITableViewCell(style: .value1, reuseIdentifier: item.cellIdentifier)
                 var content = cell.defaultContentConfiguration()
@@ -208,8 +178,22 @@ extension InterfaceSettingsTableViewController {
                 cell.accessoryType = .disclosureIndicator
                 return cell
                 
-            }
+            case .hideLinks:
+                let cell = tableView.dequeueReusableCell(withIdentifier: item.cellIdentifier) as? ObvTitleAndSwitchTableViewCell ?? ObvTitleAndSwitchTableViewCell(reuseIdentifier: item.cellIdentifier)
+                var config = cell.defaultContentConfiguration()
+                config.text = String(localized: "HIDE_TRAILING_URL_IN_MESSAGES_WHEN_PREVIEW_IS_AVAILABLE")
+                cell.contentConfiguration = config
+                cell.switchIsOn = ObvMessengerSettings.Interface.hideTrailingURLInMessagesWhenPreviewIsAvailable
+                cell.blockOnSwitchValueChanged = { (value) in
+                    ObvMessengerSettings.Interface.hideTrailingURLInMessagesWhenPreviewIsAvailable = value
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400)) {
+                        tableView.reloadData()
+                    }
+                }
+                return cell
 
+            }
+            
         case .identityColorStyle:
             
             guard let item = IdentityColorStyleItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return cellInCaseOfError }
@@ -253,25 +237,25 @@ extension InterfaceSettingsTableViewController {
         
         switch section {
             
-        case .customizeMessageComposeArea:
-            guard let item = CustomizeMessageComposeAreaItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+        case .discussion:
+            
+            guard let item = DiscussionItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
+            
             switch item {
+                
             case .customizeMessageComposeArea:
                 let vc = ComposeMessageViewSettingsViewController(input: .global)
                 navigationController?.pushViewController(vc, animated: true)
-            }
-            
-        case .sendMessageShortcut:
-
-            guard let item = SendMessageShortcutItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
-            
-            switch item {
-
+                
             case .sendMessageShortcut:
                 let vc = SendMessageShortcutTableViewController()
                 navigationController?.pushViewController(vc, animated: true)
-            }
+                
+            case .hideLinks:
+                return
 
+            }
+            
         case .identityColorStyle:
             guard let item = IdentityColorStyleItem.shownItemAt(item: indexPath.item) else { assertionFailure(); return }
             switch item {

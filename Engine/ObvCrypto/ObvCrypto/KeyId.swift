@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import Foundation
+import ObvEncoder
 
 /// A KeyId represents a 32 bytes (not necessarily unique) identifier for an authenticated encryption key. This is typically used within wrapped keys.
 public struct CryptoKeyId: Hashable, Equatable {
@@ -27,9 +28,52 @@ public struct CryptoKeyId: Hashable, Equatable {
     public let raw: Data
     
     public init?(_ rawKeyId: Data) {
-        guard rawKeyId.count == CryptoKeyId.length else { return nil }
+        guard rawKeyId.count == CryptoKeyId.length else { assertionFailure(); return nil }
         self.raw = rawKeyId
     }
+}
+
+
+// MARK: Concat/Parse a CryptoKeyId and an encrypted message key
+
+extension CryptoKeyId {
+    
+    public func concat(with encryptedMessageKey: EncryptedData) -> EncryptedData {
+        let rawWrappedMessageKey = self.raw + encryptedMessageKey
+        let wrappedMessageKey = EncryptedData(data: rawWrappedMessageKey)
+        return wrappedMessageKey
+    }
+    
+    
+    /// Used both by ``ObvObliviousChannel`` and by ``PreKeyChannel``.
+    public static func parse(_ wrappedMessageKey: EncryptedData) -> (EncryptedData, CryptoKeyId)? {
+        // Construct the key id
+        guard wrappedMessageKey.count >= CryptoKeyId.length else { return nil }
+        let keyIdRange = wrappedMessageKey.startIndex..<wrappedMessageKey.startIndex+CryptoKeyId.length
+        let rawKeyId = wrappedMessageKey[keyIdRange].raw
+        let keyId = CryptoKeyId(rawKeyId)!
+        // Construct the encryptedMessageToSendKey
+        let encryptedMessageToSendKeyRange = wrappedMessageKey.startIndex+CryptoKeyId.length..<wrappedMessageKey.endIndex
+        let encryptedMessageKey = wrappedMessageKey[encryptedMessageToSendKeyRange]
+        return (encryptedMessageKey, keyId)
+    }
+
+}
+
+
+// MARL: ObvCodable
+
+extension CryptoKeyId: ObvCodable {
+
+    public func obvEncode() -> ObvEncoder.ObvEncoded {
+        self.raw.obvEncode()
+    }
+
+    public init?(_ obvEncoded: ObvEncoder.ObvEncoded) {
+        guard let raw: Data = try? obvEncoded.obvDecode() else { assertionFailure(); return nil }
+        self.init(raw)
+    }
+    
 }
 
 

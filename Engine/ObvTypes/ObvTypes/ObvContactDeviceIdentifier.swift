@@ -27,7 +27,7 @@ public struct ObvContactDeviceIdentifier: Hashable {
     public let contactCryptoId: ObvCryptoId
     public let deviceUID: UID
     
-    var contactIdentifier: ObvContactIdentifier {
+    public var contactIdentifier: ObvContactIdentifier {
         .init(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
     }
     

@@ -30,6 +30,29 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
     
     private static let batchSize = 10
     
+    /// This operation can be executed for one of the reasons specified by this enum.
+    /// Depending on the reason, we might decide *not* to mark the message for deletion in case we were not able to
+    /// decrypt it.
+    ///
+    /// ## Description of the problem solved by not always deleting messages that could not be decrypted
+    ///
+    /// Assume we always mark for deletion the messages that cannot be decrypted.
+    /// Assume that we have many pending messages on the server. While we are downloading these messages and catching up, we may receive a WebSocket message that we are not yet able to decrypt, as
+    /// the ratcheting has yet to reach the corresponding decryption key. Assume we receive a lot of these WebSocket messages (like, more than the number of keys in a provision) and that we delete them all.
+    /// Once all the normaly-listed messages are processed, the decryption keys for the (now deleted) WebSocket messages are available. Those keys won't be used, as the corresponding messages do not exist
+    /// anymore. Any newly downloaded message won't decrypt either, since the channel manager has no reason to go forward with the ratcheting (it expects the messages that we deleted). We end-up with a secure
+    /// channel that is "broken" in reception.
+    ///
+    /// To fix this issue, we don't mark for deletion messages that cannot be decrypted if :
+    /// - they were downloaded through the WebSocket;
+    /// - they were downloaded using the standard list method, in case the server indicated that the list is truncated.
+    enum ExecutionReason {
+        case messageReceivedOnWebSocket
+        case truncatedListPerformed
+        case untruncatedListPerformed(downloadTimestampFromServer: Date)
+        case removedExpectedContactOfPreKeyMessage
+    }
+    
     private let ownedCryptoIdentity: ObvCryptoIdentity
     private let debugUuid = UUID()
     private let queueForPostingNotifications: DispatchQueue
@@ -38,14 +61,16 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
     private let inbox: URL // For attachments
     private let log: OSLog
     private let flowId: FlowIdentifier
+    private let executionReason: ExecutionReason
     
     /// After the execution of this operation, we will have other tasks to perform.
     enum PostOperationTaskToPerform: Hashable, Comparable {
         
         case processInboxAttachmentsOfMessage(messageId: ObvMessageIdentifier)
         case downloadExtendedPayload(messageId: ObvMessageIdentifier)
-        case notifyAboutDecryptedApplicationMessage(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier)
+        case notifyAboutDecryptedApplicationMessage(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, uploadTimestampFromServer: Date, flowId: FlowIdentifier)
         case batchDeleteAndMarkAsListed(ownedCryptoIdentity: ObvCryptoIdentity)
+        case downloadMessagesAndListAttachments(ownedCryptoIdentity: ObvCryptoIdentity)
         
         /// When the `PostOperationTaskToPerform` values will be performed, this will be in order (0 first).
         private var executionOrder: Int {
@@ -54,11 +79,19 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
             case .notifyAboutDecryptedApplicationMessage: return 1
             case .downloadExtendedPayload: return 2 // Note that we notify the app before trying to download the extended payload
             case .processInboxAttachmentsOfMessage: return 3
+            case .downloadMessagesAndListAttachments: return 4
             }
         }
         
+        /// The post operation tasks to perform will be performed in order. Note that we notify the app about decrypted message in the appropriate order.
         static func < (lhs: PostOperationTaskToPerform, rhs: PostOperationTaskToPerform) -> Bool {
-            lhs.executionOrder < rhs.executionOrder
+            switch (lhs, rhs) {
+            case let(.notifyAboutDecryptedApplicationMessage(messageId: _, attachmentIds: _, hasEncryptedExtendedMessagePayload: _, uploadTimestampFromServer: lhsDate, flowId: _),
+                     .notifyAboutDecryptedApplicationMessage(messageId: _, attachmentIds: _, hasEncryptedExtendedMessagePayload: _, uploadTimestampFromServer: rhsDate, flowId: _)):
+                return lhsDate < rhsDate
+            default:
+                return lhs.executionOrder < rhs.executionOrder
+            }
         }
 
     }
@@ -66,7 +99,7 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
     private(set) var postOperationTasksToPerform = Set<PostOperationTaskToPerform>()
     private(set) var moreUnprocessedMessagesRemain: Bool? // If the operation finishes without canceling, this is guaranteed to be set
     
-    init(ownedCryptoIdentity: ObvCryptoIdentity, queueForPostingNotifications: DispatchQueue, notificationDelegate: ObvNotificationDelegate, processDownloadedMessageDelegate: ObvProcessDownloadedMessageDelegate, inbox: URL, log: OSLog, flowId: FlowIdentifier) {
+    init(ownedCryptoIdentity: ObvCryptoIdentity, executionReason: ExecutionReason, queueForPostingNotifications: DispatchQueue, notificationDelegate: ObvNotificationDelegate, processDownloadedMessageDelegate: ObvProcessDownloadedMessageDelegate, inbox: URL, log: OSLog, flowId: FlowIdentifier) {
         self.ownedCryptoIdentity = ownedCryptoIdentity
         self.queueForPostingNotifications = queueForPostingNotifications
         self.notificationDelegate = notificationDelegate
@@ -74,6 +107,7 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
         self.inbox = inbox
         self.log = log
         self.flowId = flowId
+        self.executionReason = executionReason
         super.init()
     }
     
@@ -92,7 +126,7 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
             
             // Find all inbox messages that still need to be processed
             
-            let messages = try InboxMessage.getBatchOfUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, batchSize: Self.batchSize, within: obvContext)
+            let messages = try InboxMessage.getBatchOfProcessableMessages(ownedCryptoIdentity: ownedCryptoIdentity, fetchLimit: Self.batchSize, within: obvContext)
             
             guard !messages.isEmpty else {
                 
@@ -144,14 +178,38 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
             for result in results {
                 switch result {
                     
+                case .noKeyAllowedToDecrypt(messageId: let messageId):
+                    
+                    // We could not find a key to decrypt the message header. Depending on the `ExecutionReason` of this operation,
+                    // we either keep the message for later or mark it for deletion.
+                    
+                    switch executionReason {
+                        
+                    case .messageReceivedOnWebSocket, .truncatedListPerformed, .removedExpectedContactOfPreKeyMessage:
+                        
+                        // Prevent the immediate re-execution of this operation. We want to wait for an untrucated listing.
+                        moreUnprocessedMessagesRemain = false
+                        // Make sure a list is performed. Eventually, it won't be truncated.
+                        postOperationTasksToPerform.insert(.downloadMessagesAndListAttachments(ownedCryptoIdentity: ownedCryptoIdentity))
+                        // Make sure we don't list this message endlessly by marking it as listed on server
+                        postOperationTasksToPerform.insert(.batchDeleteAndMarkAsListed(ownedCryptoIdentity: ownedCryptoIdentity))
+
+                    case .untruncatedListPerformed:
+                        
+                        try InboxMessage.markMessageAndAttachmentsForDeletion(messageId: messageId, within: obvContext)
+                        postOperationTasksToPerform.insert(.batchDeleteAndMarkAsListed(ownedCryptoIdentity: ownedCryptoIdentity))
+                        
+                    }
+                    
                 case .protocolMessageWasProcessed(let messageId),
-                        .noKeyAllowedToDecrypt(let messageId),
                         .couldNotDecryptOrParse(let messageId),
                         .protocolManagerFailedToProcessMessage(let messageId),
                         .protocolMessageCouldNotBeParsed(let messageId),
                         .invalidAttachmentCountOfApplicationMessage(let messageId),
                         .applicationMessageCouldNotBeParsed(let messageId),
-                        .unexpectedMessageType(let messageId):
+                        .unexpectedMessageType(let messageId),
+                        .messageKeyDoesNotSupportGKMV2AlthoughItShould(messageId: let messageId),
+                        .messageReceivedFromContactThatIsRevokedAsCompromised(messageId: let messageId):
                     
                     try InboxMessage.markMessageAndAttachmentsForDeletion(messageId: messageId, within: obvContext)
                     postOperationTasksToPerform.insert(.batchDeleteAndMarkAsListed(ownedCryptoIdentity: ownedCryptoIdentity))
@@ -193,6 +251,7 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                             messageId: messageId,
                             attachmentIds: inboxMessage.attachmentIds,
                             hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload,
+                            uploadTimestampFromServer: inboxMessage.messageUploadTimestampFromServer,
                             flowId: obvContext.flowId))
                     }
                     
@@ -215,6 +274,19 @@ final class ProcessBatchOfUnprocessedMessagesOperation: ContextualOperationWithS
                         postOperationTasksToPerform.insert(.downloadExtendedPayload(messageId: messageId))
                     }
 
+                case .unwrapSucceededButRemoteCryptoIdIsUnknown(messageId: let messageId, remoteCryptoIdentity: let remoteCryptoIdentity):
+                    
+                    // This happens only when receiving a message sent through a PreKey channel. In that case, we might
+                    // receive a message from a remote identity that is not a contact already (but who is likely to become one soon).
+                    // In that case, we keep the message for later processing, when the remote identity becomes a contact.
+                    
+                    guard let inboxMessage = try InboxMessage.get(messageId: messageId, within: obvContext) else {
+                        assertionFailure()
+                        continue
+                    }
+
+                    inboxMessage.unwrapSucceededButRemoteCryptoIdIsUnknown(remoteCryptoIdentity: remoteCryptoIdentity)
+                    
                 }
             }
             

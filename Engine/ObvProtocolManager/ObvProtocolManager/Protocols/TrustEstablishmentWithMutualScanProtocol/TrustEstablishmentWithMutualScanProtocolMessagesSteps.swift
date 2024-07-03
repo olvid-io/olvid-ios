@@ -74,7 +74,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -101,7 +101,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             let aliceDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
             let aliceCoreDetails = try identityDelegate.getIdentityDetailsOfOwnedIdentity(ownedIdentity, within: obvContext).publishedIdentityDetails.coreDetails
-            let coreMessage = getCoreMessage(for: .AsymmetricChannelBroadcast(to: contactIdentity, fromOwnedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .asymmetricChannelBroadcast(to: contactIdentity, fromOwnedIdentity: ownedIdentity))
             let concreteProtocolMessage = AliceSendsSignatureToBobMessage(coreProtocolMessage: coreMessage,
                                                                           aliceIdentity: ownedIdentity,
                                                                           signature: signature,
@@ -114,7 +114,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
-                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                 let concreteProtocolMessage = AlicePropagatesQRCodeMessage(coreProtocolMessage: coreMessage,
                                                                            bobIdentity: contactIdentity,
                                                                            signature: signature)
@@ -141,7 +141,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -183,7 +183,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -238,7 +238,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
 
             let bobDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
             let bobCoreDetails = try identityDelegate.getIdentityDetailsOfOwnedIdentity(ownedIdentity, within: obvContext).publishedIdentityDetails.coreDetails
-            let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: aliceIdentity, remoteDeviceUids: aliceDeviceUids, fromOwnedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .asymmetricChannel(to: aliceIdentity, remoteDeviceUids: aliceDeviceUids, fromOwnedIdentity: ownedIdentity))
             let concreteProtocolMessage = BobSendsConfirmationAndDetailsToAliceMessage(coreProtocolMessage: coreMessage,
                                                                                        bobCoreDetails: bobCoreDetails,
                                                                                        bobDeviceUids: Array(bobDeviceUids))
@@ -251,7 +251,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             
             let numberOfOtherDevicesOfOwnedIdentity = try identityDelegate.getOtherDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext).count
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
-                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                 let concreteProtocolMessage = BobPropagatesSignatureMessage(coreProtocolMessage: coreMessage,
                                                                             aliceIdentity: aliceIdentity,
                                                                             signature: signature,
@@ -296,7 +296,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -376,7 +376,7 @@ extension TrustEstablishmentWithMutualScanProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity, // We cannot access ownedIdentity directly at this point,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }

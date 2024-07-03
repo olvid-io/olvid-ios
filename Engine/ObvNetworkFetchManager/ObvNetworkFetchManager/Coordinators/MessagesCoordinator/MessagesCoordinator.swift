@@ -180,7 +180,7 @@ extension MessagesCoordinator: MessagesDelegate {
                         break
                     }
                 }
-                let delay = failedAttemptsCounterManager.incrementAndGetDelay(.downloadMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
+                _ = failedAttemptsCounterManager.incrementAndGetDelay(.downloadMessagesAndListAttachments(ownedIdentity: ownedCryptoId))
                 throw error
             }
             
@@ -329,7 +329,9 @@ extension MessagesCoordinator: MessagesDelegate {
         
         Task {
             
-            try await processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId, flowId: flowId)
+            try await processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId,
+                                                 executionReason: isListingTruncated ? .truncatedListPerformed : .untruncatedListPerformed(downloadTimestampFromServer: downloadTimestampFromServer),
+                                                 flowId: flowId)
             
             // If the listing was truncated, wait some time (allowing listed messages to be marked as listed) then try to list again.
             
@@ -390,7 +392,7 @@ extension MessagesCoordinator: MessagesDelegate {
 
     
     
-    private func processUnprocessedMessages(ownedCryptoIdentity: ObvCryptoIdentity, iterationNumber: Int = 0, flowId: FlowIdentifier) async throws {
+    private func processUnprocessedMessages(ownedCryptoIdentity: ObvCryptoIdentity, executionReason: ProcessBatchOfUnprocessedMessagesOperation.ExecutionReason, iterationNumber: Int = 0, flowId: FlowIdentifier) async throws {
         
         guard let delegateManager else {
             os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
@@ -417,7 +419,8 @@ extension MessagesCoordinator: MessagesDelegate {
         os_log("[%{public}@] Initializing a ProcessBatchOfUnprocessedMessagesOperation (iterationNumber is %d)", log: Self.log, type: .info, flowId.shortDebugDescription, iterationNumber)
         
         let op1 = ProcessBatchOfUnprocessedMessagesOperation(
-            ownedCryptoIdentity: ownedCryptoIdentity,
+            ownedCryptoIdentity: ownedCryptoIdentity, 
+            executionReason: executionReason,
             queueForPostingNotifications: queueForPostingNotifications,
             notificationDelegate: notificationDelegate,
             processDownloadedMessageDelegate: processDownloadedMessageDelegate,
@@ -465,22 +468,43 @@ extension MessagesCoordinator: MessagesDelegate {
                         assertionFailure(error.localizedDescription)
                     }
                     
-                case .notifyAboutDecryptedApplicationMessage(let messageId, let attachmentIds, let hasEncryptedExtendedMessagePayload, let flowId):
+                case .notifyAboutDecryptedApplicationMessage(messageId: let messageId, attachmentIds: let attachmentIds, hasEncryptedExtendedMessagePayload: let hasEncryptedExtendedMessagePayload, uploadTimestampFromServer: _, flowId: let flowId):
+                    os_log("✉️ [%{public}@] Notifying about a decrypted application message %{public}@", log: Self.log, type: .debug, flowId.shortDebugDescription, messageId.debugDescription)
                     ObvNetworkFetchNotificationNew.applicationMessageDecrypted(messageId: messageId,
                                                                                attachmentIds: attachmentIds,
                                                                                hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload,
                                                                                flowId: flowId)
                     .postOnBackgroundQueue(queueForPostingNotifications, within: notificationDelegate)
+                    
+                case .downloadMessagesAndListAttachments(ownedCryptoIdentity: let ownedCryptoIdentity):
+                    Task.detached { [weak self] in
+                        await self?.downloadMessagesAndListAttachments(ownedCryptoId: ownedCryptoIdentity, flowId: flowId)
+                    }
                                         
                 }
                 
             }
         }
         
+        // If more unprocessed messages remain, loop. Otherwise, it might be a good time to delete old current device's pre-keys within the identity manager in case the last listing we untruncated
+        
         assert(op1.moreUnprocessedMessagesRemain != nil)
         let moreUnprocessedMessagesRemain = op1.moreUnprocessedMessagesRemain ?? false
+
         if moreUnprocessedMessagesRemain {
-            try await processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, iterationNumber: iterationNumber + 1, flowId: flowId)
+            
+            try await processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoIdentity, executionReason: executionReason, iterationNumber: iterationNumber + 1, flowId: flowId)
+            
+        } else {
+            
+            switch executionReason {
+            case .untruncatedListPerformed(downloadTimestampFromServer: let downloadTimestampFromServer):
+                ObvNetworkFetchNotificationNew.serverAndInboxContainNoMoreUnprocessedMessages(ownedIdentity: ownedCryptoIdentity, downloadTimestampFromServer: downloadTimestampFromServer)
+                    .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: notificationDelegate)
+            default:
+                break
+            }
+
         }
     }
     
@@ -509,13 +533,35 @@ extension MessagesCoordinator: MessagesDelegate {
 
         Task {
             do {
-                try await processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId, flowId: flowId)
+                try await processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId, executionReason: .messageReceivedOnWebSocket, flowId: flowId)
             } catch {
                 assertionFailure(error.localizedDescription)
             }
         }
                 
     }
+    
+    
+    func removeExpectedContactForReProcessingOperationThenProcessUnprocessedMessages(expectedContactsThatAreNowContacts: Set<ObvContactIdentifier>, flowId: FlowIdentifier) async throws {
+        
+        guard !expectedContactsThatAreNowContacts.isEmpty else { return }
+        
+        guard let delegateManager else {
+            assertionFailure()
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+
+        let op1 = RemoveExpectedContactForReProcessingOperation(expectedContactsThatAreNowContacts: expectedContactsThatAreNowContacts)
+        try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
+        
+        if op1.didRemoveAtLeastOneExpectedContactForReProcessing {
+            for ownedCryptoId in Set(expectedContactsThatAreNowContacts.map(\.ownedCryptoId)) {                
+                try await processUnprocessedMessages(ownedCryptoIdentity: ownedCryptoId.cryptoIdentity, executionReason: .removedExpectedContactOfPreKeyMessage, flowId: flowId)
+            }
+        }
+
+    }
+    
 }
 
 

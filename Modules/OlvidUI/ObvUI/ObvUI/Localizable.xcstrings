@@ -577,38 +577,6 @@
         }
       }
     },
-    "FIVE_MINUTE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "5 minutes"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "5 minutes"
-          }
-        }
-      }
-    },
-    "FIVE_SECONDS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "5 seconds"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "5 secondes"
-          }
-        }
-      }
-    },
     "FIVE_YEAR" : {
       "localizations" : {
         "en" : {
@@ -1026,22 +994,6 @@
         }
       }
     },
-    "ONE_HOUR" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 hour"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 heure"
-          }
-        }
-      }
-    },
     "ONE_HUNDRED_AND_HEIGHTY_DAYS" : {
       "localizations" : {
         "en" : {
@@ -1054,22 +1006,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "180 jours"
-          }
-        }
-      }
-    },
-    "ONE_MINUTE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 minute"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1 minute"
           }
         }
       }
@@ -1531,22 +1467,6 @@
         }
       }
     },
-    "TEN_SECONDS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "10 seconds"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "10 secondes"
-          }
-        }
-      }
-    },
     "THIRTY_DAYS" : {
       "localizations" : {
         "en" : {
@@ -1563,50 +1483,18 @@
         }
       }
     },
-    "THIRTY_MINUTES" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 minutes"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 minutes"
-          }
-        }
-      }
-    },
-    "THIRTY_SECONDS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 seconds"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "30 secondes"
-          }
-        }
-      }
-    },
     "THREE_YEAR" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "30 years"
+            "value" : "3 years"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "30 ans"
+            "value" : "3 ans"
           }
         }
       }

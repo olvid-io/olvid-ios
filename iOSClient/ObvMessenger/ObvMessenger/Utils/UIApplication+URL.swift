@@ -40,7 +40,7 @@ extension UIApplication {
 
             guard let safeURL = url.toHttpsURL else { assertionFailure(); return }
 
-            switch safeURL.scheme {
+            switch safeURL.scheme?.lowercased() {
                 
             case "https":
                 
@@ -53,7 +53,7 @@ extension UIApplication {
                 }))
 
                 alert.addAction(.init(title: String(localized: "ACTION_TITLE_COPY_LINK"), style: .default) { _ in
-                    UIPasteboard.general.setValue(safeURL, forPasteboardType: UTType.url.identifier)
+                    UIPasteboard.general.setValue(safeURL.absoluteString, forPasteboardType: UTType.text.identifier)
                 })
                 
                 alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))

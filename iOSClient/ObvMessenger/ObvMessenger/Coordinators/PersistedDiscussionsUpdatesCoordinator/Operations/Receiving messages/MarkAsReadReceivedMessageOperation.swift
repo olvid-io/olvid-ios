@@ -42,7 +42,7 @@ final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificR
     }
 
     private(set) var ownedCryptoId: ObvCryptoId?
-    private(set) var ownedIdentityHasAnotherDeviceWithChannel = false
+    private(set) var ownedIdentityHasAnotherReachableDevice = false
     private(set) var discussionReadJSONToSend: DiscussionReadJSON?
 
     override func main(obvContext: ObvContext, viewContext: NSManagedObjectContext) {
@@ -65,7 +65,7 @@ final class MarkAsReadReceivedMessageOperation: ContextualOperationWithSpecificR
             }
             
             self.ownedCryptoId = ownedIdentity.cryptoId
-            self.ownedIdentityHasAnotherDeviceWithChannel = ownedIdentity.hasAnotherDeviceWithChannel
+            self.ownedIdentityHasAnotherReachableDevice = ownedIdentity.hasAnotherDeviceWhichIsReachable
             
             let dateWhenMessageTurnedNotNew = Date()
             let lastReadMessageServerTimestamp = try ownedIdentity.markReceivedMessageAsNotNew(discussionId: discussionId, receivedMessageId: receivedMessageId, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)

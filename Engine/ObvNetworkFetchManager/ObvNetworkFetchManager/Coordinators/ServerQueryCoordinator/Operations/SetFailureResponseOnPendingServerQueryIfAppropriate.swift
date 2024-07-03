@@ -142,6 +142,10 @@ final class SetFailureResponseOnPendingServerQueryIfAppropriate: ContextualOpera
             case .setUnexpiringOwnedDevice:
                 let serverResponseType = ServerResponse.ResponseType.actionPerformedAboutOwnedDevice(success: false)
                 serverQuery.responseType = serverResponseType
+                
+            case .uploadPreKeyForCurrentDevice:
+                let serverResponseType = ServerResponse.ResponseType.uploadPreKeyForCurrentDevice(result: .permanentFailure)
+                serverQuery.responseType = serverResponseType
 
             case .sourceGetSessionNumber, .sourceWaitForTargetConnection, .targetSendEphemeralIdentity, .transferRelay, .transferWait, .closeWebsocketConnection:
                 assertionFailure("This case should never happen as this type of server query is handled by the ServerQueryWebSocketCoordinator")

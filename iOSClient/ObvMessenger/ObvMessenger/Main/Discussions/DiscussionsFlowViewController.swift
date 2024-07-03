@@ -118,7 +118,7 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
         
         assert(Thread.isMainThread)
         
-        let ownedIdentityHasHasAnotherDeviceWithChannel = persistedDiscussion.ownedIdentity?.hasAnotherDeviceWithChannel ?? false
+        let ownedIdentityHasHasAnotherReachableDevice = persistedDiscussion.ownedIdentity?.hasAnotherDeviceWhichIsReachable ?? false
         let multipleContacts: Bool
         do {
             switch try persistedDiscussion.kind {
@@ -139,7 +139,7 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
                                       preferredStyleForTraitCollection: self.traitCollection)
         
         for deletionType in persistedDiscussion.deletionTypesThatCanBeMadeAvailableForThisDiscussion.sorted() {
-            let title = Strings.Alert.ConfirmAllDeletionOfAllMessages.actionTitle(for: deletionType, ownedIdentityHasHasAnotherDeviceWithChannel: ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts: multipleContacts)
+            let title = Strings.Alert.ConfirmAllDeletionOfAllMessages.actionTitle(for: deletionType, ownedIdentityHasHasAnotherReachableDevice: ownedIdentityHasHasAnotherReachableDevice, multipleContacts: multipleContacts)
             alert.addAction(UIAlertAction(title: title, style: .destructive, handler: { [weak self] (action) in
                 guard let ownedCryptoId = persistedDiscussion.ownedIdentity?.cryptoId else { return }
                 switch deletionType {
@@ -153,7 +153,7 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
                 case .fromAllOwnedDevicesAndAllContactDevices:
                     // Request a second confirmation in that case, as the discussion will also be delete from contact devices
                     self?.ensureUserWantsToGloballyDeleteDiscussion(persistedDiscussion,
-                                                                    ownedIdentityHasHasAnotherDeviceWithChannel: ownedIdentityHasHasAnotherDeviceWithChannel,
+                                                                    ownedIdentityHasHasAnotherReachableDevice: ownedIdentityHasHasAnotherReachableDevice,
                                                                     multipleContacts: multipleContacts,
                                                                     completionHandler: completionHandler)
                 }
@@ -170,12 +170,12 @@ extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate
         
     }
     
-    func ensureUserWantsToGloballyDeleteDiscussion(_ discussion: PersistedDiscussion, ownedIdentityHasHasAnotherDeviceWithChannel: Bool, multipleContacts: Bool, completionHandler: @escaping (Bool) -> Void) {
+    func ensureUserWantsToGloballyDeleteDiscussion(_ discussion: PersistedDiscussion, ownedIdentityHasHasAnotherReachableDevice: Bool, multipleContacts: Bool, completionHandler: @escaping (Bool) -> Void) {
         assert(Thread.current.isMainThread)
         let alert = UIAlertController(title: Strings.AlertConfirmAllDiscussionMessagesDeletionGlobally.title,
                                       message: Strings.AlertConfirmAllDiscussionMessagesDeletionGlobally.message,
                                       preferredStyleForTraitCollection: self.traitCollection)
-        let actionTitle = Strings.Alert.ConfirmAllDeletionOfAllMessages.actionTitle(for: .fromAllOwnedDevicesAndAllContactDevices, ownedIdentityHasHasAnotherDeviceWithChannel: ownedIdentityHasHasAnotherDeviceWithChannel, multipleContacts: multipleContacts)
+        let actionTitle = Strings.Alert.ConfirmAllDeletionOfAllMessages.actionTitle(for: .fromAllOwnedDevicesAndAllContactDevices, ownedIdentityHasHasAnotherReachableDevice: ownedIdentityHasHasAnotherReachableDevice, multipleContacts: multipleContacts)
         alert.addAction(UIAlertAction(title: actionTitle, style: .destructive, handler: { (action) in
             guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else { return }
             ObvMessengerInternalNotification.userRequestedDeletionOfPersistedDiscussion(

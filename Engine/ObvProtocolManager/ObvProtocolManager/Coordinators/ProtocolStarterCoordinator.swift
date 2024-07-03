@@ -83,7 +83,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         // Start the updated version of the TrustEstablishmentProtocol
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .trustEstablishmentWithSAS,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = TrustEstablishmentWithSASProtocol.InitialMessage(coreProtocolMessage: coreMessage,
@@ -104,7 +104,7 @@ extension ProtocolStarterCoordinator {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .ContactMutualIntroduction,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = ContactMutualIntroductionProtocol.InitialMessage(coreProtocolMessage: coreMessage,
@@ -127,7 +127,7 @@ extension ProtocolStarterCoordinator {
         os_log("🛟 [%{public}@] Call to getInitialMessageForChannelCreationWithContactDeviceProtocol with contact", log: log, type: .info, contactIdentity.debugDescription)
 
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .channelCreationWithContactDevice,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = ChannelCreationWithContactDeviceProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid)
@@ -145,7 +145,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .channelCreationWithOwnedDevice,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = ChannelCreationWithOwnedDeviceProtocol.InitialMessage(coreProtocolMessage: coreMessage, remoteDeviceUid: remoteDeviceUid)
@@ -174,7 +174,7 @@ extension ProtocolStarterCoordinator {
                                                                                                        within: obvContext)
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.GroupMembersChangedTriggerMessage(coreProtocolMessage: coreMessage,
@@ -216,7 +216,7 @@ extension ProtocolStarterCoordinator {
         let groupInformationWithPhoto = try GroupInformationWithPhoto(groupOwnerIdentity: ownedIdentity, groupUid: groupUid, groupDetailsElements: groupDetailsElements, photoURL: photoURL)
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.InitiateGroupCreationMessage(coreProtocolMessage: coreMessage,
@@ -251,7 +251,7 @@ extension ProtocolStarterCoordinator {
         let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext)
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.DisbandGroupMessage(coreProtocolMessage: coreMessage,
@@ -287,7 +287,7 @@ extension ProtocolStarterCoordinator {
         let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext)
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.AddGroupMembersMessage(coreProtocolMessage: coreMessage,
@@ -351,7 +351,7 @@ extension ProtocolStarterCoordinator {
                 protocolInstanceUid: protocolInstanceUid)
         } else {
             coreMessage = CoreProtocolMessage(
-                channelType: .Local(ownedIdentity: ownedIdentity),
+                channelType: .local(ownedIdentity: ownedIdentity),
                 cryptoProtocolId: .groupManagement,
                 protocolInstanceUid: protocolInstanceUid)
         }
@@ -369,7 +369,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .identityDetailsPublication,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = IdentityDetailsPublicationProtocol.InitialMessage(coreProtocolMessage: coreMessage, version: publishedIdentityDetailsVersion)
@@ -428,7 +428,7 @@ extension ProtocolStarterCoordinator {
                 protocolInstanceUid: protocolInstanceUid)
         } else {
             coreMessage = CoreProtocolMessage(
-                channelType: .Local(ownedIdentity: ownedIdentity),
+                channelType: .local(ownedIdentity: ownedIdentity),
                 cryptoProtocolId: .groupManagement,
                 protocolInstanceUid: protocolInstanceUid)
         }
@@ -445,7 +445,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .keycloakContactAddition,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = KeycloakContactAdditionProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentityToAdd, signedContactDetails: signedContactDetails)
@@ -471,7 +471,7 @@ extension ProtocolStarterCoordinator {
         let groupInformationWithPhoto = try identityDelegate.getGroupJoinedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, groupOwner: groupOwner, within: obvContext)
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.InitiateGroupMembersQueryMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation)
@@ -496,7 +496,7 @@ extension ProtocolStarterCoordinator {
         let groupInformationWithPhoto = try identityDelegate.getGroupOwnedInformationAndPublishedPhoto(ownedIdentity: ownedIdentity, groupUid: groupUid, within: obvContext)
         
         let protocolInstanceUid = groupInformationWithPhoto.associatedProtocolUid
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupManagementProtocol.TriggerReinviteMessage(coreProtocolMessage: coreMessage, groupInformation: groupInformationWithPhoto.groupInformation, memberIdentity: memberIdentity)
@@ -513,7 +513,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .contactDeviceDiscovery,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = ContactDeviceDiscoveryProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
@@ -530,7 +530,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .downloadIdentityPhoto,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = DownloadIdentityPhotoChildProtocol.InitialMessage(
@@ -549,7 +549,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .downloadGroupPhoto,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = DownloadGroupPhotoChildProtocol.InitialMessage.init(coreProtocolMessage: coreMessage, groupInformation: groupInformation)
@@ -564,7 +564,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .trustEstablishmentWithMutualScan,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = TrustEstablishmentWithMutualScanProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: remoteIdentity, signature: signature)
@@ -581,7 +581,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .contactCapabilitiesDiscovery,
                                               protocolInstanceUid: protocolInstanceUid)
         let message = DeviceCapabilitiesDiscoveryProtocol.InitialForAddingOwnCapabilitiesMessage(
@@ -601,7 +601,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .oneToOneContactInvitation,
                                               protocolInstanceUid: protocolInstanceUid)
         let message = OneToOneContactInvitationProtocol.InitialMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
@@ -620,7 +620,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .oneToOneContactInvitation,
                                               protocolInstanceUid: protocolInstanceUid)
         let message = OneToOneContactInvitationProtocol.InitialOneToOneStatusSyncRequestMessage(coreProtocolMessage: coreMessage, contactsToSync: contactsToSync)
@@ -640,7 +640,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateGroupCreationMessage(coreProtocolMessage: coreMessage,
@@ -662,7 +662,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateGroupUpdateMessage(coreProtocolMessage: coreMessage,
@@ -681,7 +681,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .downloadGroupV2Photo,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = DownloadGroupV2PhotoProtocol.InitialMessage(
@@ -726,7 +726,7 @@ extension ProtocolStarterCoordinator {
                 protocolInstanceUid: protocolInstanceUid)
         } else {
             coreMessage = CoreProtocolMessage(
-                channelType: .Local(ownedIdentity: ownedIdentity),
+                channelType: .local(ownedIdentity: ownedIdentity),
                 cryptoProtocolId: .groupV2,
                 protocolInstanceUid: protocolInstanceUid)
         }
@@ -744,7 +744,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateGroupReDownloadMessage(coreProtocolMessage: coreMessage, groupIdentifier: groupIdentifier)
@@ -786,7 +786,7 @@ extension ProtocolStarterCoordinator {
                 protocolInstanceUid: protocolInstanceUid)
         } else {
             coreMessage = CoreProtocolMessage(
-                channelType: .Local(ownedIdentity: ownedIdentity),
+                channelType: .local(ownedIdentity: ownedIdentity),
                 cryptoProtocolId: .groupV2,
                 protocolInstanceUid: protocolInstanceUid)
         }
@@ -803,7 +803,7 @@ extension ProtocolStarterCoordinator {
         
         // Even if we are dealing with a step of the GroupV2 protocol, we do not need a specific protocol instance UID (since this would make no sense in that specific case)
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateBatchKeysResendMessage(coreProtocolMessage: coreMessage, remoteIdentity: remoteIdentity, remoteDeviceUID: remoteDeviceUID)
@@ -824,7 +824,7 @@ extension ProtocolStarterCoordinator {
         
         // Even if we are dealing with a step of the GroupV2 protocol, we do not need a specific protocol instance UID (since this would make no sense in that specific case)
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateUpdateKeycloakGroupsMessage(coreProtocolMessage: coreMessage,
@@ -847,7 +847,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = try groupIdentifier.computeProtocolInstanceUid()
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .groupV2,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = GroupV2Protocol.InitiateTargetedPingMessage(
@@ -869,7 +869,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentityToDelete),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedCryptoIdentityToDelete),
                                               cryptoProtocolId: .ownedIdentityDeletionProtocol,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = OwnedIdentityDeletionProtocol.InitiateOwnedIdentityDeletionMessage(coreProtocolMessage: coreMessage, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
@@ -889,7 +889,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .contactManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = ContactManagementProtocol.InitiateContactDeletionMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentityToDelete)
@@ -907,7 +907,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedIdentity),
                                               cryptoProtocolId: .contactManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let message = ContactManagementProtocol.InitiateContactDowngradeMessage(coreProtocolMessage: coreMessage, contactIdentity: contactIdentity)
@@ -929,7 +929,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedCryptoIdentity),
                                               cryptoProtocolId: .ownedDeviceDiscovery,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = OwnedDeviceDiscoveryProtocol.InitiateOwnedDeviceDiscoveryMessage(coreProtocolMessage: coreMessage)
@@ -946,7 +946,7 @@ extension ProtocolStarterCoordinator {
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedCryptoIdentity),
                                               cryptoProtocolId: .ownedDeviceManagement,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = OwnedDeviceManagementProtocol.InitiateOwnedDeviceManagementMessage(
@@ -967,7 +967,7 @@ extension ProtocolStarterCoordinator {
     private func postAbortMessageForOwnedIdentityTransferProtocol(ownedCryptoIdentity: ObvCryptoIdentity, protocolInstanceUID: UID) {
         Task {
             let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-            let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+            let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedCryptoIdentity),
                                                   cryptoProtocolId: .ownedIdentityTransfer,
                                                   protocolInstanceUid: protocolInstanceUID)
             let initialMessage = OwnedIdentityTransferProtocol.AbortProtocolMessage(coreProtocolMessage: coreMessage)
@@ -1008,7 +1008,7 @@ extension ProtocolStarterCoordinator {
         // Create the InitiateTransferOnSourceDeviceMessage that will allow to start the ownedIdentityTransfer protocol
         
         let protocolInstanceUID = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedCryptoIdentity),
                                               cryptoProtocolId: .ownedIdentityTransfer,
                                               protocolInstanceUid: protocolInstanceUID)
         let message = OwnedIdentityTransferProtocol.InitiateTransferOnSourceDeviceMessage(coreProtocolMessage: coreMessage)
@@ -1090,7 +1090,7 @@ extension ProtocolStarterCoordinator {
         // Create the InitiateTransferOnTargetDeviceMessage that will allow to start the ownedIdentityTransfer protocol
         
         let protocolInstanceUID = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ephemeralOwnedIdentity.getObvCryptoIdentity()),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ephemeralOwnedIdentity.getObvCryptoIdentity()),
                                               cryptoProtocolId: .ownedIdentityTransfer,
                                               protocolInstanceUid: protocolInstanceUID)
         // Note we don't need the ephemeral identity's privateKeyForAuthentication
@@ -1197,7 +1197,7 @@ extension ProtocolStarterCoordinator {
         guard let notificationDelegate = delegateManager.notificationDelegate else { assertionFailure(); return }
 
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoId.cryptoIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedCryptoId.cryptoIdentity),
                                               cryptoProtocolId: .ownedIdentityTransfer,
                                               protocolInstanceUid: protocolInstanceUID)
         let message = OwnedIdentityTransferProtocol.SourceSASInputMessage(coreProtocolMessage: coreMessage, enteredSAS: enteredSAS, deviceUIDToKeepActive: deviceToKeepActive)
@@ -1257,7 +1257,7 @@ extension ProtocolStarterCoordinator {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedCryptoIdentity),
                                               cryptoProtocolId: .keycloakBindingAndUnbinding,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = KeycloakBindingAndUnbindingProtocol.OwnedIdentityKeycloakBindingMessage(
@@ -1277,7 +1277,7 @@ extension ProtocolStarterCoordinator {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedCryptoIdentity),
                                               cryptoProtocolId: .keycloakBindingAndUnbinding,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = KeycloakBindingAndUnbindingProtocol.OwnedIdentityKeycloakUnbindingMessage(coreProtocolMessage: coreMessage)
@@ -1296,7 +1296,7 @@ extension ProtocolStarterCoordinator {
         
         let log = OSLog(subsystem: delegateManager.logSubsystem, category: ProtocolStarterCoordinator.logCategory)
         let protocolInstanceUid = UID.gen(with: prng)
-        let coreMessage = CoreProtocolMessage(channelType: .Local(ownedIdentity: ownedCryptoIdentity),
+        let coreMessage = CoreProtocolMessage(channelType: .local(ownedIdentity: ownedCryptoIdentity),
                                               cryptoProtocolId: .synchronization,
                                               protocolInstanceUid: protocolInstanceUid)
         let initialMessage = SynchronizationProtocol.InitiateSyncAtomMessage(coreProtocolMessage: coreMessage, syncAtom: syncAtom)

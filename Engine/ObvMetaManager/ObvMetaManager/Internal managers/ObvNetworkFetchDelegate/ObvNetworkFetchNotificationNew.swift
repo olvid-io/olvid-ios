@@ -50,6 +50,7 @@ public enum ObvNetworkFetchNotificationNew {
 	case keycloakTargetedPushNotificationReceivedViaWebsocket(ownedIdentity: ObvCryptoIdentity)
 	case ownedDevicesMessageReceivedViaWebsocket(ownedIdentity: ObvCryptoIdentity)
 	case newReturnReceiptToProcess(returnReceipt: ReturnReceipt)
+	case serverAndInboxContainNoMoreUnprocessedMessages(ownedIdentity: ObvCryptoIdentity, downloadTimestampFromServer: Date)
 
 	private enum Name {
 		case fetchNetworkOperationFailedSinceOwnedIdentityIsNotActive
@@ -69,6 +70,7 @@ public enum ObvNetworkFetchNotificationNew {
 		case keycloakTargetedPushNotificationReceivedViaWebsocket
 		case ownedDevicesMessageReceivedViaWebsocket
 		case newReturnReceiptToProcess
+		case serverAndInboxContainNoMoreUnprocessedMessages
 
 		private var namePrefix: String { String(describing: ObvNetworkFetchNotificationNew.self) }
 
@@ -98,6 +100,7 @@ public enum ObvNetworkFetchNotificationNew {
 			case .keycloakTargetedPushNotificationReceivedViaWebsocket: return Name.keycloakTargetedPushNotificationReceivedViaWebsocket.name
 			case .ownedDevicesMessageReceivedViaWebsocket: return Name.ownedDevicesMessageReceivedViaWebsocket.name
 			case .newReturnReceiptToProcess: return Name.newReturnReceiptToProcess.name
+			case .serverAndInboxContainNoMoreUnprocessedMessages: return Name.serverAndInboxContainNoMoreUnprocessedMessages.name
 			}
 		}
 	}
@@ -190,6 +193,11 @@ public enum ObvNetworkFetchNotificationNew {
 		case .newReturnReceiptToProcess(returnReceipt: let returnReceipt):
 			info = [
 				"returnReceipt": returnReceipt,
+			]
+		case .serverAndInboxContainNoMoreUnprocessedMessages(ownedIdentity: let ownedIdentity, downloadTimestampFromServer: let downloadTimestampFromServer):
+			info = [
+				"ownedIdentity": ownedIdentity,
+				"downloadTimestampFromServer": downloadTimestampFromServer,
 			]
 		}
 		return info
@@ -357,6 +365,15 @@ public enum ObvNetworkFetchNotificationNew {
 		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
 			let returnReceipt = notification.userInfo!["returnReceipt"] as! ReturnReceipt
 			block(returnReceipt)
+		}
+	}
+
+	public static func observeServerAndInboxContainNoMoreUnprocessedMessages(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (ObvCryptoIdentity, Date) -> Void) -> NSObjectProtocol {
+		let name = Name.serverAndInboxContainNoMoreUnprocessedMessages.name
+		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
+			let ownedIdentity = notification.userInfo!["ownedIdentity"] as! ObvCryptoIdentity
+			let downloadTimestampFromServer = notification.userInfo!["downloadTimestampFromServer"] as! Date
+			block(ownedIdentity, downloadTimestampFromServer)
 		}
 	}
 

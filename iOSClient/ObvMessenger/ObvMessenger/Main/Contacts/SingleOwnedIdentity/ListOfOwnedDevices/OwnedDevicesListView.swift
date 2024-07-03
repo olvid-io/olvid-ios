@@ -183,7 +183,7 @@ struct OwnedDevicesListView_Previews: PreviewProvider {
                 ownedCryptoId: ownedCryptoId,
                 deviceIdentifier: Data(repeating: 1, count: 16),
                 name: "iPad pro",
-                secureChannelStatus: .created,
+                secureChannelStatus: .created(preKeyAvailable: true),
                 expirationDate: Date(timeIntervalSinceNow: 1_000),
                 latestRegistrationDate: Date(timeIntervalSinceNow: -500),
                 ownedIdentityIsActive: true),

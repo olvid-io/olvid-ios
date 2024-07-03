@@ -119,6 +119,11 @@ struct AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key: AuthenticatedE
     let aes256CTRKey: SymmetricEncryptionAES256CTRKey
     let hmacWithSHA256Key: HMACWithSHA256Key
     
+    init(aes256CTRKey: SymmetricEncryptionAES256CTRKey, hmacWithSHA256Key: HMACWithSHA256Key) {
+        self.aes256CTRKey = aes256CTRKey
+        self.hmacWithSHA256Key = hmacWithSHA256Key
+    }
+    
     init?(data: Data) {
         guard data.count == AuthenticatedEncryptionWithAES256CTRThenHMACWithSHA256Key.length else { return nil }
         let dataForMac = data[data.startIndex..<data.startIndex+HMACWithSHA256Key.length]

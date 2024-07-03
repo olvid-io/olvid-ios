@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,7 +25,7 @@ import ObvEncoder
 
 protocol SignatureCommon {
     static func sign(_: Data, with: PrivateKeyForSignature, and: PublicKeyForSignature, using: PRNGService) -> Data?
-    static func verify(_: Data, on: Data, with: PublicKeyForSignature) -> Bool?
+    static func verify(_ signature: Data, on message: Data, with publicKey: PublicKeyForSignature) throws -> Bool
 }
 
 protocol SignatureConcrete: SignatureCommon {
@@ -50,10 +50,18 @@ public final class Signature: SignatureGeneric {
         return algorithmImplementation.sign(data, with: privateKey, and: publicKey, using: prng)
     }
     
-    static func verify(_ signature: Data, on data: Data, with publicKey: PublicKeyForSignature) -> Bool? {
+    static func verify(_ signature: Data, on data: Data, with publicKey: PublicKeyForSignature) throws -> Bool {
         let algorithmImplementation = publicKey.algorithmImplementationByteId.algorithmImplementation
-        return algorithmImplementation.verify(signature, on: data, with: publicKey)
+        return try algorithmImplementation.verify(signature, on: data, with: publicKey)
     }
+}
+
+enum ObvSignatureVerificationError: Error {
+    case unexpectedPublicKeyType
+    case unexpectedCurveType
+    case unexpectedLength
+    case unexpectedSignatureRange
+    case isLowOrderPoint
 }
 
 protocol SignatureECSDSA256overEdwardsCurve: SignatureConcrete {
@@ -62,34 +70,42 @@ protocol SignatureECSDSA256overEdwardsCurve: SignatureConcrete {
 
 extension SignatureECSDSA256overEdwardsCurve {
     
-    private static var hLength: Int {
-        return SHA256.outputLength
-    }
     private static var zLength: Int {
         return curve.parameters.p.byteSize()
     }
     
     static func generateKeyPair(with prng: PRNGService) -> (PublicKeyForSignature, PrivateKeyForSignature) {
-        let (scalar, point) = curve.generateRandomScalarAndPoint(withPRNG: prng)
+        let (scalar, point) = curve.generateRandomScalarAndHighOrderPoint(withPRNG: prng)
         let publicKey = PublicKeyForSignatureOnEdwardsCurve(point: point)!
         let privateKey = PrivateKeyForSignatureOnEdwardsCurve(scalar: scalar, curveByteId: curve.byteId)
         return (publicKey, privateKey)
     }
     
-    static func sign(_ message: Data, with _privateKey: PrivateKeyForSignature, and _publicKey: PublicKeyForSignature, using prng: PRNGService) -> Data? {
+    static func sign(_ message: Data, with privateKey: PrivateKeyForSignature, and publicKey: PublicKeyForSignature, using prng: PRNGService) -> Data? {
+        // For now, we use SHA256 as a hash function for computing signatures. We will switch to SHA512 once all clients support signatures with SHA512.
+        return sign(message, with: privateKey, and: publicKey, using: prng, hashFunction: SHA256.self)
+    }
+
+    
+    private static func sign<H: HashFunction>(_ message: Data, with _privateKey: PrivateKeyForSignature, and _publicKey: PublicKeyForSignature, using prng: PRNGService, hashFunction: H.Type) -> Data? {
         guard let privateKey = _privateKey as? PrivateKeyForSignatureOnEdwardsCurve else { return nil }
         guard let publicKey = _publicKey as? PublicKeyForSignatureOnEdwardsCurve else { return nil }
         guard publicKey.curveByteId == privateKey.curveByteId else { return nil }
         guard publicKey.curveByteId == curve.byteId else { return nil }
         let algorithmImplementation = privateKey.algorithmImplementationByteId.algorithmImplementation
         let (localPublicKey, localPrivateKey) = algorithmImplementation.generateKeyPair(with: prng) as! (PublicKeyForSignatureOnEdwardsCurve, PrivateKeyForSignatureOnEdwardsCurve)
+        // Check the public key
+        guard !publicKey.isLowOrderPoint else {
+            assertionFailure()
+            return nil
+        }
         // Construct the data to hash and sign
         let pLength = curve.parameters.p.byteSize()
         var dataToHash = localPublicKey.yCoordinate.encode(withInnerLength: pLength)!.innerData
         dataToHash.append(publicKey.yCoordinate.encode(withInnerLength: pLength)!.innerData)
         dataToHash.append(message)
         // Hash and cast as a big integer
-        let h = SHA256.hash(dataToHash)
+        let h = hashFunction.hash(dataToHash)
         let e = BigInt(ObvEncoded.init(byteId: .unsignedBigInt, innerData: h))!
         // Sign
         let q = BigInt(curve.parameters.q)
@@ -99,18 +115,44 @@ extension SignatureECSDSA256overEdwardsCurve {
         signature.append(z)
         return signature
     }
+
     
-    static func verify(_ signature: Data, on message: Data, with _publicKey: PublicKeyForSignature) -> Bool? {
-        guard let publicKey = _publicKey as? PublicKeyForSignatureOnEdwardsCurve else { return nil }
-        guard publicKey.curveByteId == curve.byteId else { return nil }
-        guard signature.count == self.hLength + self.zLength else { return false }
-        let hRange = signature.startIndex..<signature.startIndex+self.hLength
+    static func verify(_ signature: Data, on message: Data, with publicKey: PublicKeyForSignature) throws -> Bool {
+        // Accept signature based on SHA256 or on SHA512
+        if (try? Self.verify(signature, on: message, with: publicKey, hashFunction: SHA256.self)) == true {
+            return true
+        }
+        if (try? Self.verify(signature, on: message, with: publicKey, hashFunction: SHA512.self)) == true {
+            return true
+        }
+        return false
+    }
+
+    
+    private static func verify<H: HashFunction>(_ signature: Data, on message: Data, with publicKey: PublicKeyForSignature, hashFunction: H.Type) throws -> Bool {
+        guard let publicKey = publicKey as? PublicKeyForSignatureOnEdwardsCurve else { throw ObvSignatureVerificationError.unexpectedPublicKeyType }
+        guard publicKey.curveByteId == curve.byteId else { throw ObvSignatureVerificationError.unexpectedCurveType }
+        guard !publicKey.isLowOrderPoint else {
+            assertionFailure()
+            throw ObvSignatureVerificationError.isLowOrderPoint
+        }
+        let hLength = hashFunction.outputLength
+        guard signature.count == hLength + self.zLength else { return false }
+        let hRange = signature.startIndex..<signature.startIndex+hLength
         let h = signature[hRange]
-        let zRange = signature.startIndex+self.hLength..<signature.endIndex
+        let zRange = signature.startIndex+hLength..<signature.endIndex
         let z = signature[zRange]
-        guard z.count == self.zLength else { return nil }
+        guard z.count == self.zLength else { throw ObvSignatureVerificationError.unexpectedLength }
         let e = BigInt(h)
         let y = BigInt(z)
+        // Given the way we compute a signature (see static sign(_:with:and:using:)), we expect 0 <= y < q, i.e.,
+        // y >= 0 and q-y > 0.
+        // So we check this now
+        do {
+            guard y.isNonNegative() else { throw ObvSignatureVerificationError.unexpectedSignatureRange }
+            let q = BigInt(curve.parameters.q)
+            guard q.sub(y).isPositive() else { throw ObvSignatureVerificationError.unexpectedSignatureRange }
+        }
         let resultingPoints: (point1: PointOnCurve, point2: PointOnCurve)
         if let point = publicKey.point {
             let resultingPoint = curve.mulAdd(a: y, point1: curve.parameters.G, b: e, point2: point)!
@@ -128,11 +170,11 @@ extension SignatureECSDSA256overEdwardsCurve {
         var dataToHash2 = Ay2
         dataToHash2.append(Ay)
         dataToHash2.append(message)
-        let h1 = SHA256.hash(dataToHash1)
-        let h2 = SHA256.hash(dataToHash2)
+        let h1 = hashFunction.hash(dataToHash1)
+        let h2 = hashFunction.hash(dataToHash2)
         return h == h1 || h == h2
     }
-    
+
 }
 
 final class SignatureECSDSA256overMDC: SignatureECSDSA256overEdwardsCurve {

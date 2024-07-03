@@ -74,6 +74,7 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
             await refreshInvitationsBadgeCountsForAllOwnedIdentities()
             deleteOrphanedPersistedAttachmentSentRecipientInfosOperation()
             await migrateUtiOfFyleMessageJoinWithStatusForLinkPreviews()
+            await resetInconsistentDiscussionExistenceAndVisibilityDurations()
         }
     }
     
@@ -357,6 +358,17 @@ extension BootstrapCoordinator {
 
         userDefaults.setValue(true, forKey: userDefaultsKey)
                 
+    }
+    
+    
+    private func resetInconsistentDiscussionExistenceAndVisibilityDurations() async {
+        
+        let op1 = ResetInconsistentDiscussionExistenceAndVisibilityDurationsOperation()
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        await coordinatorsQueue.addAndAwaitOperation(composedOp)
+        guard op1.isFinished && !op1.isCancelled else { assertionFailure(); return }
+
+        
     }
 
 }

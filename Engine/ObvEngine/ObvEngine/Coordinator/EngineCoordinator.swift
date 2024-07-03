@@ -76,7 +76,7 @@ final class EngineCoordinator {
                 Task { [weak self] in await self?.processContactIsCertifiedByOwnKeycloakStatusChanged(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, newIsCertifiedByOwnKeycloak: newIsCertifiedByOwnKeycloak) }
             },
             ObvIdentityNotificationNew.observeContactIdentityIsNowTrusted(within: notificationDelegate) { [weak self] contactIdentity, ownedIdentity, flowId in
-                self?.processContactIdentityIsNowTrusted(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, flowId: flowId)
+                Task { [weak self] in await self?.processContactIdentityIsNowTrusted(contactIdentity: contactIdentity, ownedIdentity: ownedIdentity, flowId: flowId) }
             },
             ObvIdentityNotificationNew.observeNewContactDevice(within: notificationDelegate) { [weak self] (ownedIdentity, contactIdentity, contactDeviceUid, createdDuringChannelCreation, flowId) in
                 self?.processNewContactDevice(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, contactDeviceUid: contactDeviceUid, createdDuringChannelCreation: createdDuringChannelCreation, flowId: flowId)
@@ -103,6 +103,12 @@ final class EngineCoordinator {
             ObvNetworkFetchNotificationNew.observeOwnedDevicesMessageReceivedViaWebsocket(within: notificationDelegate) { [weak self] ownedCryptoIdentity in
                 self?.processOwnedDevicesMessageReceivedViaWebsocket(ownedIdentity: ownedCryptoIdentity)
             },
+            ObvNetworkFetchNotificationNew.observeServerAndInboxContainNoMoreUnprocessedMessages(within: notificationDelegate) { [weak self] ownedCryptoIdentity, downloadTimestampFromServer in
+                Task { [weak self] in await self?.processServerAndInboxContainNoMoreUnprocessedMessages(ownedIdentity: ownedCryptoIdentity, downloadTimestampFromServer: downloadTimestampFromServer) }
+            },
+            ObvNetworkFetchNotificationNew.observeApplicationMessageDecrypted(within: notificationDelegate) { messageId, attachmentIds, hasEncryptedExtendedMessagePayload, flowId in
+                Task { [weak self] in await self?.processApplicationMessageDecrypted(messageId: messageId, attachmentIds: attachmentIds, hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload, flowId: flowId) }
+            },
         ])
         
     }
@@ -114,7 +120,7 @@ extension EngineCoordinator {
     private func bootstrap() async {
         let flowId = FlowIdentifier()
         deleteObsoleteObliviousChannels(flowId: flowId)
-        await deleteContactDevicesWithNoChannelAndNoChannelCreationThenPerformAppropriateDeviceDiscoveries(flowId: flowId)
+        await pingAppropriateRemoteDevicesWithoutChannelOperation(flowId: flowId)
         startDeviceDiscoveryProtocolForContactsHavingNoDevice(flowId: flowId)
         pruneObsoletePersistedEngineDialogs(flowId: flowId)
         await sendTargetedPingMessageForKeycloakGroupV2ProtocolWhereContactIsPending(flowId: flowId)
@@ -182,16 +188,15 @@ extension EngineCoordinator {
     }
     
     
-    /// This operation deletes all devices found within the identity manager if they have no associated channel and no oingoing channel creation protocol with the current device. For each (owned or contact) identity corresponding to a deleted device, we start a device discovery.
-    private func deleteContactDevicesWithNoChannelAndNoChannelCreationThenPerformAppropriateDeviceDiscoveries(flowId: FlowIdentifier) async {
-
+    private func pingAppropriateRemoteDevicesWithoutChannelOperation(flowId: FlowIdentifier) async {
+        
         do {
             
             guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
             guard let channelDelegate = delegateManager?.channelDelegate else { assertionFailure(); return }
             guard let protocolDelegate = delegateManager?.protocolDelegate else { assertionFailure(); return }
             
-            let op1 = DeleteContactDevicesWithNoChannelAndNoChannelCreationThenPerformAppropriateDeviceDiscoveriesOperation(
+            let op1 = PingAppropriateRemoteDevicesWithoutChannelOperation(
                 identityDelegate: identityDelegate,
                 channelDelegate: channelDelegate,
                 protocolDelegate: protocolDelegate,
@@ -203,9 +208,9 @@ extension EngineCoordinator {
             
         } catch {
             assertionFailure(error.localizedDescription)
-            os_log("Failed to deactivate owned identity: %{public}@", log: log, type: .fault, error.localizedDescription)
+            os_log("Failed to ping appropriate remote devices without channel: %{public}@", log: log, type: .fault, error.localizedDescription)
         }
-
+        
     }
     
     
@@ -333,7 +338,7 @@ extension EngineCoordinator {
 
         createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
-            guard let ownedIdentities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
+            guard let ownedIdentities = try? identityDelegate.getOwnedIdentities(restrictToActive: true, within: obvContext) else {
                 os_log("Could not get owned identities", log: log, type: .fault)
                 assertionFailure()
                 return
@@ -438,7 +443,7 @@ extension EngineCoordinator {
 
         createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
-            guard let ownedIdentities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
+            guard let ownedIdentities = try? identityDelegate.getOwnedIdentities(restrictToActive: true, within: obvContext) else {
                 os_log("Could not get owned identities", log: log, type: .fault)
                 assertionFailure()
                 return
@@ -530,7 +535,7 @@ extension EngineCoordinator {
 
         createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
             
-            guard let ownedIdentities = try? identityDelegate.getOwnedIdentities(within: obvContext) else {
+            guard let ownedIdentities = try? identityDelegate.getOwnedIdentities(restrictToActive: true, within: obvContext) else {
                 os_log("Could not get owned identities", log: log, type: .fault)
                 assertionFailure()
                 return
@@ -731,8 +736,21 @@ extension EngineCoordinator {
     
     
     /// When a contact becomes trusted, we start a contact device discovery protocol to found out about all her devices.
-    private func processContactIdentityIsNowTrusted(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
+    /// We also notify the fetch manager in case we previously received messages from that contact, using our current device prekeys: in that case we kept the messages within the inbox, waiting for the (unknown) remote identity
+    /// to become a contact (which is exactly what happened).
+    private func processContactIdentityIsNowTrusted(contactIdentity: ObvCryptoIdentity, ownedIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async {
+        
+        guard let networkFetchDelegate = delegateManager?.networkFetchDelegate else { assertionFailure(); return }
+        
         startDeviceDiscoveryProtocolForContactIdentity(ownedIdentity: ownedIdentity, contactIdentity: contactIdentity, flowId: flowId)
+        
+        do {
+            let contactIdentifier = ObvContactIdentifier(contactCryptoIdentity: contactIdentity, ownedCryptoIdentity: ownedIdentity)
+            try await networkFetchDelegate.remoteIdentityIsNowAContact(contactIdentifier: contactIdentifier, flowId: flowId)
+        } catch {
+            assertionFailure()
+        }
+        
     }
 
     
@@ -871,41 +889,6 @@ extension EngineCoordinator {
     }
     
     
-    /// This happens when the user requested, and received, a new free trial API Key, or when an AppStore receipt was successfully verified by our server.
-    /// In that case, we set this key within the identity manager and reset the network session. We know
-    /// that this will trigger the creation of a new session. This, in turn, will lead to a notification containing new API Key elements.
-    /// In the case we received the new API key thanks to an AppStore purchase, the transactionIdentifier will be set and we notify in case of success/failure
-//    private func setAPIKeyAndResetServerSession(ownedIdentity: ObvCryptoIdentity, apiKey: UUID, transactionIdentifier: String?, flowId: FlowIdentifier) async {
-//
-//        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
-//        guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
-//        guard let networkFetchDelegate = delegateManager?.networkFetchDelegate else { assertionFailure(); return }
-//        guard let appNotificationCenter = self.appNotificationCenter else { assertionFailure(); return }
-//        guard let obvEngine else { assertionFailure(); return }
-//
-//        let log = self.log
-//        let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedIdentity)
-//
-//        do {
-//            try await obvEngine.setAPIKeyWithinIdentityManager(ownedCryptoIdentity: ownedIdentity, apiKey: apiKey, keycloakServerURL: nil, flowId: flowId)
-//            _ = try await networkFetchDelegate.refreshAPIPermissions(of: ownedIdentity, flowId: flowId)
-//        } catch {
-//            os_log("Could not set API Key: %{public}@", log: log, type: .fault, error.localizedDescription)
-//            if let transactionIdentifier = transactionIdentifier {
-//                ObvEngineNotificationNew.appStoreReceiptVerificationFailed(ownedIdentity: ownedCryptoId, transactionIdentifier: transactionIdentifier)
-//                    .postOnBackgroundQueue(within: appNotificationCenter)
-//            }
-//            return
-//        }
-//
-//        if let transactionIdentifier = transactionIdentifier {
-//            ObvEngineNotificationNew.appStoreReceiptVerificationSucceededAndSubscriptionIsValid(ownedIdentity: ownedCryptoId, transactionIdentifier: transactionIdentifier)
-//                .postOnBackgroundQueue(within: appNotificationCenter)
-//        }
-//
-//    }
-    
-    
     /// When receiving an `OwnedDevicesMessage` on the websocket, we perform an owned device discovery
     private func processOwnedDevicesMessageReceivedViaWebsocket(ownedIdentity: ObvCryptoIdentity) {
         
@@ -915,7 +898,60 @@ extension EngineCoordinator {
         // so that we will also re-register to push notifications.
         
     }
+    
+    
+    /// When the fetch manager notifies us that there are no more inbox messages to process (and no more unlisted messages on the server), it notify the identity delegate that old
+    /// current device's pre-keys can be deleted.
+    private func processServerAndInboxContainNoMoreUnprocessedMessages(ownedIdentity: ObvCryptoIdentity, downloadTimestampFromServer: Date) async {
+        
+        guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
+        guard let protocolDelegate = delegateManager?.protocolDelegate else { assertionFailure(); return }
 
+        let op1 = DeleteCurrentDeviceExpiredPreKeysOfOwnedIdentityOperation(ownedCryptoId: ownedIdentity, identityDelegate: identityDelegate, downloadTimestampFromServer: downloadTimestampFromServer)
+        do {
+            let composedOp = try createCompositionOfOneContextualOperation(op1: op1)
+            try await protocolDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+        } catch {
+            assertionFailure(error.localizedDescription)
+            os_log("Failed to delete current device's expired pre-keys for an owned identity: %{public}@", log: log, type: .fault, error.localizedDescription)
+        }
+        
+    }
+    
+    
+    /// When an application message gets decrypted, we check if it comes from a contact. If it is the case, we make sure that this contact is indicated as "recently online".
+    private func processApplicationMessageDecrypted(messageId: ObvMessageIdentifier, attachmentIds: [ObvAttachmentIdentifier], hasEncryptedExtendedMessagePayload: Bool, flowId: FlowIdentifier) async {
+        
+        guard let networkFetchDelegate = delegateManager?.networkFetchDelegate else { assertionFailure(); return }
+        guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
+        guard let protocolDelegate = delegateManager?.protocolDelegate else { assertionFailure(); return }
+
+        guard let networkReceivedMessage = networkFetchDelegate.getDecryptedMessage(messageId: messageId, flowId: flowId) else {
+            os_log("Could not get an ObvNetworkReceivedMessageDecrypted for message %@", log: self.log, type: .fault, messageId.debugDescription)
+            return
+        }
+        
+        guard networkReceivedMessage.messageId.ownedCryptoIdentity != networkReceivedMessage.fromIdentity else {
+            // The message is coming from another owned device, and not from a contact.
+            // Nothing left to do
+            return
+        }
+        
+        let contactIdentifier = ObvContactIdentifier(contactCryptoIdentity: networkReceivedMessage.fromIdentity, ownedCryptoIdentity: networkReceivedMessage.messageId.ownedCryptoIdentity)
+
+        let op1 = MarkContactAsRecentlyOnlineOperation(contactIdentifier: contactIdentifier, identityDelegate: identityDelegate)
+
+        do {
+            let composedOp = try createCompositionOfOneContextualOperation(op1: op1)
+            try await protocolDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+            os_log("Successful pinged keycloak contacts in group where they are pending", log: log, type: .info)
+        } catch {
+            assertionFailure(error.localizedDescription)
+            os_log("Failed to ping keycloak contacts in group where they are pending: %{public}@", log: log, type: .fault, error.localizedDescription)
+        }
+
+    }
+    
     
     private func deleteObliviousChannelBetweenThisDeviceAndRemoteDevice(ownedIdentity: ObvCryptoIdentity, remoteDeviceUid: UID, remoteIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         

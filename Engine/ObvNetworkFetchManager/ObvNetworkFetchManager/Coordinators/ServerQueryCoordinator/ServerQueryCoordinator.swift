@@ -772,6 +772,17 @@ extension ServerQueryCoordinator {
             method.identityDelegate = identityDelegate
             let (returnedData, urlResponse) = try await self.session.data(for: method.getURLRequest())
             return (returnedData, urlResponse, nil)
+            
+        case .uploadPreKeyForCurrentDevice(deviceBlobOnServerToUpload: let deviceBlobOnServerToUpload):
+            let token = try await serverSessionDelegate.getValidServerSessionToken(for: ownedCryptoId, currentInvalidToken: nil, flowId: flowId).serverSessionToken
+            let method = UploadPreKeyServerMethod(
+                ownedCryptoIdentity: ownedCryptoId,
+                token: token,
+                currentDeviceBlobOnServerToUpload: deviceBlobOnServerToUpload,
+                flowId: flowId)
+            method.identityDelegate = identityDelegate
+            let (returnedData, urlResponse) = try await self.session.data(for: method.getURLRequest())
+            return (returnedData, urlResponse, token)
 
         case .sourceGetSessionNumber, .sourceWaitForTargetConnection, .targetSendEphemeralIdentity, .transferRelay, .transferWait, .closeWebsocketConnection:
             assertionFailure("This query is be handled by the ServerQueryWebSocketCoordinator, this one should not have been called")

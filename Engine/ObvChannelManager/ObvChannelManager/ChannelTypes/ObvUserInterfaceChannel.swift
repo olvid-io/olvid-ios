@@ -94,7 +94,7 @@ extension ObvUserInterfaceChannel {
         let acceptableChannels: [ObvChannel]
         
         switch message.channelType {
-        case .UserInterface(uuid: _, ownedIdentity: let ownedIdentity, dialogType: _):
+        case .userInterface(uuid: _, ownedIdentity: let ownedIdentity, dialogType: _):
             
             // Only dialog messages can be sent to the user interface
             guard message.messageType == .DialogMessage else {

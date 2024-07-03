@@ -302,13 +302,16 @@ public class PersistedContactGroup: NSManagedObject {
     }
 
     
-    func processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws {
+    /// Returns the number of new messages that were deleted
+    func processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from ownedIdentity: PersistedObvOwnedIdentity, messageUploadTimestampFromServer: Date) throws -> Int {
         
         guard self.ownedIdentity == ownedIdentity else {
             throw ObvError.unexpectedOwnedIdentity
         }
 
         try discussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: ownedIdentity, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+        
+        return discussion.numberOfNewMessages
         
     }
 

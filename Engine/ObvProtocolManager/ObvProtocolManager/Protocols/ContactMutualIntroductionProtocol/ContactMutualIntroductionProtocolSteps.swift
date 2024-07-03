@@ -96,7 +96,7 @@ extension ContactMutualIntroductionProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -146,7 +146,7 @@ extension ContactMutualIntroductionProtocol {
             // Post an invitation message to contact A
 
             do {
-                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentityA]), fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentityA]), fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = MediatorInvitationMessage(coreProtocolMessage: coreMessage,
                                                                         contactIdentity: contactIdentityB,
                                                                         contactIdentityCoreDetails: contactIdentityCoreDetailsB)
@@ -157,7 +157,7 @@ extension ContactMutualIntroductionProtocol {
             // Post an invitation message to contact B
             
             do {
-                let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithContactIdentities(contactIdentities: Set([contactIdentityB]), fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithContacts(contactIdentities: Set([contactIdentityB]), fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = MediatorInvitationMessage(coreProtocolMessage: coreMessage,
                                                                         contactIdentity: contactIdentityA,
                                                                         contactIdentityCoreDetails: contactIdentityCoreDetailsA)
@@ -171,7 +171,7 @@ extension ContactMutualIntroductionProtocol {
 
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagatedInitialMessage(
                         coreProtocolMessage: coreMessage,
                         contactIdentityA: contactIdentityA,
@@ -225,7 +225,7 @@ extension ContactMutualIntroductionProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -274,7 +274,7 @@ extension ContactMutualIntroductionProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyChannel(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -338,7 +338,7 @@ extension ContactMutualIntroductionProtocol {
                 do {
                     let dialogType = ObvChannelDialogToSendType.acceptMediatorInvite(contact: CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails),
                                                                                      mediatorIdentity: mediatorIdentity)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
                     let concreteProtocolMessage = AcceptMediatorInviteDialogMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -392,7 +392,7 @@ extension ContactMutualIntroductionProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -423,7 +423,7 @@ extension ContactMutualIntroductionProtocol {
 
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateConfirmationMessage(coreProtocolMessage: coreMessage,
                                                                                invitationAccepted: invitationAccepted,
                                                                                contactIdentity: contactIdentity,
@@ -445,7 +445,7 @@ extension ContactMutualIntroductionProtocol {
             guard invitationAccepted else {
                 
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -461,7 +461,7 @@ extension ContactMutualIntroductionProtocol {
                 let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                 let dialogType = ObvChannelDialogToSendType.mediatorInviteAccepted(contact: contact,
                                                                                    mediatorIdentity: mediatorIdentity)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -510,7 +510,7 @@ extension ContactMutualIntroductionProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -532,7 +532,7 @@ extension ContactMutualIntroductionProtocol {
             guard invitationAccepted else {
                 
                 let dialogType = ObvChannelDialogToSendType.delete
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -548,7 +548,7 @@ extension ContactMutualIntroductionProtocol {
                 let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                 let dialogType = ObvChannelDialogToSendType.mediatorInviteAccepted(contact: contact,
                                                                                    mediatorIdentity: mediatorIdentity)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -581,7 +581,7 @@ extension ContactMutualIntroductionProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -637,7 +637,7 @@ extension ContactMutualIntroductionProtocol {
             
             if numberOfOtherDevicesOfOwnedIdentity > 0 {
                 do {
-                    let coreMessage = getCoreMessage(for: .AllConfirmedObliviousChannelsWithOtherDevicesOfOwnedIdentity(ownedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .allConfirmedObliviousChannelsOrPreKeyChannelsWithOtherOwnedDevices(ownedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PropagateContactNotificationOfAcceptedInvitationMessage(coreProtocolMessage: coreMessage,
                                                                                   contactDeviceUids: contactDeviceUids)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
@@ -654,7 +654,7 @@ extension ContactMutualIntroductionProtocol {
             // Send Ack to contact
             
             do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .asymmetricChannel(to: contactIdentity, remoteDeviceUids: contactDeviceUids, fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = AckMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")
@@ -687,7 +687,7 @@ extension ContactMutualIntroductionProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AnyObliviousChannelWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
+                       expectedReceptionChannelInfo: .anyObliviousChannelOrPreKeyWithOwnedDevice(ownedIdentity: concreteCryptoProtocol.ownedIdentity),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -751,7 +751,7 @@ extension ContactMutualIntroductionProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -774,7 +774,7 @@ extension ContactMutualIntroductionProtocol {
             case AcceptType.manual:
                 let contact = CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails)
                 let dialogType = ObvChannelDialogToSendType.mutualTrustConfirmed(contact: contact)
-                let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                 let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                     throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -807,7 +807,7 @@ extension ContactMutualIntroductionProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -842,7 +842,7 @@ extension ContactMutualIntroductionProtocol {
 
                 do {
                     let dialogType = ObvChannelDialogToSendType.delete
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity, dialogType: dialogType))
                     let concreteProtocolMessage = DialogInformativeMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -912,7 +912,7 @@ extension ContactMutualIntroductionProtocol {
                 do {
                     let dialogType = ObvChannelDialogToSendType.acceptMediatorInvite(contact: CryptoIdentityWithCoreDetails(cryptoIdentity: contactIdentity, coreDetails: contactIdentityCoreDetails),
                                                                                      mediatorIdentity: mediatorIdentity)
-                    let coreMessage = getCoreMessage(for: .UserInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
+                    let coreMessage = getCoreMessage(for: .userInterface(uuid: dialogUuid, ownedIdentity: ownedIdentity,dialogType: dialogType))
                     let concreteProtocolMessage = AcceptMediatorInviteDialogMessage(coreProtocolMessage: coreMessage)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelDialogMessageToSend() else {
                         throw Self.makeError(message: "Could not generate ObvChannelDialogMessageToSend")
@@ -964,7 +964,7 @@ extension ProtocolStep {
         
         do {
             let ownedDeviceUids = try identityDelegate.getDeviceUidsOfOwnedIdentity(ownedIdentity, within: obvContext)
-            let coreMessage = getCoreMessage(for: .AsymmetricChannelBroadcast(to: contactIdentity, fromOwnedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .asymmetricChannelBroadcast(to: contactIdentity, fromOwnedIdentity: ownedIdentity))
             let concreteProtocolMessage = notifyContactOfAcceptedInvitationMessageInitializer(coreMessage, Array(ownedDeviceUids), signature)
             guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                 throw Self.makeError(message: "Could not generate ObvChannelProtocolMessageToSend")

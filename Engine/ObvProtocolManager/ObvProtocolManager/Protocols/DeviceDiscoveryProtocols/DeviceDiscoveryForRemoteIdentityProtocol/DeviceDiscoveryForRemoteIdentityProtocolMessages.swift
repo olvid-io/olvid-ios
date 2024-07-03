@@ -72,7 +72,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         }
     }
     
-    
+
     struct ServerQueryMessage: ConcreteProtocolMessage {
         
         let id: ConcreteProtocolMessageId = MessageId.serverQuery
@@ -80,7 +80,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         
         // Properties specific to this concrete protocol message
 
-        let contactDeviceDiscoveryResult: ContactDeviceDiscoveryResult? // Only set when the message is sent to this protocol, not when sending this message to the server
+        let contactDeviceDiscoveryResult: ServerResponseContactDeviceDiscoveryResult? // Only set when the message is sent to this protocol, not when sending this message to the server
         
         var encodedInputs: [ObvEncoded] { return [] }
         
@@ -90,18 +90,8 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             self.coreProtocolMessage = CoreProtocolMessage(with: message)
             let encodedElements = message.encodedInputs
             guard encodedElements.count == 1 else { assertionFailure(); throw Self.makeError(message: "Unexpected number of encoded elements") }
-            if let result = ContactDeviceDiscoveryResult(encodedElements[0]) {
-                self.contactDeviceDiscoveryResult = result
-            } else {
-                // Try the legacy decoding
-                guard let listOfEncodedUids = [ObvEncoded](encodedElements[0]) else { assertionFailure(); throw Self.makeError(message: "Failed to get list of encoded inputs") }
-                var uids = [UID]()
-                for encodedUid in listOfEncodedUids {
-                    guard let uid = UID(encodedUid) else { assertionFailure(); throw Self.makeError(message: "Failed to decode UID") }
-                    uids.append(uid)
-                }
-                self.contactDeviceDiscoveryResult = .success(deviceUIDs: uids)
-            }
+            guard let result = ServerResponseContactDeviceDiscoveryResult(encodedElements[0]) else { assertionFailure(); throw Self.makeError(message: "Failed to parse ServerResponseContactDeviceDiscoveryResult")}
+            self.contactDeviceDiscoveryResult = result
         }
         
         init(coreProtocolMessage: CoreProtocolMessage) {

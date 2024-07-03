@@ -33,4 +33,6 @@ public enum OwnedIdentityTransferError: Error {
     case tryingToTransferAnOwnedIdentityThatAlreadyExistsOnTargetDevice // erro 7
     case couldNotOpenCommitment // erro 8
     case couldNotComputeSeed // erro 9
+    case couldNotEncryptPayload // error 10
+    case couldNotEncryptDecommitment // error 11
 }

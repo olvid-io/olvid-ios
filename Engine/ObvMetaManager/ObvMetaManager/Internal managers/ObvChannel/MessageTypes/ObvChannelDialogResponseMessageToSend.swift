@@ -38,7 +38,7 @@ public struct ObvChannelDialogResponseMessageToSend: ObvChannelMessageToSend {
     public let timestamp: Date
         
     public init(uuid: UUID, toOwnedIdentity ownedIdentity: ObvCryptoIdentity, timestamp: Date, encodedUserDialogResponse: ObvEncoded, encodedElements: ObvEncoded) {
-        self.channelType = .Local(ownedIdentity: ownedIdentity)
+        self.channelType = .local(ownedIdentity: ownedIdentity)
         self.encodedUserDialogResponse = encodedUserDialogResponse
         self.encodedElements = encodedElements
         self.uuid = uuid

@@ -100,6 +100,8 @@ final class RespondAndDeleteServerQueryOperation: ContextualOperationWithSpecifi
                 channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.transferWait(result: result)
             case .sourceWaitForTargetConnection(result: let result):
                 channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.sourceWaitForTargetConnection(result: result)
+            case .uploadPreKeyForCurrentDevice(result: let result):
+                channelServerResponseType = ObvChannelServerResponseMessageToSend.ResponseType.uploadPreKeyForCurrentDevice(result: result)
             }
 
             let aResponseMessageShouldBePosted: Bool

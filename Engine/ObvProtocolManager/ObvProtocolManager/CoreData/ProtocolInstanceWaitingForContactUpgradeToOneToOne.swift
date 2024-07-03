@@ -164,7 +164,7 @@ extension ProtocolInstanceWaitingForContactUpgradeToOneToOne {
     }
 
     func getGenericProtocolMessageToSendWhenContactReachesTargetTrustLevel() -> GenericProtocolMessageToSend {
-        let message = GenericProtocolMessageToSend(channelType: .Local(ownedIdentity: self.ownedCryptoIdentity),
+        let message = GenericProtocolMessageToSend(channelType: .local(ownedIdentity: self.ownedCryptoIdentity),
                                                    cryptoProtocolId: self.protocolInstance.cryptoProtocolId,
                                                    protocolInstanceUid: self.protocolInstance.uid,
                                                    protocolMessageRawId: self.messageToSendRawId,

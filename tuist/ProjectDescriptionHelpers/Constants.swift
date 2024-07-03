@@ -22,11 +22,11 @@ public enum Constants {
     
     static let developmentTeam = ""
 
-    static let marketingVersion = "2.4"
+    static let marketingVersion = "3.0"
 
     static var buildNumber: String {
         get throws {
-            return "778"
+            return "793"
         }
     }
     

@@ -85,10 +85,32 @@ actor ObvPushNotificationManager {
             ObvMessengerSettingsNotifications.observeReceiveCallsOnThisDeviceSettingDidChange { [weak self] in
                 Task { [weak self] in await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities() }
             },
-            ObvEngineNotificationNew.observeEngineRequiresOwnedIdentityToRegisterToPushNotifications(within: NotificationCenter.default) { _ in
-                Task { [weak self] in await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities() }
+            ObvEngineNotificationNew.observeEngineRequiresOwnedIdentityToRegisterToPushNotifications(within: NotificationCenter.default) { (ownedCryptoId, performOwnedDeviceDiscoveryOnFinish)  in
+                Task { [weak self] in
+                    await self?.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
+                    if performOwnedDeviceDiscoveryOnFinish {
+                        await self?.startOwnedDeviceDiscoveryProtocol(ownedCryptoId: ownedCryptoId)
+                    }
+                }
             }
         ])
+    }
+    
+    
+    /// This is called in the case where, during a owned device discovery protocol, we realized that the current device is not known to the server. In that case,
+    /// we want to register to push notification (so that the current device is known to the server), then restart an owned device discovery to allow the preKey upload mechanism
+    /// to be performed.
+    private func startOwnedDeviceDiscoveryProtocol(ownedCryptoId: ObvCryptoId) async {
+        
+        let obvEngine = await NewAppStateManager.shared.waitUntilAppIsInitialized()
+
+        do {
+            try await obvEngine.performOwnedDeviceDiscovery(ownedCryptoId: ownedCryptoId)
+        } catch {
+            os_log("Failed to start owned device discovery protocol: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure()
+        }
+        
     }
     
 

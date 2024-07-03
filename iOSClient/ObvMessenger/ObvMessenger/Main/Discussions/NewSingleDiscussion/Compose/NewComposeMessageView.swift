@@ -2019,8 +2019,9 @@ extension NewComposeMessageView: AutoGrowingTextViewDelegate {
     func autoGrowingTextView(_ textView: AutoGrowingTextView, perform action: AutoGrowingTextViewTypes.DelegateTypes.Action) {
         switch action {
         case .keyboardPerformReturn:
-            // Make sure that we actually have text to submit, since we're creating a temp draft
-            guard textView.hasText else {
+
+            // Make sure that we actually have something to submit, since we're creating a temp draft
+            guard (textView.hasText && !textView.text.trimmingWhitespacesAndNewlines().isEmpty) || self.currentAttachmentsState == .hasAttachments else {
                 return
             }
 

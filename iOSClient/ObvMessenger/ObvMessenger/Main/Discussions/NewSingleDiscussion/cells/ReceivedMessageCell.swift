@@ -31,7 +31,7 @@ import UI_ObvCircledInitials
 import ObvSettings
 import ObvDesignSystem
 
-@available(iOS 14.0, *)
+
 final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageCellShowingHardLinks, UIViewWithTappableStuff, CellWithPersistedMessageReceived {
     
     private(set) var message: PersistedMessageReceived?
@@ -215,12 +215,14 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
 
         var otherAttachments = message.fyleMessageJoinWithStatusesOfOtherTypes
         let previewAttachments = message.isWiped ? [] : message.fyleMessageJoinWithStatusesOfPreviewType
+        let singlePreviewConfiguration: SinglePreviewView.Configuration?
         if let previewAttachment = previewAttachments.first {
-            content.singlePreviewConfiguration = singlePreviewViewConfigurationForPreviewAttachment(previewAttachment)
+            singlePreviewConfiguration = singlePreviewViewConfigurationForPreviewAttachment(previewAttachment)
         } else {
-            content.singlePreviewConfiguration = nil
+            singlePreviewConfiguration = nil
         }
-        
+        content.singlePreviewConfiguration = singlePreviewConfiguration
+
         // We remove the link-preview from the attachments
 
         otherAttachments = otherAttachments.filter { !previewAttachments.contains($0) }
@@ -270,7 +272,9 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
             // Configure the text body (determine whether we should use data detection on the text view)
             
             content.textBubbleConfiguration = nil
-            if let attributedTextBody = message.displayableAttributedBody, !message.isWiped {
+            let previewURLToRemove = ObvMessengerSettings.Interface.hideTrailingURLInMessagesWhenPreviewIsAvailable ? singlePreviewConfiguration?.preview?.url : nil
+            if let attributedTextBody = message.getDisplayableAttributedBody(removingTrailingURL: previewURLToRemove), !message.isWiped {
+                
                 let dataDetectorMatches = cacheDelegate?.getCachedDataDetection(attributedString: attributedTextBody)
                 content.textBubbleConfiguration = TextBubble.Configuration(kind: .received,
                                                                            attributedText: attributedTextBody,
@@ -282,6 +286,7 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
                         self?.setNeedsUpdateConfiguration()
                     }
                 }
+                
             }
 
             content.reactionAndCounts = ReactionAndCount.of(reactions: message.reactions)
@@ -591,7 +596,6 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
 
 // MARK: - Implementing CellWithMessage
 
-@available(iOS 14.0, *)
 extension ReceivedMessageCell {
      
     var persistedMessage: PersistedMessage? { message }
@@ -670,7 +674,6 @@ extension ReceivedMessageCell {
 
 
 
-@available(iOS 14.0, *)
 fileprivate struct ReceivedMessageCellCustomContentConfiguration: UIContentConfiguration, Hashable {
     
     var draftObjectID: TypeSafeManagedObjectID<PersistedDraft>?
@@ -716,7 +719,6 @@ fileprivate struct ReceivedMessageCellCustomContentConfiguration: UIContentConfi
 }
 
 
-@available(iOS 14.0, *)
 fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, UIGestureRecognizerDelegate, UIViewWithTappableStuff {
     
     private let mainStack = OlvidVerticalStackView(gap: MessageCellConstants.mainStackGap,
@@ -1271,7 +1273,6 @@ fileprivate final class ReceivedMessageCellContentView: UIView, UIContentView, U
 
 
 
-@available(iOS 14.0, *)
 private class ReceivedMessageDateView: ViewForOlvidStack {
     
     var date = Date() {
@@ -1338,7 +1339,6 @@ private class ReceivedMessageDateView: ViewForOlvidStack {
 }
 
 
-@available(iOS 14.0, *)
 fileprivate final class ContactPictureAndNameView: UIView, UIViewWithTappableStuff {
     
     private let circledInitialsView = NewCircledInitialsView()
@@ -1414,7 +1414,6 @@ fileprivate final class ContactPictureAndNameView: UIView, UIViewWithTappableStu
 }
 
 
-@available(iOS 14.0, *)
 fileprivate final class ReceivedMessageCellBackgroundView: UIView {
 
     private let imageView = UIImageView()

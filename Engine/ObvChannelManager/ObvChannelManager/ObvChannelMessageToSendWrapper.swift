@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,30 +18,59 @@
  */
 
 import Foundation
-
+import os.log
 import ObvCrypto
 import ObvEncoder
 import ObvTypes
 import ObvMetaManager
 
 
+
+
 protocol ObvChannelMessageToSendWrapper {
-    init?(message: ObvChannelMessageToSend, messageKey: AuthenticatedEncryptionKey, headers: [ObvNetworkMessageToSend.Header], randomizedWith prng: PRNGService)
+    init?(message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog)
     func generateObvNetworkMessagesToSend() throws -> [ObvNetworkMessageToSend]
 }
 
 
+
+
+// MARK: - Extending the ObvChannelMessageToSendWrapper to bring functionnalities for both ObvChannelProtocolMessageToSendWrapper and ObvChannelApplicationMessageToSendWrapper
+
 fileprivate extension ObvChannelMessageToSendWrapper {
     
-    static func generateContent(type: ObvChannelMessageType, encodedElements: ObvEncoded) -> ObvEncoded {
-        return [type.obvEncode(), encodedElements].obvEncode()
+    /// Add a padding to message to obfuscate content length. The final length will be a multiple of 512 bytes.
+    static func generatePaddedMessageContent(type: ObvChannelMessageType, encodedElements: ObvEncoded) -> Data {
+        let unpaddedContent = [type.obvEncode(), encodedElements].obvEncode().rawData
+        let unpaddedLength = unpaddedContent.count
+        let paddedLength: Int = unpaddedLength > 0 ? (1 + ((unpaddedLength-1)>>9)) << 9 : 0 // We pad to the smallest multiple of 512 larger than the actual length
+        let paddedContent = unpaddedContent + Data(count: paddedLength-unpaddedLength)
+        return paddedContent
     }
     
-    static func encryptContent(messageKey: AuthenticatedEncryptionKey, type: ObvChannelMessageType, encodedElements: ObvEncoded, extendedMessagePayload: Data?, randomizedWith prng: PRNGService) -> (encryptedMessagePayload: EncryptedData, encryptedExtendedMessagePayload: EncryptedData?) {
+    
+    /// The `messageContent` is used to inject a context in the message key. This key will be later used to encrypt this `messageContent`
+    static func generateMessageKeyAndHeaders(contentForMessageKey: Data, using acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog) -> (AuthenticatedEncryptionKey, [ObvNetworkMessageToSend.Header])? {
+        assert((contentForMessageKey.count & 0x1FF) == 0) // We expect the content to be a multiple of 512
+        let cryptoSuiteVersion = acceptableChannels.reduce(ObvCryptoSuite.sharedInstance.latestVersion) { min($0, $1.cryptoSuiteVersion) }
+        guard let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption(forSuiteVersion: cryptoSuiteVersion) else {
+            return nil
+        }
+        let messageKey = authEnc.generateMessageKey(with: prng, message: contentForMessageKey)
+        let headers = acceptableChannels.compactMap { $0.wrapMessageKey(messageKey, randomizedWith: prng) }
+        if headers.count != acceptableChannels.count {
+            assertionFailure()
+            os_log("Failed to produce a header for at least one of the acceptable channels", log: log, type: .fault)
+        }
+        return (messageKey, headers)
+    }
+
+    
+    static func encryptContent(messageKey: AuthenticatedEncryptionKey, messageContent: Data, extendedMessagePayload: Data?, randomizedWith prng: PRNGService) -> (encryptedMessagePayload: EncryptedData, encryptedExtendedMessagePayload: EncryptedData?) {
+        assert((messageContent.count & 0x1FF) == 0) // We expect the message to be padded so that its byte-length is a multiple of 512
         let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
-        let content = generateContent(type: type, encodedElements: encodedElements)
-        let encryptedMessagePayload = try! authEnc.encrypt(content.rawData, with: messageKey, and: prng)
-        if let extendedMessagePayload = extendedMessagePayload {
+        let encryptedMessagePayload = try! authEnc.encrypt(messageContent, with: messageKey, and: prng)
+        if let extendedMessagePayload {
             guard let seed = Seed(withKeys: [messageKey]) else { assertionFailure(); return (encryptedMessagePayload, nil)}
             let prng = ObvCryptoSuite.sharedInstance.concretePRNG().init(with: seed)
             let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption()
@@ -55,6 +84,10 @@ fileprivate extension ObvChannelMessageToSendWrapper {
 }
 
 
+
+
+// MARK: - ObvChannelProtocolMessageToSendWrapper
+
 struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     
     private static func makeError(message: String) -> Error {
@@ -62,9 +95,9 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     }
 
     private let protocolMessage: ObvChannelProtocolMessageToSend
-    private let messageKey: AuthenticatedEncryptionKey
-    private let headers: [ObvNetworkMessageToSend.Header]
+    private let acceptableChannels: [ObvNetworkChannel]
     private let prng: PRNGService
+    private let log: OSLog
     
     // MARK: Computed properties
     
@@ -75,12 +108,12 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     
     // MARK: Initializer
     
-    init?(message: ObvChannelMessageToSend, messageKey: AuthenticatedEncryptionKey, headers: [ObvNetworkMessageToSend.Header], randomizedWith prng: PRNGService) {
+    init?(message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog) {
         guard let protocolMessage = message as? ObvChannelProtocolMessageToSend else { return nil }
         self.protocolMessage = protocolMessage
-        self.messageKey = messageKey
-        self.headers = headers
+        self.acceptableChannels = acceptableChannels
         self.prng = prng
+        self.log = log
     }
     
     
@@ -88,16 +121,19 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     
     func generateObvNetworkMessagesToSend() throws -> [ObvNetworkMessageToSend] {
         
-        let encryptedContent = ObvChannelProtocolMessageToSendWrapper.encryptContent(messageKey: messageKey,
-                                                                                     type: messageType,
-                                                                                     encodedElements: encodedElements,
-                                                                                     extendedMessagePayload: nil,
-                                                                                     randomizedWith: prng)
+        let messageContent = Self.generatePaddedMessageContent(type: messageType, encodedElements: encodedElements)
+        
+        guard let (messageKey, headers) = Self.generateMessageKeyAndHeaders(contentForMessageKey: messageContent, using: acceptableChannels, randomizedWith: prng, log: log) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not generate message key and headers")
+        }
+        
+        let encryptedContent = Self.encryptContent(messageKey: messageKey, messageContent: messageContent, extendedMessagePayload: nil, randomizedWith: prng)
         
         // We need to create one ObvNetworkMessageToSend per server on which the ObvChannelProtocolMessageToSendWrapper needs to be sent.
         // To do so, we first group together the headers pertaining to the same serverURL
         
-        let headersForServer: [URL: [ObvNetworkMessageToSend.Header]] = Dictionary(grouping: self.headers, by: { $0.toIdentity.serverURL })
+        let headersForServer: [URL: [ObvNetworkMessageToSend.Header]] = Dictionary(grouping: headers, by: { $0.toIdentity.serverURL })
         guard !headersForServer.keys.isEmpty else {
             throw Self.makeError(message: "Cannot generate ObvNetworkMessageToSend because we cannot determine the destination identity/identities")
         }
@@ -124,6 +160,10 @@ struct ObvChannelProtocolMessageToSendWrapper: ObvChannelMessageToSendWrapper {
 }
 
 
+
+
+// MARK: - ObvChannelApplicationMessageToSendWrapper
+
 struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper {
     
     private static func makeError(message: String) -> Error {
@@ -131,12 +171,10 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
     }
 
     private let applicationMessage: ObvChannelApplicationMessageToSend
-    private let messageKey: AuthenticatedEncryptionKey
-    private let headers: [ObvNetworkMessageToSend.Header]
+    private let acceptableChannels: [ObvNetworkChannel]
     private let prng: PRNGService
-    private let encodedElements: ObvEncoded
-    private let attachments: [ObvNetworkMessageToSend.Attachment]
-    
+    private let log: OSLog
+
     // MARK: Computed properties
 
     private var messageType: ObvChannelMessageType { return applicationMessage.messageType }
@@ -147,17 +185,14 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
 
     // MARK: Initializer
     
-    init?(message: ObvChannelMessageToSend, messageKey: AuthenticatedEncryptionKey, headers: [ObvNetworkMessageToSend.Header], randomizedWith prng: PRNGService) {
+    init?(message: ObvChannelMessageToSend, acceptableChannels: [ObvNetworkChannel], randomizedWith prng: PRNGService, log: OSLog) {
         guard let applicationMessage = message as? ObvChannelApplicationMessageToSend else { return nil }
         self.applicationMessage = applicationMessage
-        self.messageKey = messageKey
-        self.headers = headers
+        self.acceptableChannels = acceptableChannels
         self.prng = prng
-        let authEnc = messageKey.algorithmImplementationByteId.algorithmImplementation
-        let attachmentsAndKeys = applicationMessage.attachments.map { ($0, authEnc.generateKey(with: prng)) }
-        self.encodedElements = ObvChannelApplicationMessageToSendWrapper.generateEncodedElements(fromMessagePayload: self.applicationMessage.messagePayload, and: attachmentsAndKeys)
-        self.attachments = ObvChannelApplicationMessageToSendWrapper.generateObvNetworkMessageToSendAttachments(from: attachmentsAndKeys)
+        self.log = log
     }
+    
     
     private static func generateEncodedElements(fromMessagePayload payload: Data, and attachmentsAndKeys: [(attachment: ObvChannelApplicationMessageToSend.Attachment, key: AuthenticatedEncryptionKey)]) -> ObvEncoded {
         let listOfEncodedElementsFromAttachments = attachmentsAndKeys.map { $0.attachment.generateEncodedElement(including: $0.key) }
@@ -166,24 +201,44 @@ struct ObvChannelApplicationMessageToSendWrapper: ObvChannelMessageToSendWrapper
         return encodedElements
     }
     
+    
     private static func generateObvNetworkMessageToSendAttachments(from attachmentsAndKeys: [(attachment: ObvChannelApplicationMessageToSend.Attachment, key: AuthenticatedEncryptionKey)]) -> [ObvNetworkMessageToSend.Attachment] {
         return attachmentsAndKeys.map { $0.attachment.generateObvNetworkMessageToSendAttachment(including: $0.key) }
     }
+    
+    
+    private func computeEncodedElementsAndAttachments() throws -> (encodedElements: ObvEncoded, attachments: [ObvNetworkMessageToSend.Attachment]) {
+        let cryptoSuiteVersion = acceptableChannels.reduce(ObvCryptoSuite.sharedInstance.latestVersion) { min($0, $1.cryptoSuiteVersion) }
+        guard let authEnc = ObvCryptoSuite.sharedInstance.authenticatedEncryption(forSuiteVersion: cryptoSuiteVersion) else {
+            assertionFailure()
+            throw Self.makeError(message: "Failed to obtain authenticatedEncryption")
+        }
+        let attachmentsAndKeys = applicationMessage.attachments.map { ($0, authEnc.generateKey(with: prng)) }
+        let encodedElements = Self.generateEncodedElements(fromMessagePayload: self.applicationMessage.messagePayload, and: attachmentsAndKeys)
+        let attachments = ObvChannelApplicationMessageToSendWrapper.generateObvNetworkMessageToSendAttachments(from: attachmentsAndKeys)
+        return (encodedElements, attachments)
+    }
+    
     
     // MARK: Generating the `MessageToSend` structure that can be passed to the `ObvNetworkSendManager`
     
     func generateObvNetworkMessagesToSend() throws -> [ObvNetworkMessageToSend] {
         
-        let encryptedContent = ObvChannelProtocolMessageToSendWrapper.encryptContent(messageKey: messageKey,
-                                                                                     type: messageType,
-                                                                                     encodedElements: encodedElements,
-                                                                                     extendedMessagePayload: applicationMessage.extendedMessagePayload,
-                                                                                     randomizedWith: prng)
+        let (encodedElements, attachments) = try computeEncodedElementsAndAttachments()
         
+        let messageContent = Self.generatePaddedMessageContent(type: messageType, encodedElements: encodedElements)
+
+        guard let (messageKey, headers) = Self.generateMessageKeyAndHeaders(contentForMessageKey: messageContent, using: acceptableChannels, randomizedWith: prng, log: log) else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not generate message key and headers")
+        }
+
+        let encryptedContent = Self.encryptContent(messageKey: messageKey, messageContent: messageContent, extendedMessagePayload: nil, randomizedWith: prng)
+
         // We need to create one ObvNetworkMessageToSend per server on which the ObvChannelProtocolMessageToSendWrapper needs to be sent.
         // To do so, we first group together the headers pertaining to the same serverURL
         
-        let headersForServer: [URL: [ObvNetworkMessageToSend.Header]] = Dictionary(grouping: self.headers, by: { $0.toIdentity.serverURL })
+        let headersForServer: [URL: [ObvNetworkMessageToSend.Header]] = Dictionary(grouping: headers, by: { $0.toIdentity.serverURL })
         guard !headersForServer.keys.isEmpty else {
             throw Self.makeError(message: "Cannot generate ObvNetworkMessageToSend because we cannot determine the destination identity/identities")
         }

@@ -799,7 +799,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         // Notify other owned devices about messages that turned not new
 
-        if op4.ownedIdentityHasAnotherDeviceWithChannel {
+        if op4.ownedIdentityHasAnotherReachableDevice {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op4, obvEngine: obvEngine)
             postOp.addDependency(composedOp1)
             queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
@@ -1175,7 +1175,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         }
         
         // Notify other owned devices about messages that turned not new
-        if op1.ownedIdentityHasAnotherDeviceWithChannel {
+        if op1.ownedIdentityHasAnotherReachableDevice {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op1, obvEngine: obvEngine)
             queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
@@ -1437,7 +1437,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         // Notify other owned devices about messages that turned not new
         
-        if op1.ownedIdentityHasAnotherDeviceWithChannel {
+        if op1.ownedIdentityHasAnotherReachableDevice {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op1, obvEngine: obvEngine)
             queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
@@ -2285,7 +2285,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         await coordinatorsQueue.addAndAwaitOperation(composedOp)
         
         // Notify other owned devices about messages that turned not new
-        if op2.ownedIdentityHasAnotherDeviceWithChannel {
+        if op2.ownedIdentityHasAnotherReachableDevice {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op2, obvEngine: obvEngine)
             queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
@@ -2358,7 +2358,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         coordinatorsQueue.addOperation(composedOp1)
         
         // Notify other owned devices about messages that turned not new
-        if op1.ownedIdentityHasAnotherDeviceWithChannel {
+        if op1.ownedIdentityHasAnotherReachableDevice {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op1, obvEngine: obvEngine)
             postOp.addDependency(composedOp1)
             queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
@@ -2625,6 +2625,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 return .done(attachmentsProcessingRequest: .deleteAll)
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+            case .couldNotFindContactInDatabase(contactCryptoId: let contactCryptoId):
+                return .couldNotFindContactInDatabase(contactCryptoId: contactCryptoId)
             case .sentMessageCreationFailure:
                 assertionFailure()
                 return .definitiveFailure
@@ -2866,6 +2868,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     
     
     private func processReceivedWebRTCMessageJSON(_ webrtcMessage: WebRTCMessageJSON, obvMessage: ObvMessage) async {
+        os_log("Call to processReceivedWebRTCMessageJSON [%{public}@][%{public}@][%{public}@]", log: Self.log, type: .debug, obvMessage.messageId.debugDescription, String(webrtcMessage.callIdentifier.uuidString.prefix(8)), webrtcMessage.messageType.description)
         guard abs(obvMessage.downloadTimestampFromServer.timeIntervalSince(obvMessage.messageUploadTimestampFromServer)) < 30 else {
             // We discard old WebRTC messages
             return
@@ -2924,7 +2927,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
         assert(OperationQueue.current != coordinatorsQueue)
 
-        os_log("Call to processReceivedObvMessage", log: Self.log, type: .debug)
+        os_log("✉️ [%{public}@] Call to processReceivedObvMessage}", log: Self.log, type: .debug, obvMessage.messageId.debugDescription)
         
         let persistedItemJSON: PersistedItemJSON
         do {
@@ -2958,6 +2961,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 return .done(attachmentsProcessingRequest: attachmentsProcessingRequest)
             case .couldNotFindGroupV2InDatabase(let groupIdentifier):
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+            case .couldNotFindContactInDatabase(contactCryptoId: let contactCryptoId):
+                return .couldNotFindContactInDatabase(contactCryptoId: contactCryptoId)
             case .receivedMessageCreationFailure:
                 return .definitiveFailure
             }
@@ -3238,6 +3243,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     enum CreatePersistedMessageReceivedFromReceivedObvMessageResult {
         case receivedMessageCreated(attachmentsProcessingRequest: ObvAttachmentsProcessingRequest)
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
+        case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case receivedMessageCreationFailure
     }
 
@@ -3265,6 +3271,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
         switch op1.result {
         case .couldNotFindGroupV2InDatabase(let groupIdentifier):
             return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+        case .couldNotFindContactInDatabase(contactCryptoId: let contactCryptoId):
+            return .couldNotFindContactInDatabase(contactCryptoId: contactCryptoId)
         case nil:
             return .receivedMessageCreationFailure
         case .messageCreated:
@@ -3279,7 +3287,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         // If we reach this point, the received message was properly created and some messages may have been auto-read
         // We asynchronously post this information to our other owned devices
         
-        if op2.ownedIdentityHasAnotherDeviceWithChannel {
+        if op2.ownedIdentityHasAnotherReachableDevice {
             let postOp = PostLimitedVisibilityMessageOpenedJSONEngineOperation(op: op2, obvEngine: obvEngine)
             postOp.addDependency(op2)
             queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
@@ -3301,6 +3309,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
     enum CreatePersistedMessageSentFromReceivedObvOwnedMessageResult {
         case sentMessageCreated(attachmentsProcessingRequest: ObvAttachmentsProcessingRequest)
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
+        case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case sentMessageCreationFailure
         case remoteDeleteRequestSavedForLaterWasApplied
     }
@@ -3333,6 +3342,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
         switch op1.result {
         case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
             return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
+        case .couldNotFindContactInDatabase(contactCryptoId: let contactCryptoId):
+            return .couldNotFindContactInDatabase(contactCryptoId: contactCryptoId)
         case nil:
             assertionFailure()
             return .sentMessageCreationFailure

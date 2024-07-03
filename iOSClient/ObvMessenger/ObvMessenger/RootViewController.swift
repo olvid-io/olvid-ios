@@ -381,7 +381,8 @@ final class RootViewController: UIViewController, LocalAuthenticationViewControl
         } else {
             
             let initializationFailureViewController = InitializationFailureViewController()
-            addChildViewControllerAndChildView(initializationFailureViewController)
+            let nav = UINavigationController(rootViewController: initializationFailureViewController)
+            addChildViewControllerAndChildView(nav)
             self.initializationFailureViewController = initializationFailureViewController
             return initializationFailureViewController
             

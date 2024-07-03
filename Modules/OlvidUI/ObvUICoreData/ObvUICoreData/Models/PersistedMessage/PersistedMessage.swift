@@ -355,9 +355,13 @@ public class PersistedMessage: NSManagedObject, ObvErrorMaker {
 extension PersistedMessage {
     
     public var displayableAttributedBody: AttributedString? {
+        return getDisplayableAttributedBody(removingTrailingURL: nil)
+    }
+    
+    
+    public func getDisplayableAttributedBody(removingTrailingURL urlToRemove: URL?) -> AttributedString? {
         
-        guard var trimmedMarkdownString = textBody?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !trimmedMarkdownString.isEmpty else { return nil }
+        guard var trimmedMarkdownString = textBody?.trimWhitespacesAndNewlinesAndDropTrailingURL(urlToRemove) else { return nil }
         
         // Introduce custom MarkDown attributes for user mentions.
         // The style attributes will be set by the discussion cell.
@@ -516,7 +520,6 @@ extension PersistedMessage {
             return AttributedString(trimmedMarkdownString)
         }
     }
-    
     
 }
 
@@ -1738,4 +1741,62 @@ fileprivate final class PendingRepliedTo: NSManagedObject, ObvErrorMaker {
         _ = try context.execute(batchDeleteRequest)
     }
     
+}
+
+
+
+// MARK: - Privste helpers
+
+fileprivate extension String {
+
+    func trimWhitespacesAndNewlinesAndDropTrailingURL(_ urlToRemove: URL?) -> String? {
+        
+        guard let urlToRemove else {
+            return self.trimmingCharacters(in: .whitespacesAndNewlines).mapToNilIfEmpty
+        }
+        
+        let urlAsString = urlToRemove.absoluteString.dropLast(ifEqualTo: "/")
+        
+        guard let rangeOfURL = self.range(of: urlAsString, options: [.backwards, .caseInsensitive]) else {
+            return self.trimmingCharacters(in: .whitespacesAndNewlines).mapToNilIfEmpty
+        }
+        
+        // The URL has been found "at the end", make sure the characters that follow can safely be trimmed
+        
+        guard rangeOfURL.upperBound <= self.endIndex else {
+            assertionFailure()
+            return self.trimmingCharacters(in: .whitespacesAndNewlines).mapToNilIfEmpty
+        }
+
+        let remainingCharactersCanBeTrimmed = self[rangeOfURL.upperBound..<self.endIndex]
+            .allSatisfy({ $0.isWhitespace || $0.isNewline || $0 == "/" })
+        
+        guard remainingCharactersCanBeTrimmed else {
+            // The URL is followed by characters we cannot trim, we return a trimmed version of self
+            return self.trimmingCharacters(in: .whitespacesAndNewlines).mapToNilIfEmpty
+        }
+        
+        // Trim the end of the string (removing the URL and the remaining trailing characters)
+        
+        guard self.startIndex <= rangeOfURL.lowerBound else {
+            assertionFailure()
+            return self.trimmingCharacters(in: .whitespacesAndNewlines).mapToNilIfEmpty
+        }
+        
+        return String(self[self.startIndex..<rangeOfURL.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .mapToNilIfEmpty
+        
+    }
+
+    
+    private func dropLast(ifEqualTo character: Character) -> String {
+        guard self.last == character else { return self }
+        return String(self.dropLast())
+    }
+    
+    private var mapToNilIfEmpty: String? {
+        self.isEmpty ? nil : self
+    }
+
 }

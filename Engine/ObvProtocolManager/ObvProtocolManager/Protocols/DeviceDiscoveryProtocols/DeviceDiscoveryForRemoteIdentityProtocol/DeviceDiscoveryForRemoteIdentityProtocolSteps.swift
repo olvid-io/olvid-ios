@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -61,7 +61,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
             
@@ -73,7 +73,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             
             // Send the server query
             
-            let coreMessage = getCoreMessage(for: .ServerQuery(ownedIdentity: ownedIdentity))
+            let coreMessage = getCoreMessage(for: .serverQuery(ownedIdentity: ownedIdentity))
             let concreteMessage = ServerQueryMessage(coreProtocolMessage: coreMessage)
             let serverQueryType = ObvChannelServerQueryMessageToSend.QueryType.deviceDiscovery(of: remoteIdentity)
             guard let messageToSend = concreteMessage.generateObvChannelServerQueryMessageToSend(serverQueryType: serverQueryType) else { return nil }
@@ -97,7 +97,7 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
             
@@ -119,8 +119,8 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
             case .failure:
                 assertionFailure()
                 return CancelledState()
-            case .success(let deviceUIDs):
-                return DeviceUidsReceivedState(remoteIdentity: remoteIdentity, deviceUids: deviceUIDs)
+            case .success(result: let result):
+                return DeviceUidsReceivedState(remoteIdentity: remoteIdentity, result: result)
             }
                         
         }

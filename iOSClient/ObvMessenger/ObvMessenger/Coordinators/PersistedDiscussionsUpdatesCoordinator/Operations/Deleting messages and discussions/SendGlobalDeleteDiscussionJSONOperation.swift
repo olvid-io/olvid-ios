@@ -56,6 +56,10 @@ final class SendGlobalDeleteDiscussionJSONOperation: OperationWithSpecificReason
                     return cancel(withReason: .couldNotFindDiscussion)
                 }
                 
+                guard let ownedIdentity = discussion.ownedIdentity else {
+                    return cancel(withReason: .couldNotFindOwnedIdentity)
+                }
+                
                 let deleteDiscussionJSON: DeleteDiscussionJSON
                 do {
                     deleteDiscussionJSON = try DeleteDiscussionJSON(persistedDiscussionToDelete: discussion)
@@ -73,12 +77,8 @@ final class SendGlobalDeleteDiscussionJSONOperation: OperationWithSpecificReason
                     assertionFailure()
                     return
                 case .fromAllOwnedDevices:
-                    do {
-                        (ownCryptoId, _) = try discussion.getAllActiveParticipants()
-                        contactCryptoIds = Set() // Send the request to our other remote devices only
-                    } catch {
-                        return cancel(withReason: .couldNotGetCryptoIdOfDiscussionParticipants(error: error))
-                    }
+                    ownCryptoId = ownedIdentity.cryptoId
+                    contactCryptoIds = Set() // Send the request to our other remote devices only
                 case .fromAllOwnedDevicesAndAllContactDevices:
                     do {
                         (ownCryptoId, contactCryptoIds) = try discussion.getAllActiveParticipants()

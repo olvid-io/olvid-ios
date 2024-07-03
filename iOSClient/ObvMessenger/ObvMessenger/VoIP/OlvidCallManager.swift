@@ -64,6 +64,10 @@ actor OlvidCallManager {
     /// Adds a call to the array of active calls.
     /// - Parameter call: The call  to add.
     private func addCall(_ call: OlvidCall) {
+        guard calls.first(where: { $0.uuidForCallKit == call.uuidForCallKit }) == nil else {
+            assertionFailure()
+            return
+        }
         os_log("☎️ Adding call %{public}@", log: Self.log, type: .info, call.debugDescription)
         assert(delegate != nil)
         calls.append(call)
@@ -90,16 +94,23 @@ actor OlvidCallManager {
     func createIncomingCall(uuidForCallKit: UUID, uuidForWebRTC: UUID, contactIdentifier: ObvContactIdentifier, startCallMessage: StartCallMessageJSON, rtcPeerConnectionQueue: OperationQueue, callDelegate: OlvidCallDelegate) async throws -> OlvidCall {
         let factory = self.factory ?? ObvPeerConnectionFactory()
         self.factory = factory
-        let incomingCall = try await OlvidCall.createIncomingCall(
-            callIdentifierForCallKit: uuidForCallKit,
-            uuidForWebRTC: uuidForWebRTC,
-            callerId: contactIdentifier,
-            startCallMessage: startCallMessage,
-            rtcPeerConnectionQueue: rtcPeerConnectionQueue, 
-            factory: factory,
-            delegate: callDelegate)
-        addCall(incomingCall)
-        return incomingCall
+        if let existingIncomingCall = calls.first(where: { $0.uuidForCallKit == uuidForCallKit }) {
+            // This happens when receiving the startCall message twice. This almost never happens, but can happen in the simulator, when the startCall message was sent
+            // throuh a preKey channel. In that case, it is received *and* decrypted twice (once through the engine, once from the PushKit notification).
+            // When this happens, we simply returns the existing OlvidCall.
+            return existingIncomingCall
+        } else {
+            let incomingCall = try await OlvidCall.createIncomingCall(
+                callIdentifierForCallKit: uuidForCallKit,
+                uuidForWebRTC: uuidForWebRTC,
+                callerId: contactIdentifier,
+                startCallMessage: startCallMessage,
+                rtcPeerConnectionQueue: rtcPeerConnectionQueue,
+                factory: factory,
+                delegate: callDelegate)
+            addCall(incomingCall)
+            return incomingCall
+        }
     }
 
     
@@ -354,10 +365,42 @@ extension OlvidCallManager {
             return (incomingCall, callReport, cxCallEndedReason)
             
         } else {
+
+            // We expect to rarely arrive here as the CallKit notification should be fast enough.
+            // Yet, when this happens, we try to wait until the CallKit notification arrives, and thus, until the call is created.
+            // To do so, we create a simple local task that we await, and which simply retry to get the call every second for 30 seconds.
             
-            // We expect to rarely arrive here as the CallKit notification should be fast enough
-            assertionFailure()
-            return (nil, nil, nil)
+            let task: Task<OlvidCall?, Never> = .init { [weak self] in
+                var iterationNumber = 0
+                while iterationNumber < 30 {
+                    iterationNumber += 1
+                    guard let self else { return nil }
+                    try? await Task.sleep(seconds: 1)
+                    if let incomingCall = await callWithCallIdentifierForWebRTC(uuidForWebRTC) {
+                        return incomingCall
+                    }
+                }
+                return nil
+            }
+
+            if let incomingCall = await task.value {
+                
+                // The CallKit notification finally arrived, we can continue the processing where we left it off
+                
+                assert(incomingCall.direction == .incoming)
+                let (callReport, cxCallEndedReason) = await incomingCall.processAnsweredOrRejectedOnOtherDeviceMessage(answered: answered)
+                
+                assert(incomingCall.state.isFinalState)
+                removeCall(incomingCall)
+                
+                return (incomingCall, callReport, cxCallEndedReason)
+                
+            } else {
+                
+                assertionFailure()
+                return (nil, nil, nil)
+                
+            }
 
         }
         
@@ -508,6 +551,26 @@ extension OlvidCallManager {
 
         return values
         
+    }
+    
+    
+    func outgoingWasNotAnsweredToAndTimedOut(uuidForCallKit: UUID) async -> (callReport: CallReport?, cxCallEndedReason: CXCallEndedReason?) {
+        
+        guard let outgoingCall = callWithCallIdentifierForCallKit(uuidForCallKit) else {
+            assertionFailure()
+            return (nil, nil)
+        }
+        
+        let values = await outgoingCall.endOutgoingCallAsItTimedOut()
+
+        if outgoingCall.state.isFinalState {
+           removeCall(outgoingCall)
+        } else {
+            assertionFailure()
+        }
+
+        return values
+
     }
     
 }

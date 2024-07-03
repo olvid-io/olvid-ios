@@ -367,7 +367,7 @@ extension WellKnownCoordinator {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<ObvCryptoIdentity>, Error>) in
             contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
                 do {
-                    let ownedIdentities = try identityDelegate.getOwnedIdentities(within: obvContext)
+                    let ownedIdentities = try identityDelegate.getOwnedIdentities(restrictToActive: true, within: obvContext)
                     return continuation.resume(returning: ownedIdentities)
                 } catch {
                     return continuation.resume(throwing: error)

@@ -150,29 +150,50 @@ public final class ObvServerDownloadMessagesAndListAttachmentsMethod: ObvServerD
     }
     
     public static func parse(unparsedMessageAndAttachments: [ObvEncoded]) -> MessageAndAttachmentsOnServer? {
+
         // We expect the unparsedMessageAndAttachments list to contain encoded values of the following elements:
         // - the message uid,
         // - the header (containing our device uid, that we discard, and the wrapped key), and
         // - the encrypted content of the message.
         // - a Boolean indicating whether the APNS notification sent by the server did include mutable-content: 1
         // Each of the following elements (if any) represents an attachment
-        guard unparsedMessageAndAttachments.count >= 5 else { return nil }
+
+        guard unparsedMessageAndAttachments.count >= 4 else { assertionFailure(); return nil }
+
         // Parse the message uid, header, and encrypted content
-        guard let messageId = UID(unparsedMessageAndAttachments[0]) else { return nil }
-        guard let messageUploadTimestampFromServerInMilliseconds = Int(unparsedMessageAndAttachments[1]) else { return nil }
+        guard let messageId = UID(unparsedMessageAndAttachments[0]) else { assertionFailure(); return nil }
+        guard let messageUploadTimestampFromServerInMilliseconds = Int(unparsedMessageAndAttachments[1]) else { assertionFailure(); return nil }
         let messageUploadTimestampFromServer = Date(timeIntervalSince1970: Double(messageUploadTimestampFromServerInMilliseconds)/1000.0)
-        guard let wrappedKey = EncryptedData(unparsedMessageAndAttachments[2]) else { return nil }
-        guard let encryptedContent = EncryptedData(unparsedMessageAndAttachments[3]) else { return nil }
-        guard let hasEncryptedExtendedMessagePayload = Bool(unparsedMessageAndAttachments[4]) else { return nil }
-        // Parse the attachments
-        let rangeForAttachments = unparsedMessageAndAttachments.startIndex+5..<unparsedMessageAndAttachments.endIndex
-        let unparsedAttachments = unparsedMessageAndAttachments[rangeForAttachments].compactMap({ [ObvEncoded]($0) })
-        guard unparsedAttachments.count == unparsedMessageAndAttachments[rangeForAttachments].count else { assertionFailure(); return nil }
-        let attachments = unparsedAttachments.compactMap({ parse(unparsedAttachment: $0) })
-        guard attachments.count == unparsedAttachments.count else { assertionFailure(); return nil }
-        let messageAndAttachmentsOnServer = MessageAndAttachmentsOnServer(messageUidFromServer: messageId, messageUploadTimestampFromServer: messageUploadTimestampFromServer, encryptedContent: encryptedContent, hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload, wrappedKey: wrappedKey, attachments: attachments)
-        return messageAndAttachmentsOnServer
+        guard let wrappedKey = EncryptedData(unparsedMessageAndAttachments[2]) else { assertionFailure(); return nil }
+        guard let encryptedContent = EncryptedData(unparsedMessageAndAttachments[3]) else { assertionFailure(); return nil }
+
+        if unparsedMessageAndAttachments.count >= 5 {
+            
+            guard let hasEncryptedExtendedMessagePayload = Bool(unparsedMessageAndAttachments[4]) else { assertionFailure(); return nil }
+            // Parse the attachments
+            let rangeForAttachments = unparsedMessageAndAttachments.startIndex+5..<unparsedMessageAndAttachments.endIndex
+            let unparsedAttachments = unparsedMessageAndAttachments[rangeForAttachments].compactMap({ [ObvEncoded]($0) })
+            guard unparsedAttachments.count == unparsedMessageAndAttachments[rangeForAttachments].count else { assertionFailure(); return nil }
+            let attachments = unparsedAttachments.compactMap({ parse(unparsedAttachment: $0) })
+            guard attachments.count == unparsedAttachments.count else { assertionFailure(); return nil }
+            let messageAndAttachmentsOnServer = MessageAndAttachmentsOnServer(messageUidFromServer: messageId, messageUploadTimestampFromServer: messageUploadTimestampFromServer, encryptedContent: encryptedContent, hasEncryptedExtendedMessagePayload: hasEncryptedExtendedMessagePayload, wrappedKey: wrappedKey, attachments: attachments)
+            return messageAndAttachmentsOnServer
+
+        } else {
+            
+            // This typically happens when receiving a message on the WebSocket
+            
+            let messageAndAttachmentsOnServer = MessageAndAttachmentsOnServer(messageUidFromServer: messageId,
+                                                                              messageUploadTimestampFromServer: messageUploadTimestampFromServer,
+                                                                              encryptedContent: encryptedContent,
+                                                                              hasEncryptedExtendedMessagePayload: false,
+                                                                              wrappedKey: wrappedKey,
+                                                                              attachments: [])
+            return messageAndAttachmentsOnServer
+            
+        }
     }
+
     
     private static func parse(unparsedAttachment: [ObvEncoded]) -> AttachmentOnServer? {
         // We expect the unparsedAttachment list to contain encoded values of the following elements:

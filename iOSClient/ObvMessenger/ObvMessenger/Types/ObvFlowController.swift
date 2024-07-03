@@ -677,7 +677,7 @@ extension ObvFlowController {
         guard let displayedContactGroup = try? DisplayedContactGroup.get(objectID: displayedContactGroupObjectID.objectID, within: ObvStack.shared.viewContext) else { return }
         
         let ownedCryptoId: ObvCryptoId
-        let initialGroupMembers: Set<ObvCryptoId>
+        let initialGroupMembers: Set<NewGroupEditionFlowViewController.EditionType.InitialGroupMember>
         let originalGroupName: String?
         let initialGroupDescription: String?
         let originalPhotoURL: URL?
@@ -691,7 +691,11 @@ extension ObvFlowController {
             
             guard let _ownedCryptoId = try? group.ownCryptoId else { assertionFailure(); return }
             ownedCryptoId = _ownedCryptoId
-            initialGroupMembers = Set(group.contactsAmongOtherPendingAndNonPendingMembers.map({ $0.cryptoId }))
+            initialGroupMembers = Set(group.contactsAmongOtherPendingAndNonPendingMembers.map { persistedContact in
+                let cryptoId = persistedContact.cryptoId
+                let isAdmin = group.otherMembers.first(where: { $0.cryptoId == cryptoId })?.isAnAdmin ?? false
+                return NewGroupEditionFlowViewController.EditionType.InitialGroupMember(cryptoId: cryptoId, isAdmin: isAdmin)
+            })
             originalGroupName = group.trustedName
             initialGroupDescription = group.trustedDescription?.mapToNilIfZeroLength()
             initialGroupType = group.getAdequateGroupType()
@@ -719,7 +723,7 @@ extension ObvFlowController {
                 displayAlertWhenTryingToCloneGroupV1WithMembersNotSupportingGroupsV2(contactsNotSupportingGroupV2: candidatesNotSupportingGroupV2)
                 return
             }
-            initialGroupMembers = Set(candidates.map({ $0.cryptoId }))
+            initialGroupMembers = Set(candidates.map({ NewGroupEditionFlowViewController.EditionType.InitialGroupMember(cryptoId: $0.cryptoId, isAdmin: false) }))
             originalGroupName = group.groupName.mapToNilIfZeroLength()
             initialGroupDescription = nil // The description of a group v1 is only available at the engine level, we don't fetch it here
             if let url = group.displayPhotoURL, FileManager.default.fileExists(atPath: url.path) {

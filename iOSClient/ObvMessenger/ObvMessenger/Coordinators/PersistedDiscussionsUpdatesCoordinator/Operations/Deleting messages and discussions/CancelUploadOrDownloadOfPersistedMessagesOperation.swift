@@ -122,6 +122,9 @@ final class DetermineEngineIdentifiersOfMessagesToCancelOperation: ContextualOpe
                 case .couldNotFindGroupV2InDatabase:
                     // No assert in this case, this can happen. See the comment in the description of MessagesKeptForLaterManager.
                     return
+                case .couldNotFindGroupV1InDatabase:
+                    // No assert in this case, we might be deleting an old locked group v1 discussion
+                    return
                 default:
                     assertionFailure()
                     return cancel(withReason: .coreDataError(error: error))

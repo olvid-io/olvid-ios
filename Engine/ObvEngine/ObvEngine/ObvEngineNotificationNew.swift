@@ -48,7 +48,7 @@ public enum ObvEngineNotificationNew {
 	case ownedIdentityWasReactivated(ownedIdentity: ObvCryptoId)
 	case networkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoId)
 	case serverRequiresAllActiveOwnedIdentitiesToRegisterToPushNotifications
-	case engineRequiresOwnedIdentityToRegisterToPushNotifications(ownedCryptoId: ObvCryptoId)
+	case engineRequiresOwnedIdentityToRegisterToPushNotifications(ownedCryptoId: ObvCryptoId, performOwnedDeviceDiscoveryOnFinish: Bool)
 	case outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: [(messageIdentifierFromEngine: Data, ownedCryptoId: ObvCryptoId, timestampFromServer: Date)])
 	case outboxMessageCouldNotBeSentToServer(messageIdentifierFromEngine: Data, ownedIdentity: ObvCryptoId)
 	case callerTurnCredentialsReceived(ownedIdentity: ObvCryptoId, callUuid: UUID, turnCredentials: ObvTurnCredentials)
@@ -105,6 +105,7 @@ public enum ObvEngineNotificationNew {
 	case anOwnedDeviceWasDeleted(ownedCryptoId: ObvCryptoId)
 	case ownedAttachmentDownloadCancelledByServer(obvOwnedAttachment: ObvOwnedAttachment)
 	case newContactDevice(obvContactIdentifier: ObvContactIdentifier)
+	case updatedContactDevice(deviceIdentifier: ObvContactDeviceIdentifier)
 	case anOwnedIdentityTransferProtocolFailed(ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, error: Error)
 
 	private enum Name {
@@ -180,6 +181,7 @@ public enum ObvEngineNotificationNew {
 		case anOwnedDeviceWasDeleted
 		case ownedAttachmentDownloadCancelledByServer
 		case newContactDevice
+		case updatedContactDevice
 		case anOwnedIdentityTransferProtocolFailed
 
 		private var namePrefix: String { String(describing: ObvEngineNotificationNew.self) }
@@ -265,6 +267,7 @@ public enum ObvEngineNotificationNew {
 			case .anOwnedDeviceWasDeleted: return Name.anOwnedDeviceWasDeleted.name
 			case .ownedAttachmentDownloadCancelledByServer: return Name.ownedAttachmentDownloadCancelledByServer.name
 			case .newContactDevice: return Name.newContactDevice.name
+			case .updatedContactDevice: return Name.updatedContactDevice.name
 			case .anOwnedIdentityTransferProtocolFailed: return Name.anOwnedIdentityTransferProtocolFailed.name
 			}
 		}
@@ -333,9 +336,10 @@ public enum ObvEngineNotificationNew {
 			]
 		case .serverRequiresAllActiveOwnedIdentitiesToRegisterToPushNotifications:
 			info = nil
-		case .engineRequiresOwnedIdentityToRegisterToPushNotifications(ownedCryptoId: let ownedCryptoId):
+		case .engineRequiresOwnedIdentityToRegisterToPushNotifications(ownedCryptoId: let ownedCryptoId, performOwnedDeviceDiscoveryOnFinish: let performOwnedDeviceDiscoveryOnFinish):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
+				"performOwnedDeviceDiscoveryOnFinish": performOwnedDeviceDiscoveryOnFinish,
 			]
 		case .outboxMessagesAndAllTheirAttachmentsWereAcknowledged(messageIdsAndTimestampsFromServer: let messageIdsAndTimestampsFromServer):
 			info = [
@@ -587,6 +591,10 @@ public enum ObvEngineNotificationNew {
 			info = [
 				"obvContactIdentifier": obvContactIdentifier,
 			]
+		case .updatedContactDevice(deviceIdentifier: let deviceIdentifier):
+			info = [
+				"deviceIdentifier": deviceIdentifier,
+			]
 		case .anOwnedIdentityTransferProtocolFailed(ownedCryptoId: let ownedCryptoId, protocolInstanceUID: let protocolInstanceUID, error: let error):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
@@ -728,11 +736,12 @@ public enum ObvEngineNotificationNew {
 		}
 	}
 
-	public static func observeEngineRequiresOwnedIdentityToRegisterToPushNotifications(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId) -> Void) -> NSObjectProtocol {
+	public static func observeEngineRequiresOwnedIdentityToRegisterToPushNotifications(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Bool) -> Void) -> NSObjectProtocol {
 		let name = Name.engineRequiresOwnedIdentityToRegisterToPushNotifications.name
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			block(ownedCryptoId)
+			let performOwnedDeviceDiscoveryOnFinish = notification.userInfo!["performOwnedDeviceDiscoveryOnFinish"] as! Bool
+			block(ownedCryptoId, performOwnedDeviceDiscoveryOnFinish)
 		}
 	}
 
@@ -1212,6 +1221,14 @@ public enum ObvEngineNotificationNew {
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactIdentifier = notification.userInfo!["obvContactIdentifier"] as! ObvContactIdentifier
 			block(obvContactIdentifier)
+		}
+	}
+
+	public static func observeUpdatedContactDevice(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (ObvContactDeviceIdentifier) -> Void) -> NSObjectProtocol {
+		let name = Name.updatedContactDevice.name
+		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
+			let deviceIdentifier = notification.userInfo!["deviceIdentifier"] as! ObvContactDeviceIdentifier
+			block(deviceIdentifier)
 		}
 	}
 

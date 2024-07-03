@@ -40,12 +40,13 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
     private let remoteNotificationByteIdentifierForServer: Data // One byte
     public let flowId: FlowIdentifier
     public let isActiveOwnedIdentityRequired = false
+    private let encryptedDeviceNameForFirstRegistration: EncryptedData
     let prng: PRNGService
 
     weak public var identityDelegate: ObvIdentityDelegate? = nil
     
 
-    public init(pushNotification: ObvPushNotificationType, sessionToken: Data, remoteNotificationByteIdentifierForServer: Data, flowId: FlowIdentifier, prng: PRNGService) {
+    public init?(pushNotification: ObvPushNotificationType, sessionToken: Data, remoteNotificationByteIdentifierForServer: Data, flowId: FlowIdentifier, prng: PRNGService) {
         self.pushNotification = pushNotification
         self.sessionToken = sessionToken
         self.remoteNotificationByteIdentifierForServer = remoteNotificationByteIdentifierForServer
@@ -53,6 +54,11 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
         self.toIdentity = pushNotification.ownedCryptoId
         self.ownedCryptoId = pushNotification.ownedCryptoId
         self.prng = prng
+        guard let encryptedDeviceNameForFirstRegistration = DeviceNameUtils.encrypt(deviceName: pushNotification.commonParameters.deviceNameForFirstRegistration, for: ownedCryptoId, using: prng) else {
+            assertionFailure()
+            return nil
+        }
+        self.encryptedDeviceNameForFirstRegistration = encryptedDeviceNameForFirstRegistration
     }
 
 
@@ -86,7 +92,7 @@ public final class ObvServerRegisterRemotePushNotificationMethod: ObvServerDataM
             extraInfo, // 4
             pushNotification.optionalParameter.reactivateCurrentDevice.obvEncode(), // 5
             listOfEncodedKeycloakPushTopics.obvEncode(), // 6
-            DeviceNameUtils.encrypt(deviceName: pushNotification.commonParameters.deviceNameForFirstRegistration, for: ownedCryptoId, using: prng).raw.obvEncode(), // 7
+            encryptedDeviceNameForFirstRegistration.raw.obvEncode(), // 7
         ]
         if pushNotification.optionalParameter.reactivateCurrentDevice, let replacedDeviceUid = pushNotification.optionalParameter.replacedDeviceUid {
             listToEncode.append(replacedDeviceUid.obvEncode()) // 8

@@ -217,6 +217,7 @@ final actor AppMainManager: ObvErrorMaker {
         migrationToV0_12_8()
         migrationToV1_3_1()
         migrationToV1_4()
+        migrationToV3_0()
     }
     
     
@@ -547,6 +548,17 @@ extension AppMainManager {
 // MARK: AppCoreDataStackInitialization utils
 
 extension AppMainManager {
+    
+    private func migrationToV3_0() {
+        // If the default existence/visibility happens to be 0 (which is the case when the user changed the existence/visibility
+        // was changed *back* to unlimited with version <= 2.5), we reset it to unlimited
+        if let existenceDuration = ObvMessengerSettings.Discussions.existenceDuration, existenceDuration <= 0 {
+            ObvMessengerSettings.Discussions.existenceDuration = nil
+        }
+        if let visibilityDuration = ObvMessengerSettings.Discussions.visibilityDuration, visibilityDuration <= 0 {
+            ObvMessengerSettings.Discussions.visibilityDuration = nil
+        }
+    }
 
     private func migrationToV1_4() {
         guard let userDefaults = UserDefaults(suiteName: ObvMessengerConstants.appGroupIdentifier) else { return }
@@ -964,6 +976,14 @@ final actor NewAppStateManager {
         case .initializationFailed(let error, let runningLog):
             for block in blocksToPerformWhenInitializationFailed { block(error, runningLog) }
             blocksToPerformWhenInitializationFailed.removeAll()
+            for (dispatchOnMainThread, block) in blocksToPerformWhenInitializationSucceededOrFailed {
+                if dispatchOnMainThread {
+                    DispatchQueue.main.async { block(.failure(error)) }
+                } else {
+                    block(.failure(error))
+                }
+            }
+            blocksToPerformWhenInitializationSucceededOrFailed.removeAll()
 
         case .initializedButWasNeverOnScreen(let obvEngine):
             for (dispatchOnMainThread, block) in blocksToPerformWhenInitialized {

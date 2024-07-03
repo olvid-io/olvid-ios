@@ -74,8 +74,10 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
         }
     }
     
-    public var hasAnotherDeviceWithChannel: Bool {
-        return devices.first(where: { $0.secureChannelStatus == .created }) != nil
+    public var hasAnotherDeviceWhichIsReachable: Bool {
+        return devices
+            .filter { $0.secureChannelStatus != .currentDevice }
+            .first(where: { $0.secureChannelStatus?.isReachable == true }) != nil
     }
 
     public var isHidden: Bool {
@@ -318,6 +320,17 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
     
     var isBeingRestoredFromBackup = false
      
+}
+
+
+// MARK: Errors
+
+extension PersistedObvOwnedIdentity {
+    
+    enum ObvError: Error {
+        case cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
+    }
+    
 }
 
 
@@ -1042,6 +1055,21 @@ extension PersistedObvOwnedIdentity {
             throw ObvUICoreDataError.couldNotFindDiscussion
         }
         
+        // Whatever the discussion type (or locked status), we cannot delete it from all owned devices if the owned identity has no other owned device (this would make no sense)
+        
+        if !self.hasAnotherDeviceWhichIsReachable {
+            switch deletionType {
+            case .fromThisDeviceOnly:
+                break
+            case .fromAllOwnedDevices:
+                throw ObvError.cannotDeleteDiscussionFromAllOwnedDevicesAsOwnedIdentityHasNoOtherReachableDevice
+            case .fromAllOwnedDevicesAndAllContactDevices:
+                break // Further tests are made later for this case
+            }
+        }
+        
+        // The rest of the processing depends on the discussion kind
+        
         switch try discussion.kind {
             
         case .oneToOne:
@@ -1094,21 +1122,47 @@ extension PersistedObvOwnedIdentity {
             
             let oneToneDiscussion = try fetchOneToOneDiscussion(with: oneToOneIdentifier)
             try oneToneDiscussion.processRemoteRequestToWipeAllMessagesWithinThisDiscussion(from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+            incrementBadgeCountForDiscussionsTab(by: -oneToneDiscussion.numberOfNewMessages)
 
         } else if let groupIdentifier = deleteDiscussionJSON.groupIdentifier {
             
-            let group = try fetchGroup(with: groupIdentifier)
-            
-            switch group {
+            do {
                 
-            case .v1(group: let group):
+                let group = try fetchGroup(with: groupIdentifier)
                 
-                try group.processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                switch group {
+                    
+                case .v1(group: let group):
+                    
+                    let numberOfNewMessagesThatWereDeleted = try group.processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                    incrementBadgeCountForDiscussionsTab(by: -numberOfNewMessagesThatWereDeleted)
 
-            case .v2(group: let group):
+                case .v2(group: let group):
+                    
+                    let numberOfNewMessagesThatWereDeleted = try group.processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
+                    incrementBadgeCountForDiscussionsTab(by: -numberOfNewMessagesThatWereDeleted)
+                    
+                }
                 
-                try group.processRemoteRequestToWipeAllMessagesWithinThisGroupDiscussion(from: self, messageUploadTimestampFromServer: messageUploadTimestampFromServer)
-
+            } catch {
+                
+                if let error = error as? ObvUICoreDataError {
+                    switch error {
+                    case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
+                        // If the group was not found, it might be the case the the owned identity requested the deletion of a "locked" group discussion.
+                        // In that case, the group does not exist anymore, but there might be an old locked discussion on this device that was this (now deleted) group's discussion.
+                        // We want to delete this old locked discussion.
+                        try PersistedGroupV2Discussion.deleteLockedPersistedGroupV2Discussion(ownedIdentity: self, groupIdentifier: groupIdentifier)
+                    case .couldNotFindGroupV1InDatabase(groupIdentifier: let groupIdentifier):
+                        // See the above comment for group v2
+                        try PersistedGroupDiscussion.deleteLockedPersistedGroupV1Discussion(ownedIdentity: self, groupV1Identifier: groupIdentifier)
+                    default:
+                        throw error
+                    }
+                } else {
+                    throw error
+                }
+                
             }
 
         } else {
@@ -1907,13 +1961,14 @@ extension PersistedObvOwnedIdentity {
     }
 
     
-    public func markAllMessagesAsNotNew(discussionId: DiscussionIdentifier, untilDate: Date?, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
+    public func markAllMessagesAsNotNew(discussionId: DiscussionIdentifier, serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
         
         guard let discussion = try PersistedDiscussion.getPersistedDiscussion(ownedIdentity: self, discussionId: discussionId) else {
             throw ObvUICoreDataError.couldNotFindDiscussionWithId(discussionId: discussionId)
         }
 
-        let lastReadMessageServerTimestamp = try discussion.markAllMessagesAsNotNew(untilDate: untilDate, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+        let lastReadMessageServerTimestamp = try discussion.markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
+                                                                                    dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
         
         return lastReadMessageServerTimestamp
 

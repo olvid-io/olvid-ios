@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -77,25 +77,21 @@ extension DeviceDiscoveryForRemoteIdentityProtocol {
         let id: ConcreteProtocolStateId = StateId.deviceUidsReceived
         
         let remoteIdentity: ObvCryptoIdentity
-        let deviceUids: [UID]
+        let result: ContactDeviceDiscoveryResult
         
         init(_ obvEncoded: ObvEncoded) throws {
             guard let listOfEncoded = [ObvEncoded](obvEncoded, expectedCount: 2) else { assertionFailure(); throw Self.makeError(message: "Could not obtain list of encoded elements") }
             remoteIdentity = try listOfEncoded[0].obvDecode()
-            guard let listOfEncodedDeviceUids = [ObvEncoded](listOfEncoded[1]) else { assertionFailure(); throw Self.makeError(message: "Failed to obtain encoded device uids") }
-            deviceUids = try listOfEncodedDeviceUids.map { return try $0.obvDecode() }
+            result = try listOfEncoded[1].obvDecode()
         }
         
-        init(remoteIdentity: ObvCryptoIdentity, deviceUids: [UID]) {
+        init(remoteIdentity: ObvCryptoIdentity, result: ContactDeviceDiscoveryResult) {
             self.remoteIdentity = remoteIdentity
-            self.deviceUids = deviceUids
+            self.result = result
         }
         
         func obvEncode() -> ObvEncoded {
-            let listOfEncodedDeviceUids = deviceUids.map { $0.obvEncode() }
-            let encodedDeviceUids = listOfEncodedDeviceUids.obvEncode()
-            let encodedRemoteIdentity = remoteIdentity.obvEncode()
-            return [encodedRemoteIdentity, encodedDeviceUids].obvEncode()
+            return [remoteIdentity, result].obvEncode()
         }
     }
 

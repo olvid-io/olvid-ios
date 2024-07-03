@@ -109,7 +109,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
                 .filter({ $0.messageIdentifierFromEngine == nil })
                 .map({ $0.recipientCryptoId }))
             
-            guard let ownedCryptoId = persistedMessageSent.discussion?.ownedIdentity?.cryptoId, let ownedIdentityHasAnotherDeviceWithChannel = persistedMessageSent.discussion?.ownedIdentity?.hasAnotherDeviceWithChannel else {
+            guard let ownedCryptoId = persistedMessageSent.discussion?.ownedIdentity?.cryptoId, let ownedIdentityHasAnotherReachableDevice = persistedMessageSent.discussion?.ownedIdentity?.hasAnotherDeviceWhichIsReachable else {
                 return cancel(withReason: .couldNotDetermineOwnedCryptoId)
             }
             
@@ -302,7 +302,7 @@ final class SendUnprocessedPersistedMessageSentOperation: ContextualOperationWit
             
             let messageIdentifierForContactToWhichTheMessageWasSent: [ObvCryptoId: Data]
             // We do not propagate a read once message to our other owned devices
-            let finalAlsoPostToOtherOwnedDevices = alsoPostToOtherOwnedDevices && !isPersistedMessageSentReadOnce && ownedIdentityHasAnotherDeviceWithChannel
+            let finalAlsoPostToOtherOwnedDevices = alsoPostToOtherOwnedDevices && !isPersistedMessageSentReadOnce && ownedIdentityHasAnotherReachableDevice
             if !contactCryptoIds.isEmpty || finalAlsoPostToOtherOwnedDevices {
                 do {
                     messageIdentifierForContactToWhichTheMessageWasSent =

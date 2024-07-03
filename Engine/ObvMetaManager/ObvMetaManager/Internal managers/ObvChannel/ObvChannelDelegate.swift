@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,7 @@ import OlvidUtils
 public protocol ObvChannelDelegate: ObvManager {
     
     // Posting a channel message to send
-    
+
     /// The returned set contains all the crypto identities to which the message was successfully posted.
     func postChannelMessage(_: ObvChannelMessageToSend, randomizedWith: PRNGService, within: ObvContext) throws -> [ObvMessageIdentifier: Set<ObvCryptoIdentity>]
     
@@ -50,8 +50,10 @@ public protocol ObvChannelDelegate: ObvManager {
     
     func updateReceiveSeedOfObliviousChannelBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid: UID, with: Seed, within: ObvContext) throws
     
+    /// Method used in both channel creation protocols. Used at bootstrap as well, to possibly restart a channel creation with the remote device
     func anObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid: UID, within: ObvContext) throws -> Bool
     
+    /// Method used during bootstrap to possibly restart a channel creation with a remote **owned** device
     func anObliviousChannelExistsBetweenCurrentDeviceUid(_ currentDeviceUid: UID, andRemoteDeviceUid remoteDeviceUid: UID, of remoteIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
 
     func aConfirmedObliviousChannelExistsBetweenTheCurrentDeviceOf(ownedIdentity: ObvCryptoIdentity, andRemoteIdentity: ObvCryptoIdentity, withRemoteDeviceUid: UID, within: ObvContext) throws -> Bool
@@ -62,6 +64,7 @@ public protocol ObvChannelDelegate: ObvManager {
     
     func getDeviceUidsOfRemoteIdentitiesHavingConfirmedObliviousChannelWithTheCurrentDeviceOfOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, remoteIdentities: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<UID>]
 
+    /// Method used when determining which Oblivious channels are obsolete.
     func getAllRemoteDeviceUidsAssociatedToAnObliviousChannel(within: ObvContext) throws -> Set<ObliviousChannelIdentifier>
     
     // Preparing for an owned identity deletion

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,10 +33,15 @@ protocol PublicKeyFromEdwardsCurvePoint: CryptographicKey, Equatable {
     init?(obvDictionaryOfInternalElements obvDic: ObvDictionary, curveByteId: EdwardsCurveByteId)
     
     /// Check whether a given point is an acceptable point for a public key
-    static func isAcceptable(point: PointOnCurve) -> Bool
+    //static func isAcceptable(point: PointOnCurve) -> Bool
     
+    //static func isLowOrderPoint(_ point: PointOnCurve) -> Bool
+
     /// Check whether a given y-coordinate is acceptable for a public key
-    static func isAcceptable(yCoordinate: BigInt, onCurveWithByteId: EdwardsCurveByteId) -> Bool
+    //static func isAcceptable(yCoordinate: BigInt, onCurveWithByteId: EdwardsCurveByteId) -> Bool
+    
+    //static func isLowOrderPoint(yCoordinate: BigInt, onCurveWithByteId: EdwardsCurveByteId) -> Bool
+
 }
 
 extension PublicKeyFromEdwardsCurvePoint {
@@ -45,28 +50,12 @@ extension PublicKeyFromEdwardsCurvePoint {
         return curveByteId.curve
     }
     
-    static func isAcceptable(point: PointOnCurve) -> Bool {
-        let curve = point.onCurve
-        guard point != curve.getPointAtInfinity() else { return false }
-        guard point != curve.getPointOfOrderTwo() else { return false }
-        guard point != curve.getPointsOfOrderFour().0 else { return false }
-        guard point != curve.getPointsOfOrderFour().1 else { return false }
-        return true
-    }
-    
-    static func isAcceptable(yCoordinate y: BigInt, onCurveWithByteId curveByteId: EdwardsCurveByteId) -> Bool {
-        let curve: EdwardsCurve
-        switch curveByteId {
-        case .MDCByteId:
-            curve = CurveMDC()
-        case .Curve25519ByteId:
-            curve = Curve25519()
+
+    var isLowOrderPoint: Bool {
+        if let point {
+            return point.isLowOrderPoint
         }
-        guard y != curve.getPointAtInfinity().y else { return false }
-        guard y != curve.getPointOfOrderTwo().y else { return false }
-        guard y != curve.getPointsOfOrderFour().0.y else { return false }
-        guard y != curve.getPointsOfOrderFour().1.y else { return false }
-        return true
+        return curve.scalarMultiplication(scalar: curve.parameters.nu, yCoordinate: yCoordinate) == curve.getPointAtInfinity().y
     }
     
     var correspondingObvEncodedByteId: ByteIdOfObvEncoded {

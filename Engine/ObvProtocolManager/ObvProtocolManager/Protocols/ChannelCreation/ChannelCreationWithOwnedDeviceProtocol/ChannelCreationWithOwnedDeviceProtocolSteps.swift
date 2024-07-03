@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2024 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -84,7 +84,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .Local,
+                       expectedReceptionChannelInfo: .local,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -153,7 +153,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Send the ping message containing the signature
             
             do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .asymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = PingMessage(coreProtocolMessage: coreMessage, remoteDeviceUid: currentDeviceUid, signature: signature)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else {
                     return CancelledState()
@@ -165,6 +165,17 @@ extension ChannelCreationWithOwnedDeviceProtocol {
                 return CancelledState()
             }
             
+            // Inform the identity manager about the ping sent to the remote owned device
+            
+            do {
+                let deviceIdentifier = ObvOwnedDeviceIdentifier(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity), deviceUID: remoteDeviceUid)
+                try identityDelegate.setLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withIdentifier: deviceIdentifier, to: Date.now, within: obvContext)
+            } catch {
+                os_log("🛟 [%{public}@] [ChannelCreationWithOwnedDeviceProtocol,SendPingStep] Failed to set the latest channel creation ping timestamp of remote owned device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                assertionFailure()
+                // In production continue anyway
+            }
+
             // Return the new state
             
             return PingSentState()
@@ -187,7 +198,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -291,7 +302,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
                 // Send the ping message containing the signature
                 
                 do {
-                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .asymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = PingMessage(coreProtocolMessage: coreMessage, remoteDeviceUid: currentDeviceUid, signature: ownSignature)
                     guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
                     _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -300,6 +311,17 @@ extension ChannelCreationWithOwnedDeviceProtocol {
                     return CancelledState()
                 }
                 
+                // Inform the identity manager about the ping sent to the remote owned device
+                
+                do {
+                    let deviceIdentifier = ObvOwnedDeviceIdentifier(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentity), deviceUID: remoteDeviceUid)
+                    try identityDelegate.setLatestChannelCreationPingTimestampOfRemoteOwnedDevice(withIdentifier: deviceIdentifier, to: Date.now, within: obvContext)
+                } catch {
+                    os_log("🛟 [%{public}@] [ChannelCreationWithOwnedDeviceProtocol,SendPingStep] Failed to set the latest channel creation ping timestamp of remote owned device: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    assertionFailure()
+                    // In production continue anyway
+                }
+
                 // Return the new state
                 
                 os_log("ChannelCreationWithOwnedDeviceProtocol: ending SendPingOrEphemeralKeyStep", log: log, type: .debug)
@@ -331,7 +353,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
                 // Send the public key to Bob, together with our own identity and current device uid
                 
                 do {
-                    let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
+                    let coreMessage = getCoreMessage(for: .asymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
                     let concreteProtocolMessage = AliceIdentityAndEphemeralKeyMessage(coreProtocolMessage: coreMessage,
                                                                                       remoteDeviceUid: currentDeviceUid,
                                                                                       signature: ownSignature,
@@ -362,7 +384,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -457,12 +479,16 @@ extension ChannelCreationWithOwnedDeviceProtocol {
 
             // Generate k1
             
-            let (c1, k1) = PublicKeyEncryption.kemEncrypt(using: remoteEphemeralPublicKey, with: prng)
+            guard let (c1, k1) = PublicKeyEncryption.kemEncrypt(using: remoteEphemeralPublicKey, with: prng) else {
+                assertionFailure()
+                os_log("Could not perform encryption using remote ephemeral public key", log: log, type: .error)
+                return CancelledState()
+            }
             
             // Send the ephemeral public key and k1 to Alice
             
             do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .asymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = BobEphemeralKeyAndK1Message(coreProtocolMessage: coreMessage,
                                                                           remoteEphemeralPublicKey: ephemeralPublicKey,
                                                                           c1: c1)
@@ -491,7 +517,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -525,7 +551,11 @@ extension ChannelCreationWithOwnedDeviceProtocol {
 
             // Generate k2
             
-            let (c2, k2) = PublicKeyEncryption.kemEncrypt(using: remoteEphemeralPublicKey, with: prng)
+            guard let (c2, k2) = PublicKeyEncryption.kemEncrypt(using: remoteEphemeralPublicKey, with: prng) else {
+                assertionFailure()
+                os_log("Could not perform encryption using remote ephemeral public key", log: log, type: .error)
+                return CancelledState()
+            }
 
             // Add the remoteDeviceUid for this owned identity (if it was not already there)
             
@@ -573,7 +603,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Send the k2 to Bob
             
             do {
-                let coreMessage = getCoreMessage(for: .AsymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
+                let coreMessage = getCoreMessage(for: .asymmetricChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity))
                 let concreteProtocolMessage = K2Message(coreProtocolMessage: coreMessage, c2: c2)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
                 _ = try channelDelegate.postChannelMessage(messageToSend, randomizedWith: prng, within: obvContext)
@@ -600,7 +630,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .AsymmetricChannel,
+                       expectedReceptionChannelInfo: .asymmetricChannel,
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
         }
@@ -682,7 +712,12 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Send the message trigerring the next step, where we check that the contact identity is trusted and create the oblivious channel if this is the case
                         
             do {
-                let coreMessage = getCoreMessage(for: .ObliviousChannel(to: ownedIdentity, remoteDeviceUids: [remoteDeviceUid], fromOwnedIdentity: ownedIdentity, necessarilyConfirmed: false))
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity, 
+                                                                             remoteDeviceUids: [remoteDeviceUid],
+                                                                             fromOwnedIdentity: ownedIdentity,
+                                                                             necessarilyConfirmed: false,
+                                                                             usePreKeyIfRequired: false)
+                let coreMessage = getCoreMessage(for: channelType)
                 let (ownedIdentityDetailsElements, _) = try identityDelegate.getPublishedIdentityDetailsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 let concreteProtocolMessage = FirstAckMessage(coreProtocolMessage: coreMessage, remoteIdentityDetailsElements: ownedIdentityDetailsElements)
                 guard let messageToSend = concreteProtocolMessage.generateObvChannelProtocolMessageToSend(with: prng) else { return nil }
@@ -713,7 +748,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .ObliviousChannel(remoteCryptoIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .obliviousChannel(remoteCryptoIdentity: concreteCryptoProtocol.ownedIdentity,
                                                                        remoteDeviceUid: startState.remoteDeviceUid),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
@@ -784,10 +819,11 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Send ack to Bob
             
             do {
-                let channelType = ObvChannelSendChannelType.ObliviousChannel(to: ownedIdentity,
+                let channelType = ObvChannelSendChannelType.obliviousChannel(to: ownedIdentity,
                                                                              remoteDeviceUids: [remoteDeviceUid],
                                                                              fromOwnedIdentity: ownedIdentity,
-                                                                             necessarilyConfirmed: true)
+                                                                             necessarilyConfirmed: true,
+                                                                             usePreKeyIfRequired: false)
                 let coreMessage = getCoreMessage(for: channelType)
                 let (ownedIdentityDetailsElements, _) = try identityDelegate.getPublishedIdentityDetailsOfOwnedIdentity(ownedIdentity, within: obvContext)
                 let concreteProtocolMessage = SecondAckMessage(coreProtocolMessage: coreMessage, remoteIdentityDetailsElements: ownedIdentityDetailsElements)
@@ -801,7 +837,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Make sure this device capabilities are sent to Bob's device
             
             do {
-                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let channel = ObvChannelSendChannelType.local(ownedIdentity: ownedIdentity)
                 let newProtocolInstanceUid = UID.gen(with: prng)
                 let coreMessage = CoreProtocolMessage(channelType: channel,
                                                       cryptoProtocolId: .contactCapabilitiesDiscovery,
@@ -858,7 +894,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             self.receivedMessage = receivedMessage
             
             super.init(expectedToIdentity: concreteCryptoProtocol.ownedIdentity,
-                       expectedReceptionChannelInfo: .ObliviousChannel(remoteCryptoIdentity: concreteCryptoProtocol.ownedIdentity,
+                       expectedReceptionChannelInfo: .obliviousChannel(remoteCryptoIdentity: concreteCryptoProtocol.ownedIdentity,
                                                                        remoteDeviceUid: startState.remoteDeviceUid),
                        receivedMessage: receivedMessage,
                        concreteCryptoProtocol: concreteCryptoProtocol)
@@ -929,7 +965,7 @@ extension ChannelCreationWithOwnedDeviceProtocol {
             // Make sure this device capabilities are sent to Alice's device
             
             do {
-                let channel = ObvChannelSendChannelType.Local(ownedIdentity: ownedIdentity)
+                let channel = ObvChannelSendChannelType.local(ownedIdentity: ownedIdentity)
                 let newProtocolInstanceUid = UID.gen(with: prng)
                 let coreMessage = CoreProtocolMessage(channelType: channel,
                                                       cryptoProtocolId: .contactCapabilitiesDiscovery,

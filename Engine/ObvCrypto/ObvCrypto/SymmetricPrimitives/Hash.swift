@@ -87,7 +87,7 @@ extension HashFunction where Self: HashFunctionBasedOnCommonCrypto {
 
 }
 
-class SHA256: HashFunctionBasedOnCommonCrypto, HashFunction {
+final class SHA256: HashFunctionBasedOnCommonCrypto, HashFunction {
 
     static var ccBlockLength: Int32 {
         return CC_SHA256_BLOCK_BYTES
@@ -114,5 +114,36 @@ class SHA256: HashFunctionBasedOnCommonCrypto, HashFunction {
     
     func ccHashFinal(_ md: UnsafeMutablePointer<UInt8>!) {
         CC_SHA256_Final(md, &self.context)
+    }
+}
+
+
+final class SHA512: HashFunctionBasedOnCommonCrypto, HashFunction {
+
+    static var ccBlockLength: Int32 {
+        return CC_SHA512_BLOCK_BYTES
+    }
+    
+    static var ccOutputLength: Int32 {
+        return CC_SHA512_DIGEST_LENGTH
+    }
+
+    static func ccHash(_ data: UnsafeRawPointer!, _ len: CC_LONG, _ md: UnsafeMutablePointer<UInt8>!) -> UnsafeMutablePointer<UInt8>! {
+        return CC_SHA512(data, len, md)
+    }
+    
+    private var context: CC_SHA512_CTX
+    
+    required init() {
+        context = CC_SHA512_CTX()
+        CC_SHA512_Init(&context)
+    }
+    
+    func ccHashUpdate(_ data: UnsafeRawPointer!, _ len: CC_LONG) {
+        CC_SHA512_Update(&self.context, data, len)
+    }
+    
+    func ccHashFinal(_ md: UnsafeMutablePointer<UInt8>!) {
+        CC_SHA512_Final(md, &self.context)
     }
 }

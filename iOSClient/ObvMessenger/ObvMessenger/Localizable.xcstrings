@@ -3719,6 +3719,38 @@
         }
       }
     },
+    "CONTACT_WAS_NOT_RECENTLY_ONLINE_BODY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It seems this contact has not used Olvid for an extended period of time. We cannot guarantee messages will be properly delivered to them."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il semble que ce contact n'a pas utilisé Olvid depuis un certain temps. Nous ne pouvons pas garantir que vos messages lui parviendront normalement."
+          }
+        }
+      }
+    },
+    "CONTACT_WAS_NOT_RECENTLY_ONLINE_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contact offline for an extended period of time"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contact hors-ligne depuis longtemps"
+          }
+        }
+      }
+    },
     "Contacts" : {
       "comment" : "Contacts word, capitalized",
       "localizations" : {
@@ -8228,6 +8260,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Masquer ce profil"
+          }
+        }
+      }
+    },
+    "HIDE_TRAILING_URL_IN_MESSAGES_WHEN_PREVIEW_IS_AVAILABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide URLs at the end of messages (when a preview is available)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cacher les URLs à la fin des messages (si un aperçu est disponible)"
           }
         }
       }
@@ -14852,6 +14900,70 @@
         }
       }
     },
+    "PRE_KEY_IS_AVAILABLE_FOR_CONTACT_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This contact device can be reached already"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil peut déjà être contacté"
+          }
+        }
+      }
+    },
+    "PRE_KEY_IS_AVAILABLE_FOR_OWNED_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device can be reached already"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil peut déjà être contacté"
+          }
+        }
+      }
+    },
+    "PRE_KEY_IS_NOT_AVAILABLE_FOR_CONTACT_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A secure channel is required in order to reach this contact device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un canal sécurisé est requis pour pouvoir joindre cet appareil"
+          }
+        }
+      }
+    },
+    "PRE_KEY_IS_NOT_AVAILABLE_FOR_OWNED_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A secure channel is required in order to reach this device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un canal sécurisé est requis pour pouvoir joindre cet appareil"
+          }
+        }
+      }
+    },
     "Premium features" : {
       "localizations" : {
         "en" : {
@@ -19924,6 +20036,22 @@
         }
       }
     },
+    "Unknown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inconnu"
+          }
+        }
+      }
+    },
     "UNKNOWN_GROUP_MEMBER_NAME" : {
       "localizations" : {
         "en" : {
@@ -20522,6 +20650,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Attention"
+          }
+        }
+      }
+    },
+    "WAS_RECENTLY_ONLINE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was recently online?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En ligne récemment ?"
           }
         }
       }

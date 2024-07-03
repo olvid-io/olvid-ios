@@ -25,13 +25,17 @@ import ObvUICoreData
 extension PersistedObvContactIdentity: ContactCellViewModelProtocol {
     
     var detailsStatus: ContactCellViewTypes.ContactDetailsStatus {
-        switch self.status {
-        case .noNewPublishedDetails:
-            return .noNewPublishedDetails
-        case .seenPublishedDetails:
-            return .seenPublishedDetails
-        case .unseenPublishedDetails:
-            return .unseenPublishedDetails
+        if !self.wasRecentlyOnline {
+            return .wasNotRecentlyOnline
+        } else {
+            switch self.status {
+            case .noNewPublishedDetails:
+                return .noNewPublishedDetails
+            case .seenPublishedDetails:
+                return .seenPublishedDetails
+            case .unseenPublishedDetails:
+                return .unseenPublishedDetails
+            }
         }
     }
     

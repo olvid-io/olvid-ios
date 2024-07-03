@@ -108,7 +108,10 @@ final class SyncPersistedObvContactIdentityWithEngineOperation: ContextualOperat
                 _ = try persistedOwnedIdentity.updateContact(with: contactWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
 
                 // Get the contact capabilities within engine
-                guard let contactCapabilitiesWithinEngine = try? obvEngine.getCapabilitiesOfContact(with: contactIdentifier) else {
+                let contactCapabilitiesWithinEngine: Set<ObvCapability>
+                do {
+                    contactCapabilitiesWithinEngine = try obvEngine.getCapabilitiesOfContact(with: contactIdentifier) ?? Set<ObvCapability>()
+                } catch {
                     assertionFailure()
                     return
                 }

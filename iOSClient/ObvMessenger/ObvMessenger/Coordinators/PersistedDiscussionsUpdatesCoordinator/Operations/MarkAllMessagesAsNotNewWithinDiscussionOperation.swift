@@ -42,7 +42,7 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
 
     private(set) var ownedCryptoId: ObvCryptoId?
     private(set) var discussionReadJSONToSend: DiscussionReadJSON?
-    private(set) var ownedIdentityHasAnotherDeviceWithChannel = false
+    private(set) var ownedIdentityHasAnotherReachableDevice = false
     
     enum Result {
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
@@ -59,23 +59,23 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
             let ownedCryptoId: ObvCryptoId
             let discussionId: DiscussionIdentifier
             let dateWhenMessageTurnedNotNew: Date
-            let untilDate: Date?
+            let serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?
             let requestReceivedFromAnotherOwnedDevice: Bool
             switch input {
             case .persistedDiscussionObjectID(persistedDiscussionObjectID: let persistedDiscussionObjectID):
                 (ownedCryptoId, discussionId) = try PersistedObvOwnedIdentity.getDiscussionIdentifiers(from: persistedDiscussionObjectID, within: obvContext.context)
-                dateWhenMessageTurnedNotNew = Date()
-                untilDate = nil
+                dateWhenMessageTurnedNotNew = .now
+                serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = nil
                 requestReceivedFromAnotherOwnedDevice = false
             case .draftPermanentID(draftPermanentID: let draftPermanentID):
                 (ownedCryptoId, discussionId) = try PersistedObvOwnedIdentity.getDiscussionIdentifiers(from: draftPermanentID, within: obvContext.context)
-                dateWhenMessageTurnedNotNew = Date()
-                untilDate = nil
+                dateWhenMessageTurnedNotNew = .now
+                serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = nil
                 requestReceivedFromAnotherOwnedDevice = false
             case .discussionReadJSON(ownedCryptoId: let _ownedCryptoId, discussionRead: let discussionRead):
                 ownedCryptoId = _ownedCryptoId
                 dateWhenMessageTurnedNotNew = discussionRead.lastReadMessageServerTimestamp
-                untilDate = discussionRead.lastReadMessageServerTimestamp
+                serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = discussionRead.lastReadMessageServerTimestamp
                 discussionId = try discussionRead.getDiscussionId(ownedCryptoId: ownedCryptoId)
                 requestReceivedFromAnotherOwnedDevice = true
             }
@@ -85,9 +85,11 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
             }
             
             self.ownedCryptoId = ownedIdentity.cryptoId
-            self.ownedIdentityHasAnotherDeviceWithChannel = ownedIdentity.hasAnotherDeviceWithChannel
+            self.ownedIdentityHasAnotherReachableDevice = ownedIdentity.hasAnotherDeviceWhichIsReachable
             
-            let lastReadMessageServerTimestamp = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId, untilDate: untilDate, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+            let lastReadMessageServerTimestamp = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId, 
+                                                                                           serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
+                                                                                           dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
 
             do {
                 let isDiscussionActive = try ownedIdentity.isDiscussionActive(discussionId: discussionId)
