@@ -1,0 +1,122 @@
+{
+  "identifier" : "1DE67C8D",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "1414865219",
+    "_askToBuyEnabled" : false,
+    "_developerTeamID" : "VMDQ4PU27W",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 710170008.82877004,
+    "_locale" : "en_US",
+    "_storefront" : "FRA",
+    "_storeKitErrors" : [
+      {
+        "current" : {
+          "index" : 2,
+          "type" : "generic"
+        },
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : {
+          "index" : 1,
+          "type" : "purchase"
+        },
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : {
+          "index" : 0,
+          "type" : "verification"
+        },
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : {
+          "index" : 2,
+          "type" : "generic"
+        },
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "20704469",
+      "localizations" : [
+
+      ],
+      "name" : "Premium Features Group",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.49",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "1538330035",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlock all premium features in Olvid",
+              "displayName" : "Premium subscription",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "Accès à toutes les fonctionnalités premium",
+              "displayName" : "Abonnement premium",
+              "locale" : "fr"
+            }
+          ],
+          "productID" : "io.olvid.premium_2020_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Premium features 2020 - Monthly",
+          "subscriptionGroupID" : "20704469",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

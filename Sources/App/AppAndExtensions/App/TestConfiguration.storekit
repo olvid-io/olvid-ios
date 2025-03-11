@@ -1,0 +1,106 @@
+{
+  "identifier" : "D2AEBB39",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "98BEABAA",
+      "localizations" : [
+
+      ],
+      "name" : "io.olvid.group.premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "0.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "C43ECCD9",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Access to all premium features.",
+              "displayName" : "Premium features",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "Accès à toutes les fonctionnalités premimum.",
+              "displayName" : "Fonctionnalités Premium",
+              "locale" : "fr"
+            }
+          ],
+          "productID" : "io.olvid.premium_2020_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Olvid Premium Features",
+          "subscriptionGroupID" : "98BEABAA",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

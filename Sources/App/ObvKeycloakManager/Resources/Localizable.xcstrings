@@ -1,0 +1,310 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "AUTHENTICATE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'authentifier"
+          }
+        }
+      }
+    },
+    "AUTHENTICATE_AS_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate as %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'authentifier en tant que %@"
+          }
+        }
+      }
+    },
+    "AUTHENTICATION_REQUIRED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication Required"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentification Requise"
+          }
+        }
+      }
+    },
+    "AUTHENTICATION_REQUIRED_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication Required for %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentification Requise pour %@"
+          }
+        }
+      }
+    },
+    "AUTHENTICATION_REQUIRED_TOKEN_EXPIRED_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Olvid identity is managed by your company's identity provider. You need to re-authenticate with this identity provider to continue."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre identité Olvid est gérée par le fournisseur d'identité de votre entreprise. Il faut vous réauthentifier auprès de ce fournisseur d'identité pour continuer."
+          }
+        }
+      }
+    },
+    "AUTHENTICATION_REQUIRED_USER_ID_CHANGED_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You Olvid ID is managed by your company's identity provider. It seems you authenticated as a different user than usual. This is not supported.\n\nPlease contact your administrator or re-authenticate as the correct user."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre ID Olvid est géré par le fournisseur d'identité de votre entreprise. Il semblerait que vous vous soyez authentifié avec un compte différent du compte habituel. Ceci n'est pas supporté.\n\nContactez votre adminisrateur ou réauthentifiez-vous avec le compte habituel."
+          }
+        }
+      }
+    },
+    "BUTTON_LABEL_UPDATE_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update key"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre la clé à jour"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        }
+      }
+    },
+    "DIALOG_MESSAGE_KEYCLOAK_IDENTITY_WAS_REVOKED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It seems that your account was removed from your company's identity provider. If you left your company, this is normal and you may continue using Olvid as a free user.\n\nIf you believe this is an error, please contact your administrator to re-register this identity provider with Olvid."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il semble que votre compte a été supprimé du fournisseur d'identité de votre société. Si vous avez quitté votre entreprise, ceci est normal et vous pouvez continuer à utiliser Olvid en tant qu'utilisateur gratuit.\n\nSi vous pensez que c'est une erreur, veuillez contacter votre administrateur pour enregistrer à nouveau ce fournisseur d'identité dans Olvid."
+          }
+        }
+      }
+    },
+    "DIALOG_MESSAGE_KEYCLOAK_SIGNATURE_KEY_CHANGED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid detected a change in the cryptographic signature key of your identity provider. This should normally never happen.\n\nPlease contact your administrator and only press \"Update Key\" if she can confirm the key change was intentional. If unsure, press \"Cancel\"."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid a détecté une modification de la clé de signature cryptographique de votre fournisseur d'identité. Cela ne devrait normalement jamais arriver.\n\nVeuillez contacter votre administrateur et n'appuyer sur « Mettre la clé à jour » que s'il peut confirmer que cette modification est intentionnelle. En cas de doute, appuyez sur « Annuler »."
+          }
+        }
+      }
+    },
+    "DIALOG_TITLE_KEYCLOAK_IDENTITY_WAS_REVOKED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity provider removed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fournisseur d'identité supprimé"
+          }
+        }
+      }
+    },
+    "DIALOG_TITLE_KEYCLOAK_SIGNATURE_KEY_CHANGED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity provider key change"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changement de clé du fournisseur d'identité"
+          }
+        }
+      }
+    },
+    "KEYCLOAK_REVOCATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoke previous Olvid ID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Révoquer l'ID Olvid précédent"
+          }
+        }
+      }
+    },
+    "KEYCLOAK_REVOCATION_BUTTON" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoke previous ID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Révoquer ID précédent"
+          }
+        }
+      }
+    },
+    "KEYCLOAK_REVOCATION_FORBIDDEN_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please contact your administrator."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous vous recommandons de contacter votre administrateur."
+          }
+        }
+      }
+    },
+    "KEYCLOAK_REVOCATION_FORBIDDEN_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot revoke your identity"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous ne pouvez pas révoquer votre identité"
+          }
+        }
+      }
+    },
+    "KEYCLOAK_REVOCATION_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another Olvid ID is associated with your account on your company's identity provider. If you generated a new ID you need to revoke the previous one."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un autre ID Olvid est associé avec le compte géré par le fournisseur d'identité de votre entreprise. Si vous avez généré un nouvel ID Olvid, il vous faut révoquer le précédent."
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        }
+      }
+    },
+    "USER_CHANGE_DETECTED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User change detected"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changement d'utilisateur détecté"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

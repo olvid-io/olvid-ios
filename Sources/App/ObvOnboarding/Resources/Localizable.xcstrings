@@ -1,0 +1,2442 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+      "shouldTranslate" : false
+    },
+    "ADD_ANOTHER_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add another profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un autre profil"
+          }
+        }
+      }
+    },
+    "AUTHENTICATE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'authentifier"
+          }
+        }
+      }
+    },
+    "AUTOMATIC_BACKUP_COULD_NOT_BE_ENABLED_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic backup could not be enabled"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il n'a pas été possible d'activer les sauvegardes automatiques"
+          }
+        }
+      }
+    },
+    "Back" : {
+      "comment" : "Back word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retour"
+          }
+        }
+      }
+    },
+    "BUTON_TITLE_ACTIVATE_NOTIFICATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage notifications"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gérer les notifications"
+          }
+        }
+      }
+    },
+    "BUTON_TITLE_REQUEST_RECORD_PERMISSION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure Microphone Access"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurer l'accès au micro"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Cancel word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        }
+      }
+    },
+    "CHOOSE_ACTIVE_DEVICE_SUBTITLE_WHEN_MULTIDEVICE_FALSE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other devices will be deactivated within 30 days."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les autres appareils seront désactivés dans les 30 jours."
+          }
+        }
+      }
+    },
+    "CHOOSE_ACTIVE_DEVICE_SUBTITLE_WHEN_MULTIDEVICE_TRUE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Here is your current device list, including the device you are about to add."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voici vos appareils actuels, ainsi que celui que vous vous apprêtez à ajouter."
+          }
+        }
+      }
+    },
+    "CHOOSE_ACTIVE_DEVICE_TITLE_WHEN_MULTIDEVICE_FALSE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which device you wish to keep active"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez quel appareil vous souhaitez maintenir actif"
+          }
+        }
+      }
+    },
+    "CHOOSE_ACTIVE_DEVICE_TITLE_WHEN_MULTIDEVICE_TRUE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have a multi-device subscription"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous disposez d'un abonnement multi-appareils"
+          }
+        }
+      }
+    },
+    "CHOOSE_YOUR_BACKUP_FILE_ONBOARDING_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose your backup file"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez votre fichier de sauvegarde"
+          }
+        }
+      }
+    },
+    "CLEAR_ALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recommencer"
+          }
+        }
+      }
+    },
+    "CLIENT_ID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Client Id"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Client Id"
+          }
+        }
+      }
+    },
+    "CLIENT_SECRET" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Client secret"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret client"
+          }
+        }
+      }
+    },
+    "CONFIGURATION_SCAN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuration scan"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan de configuration"
+          }
+        }
+      }
+    },
+    "CONFIGURE_YOUR_IDENTITY_PROVIDER_MANUALLY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual configuration of your identity provider"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuration manuelle de votre fournisseur d'identité"
+          }
+        }
+      }
+    },
+    "Congratulations!" : {
+      "comment" : "View controller title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Congratulations!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bravo !"
+          }
+        }
+      }
+    },
+    "COPY_ERROR" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy error"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier l'erreur"
+          }
+        }
+      }
+    },
+    "COPY_ERROR_TO_PASTEBOARD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy error to clipboard"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier l'erreur dans le presse-papiers"
+          }
+        }
+      }
+    },
+    "COULD_NOT_PERFORM_OWNED_IDENTITY_TRANSFER_ALERT_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The profile could not be transfered. Please try again. If the problem persists, please contact %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le profil n'a pas pu être transféré. Si ce problème persisted, contactez %@."
+          }
+        }
+      }
+    },
+    "COULD_NOT_PERFORM_OWNED_IDENTITY_TRANSFER_ALERT_%@_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The profile could not be transfered. Please try again. If the problem persists, please contact %@. The error is: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le profil n'a pas pu être transféré. Si ce problème persisted, contactez %@. L'erreur est : %@"
+          }
+        }
+      }
+    },
+    "CURRENT_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil"
+          }
+        }
+      }
+    },
+    "DIALOG_MESSAGE_FAILED_TO_UPLOAD_IDENTITY_TO_KEYCLOAK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid was unable to upload your Olvid ID to your company's identity provider. It will be retried in the background."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid n'a pas réussi à transmettre votre ID Olvid au fournisseur d'identité de votre entreprise. De nouveaux essais seront réalisés en tâche de fond."
+          }
+        }
+      }
+    },
+    "DIALOG_TITLE_IDENTITY_PROVIDER_ERROR" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity provider error"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erreur du fournisseur d'identité"
+          }
+        }
+      }
+    },
+    "DO_YOU_HAVE_OTHER_PROFILES_TO_ADD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If you have multiple profiles on your other device, would you like to add them too?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si vous avez plusieurs profils sur votre deuxième appareil, voulez-vous les ajouter aussi ?"
+          }
+        }
+      }
+    },
+    "DO_YOU_WANT_ALL_YOUR_DEVICE_TO_STAY_ACTIVE_[THIS_WAY](_)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do you want all your devices to stay active? [This way](_)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voulez-vous que tous vos appareils restent actifs ? [Par ici](_)"
+          }
+        }
+      }
+    },
+    "ENABLE_AUTOMATIC_BACKUP_AND_CONTINUE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activate automatic backup"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer les sauvegardes automatiques"
+          }
+        }
+      }
+    },
+    "ENABLE_AUTOMATIC_BACKUP_EXPLANATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup was successfully restored. To make sure you can restore a fresh backup the next time you need to, we recommend to activate automatic iCloud backups."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sauvegarde a été restaurée avec succès. Pour vous assurer de pouvoir restaurer à nouveau une sauvegarde la prochaine fois que vous en aurez besoin, nous vous recommandons d'activer les sauvegardes automatiques vers iCloud."
+          }
+        }
+      }
+    },
+    "ERROR" : {
+      "comment" : "Error word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erreur"
+          }
+        }
+      }
+    },
+    "ERROR_DESCRIPTION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error description:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Description de l'erreur:"
+          }
+        }
+      }
+    },
+    "EXPLANATION_WHY_RECORD_PERMISSION_IS_IMPORTANT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To place or receive secure calls ☎️, and to record voice messages 🎵, Olvid needs access to the microphone.\n\nTo make sure you never miss a secure call, we recommend you grant access now 🤓."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour passer ou recevoir des appels sécurisés ☎️ et pour enregistrer des messages audio 🎵, il faut accorder à Olvid le droit d'accéder au micro.\n\nAfin de ne rater aucun appel, nous vous recommandons de le faire maintenant 🤓."
+          }
+        }
+      }
+    },
+    "FORM_COMPANY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Company"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Société"
+          }
+        }
+      }
+    },
+    "FORM_FIRST_NAME" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First name"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prénom"
+          }
+        }
+      }
+    },
+    "FORM_LAST_NAME" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last name"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom de famille"
+          }
+        }
+      }
+    },
+    "FORM_POSITION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Position"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poste"
+          }
+        }
+      }
+    },
+    "iCloud error" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud error"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erreur iCloud"
+          }
+        }
+      }
+    },
+    "IDENTITY_PROVIDER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity provider"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fournisseur d'identité"
+          }
+        }
+      }
+    },
+    "IDENTITY_PROVIDER_CONFIGURATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity provider configuration"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuration du fournisseur d'identité"
+          }
+        }
+      }
+    },
+    "IDENTITY_PROVIDER_CONFIGURED_FAILURE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The identity provider of your company does not seem to be available. Please contact your administrator."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le fournisseur d'identité de votre société ne semble pas disponible. Veuillez contacter votre administrateur."
+          }
+        }
+      }
+    },
+    "IDENTITY_PROVIDER_CONFIGURED_SUCCESS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The identity provider of your company was successfully configured. Press \"Authenticate\" to log in and retrieve your personal information."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le fournisseur d'identité de votre société a été configuré avec succès. Appuyez sur « S'authentifier » pour vous y connecter et récupérer vos informations personnelles."
+          }
+        }
+      }
+    },
+    "IDENTITY_PROVIDER_OPTION_EXPLANATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This screen lets you to manually configure your company's identity provider. If you received a configuration link (or QR code), please tap on \"Back\" and tap the link or scan the code. This will make the onboarding process much easier 😇.\n\nPlease contact your administrator for more details."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet écran vous permet de configurer manuellement le fournisseur d'identité de votre entreprise. Si vous avez reçu un lien (ou un code QR) de configuration, appuyez sur « Retour » et appuyez sur le lien ou scannez le code. Le processus de démarrage n'en sera que plus simple 😇.\n\nVeuillez contacter votre administrateur pour plus de détails."
+          }
+        }
+      }
+    },
+    "KEEP_%@_ACTIVE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep %@ active"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenir %@ actif"
+          }
+        }
+      }
+    },
+    "KEEP_SELECTED_DEVICE_ACTIVE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep selected device active"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenir l'appareil sélectionné actif"
+          }
+        }
+      }
+    },
+    "KEYCLOAK_AUTHENTICATION_FAILED_ALERT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication failed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'authentification a échoué"
+          }
+        }
+      }
+    },
+    "KEYCLOAK_AUTHENTICATION_FAILED_ALERT_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication failed: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'authentification a échoué : %@"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "comment" : "Later word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus tard"
+          }
+        }
+      }
+    },
+    "LETS_CREATE_YOUR_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let's create your profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créons votre profil"
+          }
+        }
+      }
+    },
+    "MAIL_BODY_COULD_NOT_TRANSFER_PROFILE_ERROR$@" : {
+      "comment" : "mail body text",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hello Olvid!\n\nI could not transfer my profile. Could you please look into this issue? Here is the error:\n\n%@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bonjour Olvid !\n\nJe n'ai pas pu transférer mon profil. Pourriez-vous étudier la question ? Voici l'erreur :\n\n%@"
+          }
+        }
+      }
+    },
+    "MAIL_SUBJECT_COULD_NOT_TRANSFER_PROFILE_ERROR" : {
+      "comment" : "Mail subject",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I could not tranfer my profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il n'a pas été possible de transférer mon profil"
+          }
+        }
+      }
+    },
+    "MANUAL_CONFIGURATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual configuration"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuration manuelle"
+          }
+        }
+      }
+    },
+    "MAYBE_LATER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maybe later"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus tard"
+          }
+        }
+      }
+    },
+    "MY_DEVICE_NAME_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
+    },
+    "NEW_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouvel appareil"
+          }
+        }
+      }
+    },
+    "NO_DEVICE_WILL_EXPIRE_SINCE_YOUR_SUBSCRIPTION_INCLUDES_MULTIDEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All your devices will stay active since your subscription includes the multi-device feature 🙌."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous vos appareils vont rester actifs car votre abonnement inclu la fonctionnalité multi-appareils 🙌."
+          }
+        }
+      }
+    },
+    "NO_OTHER_PROFILE_TO_ADD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminer"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        }
+      }
+    },
+    "ONBOARDING_ADD_PROFILE_CREATE_BUTTON" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a new profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer un nouveau profil"
+          }
+        }
+      }
+    },
+    "ONBOARDING_ADD_PROFILE_IMPORT_BUTTON" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a profile from another device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importer un profil depuis un autre appareil"
+          }
+        }
+      }
+    },
+    "ONBOARDING_ADD_PROFILE_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a new profile on this device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un nouveau profil sur cet appareil"
+          }
+        }
+      }
+    },
+    "ONBOARDING_BAD_INFORMATIONS_RETURNED_BY_IDENTITY_PROVIDER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The informations retrieved from the identity provider are incomplete and do not allow to created an Olvid profile. Please contact your administrator."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les informations récupérées depuis le fournisseur d'identités sont incomplètes et ne permettent pas de créer de profil Olvid. Nous vous recommandons de contacter votre administrateur."
+          }
+        }
+      }
+    },
+    "ONBOARDING_BUTTON_CHOOSE_BACKUP_FILE_FROM_FILES" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From File"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Depuis Fichiers"
+          }
+        }
+      }
+    },
+    "ONBOARDING_BUTTON_CHOOSE_BACKUP_FILE_FROM_ICLOUD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From iCloud"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Depuis iCloud"
+          }
+        }
+      }
+    },
+    "ONBOARDING_BUTTON_TITLE_ACTIVATE_MY_PROFILE_ON_THIS_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a profile from another device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importer un profil depuis un autre appareil"
+          }
+        }
+      }
+    },
+    "ONBOARDING_BUTTON_TITLE_I_DO_NOT_HAVE_AN_OLVID_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I am a new Olvid user"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je suis un nouvel utilisateur"
+          }
+        }
+      }
+    },
+    "ONBOARDING_BUTTON_TITLE_I_HAVE_AN_OLVID_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I already have an Olvid profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "J'ai déjà un profil Olvid"
+          }
+        }
+      }
+    },
+    "ONBOARDING_BUTTON_TITLE_RESTORE_BACKUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore a backup"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer une sauvegarde"
+          }
+        }
+      }
+    },
+    "ONBOARDING_DEVICE_NAME_CHOOSER_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valider"
+          }
+        }
+      }
+    },
+    "ONBOARDING_DEVICE_NAME_CHOOSER_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This will help you distinguish between your devices. Device names are only visible to you."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cela vous permettra de reconnaître vos appareils facilement. Les surnoms ne sont visibles que par vous."
+          }
+        }
+      }
+    },
+    "ONBOARDING_DEVICE_NAME_CHOOSER_TEXTFIELD_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Example: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exemple: %@"
+          }
+        }
+      }
+    },
+    "ONBOARDING_DEVICE_NAME_CHOOSER_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Give a name to this device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Donnez un surnom à cet appareil"
+          }
+        }
+      }
+    },
+    "ONBOARDING_DROP_A_BACKUP_FILE_HERE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "or drop it here"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ou déposez le ici"
+          }
+        }
+      }
+    },
+    "ONBOARDING_ENTER_BACKUP_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please enter the backup key"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez entrer votre clé de sauvegarde"
+          }
+        }
+      }
+    },
+    "ONBOARDING_KEYCLOAK_MANUAL_CONFIGURATION_TITLE_CLIENT_ID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server client ID"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server client ID"
+          }
+        }
+      }
+    },
+    "ONBOARDING_KEYCLOAK_MANUAL_CONFIGURATION_TITLE_CLIENT_SECRET" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server client secret"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server client secret"
+          }
+        }
+      }
+    },
+    "ONBOARDING_KEYCLOAK_MANUAL_CONFIGURATION_TITLE_URL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity provider server"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity provider server"
+          }
+        }
+      }
+    },
+    "ONBOARDING_MANAGED_IDENTITY_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The informations below were retrieved from the identity provider of your company."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les informations ci-dessous ont été récupérées depuis le fournisseur d’identités de votre société."
+          }
+        }
+      }
+    },
+    "ONBOARDING_NAME_CHOOSER_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer un profil"
+          }
+        }
+      }
+    },
+    "ONBOARDING_NAME_CHOOSER_MANAGED_PROFILE_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This way"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Par ici"
+          }
+        }
+      }
+    },
+    "ONBOARDING_NAME_CHOOSER_MANAGED_PROFILE_LABEL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile managed by your organisation?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profil fourni par votre organisation ?"
+          }
+        }
+      }
+    },
+    "ONBOARDING_NAME_CHOOSER_TEXTFIELD_COMPANY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Organisation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Organisation"
+          }
+        }
+      }
+    },
+    "ONBOARDING_NAME_CHOOSER_TEXTFIELD_FIRSTNAME" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First name"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prénom"
+          }
+        }
+      }
+    },
+    "ONBOARDING_NAME_CHOOSER_TEXTFIELD_LASTNAME" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last name"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom"
+          }
+        }
+      }
+    },
+    "ONBOARDING_NAME_CHOOSER_TEXTFIELD_POSITION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Job title"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poste"
+          }
+        }
+      }
+    },
+    "ONBOARDING_NAME_CHOOSER_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome to Olvid"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bienvenue parmi nous"
+          }
+        }
+      }
+    },
+    "ONBOARDING_WHICH_BACKUP_DO_YOU_WANT_TO_RESTORE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which backup do you want to restore?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quelle sauvegarde voulez-vous restaurer ?"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_GENERATED_EXPLANATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You just finished Olvid's configuration!\n\nNo data (first name, last name,...) was ever transmitted to our servers. Everything stays on your device.\n\nDid you notice that we did not ask for your phone number nor your email address?\n\nAnd unlike your previous messenger, Olvid will never request access to your address book."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous venez de terminer la configuration d'Olvid !\n\nAucune donnée (nom, prénom, etc.) n'a été transmise à nos serveurs. Tout reste sur votre appareil.\n\nAvez-vous remarqué que nous ne vous avons pas demandé votre numéro de téléphone ni votre adresse email ?\n\nEt contrairement à votre messagerie précédente, Olvid ne demandera jamais l’accès à votre carnet d’adresses."
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_SUMMARY_VIEW_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let's make sure everything's right"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assurons-nous que tout est correct"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_SUMMARY_VIEW_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready to add your profile on a new device?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre profil est prêt à être ajouté à votre nouvel appareil"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_CONTACTING_SERVER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please wait..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez patienter..."
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_NEW_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter the code displayed on your new device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapez ici le code affiché votre nouvel appareil"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_OTHER_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter the code displayed on your other device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapez ici le code affiché sur l'autre appareil"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_OTHER_DEVICE_BODY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**1.** Start Olvid on your other device.\n\n**2.** Tap your profile picture at the top left.\n\n**3.** Select the profile you wish to import and tap the \"manage\" button.\n\n**4.** Tap \"Add a device\" to display the code."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**1.** Démarrez Olvid sur l'autre appareil.\n\n**2.** Touchez votre photo de profil en haut à gauche.\n\n**3.** Sélectionnez le profil que vous souhaitez importer et touchez le bouton « Gérer ».\n\n**4.** Touchez « Ajouter un appareil » pour afficher le code."
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_OTHER_DEVICE_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valider"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ENTER_CODE_ON_NEW_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter this code on your new device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapez ce code sur votre nouvel appareil"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ENTER_CODE_ON_OTHER_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter this code on your other device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tapez ce code sur l'autre appareil"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ENTER_CODE_ON_OTHER_DEVICE_BODY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**1.** Start Olvid on your new device.\n\n**2.** If this device has no profile yet, follow the instructions to import a profile.\n\n**3.** Otherwise, tap your profile picture at the top left and select \"Add a profile\"."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**1.** Démarrez Olvid sur votre nouvel appareil.\n\n**2.** Si vous n'avez pas de profil sur cet appareil, suivez les instructions pour importer un profil.\n\n**3.** Sinon, touchez votre photo de profil en haut à gauche et choisissez « Ajouter un profil »."
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ERROR_SERVER_REQUEST_FAILED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We were unable to transfer your profile due to a network error. Please ensure that both of your devices are connected to the internet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous n'avons pas pu transférer votre profil en raison d'une erreur réseau. Veuillez vérifier que vos deux appareils sont connectés à Internet."
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_ERROR_TRYING_TO_TRANSFER_IDENTITY_THAT_ALREADY_EXISTS_ON_TARGET" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The profile you are attempting to transfer already exists on this device and cannot be transferred again. After closing this screen, click on your profile picture to view the list of profiles available on this device."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The profile you are attempting to transfer already exists on this device and cannot be transferred again. After closing this screen, tap on your profile picture to view the list of profiles available on this device."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "device" : {
+              "mac" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Le profil que vous tentez de transférer existe déjà sur cet appareil et ne peut pas être transféré une seconde fois. Après avoir fermé cette fenêtre, cliquez sur votre photo de profil pour afficher la liste des profils disponibles sur cet appareil."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Le profil que vous tentez de transférer existe déjà sur cet appareil et ne peut pas être transféré une seconde fois. Après avoir fermé cette fenêtre, appuyez sur votre photo de profil pour afficher la liste des profils disponibles sur cet appareil."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_FAILED_BODY_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please try again. If the problem persists, please send the following error to [%@](mailto:%@). We will do our best to help you out!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez essayer à nouveau. Si le problème persiste, n'hésitez pas à envoyer l'erreur ci-dessous à [%@](mailto:%@). Nous ferons tout notre possible pour vous aider !"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_FAILED_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "But please try again"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mais n'hésitez pas à essayer à nouveau"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_FAILED_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We could not transfer your profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il n'a pas été possible de transférer votre profil"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_INCORRECT_SERIOUS_ERROR" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong 😳. Please try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quelque chose s'est mal passé 😳. Veuillez réessayer."
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_INCORRECT_TRANSFER_SESSION_NUMBER" : {
+      "comment" : "This string is used twice (on the source and on the target device)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code seems to be incorrect 🥲. Please double-check it and try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le code semble être incorrect 🥲. Veuillez le vérifier avant d'essayer à nouveau."
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_KINDA_FAILED_BODY_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please send the following error to [%@](mailto:%@). We will do our best to help you out!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "N'hésitez pas à envoyer l'erreur ci-dessous à [%@](mailto:%@). Nous ferons tout notre possible pour vous aider !"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_KINDA_FAILED_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your profile's preferences could not be fully restored on this device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les préférences de votre profil n'ont pas pu être restaurées complètement"
+          }
+        }
+      }
+    },
+    "OWNED_IDENTITY_TRANSFER_TARGET_LAST_STEP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Almost there! The remaining steps are perfomed on your second device."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous y sommes presque ! Les dernières étapes se passent sur votre deuxième appareil."
+          }
+        }
+      }
+    },
+    "PASTE_CONFIGURATION_LINK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste a configuration from the clipboard"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coller une configuration depuis le presse-papiers"
+          }
+        }
+      }
+    },
+    "Please sign in to your iCloud account. On the Home screen, launch Settings, tap iCloud, and enter your Apple ID. Turn iCloud Drive on." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please sign in to your iCloud account. On the Home screen, launch Settings, tap iCloud, and enter your Apple ID. Turn iCloud Drive on."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez-vous à iCloud. Sur l'écran d'accueil, démarrez l'App Réglages, touchez iCloud et entrez votre Apple ID. Activez iCloud Drive."
+          }
+        }
+      }
+    },
+    "PLEASE_NOTE_THIS_CODE_WORKS_ONLY_ONCE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please note that this code will work only once."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce code n'est utilisable qu'une seule fois."
+          }
+        }
+      }
+    },
+    "PLEASE_TRY_AGAIN_LATER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please try again later"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez essayer à nouveau plus tard"
+          }
+        }
+      }
+    },
+    "PROFILE_ADDED_SUCCESSFULLY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your profile was added on this device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre profil a été ajouté sur cet appareil"
+          }
+        }
+      }
+    },
+    "PROFILE_YOU_ARE_ABOUT_TO_ADD_TO_NEW_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This profile:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce profil:"
+          }
+        }
+      }
+    },
+    "Restore failed 🥺" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore failed 🥺"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La restauration a échoué 🥺"
+          }
+        }
+      }
+    },
+    "Restore this backup" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore this backup"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer la sauvegarde"
+          }
+        }
+      }
+    },
+    "RESTORE_BACKUP_FAILED_EXPLANATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup could not be restored. If you can, we recommend you try to restore another backup."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sauvegarde n'a malheureusement pas pu être restaurée. Si vous le pouvez, nous vous recommandons d'essayer de restaurer une autre sauvegarde."
+          }
+        }
+      }
+    },
+    "RESTORING_BACKUP_PLEASE_WAIT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring backup. Please Wait."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restauration en cours..."
+          }
+        }
+      }
+    },
+    "SEND_ERROR_BY_EMAIL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send error by email"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer l'erreur par mail"
+          }
+        }
+      }
+    },
+    "SERVER_URL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server URL"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL du serveur"
+          }
+        }
+      }
+    },
+    "Sign in to iCloud" : {
+      "comment" : "Alert title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to iCloud"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez-vous à iCloud"
+          }
+        }
+      }
+    },
+    "START_USING_OLVID" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome to Olvid 😇"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bienvenue sur Olvid 😇"
+          }
+        }
+      }
+    },
+    "SUBSCRIBING_TO_USER_NOTIFICATIONS_EXPLANATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid works best when you get notified about new messages & invitations! We suggest signing up for user notifications.\n\nAnd don't worry, you can always change your mind later! 😇"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid est plus agréable à utiliser lorsque vous êtes notifié des nouveaux messages et invitations ! Nous vous recommandons de vous abonner aux notifications utilisateur.\n\nEt ne vous inquiétez pas, vous pouvez toujours changer d'avis plus tard ! 😇"
+          }
+        }
+      }
+    },
+    "TEXT_EXPLANATION_WARNING_IDENTITY_CREATION_KEYCLOAK_REVOCATION_IMPOSSIBLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your identity provider indicates that an Olvid ID is already associated to the user you signed in as. You cannot proceed with the creation of your identity.\n\nPlease contact your administrator for more details."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre serveur d'identités indique qu'un ID Olvid est déjà associé avec votre compte utilisateur. Vous ne pouvez pas procéder à la création de votre identité Olvid.\nVeuillez contacter votre administrateur pour plus d'informations."
+          }
+        }
+      }
+    },
+    "TEXT_EXPLANATION_WARNING_IDENTITY_CREATION_KEYCLOAK_REVOCATION_NEEDED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your identity provider indicates that an Olvid ID is already associated to the user you signed in as. If you proceed, this Olvid ID will be revoked and your new one will be associated to this user.\n\nPlease contact your administrator for more details."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre serveur d'identités indique qu'un ID Olvid est déjà associé avec votre compte utilisateur. Si vous continuez, cet ID Olvid sera révoqué et remplacé par votre nouvel ID.\nVeuillez contacter votre administrateur si vous désirez plus d'informations."
+          }
+        }
+      }
+    },
+    "The backup key is correct" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup key is correct"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La clé de sauvegarde est correcte"
+          }
+        }
+      }
+    },
+    "The backup key is incorrect" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The backup key is incorrect"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La clé de sauvegarde est incorrecte"
+          }
+        }
+      }
+    },
+    "THE_FOLLOWING_DEVICE_WILL_REMAIN_ACTIVE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device will remain active:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil restera actif:"
+          }
+        }
+      }
+    },
+    "TITLE_BACKUP_RESTORED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup restored 🤩"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauvegarde restaurée 🤩"
+          }
+        }
+      }
+    },
+    "TITLE_NEVER_MISS_A_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never miss a message"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne ratez aucun message"
+          }
+        }
+      }
+    },
+    "TITLE_NEVER_MISS_A_SECURE_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never miss a call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne ratez aucun appel"
+          }
+        }
+      }
+    },
+    "TRANSFER_RESTRICTED_REMINDER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your company requires additional authentication on your new device to access your profile. You'll need to authenticate with their directory directly on this new device. This ensures that only authorized devices can access your profile.\n\n**If your new device does not prompt you to authenticate, please make sure it is running the latest version of Olvid**."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre entreprise nécessite une authentification supplémentaire sur votre nouvel appareil pour accéder à votre profil. Vous devrez vous authentifier avec leur répertoire directement sur ce nouvel appareil. Cela garantit que seuls les appareils autorisés peuvent accéder à votre profil.\n\n**Si votre nouvel appareil ne vous demande pas de vous authentifier, veuillez vérifier qu’il a bien la dernière version d’Olvid.**"
+          }
+        }
+      }
+    },
+    "USE_CUSTOM_API_KEY_AND_SERVER_ALERT_BODY_%@_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do you wish to create a profile configured to use the server %@ and the API Key %@?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voulez-vous que le nouveau profil soit configuré avec le serveur %@ et la clé d'API %@ ?"
+          }
+        }
+      }
+    },
+    "USE_CUSTOM_API_KEY_AND_SERVER_ALERT_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use a custom API key and Server?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser une clé d'API et un serveur personnalisés ?"
+          }
+        }
+      }
+    },
+    "VALIDATE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proceed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valider"
+          }
+        }
+      }
+    },
+    "VALIDATE_SERVER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validate server"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valider le serveur"
+          }
+        }
+      }
+    },
+    "VALIDATING_ENTERPRISE_CONFIGURATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Performing an automatic configuration..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuration automatique en cours..."
+          }
+        }
+      }
+    },
+    "WELCOME_ONBOARDING_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Have we met before?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Est-ce qu'on se connaît ?"
+          }
+        }
+      }
+    },
+    "WELCOME_ONBOARDING_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bien le bonjour !"
+          }
+        }
+      }
+    },
+    "WHAT_DO_YOU_WANT_TO_DO_ONBOARDING_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What do you want to do?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Que souhaitez-vous faire ?"
+          }
+        }
+      }
+    },
+    "WILL_BE_ADDED_TO_THIS_DEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Will be added to this device:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Va être ajouté à cet appareil :"
+          }
+        }
+      }
+    },
+    "X" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "X"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "X"
+          }
+        }
+      }
+    },
+    "XXXX" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "XXXX"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "XXXX"
+          }
+        }
+      }
+    },
+    "YOUR_OTHER_DEVICES_WILL_BE_DEACTIVATED_EXPLANATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your other devices will be deactivated within 30 days."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les autres appareils seront désactivés dans les 30 jours."
+          }
+        }
+      }
+    },
+    "YOUR_PROFILE_IS_TRANSFER_RESTRICTED_BODY1" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your company requires additional authentication on your new device to access your profile."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre entreprise nécessite une authentification supplémentaire sur votre nouvel appareil pour accéder à votre profil."
+          }
+        }
+      }
+    },
+    "YOUR_PROFILE_IS_TRANSFER_RESTRICTED_BODY2" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You'll need to authenticate with their directory directly on this new device."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous devrez vous authentifier directement sur le nouvel appareil."
+          }
+        }
+      }
+    },
+    "YOUR_PROFILE_IS_TRANSFER_RESTRICTED_BODY3" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This ensures that only authorized devices can access your profile."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cela garantit que seuls les appareils autorisés peuvent accéder à votre profil."
+          }
+        }
+      }
+    },
+    "YOUR_PROFILE_IS_TRANSFER_RESTRICTED_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticating with your Company Directory"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentification auprès de l’annuaire de votre entreprise"
+          }
+        }
+      }
+    },
+    "YOUR_PROFILE_IS_TRANSFER_RESTRICTED_TITLE1" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Important"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Important"
+          }
+        }
+      }
+    },
+    "YOUR_PROFILE_IS_TRANSFER_RESTRICTED_TITLE2" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What will you need to do?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Que devrez vous faire ?"
+          }
+        }
+      }
+    },
+    "YOUR_PROFILE_IS_TRANSFER_RESTRICTED_TITLE3" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Why?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pourquoi ?"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

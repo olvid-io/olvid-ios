@@ -1,0 +1,514 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23231" systemVersion="24A348" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="ObvMessengerModel-v73">
+    <entity name="DisplayedContactGroup" representedClassName="DisplayedContactGroup" syncable="YES">
+        <attribute name="normalizedSearchKey" attributeType="String"/>
+        <attribute name="normalizedSortKey" attributeType="String"/>
+        <attribute name="ownPermissionAdmin" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="permanentUUID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="photoURL" optional="YES" attributeType="URI"/>
+        <attribute name="rawPublishedDetailsStatus" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="sectionName" optional="YES" attributeType="String"/>
+        <attribute name="subtitle" optional="YES" attributeType="String"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="updateInProgress" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="groupV1" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedContactGroup" inverseName="displayedContactGroup" inverseEntity="PersistedContactGroup"/>
+        <relationship name="groupV2" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedGroupV2" inverseName="displayedContactGroup" inverseEntity="PersistedGroupV2"/>
+    </entity>
+    <entity name="Fyle" representedClassName="Fyle" syncable="YES">
+        <attribute name="intrinsicFilename" optional="YES" attributeType="String"/>
+        <attribute name="sha256" attributeType="Binary"/>
+        <relationship name="allDraftFyleJoins" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedDraftFyleJoin" inverseName="fyle" inverseEntity="PersistedDraftFyleJoin"/>
+        <relationship name="allFyleMessageJoinWithStatus" toMany="YES" deletionRule="Cascade" destinationEntity="FyleMessageJoinWithStatus" inverseName="fyle" inverseEntity="FyleMessageJoinWithStatus"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="sha256"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="FyleMessageJoinWithStatus" representedClassName="FyleMessageJoinWithStatus" isAbstract="YES" syncable="YES">
+        <attribute name="downsizedThumbnail" optional="YES" attributeType="Binary"/>
+        <attribute name="estimatedTimeRemaining" transient="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="fileName" attributeType="String"/>
+        <attribute name="fractionCompleted" transient="YES" attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="index" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="isWiped" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="messageSortIndex" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="permanentUUID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="rawStatus" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="throughput" transient="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="totalByteCount" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES" elementID="totalUnitCount"/>
+        <attribute name="uti" attributeType="String"/>
+        <relationship name="fyle" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Fyle" inverseName="allFyleMessageJoinWithStatus" inverseEntity="Fyle"/>
+    </entity>
+    <entity name="PendingRepliedTo" representedClassName="PendingRepliedTo" syncable="YES">
+        <attribute name="creationDate" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="senderIdentifier" attributeType="Binary"/>
+        <attribute name="senderSequenceNumber" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="senderThreadIdentifier" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="message" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessage" inverseName="messageRepliedToIdentifier" inverseEntity="PersistedMessage"/>
+    </entity>
+    <entity name="PersistedAttachmentSentRecipientInfos" representedClassName="PersistedAttachmentSentRecipientInfos" syncable="YES">
+        <attribute name="index" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawStatus" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="messageInfo" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessageSentRecipientInfos" inverseName="attachmentInfos" inverseEntity="PersistedMessageSentRecipientInfos"/>
+    </entity>
+    <entity name="PersistedCallLogContact" representedClassName="PersistedCallLogContact" syncable="YES">
+        <attribute name="isCaller" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="rawReportKind" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="callLogItem" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedCallLogItem" inverseName="logContacts" inverseEntity="PersistedCallLogItem"/>
+        <relationship name="contactIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="callLogContact" inverseEntity="PersistedObvContactIdentity"/>
+    </entity>
+    <entity name="PersistedCallLogItem" representedClassName="PersistedCallLogItem" syncable="YES">
+        <attribute name="callUUID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="endDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="groupOwnerIdentity" optional="YES" attributeType="Binary"/>
+        <attribute name="groupUidRaw" optional="YES" attributeType="Binary"/>
+        <attribute name="groupV2Identifier" optional="YES" attributeType="Binary"/>
+        <attribute name="isIncoming" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="rawInitialParticipantCount" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawOwnedCryptoId" attributeType="Binary"/>
+        <attribute name="rawReportKind" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="startDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="unknownContactsCount" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="logContacts" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedCallLogContact" inverseName="callLogItem" inverseEntity="PersistedCallLogContact"/>
+        <relationship name="messageSystem" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedMessageSystem" inverseName="optionalCallLogItem" inverseEntity="PersistedMessageSystem"/>
+    </entity>
+    <entity name="PersistedContactGroup" representedClassName="PersistedContactGroup" isAbstract="YES" syncable="YES">
+        <attribute name="groupName" attributeType="String"/>
+        <attribute name="groupUidRaw" attributeType="Binary"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="ownerIdentity" attributeType="Binary"/>
+        <attribute name="photoURL" optional="YES" attributeType="URI"/>
+        <attribute name="rawCategory" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="rawOwnedIdentityIdentity" attributeType="Binary"/>
+        <attribute name="rawStatus" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES"/>
+        <relationship name="contactIdentities" toMany="YES" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="contactGroups" inverseEntity="PersistedObvContactIdentity"/>
+        <relationship name="discussion" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedGroupDiscussion" inverseName="rawContactGroup" inverseEntity="PersistedGroupDiscussion"/>
+        <relationship name="displayedContactGroup" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="DisplayedContactGroup" inverseName="groupV1" inverseEntity="DisplayedContactGroup"/>
+        <relationship name="pendingMembers" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedPendingGroupMember" inverseName="rawContactGroup" inverseEntity="PersistedPendingGroupMember"/>
+        <relationship name="rawOwnedIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvOwnedIdentity" inverseName="contactGroups" inverseEntity="PersistedObvOwnedIdentity"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawOwnedIdentityIdentity"/>
+                <constraint value="ownerIdentity"/>
+                <constraint value="groupUidRaw"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PersistedContactGroupJoined" representedClassName="PersistedContactGroupJoined" parentEntity="PersistedContactGroup" syncable="YES">
+        <attribute name="customPhotoFilename" optional="YES" attributeType="String"/>
+        <attribute name="groupNameCustom" optional="YES" attributeType="String"/>
+        <relationship name="owner" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="ownedContactGroups" inverseEntity="PersistedObvContactIdentity"/>
+    </entity>
+    <entity name="PersistedContactGroupOwned" representedClassName="PersistedContactGroupOwned" parentEntity="PersistedContactGroup" syncable="YES">
+        <relationship name="owner" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvOwnedIdentity" inverseName="ownedContactGroups" inverseEntity="PersistedObvOwnedIdentity"/>
+    </entity>
+    <entity name="PersistedDiscussion" representedClassName="PersistedDiscussion" isAbstract="YES" syncable="YES">
+        <attribute name="aNewReceivedMessageDoesMentionOwnedIdentity" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="isArchived" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="lastOutboundMessageSequenceNumber" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="lastSystemMessageSequenceNumber" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="normalizedSearchKey" optional="YES" attributeType="String"/>
+        <attribute name="numberOfNewMessages" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="onChangeFlag" transient="YES" attributeType="Integer 64" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="permanentUUID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="pinnedSectionKeyPath" attributeType="String" defaultValueString="0"/>
+        <attribute name="rawLocalDateWhenDiscussionRead" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="rawPinnedIndex" optional="YES" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="rawServerTimestampWhenDiscussionReadOnAnotherOwnedDevice" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="rawStatus" attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="senderThreadIdentifier" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="serverTimestampOfLastRemoteDeletion" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="timestampOfLastMessage" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="title" attributeType="String"/>
+        <relationship name="draft" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedDraft" inverseName="discussion" inverseEntity="PersistedDraft"/>
+        <relationship name="illustrativeMessage" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedMessage" inverseName="illustrativeMessageForDiscussion" inverseEntity="PersistedMessage"/>
+        <relationship name="latestSenderSequenceNumbers" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedLatestDiscussionSenderSequenceNumber" inverseName="discussion" inverseEntity="PersistedLatestDiscussionSenderSequenceNumber"/>
+        <relationship name="localConfiguration" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedDiscussionLocalConfiguration" inverseName="discussion" inverseEntity="PersistedDiscussionLocalConfiguration"/>
+        <relationship name="messages" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedMessage" inverseName="discussion" inverseEntity="PersistedMessage"/>
+        <relationship name="ownedIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvOwnedIdentity" inverseName="discussions" inverseEntity="PersistedObvOwnedIdentity"/>
+        <relationship name="remoteRequestsSavedForLater" toMany="YES" deletionRule="Cascade" destinationEntity="RemoteRequestSavedForLater" inverseName="discussion" inverseEntity="RemoteRequestSavedForLater"/>
+        <relationship name="sharedConfiguration" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedDiscussionSharedConfiguration" inverseName="discussion" inverseEntity="PersistedDiscussionSharedConfiguration"/>
+    </entity>
+    <entity name="PersistedDiscussionLocalConfiguration" representedClassName="PersistedDiscussionLocalConfiguration" syncable="YES">
+        <attribute name="defaultEmoji" optional="YES" attributeType="String"/>
+        <attribute name="muteNotificationsEndDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="rawAutoRead" optional="YES" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="rawCountBasedRetention" optional="YES" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="rawCountBasedRetentionIsActive" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="rawDoNotifyWhenMentionnedInMutedDiscussion" optional="YES" attributeType="Boolean" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawDoSendReadReceipt" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="rawNotificationSound" optional="YES" attributeType="String"/>
+        <attribute name="rawPerformInteractionDonation" optional="YES" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="rawRetainWipedOutboundMessages" optional="YES" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="rawTimeBasedRetention" optional="YES" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <relationship name="discussion" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDiscussion" inverseName="localConfiguration" inverseEntity="PersistedDiscussion"/>
+    </entity>
+    <entity name="PersistedDiscussionSharedConfiguration" representedClassName="PersistedDiscussionSharedConfiguration" syncable="YES">
+        <attribute name="rawExistenceDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="rawVisibilityDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="readOnce" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="version" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="discussion" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDiscussion" inverseName="sharedConfiguration" inverseEntity="PersistedDiscussion"/>
+    </entity>
+    <entity name="PersistedDraft" representedClassName="PersistedDraft" syncable="YES">
+        <attribute name="body" optional="YES" attributeType="String"/>
+        <attribute name="permanentUUID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="rawExistenceDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="rawVisibilityDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="readOnce" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="sendRequested" attributeType="Boolean" usesScalarValueType="YES"/>
+        <relationship name="discussion" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDiscussion" inverseName="draft" inverseEntity="PersistedDiscussion"/>
+        <relationship name="mentions" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedUserMentionInDraft" inverseName="draft" inverseEntity="PersistedUserMentionInDraft"/>
+        <relationship name="replyTo" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessage" inverseName="draft" inverseEntity="PersistedMessage"/>
+        <relationship name="unsortedDraftFyleJoins" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedDraftFyleJoin" inverseName="draft" inverseEntity="PersistedDraftFyleJoin"/>
+    </entity>
+    <entity name="PersistedDraftFyleJoin" representedClassName="PersistedDraftFyleJoin" syncable="YES">
+        <attribute name="fileName" attributeType="String"/>
+        <attribute name="index" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES"/>
+        <attribute name="permanentUUID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="uti" attributeType="String"/>
+        <relationship name="draft" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDraft" inverseName="unsortedDraftFyleJoins" inverseEntity="PersistedDraft"/>
+        <relationship name="fyle" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Fyle" inverseName="allDraftFyleJoins" inverseEntity="Fyle"/>
+    </entity>
+    <entity name="PersistedExpirationForReceivedMessageWithLimitedExistence" representedClassName="PersistedExpirationForReceivedMessageWithLimitedExistence" parentEntity="PersistedMessageExpiration" syncable="YES">
+        <relationship name="messageReceivedWithLimitedExistence" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessageReceived" inverseName="expirationForReceivedLimitedExistence" inverseEntity="PersistedMessageReceived"/>
+    </entity>
+    <entity name="PersistedExpirationForReceivedMessageWithLimitedVisibility" representedClassName="PersistedExpirationForReceivedMessageWithLimitedVisibility" parentEntity="PersistedMessageExpiration" syncable="YES">
+        <relationship name="messageReceivedWithLimitedVisibility" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessageReceived" inverseName="expirationForReceivedLimitedVisibility" inverseEntity="PersistedMessageReceived"/>
+    </entity>
+    <entity name="PersistedExpirationForSentMessageWithLimitedExistence" representedClassName="PersistedExpirationForSentMessageWithLimitedExistence" parentEntity="PersistedMessageExpiration" syncable="YES">
+        <relationship name="messageSentWithLimitedExistence" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessageSent" inverseName="expirationForSentLimitedExistence" inverseEntity="PersistedMessageSent"/>
+    </entity>
+    <entity name="PersistedExpirationForSentMessageWithLimitedVisibility" representedClassName="PersistedExpirationForSentMessageWithLimitedVisibility" parentEntity="PersistedMessageExpiration" syncable="YES">
+        <attribute name="retainWipedMessageSent" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="messageSentWithLimitedVisibility" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessageSent" inverseName="expirationForSentLimitedVisibility" inverseEntity="PersistedMessageSent"/>
+    </entity>
+    <entity name="PersistedGroupDiscussion" representedClassName="PersistedGroupDiscussion" parentEntity="PersistedDiscussion" syncable="YES">
+        <attribute name="rawGroupUID" optional="YES" attributeType="Binary"/>
+        <attribute name="rawOwnerIdentityIdentity" optional="YES" attributeType="Binary"/>
+        <relationship name="rawContactGroup" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedContactGroup" inverseName="discussion" inverseEntity="PersistedContactGroup"/>
+    </entity>
+    <entity name="PersistedGroupV2" representedClassName="PersistedGroupV2" syncable="YES">
+        <attribute name="customName" optional="YES" attributeType="String"/>
+        <attribute name="customPhotoFilename" optional="YES" attributeType="String"/>
+        <attribute name="groupIdentifier" attributeType="Binary"/>
+        <attribute name="keycloakManaged" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="namesOfOtherMembers" optional="YES" attributeType="String"/>
+        <attribute name="ownPermissionAdmin" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="ownPermissionChangeSettings" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="ownPermissionEditOrRemoteDeleteOwnMessages" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="ownPermissionRemoteDeleteAnything" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="ownPermissionSendMessage" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="personalNote" optional="YES" attributeType="String"/>
+        <attribute name="rawOwnedIdentityIdentity" attributeType="Binary"/>
+        <attribute name="rawPublishedDetailsStatus" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="serializedGroupType" optional="YES" attributeType="Binary"/>
+        <attribute name="updateInProgress" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="detailsPublished" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedGroupV2Details" inverseName="asPublishedDetailsOfGroup" inverseEntity="PersistedGroupV2Details"/>
+        <relationship name="detailsTrusted" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedGroupV2Details" inverseName="asTrustedDetailsOfGroup" inverseEntity="PersistedGroupV2Details"/>
+        <relationship name="displayedContactGroup" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="DisplayedContactGroup" inverseName="groupV2" inverseEntity="DisplayedContactGroup"/>
+        <relationship name="rawDiscussion" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedGroupV2Discussion" inverseName="rawGroupV2" inverseEntity="PersistedGroupV2Discussion"/>
+        <relationship name="rawOtherMembers" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedGroupV2Member" inverseName="rawGroup" inverseEntity="PersistedGroupV2Member"/>
+        <relationship name="rawOwnedIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvOwnedIdentity" inverseName="contactGroupsV2" inverseEntity="PersistedObvOwnedIdentity"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawOwnedIdentityIdentity"/>
+                <constraint value="groupIdentifier"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PersistedGroupV2Details" representedClassName="PersistedGroupV2Details" syncable="YES">
+        <attribute name="groupDescription" optional="YES" attributeType="String"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="photoURLFromEngine" optional="YES" attributeType="URI"/>
+        <relationship name="asPublishedDetailsOfGroup" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedGroupV2" inverseName="detailsPublished" inverseEntity="PersistedGroupV2"/>
+        <relationship name="asTrustedDetailsOfGroup" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedGroupV2" inverseName="detailsTrusted" inverseEntity="PersistedGroupV2"/>
+    </entity>
+    <entity name="PersistedGroupV2Discussion" representedClassName="PersistedGroupV2Discussion" parentEntity="PersistedDiscussion" syncable="YES">
+        <attribute name="groupIdentifier" attributeType="Binary"/>
+        <attribute name="rawOwnedIdentityIdentity" attributeType="Binary"/>
+        <relationship name="rawGroupV2" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedGroupV2" inverseName="rawDiscussion" inverseEntity="PersistedGroupV2"/>
+    </entity>
+    <entity name="PersistedGroupV2Member" representedClassName="PersistedGroupV2Member" syncable="YES">
+        <attribute name="company" optional="YES" attributeType="String"/>
+        <attribute name="firstName" optional="YES" attributeType="String"/>
+        <attribute name="groupIdentifier" attributeType="Binary"/>
+        <attribute name="identity" attributeType="Binary"/>
+        <attribute name="isPending" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="lastName" optional="YES" attributeType="String"/>
+        <attribute name="normalizedSearchKey" attributeType="String" defaultValueString="&quot;&quot;"/>
+        <attribute name="normalizedSortKey" attributeType="String"/>
+        <attribute name="permissionAdmin" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="permissionChangeSettings" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="permissionEditOrRemoteDeleteOwnMessages" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="permissionRemoteDeleteAnything" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="permissionSendMessage" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="position" optional="YES" attributeType="String"/>
+        <attribute name="rawOwnedIdentityIdentity" attributeType="Binary"/>
+        <relationship name="rawContact" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="asGroupV2Member" inverseEntity="PersistedObvContactIdentity"/>
+        <relationship name="rawGroup" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedGroupV2" inverseName="rawOtherMembers" inverseEntity="PersistedGroupV2"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawOwnedIdentityIdentity"/>
+                <constraint value="groupIdentifier"/>
+                <constraint value="identity"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PersistedInvitation" representedClassName="PersistedInvitation" syncable="YES">
+        <attribute name="actionRequired" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="encodedObvDialog" attributeType="Binary"/>
+        <attribute name="rawStatus" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="uuid" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="ownedIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvOwnedIdentity" inverseName="invitations" inverseEntity="PersistedObvOwnedIdentity"/>
+    </entity>
+    <entity name="PersistedInvitationOneToOneInvitationSent" representedClassName="PersistedInvitationOneToOneInvitationSent" parentEntity="PersistedInvitation" syncable="YES">
+        <attribute name="rawContactIdentity" attributeType="Binary"/>
+    </entity>
+    <entity name="PersistedLatestDiscussionSenderSequenceNumber" representedClassName="PersistedLatestDiscussionSenderSequenceNumber" syncable="YES">
+        <attribute name="latestSequenceNumber" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="senderThreadIdentifier" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="contactIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="latestSenderSequenceNumbers" inverseEntity="PersistedObvContactIdentity"/>
+        <relationship name="discussion" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDiscussion" inverseName="latestSenderSequenceNumbers" inverseEntity="PersistedDiscussion"/>
+    </entity>
+    <entity name="PersistedMessage" representedClassName="PersistedMessage" isAbstract="YES" syncable="YES">
+        <attribute name="body" optional="YES" attributeType="String"/>
+        <attribute name="doesMentionOwnedIdentity" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="forwarded" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="isReplyToAnotherMessage" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="onChangeFlag" transient="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="permanentUUID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="rawStatus" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawVisibilityDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="readOnce" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="sectionIdentifier" attributeType="String"/>
+        <attribute name="senderSequenceNumber" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="sortIndex" attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="timestamp" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="discussion" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDiscussion" inverseName="messages" inverseEntity="PersistedDiscussion"/>
+        <relationship name="draft" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDraft" inverseName="replyTo" inverseEntity="PersistedDraft"/>
+        <relationship name="illustrativeMessageForDiscussion" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDiscussion" inverseName="illustrativeMessage" inverseEntity="PersistedDiscussion"/>
+        <relationship name="mentions" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedUserMentionInMessage" inverseName="message" inverseEntity="PersistedUserMentionInMessage"/>
+        <relationship name="messageRepliedToIdentifier" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PendingRepliedTo" inverseName="message" inverseEntity="PendingRepliedTo"/>
+        <relationship name="persistedMetadata" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedMessageTimestampedMetadata" inverseName="message" inverseEntity="PersistedMessageTimestampedMetadata"/>
+        <relationship name="rawMessageRepliedTo" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessage" inverseName="replies" inverseEntity="PersistedMessage"/>
+        <relationship name="rawReactions" optional="YES" toMany="YES" deletionRule="Cascade" ordered="YES" destinationEntity="PersistedMessageReaction" inverseName="message" inverseEntity="PersistedMessageReaction"/>
+        <relationship name="replies" toMany="YES" deletionRule="Nullify" destinationEntity="PersistedMessage" inverseName="rawMessageRepliedTo" inverseEntity="PersistedMessage"/>
+    </entity>
+    <entity name="PersistedMessageExpiration" representedClassName="PersistedMessageExpiration" isAbstract="YES" syncable="YES">
+        <attribute name="creationTimestamp" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="expirationDate" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+    <entity name="PersistedMessageReaction" representedClassName="PersistedMessageReaction" isAbstract="YES" syncable="YES">
+        <attribute name="rawEmoji" optional="YES" attributeType="String"/>
+        <attribute name="timestamp" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="message" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessage" inverseName="rawReactions" inverseEntity="PersistedMessage"/>
+    </entity>
+    <entity name="PersistedMessageReactionReceived" representedClassName="PersistedMessageReactionReceived" parentEntity="PersistedMessageReaction" syncable="YES">
+        <relationship name="contact" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="reactions" inverseEntity="PersistedObvContactIdentity"/>
+    </entity>
+    <entity name="PersistedMessageReactionSent" representedClassName="PersistedMessageReactionSent" parentEntity="PersistedMessageReaction" syncable="YES"/>
+    <entity name="PersistedMessageReceived" representedClassName="PersistedMessageReceived" parentEntity="PersistedMessage" syncable="YES">
+        <attribute name="messageIdentifierFromEngine" attributeType="Binary"/>
+        <attribute name="missedMessageCount" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawObvMessageSource" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="senderIdentifier" attributeType="Binary"/>
+        <attribute name="senderThreadIdentifier" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="serializedReturnReceipt" optional="YES" attributeType="Binary"/>
+        <relationship name="contactIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="messages" inverseEntity="PersistedObvContactIdentity"/>
+        <relationship name="expirationForReceivedLimitedExistence" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedExpirationForReceivedMessageWithLimitedExistence" inverseName="messageReceivedWithLimitedExistence" inverseEntity="PersistedExpirationForReceivedMessageWithLimitedExistence"/>
+        <relationship name="expirationForReceivedLimitedVisibility" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedExpirationForReceivedMessageWithLimitedVisibility" inverseName="messageReceivedWithLimitedVisibility" inverseEntity="PersistedExpirationForReceivedMessageWithLimitedVisibility"/>
+        <relationship name="unsortedFyleMessageJoinWithStatus" toMany="YES" deletionRule="Cascade" destinationEntity="ReceivedFyleMessageJoinWithStatus" inverseName="receivedMessage" inverseEntity="ReceivedFyleMessageJoinWithStatus"/>
+    </entity>
+    <entity name="PersistedMessageSent" representedClassName="PersistedMessageSent" parentEntity="PersistedMessage" syncable="YES">
+        <attribute name="messageIdentifierFromEngine" optional="YES" attributeType="Binary"/>
+        <attribute name="rawExistenceDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="senderThreadIdentifier" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="expirationForSentLimitedExistence" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedExpirationForSentMessageWithLimitedExistence" inverseName="messageSentWithLimitedExistence" inverseEntity="PersistedExpirationForSentMessageWithLimitedExistence"/>
+        <relationship name="expirationForSentLimitedVisibility" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedExpirationForSentMessageWithLimitedVisibility" inverseName="messageSentWithLimitedVisibility" inverseEntity="PersistedExpirationForSentMessageWithLimitedVisibility"/>
+        <relationship name="unsortedFyleMessageJoinWithStatuses" toMany="YES" deletionRule="Cascade" destinationEntity="SentFyleMessageJoinWithStatus" inverseName="sentMessage" inverseEntity="SentFyleMessageJoinWithStatus"/>
+        <relationship name="unsortedRecipientsInfos" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedMessageSentRecipientInfos" inverseName="messageSent" inverseEntity="PersistedMessageSentRecipientInfos"/>
+    </entity>
+    <entity name="PersistedMessageSentRecipientInfos" representedClassName="PersistedMessageSentRecipientInfos" syncable="YES">
+        <attribute name="couldNotBeSentToServer" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="messageIdentifierFromEngine" optional="YES" attributeType="Binary"/>
+        <attribute name="recipientIdentity" attributeType="Binary"/>
+        <attribute name="returnReceiptKey" optional="YES" attributeType="Binary"/>
+        <attribute name="returnReceiptNonce" optional="YES" attributeType="Binary"/>
+        <attribute name="timestampAllAttachmentsSent" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="timestampDelivered" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="timestampMessageSent" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="timestampRead" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="attachmentInfos" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedAttachmentSentRecipientInfos" inverseName="messageInfo" inverseEntity="PersistedAttachmentSentRecipientInfos"/>
+        <relationship name="messageSent" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessageSent" inverseName="unsortedRecipientsInfos" inverseEntity="PersistedMessageSent"/>
+    </entity>
+    <entity name="PersistedMessageSystem" representedClassName="PersistedMessageSystem" parentEntity="PersistedMessage" syncable="YES">
+        <attribute name="associatedData" optional="YES" attributeType="Binary"/>
+        <attribute name="numberOfUnreadReceivedMessages" attributeType="Integer 64" minValueString="0" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="optionalOwnedIdentityIdentity" optional="YES" attributeType="Binary"/>
+        <attribute name="rawCategory" attributeType="Integer 64" usesScalarValueType="YES" versionHashModifier="v31"/>
+        <relationship name="optionalCallLogItem" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedCallLogItem" inverseName="messageSystem" inverseEntity="PersistedCallLogItem"/>
+        <relationship name="optionalContactIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="systemMessages" inverseEntity="PersistedObvContactIdentity"/>
+    </entity>
+    <entity name="PersistedMessageTimestampedMetadata" representedClassName="PersistedMessageTimestampedMetadata" syncable="YES">
+        <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="rawKind" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="remoteIdentity" optional="YES" attributeType="Binary"/>
+        <relationship name="message" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessage" inverseName="persistedMetadata" inverseEntity="PersistedMessage"/>
+    </entity>
+    <entity name="PersistedObvContactDevice" representedClassName="PersistedObvContactDevice" syncable="YES">
+        <attribute name="identifier" attributeType="Binary"/>
+        <attribute name="rawIdentityIdentity" attributeType="Binary"/>
+        <attribute name="rawOwnedIdentityIdentity" attributeType="Binary"/>
+        <attribute name="rawPreKeyAvailable" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="rawSecureChannelStatus" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="rawIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="devices" inverseEntity="PersistedObvContactIdentity"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawOwnedIdentityIdentity"/>
+                <constraint value="rawIdentityIdentity"/>
+                <constraint value="identifier"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PersistedObvContactIdentity" representedClassName="PersistedObvContactIdentity" syncable="YES">
+        <attribute name="atLeastOneDeviceAllowsThisContactToReceiveMessages" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="capabilityGroupsV2" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="capabilityOneToOneContacts" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="capabilityWebrtcContinuousICE" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="customDisplayName" optional="YES" attributeType="String"/>
+        <attribute name="customPhotoFilename" optional="YES" attributeType="String"/>
+        <attribute name="fullDisplayName" attributeType="String"/>
+        <attribute name="identity" attributeType="Binary" valueTransformerName="ObvCryptoIdentityTransformer" customClassName="ObvCryptoIdentity"/>
+        <attribute name="isActive" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="isCertifiedByOwnKeycloak" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="isOneToOne" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="permanentUUID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="photoURL" optional="YES" attributeType="URI"/>
+        <attribute name="rawOwnedIdentityIdentity" attributeType="Binary"/>
+        <attribute name="rawStatus" attributeType="Integer 64" minValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawWasRecentlyOnline" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="serializedIdentityCoreDetails" attributeType="Binary"/>
+        <attribute name="sortDisplayName" attributeType="String"/>
+        <relationship name="asGroupV2Member" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedGroupV2Member" inverseName="rawContact" inverseEntity="PersistedGroupV2Member"/>
+        <relationship name="callLogContact" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="PersistedCallLogContact" inverseName="contactIdentity" inverseEntity="PersistedCallLogContact"/>
+        <relationship name="contactGroups" toMany="YES" deletionRule="Nullify" destinationEntity="PersistedContactGroup" inverseName="contactIdentities" inverseEntity="PersistedContactGroup"/>
+        <relationship name="devices" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedObvContactDevice" inverseName="rawIdentity" inverseEntity="PersistedObvContactDevice"/>
+        <relationship name="latestSenderSequenceNumbers" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedLatestDiscussionSenderSequenceNumber" inverseName="contactIdentity" inverseEntity="PersistedLatestDiscussionSenderSequenceNumber"/>
+        <relationship name="messages" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="PersistedMessageReceived" inverseName="contactIdentity" inverseEntity="PersistedMessageReceived"/>
+        <relationship name="ownedContactGroups" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedContactGroupJoined" inverseName="owner" inverseEntity="PersistedContactGroupJoined"/>
+        <relationship name="rawOneToOneDiscussion" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedOneToOneDiscussion" inverseName="rawContactIdentity" inverseEntity="PersistedOneToOneDiscussion"/>
+        <relationship name="rawOwnedIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvOwnedIdentity" inverseName="contacts" inverseEntity="PersistedObvOwnedIdentity"/>
+        <relationship name="reactions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedMessageReactionReceived" inverseName="contact" inverseEntity="PersistedMessageReactionReceived"/>
+        <relationship name="systemMessages" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="PersistedMessageSystem" inverseName="optionalContactIdentity" inverseEntity="PersistedMessageSystem"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawOwnedIdentityIdentity"/>
+                <constraint value="identity"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PersistedObvOwnedDevice" representedClassName="PersistedObvOwnedDevice" syncable="YES">
+        <attribute name="expirationDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="identifier" attributeType="Binary"/>
+        <attribute name="latestRegistrationDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="objectInsertionDate" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="rawOwnedIdentityIdentity" attributeType="Binary"/>
+        <attribute name="rawPreKeyAvailable" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="rawSecureChannelStatus" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="specifiedName" optional="YES" attributeType="String"/>
+        <relationship name="rawOwnedIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvOwnedIdentity" inverseName="devices" inverseEntity="PersistedObvOwnedIdentity"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawOwnedIdentityIdentity"/>
+                <constraint value="identifier"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PersistedObvOwnedIdentity" representedClassName="PersistedObvOwnedIdentity" syncable="YES">
+        <attribute name="apiKeyExpirationDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="badgeCountForDiscussionsTab" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="badgeCountForInvitationsTab" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="capabilityGroupsV2" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="capabilityOneToOneContacts" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="capabilityWebrtcContinuousICE" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="customDisplayName" optional="YES" attributeType="String"/>
+        <attribute name="fullDisplayName" attributeType="String"/>
+        <attribute name="hiddenProfileHash" optional="YES" attributeType="Binary"/>
+        <attribute name="hiddenProfileSalt" optional="YES" attributeType="Binary"/>
+        <attribute name="identity" attributeType="Binary"/>
+        <attribute name="isActive" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="isKeycloakManaged" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="permanentUUID" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="photoURL" optional="YES" attributeType="URI"/>
+        <attribute name="rawAPIKeyStatus" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="rawAPIPermissions" attributeType="Integer 64" usesScalarValueType="YES"/>
+        <attribute name="serializedIdentityCoreDetails" attributeType="Binary"/>
+        <relationship name="contactGroups" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedContactGroup" inverseName="rawOwnedIdentity" inverseEntity="PersistedContactGroup"/>
+        <relationship name="contactGroupsV2" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedGroupV2" inverseName="rawOwnedIdentity" inverseEntity="PersistedGroupV2"/>
+        <relationship name="contacts" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedObvContactIdentity" inverseName="rawOwnedIdentity" inverseEntity="PersistedObvContactIdentity"/>
+        <relationship name="devices" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedObvOwnedDevice" inverseName="rawOwnedIdentity" inverseEntity="PersistedObvOwnedDevice"/>
+        <relationship name="discussions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedDiscussion" inverseName="ownedIdentity" inverseEntity="PersistedDiscussion"/>
+        <relationship name="invitations" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedInvitation" inverseName="ownedIdentity" inverseEntity="PersistedInvitation"/>
+        <relationship name="ownedContactGroups" toMany="YES" deletionRule="Cascade" destinationEntity="PersistedContactGroupOwned" inverseName="owner" inverseEntity="PersistedContactGroupOwned"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="identity"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PersistedOneToOneDiscussion" representedClassName="PersistedOneToOneDiscussion" parentEntity="PersistedDiscussion" syncable="YES">
+        <attribute name="rawContactIdentityIdentity" optional="YES" attributeType="Binary"/>
+        <relationship name="rawContactIdentity" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvContactIdentity" inverseName="rawOneToOneDiscussion" inverseEntity="PersistedObvContactIdentity" elementID="contactIdentity"/>
+    </entity>
+    <entity name="PersistedPendingGroupMember" representedClassName="PersistedPendingGroupMember" syncable="YES">
+        <attribute name="declined" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="fullDisplayName" attributeType="String"/>
+        <attribute name="identity" attributeType="Binary"/>
+        <attribute name="rawGroupOwnerIdentity" attributeType="Binary"/>
+        <attribute name="rawGroupUidRaw" attributeType="Binary"/>
+        <attribute name="rawOwnedIdentityIdentity" attributeType="Binary"/>
+        <attribute name="serializedIdentityCoreDetails" attributeType="Binary"/>
+        <relationship name="rawContactGroup" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedContactGroup" inverseName="pendingMembers" inverseEntity="PersistedContactGroup"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="identity"/>
+                <constraint value="rawOwnedIdentityIdentity"/>
+                <constraint value="rawGroupOwnerIdentity"/>
+                <constraint value="rawGroupUidRaw"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PersistedUserMention" representedClassName="PersistedUserMention" isAbstract="YES" syncable="YES">
+        <attribute name="mentionRangeLowerBound" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="mentionRangeUpperBound" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawMentionnedIdentity" attributeType="Binary"/>
+    </entity>
+    <entity name="PersistedUserMentionInDraft" representedClassName="PersistedUserMentionInDraft" parentEntity="PersistedUserMention" syncable="YES">
+        <relationship name="draft" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDraft" inverseName="mentions" inverseEntity="PersistedDraft"/>
+    </entity>
+    <entity name="PersistedUserMentionInMessage" representedClassName="PersistedUserMentionInMessage" parentEntity="PersistedUserMention" syncable="YES">
+        <relationship name="message" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessage" inverseName="mentions" inverseEntity="PersistedMessage"/>
+    </entity>
+    <entity name="ReceivedFyleMessageJoinWithStatus" representedClassName="ReceivedFyleMessageJoinWithStatus" parentEntity="FyleMessageJoinWithStatus" syncable="YES">
+        <attribute name="wasOpened" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="receivedMessage" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessageReceived" inverseName="unsortedFyleMessageJoinWithStatus" inverseEntity="PersistedMessageReceived"/>
+    </entity>
+    <entity name="RemoteRequestSavedForLater" representedClassName="RemoteRequestSavedForLater" syncable="YES">
+        <attribute name="rawRequesterIdentity" attributeType="Binary"/>
+        <attribute name="rawRequestType" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="senderIdentifier" attributeType="Binary"/>
+        <attribute name="senderSequenceNumber" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="senderThreadIdentifier" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="serializedMessageJSON" optional="YES" attributeType="Binary"/>
+        <attribute name="serverTimestamp" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="discussion" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedDiscussion" inverseName="remoteRequestsSavedForLater" inverseEntity="PersistedDiscussion"/>
+    </entity>
+    <entity name="SentFyleMessageJoinWithStatus" representedClassName="SentFyleMessageJoinWithStatus" parentEntity="FyleMessageJoinWithStatus" syncable="YES">
+        <attribute name="rawReceptionStatus" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="sentMessage" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedMessageSent" inverseName="unsortedFyleMessageJoinWithStatuses" inverseEntity="PersistedMessageSent"/>
+    </entity>
+</model>

@@ -1,0 +1,3903 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        }
+      }
+    },
+    " " : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        }
+      }
+    },
+    "-" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "-"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "-"
+          }
+        }
+      }
+    },
+    "%@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        }
+      }
+    },
+    "😧 Oups..." : {
+      "comment" : "Oups word, with Emoji, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "😧 Oops..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "😧 Oups..."
+          }
+        }
+      }
+    },
+    "Abort" : {
+      "comment" : "Abort word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abort"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abandonner"
+          }
+        }
+      }
+    },
+    "About" : {
+      "comment" : "About word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À propos"
+          }
+        }
+      }
+    },
+    "Accept" : {
+      "comment" : "Accept word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accept"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accepter"
+          }
+        }
+      }
+    },
+    "Actions" : {
+      "comment" : "Actions word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actions"
+          }
+        }
+      }
+    },
+    "Active" : {
+      "comment" : "Active word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active"
+          }
+        }
+      }
+    },
+    "Add a reaction" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a reaction"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une réaction"
+          }
+        }
+      }
+    },
+    "ADD_OWNED_IDENTITY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un profil"
+          }
+        }
+      }
+    },
+    "Admin" : {
+      "comment" : "Admin word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Administrateur"
+          }
+        }
+      }
+    },
+    "Advanced" : {
+      "comment" : "Advanced word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avancé"
+          }
+        }
+      }
+    },
+    "After" : {
+      "comment" : "After word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Après"
+          }
+        }
+      }
+    },
+    "Always" : {
+      "comment" : "Always word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toujours"
+          }
+        }
+      }
+    },
+    "ARCHIVE" : {
+      "comment" : "Archive word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archive"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archiver"
+          }
+        }
+      }
+    },
+    "Authenticate" : {
+      "comment" : "Authenticate word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'authentifier"
+          }
+        }
+      }
+    },
+    "Back" : {
+      "comment" : "Back word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retour"
+          }
+        }
+      }
+    },
+    "Backup" : {
+      "comment" : "Backup word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauvegarde"
+          }
+        }
+      }
+    },
+    "BUTTON_TITLE_AUTHENTICATE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authenticate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'authentifier"
+          }
+        }
+      }
+    },
+    "Call" : {
+      "comment" : "Call word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appeler"
+          }
+        }
+      }
+    },
+    "CALL_BACK" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Call back"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rappeler"
+          }
+        }
+      }
+    },
+    "Camera" : {
+      "comment" : "Camera word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appareil photo"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "Cancel word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        }
+      }
+    },
+    "CHANGE_MY_REACTION" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change my reaction"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changer ma réaction"
+          }
+        }
+      }
+    },
+    "Chat" : {
+      "comment" : "Chat word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discuter"
+          }
+        }
+      }
+    },
+    "CHOOSE_OR_%@_CHOSEN_DISCUSSION" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        }
+      }
+    },
+    "CHOOSE_OR_%lld_CHOSEN_DISCUSSION" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "one selected"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld selected"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "choose"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "une sélectionnée"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld sélectionnées"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "choisir"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Clean" : {
+      "comment" : "Clean word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clean"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nettoyer"
+          }
+        }
+      }
+    },
+    "CLONED_GROUP_NAME_FROM_ORIGINAL_NAME_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy of %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie de %@"
+          }
+        }
+      }
+    },
+    "CLOSE_OPEN_HIDDEN_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close open hidden profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer un profil masqué ouvert"
+          }
+        }
+      }
+    },
+    "Completely" : {
+      "comment" : "Completely word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completely"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Totalement"
+          }
+        }
+      }
+    },
+    "CONFIGURE_BACKUPS_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setup backups"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paramétrer les sauvegardes"
+          }
+        }
+      }
+    },
+    "Confirmation" : {
+      "comment" : "Confirmation word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmation"
+          }
+        }
+      }
+    },
+    "Contacts" : {
+      "comment" : "Contacts word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contacts"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contacts"
+          }
+        }
+      }
+    },
+    "CONTACTS_AND_GROUPS" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contacts & Groups"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contacts & Groupes"
+          }
+        }
+      }
+    },
+    "CONTACTS_SORT_ORDER" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contact sort order"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ordre de tri des contacts"
+          }
+        }
+      }
+    },
+    "Copy" : {
+      "comment" : "Copy word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier"
+          }
+        }
+      }
+    },
+    "Copy text" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy text"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier le texte"
+          }
+        }
+      }
+    },
+    "Create" : {
+      "comment" : "Create word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer"
+          }
+        }
+      }
+    },
+    "DATE" : {
+      "comment" : "Date word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
+          }
+        }
+      }
+    },
+    "DEACTIVATE" : {
+      "comment" : "Deactivate word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deactivate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désactiver"
+          }
+        }
+      }
+    },
+    "Debug" : {
+      "comment" : "Debug word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debug"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debug"
+          }
+        }
+      }
+    },
+    "Decline" : {
+      "comment" : "Decline word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Decline"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Décliner"
+          }
+        }
+      }
+    },
+    "Default" : {
+      "comment" : "Default word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Par défaut"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "comment" : "Delete word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer"
+          }
+        }
+      }
+    },
+    "Delete group" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer le groupe"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_ALL_OWNED_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From all my devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tous mes appareils"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_ALL_OWNED_DEVICES_AND_ALL_CONTACTS_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From all my devices and other members' devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tous mes appareils et de ceux des autres membres"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_ALL_OWNED_DEVICES_AND_CONTACT_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From all my devices and my contact's devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De tous mes appareils et de ceux de mon contact"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_THIS_DEVICE_AND_ALL_CONTACTS_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this device and other group members' devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De cet appareil et de ceux des autres membres"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_THIS_DEVICE_AND_CONTACT_DEVICES" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this device and my contact's devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De cet appareil et de ceux de mon contact"
+          }
+        }
+      }
+    },
+    "DELETE_FROM_THIS_DEVICE_ONLY" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From this device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De cet appareil"
+          }
+        }
+      }
+    },
+    "DELETE_OWN_REACTION" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete my reaction"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer ma réaction"
+          }
+        }
+      }
+    },
+    "Deleted" : {
+      "comment" : "Deleted word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimé"
+          }
+        }
+      }
+    },
+    "Delivered" : {
+      "comment" : "Delivered word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delivered"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Distribué"
+          }
+        }
+      }
+    },
+    "Details" : {
+      "comment" : "Details word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Details"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Détails"
+          }
+        }
+      }
+    },
+    "Devices" : {
+      "comment" : "Devices word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Devices"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appareils"
+          }
+        }
+      }
+    },
+    "Directory" : {
+      "comment" : "Directory word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Directory"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuaire"
+          }
+        }
+      }
+    },
+    "Discard" : {
+      "comment" : "Discard word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer"
+          }
+        }
+      }
+    },
+    "Discard changes" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard changes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abandonner les modifications"
+          }
+        }
+      }
+    },
+    "Discussion" : {
+      "comment" : "Discussion word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussion"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussion"
+          }
+        }
+      }
+    },
+    "DISCUSSION_SETTINGS" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussion settings"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paramètres de la discussion"
+          }
+        }
+      }
+    },
+    "Discussions" : {
+      "comment" : "Discussions word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussions"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussions"
+          }
+        }
+      }
+    },
+    "Documents" : {
+      "comment" : "Documents word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Documents"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Documents"
+          }
+        }
+      }
+    },
+    "Downloading File..." : {
+      "comment" : "Displayed in QuickLook when showing a downloading file",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File not downloaded yet 😕"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le téléchargement n'est pas terminé 😕"
+          }
+        }
+      }
+    },
+    "Downloads" : {
+      "comment" : "Downloads word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloads"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Téléchargements"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "comment" : "Edit word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier"
+          }
+        }
+      }
+    },
+    "EDIT_CURRENT_IDENTITY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage current profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gérer le profil courant"
+          }
+        }
+      }
+    },
+    "Edited" : {
+      "comment" : "Edited word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edited"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifié"
+          }
+        }
+      }
+    },
+    "ENABLE" : {
+      "comment" : "Enable word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer"
+          }
+        }
+      }
+    },
+    "ENTER_YOUR_PASSCODE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter your passcode"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrez votre code personnalisé"
+          }
+        }
+      }
+    },
+    "ERROR" : {
+      "comment" : "Error word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erreur"
+          }
+        }
+      }
+    },
+    "Everyone" : {
+      "comment" : "Everyone word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everyone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout le monde"
+          }
+        }
+      }
+    },
+    "Exclude" : {
+      "comment" : "Exclude word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exclude"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exclure"
+          }
+        }
+      }
+    },
+    "Expiration" : {
+      "comment" : "Expiration word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiration"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiration"
+          }
+        }
+      }
+    },
+    "Expired" : {
+      "comment" : "Expired word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expired"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiré"
+          }
+        }
+      }
+    },
+    "EXPLANATION_FOR_CLONING_A_GROUP_V1_TO_GROUP_V2" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This group does not support more than one administrator. But you can clone this group into a new one that will 🚀!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce groupe ne permet pas d'avoir plusieurs administrateurs. Mais vous pouvez le cloner en un nouveau groupe de dernière génération qui le permettra 🚀 !"
+          }
+        }
+      }
+    },
+    "EXPLANATION_PLACED_ABOVE_LIST_OF_NON_ONE_TO_ONE_CONTACTS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following users are not part of your contacts (yet), so you cannot have a private discussion with them. But you can invite them easily 🚀!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les utilisateurs ci-dessous ne font pas (encore) partie de vos contacts, et vous ne pouvez donc pas encore avoir de discussion privée avec eux. Mais vous pouvez les y inviter facilement 🚀 !"
+          }
+        }
+      }
+    },
+    "Export to File App" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export to File App"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter vers l'App Fichiers"
+          }
+        }
+      }
+    },
+    "FILES_APP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fichiers"
+          }
+        }
+      }
+    },
+    "Forwarded" : {
+      "comment" : "Forward word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forwarded"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transféré"
+          }
+        }
+      }
+    },
+    "Gallery" : {
+      "comment" : "Gallery word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gallery"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Galerie"
+          }
+        }
+      }
+    },
+    "GO_TO_APP_STORE_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the App Store"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir l'App Store"
+          }
+        }
+      }
+    },
+    "GRACE_PERIOD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Require authentication"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exiger l'authentification"
+          }
+        }
+      }
+    },
+    "GRACE_PERIOD_TITLE_%@" : {
+      "comment" : "Notification body",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "after %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "après %@"
+          }
+        }
+      }
+    },
+    "GRANT_PERMISSION_TO_RECORD_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow microphone access"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoriser l'accès au micro"
+          }
+        }
+      }
+    },
+    "GRANT_PERMISSION_TO_RECORD_IN_SETTINGS_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to Settings"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aller dans les Réglages"
+          }
+        }
+      }
+    },
+    "Groups" : {
+      "comment" : "Groups word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Groups"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Groupes"
+          }
+        }
+      }
+    },
+    "Identity" : {
+      "comment" : "Identity word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identité"
+          }
+        }
+      }
+    },
+    "Immediately" : {
+      "comment" : "Immediately word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Immediately"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Immédiatement"
+          }
+        }
+      }
+    },
+    "Interface" : {
+      "comment" : "Introduce word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface"
+          }
+        }
+      }
+    },
+    "Introduce" : {
+      "comment" : "Introduce word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Présenter"
+          }
+        }
+      }
+    },
+    "Introduce %@ to..." : {
+      "comment" : "Title of the table listing all identities but the one to introduce",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce %@ to..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Présenter %@ à..."
+          }
+        }
+      }
+    },
+    "Invitation to join a group" : {
+      "comment" : "Invitation subtitle, Notification title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitation to join a group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitation à rejoindre un groupe"
+          }
+        }
+      }
+    },
+    "Invitations" : {
+      "comment" : "Invitations word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitations"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitations"
+          }
+        }
+      }
+    },
+    "Invite" : {
+      "comment" : "Invite word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inviter"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "comment" : "Later word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus tard"
+          }
+        }
+      }
+    },
+    "Leave group" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter le groupe"
+          }
+        }
+      }
+    },
+    "Links" : {
+      "comment" : "Links word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Links"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liens"
+          }
+        }
+      }
+    },
+    "Loading" : {
+      "comment" : "Loading word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement"
+          }
+        }
+      }
+    },
+    "LOCKED_OUT_EXPLANATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid is locked following too many wrong passcode attempts."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid est verrouillée suite à la saisie d'un nombre trop important de mauvais codes."
+          }
+        }
+      }
+    },
+    "LOCKED_OUT_FOR" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locked for "
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqué pour "
+          }
+        }
+      }
+    },
+    "MARK_AS_READ" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as read"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marquer comme lu"
+          }
+        }
+      }
+    },
+    "MAYBE_ME_LATER_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maybe later"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus tard"
+          }
+        }
+      }
+    },
+    "Medias" : {
+      "comment" : "Medias word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medias"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Médias"
+          }
+        }
+      }
+    },
+    "Message" : {
+      "comment" : "Message word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message"
+          }
+        }
+      }
+    },
+    "Metadata" : {
+      "comment" : "Metadata word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metadata"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Métadonnées"
+          }
+        }
+      }
+    },
+    "Mute" : {
+      "comment" : "Metadata word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mute"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Silence"
+          }
+        }
+      }
+    },
+    "My Id" : {
+      "comment" : "Title of a tab, Title of the MyIdViewController, View Controller title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mon profil"
+          }
+        }
+      }
+    },
+    "MY_OWN_IDS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My profiles"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mes profils"
+          }
+        }
+      }
+    },
+    "Never" : {
+      "comment" : "Never word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jamais"
+          }
+        }
+      }
+    },
+    "New contact" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New contact"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveau contact"
+          }
+        }
+      }
+    },
+    "New Suggested Introduction" : {
+      "comment" : "Invitation subtitle, Notification title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Suggested Introduction"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise en relation"
+          }
+        }
+      }
+    },
+    "Next" : {
+      "comment" : "Next word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suivant"
+          }
+        }
+      }
+    },
+    "No" : {
+      "comment" : "No word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non"
+          }
+        }
+      }
+    },
+    "No one" : {
+      "comment" : "No one word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No one"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personne"
+          }
+        }
+      }
+    },
+    "None" : {
+      "comment" : "None word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun"
+          }
+        }
+      }
+    },
+    "Notifications" : {
+      "comment" : "Notifications word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications"
+          }
+        }
+      }
+    },
+    "Now" : {
+      "comment" : "Now word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenant"
+          }
+        }
+      }
+    },
+    "NS_USER_ACTIVITY_TITLE_CONTACTS" : {
+      "comment" : "NSUserActivity title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show all contacts"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir les contacts"
+          }
+        }
+      }
+    },
+    "NS_USER_ACTIVITY_TITLE_CONTINUE_DISCUSSION" : {
+      "comment" : "NSUserActivity title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to discussion"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aller à la discussion"
+          }
+        }
+      }
+    },
+    "NS_USER_ACTIVITY_TITLE_GROUPS" : {
+      "comment" : "NSUserActivity title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show all groups"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir les groupes"
+          }
+        }
+      }
+    },
+    "NS_USER_ACTIVITY_TITLE_INVITATIONS" : {
+      "comment" : "NSUserActivity title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show invitations"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir les invitations"
+          }
+        }
+      }
+    },
+    "NS_USER_ACTIVITY_TITLE_LATEST_DISCUSSIONS" : {
+      "comment" : "NSUserActivity title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show latest discussions"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir les dernières discussions"
+          }
+        }
+      }
+    },
+    "Off" : {
+      "comment" : "Off word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        }
+      }
+    },
+    "Ok" : {
+      "comment" : "Ok word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ok"
+          }
+        }
+      }
+    },
+    "Partially" : {
+      "comment" : "Oups word, with Emoji, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partially"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partiellement"
+          }
+        }
+      }
+    },
+    "PASSWORD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mot de passe"
+          }
+        }
+      }
+    },
+    "Paste" : {
+      "comment" : "Paste word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coller"
+          }
+        }
+      }
+    },
+    "Pending" : {
+      "comment" : "Pending word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pending"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente"
+          }
+        }
+      }
+    },
+    "Perform the deletion" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perform the deletion"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suppression"
+          }
+        }
+      }
+    },
+    "Perform the deletion for all users" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perform the deletion for all users"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suppression chez tous les utilisateurs"
+          }
+        }
+      }
+    },
+    "PHOTO_LIBRARY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo library"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Librairie de photos"
+          }
+        }
+      }
+    },
+    "Pin" : {
+      "comment" : "Pin word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pin"
+          }
+        }
+      }
+    },
+    "PIN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PIN"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PIN"
+          }
+        }
+      }
+    },
+    "Please authenticate to start Olvid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please authenticate to start Olvid"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentifiez-vous pour démarrer Olvid"
+          }
+        }
+      }
+    },
+    "PLEASE_LAUNCH_OLVID_FROM_MAIN_APP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please launch the Olvid App to be able to share content 😉."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il vous faut lancer l'app Olvid avant de pouvoir partager du contenu 😉."
+          }
+        }
+      }
+    },
+    "PLEASE_UPDATE_OLVID_FROM_MAIN_APP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please launch the Olvid App in order to finalize its update 🚀. You will be able to share content once this is done 😉."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez lancer l'app Olvid afin de terminer la mise à jour 🚀. Vous pourrez à nouveau partager du contenu une fois que ce sera fait 😉."
+          }
+        }
+      }
+    },
+    "Privacy" : {
+      "comment" : "Privacy word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vie Privée"
+          }
+        }
+      }
+    },
+    "Proceed" : {
+      "comment" : "Proceed word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Proceed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poursuivre"
+          }
+        }
+      }
+    },
+    "Processing" : {
+      "comment" : "Processing word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Processing"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Traitement"
+          }
+        }
+      }
+    },
+    "Publish" : {
+      "comment" : "Publish word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publish"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publier"
+          }
+        }
+      }
+    },
+    "QR code" : {
+      "comment" : "Button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR code"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code QR"
+          }
+        }
+      }
+    },
+    "REACTIVATE_PROFILE_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reactivate my profile on this device"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réactiver mon profil sur cet appareil"
+          }
+        }
+      }
+    },
+    "Read" : {
+      "comment" : "Read word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lu"
+          }
+        }
+      }
+    },
+    "Reject" : {
+      "comment" : "Reject word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reject"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refuser"
+          }
+        }
+      }
+    },
+    "REMIND_ME_LATER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remind me later"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Me rappeler plus tard"
+          }
+        }
+      }
+    },
+    "Remove nickname" : {
+      "comment" : "UIAlertController action",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove nickname"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer le surnom"
+          }
+        }
+      }
+    },
+    "REMOVE_PICTURE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove the photo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer la photo"
+          }
+        }
+      }
+    },
+    "Reply" : {
+      "comment" : "Reply word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reply"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Répondre"
+          }
+        }
+      }
+    },
+    "Reset" : {
+      "comment" : "Reset word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinitialiser"
+          }
+        }
+      }
+    },
+    "Restore" : {
+      "comment" : "Restore word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer"
+          }
+        }
+      }
+    },
+    "Restore a backup" : {
+      "comment" : "Button title, Navigation controller title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore a backup"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer une sauvegarde"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "comment" : "Save word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer"
+          }
+        }
+      }
+    },
+    "Save changes" : {
+      "comment" : "Alert button title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save changes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sauver les modifications"
+          }
+        }
+      }
+    },
+    "Scan document" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan document"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanner un document"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "comment" : "Search word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechercher"
+          }
+        }
+      }
+    },
+    "Select" : {
+      "comment" : "Select word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir"
+          }
+        }
+      }
+    },
+    "Send" : {
+      "comment" : "Send word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer"
+          }
+        }
+      }
+    },
+    "Send Read Receipts" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send Read Receipts"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmation de lecture"
+          }
+        }
+      }
+    },
+    "SEND_MESSAGE" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send message"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer un message"
+          }
+        }
+      }
+    },
+    "Sent" : {
+      "comment" : "Sent word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyé"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "comment" : "Settings word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paramètres"
+          }
+        }
+      }
+    },
+    "Share" : {
+      "comment" : "Share word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager"
+          }
+        }
+      }
+    },
+    "SHARE_VIEW_PROFILE_SELECTION_BAR_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profil"
+          }
+        }
+      }
+    },
+    "Show" : {
+      "comment" : "Show word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher"
+          }
+        }
+      }
+    },
+    "Size" : {
+      "comment" : "Size word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taille"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_CREATE_BACKUP_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It's time to setup backups!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il est temps de configurer les sauvegardes !"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_GRANT_PERMISSION_TO_RECORD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You missed a call!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez raté un appel !"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You missed a call!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez raté un appel !"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_INACTIVE_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your profile is inactive"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre profil est inactif"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_IOS_VERSION_ACCEPTABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS upgrade recommended."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour d'iOS recommandée."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_IOS_VERSION_SHOULD_UPGRADE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS upgrade recommended."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour d'iOS recommandée."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⚠️ Support for your iOS version will soon be dropped."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⚠️ Le support pour votre version d'iOS sera bientôt abandonné."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The last backup failed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La dernière sauvegarde a échoué"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_NEW_APP_VERSION_AVAILABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A new version of Olvid is available 🥳!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une nouvelle version d'Olvid est disponible 🥳 !"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_SHOULD_PERFORM_BACKUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It's backup time!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il est temps de faire une sauvegarde !"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BODY_SHOULD_VERIFY_BACKUP_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do you remember your backup key?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous souvenez-vous de votre clé de sauvegarde ?"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BUTTON_TITLE_CREATE_BACKUP_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show me"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BUTTON_TITLE_GRANT_PERMISSION_TO_RECORD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show me"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BUTTON_TITLE_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show me"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BUTTON_TITLE_INACTIVE_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show me"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BUTTON_TITLE_NEW_APP_VERSION_AVAILABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BUTTON_TITLE_SHOULD_PERFORM_BACKUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show me"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_BUTTON_TITLE_SHOULD_VERIFY_BACKUP_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show me"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_CREATE_BACKUP_KEY_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If you were to lose your %@, or to uninstall Olvid by mistake, you would lose your Olvid ID, all your contacts, and all your groups 😱. Luckily for you, it is possible to setup secure backups 😅.\n\nPress \"Setup backups\" to begin."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si vous veniez à égarer votre %@, ou à désinstaller Olvid par erreur, vous perdriez votre ID Olvid, l'intégralité de vos contacts et tous vos groupes 😱. Fort heureusement, il est possible de les sauvegarder de façon sécurisée 😅. Appuyez sur « Paramétrer les sauvegardes » pour commencer."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_GRANT_PERMISSION_TO_RECORD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To received a call, you need to allow Olvid to access the microphone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour recevoir des appels, vous devez autoriser Olvid à accéder au micro."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To received a call, you need to allow Olvid to access the microphone. To never miss a call again, please go to Settings and grant Olvid access to the microphone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour recevoir des appels, vous devez autoriser Olvid à accéder au micro. Pour ne plus rater d'appel, allez dans les Réglages et autorisez l'accès au micro pour Olvid."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_INACTIVE_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your profile is not active on this device but you can reactivate it now."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre profil est inactif sur cet appareil mais vous pouvez le réactiver maintenant."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_IOS_VERSION_ACCEPTABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To make sure you use the latest version of iOS, go to Settings > General, then tap Software Update."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour vous assurer que vous utilisez la dernière version d'iOS, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_IOS_VERSION_SHOULD_UPGRADE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We detected that you are not using the latest version of iOS. You are missing out on important features of Olvid. To make the most out of Olvid, you should upgrade iOS.\nTo do so, open the Settings App on your device. Go to General and tap Software Update."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous avons détecté que vous n'utilisez pas la dernière version d'iOS. Vous être en train de passer à côté de fonctionnalités importantes d'Olvid. Pour profiter d'Olvid au maximum, vous devriez mettre à jour iOS.\nPour ce faire, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_IOS_VERSION_WILL_BE_UNSUPPORTED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We detected that you use an iOS version that Olvid will not support anymore, starting with the next update. We appologize for this. If possible, we recommend you upgrade to the latest iOS version.\nTo do so, open the Settings App on your device. Go to General and tap Software Update."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous avons détecté que vous utilisez une version d'iOS que Olvid ne supportera plus dès la prochaine mise à jour. Nous vous présentons toutes nos excuses. Si possible, nous vous recommandons de mettre à jour iOS.\nPour ce faire, accédez à l'App Réglages sur votre appareil. Allez dans Général puis touchez Mise à jour logicielle."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You should make sure your iCloud account is properly configured on this device. Once this is done, we can try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous vous recommandons de vérifier que vous avez bien configuré votre compte iCloud sur cet appareil. Ensuite, vous pourrez essayer à nouveau."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_NEW_APP_VERSION_AVAILABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A new version of Olvid is available from the App Store. You are missing out amazing new features 🤓! We recommend you upgrade now 🚀."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une nouvelle version d'Olvid est disponible dès maintenant sur l'App Store. Pour ne pas rater les dernières nouveautés d'Olvid 🤓, nous vous recommandons de mettre à jour maintenant 🚀."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_SHOULD_PERFORM_BACKUP_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In order not to lose any contact, we recommend you activate automatic backups to iCloud. Don't worry, these backups are encrypted 🤓!\nOtherwise, you may also perform manual backups on a regular basis.\n\nPress \"Setup backups\" to begin."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour ne perdre aucun contact, nous vous recommandons d'activer les sauvegardes automatiques vers iCloud. Rassurez-vous, elles sont chiffrées 🤓 ! Sinon, vous pouvez aussi effectuer des sauvegardes manuelles régulièrement. Appuyez sur « Paramétrer les sauvegardes » pour commencer."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_BODY_SHOULD_VERIFY_BACKUP_KEY_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Having an up to date Olvid backup is essential, but you need your backup key to restore it!\n\nPress \"Setup backups\" to verify your key. If you lost it, don't worry, you can generate a new one 🤗."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avoir une sauvegarde à jour est essentiel, mais il vous faut votre clé de sauvegarde pour la restaurer ! Appuyez sur « Paramétrer les sauvegardes » pour vérifier votre clé. Si vous avez perdu cette clé, pas d'inquiétude, vous pourrez en générer une nouvelle 🤗."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_CREATE_BACKUP_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Why should I setup backups 🧐?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pourquoi configurer les sauvegardes 🧐 ?"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_GRANT_PERMISSION_TO_RECORD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You missed a call because Olvid is not allowed to access the microphone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez raté un appel car Olvid n'a pas accès au micro"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_GRANT_PERMISSION_TO_RECORD_IN_SETTINGS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You missed a call because Olvid is not allowed to access the microphone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez raté un appel car Olvid n'a pas accès au micro"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_INACTIVE_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your profile is inactive"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre profil est inactif"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_IOS_VERSION_ACCEPTABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS upgrade recommended"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour d'iOS recommandée"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_IOS_VERSION_SHOULD_UPGRADE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS upgrade recommended"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour d'iOS recommandée"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_IOS_VERSION_WILL_BE_UNSUPPORTED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Support for your iOS version will soon be dropped"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le support pour votre version d'iOS sera bientôt abandonné."
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Why should I fix this?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Que puis-je faire ?"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_NEW_APP_VERSION_AVAILABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A new version of Olvid is available 🥳!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une nouvelle version d'Olvid est disponible 🥳 !"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_SHOULD_PERFORM_BACKUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Why should I create a backup 🧐?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pourquoi faire une sauvegarde 🧐 ?"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_DETAILS_TITLE_SHOULD_VERIFY_BACKUP_KEY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Why should I remember my backup key 🧐?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pourquoi vérifier sa clé de sauvegarde 🧐 ?"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_TITLE_IOS_VERSION_ACCEPTABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_TITLE_IOS_VERSION_SHOULD_UPGRADE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_TITLE_IOS_VERSION_WILL_BE_UNSUPPORTED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SNACK_BAR_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show me"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "SOME_OF_YOUR_CONTACTS_MAY_NOT_APPEAR_AS_GROUP_V2_CANDIDATES" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please choose who to add to this group."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez qui ajouter à ce groupe."
+          }
+        }
+      }
+    },
+    "Speaker" : {
+      "comment" : "Speaker word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speaker"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haut-parleur"
+          }
+        }
+      }
+    },
+    "Stored" : {
+      "comment" : "Stored word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stored"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stocké"
+          }
+        }
+      }
+    },
+    "TAKE_PICTURE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take a photo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prendre une photo"
+          }
+        }
+      }
+    },
+    "TIME_INTERVAL_FOR_BG_HIDDEN_PROFILE_CLOSE_POLICY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close hidden profile when Olvid enters background..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer un profil masqué quand Olvid passe en arrière plan..."
+          }
+        }
+      }
+    },
+    "Timer" : {
+      "comment" : "Timer word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timer"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minuteur"
+          }
+        }
+      }
+    },
+    "Touch to return to call" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touch to return to call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez pour revenir à l'appel"
+          }
+        }
+      }
+    },
+    "Unarchive" : {
+      "comment" : "Unarchive word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unarchive"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désarchiver"
+          }
+        }
+      }
+    },
+    "Unavailable" : {
+      "comment" : "Unavailable word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unavailable"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indisponible"
+          }
+        }
+      }
+    },
+    "Unlimited" : {
+      "comment" : "Unlimited word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Illimité"
+          }
+        }
+      }
+    },
+    "Unpin" : {
+      "comment" : "Unpin word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpin"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Décrocher"
+          }
+        }
+      }
+    },
+    "Unprocessed" : {
+      "comment" : "Unprocessed word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unprocessed"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À traiter"
+          }
+        }
+      }
+    },
+    "Unread" : {
+      "comment" : "Unread word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unread"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non lu"
+          }
+        }
+      }
+    },
+    "Update" : {
+      "comment" : "Update word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre à jour"
+          }
+        }
+      }
+    },
+    "Use application default" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use application default"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réglage par défaut"
+          }
+        }
+      }
+    },
+    "Version" : {
+      "comment" : "Version word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
+    "VoIP" : {
+      "comment" : "VoIP word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VoIP"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "VoIP"
+          }
+        }
+      }
+    },
+    "Wiped" : {
+      "comment" : "Wiped word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiped"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expiré"
+          }
+        }
+      }
+    },
+    "Yes" : {
+      "comment" : "Yes word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oui"
+          }
+        }
+      }
+    },
+    "YOUR_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your message..."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre message..."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

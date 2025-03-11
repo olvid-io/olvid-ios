@@ -1,5 +1,103 @@
 # Changelog
 
+## [3.6 (852)] - 2025-02-07 - App Store
+
+- Optimisation importante des performances pour les mises à jour de groupe.
+- Résolution d'un problème empêchant l'affichage correct des notifications ne contenant que des pièces jointes.
+
+## [3.5 (851)] - 2025-01-13 - App Store
+
+- Fonctionnalité très attendue ! Vous pouvez maintenant partager votre position géographique avec vos contacts.
+- Comme vous pouvez l'attendre d'Olvid, votre localisation est chiffrée de bout en bout.
+- Il est également possible de partager des positions spécifiques.
+- La liste des discussions récentes affiche désormais plus clairement le statut du dernier message de chaque discussion.
+- Les messages supprimés des appareils de l'expéditeur et du destinataire seront définitivement effacés, sans laisser aucune trace.
+- Optimisation de la gestion des messages pour un traitement plus rapide des nouveaux messages reçus.
+- Amélioration et optimisation des appels audio et vidéo sécurisés, en particulier dans les scénarios multi-appareils.
+- Amélioration de l'efficacité réseau des appels audio et vidéo sécurisés.
+- Corrige un bug pouvant arriver lors de l'édition d'un groupe contenant des membres en attente qui ne font pas encore partie des contacts.
+- Recevoir une notification dans une discussion de groupe en lecture seule ne déclenche plus une notificaion utilisateur.
+- Corrige un problème empêchant parfois de défilement automatique au dernier message envoyé.
+- Corrige un problème entraînant un clignotement désagréable des messages dans la vue de discussion.
+- Résolution d'un plantage occasionnel survenant lors de l'édition des conversations épinglées.
+- Toucher une notification devrait naviguer vers le bon message plus rapidement.
+- Les problèmes concernant le processus de révocation Keycloak sont résolus.
+- Correction d'un problème empêchant la fonctionnalité glisser-déposer pour une URL depuis certains navigateurs.
+
+## [3.4 (837)] - 2024-12-04 - App Store
+
+- Une nouvelle barre de progression apparaît maintenant lorsque Olvid travaille dur pour tout préparer pour vous.
+- Pour nos utilisateurs Pro : Sécurité renforcée pour les transferts de profils administrés ! Votre administrateur peut désormais exiger une authentification sur le nouvel appareil.
+- Si vous présentez un contact à un autre, ils seront systématiquement notifiés.
+- Temps de démarrage accéléré : Nous avons optimisé le processus de démarrage pour réduire le temps de lancement, même si l'app est restée hors ligne de façon prolongée.
+- Améliore l'efficacité des mises à jour de groupe.
+- Amélioration de la réactivité des discussions : Les actions comme l'envoi de messages, marquer comme "lu" et autres sont maintenant plus rapides.
+- Optimisation des tâches en arrière-plan : Les tâches longues telles que les synchronisations de bases de données sont désormais effectuées en arrière-plan lorsque l'appareil est inactif.
+- Nous avons résolu un problème qui empêchait la navigation lors de l'appui sur les notifications de réaction.
+- Nous avons résolu un problème qui ralentissait parfois le temps de réponse de l'application lorsque vous interagissiez avec des notifications.
+- Nous avons résolu un problème qui empêchait le paramètre de confidentialité des notifications de fonctionner comme prévu.
+- Dans un environnement géré, nous avons ajouté une nouvelle origine de confiance lorsque un contact devient certifié.
+- Dans un environnement géré, si l'authentification est requise, l'alerte indique maintenant clairement quel profil nécessite votre attention.
+
+## [3.3 (815)] - 2024-10-21 - App Store
+
+- Les notifications ont été entièrement repensées pour les rendre moins intrusives, mais plus fiables et pertinentes !
+- Les notifications concernant les nouveaux messages sont maintenant regroupées par discussion, ce qui facilite la gestion de vos conversations.
+- De plus, si quelqu'un modifie ou supprime un message qu'il vous a envoyé, Olvid reflète ces changements en temps réel, afin que vous ayez toujours une vue précise de la conversation.
+- Et si vous utilisez Olvid sur plusieurs appareils, nous avons pensé à vous ! Lorsque vous lisez un message sur un appareil, la notification disparaît automatiquement de tous vos autres appareils.
+- Assure que les messages envoyés avant (mais reçus après) une demande de suppression à distance soient correctement écartés, évitant ainsi des apparitions inattendues.
+- Les notes personnelles sont maintenant prises en compte lors d'une recherche de contact ou de discussion.
+- Résout un problème qui empêchait parfois les utilisateurs de modifier leurs émoticônes préférées.
+- Corrige un problème qui empêchait parfois la création et la modification des notes personnelles.
+- Le partage d'une identité via AirDrop partage maintenant l'URL d'invitation.
+
+## [3.2 (807)] - 2024-09-18 - App Store
+
+### macOS
+
+- Olvid est maintenant totalement compatible avec macOS Sequoia.
+
+### iOS
+
+- Olvid est maintenant totalement compatible avec iOS 18 et iPadOS 18.
+
+## [3.1 (803)] - 2024-09-12 - App Store
+
+### macOS
+
+- Nous avons repensé l'expérience de réaction aux messages ! L'écran de choix de réaction à un message affiche uniquement vos réactions préférées.
+- Ces réactions préférées sont entièrement personnalisables.
+- Obtenez de meilleures informations sur la livraison de vos messages ! Nous avons introduit des statuts d'envoi de message améliorés qui fournissent plus de détails sur qui a reçu et lu vos messages et pièces jointes.
+- Améliorations de l'expérience de navigation : la discussion en cours est maintenant clairement mise en évidence dans votre liste des discussions récentes.
+- Lorsque l'administrateur d'un groupe ajoute ou retire des membres du groupe, une liste complète des modifications est désormais affichée dans la discussion du groupe.
+- Vous pouvez désormais facilement copier et coller des images - copiez-les à partir du Finder ou d'un navigateur web et collez-les dans la zone de composition de message.
+- Olvid supporte maintenant Handoff.
+- Le flux d'invitation a été optimisé pour une expérience plus fluide.
+- La méthode d'invitation par double-scan est maintenant plus rapide que jamais !
+- Améliore les performances de défilement sur l'écran de discussion.
+- La réception des messages est maintenant plus fiable que jamais.
+- La touche Échap permet maintenant de fermer le sélecteur de réactions et de quitter la saisie dans la vue de composition.
+- Le badge affichant les nouveaux messages dans la liste des profils reflète maintenant le nombre de nouvelles invitations.
+- Corrige un problème qui permettait à un contact de supprimer tous les messages d'une discussion directe.
+- Corrige un problème qui empêchait la suppression globale d'une discussion directe, mais close, sur plusieurs appareils.
+- Ajustements graphiques mineurs.
+
+### iOS
+
+- Nous avons repensé l'expérience de réaction aux messages ! Un double tap (ou pression longue) sur un message affiche uniquement vos réactions préférées.
+- Ces réactions préférées sont entièrement personnalisables.
+- Obtenez de meilleures informations sur la livraison de vos messages ! Nous avons introduit des statuts d'envoi de message améliorés qui fournissent plus de détails sur qui a reçu et lu vos messages et pièces jointes.
+- Lorsque l'administrateur d'un groupe ajoute ou retire des membres du groupe, une liste complète des modifications est désormais affichée dans la discussion du groupe.
+- Olvid supporte maintenant Handoff.
+- Le flux d'invitation a été optimisé pour une expérience plus fluide.
+- La méthode d'invitation par double-scan est maintenant plus rapide que jamais !
+- Améliore les performances de défilement sur l'écran de discussion.
+- La réception des messages est maintenant plus fiable que jamais.
+- Le badge affichant les nouveaux messages dans la liste des profils reflète maintenant le nombre de nouvelles invitations.
+- Corrige un problème qui permettait à un contact de supprimer tous les messages d'une discussion directe.
+- Corrige un problème qui empêchait la suppression globale d'une discussion directe, mais close, sur plusieurs appareils.
+- Ajustements graphiques mineurs.
+
 ## [3.0 (793)] - 2024-06-28
 
 - Amélioration de la fiabilité: Des améliorations significatives dans les paramètres multi-appareils, garantissant une expérience plus fluide sur tous les appareils.

@@ -1,8 +1,0 @@
-#!/bin/bash
-
-# As of version 3.21.1, Tuist generates a DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER in all pbxproj files.
-# This is an obsolete key that should not be part of the project files.
-# This script removes the lines containing this key from all project files.
-
-find . -iname '*.pbxproj' -exec sed -i .todelete '/DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER = YES/d' {} \;
-find . -iname '*.pbxproj.todelete' -exec rm {} \;

@@ -1,0 +1,438 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Available subscription plans" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available subscription plans"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offres d'abonnement"
+          }
+        }
+      }
+    },
+    "BUY_FAILED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The subscription failed."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La demande d'abonnement a échoué."
+          }
+        }
+      }
+    },
+    "BUY_SUCCEEDED_BUT_SUBSCRIPTION_EXPIRED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Although the subscription was successful, it seems your subscription expired."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La demande d'abonnement a été traitée, mais votre abonnement a expiré."
+          }
+        }
+      }
+    },
+    "Create groups" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create groups"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créer des groupes"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout fermer"
+          }
+        }
+      }
+    },
+    "FAILED_TO_RESTORE_PURCHASES_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Previous purchases could not be restored: %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les achats n'ont pas pu être restaurés : %@."
+          }
+        }
+      }
+    },
+    "FAILED_TO_START_FREE_TRIAL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your free trial could not be started. Please try again later."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'essai gratuit n'a pas pu être activé. N'hésitez pas à essayer à nouveau plus tard."
+          }
+        }
+      }
+    },
+    "Free" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gratuit"
+          }
+        }
+      }
+    },
+    "Looking for available subscription plans" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for available subscription plans"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherche des offres d'abonnement"
+          }
+        }
+      }
+    },
+    "MAKE_SECURE_CALLS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make secure calls"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Émettre des appels sécurisés"
+          }
+        }
+      }
+    },
+    "Manage payments" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage payments"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modes de paiement"
+          }
+        }
+      }
+    },
+    "Manage your subscription" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage your subscription"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gérer vos abonnements"
+          }
+        }
+      }
+    },
+    "MULTIDEVICE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multidevice"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multi-appareils"
+          }
+        }
+      }
+    },
+    "Premium subscription" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium subscription"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abonnement premium"
+          }
+        }
+      }
+    },
+    "RECEIVE_SECURE_CALLS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Receive secure calls"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recevoir des appels sécurisés"
+          }
+        }
+      }
+    },
+    "Restore Purchases" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Purchases"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer les achats"
+          }
+        }
+      }
+    },
+    "Sending & receiving messages and attachments" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sending & receiving messages and attachments"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer & recevoir des messages et des pièces jointes"
+          }
+        }
+      }
+    },
+    "Sorry, the product is not available in your store 😢." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sorry, the product is not available in your store 😢."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désolé, le produit n'est pas disponible dans votre Store 😢."
+          }
+        }
+      }
+    },
+    "Sorry, the purchase failed 😢. Please try again later or contact us if this problem is recurring. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sorry, the purchase failed 😢. Please try again later or contact us if this problem is recurring.\n%@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désolé, l'achat a échoué 😢. N'hésitez pas à essayer plus tard ou à nous contacter si le problème est récurrent.\n%@"
+          }
+        }
+      }
+    },
+    "Start free trial now" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start free trial now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commencer l'essai maintenant"
+          }
+        }
+      }
+    },
+    "Subscribe now" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S'abonner maintenant"
+          }
+        }
+      }
+    },
+    "THE_SUBSCRIPTION_REQUEST_FAILED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The subscription request failed 😞. Please try again later."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La demande d'abonnement a échoué 😞. N'hésitez pas à essayer à nouveau plus tard."
+          }
+        }
+      }
+    },
+    "TRY_SECURE_CALLS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try secure calls"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essayer les appels sécurisés gratuitement"
+          }
+        }
+      }
+    },
+    "TRY_SECURE_CALLS_DESCRIPTION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try secure calls for free during 30 days. This free trial can be activated only once."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Essayez les appels sécurisés gratuitement pendant 30 jours. Cette offre d'essai ne peut être activée qu'une seule fois."
+          }
+        }
+      }
+    },
+    "Unlock all premium features in Olvid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock all premium features in Olvid."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accès à toutes les fonctionnalités premium."
+          }
+        }
+      }
+    },
+    "USER_CANNOT_MAKE_PAYMENT_DESCRIPTION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvid paid options are made available through the App Store in-app purchases. It seems that you cannot make a payment right now. This may happen if your credit card has expired, or if your iPhone is restricted from accessing the Apple App Store (through parental control or enterprise management)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les options payantes d'Olvid sont disponibles via les achats intégrés de l'App Store. Il semblerait que vous ne puissiez pas y faire d'achat. Ceci peut arriver si votre moyen de paiement est invalide ou si votre compte est restreint (contrôle parental ou compte entreprise)."
+          }
+        }
+      }
+    },
+    "WE_COULD_NOT_LOOK_FOR_AVAILABLE_SUBSCRIPTION_PLANS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We could find any available subscription plan as an error occurred 😢. Please try again later."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nous n'avons trouvé aucune offre d'abonnement... une erreur est survenue  😢. N'hésitez pas à essayer à nouveau plus tard."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

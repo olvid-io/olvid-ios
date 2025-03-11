@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23507" systemVersion="24B91" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="ObvUserNotificationsDataModel-v3">
+    <entity name="PersistedObvMessage" representedClassName="PersistedObvMessage" syncable="YES">
+        <attribute name="downloadTimestampFromServer" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="expectedAttachmentsCount" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="extendedMessagePayload" optional="YES" attributeType="Binary"/>
+        <attribute name="localDownloadTimestamp" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="messagePayload" attributeType="Binary"/>
+        <attribute name="messageUploadTimestampFromServer" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="rawContactDeviceUID" optional="YES" attributeType="Binary"/>
+        <attribute name="rawContactIdentity" attributeType="Binary"/>
+        <attribute name="rawMessageIdFromServer" attributeType="Binary"/>
+        <attribute name="rawOwnedIdentity" attributeType="Binary"/>
+        <attribute name="wasPersistedInApp" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="notification" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedUserNotification" inverseName="rawObvMessage" inverseEntity="PersistedUserNotification"/>
+        <relationship name="notificationToUpdate" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedUserNotification" inverseName="rawObvMessageUpdate" inverseEntity="PersistedUserNotification"/>
+    </entity>
+    <entity name="PersistedUserNotification" representedClassName="PersistedUserNotification" syncable="YES">
+        <attribute name="messageUploadTimestampFromServer" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="rawCreator" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="rawKind" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawMessageIdFromServer" attributeType="Binary"/>
+        <attribute name="rawObvContactIdentifier" attributeType="String"/>
+        <attribute name="rawObvDiscussionIdentifier" attributeType="String"/>
+        <attribute name="rawObvMessageAppIdentifier" optional="YES" attributeType="String"/>
+        <attribute name="rawOwnedIdentity" attributeType="Binary"/>
+        <attribute name="rawStatus" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="rawUserNotificationCategory" attributeType="String"/>
+        <attribute name="requestIdentifier" attributeType="String"/>
+        <relationship name="rawObvMessage" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="PersistedObvMessage" inverseName="notification" inverseEntity="PersistedObvMessage"/>
+        <relationship name="rawObvMessageUpdate" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PersistedObvMessage" inverseName="notificationToUpdate" inverseEntity="PersistedObvMessage"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawMessageIdFromServer"/>
+                <constraint value="rawOwnedIdentity"/>
+            </uniquenessConstraint>
+            <uniquenessConstraint>
+                <constraint value="requestIdentifier"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+</model>

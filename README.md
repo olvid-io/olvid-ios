@@ -28,18 +28,17 @@ To build Olvid for iOS, you would need:
   - A [free] [Apple developer account](https://developer.apple.com)
 - Git LFS
   - Make sure to run `git lfs install --system` to install the appropriate LFS hooks prior cloning
-- If you wish to run the project on a real device, specify your development by updating the value for `Constants.developmentTeam` in `tuist/ProjectDescriptionHelpers/Constants.swift`
-- [`tuist`](https://github.com/tuist/tuist) installed
-- `tuist fetch` to fetch the project's dependencies
+- If you wish to run the project on a real device, specify your development by updating the value for `Constant.devTeam` in `Tuist/ProjectDescriptionHelpers/Constant.swift`
+- [`tuist`](https://github.com/tuist/tuist) installed (at least version 4.21.2)
 - `tuist generate` to generate and open the Xcode workspace
 
-- If you encounter an issue with `error: 'swiftpackagemanager': invalid manifest` when executing `tuist fetch`, make sure that you have an Xcode-defined command line tools path.
+- If you encounter an issue with `error: 'swiftpackagemanager': invalid manifest` when executing `tuist generate`, make sure that you have an Xcode-defined command line tools path.
   - Verify that `xcode-select -p` looks something like `/Applications/Xcode.app/Contents/Developer`
   - If not, run `sudo xcode-select -r` to reset the command line tools path
 
 ## Running Olvid in a simulator
 
-After generating the project, choose the `Olvid~Development` scheme. Then choose a simulator (like an iPhone 14 Pro for example). From the `Product` menu, choose `Run`. This should compile Olvid for iOS and launch it in the chosen simulator.
+After generating the project, choose the `Olvid` scheme. Then choose a simulator (like an iPhone 15 Pro for example). From the `Product` menu, choose `Run`. This should compile Olvid for iOS and launch it in the chosen simulator.
 
 ## Running Olvid on a real device
 
@@ -47,11 +46,13 @@ If you joined [Apple Developer Program](https://developer.apple.com/programs/), 
 
 # Structure of the project
 
-Olvid is made up of three components:
+All the source code of Olvid is organized within the `Sources` directory.
 
-- a **cryptographic engine**, located in the `~/Engine` directory,
-- an **application layer**, located in the `~/iOSClient` directory.
-- and modules in `Modules`
+Olvid is made up of three main components:
+
+- a **cryptographic engine**, located in the `~/Sources/Engine` directory,
+- an **application layer**, located in the `~/Sources/App` directory,
+- and a few projects between the engine and the app, located in the `~/Sources/Shared` directory.
 
 The cryptographic engine is in charge of all the cryptographic aspects of Olvid (including encryption, signatures, MACs, cryptographic protocols, etc.), contacts and groups management, and network communications. The application layer implements the instant messaging functionalities on top of the engine. This architecture makes it possible to properly separate the backend logic from the UI.
 
@@ -66,7 +67,7 @@ Olvid, as a company, has not yet put in place all the necessary processes to eas
 Olvid for iOS is licensed under the GNU Affero General Public License v3. The full license is available in [`LICENSE`](LICENSE).
 
     Olvid for iOS
-    Copyright © 2019-2023 Olvid SAS
+    Copyright © 2019-2024 Olvid SAS
 
     Olvid is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License, version 3,

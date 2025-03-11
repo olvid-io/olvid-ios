@@ -1,0 +1,14 @@
+ [
+  {
+  "cryptographicAlgorithmClassByteIdValue": "0x14",
+  "algorithmImplementationByteIdValue": "0x00",
+  "encodedPublicKey": "91000000620000000002140004000000560000000001788000000020deeae1db3aeedca2ba016cb0a8f3bc1057d024c7c72a09df91ca49181548329b0000000001798000000020634f843ce997ddfbc0906b6e2294c354b2cfd375fefeca6feae027d3116baf60",
+  "compactPublicKey": "00634f843ce997ddfbc0906b6e2294c354b2cfd375fefeca6feae027d3116baf60",
+  },
+  {
+  "cryptographicAlgorithmClassByteIdValue": "0x14",
+  "algorithmImplementationByteIdValue": "0x01",
+  "encodedPublicKey": "9100000062000000000214010400000056000000000178800000002049daaf8e864a6b0c73f0c5598dd0a9998e6cb74ff93c6d6fed461a8475ecb5fd00000000017980000000206223c8ee210cb556acb4ec0a00b767d7a858aed8c1a1cb94b1bba8df5c713bee",
+  "compactPublicKey": "016223c8ee210cb556acb4ec0a00b767d7a858aed8c1a1cb94b1bba8df5c713bee",
+  },
+  ]

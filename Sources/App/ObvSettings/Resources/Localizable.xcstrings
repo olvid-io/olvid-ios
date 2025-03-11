@@ -1,0 +1,185 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CHOOSE_FILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attach file"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir un fichier"
+          }
+        }
+      }
+    },
+    "CHOOSE_IMAGE_FROM_LIBRARY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo & video library"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bibliothèque de photos & vidéos"
+          }
+        }
+      }
+    },
+    "COMPOSE_MESSAGE_SETTINGS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Customize"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personnaliser"
+          }
+        }
+      }
+    },
+    "discussion-mention-notification-mode.display-title.always" : {
+      "comment" : "Display title for the `always` value for mention notification mode",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toujours"
+          }
+        }
+      }
+    },
+    "discussion-mention-notification-mode.display-title.default" : {
+      "comment" : "Display title for the `default` value for mention notification mode. Takes one argument, the global discussion notification mode",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default (%1$@)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Par défaut (%1$@)"
+          }
+        }
+      }
+    },
+    "discussion-mention-notification-mode.display-title.never" : {
+      "comment" : "Display title for the `never` value for mention notification mode",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jamais"
+          }
+        }
+      }
+    },
+    "EPHEMERAL_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ephemeral message"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message éphémère"
+          }
+        }
+      }
+    },
+    "Introduce" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Présenter"
+          }
+        }
+      }
+    },
+    "SCAN_DOCUMENT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scan a document"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanner un document"
+          }
+        }
+      }
+    },
+    "SHARE_LOCATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share your location"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager sa position"
+          }
+        }
+      }
+    },
+    "SHOOT_PHOTO_OR_MOVIE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appareil photo"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -1,5 +1,103 @@
 # Changelog
 
+## [3.6 (852)] - 2025-02-07 - App Store
+
+- Performance optimization for group updates, resulting in a significant speed increase.
+- Resolution of a bug causing notifications with solely attachments to fail to display properly.
+
+## [3.5 (851)] - 2025-01-13 - App Store
+
+- Introducing a highly anticipated feature! You can now share your location with your contacts.
+- As you would expect from Olvid, your location is end-to-end encrypted.
+- It's also possible to share specific locations.
+- The recent discussions list now displays the status of the last message in each conversation more clearly.
+- Messages deleted from both sender and recipient devices will be permanently removed with no trace remaining.
+- Optimized message handling for faster processing of newly received messages.
+- Enhanced and optimized secure audio and video calls, particularly in multi-device scenarios.
+- Improved network efficiency of audio and video calls.
+- Fixes a bug occurring while editing a group containing pending members that have yet to become contacts.
+- Receiving a notification in a group discussion in read-only mode no longer triggers a user notification.
+- Fixes a bug sometimes preventing the scrolling to the "just sent" message.
+- Fixes the flickering of messages in the discussion view.
+- Resolved an occasional crash that occurred during the editing of pinned discussions.
+- Tapping a notification should navigate to the appropriate message faster.
+- Resolved issues with Keycloak revocation process.
+- Addressed a problem causing difficulty when dragging and dropping an URL from certain browsers.
+
+## [3.4 (837)] - 2024-12-04 - App Store
+
+- A new progress bar now appears when Olvid is working hard to get everything ready for you.
+- For our Pro users: Enhanced security for managed profile transfers! Your administrator can now enforce authentication on the new device.
+- If you introduce one contact to another, they will always see a notification.
+- We've optimized the booting process to reduce startup time, even if the app was offline for a long time.
+- Improves the efficiency of group updates.
+- Actions like sending messages, marking as "read", and others now respond more quickly.
+- Long-running tasks such as database synchronizations are now performed in the background when the device is idle.
+- We've fixed an issue that was blocking navigation when you tapped on reaction notifications.
+- We've addressed a problem that occasionally slowed down the app's response time when interacting with notifications.
+- We've fixed an issue that was preventing the notification privacy setting from working as expected.
+- In a managed environment, we've added a new trust origin when a contact becomes certified.
+- In a managed environment, if authentication is required, the alert now clearly indicates which profile needs your attention.
+
+## [3.3 (815)] - 2024-10-21 - App Store
+
+- Our notifications have been completely revamped to make them less intrusive, yet more reliable and relevant than ever before.
+- Notifications about new messages are now grouped by discussion, making it easier to stay on top of your chats.
+- Plus, if someone edits or deletes a message they sent you, Olvid will reflect those changes in real-time, so you always have an accurate view of the conversation.
+- And if you use Olvid on multiple devices, we've got you covered! When you read a message on one device, the notification will automatically disappear from all your other devices.
+- Ensures messages sent before (but received after) a remote deletion request are properly discarded, preventing unexpected appearances.
+- Personal notes are now taken into account when searching for a contact or a discussion.
+- Resolves an issue that occasionally blocked users from editing their preferred emojis.
+- Addresses a problem that sometimes hindered the creation and editing of personal notes.
+- Sharing an invitation with AirDrop now shares the invitation URL.
+
+## [3.2 (807)] - 2024-09-18 - App Store
+
+### macOS
+
+- Olvid is now fully compatible with macOS Sequoia
+
+### iOS
+
+- Olvid is now fully compatible with iOS 18 and iPadOS 18.
+
+## [3.1 (803)] - 2024-09-12 - App Store
+
+### macOS
+
+- We've redesigned the experience of reacting to messages! The reactions panel now conveniently displays only your preferred reactions.
+- You're in control - these preferred reactions are fully customizable.
+- Get better insights into your message delivery! We've introduced enhanced sent message statuses that provide more details about who has received and read your messages and attachments.
+- Enhancements to the navigation experience: the current discussion is now clearly highlighted in your list of recent discussions.
+- When the administrator of a group adds or removes group members, a complete list of changes is now shown in the group discussion.
+- You can now easily copy and paste images - simply copy them from the Finder or a web browser and paste them into our app.
+- Olvid now supports handoff.
+- The invitation flow has been streamlined for a smoother experience.
+- The double-scan invitation method is now faster than ever!
+- Enhances the scrolling performance on the discussion screen.
+- Message reception is now more reliable than ever.
+- The Escape key now allows dismissing the reaction picker and quitting typing in the composition view.
+- The badge displaying new messages in the profile list now accurately reflects the number of new invitations as well.
+- We've fixed an issue that allowed a contact to wipe out all messages in a one-to-one discussion.
+- We've fixed an issue that prevented the global deletion of a locked one-to-one discussion in a multi-device setting.
+- Minor graphical tweaks.
+
+### iOS
+
+- We've redesigned the experience of reacting to messages! A double tap (or long press) on a message now conveniently displays only your preferred reactions.
+- You're in control - these preferred reactions are fully customizable.
+- Get better insights into your message delivery! We've introduced enhanced sent message statuses that provide more details about who has received and read your messages and attachments.
+- When the administrator of a group adds or removes group members, a complete list of changes is now shown in the group discussion.
+- Olvid now supports handoff.
+- The invitation flow has been streamlined for a smoother experience.
+- The double-scan invitation method is now faster than ever!
+- Enhances the scrolling performance on the discussion screen.
+- Message reception is now more reliable than ever.
+- The badge displaying new messages in the profile list now accurately reflects the number of new invitations as well.
+- We've fixed an issue that allowed a contact to wipe out all messages in a one-to-one discussion.
+- We've fixed an issue that prevented the global deletion of a locked one-to-one discussion in a multi-device setting.
+- Minor graphical tweaks.
+
 ## [3.0 (793)] - 2024-06-28
 
 - Reliability Boost: Significant improvements in multi-device settings, ensuring a smoother experience across all devices.

@@ -1,0 +1,602 @@
+[
+    {
+	"backupSeedString" : "MP0V-TDQ3-U115-U87B-NYDK-HKN2-EJ7T-PYKD",
+	"uidRaw" : "3c4642daee7576efa9db43d7ed11d77af50d1a6e1b782035cd23cfd2230791ba",
+	"publicKeyForEncryption" : "0136900f982fbcf6311caf80082fecb791c10cdb1713b422fe48d79c575425e6d7",
+	"macKey" : "ca2a7e990e6d9755747dbf2c68b3346bfaf295e49427f8651e72370f58b4f981"
+    },
+    {
+	"backupSeedString" : "PF5G-V642-W9LF-MADM-VNGJ-QBA5-A4X6-4A2N",
+	"uidRaw" : "15f545c05dd2d658ba5611ae8d937a623904c077629bdf4b387b4b6e9f6b6453",
+	"publicKeyForEncryption" : "01267b2e6e72c591494777506e6ba8e10221f1ec709495d4d41d458ac86815c12a",
+	"macKey" : "840205ebddab38cfa701a4be043d2147704eafee39f2839197a8be06148aa5b6"
+    },
+    {
+	"backupSeedString" : "J05L-651F-UVHD-MGWF-7FTN-D442-B2NW-F4X9",
+	"uidRaw" : "06db5d52d88c49114d44efabdc89458e950093056bf28fb0c8c13a1cedffe5b5",
+	"publicKeyForEncryption" : "01084c4c16efc19306b9a6ef0eac90e6375b418ff108a80d8eab5cdee728056737",
+	"macKey" : "773f3b20b6126a69277d830082fac837fa09af9564507d5c7b4a41982f4b121a"
+    },
+    {
+	"backupSeedString" : "2AU4-4QC4-XR57-H8D1-QMTM-JTVV-KHLX-4BJN",
+	"uidRaw" : "e7d2814712c246c1a87c9b7657c35507718278eeae7e9ccbee1fe43513c39e56",
+	"publicKeyForEncryption" : "012cae7249d90f28e095a3781762656468c6c8ccc5da2127b02a62f0c3e507e2c7",
+	"macKey" : "6f950c68d68d221898a845532f23404ea12e6f43539b27e796e7fef468ef3594"
+    },
+    {
+	"backupSeedString" : "1H9G-XBHW-R76A-GWGT-0QTR-J0PF-T681-NKR7",
+	"uidRaw" : "951e49943d6e8c2d82c509d615c45e763c05d264c119230c95988862728a59d3",
+	"publicKeyForEncryption" : "016d4ad3b3294395bdb1766d6082f8de1e8f255b72171ff9c7b1593bb86fcda1cc",
+	"macKey" : "9a9d09000492b69d1448fce9702a032929debbb85d9f8ac74a1a538601fbf69e"
+    },
+    {
+	"backupSeedString" : "E5LY-050C-WWX5-P5M0-FF7P-2TTF-JWNN-PE80",
+	"uidRaw" : "cd92a884ed7706e0d8b878d4120e4796f22fe81b60b0a0c20eb6cba4ae0fb286",
+	"publicKeyForEncryption" : "013df6e9a0845f9eea4ac3705cda6b94dc80185da8156a10e39fd03b4ea244e937",
+	"macKey" : "65558f713b9f30a211133898d8d0b45c559600c58102c8ced7cf1be769a3a330"
+    },
+    {
+	"backupSeedString" : "R5A2-5XKB-5M73-CCQ6-88HN-TB3T-GY01-DFY7",
+	"uidRaw" : "d700172c2c8d437cf8792393e75a2ec103b4cae52f93e98c27641beba17a2a45",
+	"publicKeyForEncryption" : "01543b96526acfd126511241bbfd70d0c3c3420c3363c57ee93d46d367c6acffc4",
+	"macKey" : "454002c7b2dcfa24778766106c7bfc73fa0aafe5187ca5de5eec70bacb0c6dec"
+    },
+    {
+	"backupSeedString" : "7MB8-8Y5K-TQ8V-M92Y-AH64-UJB6-2R5V-3TYE",
+	"uidRaw" : "556116b16824c70ba43a65dd7c89d7af2297ef411dfc4e8e05145d1f681288cc",
+	"publicKeyForEncryption" : "01401d6b0b53bf8e733e41b591b25d083ac1f59483c312bccc8ca3de7a1e089cef",
+	"macKey" : "479bb270a24d041bbc73206e93afa61f7bd89b600557082d5631b4aa90b37026"
+    },
+    {
+	"backupSeedString" : "PCN9-AY70-RTK7-KMP2-61GU-V3HH-VUR5-9PCB",
+	"uidRaw" : "fdbafe18277cd5e30325c1f86b7c100e33e2be9db19474d5ac9906e181db5497",
+	"publicKeyForEncryption" : "0177ff9750abbc7f036f61b852892cc67733c2fa8a17081a24830ef7021ec8ed42",
+	"macKey" : "a1f5f556b5534ac7085a761c20d119cbd198beb367038a7fc594c8be7a6e86bf"
+    },
+    {
+	"backupSeedString" : "XU0J-J72A-DUP5-VHX6-XC1Y-U6Q8-W243-9UM7",
+	"uidRaw" : "9cae29867673e15b095562777aa2b5e4a59d203b85c78f9c118a2fc3a845e4e3",
+	"publicKeyForEncryption" : "012813ba59465e309e350fe60a553746f3d229467960ad28e382a639ee88b71433",
+	"macKey" : "68056054da68178568a0238a564088f23f7562096963734830b59170db6e3c6c"
+    },
+    {
+	"backupSeedString" : "UHY1-9UJT-M476-B2BR-U0BM-6TC6-3REY-YT3N",
+	"uidRaw" : "77b8043b309e291c227f9ccc22c83c3eb27aa8503496ff3117b99e3ca813fdd9",
+	"publicKeyForEncryption" : "01381b40e10e7eea33a1e22224724492cc3f0959b482846824f90d6119311c8b05",
+	"macKey" : "c419104a78ff7a29a2a0211b4b26518672217322a20e96bde1e68fe34f63d144"
+    },
+    {
+	"backupSeedString" : "AFYH-ETP5-2577-JK9N-QBW0-YKHD-0GWH-482J",
+	"uidRaw" : "b8ab561c8661a8bf25b8cb251b38744200ccd81219797bbf0f5ec7905360abab",
+	"publicKeyForEncryption" : "01644a4383fb11ea4b22b9eb8c0d74ff32732401d81e89946a0d6bcce01442c487",
+	"macKey" : "aa995284443e63b4c4f64729eb042b5cbf17e9598fda2f1ea27818c5c17f26bc"
+    },
+    {
+	"backupSeedString" : "5DUD-4LBJ-AWUX-R92T-3DV3-GH1L-YMQW-F81M",
+	"uidRaw" : "2319ee198c285eada2b2efb4840e621f7b981e27a2ee6482a2ddfca13bc92377",
+	"publicKeyForEncryption" : "0115f4d12f989bc983a98dad24e73d84e00613b78b2d49a9958a1f983b4e64f879",
+	"macKey" : "e0bf0ffb4bb76db696a79460e434df77730ba9db20071bae3de76ead8396872c"
+    },
+    {
+	"backupSeedString" : "DMQV-3LCQ-KVN3-DRAB-BLUC-GNQ4-X4WW-BT3P",
+	"uidRaw" : "54f4a075a65ea0bb88618d8da45a28ad74fc5ffa275e43862ccef434acfcbfe3",
+	"publicKeyForEncryption" : "012dde714a001779cca73b414a4b3fe8024737682eeda284546c54ba7f1bf561a0",
+	"macKey" : "d07a36130e90c07531207ff49e9b7c05604412360f48ac79e5a3752deb83bbc9"
+    },
+    {
+	"backupSeedString" : "ALU5-5RT2-88JL-8Q0G-FL5Q-6PCM-JEF1-4V59",
+	"uidRaw" : "57546ad0f745ba10a2918233263dc19e606bb0806d57605a0a25a1effe9d3dfa",
+	"publicKeyForEncryption" : "014daa7467c6041dcb24d49c7a29586adfbaa81c6208a7ed81398456b8b2445985",
+	"macKey" : "f4c863494974fc4db91a40917936d05a9c8217d6799ea6d25b08411032b365dd"
+    },
+    {
+	"backupSeedString" : "6LPH-KVNT-M18N-6E99-01AJ-RYB5-6439-26NP",
+	"uidRaw" : "27a80a65f64247aab3a6e05108134b0d9b14477973369cba7bb2129dee6af42f",
+	"publicKeyForEncryption" : "0112d891fcb9674aca68623362c76967a5cdc56a6dbac7c92bf1ffaffdd4b18466",
+	"macKey" : "fb33191d896036ba5fe9cba382d4da923f37d0a525c02c7ec9f20e12f213fab6"
+    },
+    {
+	"backupSeedString" : "39R5-0A40-UJ8Q-E0UY-EU9X-R4WK-KT6T-HBYW",
+	"uidRaw" : "7085bb2283f2f7b5c40c278237172ba72b05f091f10cffa7a2726e9fee713255",
+	"publicKeyForEncryption" : "0117012f3b9d5ca8814ad62cc3f12c612e87643ff6b4f0980b6d664ccbda8c8c89",
+	"macKey" : "f65b58064be806bc033c09567c901d0e3c18fcb8c502503685484cbe0b899778"
+    },
+    {
+	"backupSeedString" : "1RJT-C40F-G9Y9-KXUC-GPMP-EJ7A-4QFG-1ULT",
+	"uidRaw" : "ca741b883a9dd574899405cc793b0b44dd9669a347f09ff8265d52d52deab1b2",
+	"publicKeyForEncryption" : "0152ad9b5c269df477f02c440216eac4411588571f81d52a17a13e20bf4011261d",
+	"macKey" : "2dfff3140571693d8a61d6d76168f273b865068917cf456f31b473605a3e4048"
+    },
+    {
+	"backupSeedString" : "LDDN-X0RY-3YWQ-7MQ8-EPT2-Y8TP-HUL7-0U20",
+	"uidRaw" : "d3f2ef0828393673ac5d52cf6fe5119cbbcb3cd4850b693293aecb84a421f4ce",
+	"publicKeyForEncryption" : "01362b4ef4b4a743bff829d0c8c3c3864efe4f8c65218101c3afefbe4be6d07195",
+	"macKey" : "08a22058bca7c39145f45b9dcc8bcdbeda04be3b4222d66ab4860fa007301c0e"
+    },
+    {
+	"backupSeedString" : "B24W-RF3K-KQ0K-A431-C42A-96LJ-EEKM-XY73",
+	"uidRaw" : "d496f0b6131640f9cf79c2be769bf2397b2182dacbfa0fcff32770a424024b15",
+	"publicKeyForEncryption" : "0128a70fba34422bbe79436c264d88f7b95bd0ca804f1f6669889d093c72cd9826",
+	"macKey" : "1445a35a6080b6e50a8b66d169c63fb713768f46b514fe1388ede2e242cd1ad8"
+    },
+    {
+	"backupSeedString" : "T8XN-1DTJ-0AMB-HU3R-MXU9-3E4B-3LEG-PP3E",
+	"uidRaw" : "98bad46d851773e3dc2db533ac0b8f79ac4acc5113ed8faea128c0cca918f7c9",
+	"publicKeyForEncryption" : "0103bbd61c0363f0463c59d568d0038c55ee6a3b0c403c30f722a13277ee9cde6f",
+	"macKey" : "6a1d7a05de00fb39129a9851a675ea35d6610344f9880846c01419f69e3f0b8a"
+    },
+    {
+	"backupSeedString" : "P51T-KJXD-VTUB-8N6C-374C-HX68-93JT-JYY7",
+	"uidRaw" : "0656ebc63398db02fb6cb1ca84dc2dd297ec3d6c8ff0d3868a810ea0208228d1",
+	"publicKeyForEncryption" : "0111d679991850dace1c4f03fb64eb520053fad273d24efd454f382abd89ad154c",
+	"macKey" : "04192cdf3d5d1b820d6618eddfc0e8f34cc2bdd969a6b0c341ca4affe73d7118"
+    },
+    {
+	"backupSeedString" : "V62F-A7W3-433V-N2F7-UKV6-K3AN-EW2B-2XNN",
+	"uidRaw" : "dc34fb691b10f48f394b247f2e6ea32e98d4365f72c131b1b01a2bf83d54cc16",
+	"publicKeyForEncryption" : "011ce2c7fba84c82c1da3809c9598c951fe1323274bca3e9225e09f053dbe86d29",
+	"macKey" : "ed163b1438d1c89510d4f82cfb660b9b9f8fd741853383de5b383176b18fcdd3"
+    },
+    {
+	"backupSeedString" : "DU1T-RPH8-GA55-HADD-TGFY-V5JK-CXAE-VNDR",
+	"uidRaw" : "80cb99e94426483f0d995b0c2fe3f552a1427e90194e689dc951a26396ce01cd",
+	"publicKeyForEncryption" : "012f1d80e1cf37e6b83b6d44189d75e232619b3f7acb3a244c001338c007301054",
+	"macKey" : "32826a83923e6dfb821b1c30fbc71b1039b70ed87947b21ea44cc87ef1fd1adf"
+    },
+    {
+	"backupSeedString" : "8V2R-C404-CVXD-EVDF-JQL1-T5VX-CDWG-DWU8",
+	"uidRaw" : "5a86cad57eec13896c1b009cb6c1da5f66bc09d5aef662b6362f676a2daf32c4",
+	"publicKeyForEncryption" : "0175caa59c5c0b66f8423757d6e4c9418dbae7fede26334f0bc9e313cb19edd681",
+	"macKey" : "e8f5877dfaca097ff2e12031ec7695fc8eeef8941f5fbf92a4fbb7b44c73df82"
+    },
+    {
+	"backupSeedString" : "1K91-XLGG-1FAL-CX1L-6X0F-1YYV-Y5VY-LFV5",
+	"uidRaw" : "40b8cf9491c7f6ace198eac024291d25126ebb3594d825e97abf2c8cf66072de",
+	"publicKeyForEncryption" : "016cbfd6033137bda81e430171dd763d38d0b5d379ecb3c418ce35c99727ee8797",
+	"macKey" : "2abb98e46227640e3a5bb80d355217f86b1e2faccbdab777488c010bb4e3cd1d"
+    },
+    {
+	"backupSeedString" : "KM19-KYRF-CLCM-K005-L7LV-BC6W-WW1F-L2G2",
+	"uidRaw" : "75dc9e3f708452a07d04870bed32ad92b6734c546df15e9731e16e90f6141fa8",
+	"publicKeyForEncryption" : "01298e57eebf0c9ad4bcc870a984dfb33396c66b2b1420637d4a53d0bb7e0bbe3b",
+	"macKey" : "db042fe813561945b0516efc6ff67138aeeeacc98ae5b504514fd5f8577d7ba7"
+    },
+    {
+	"backupSeedString" : "LJMK-NWXT-PD0T-4WPK-NFBF-8NWG-83DJ-0EAB",
+	"uidRaw" : "9062437f83bd3a86f9de76097a8a14e8c61884afd00bb1115f33cb1e9277663c",
+	"publicKeyForEncryption" : "0169e8b855f801a29fce0025e7464f608d4ab4a0b1ee17dcfe9ec48ef0bfe72bb3",
+	"macKey" : "88552655490a10c5b36a3c439c22d5774b1c9a0cd9cde82925aadba322ab829b"
+    },
+    {
+	"backupSeedString" : "8KDL-PWVQ-GEHD-852U-PBMR-K7U8-P86A-AGX4",
+	"uidRaw" : "c3ebd8135c52e521b5d53d753c13cb37dfc5548b79ba748b2cd38d996fa4ac59",
+	"publicKeyForEncryption" : "017c147daa6ff4a30c32f6b269ac99bbf0338514da098cd62e91c7bb2b1a667a67",
+	"macKey" : "46c6a943db3d03aa896acd8f7170c8a170a5daca371ae1c573f49a7abf17f2f4"
+    },
+    {
+	"backupSeedString" : "7U4A-15DY-V65T-3C5E-8BHH-D2B6-BQUY-ACQB",
+	"uidRaw" : "b821be2137113a377494d2d80bf1d2c8041f1d1c3c92d19a8a55d82afa19fa0f",
+	"publicKeyForEncryption" : "0156f6de4b6d633135d8c24330f9076770fae3b594cb931ed00c41b28e1f9a995d",
+	"macKey" : "abe5bb030c638f60ac1ef305f2abf40508b6c856aac8f0e666bc9a64620268be"
+    },
+    {
+	"backupSeedString" : "K833-QW46-0CYP-PVAR-8T6H-DTUP-BN5G-E773",
+	"uidRaw" : "55a52298ae4ae5c1acb1f970b4b234efce5155832385178195fe080914029919",
+	"publicKeyForEncryption" : "0145c99de3093baa5f1b1d96ee5c574523d1e5b0255b41257cb0b96bb963cd19d9",
+	"macKey" : "da034d59969b19549a880b736b201e1b60874e09963280cd0709271659dbbf1d"
+    },
+    {
+	"backupSeedString" : "0LMY-44RC-RQL7-FJA0-DCYB-4NU8-22LP-FVYH",
+	"uidRaw" : "e2a0aa21541080cccc00321e5bb4cb7b11e7188601c52a9aaf438d77d5a19f94",
+	"publicKeyForEncryption" : "015c145a7b6d4ba0786c55bdca605b0e23a74dbe0ff6f58f944657eb05c2a8738a",
+	"macKey" : "b6e0f228de4de013b5edefb02c3b648817ec955679f95229ba18f55ca8e3dd2e"
+    },
+    {
+	"backupSeedString" : "Q02J-LK83-LU4V-QLXL-MF9X-YWEY-BGVX-LPTE",
+	"uidRaw" : "744becba9bc17cd7058e0b7823a07241edc0c88e4965f4ba42d04e1f16fb902f",
+	"publicKeyForEncryption" : "0120bae33343ff8e954e7d09f69091784ec5aa46b59b19dc7aad35a946a1899b3e",
+	"macKey" : "64d6ad732e4f5ce1d906ccadc5367053e3818d09d191ab2902143a0c88f4bc1e"
+    },
+    {
+	"backupSeedString" : "HUAJ-C004-KA8N-XVV2-WQJ6-QPW2-HGUF-AC58",
+	"uidRaw" : "ba0a705f476e6bf4fb02361a9934b14ad24682336af33298f65f3bb3a9823519",
+	"publicKeyForEncryption" : "015cd08bf51d9f7d2c60f5ed1ef3fa3398c22f4bf58cbfa7bb1dd8766b4ac71c54",
+	"macKey" : "bfe7a417aa6cf46ba820709ba276e1d13f98aa7da4c15d0bbd31aecc98499f8b"
+    },
+    {
+	"backupSeedString" : "A9C3-FF34-KC6F-RCWF-WD3Y-W1QK-JT37-8PR5",
+	"uidRaw" : "7b6331e64dfffa05f06abd82418b8ef6f294f70b289f59bb9ba8e7b5cdcf6ed5",
+	"publicKeyForEncryption" : "014b37cba82962a77ab9aa59dca97fd3f8c7a0093c30c5f1f16d478cdf1ad4160c",
+	"macKey" : "fbe844f65dbb4274a5fd21175b21a25c017e4f8ed06e8d40e7d894a6fbee8811"
+    },
+    {
+	"backupSeedString" : "KDW5-A6VC-43QD-XLKD-6E52-RTCN-YD2Y-82KH",
+	"uidRaw" : "aa6b904ffbce894471bee8be5591c8bef41e9f01b1ee15ae30cd2c7ae6a59876",
+	"publicKeyForEncryption" : "015a077e3a0f5003f5b943710e88eb933a78496efe851e1306c67d3c94b243d8c2",
+	"macKey" : "e687a1098856fbd12bbfe13dc948a6c0e09fc9e32f459c72624205b859fe5afd"
+    },
+    {
+	"backupSeedString" : "G1Q4-RCVY-U4PP-KRLN-8E46-DP1D-VCQ3-59K2",
+	"uidRaw" : "ebf3383c78e9ff7b78553cc17e793bfa340b1f01fbcd88302f0b73871c6953ca",
+	"publicKeyForEncryption" : "014361330cb987fb4e0f590a1ac2acf775a3a8a0e2cbfa754a341e54f36682d0fb",
+	"macKey" : "d683ddb7a0038990c2fc35a8e424c3083be04034d7ee3cd8018889cc4eab6bda"
+    },
+    {
+	"backupSeedString" : "Y8G7-HGWC-5K6Q-YYQH-4ULX-C6FH-CK6A-QN1P",
+	"uidRaw" : "84a884b1fbc6c46d7fb95298849614cbb8f9bac3e027c22c47127d7026a69230",
+	"publicKeyForEncryption" : "0132994e6d4a7aa62bc8efc2d46a33da5ab9c54d85f65c9f597302186aec52c635",
+	"macKey" : "adac88442537f9baec8e159bc535bb84451076da1b5ef00b4e1ee70df1b2cb0e"
+    },
+    {
+	"backupSeedString" : "MNU3-T7MQ-VEVV-JMCB-YHF8-TG7V-E59V-76XE",
+	"uidRaw" : "92e7994847e17d7101a4f3ae9da4f56cf4dd96a9eed0dbb55deffbadd7483870",
+	"publicKeyForEncryption" : "012d8800611a88fb45e757e40c9932cc7de83760eba81a9572f4441a18b922d5e4",
+	"macKey" : "2aa388c728b78bd659212aacad44c198880b17048539e8aa543ea05be8331688"
+    },
+    {
+	"backupSeedString" : "H4GC-LCUL-71AB-H809-58UA-A7T5-5BKK-ERCY",
+	"uidRaw" : "c5586777a58a4da2d4fb4b502f07a29dbf3eaf022ce2654eeda56a9cce5fdb7a",
+	"publicKeyForEncryption" : "01037252229b9241bfd5dc642d551a05d1a3a38dc620ad3329643b9afde5d13902",
+	"macKey" : "588cae4ffdefd2b98d1882456e0d8f335b9884c237fa0b3e80acddb2d441ecbe"
+    },
+    {
+	"backupSeedString" : "Q50Y-V58C-NRUF-HFQ6-X3GP-LNKJ-4Y2J-U06A",
+	"uidRaw" : "a3830a9b76c58f425069e5e1e1b739b462a878fc774ae870c6066b5a9b138c3b",
+	"publicKeyForEncryption" : "014ce68c81895c4a237fc34075b42b04265e78ea015eb19153fe7065acbf45e70b",
+	"macKey" : "c94496e5e5c47519728cead4ec1d31e0d4cf0321d262412d4c741fefbbb0c94f"
+    },
+    {
+	"backupSeedString" : "FTD9-J6NQ-T4T4-XLME-VPUC-9T8W-6VFA-0U8M",
+	"uidRaw" : "b7e40561cf851f396040c2230bdfd20dd955f4a95a3f8a80e4b8537d3c401cf3",
+	"publicKeyForEncryption" : "017ea9ba10fdec6f24c0d52a7d978f399f9acefbddd3bfda40f12321f7840820d4",
+	"macKey" : "4a835faa3e662de944b66f9494797edef8f4a3d4d0291ee5af8a80bb6f874483"
+    },
+    {
+	"backupSeedString" : "3C5R-Q267-R1V9-CR34-MMMT-QK8L-Q3BG-VJRL",
+	"uidRaw" : "f97aa6966fb9229f4ab4fc45727df004e196225ee8c8a66f7f0e496f24908c4a",
+	"publicKeyForEncryption" : "0125831d541870c14255e802292729f89189fe264510b6545b4d4d9ff8205ce076",
+	"macKey" : "bfe47924e06559e84f703c27dcf114d3be48a8ccf8c102100a69da7a329a7b8c"
+    },
+    {
+	"backupSeedString" : "Q54L-6J0D-KY33-AMHD-HJ3W-01QF-A4BK-7NJ1",
+	"uidRaw" : "343ff72d2f1b0f7d63ce43ee3bd3c232f95a35ec98ce5dd9677b2851a9c713f4",
+	"publicKeyForEncryption" : "0148924004554e385bd8a1f67a6ebd94797f9b1f8dba1ac143a5605ce298a28ffb",
+	"macKey" : "8c5bc56a87e805263566e43b43da801674f0c927a393d812d6ffb77c915a6c08"
+    },
+    {
+	"backupSeedString" : "2P44-G2J0-LTXT-YDL5-ADT4-3GP4-4HWE-MLR7",
+	"uidRaw" : "3c4b1a443156f2e4dc50395e35a08b50371fac5033b9ccd11b84720c6f9c0179",
+	"publicKeyForEncryption" : "010ba079c985b8f425b153fabe6e58c8c862c7bc75746a983415c73904ee7a9154",
+	"macKey" : "50b93b7aa100ac9a7c8aef35f0b293f325f769278ca50944bfd5fdb3a8a860c4"
+    },
+    {
+	"backupSeedString" : "74BJ-4HPH-L5RH-X21Q-04DE-XDNQ-M2L1-4L1W",
+	"uidRaw" : "dd065e6ff91e652ea749fc4fc45a0e01c7bded2e1556610429ced15ab2086651",
+	"publicKeyForEncryption" : "015447d30b9764380fbed7935ef252c64f0e7444dac0bdedf81e528e584441edc7",
+	"macKey" : "38fefd08a660ae66b5f88406969e0cd253fcab4465cc77b27cd3a4e09c58ed5d"
+    },
+    {
+	"backupSeedString" : "NPUX-NE8U-PAXQ-820R-59XJ-HCY9-JAJW-PN9N",
+	"uidRaw" : "e9d3e302072226f800a0dc55fed13480ef8f64619906abf6c8414df00f91be16",
+	"publicKeyForEncryption" : "0155fc1028e429ef32243aadc20aa1a9bf92c46e43e855bc663e2865079c602b03",
+	"macKey" : "d398f555fe3a14297e2271f5e891db4ac307d95bbe38d77b47aae4495724fe2d"
+    },
+    {
+	"backupSeedString" : "J9VC-V1KH-LPVY-LG3H-VMPT-42J8-DCCF-BPC9",
+	"uidRaw" : "911074435d8b4033434a26bbb88c81ed4b1b473c5ae0c8f2304282b381b9690c",
+	"publicKeyForEncryption" : "014c86cfc03c3a5b69dd5d6b7ab77e5aee5d86f74b8364ccbfb376a40a5b890764",
+	"macKey" : "0f3d60d320d4d78644fe14f954cf149091212bcd650332e82e1003fb6ac13a20"
+    },
+    {
+	"backupSeedString" : "X8GT-5N69-CWT3-PETH-LG7H-1N8W-P63N-UPL1",
+	"uidRaw" : "b44d0d30fe88fe956fa833df7416d0477a1ee15bc51284f5f69cc3f0b7772084",
+	"publicKeyForEncryption" : "017f4f34626212d6192214f419a4c633afd539e50d6b1e171fba7f0c2d03f85e8b",
+	"macKey" : "91d77d745638cc4a08b082ef32eeddf6a83bc8354651cf6b668db6cb01c6be96"
+    },
+    {
+	"backupSeedString" : "ERW2-A01C-D0RU-2YPB-J21D-VHQA-2DHQ-R8K2",
+	"uidRaw" : "fa4de5eba52c5916926ee3ddaaf95d011247fc0063b55511d3c357e432396d45",
+	"publicKeyForEncryption" : "013d99e3f23b36d3e4328a789d9c7da7b8c577b546bf7a04b8853fea3a50e9a3dc",
+	"macKey" : "1c88fc50f563250383165a3c4429daf886bdd43745dcd3f5efb8d1247c4889fe"
+    },
+    {
+	"backupSeedString" : "6D3H-BB3X-JGRC-R3Y1-QMR7-3X0E-JKEB-W6E2",
+	"uidRaw" : "d16f0e3ac0ef049eec7aba27ecadc34373d60c9d93f62229ff1d63ac96484367",
+	"publicKeyForEncryption" : "01491cce0509ca04400ef479d5ae3387b06ca32d66d005b33c177f99612397bf64",
+	"macKey" : "160c6a7c62cd9cc2b1565ddc71adbeafb673bf5274d632b1d37d9355f4688399"
+    },
+    {
+	"backupSeedString" : "X28L-3NA0-BHBW-3JXK-P323-9J9G-XB1E-4PKQ",
+	"uidRaw" : "f4f7faffe51ad66ffa4d640e6af229ffcfd33d7e8307693da61e188b929a3d65",
+	"publicKeyForEncryption" : "011b8529984fe502af866493189a86323d6fcdd23bf880f16d3f704403ba577229",
+	"macKey" : "b8455dbf4e9754d067bbaeb7246c6ca21a94679d6037286bced6ef0636da316d"
+    },
+    {
+	"backupSeedString" : "AAET-383J-JYJW-DBD2-1T86-XH6N-YV08-JM7U",
+	"uidRaw" : "6ce55a7cba49be26f7768170e73e65c60f6da0ba5961f5ba27e087bdc1d64991",
+	"publicKeyForEncryption" : "012af2d0397b65f42436f893ba4fdb12185ce9c2836248a88be0b3fd8ef387deb3",
+	"macKey" : "cf3c914b41501fb04d4657dbc3430dac0ac19f6b19542d6c60225ba8991b0c9f"
+    },
+    {
+	"backupSeedString" : "FLDL-9N68-F6RV-U070-TU8B-DF65-UATC-DMRF",
+	"uidRaw" : "2cb4d5f905e703e4e352b93d379487e4ee85371caa28ce9348294c81e87888a8",
+	"publicKeyForEncryption" : "0170a6324986f387c5aa4999dd662d4e21325c8dd249ac349422547ea8fe36b762",
+	"macKey" : "6a5f3992b2fd3d8ad72e8c31381b34356d0db90da4da456a7b2726d84dae913b"
+    },
+    {
+	"backupSeedString" : "6X23-CEWL-LUB7-0EM1-487P-78Y5-9JDH-8QEQ",
+	"uidRaw" : "36b5e16c96d4b29e0e26de825fc8de2ad9565ca343ddfe526cfe3409ae8b574d",
+	"publicKeyForEncryption" : "01684b7006d46a866e10fbc509db845fe485bc86767bd47dbf3f6592258fe6dee0",
+	"macKey" : "85fc91ad104c7d6e7df9893a130641fb121e336e9fc2c1ea04fa0f54e9d358cd"
+    },
+    {
+	"backupSeedString" : "MJ6N-8K7E-W8EC-DJTN-9JQ0-D87C-21K4-X9QB",
+	"uidRaw" : "e6a9f6ccfeb01fb36c3f3e41dde7a9245d73a4610fb4ada9f2caf31cf2efb3b4",
+	"publicKeyForEncryption" : "0122e5235efd4e6f4e907857f1030bc9c1c91493e63bbdc5df427b3f4add6dbac7",
+	"macKey" : "c4052f08d2b89bd7407dcf3e1587d10718b7ebfd5b412b45a32f69a1af731552"
+    },
+    {
+	"backupSeedString" : "A1GD-4C3K-YXL4-YQUG-QXJG-2BX1-LFX0-TWPD",
+	"uidRaw" : "1861b39d00f2431886a10d218cc74dffe8a471f6234938ae2e2afb71752c2783",
+	"publicKeyForEncryption" : "0126fce514d5666b82e7319ca2392326f203586cabea9b7fe8f0f99b075aee8718",
+	"macKey" : "cd2daf5a539c26ad9638a073e177bc5a346d40ebbfffeb23f85f125c059e7982"
+    },
+    {
+	"backupSeedString" : "K6RW-9RQE-4JCB-WRNG-U08H-5W1K-0V0C-U4AL",
+	"uidRaw" : "9a3c3813fefa21d11eba4fbe5e50a44eeb25e7d492207bb90dd254eadfe24f42",
+	"publicKeyForEncryption" : "017118168d66f9afda186c718c5a4c577bf70dcd0c9c75eea5c936bbcddbce4089",
+	"macKey" : "2924bda58d363a9e02d780c3a837ca7ba276e47c6a93e3394ca2a6a6476b35ed"
+    },
+    {
+	"backupSeedString" : "1530-8EM6-QLND-FQR6-EYM6-WB7Y-CRLR-LK0P",
+	"uidRaw" : "941438fc26ee294a0b60b467c48aab51959dce226eb5bfde496ba091e9d822ed",
+	"publicKeyForEncryption" : "01583e72ad4a90b4011fc5ff265a205a712061335c08ba2d345d0d2e8aadc62d9b",
+	"macKey" : "99b2de5fbf2f5d5e6f578ecc5b5eb35152642e5b920e66a01f731789987d194e"
+    },
+    {
+	"backupSeedString" : "D36J-DL0E-ERGX-JKNR-G7XY-BF5B-5QKQ-UV7Q",
+	"uidRaw" : "c670a5f495abb231d625baf90b8419350405a914a40443dd21dfd2caa8448d22",
+	"publicKeyForEncryption" : "01670d571f1b6fa6c63f878143b4ebf468df192a017674cb25de8bc0d4ea0366e8",
+	"macKey" : "449d95f4453e7d78032c4db9905cff60ad7af00125bc6e85408dbe8e8b0bd1db"
+    },
+    {
+	"backupSeedString" : "DCN2-F4N1-8303-KUTY-FRK1-15XG-3N0V-2UW3",
+	"uidRaw" : "83fe5fb21b40c93b4d3d6944c39b5224d7e38d43d3119f9e050e3c7f57bd926e",
+	"publicKeyForEncryption" : "0112f54bf5c586fb937eb71bd986d1e0e81af249f957e054b36403d59119e70233",
+	"macKey" : "5bd74729cb629a1c8ff54352a5ef6e9abb9fc1027be6d2387063447704ae56cd"
+    },
+    {
+	"backupSeedString" : "RC4T-DY9X-F0UJ-7W4N-AV35-3YK1-M8CL-V7Y2",
+	"uidRaw" : "c99d27fd0f8149efec9d3c92916a69a9e6774b3a0210d764c26c41f426c2e25f",
+	"publicKeyForEncryption" : "01488987fe4a1dcb1131b69b146f755ecb321fad34cd1aa7d1e8ead4d4f2ae0231",
+	"macKey" : "0eca7e5b60350c7e88c020b2f42a6977abb0c152975dcc994477e9d10524432f"
+    },
+    {
+	"backupSeedString" : "38BY-E3HF-TR2Y-P1XD-5RX4-N4KY-7Y0N-8HVJ",
+	"uidRaw" : "799f2f00195a2e6ad1a7c284195ef6f58a2d900298b75322623fcc90ac85d5f8",
+	"publicKeyForEncryption" : "0133e2ba226eaa6a1b56fcbc739b19cec2c1a8401f51b96f746b58d9a8822ba8a1",
+	"macKey" : "8f56eeca2ff4715d348a69ff0736959faac34d55b01000e329c364398d737455"
+    },
+    {
+	"backupSeedString" : "M29M-DH6U-NX7U-CM3Y-KL9R-8K85-XQTH-LYLU",
+	"uidRaw" : "2a64cd050a8578c671c54d1d45f2f88b08ededd477d3948198129b68ad3c31c0",
+	"publicKeyForEncryption" : "0167dfb4d7a92351da2a78015e1d485bf5f81f1329087dd2b0070424cab179f4fb",
+	"macKey" : "8775c32f3f91f7f0e595f731ee7bb062d4a719cd676220c5868217ba7565e896"
+    },
+    {
+	"backupSeedString" : "PPTE-YRX6-MFFX-TKWU-NPAP-82XP-701T-9P9J",
+	"uidRaw" : "ad736087305bef4674a2cade088b2b1e01a0424d8042e839e7f04e17b34ad986",
+	"publicKeyForEncryption" : "01644e06d5e0d4cd3062ddaf1a5f4d355deefd2b0ce404b899e6fbc6e9699b827a",
+	"macKey" : "9a4f6a2d30bbdf5b5cfaac962e40e390ac7e82f7dc3645fffc9409dce15ba545"
+    },
+    {
+	"backupSeedString" : "E1Y4-YH44-YF1C-NCGF-TBFR-RV75-KDVH-AUQL",
+	"uidRaw" : "eb725bfe2971a89d8684d92d38505335ea354ba40e688ca40f00f9ee38265099",
+	"publicKeyForEncryption" : "0135a3cc58dcaeb994bde293131df51a7dd17646121bede8a6cd4a0e019044bded",
+	"macKey" : "71d68fc2096db95d974e96dd77d9b68881c7da658452ffe17312f4f8e630c5b0"
+    },
+    {
+	"backupSeedString" : "MC75-VXL8-8LM4-NNHD-XYMA-8UV0-JUDD-851U",
+	"uidRaw" : "e07f16f78b26bb691a43043f4113c6ec5c7db2ff616483410ba01bcfa6508ce0",
+	"publicKeyForEncryption" : "0144e325eddb3c77a239c1dbdb709f4a50dd3e1e6ddd7b55d4f7f62d6fe4db2a70",
+	"macKey" : "894c2e88aa2df88c7d6e046418b086408e428554ba9981640d1e909c2304a7e4"
+    },
+    {
+	"backupSeedString" : "T88A-1PXY-DFHE-84J0-G6PH-2YVG-HFRV-V009",
+	"uidRaw" : "6591f16881a591a30539f4a254aa625080b73795ea68f6abf110acf5cbc54d30",
+	"publicKeyForEncryption" : "013f57ded14e40fd14ba9996a6690c15818bc9c2837191eebe8256b8d2ef16cbcc",
+	"macKey" : "5a4305a93d0cf0a8e19ed753c38f2df1a32eebf9dba961e4876065b32fef3cdb"
+    },
+    {
+	"backupSeedString" : "W02J-ABU5-ECNN-K0NY-1NND-L5WP-20MB-WU85",
+	"uidRaw" : "9992835dcc66d405ace94e3154b961b1ed996dc9136f1cbb040784babad3cba4",
+	"publicKeyForEncryption" : "012af0c591b07a2d87d06f5f367f4808fd5a02b47b90466f54fcf307262b2be163",
+	"macKey" : "7f118d0dcc19c6acd0e88a9a6bfbb16bd0066ed1f9e2c8bc862af0bbef1ed0df"
+    },
+    {
+	"backupSeedString" : "9KRY-043L-4LQE-QAUF-J3WB-UHFT-AYCU-TKPG",
+	"uidRaw" : "91b96a3b3c749526114eaaee3439a9270220c71811323115d0cef3c1d56f2f5b",
+	"publicKeyForEncryption" : "017eecdafc293b2632198f780f8d443e4729a31e31094eab14863d4a9a461eca9c",
+	"macKey" : "de8551f1d7de543211a0b9f9552b84c3d9d2f6208c32a168281223127fbdc0af"
+    },
+    {
+	"backupSeedString" : "LYGW-7CCT-1F9R-M7RB-WRX2-G5L8-Q3CB-YBRN",
+	"uidRaw" : "8ec5df040b83b393c71ace254e11e67fd24ffebf88543ab5f27002c349312b1b",
+	"publicKeyForEncryption" : "015de3ec17051ec31f1629bba57fbc14b1befb23099a37d42e961c38435ebc6372",
+	"macKey" : "a8ec3645ca9e65b0db12a0aad0dde1e018e09e407fe33291ea9fd009b4882cd3"
+    },
+    {
+	"backupSeedString" : "DG2M-3FUF-0BBQ-2B6Y-2A9B-0KER-J2BV-9UPP",
+	"uidRaw" : "a5e7e695def45c9fa3e3b745b0f083fb4c1609cf21b3eb5550e721851f8409c4",
+	"publicKeyForEncryption" : "0160b93427d077feea13a7b4f9af730ebc832506867698442e805625f40d317601",
+	"macKey" : "24f8fabd89cf9e18d3ce2302cce1a6df6fbbfa92d55823d5e109abded43928f3"
+    },
+    {
+	"backupSeedString" : "GVL3-QM2E-3W2W-E10W-CFD5-G6DX-EPGT-PD1R",
+	"uidRaw" : "9af2df2bf1ab93da32374a176f54a4078b05b4d679dcefa19eb8660464f46ae2",
+	"publicKeyForEncryption" : "01754e95e709eb890be01ea435df97035973d3a8c05e126861ad42364830692fc5",
+	"macKey" : "746535f242675e5b443a02a554c017ca94471b46b453a15e0082b13838a7ee2b"
+    },
+    {
+	"backupSeedString" : "X55R-LNU1-77PD-X7MU-1ATH-MJNL-G5WM-G474",
+	"uidRaw" : "925f24d0d4df809c21e01ae04efaf79d5d522bf8e5dd25d8d3046e114f826c5e",
+	"publicKeyForEncryption" : "013099fb48b0daa6d34be08505234677d98aa7eb2117ec28689c82e23dc70f035b",
+	"macKey" : "b55612761f9fb11af8e4a41597ad3bb1101838def7dc981598c6a589cdf14f9b"
+    },
+    {
+	"backupSeedString" : "356N-AX44-H5F0-JWVP-P342-66QK-9ERM-32NB",
+	"uidRaw" : "685fa08c4e5594fb6998b5c62347443326d7b8cf4cc2cf2062c855ae66bb0dbb",
+	"publicKeyForEncryption" : "014346d3817954d24e4240f5cdbfb462ed561e514c59409354cd4b4a7fdb2e65b8",
+	"macKey" : "a4a1930f2bf92b7bada376245165d2a2cc4239b7e0832ea5051c5bdd8179d3ef"
+    },
+    {
+	"backupSeedString" : "GVEV-EM8N-9XGN-VH0B-EUQD-FXN9-U40D-ND4B",
+	"uidRaw" : "5b20276ec1890c70278c25bfc654391557f146e8615c2a73e656ed7b601aac68",
+	"publicKeyForEncryption" : "017f28f905c954b64723834125b54c7cd4ebeb9dd440a6b368fbcabe702e452e31",
+	"macKey" : "7965fa7917a2b420b843bf833ebf1de178a4006503158e213341ac7700dbeb30"
+    },
+    {
+	"backupSeedString" : "UCC5-P6FU-HLAC-3U8V-VL6U-T485-0C39-H8YN",
+	"uidRaw" : "c2790b799f2f1786cfceac136df78a969251e5ca7939829ecd037058af266e39",
+	"publicKeyForEncryption" : "0144965a731b38ac5b71914888cd81964061cd517d19e7c4d1bbf12b8678ddf139",
+	"macKey" : "ba798f48c4b45826447e2c1f2bcd77951cf290cfd43f2048e85fa903df8956ee"
+    },
+    {
+	"backupSeedString" : "NVXB-GYCR-QP8M-YJRW-4N4R-2M1Y-H2M3-9QGW",
+	"uidRaw" : "a5d61a755da1b22f1dba59265e270813ec8096ecaa997e2de43ee3740c267a79",
+	"publicKeyForEncryption" : "0170bc0cb43fe44ea6b9b7ba2e781e8e127e9c491b5eafe049513cfaa2b737f944",
+	"macKey" : "31a2e10f16cc295b41236cdbb5d759a5202d5ea65a4a60c5ae087c5a989d309e"
+    },
+    {
+	"backupSeedString" : "6R15-DJRF-UEVC-CFWQ-82AH-GAY4-E28R-BRFL",
+	"uidRaw" : "e6211fae5c7d1dc639fc270510a868fb9a72c6b579fe3adb8d3f75c0e31200e0",
+	"publicKeyForEncryption" : "013d8102e3efa6f245ae34c2fcdb1296c679e8e5d9277aef13f75b17f349e320cd",
+	"macKey" : "9855f7cd1ff12a6da5439f8a2ce035e47077020ee360858d1926e0d0f9ac24b8"
+    },
+    {
+	"backupSeedString" : "05YX-0FQT-KLWE-KCCF-Q9P6-M3FT-7BX6-YCN3",
+	"uidRaw" : "a6017c404b691c40ebf085b992fe4fc1434076a926549a1e04d1c06fc0606e64",
+	"publicKeyForEncryption" : "0133d4083a3a5ae6b7477eb7510737223faf98e57a5ac33d682952472598dfc918",
+	"macKey" : "ad54ac52304b6de0bf5b6c352e155a56aeda4e08033c883a6a63605bf3f3c639"
+    },
+    {
+	"backupSeedString" : "8VG3-EL4C-WHXE-0J2J-Q13E-T3UG-1UX3-Q5UU",
+	"uidRaw" : "d06c14a7d416befbbdcd22fcf83a0865c017f1b8de0be81b58d8ed95f0a53af8",
+	"publicKeyForEncryption" : "01293dae381ed3d79a3453c72620f825efc3c79696b167ed727d286bb4a0ffa4fe",
+	"macKey" : "147576d90c94553b38189faaeeaf024b0d3053fe05f44f10c182377b9b10ce27"
+    },
+    {
+	"backupSeedString" : "82LU-44G8-8P4R-X1WU-38HV-CJRA-LJWN-5N0K",
+	"uidRaw" : "3ea2627662280ccdb7ce83bec48241fc59d7d1208efb14f213395dda16ac37ab",
+	"publicKeyForEncryption" : "010025805e73d6467d3c19082cadb99e16085f2ece4c0e8dc6a093c051aa2b57d5",
+	"macKey" : "cb964a4178375026c1b5376c39f9ff01b64b6e1c184ca0752773d2bcb018b724"
+    },
+    {
+	"backupSeedString" : "UHQR-6QVP-2DE1-5T84-PXJF-NCHE-RPY4-3VRC",
+	"uidRaw" : "28f3b0ec3a9d197e4ccb56d5a79d26bfd258d560fb6ae450d0c94c36d41224b6",
+	"publicKeyForEncryption" : "0139444003b9f6fd88988f5512d09a730970483838f82fd7639308d49ca0a55ac5",
+	"macKey" : "28e3d9127f8e113452b1203afe7b6d650d28c37a010f284f71dba4a85649eb65"
+    },
+    {
+	"backupSeedString" : "PYU6-GLEU-0T2L-P45A-M15P-CL7X-UDHW-FAWB",
+	"uidRaw" : "1aac1cd755f7e8eebacf797c452567c8c57ffe93281a942629bbd259696b1b50",
+	"publicKeyForEncryption" : "011f78fa9bc7c70ddfdc2ba3f1e96e4df4f6097a87372cfd6a16f55146b1668769",
+	"macKey" : "782cfa415f412d7348cddf71ed64a3e25dc04d49ef0c3dce843c6f2fc4bd6bfb"
+    },
+    {
+	"backupSeedString" : "UDKL-DTGN-W6T1-QRYC-3GC2-YY32-FMQK-VEPL",
+	"uidRaw" : "f175417fd0ca6c2b217597038eb4b2b3681c26e2a0c7970b05b4bd562a6469d1",
+	"publicKeyForEncryption" : "01684fd6e78285aba131d0b54b96e539d5a36a7a1177a56f0ef8a518cd29f9875d",
+	"macKey" : "d9cf4efd0ab3a3c46628f50870c99f95a745173bcea0f775c39a9b16c09afbd2"
+    },
+    {
+	"backupSeedString" : "6X08-PHT3-V6G0-YLCR-14H8-TW1Q-6GQW-JDDE",
+	"uidRaw" : "ff9acac0eec33983fd845b521864c9b14ae5498ec13a0a99c35cffedc9474461",
+	"publicKeyForEncryption" : "015247c79c18ac895d05fa87c29ae93118fce8fb58dd044369fddfce5acdd77574",
+	"macKey" : "09af125a6dbaf063a0ff8d99794adae0eb2b4d6e1ea56e55956e8d183c198901"
+    },
+    {
+	"backupSeedString" : "42AB-A401-9H57-G3FT-GCJK-CV87-3UCY-R6JE",
+	"uidRaw" : "0972724ccc71f878c9aa9a29850fe6c411d006adb4e63fc933c5b9df4755cb49",
+	"publicKeyForEncryption" : "010634a9f34a8c17703cde9a98c638c382864efb1884bc551b966be8b541366210",
+	"macKey" : "da99a17c5f0da7c3349f441ac64ae61cc8f34377079852a2460a3ca49d929269"
+    },
+    {
+	"backupSeedString" : "HQJW-49DV-UXN2-CTPL-90FV-R3VR-RCQG-6ABG",
+	"uidRaw" : "4ab2cc7d1656835a3b1718a10785962f11db2aaeae8a2c1cbca95fda5ce0a1fe",
+	"publicKeyForEncryption" : "0141d6a0d2c1fc60ec2cf9744d1519a575bf129a4bb6bf8cfbdad888b586eead38",
+	"macKey" : "96a7a2ba708ffd66c31d707aa00df724a310de364d96a9035a8a633199bfb886"
+    },
+    {
+	"backupSeedString" : "HWDQ-0GE0-E42A-PU65-2L92-MYLC-0M1Y-7RJX",
+	"uidRaw" : "19f7e86de877bb0462b61dfc6998780766fcafba64870612873dec70c47f5597",
+	"publicKeyForEncryption" : "0144a3c4005ebabb566e3f293287abe9a46a8ad737a97b850cbb3a39f9f4610c51",
+	"macKey" : "12b6fdb7805adff020b38d812782a8c0e8629a0f39ddaf25e69642a4e8801bad"
+    },
+    {
+	"backupSeedString" : "VV5V-RXTA-EQGN-7M3Q-V8HJ-XVXD-29HN-RVQX",
+	"uidRaw" : "889f28f73a62deece29355fc6f34dbd3d03d8d94e3589893274c6e365716b23f",
+	"publicKeyForEncryption" : "011c24931b196fdefb25767a25df24760ae0f38b3a8166712ad61c714b7eec1185",
+	"macKey" : "e1e7976d84aee9c0dff8b1deca6a0f17cc80f426725c9f1d4ac833de64f7fcd9"
+    },
+    {
+	"backupSeedString" : "R1NK-M8PQ-RJ4C-Y2HV-G26R-4KN7-DB99-5YTA",
+	"uidRaw" : "b16dd9342283994c7c30c0daf99fcd006b80b610ecb9b5f547fd86f99e26a83b",
+	"publicKeyForEncryption" : "011dfe8182272f3b81f0c52389aa48c32f96893a545a48495d190c18df0b6e1b03",
+	"macKey" : "dd2a37185d9ae7866e1e0214060bcdcf88265954099e1a082b28b8488130475b"
+    },
+    {
+	"backupSeedString" : "0PH7-0DR6-X5A1-JTKY-9F8K-JAGJ-YBEL-FLF8",
+	"uidRaw" : "50a6f55132e10703e9fddc7b059c7f5f8c124810596abc65ca3158c22d32f1d0",
+	"publicKeyForEncryption" : "017b5c6fdee760aacff62e5df3522d3c452452852270d861fb935700fe7c6486db",
+	"macKey" : "ae2e494a8526e1349b503c027314b59a8f1edbec75a3e3257b6f486fa097ba64"
+    },
+    {
+	"backupSeedString" : "MH7P-XL36-W6PK-L9XB-APLK-ELYW-Q564-2N9T",
+	"uidRaw" : "0e7939f36668f37ae385303eb747b0a1a1d0a0ce0986c4074468ec9c014e089a",
+	"publicKeyForEncryption" : "017f957cc5020aa0e268a9c9bc8164f64c489d4bbfebf849252d03e93560f1d596",
+	"macKey" : "8e0f227d32ac7cc5ecfab550afd021e0adb44bcaebd4aac4eafbfc179c331efe"
+    },
+    {
+	"backupSeedString" : "F23D-1JRY-WP0F-WUP5-YQQB-AM7J-YJLE-98GT",
+	"uidRaw" : "558ef2daa859a1cbe1658a0224eba8f646ff5c823ec272d7330db3c15f9fceed",
+	"publicKeyForEncryption" : "016d5951631e70d228e5c7ad1402709a24ccb828a0180b1c4415a5af0458f11e1c",
+	"macKey" : "f5eea91275d59fc7939d94b56075ab8e4d8c4a9de100e9c24ce7b9e64e5f94af"
+    },
+    {
+	"backupSeedString" : "W9PD-16DL-GPY2-XVWJ-UNPH-6NFF-TETX-LXA3",
+	"uidRaw" : "c756be9942eed77b530dfcb6f6c301d37b361f67c663d40bccd2b29e1a62b924",
+	"publicKeyForEncryption" : "0177360c275fe8d1e21b5a95c7965b77d76fdfaf70df4ff295af8f779e37de8025",
+	"macKey" : "75cd2fcedd5928c2b31c8c724d8ec9513068457e8a1a3796b1a01d8147c6b88e"
+    },
+    {
+	"backupSeedString" : "KEBC-F7BR-GY8F-3W68-BA70-C9L2-T176-A4P0",
+	"uidRaw" : "d0e17f9c018f700f861194a9c7d09203d225870c6a38448656e4e978da6b3461",
+	"publicKeyForEncryption" : "011e776097c39003da565b6fc797d14111fe3daef563a87550dbe269b70d8aae31",
+	"macKey" : "b766f723dce8c9c7d71333147a7ca41b29804501abda43e97760bec41290c42f"
+    },
+    {
+	"backupSeedString" : "PJD8-5RK0-L2DU-AMJH-GH0L-Q8TA-2KBR-HYC2",
+	"uidRaw" : "371642bc70aff994baa41723992514d118190d0a906b006a667db30db6de6de0",
+	"publicKeyForEncryption" : "010790f4dc9cc5fd6820f423a1df6e1c90778cf048735a3eb97207b8af8d4c169b",
+	"macKey" : "7a596262dbe33a486faab8b7b177c0fea301d6a56449e5820ec062d971a86698"
+    },
+    {
+	"backupSeedString" : "4U68-4MYC-2FTP-VR49-6WH9-PPLV-N654-Q5HV",
+	"uidRaw" : "e3b882f0d840dd590d02d813478565503a6209a26889b6cc5549e543dda456cf",
+	"publicKeyForEncryption" : "013de7b7ec8f03d0f59c05ae6017f9bd5bbfdf48d287a993aa4590d5ec27f4c9cc",
+	"macKey" : "45bcfe5bf64a8c61d67a3fb61171c8573a161b07d50bf0f61e059dad2d4d47a4"
+    },
+    {
+	"backupSeedString" : "1YXT-1CRL-D670-32T9-PNKF-2X7U-2U8X-P98F",
+	"uidRaw" : "9373f0aa473627eea063b8997fd792e029347744c67b561fc8cadcc468af9027",
+	"publicKeyForEncryption" : "01463b05105a32fcafcde187817c72474ac1a89e000b6facb353d7b2beef9603a4",
+	"macKey" : "a2d77e2ce219973cedf0afcfdd9735a985560d10fe470c4edac7cfc4a21f754c"
+    },
+    {
+	"backupSeedString" : "3J9L-LWBU-1MHV-UJPJ-E4LR-QWTX-6AF1-P2TB",
+	"uidRaw" : "1a61f9557d59f4df53a23b4f97eba55112fc8088a0f4ac9a40ddb43bc7003c13",
+	"publicKeyForEncryption" : "01090f7231f645887b5c756b3bad6f5719daeb5e918d4a63a16d7e04a0c5fe7f09",
+	"macKey" : "1654c4f9ccb84ada835a57e7508ffb61e8ff0184a0bdc393361287a733f5b5a6"
+    }
+]
