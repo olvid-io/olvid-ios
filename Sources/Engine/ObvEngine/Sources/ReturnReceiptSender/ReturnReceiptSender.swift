@@ -38,6 +38,7 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
         logSubsystem = "\(prefix).\(logSubsystem)"
     }
     private lazy var log = OSLog(subsystem: logSubsystem, category: String(describing: ReturnReceiptSender.self))
+    private lazy var logger = Logger(subsystem: logSubsystem, category: String(describing: ReturnReceiptSender.self))
     
     init(prng: PRNGService) {
         self.prng = prng
@@ -58,7 +59,7 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
     }
 
     
-    func postReturnReceiptWithElements(returnReceiptToSend: ObvReturnReceiptToSend, flowId: FlowIdentifier) async throws {
+    func postReturnReceiptsWithElements(returnReceiptsToSend: [ObvReturnReceiptToSend], flowId: FlowIdentifier) async throws {
         
         guard let identityDelegate = self.identityDelegate else {
             os_log("The identity delegate is not set", log: log, type: .fault)
@@ -66,65 +67,104 @@ final class ReturnReceiptSender: NSObject, ObvErrorMaker {
             throw ReturnReceiptSender.makeError(message: "The identity delegate is not set")
         }
         
-        guard !returnReceiptToSend.contactDeviceUIDs.isEmpty else {
-            assertionFailure()
-            return
-        }
-        
-        let ownedIdentity = returnReceiptToSend.contactIdentifier.ownedCryptoId.getIdentity()
-        let status = returnReceiptToSend.status
-        var payloadElements: [ObvEncodable] = [ownedIdentity, status]
-        if let attachmentNumber = returnReceiptToSend.attachmentNumber {
-            payloadElements += [attachmentNumber]
-        }
-        let payload = payloadElements.obvEncode().rawData
-        guard let encodedKey = ObvEncoded(withRawData: returnReceiptToSend.elements.key) else {
-            throw ReturnReceiptSender.makeError(message: "Could not decode key in elements")
-        }
-        let authenticatedEncryptionKey = try AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
-        let encryptedPayload = try ObvCryptoSuite.sharedInstance.authenticatedEncryption().encrypt(payload, with: authenticatedEncryptionKey, and: self.prng)
-        
-        let toIdentity = returnReceiptToSend.contactIdentifier.contactCryptoId.cryptoIdentity
-        let returnReceipt = ObvServerUploadReturnReceipt.ReturnReceipt(
-            toIdentity: toIdentity,
-            deviceUids: Array(returnReceiptToSend.contactDeviceUIDs),
-            nonce: returnReceiptToSend.elements.nonce,
-            encryptedPayload: encryptedPayload)
-        let method = ObvServerUploadReturnReceipt(serverURL: toIdentity.serverURL,
-                                                  returnReceipts: [returnReceipt],
-                                                  flowId: flowId)
-        method.identityDelegate = identityDelegate
-        
-        // Since the request of a upload task should not contain a body or a body stream, we use URLSession.upload(for:from:), passing the data to send via the `from` attribute.
-        guard let dataToSend = method.dataToSend else {
-            throw ReturnReceiptSender.makeError(message: "Could not get data to send")
-        }
-        method.dataToSend = nil
+        let log = self.log
 
-        let urlRequest = try method.getURLRequest()
+        let returnReceiptsToSend = returnReceiptsToSend.filter({ !$0.contactDeviceUIDs.isEmpty })
 
-        let (responseData, response) = try await URLSession.shared.upload(for: urlRequest, from: dataToSend)
-        
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            assertionFailure()
-            throw Self.makeError(message: "Bad HTTPURLResponse")
+        let returnReceipts: [ObvServerUploadReturnReceipt.ReturnReceipt] = returnReceiptsToSend.compactMap { returnReceiptToSend in
+            guard !returnReceiptToSend.contactDeviceUIDs.isEmpty else { assertionFailure(); return nil }
+            let ownedIdentity = returnReceiptToSend.contactIdentifier.ownedCryptoId.getIdentity()
+            let status = returnReceiptToSend.status
+            var payloadElements: [ObvEncodable] = [ownedIdentity, status]
+            if let attachmentNumber = returnReceiptToSend.attachmentNumber {
+                payloadElements += [attachmentNumber]
+            }
+            let payload = payloadElements.obvEncode().rawData
+            guard let encodedKey = ObvEncoded(withRawData: returnReceiptToSend.elements.key) else {
+                assertionFailure("Could not decode key in elements")
+                return nil
+            }
+            let encryptedPayload: EncryptedData
+            do {
+                let authenticatedEncryptionKey = try AuthenticatedEncryptionKeyDecoder.decode(encodedKey)
+                encryptedPayload = try ObvCryptoSuite.sharedInstance.authenticatedEncryption().encrypt(payload, with: authenticatedEncryptionKey, and: self.prng)
+            } catch {
+                assertionFailure()
+                return nil
+            }
+            let toIdentity = returnReceiptToSend.contactIdentifier.contactCryptoId.cryptoIdentity
+            let returnReceipt = ObvServerUploadReturnReceipt.ReturnReceipt(
+                toIdentity: toIdentity,
+                deviceUids: Array(returnReceiptToSend.contactDeviceUIDs),
+                nonce: returnReceiptToSend.elements.nonce,
+                encryptedPayload: encryptedPayload)
+            return returnReceipt
         }
         
-        guard let status = ObvServerUploadReturnReceipt.parseObvServerResponse(responseData: responseData, using: log) else {
-            os_log("🧾 We could not recover the status returned by the server", log: log, type: .fault)
-            assertionFailure()
-            throw Self.makeError(message: "We could not recover the status returned by the server")
-        }
+        // Split the return receipts per server
+        
+        let returnReceiptsForServer: [URL : [ObvServerUploadReturnReceipt.ReturnReceipt]] = Dictionary(grouping: returnReceipts, by: { $0.toIdentity.serverURL })
+        
+        // Send a batch per server
+                
+        await withTaskGroup(of: Void.self) { taskGroup in
+        
+            for (serverURL, returnReceiptsForServer) in returnReceiptsForServer {
+                
+                for sliceOfReturnReceiptsForServer in returnReceiptsForServer.toSlices(ofMaxSize: 50) {
+                    
+                    taskGroup.addTask {
 
-        switch status {
-        case .generalError:
-            os_log("🧾 Failed to send the return receipt. The server returned a General Error.", log: log, type: .fault)
-            assertionFailure()
-            throw Self.makeError(message: "Failed to send the return receipt. The server returned a General Error")
-        case .ok:
-            os_log("🧾 Return receipt sent successfully", log: log, type: .info)
-        }
+                        do {
+                            
+                            let method = ObvServerUploadReturnReceipt(serverURL: serverURL,
+                                                                      returnReceipts: sliceOfReturnReceiptsForServer,
+                                                                      flowId: flowId)
+                            method.identityDelegate = identityDelegate
+                            
+                            // Since the request of a upload task should not contain a body or a body stream, we use URLSession.upload(for:from:), passing the data to send via the `from` attribute.
+                            guard let dataToSend = method.dataToSend else {
+                                throw ReturnReceiptSender.makeError(message: "Could not get data to send")
+                            }
+                            method.dataToSend = nil
+                            
+                            let urlRequest = try method.getURLRequest()
+                            
+                            let (responseData, response) = try await URLSession.shared.upload(for: urlRequest, from: dataToSend)
+                            
+                            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                                assertionFailure()
+                                throw Self.makeError(message: "Bad HTTPURLResponse")
+                            }
+                            
+                            guard let status = ObvServerUploadReturnReceipt.parseObvServerResponse(responseData: responseData, using: log) else {
+                                self.logger.fault("🧾 We could not recover the status returned by the server")
+                                assertionFailure()
+                                throw Self.makeError(message: "We could not recover the status returned by the server")
+                            }
+                            
+                            switch status {
+                            case .generalError:
+                                self.logger.fault("🧾 Failed to send the return receipt. The server returned a General Error.")
+                                assertionFailure()
+                                throw Self.makeError(message: "Failed to send the return receipt. The server returned a General Error")
+                            case .ok:
+                                self.logger.info("🧾 \(sliceOfReturnReceiptsForServer.count) return receipts sent successfully")
+                            }
+                            
+                        } catch {
+                            self.logger.fault("Failed to send batch of return receipts: \(error.localizedDescription)")
+                            assertionFailure()
+                        }
 
+                    }
+
+                }
+                
+            }
+
+        }
+        
     }
     
     

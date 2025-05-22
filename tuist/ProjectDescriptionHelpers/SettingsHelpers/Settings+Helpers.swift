@@ -6,6 +6,14 @@ extension Dictionary where Key == String, Value == ProjectDescription.SettingVal
 //        merging(["SWIFT_VERSION": .init(stringLiteral: "6.0")])
 //    }
     
+    func developmentAssets(_ previewContent: String? = nil) -> Self {
+        if let previewContent {
+            return merging(["DEVELOPMENT_ASSET_PATHS": .init(stringLiteral: previewContent)])
+        } else {
+            return self
+        }
+    }
+    
     /// When enabled, the Swift compiler will be used to extract Swift string literal and interpolation LocalizedStringKey and LocalizationKey types during localization export.
     ///
     /// See: https://developer.apple.com/documentation/xcode/build-settings-reference#Use-Compiler-to-Extract-Swift-Strings

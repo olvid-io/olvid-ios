@@ -23,7 +23,7 @@ import OlvidUtils
 import ObvCrypto
 
 /// This policy allows to migrate the API keys found in each ``OwnedIdentity`` entity to its (optional) associated `KeycloakServer` entity.
-/// ``OwnedIdentity`` without keycloak server will "loose" their API key, as they are not needed anymore.
+/// ``OwnedIdentity`` without keycloak server will "lose" their API key, as they are not needed anymore.
 final class KeycloakServerToKeycloakServerMigrationPolicyV48ToV49: NSEntityMigrationPolicy, ObvErrorMaker {
     
     static let errorDomain = "KeycloakServer"

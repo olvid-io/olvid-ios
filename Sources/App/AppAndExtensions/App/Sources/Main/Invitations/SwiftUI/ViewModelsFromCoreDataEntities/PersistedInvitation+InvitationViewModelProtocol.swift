@@ -22,6 +22,7 @@ import SwiftUI
 import ObvUICoreData
 import ObvTypes
 import ObvSystemIcon
+import ObvAppTypes
 
 
 extension PersistedInvitation: InvitationViewModelProtocol {

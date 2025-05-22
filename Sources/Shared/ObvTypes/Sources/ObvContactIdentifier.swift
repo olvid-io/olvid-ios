@@ -22,7 +22,7 @@ import ObvCrypto
 import ObvEncoder
 
 
-public struct ObvContactIdentifier: Hashable {
+public struct ObvContactIdentifier: Hashable, Sendable {
     
     public let contactCryptoId: ObvCryptoId
     public let ownedCryptoId: ObvCryptoId

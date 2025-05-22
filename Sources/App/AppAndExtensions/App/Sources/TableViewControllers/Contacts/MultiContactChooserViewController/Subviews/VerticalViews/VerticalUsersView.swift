@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -61,9 +61,9 @@ struct VerticalUsersView<Model: VerticalUsersViewModelProtocol>: View {
                 }
             } else {
                 if #available(iOS 18.0, *) {
-                    ObvContentUnavailableView("CONTENT_UNAVAILABLE_CONTACTS_TEXT", systemIcon: .person, description: Text("CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION_WHEN_USING_FLOATING_BUTTON"))
+                    ObvContentUnavailableView(title: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_TEXT") , systemIcon: .person, description: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION_WHEN_USING_FLOATING_BUTTON"))
                 } else {
-                    ObvContentUnavailableView("CONTENT_UNAVAILABLE_CONTACTS_TEXT", systemIcon: .person, description: Text("CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION"))
+                    ObvContentUnavailableView(title: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_TEXT"), systemIcon: .person, description: String(localized: "CONTENT_UNAVAILABLE_CONTACTS_DESCRIPTION"))
                 }
             }
         } else {

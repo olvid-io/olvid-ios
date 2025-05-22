@@ -22,7 +22,7 @@ import UIKit
 import ObvDesignSystem
 
 
-class ObvButtonBorderless: ObvButton {
+class ObvButtonBorderless: ObvButtonLegacy {
     
     internal override func setTitleColors() {
         self.setTitleColor(AppTheme.shared.colorScheme.secondaryLabel, for: .normal)

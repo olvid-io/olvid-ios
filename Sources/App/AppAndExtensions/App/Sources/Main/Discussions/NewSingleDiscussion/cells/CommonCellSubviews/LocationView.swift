@@ -18,6 +18,7 @@
  */
 
 import UIKit
+import MapKit
 import CoreData
 import ObvUICoreData
 import ObvLocation
@@ -38,17 +39,19 @@ final class LocationView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpi
         let address: String?
         let sharingType: PersistedLocation.ContinuousOrOneShot?
         let expirationDate: TimeInterval?
+        let isSharingLocationExpired: Bool
         let userCircledInitialsConfiguration: CircledInitialsConfiguration?
         let userCanStopSharingLocation: Bool
         let sentFromAnotherDevice: Bool
-        let messageObjectID: TypeSafeManagedObjectID<PersistedMessage>?
-        let snapshotFilename: String?
+        let messageObjectID: TypeSafeManagedObjectID<PersistedMessage>
     }
 
     private var currentConfiguration: Configuration?
     
     func apply(_ newConfiguration: Configuration) {
+        debugPrint("🗺️ Call to apply new configuration")
         guard currentConfiguration != newConfiguration else { return }
+        debugPrint("🗺️ New configuration to apply")
         currentConfiguration = newConfiguration
         refresh()
     }
@@ -61,8 +64,9 @@ final class LocationView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpi
         }
     }
     
+    private let mapView = MKMapView()
+    
     private let bubble = BubbleView()
-    private let imageView = UIImageView()
     
     private let addressContainerView = UIView()
     private let addressEffectView = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
@@ -144,11 +148,13 @@ final class LocationView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpi
         addSubview(expirationIndicator)
         expirationIndicator.translatesAutoresizingMaskIntoConstraints = false
         
-        bubble.addSubview(imageView)
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.backgroundColor = .clear
-        imageView.contentMode = .scaleAspectFill
-        
+        bubble.addSubview(mapView)
+        mapView.translatesAutoresizingMaskIntoConstraints = false
+        mapView.isZoomEnabled = false
+        mapView.isScrollEnabled = false
+        mapView.isPitchEnabled = false
+        mapView.isRotateEnabled = false
+                
         bubble.addSubview(addressContainerView)
         addressContainerView.translatesAutoresizingMaskIntoConstraints = false
         
@@ -268,10 +274,10 @@ final class LocationView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpi
             bubble.trailingAnchor.constraint(equalTo: self.trailingAnchor),
             bubble.topAnchor.constraint(equalTo: self.topAnchor),
             bubble.bottomAnchor.constraint(equalTo: self.bottomAnchor),
-            imageView.leadingAnchor.constraint(equalTo: bubble.leadingAnchor),
-            imageView.trailingAnchor.constraint(equalTo: bubble.trailingAnchor),
-            imageView.topAnchor.constraint(equalTo: bubble.topAnchor),
-            imageView.bottomAnchor.constraint(equalTo: bubble.bottomAnchor),
+            mapView.leadingAnchor.constraint(equalTo: bubble.leadingAnchor),
+            mapView.trailingAnchor.constraint(equalTo: bubble.trailingAnchor),
+            mapView.topAnchor.constraint(equalTo: bubble.topAnchor),
+            mapView.bottomAnchor.constraint(equalTo: bubble.bottomAnchor),
             addressContainerView.leadingAnchor.constraint(equalTo: bubble.leadingAnchor),
             addressContainerView.trailingAnchor.constraint(equalTo: bubble.trailingAnchor),
             addressContainerView.bottomAnchor.constraint(equalTo: bubble.bottomAnchor),
@@ -354,9 +360,8 @@ final class LocationView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpi
         setupConstraintsForExpirationIndicator(gap: MessageCellConstants.gapBetweenExpirationViewAndBubble)
     }
     
-    private func clearSnapshot() {
-        self.imageView.image = nil
-        self.imageView.alpha = 0
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: SingleImageView.imageSize, height: SingleImageView.imageSize)
     }
     
     private func refreshDisplayType() {
@@ -450,30 +455,18 @@ final class LocationView: ViewForOlvidStack, ViewWithMaskedCorners, ViewWithExpi
             addressContainerView.isHidden = true
         }
         
-        // snapshot
-        
-        clearSnapshot()
-        
-        guard let latitude = currentConfiguration?.latitude, let longitude = currentConfiguration?.longitude else {
-            return
-        }
-        
-        guard let snapshotFilename = currentConfiguration?.snapshotFilename else {
-            return
-        }
-        
-        Task {
-            do {
-                let snapshot = try await ObvLocationService.requestSnapshot(latitude:latitude,
-                                                                            longitude:longitude,
-                                                                            filename: snapshotFilename)
-                if snapshotFilename == currentConfiguration?.snapshotFilename {
-                    self.imageView.image = snapshot
-                    self.imageView.alpha = 1.0
-                }
-            } catch {
+        if currentConfiguration?.isSharingLocationExpired == true {
+            self.mapView.layer.opacity = 0
+        } else {
+            self.mapView.layer.opacity = 1.0
+            if let longitude = currentConfiguration?.longitude, let latitude = currentConfiguration?.latitude {
+                let center = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                let zoomValue = 0.002
+                let span = MKCoordinateSpan(latitudeDelta: zoomValue, longitudeDelta: zoomValue)
+                self.mapView.setRegion(.init(center: center, span: span), animated: true)
             }
         }
+        
     }
 }
 
@@ -483,9 +476,9 @@ extension LocationView: UIViewWithTappableStuff {
     func tappedStuff(tapGestureRecognizer: UITapGestureRecognizer, acceptTapOutsideBounds: Bool) -> TappedStuffForCell? {
         guard !self.isHidden && self.showInStack else { return nil }
         guard self.bounds.contains(tapGestureRecognizer.location(in: self)) else { return nil }
-        guard let latitude = currentConfiguration?.latitude, let longitude = currentConfiguration?.longitude, let messageObjectID = currentConfiguration?.messageObjectID else { return nil }
+        guard let latitude = currentConfiguration?.latitude, let longitude = currentConfiguration?.longitude else { return nil }
         
-        if #available(iOS 17.0, *), currentConfiguration?.sharingType == .continuous {
+        if #available(iOS 17.0, *), let messageObjectID = currentConfiguration?.messageObjectID, currentConfiguration?.sharingType == .continuous {
             return .openMap(messageObjectID: messageObjectID)
         } else if currentConfiguration?.sharingType != nil { // we want to open external map for One Shot location OR Continuous Location only for prior iOS17.0 version. If it is `nil`, it means it stops sharing location and we do nothing.
             return .openExternalMapAt(latitude: latitude, longitude: longitude, address: currentConfiguration?.address)

@@ -429,10 +429,6 @@ final class ContactGroupV2: NSManagedObject, ObvManagedObject, ObvErrorMaker {
                 assertionFailure()
                 throw Self.makeError(message: "One of the group member is not a contact of the owned identity")
             }
-            guard contact.allCapabilities?.contains(.groupsV2) == true else {
-                assertionFailure()
-                throw Self.makeError(message: "One of the contacts does not have the GroupV2 capability")
-            }
             let serializedIdentityCoreDetails = contact.publishedIdentityDetails?.serializedIdentityCoreDetails ?? contact.trustedIdentityDetails.serializedIdentityCoreDetails
             let groupInvitationNonce = prng.genBytes(count: ObvConstants.groupInvitationNonceLength)
             return GroupV2.IdentityAndPermissionsAndDetails(identity: member.identity,
@@ -700,6 +696,15 @@ final class ContactGroupV2: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         obvContext.delete(self)
     }
     
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvObserver(_ newObserver: ContactGroupV2Observer) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
 }
 
 
@@ -1378,15 +1383,28 @@ extension ContactGroupV2 {
 
     struct Predicate {
         enum Key: String {
+            // Attributes
+            case groupVersion = "groupVersion"
+            case ownGroupInvitationNonce = "ownGroupInvitationNonce"
+            case rawBlobMainSeed = "rawBlobMainSeed"
+            case rawBlobVersionSeed = "rawBlobVersionSeed"
             case rawCategory = "rawCategory"
             case rawGroupUID = "rawGroupUID"
-            case rawServerURL = "rawServerURL"
-            case rawOwnedIdentity = "rawOwnedIdentity"
-            case rawOtherMembers = "rawOtherMembers"
-            case rawPendingMembers = "rawPendingMembers"
+            case rawLastModificationTimestamp = "rawLastModificationTimestamp"
             case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
+            case rawOwnPermissions = "rawOwnPermissions"
             case rawPushTopic = "rawPushTopic"
+            case rawServerURL = "rawServerURL"
+            case rawGroupAdminServerAuthenticationPrivateKey = "rawGroupAdminServerAuthenticationPrivateKey"
+            case rawVerifiedAdministratorsChain = "rawVerifiedAdministratorsChain"
             case serializedSharedSettings = "serializedSharedSettings"
+            case serializedGroupType = "serializedGroupType"
+            // Relationships
+            case rawOtherMembers = "rawOtherMembers"
+            case rawOwnedIdentity = "rawOwnedIdentity"
+            case rawPendingMembers = "rawPendingMembers"
+            case rawPublishedDetails = "rawPublishedDetails"
+            case rawTrustedDetails = "rawTrustedDetails"
         }
         static func forOwnedIdentity(ownedIdentity: OwnedIdentity) -> NSPredicate {
             NSPredicate(Key.rawOwnedIdentity, equalTo: ownedIdentity)
@@ -1698,6 +1716,43 @@ extension ContactGroupV2 {
             }
             ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+        }
+
+        // Potentially notify that the previous backed up profile snapshot is obsolete
+        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+        
+        if !isDeleted {
+            let previousBackedUpProfileSnapShotIsObsolete: Bool
+            if isInserted {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else if changedKeys.contains(Predicate.Key.groupVersion.rawValue) ||
+                        changedKeys.contains(Predicate.Key.ownGroupInvitationNonce.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawBlobMainSeed.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawBlobVersionSeed.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawOwnPermissions.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawGroupAdminServerAuthenticationPrivateKey.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawVerifiedAdministratorsChain.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawOtherMembers.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawPendingMembers.rawValue) ||
+                        changedKeys.contains(Predicate.Key.serializedGroupType.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawPublishedDetails.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawTrustedDetails.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawPushTopic.rawValue) ||
+                        changedKeys.contains(Predicate.Key.serializedSharedSettings.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawLastModificationTimestamp.rawValue) {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else {
+                previousBackedUpProfileSnapShotIsObsolete = false
+            }
+            if previousBackedUpProfileSnapShotIsObsolete {
+                if let ownedCryptoId = try? ObvCryptoId(identity: self.rawOwnedIdentityIdentity) {
+                    Task {
+                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2Changed(ownedCryptoId: ownedCryptoId)
+                    }
+                } else {
+                    assertionFailure()
+                }
+            }
         }
 
     }
@@ -2044,8 +2099,8 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
     fileprivate let serializedGroupType: String?
     private let rawPublishedDetails: ContactGroupV2DetailsSyncSnapshotNode?
     private let rawTrustedDetails: ContactGroupV2DetailsSyncSnapshotNode?
-    private let rawOtherMembers: [ObvCryptoIdentity: ContactGroupV2MemberSyncSnapshotItem]
-    private let rawPendingMembers: [ObvCryptoIdentity: ContactGroupV2PendingMemberSyncSnapshotItem]
+    private let rawOtherMembers: [ObvCryptoId: ContactGroupV2MemberSyncSnapshotItem]
+    private let rawPendingMembers: [ObvCryptoId: ContactGroupV2PendingMemberSyncSnapshotItem]
     
     let id = Self.generateIdentifier()
 
@@ -2106,17 +2161,17 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
         self.lastModificationTimestamp = nil // Only used for keycloak groups
         // rawOtherMembers
         do {
-            let keysAndValues: [(ObvCryptoIdentity, ContactGroupV2MemberSyncSnapshotItem)] = rawOtherMembers.compactMap({
+            let keysAndValues: [(ObvCryptoId, ContactGroupV2MemberSyncSnapshotItem)] = rawOtherMembers.compactMap({
                 guard let cryptoIdentity = $0.cryptoIdentity else { assertionFailure(); return nil }
-                return (cryptoIdentity, $0.snapshotItem)
+                return (ObvCryptoId(cryptoIdentity: cryptoIdentity), $0.snapshotItem)
             })
             self.rawOtherMembers = Dictionary(keysAndValues, uniquingKeysWith: { (first, _) in assertionFailure(); return first })
         }
         // rawPendingMembers
         do {
-            let keysAndValues: [(ObvCryptoIdentity, ContactGroupV2PendingMemberSyncSnapshotItem)] = rawPendingMembers.compactMap({
+            let keysAndValues: [(ObvCryptoId, ContactGroupV2PendingMemberSyncSnapshotItem)] = rawPendingMembers.compactMap({
                 guard let cryptoIdentity = $0.cryptoIdentity else { assertionFailure(); return nil }
-                return (cryptoIdentity, $0.snapshotItem)
+                return (ObvCryptoId(cryptoIdentity: cryptoIdentity), $0.snapshotItem)
             })
             self.rawPendingMembers = Dictionary(keysAndValues, uniquingKeysWith: { (first, _) in assertionFailure(); return first })
         }
@@ -2141,17 +2196,17 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
         self.lastModificationTimestamp = lastModificationTimestamp // Not used in server groups
         // rawOtherMembers
         do {
-            let keysAndValues: [(ObvCryptoIdentity, ContactGroupV2MemberSyncSnapshotItem)] = rawOtherMembers.compactMap({
+            let keysAndValues: [(ObvCryptoId, ContactGroupV2MemberSyncSnapshotItem)] = rawOtherMembers.compactMap({
                 guard let cryptoIdentity = $0.cryptoIdentity else { assertionFailure(); return nil }
-                return (cryptoIdentity, $0.snapshotItem)
+                return (ObvCryptoId(cryptoIdentity: cryptoIdentity), $0.snapshotItem)
             })
             self.rawOtherMembers = Dictionary(keysAndValues, uniquingKeysWith: { (first, _) in assertionFailure(); return first })
         }
         // rawPendingMembers
         do {
-            let keysAndValues: [(ObvCryptoIdentity, ContactGroupV2PendingMemberSyncSnapshotItem)] = rawPendingMembers.compactMap({
+            let keysAndValues: [(ObvCryptoId, ContactGroupV2PendingMemberSyncSnapshotItem)] = rawPendingMembers.compactMap({
                 guard let cryptoIdentity = $0.cryptoIdentity else { assertionFailure(); return nil }
-                return (cryptoIdentity, $0.snapshotItem)
+                return (ObvCryptoId(cryptoIdentity: cryptoIdentity), $0.snapshotItem)
             })
             self.rawPendingMembers = Dictionary(keysAndValues, uniquingKeysWith: { (first, _) in assertionFailure(); return first })
         }
@@ -2230,12 +2285,12 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
             // rawOtherMembers
             do {
                 let dict = try values.decodeIfPresent([String: ContactGroupV2MemberSyncSnapshotItem].self, forKey: .rawOtherMembers) ?? [:]
-                self.rawOtherMembers = .init(dict, keyMapping: { $0.base64EncodedToData?.identityToObvCryptoIdentity }, valueMapping: { $0 })
+                self.rawOtherMembers = .init(dict, keyMapping: { $0.base64EncodedToData?.identityToObvCryptoId }, valueMapping: { $0 })
             }
             // rawPendingMembers
             do {
                 let dict = try values.decodeIfPresent([String: ContactGroupV2PendingMemberSyncSnapshotItem].self, forKey: .rawPendingMembers) ?? [:]
-                self.rawPendingMembers = .init(dict, keyMapping: { $0.base64EncodedToData?.identityToObvCryptoIdentity }, valueMapping: { $0 })
+                self.rawPendingMembers = .init(dict, keyMapping: { $0.base64EncodedToData?.identityToObvCryptoId }, valueMapping: { $0 })
             }
             if values.allKeys.contains(.trustedDetailsIfThereArePublishedDetails) {
                 self.rawPublishedDetails = try values.decodeIfPresent(ContactGroupV2DetailsSyncSnapshotNode.self, forKey: .details)
@@ -2287,8 +2342,8 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
         }
         
         if domain.contains(.rawPendingMembers) {
-            try rawPendingMembers.forEach { (cryptoIdentity, pendingMemberNode) in
-                try pendingMemberNode.restoreInstance(within: obvContext, cryptoIdentity: cryptoIdentity, associations: &associations)
+            try rawPendingMembers.forEach { (cryptoId, pendingMemberNode) in
+                try pendingMemberNode.restoreInstance(within: obvContext, cryptoIdentity: cryptoId.cryptoIdentity, associations: &associations)
             }
         }
         
@@ -2325,8 +2380,8 @@ struct ContactGroupV2SyncSnapshotNode: ObvSyncSnapshotNode, Hashable {
         
         // Restore the relationships of this instance relationships
 
-        try self.rawOtherMembers.forEach { (cryptoIdentity, otherMemberNode) in
-            try otherMemberNode.restoreRelationships(associations: associations, ownedIdentity: ownedIdentity, cryptoIdentity: cryptoIdentity, contactIdentities: contactIdentities, within: obvContext)
+        try self.rawOtherMembers.forEach { (cryptoId, otherMemberNode) in
+            try otherMemberNode.restoreRelationships(associations: associations, ownedIdentity: ownedIdentity, cryptoIdentity: cryptoId.cryptoIdentity, contactIdentities: contactIdentities, within: obvContext)
         }
 
         try self.rawPendingMembers.forEach { (cryptoIdentity, pendingMemberNote) in
@@ -2361,9 +2416,44 @@ private extension String {
 
 private extension Data {
     
-    var identityToObvCryptoIdentity: ObvCryptoIdentity? {
-        guard let cryptoIdentity = ObvCryptoIdentity(from: self) else { assertionFailure(); return nil }
-        return cryptoIdentity
+    var identityToObvCryptoId: ObvCryptoId? {
+        guard let cryptoId = try? ObvCryptoId(identity: self) else { assertionFailure(); return nil }
+        return cryptoId
+    }
+    
+}
+
+
+// MARK: - ContactGroupV2 observers
+
+protocol ContactGroupV2Observer: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2Changed(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: ContactGroupV2Observer {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ContactGroupV2Observer?
+        init(value: ContactGroupV2Observer?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ContactGroupV2Observer) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2Changed(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2Changed(ownedCryptoId: ownedCryptoId) }
+            }
+        }
     }
     
 }

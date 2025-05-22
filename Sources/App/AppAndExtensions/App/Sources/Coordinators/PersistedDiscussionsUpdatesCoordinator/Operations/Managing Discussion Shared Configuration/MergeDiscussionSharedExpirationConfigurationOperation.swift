@@ -24,6 +24,7 @@ import ObvEngine
 import OlvidUtils
 import ObvUICoreData
 import ObvTypes
+import ObvAppTypes
 
 /// When receiving a shared configuration for a discussion, we merge it with our own current configuration.
 final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOperationWithSpecificReasonForCancel<MergeDiscussionSharedExpirationConfigurationOperation.ReasonForCancel>, @unchecked Sendable {
@@ -55,9 +56,20 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOpe
         case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case couldNotFindOneToOneContactInDatabase(contactCryptoId: ObvCryptoId)
         case contactIsNotPartOfTheGroup(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId)
+        case couldNotFindDiscussionInDatabase(discussionIdentifier: ObvDiscussionIdentifier)
         case merged
     }
 
+    
+    private var ownedCryptoId: ObvCryptoId {
+        switch origin {
+        case .fromContact(let contactIdentifier):
+            return contactIdentifier.ownedCryptoId
+        case .fromOtherDeviceOfOwnedIdentity(let ownedCryptoId):
+            return ownedCryptoId
+        }
+    }
+    
     
     private(set) var result: Result?
 
@@ -127,6 +139,13 @@ final class MergeDiscussionSharedExpirationConfigurationOperation: ContextualOpe
                     return
                 case .contactIsNotPartOfTheGroup(groupIdentifier: let groupIdentifier, contactIdentifier: let contactIdentifier):
                     result = .contactIsNotPartOfTheGroup(groupIdentifier: groupIdentifier, contactCryptoId: contactIdentifier.contactCryptoId)
+                    return
+                case .couldNotFindDiscussion:
+                    guard let discussionIdentifier = discussionSharedConfiguration.getDiscussionIdentifier(ownedCryptoId: ownedCryptoId) else {
+                        assertionFailure()
+                        return cancel(withReason: .coreDataError(error: error))
+                    }
+                    result = .couldNotFindDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
                     return
                 default:
                     return cancel(withReason: .coreDataError(error: error))

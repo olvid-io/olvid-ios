@@ -24,6 +24,7 @@ import ObvTypes
 import ObvSystemIcon
 import ObvUI
 import ObvAppCoreConstants
+import ObvDesignSystem
 
 
 
@@ -161,6 +162,9 @@ public struct SubscriptionPlansView<Model: SubscriptionPlansViewModelProtocol>: 
                 case .userCancelled, .pending:
                     await enableInterface()
                     await setShownHUDCategory(category: nil)
+                case .expired, .revoked:
+                    buyErrorShown = BuyError.buySucceededButSubscriptionIsExpired
+                    await enableInterfaceAndShowHUD(category: .xmark, duringTimeInterval: 1)
                 }
             } catch {
                 if let error = error as? StoreKit.Product.PurchaseError {

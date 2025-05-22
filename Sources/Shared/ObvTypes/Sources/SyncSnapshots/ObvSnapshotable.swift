@@ -24,16 +24,20 @@ import ObvCrypto
 /// See also `ObvBackupable` in `OlvidUtils`
 public protocol ObvSnapshotable: AnyObject {
     
-    func getSyncSnapshotNode(for ownedCryptoId: ObvCryptoId) throws -> any ObvSyncSnapshotNode
+    func getSyncSnapshotNode(for context: ObvSyncSnapshot.Context) throws -> any ObvSyncSnapshotNode
     func serializeObvSyncSnapshotNode(_ syncSnapshotNode: any ObvSyncSnapshotNode) throws -> Data
-    func deserializeObvSyncSnapshotNode(_ serializedSyncSnapshotNode: Data) throws -> any ObvSyncSnapshotNode
+    func deserializeObvSyncSnapshotNode(_ serializedSyncSnapshotNode: Data, context: ObvSyncSnapshot.Context) throws -> any ObvSyncSnapshotNode
     
 }
 
 
+/// Note: the `ObvIdentityManagerSnapshotable` (implemented by the identity manager) is declared in the meta manager
+
+/// Implemented by the app
 public protocol ObvAppSnapshotable: ObvSnapshotable {
     
     func syncEngineDatabaseThenUpdateAppDatabase(using syncSnapshotNode: any ObvSyncSnapshotNode) async throws
     func requestServerToKeepDeviceActive(ownedCryptoId: ObvCryptoId, deviceUidToKeepActive: UID) async throws
+    func getAdditionalInfosFromAppForProfileBackup(ownedCryptoId: ObvCryptoId) async throws -> AdditionalInfosFromAppForProfileBackup
 
 }

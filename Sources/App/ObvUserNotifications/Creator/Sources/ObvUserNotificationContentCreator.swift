@@ -1036,6 +1036,12 @@ extension ObvUserNotificationContentCreator {
                             lastReadMessageServerTimestamp: nil))
                         
                     } else if let updateMessageJSON = persistedItemJSON.updateMessageJSON {
+                        
+                        // If the updateMessageJSON concerns the update of a continously shared location, we don't display any notification
+                        
+                        if let locationJSON = updateMessageJSON.locationJSON, locationJSON.type == .SHARING {
+                            return continuation.resume(returning: .silent)
+                        }
 
                         // Check that the notification sender is allowed to update a message by simulating a database call (note that we shall **NOT** save the context)
                         

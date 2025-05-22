@@ -46,13 +46,14 @@ enum NewOnboardingState {
     case userWantsToChooseUnmanagedDetails
     case userIndicatedSheHasAnExistingProfile
     case userWantsToManuallyConfigureTheIdentityProvider
-    case userWantsToRestoreSomeBackup
+    case userWantsToRestoreSomeLegacyBackup(backupSeedManuallyEntered: BackupSeed?)
     case userWantsToChooseNameForCurrentDevice
-    case userWantsToRestoreThisEncryptedBackup(encryptedBackup: Data)
+    case userWantsToRestoreThisEncryptedLegacyBackup(encryptedBackup: Data, backupSeedManuallyEntered: BackupSeed?)
     case userWantsToRestoreThisDecryptedBackup(backupRequestIdentifier: UUID)
     case keycloakConfigAvailable(keycloakConfiguration: ObvKeycloakConfiguration, isConfiguredFromMDM: Bool)
     case keycloakUserDetailsAndStuffAvailable(keycloakUserDetailsAndStuff: KeycloakUserDetailsAndStuff, keycloakServerRevocationsAndStuff: KeycloakServerRevocationsAndStuff, keycloakState: ObvKeycloakState)
     case shouldRequestPermission(profileKind: ProfileKind, category: NewAutorisationRequesterViewController.AutorisationCategory)
+    case setupNewBackups(profileKind: ProfileKind)
     case finalize(profileKind: ProfileKind)
     
     // States while transfering an owned identity
@@ -82,9 +83,9 @@ enum NewOnboardingState {
         case .initial,
                 .userWantsToChooseUnmanagedDetails,
                 .userIndicatedSheHasAnExistingProfile,
-                .userWantsToRestoreSomeBackup,
+                .userWantsToRestoreSomeLegacyBackup,
                 .userWantsToChooseNameForCurrentDevice,
-                .userWantsToRestoreThisEncryptedBackup,
+                .userWantsToRestoreThisEncryptedLegacyBackup,
                 .userWantsToRestoreThisDecryptedBackup,
                 .keycloakConfigAvailable,
                 .keycloakUserDetailsAndStuffAvailable,
@@ -94,7 +95,8 @@ enum NewOnboardingState {
                 .userWantsToManuallyConfigureTheIdentityProvider,
                 .showOwnedIdentityTransferFailed,
                 .finalize,
-                .userWantsToProceedWithAddingDevice:
+                .userWantsToProceedWithAddingDevice,
+                .setupNewBackups:
             return nil
         case .finalOwnedIdentityTransferCheckOnSourceDevice(_, _, _, _, _, let protocolInstanceUID, _),
                 .userMustChooseDeviceToKeepActiveOnSourceDevice(_, _, _, _, _, _, let protocolInstanceUID),
@@ -124,9 +126,9 @@ enum NewOnboardingState {
             return nil
         case .userWantsToChooseUnmanagedDetails:
             return nil
-        case .userWantsToRestoreSomeBackup:
+        case .userWantsToRestoreSomeLegacyBackup:
             return nil
-        case .userWantsToRestoreThisEncryptedBackup:
+        case .userWantsToRestoreThisEncryptedLegacyBackup:
             return nil
         case .userWantsToRestoreThisDecryptedBackup:
             return nil
@@ -154,6 +156,8 @@ enum NewOnboardingState {
             return transferredOwnedCryptoId
         case .shouldRequestPermission(let profileKind, _):
             return profileKind.ownedCryptoId
+        case .setupNewBackups(profileKind: let profileKind):
+            return profileKind.ownedCryptoId
         case .finalize(let profileKind):
             return profileKind.ownedCryptoId
         case .userWantsToProceedWithAddingDevice(ownedCryptoId: let ownedCryptoId, ownedDetails: _):
@@ -165,15 +169,16 @@ enum NewOnboardingState {
     var profileKind: ProfileKind? {
         switch self {
         case .shouldRequestPermission(profileKind: let profileKind, category: _),
+                .setupNewBackups(profileKind: let profileKind),
                 .finalize(profileKind: let profileKind):
             return profileKind
         case .initial,
                 .userWantsToChooseUnmanagedDetails,
                 .userIndicatedSheHasAnExistingProfile,
                 .userWantsToManuallyConfigureTheIdentityProvider,
-                .userWantsToRestoreSomeBackup,
+                .userWantsToRestoreSomeLegacyBackup,
                 .userWantsToChooseNameForCurrentDevice,
-                .userWantsToRestoreThisEncryptedBackup,
+                .userWantsToRestoreThisEncryptedLegacyBackup,
                 .userWantsToRestoreThisDecryptedBackup,
                 .keycloakConfigAvailable,
                 .keycloakUserDetailsAndStuffAvailable,

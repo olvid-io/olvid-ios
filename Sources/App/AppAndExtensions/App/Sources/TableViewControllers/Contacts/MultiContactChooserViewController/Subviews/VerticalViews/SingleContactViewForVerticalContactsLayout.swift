@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import SwiftUI
 import ObvUIObvCircledInitials
 import ObvUI
 import ObvTypes
+import ObvCircleAndTitlesView
 
 
 /// Expected to be implemented by `PersistedUser` (and thus by `PersistedObvContactIdentity` and `PersistedGroupV2Member`)
@@ -69,7 +70,7 @@ struct SingleUserViewForVerticalUsersLayout<Model: SingleUserViewForVerticalUser
     var body: some View {
         HStack {
             HStack(alignment: .center, spacing: 16) {
-                InitialCircleViewNew(model: model, state: .init(circleDiameter: 60))
+                InitialCircleViewNew(model: model, state: .circleDiameter(diameter: 60))
                 ContactTextView(model: model)
             }
 

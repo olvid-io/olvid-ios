@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -59,6 +59,7 @@ final class RootViewController: UIViewController, LocalAuthenticationViewControl
     private var uptimeAtTheTimeOfChangeoverToNotActiveState: TimeInterval?
 
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "RootViewController")
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "RootViewController")
 
     deinit {
         observationTokens.forEach { NotificationCenter.default.removeObserver($0) }
@@ -477,15 +478,17 @@ final class RootViewController: UIViewController, LocalAuthenticationViewControl
         case metaFlowViewControllerIsNotSet
         case appCoordinatorsHolderIsNil
         case failedToAddAttachmentToDraft
+        case continuousSharingLocationManagerIsNil
     }
     
 }
 
 // MARK: - Implementing MapSharingHostingControllerDelegate
 
+@available(iOS 17.0, *)
 extension RootViewController: MapSharingHostingControllerDelegate {
     
-    func userWantsToSendLocation(_ locationData: ObvAppTypes.ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier) {
+    func userWantsToSendLocation(_ vc: MapSharingHostingController, locationData: ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier) {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); return }
         Task {
             guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); return }
@@ -497,8 +500,14 @@ extension RootViewController: MapSharingHostingControllerDelegate {
         }
     }
     
-    func userWantsToShareLocationContinuously(expirationDate: Date?, discussionIdentifier: ObvDiscussionIdentifier) {
-        ContinuousSharingLocationService.shared.startSharingLocationToDiscussion(discussionIdentifier: discussionIdentifier, expirationDate: expirationDate)
+    
+    func userWantsToShareLocationContinuously(_ vc: MapSharingHostingController, initialLocationData: ObvLocationData, expirationDate: ObvLocationSharingExpirationDate, discussionIdentifier: ObvDiscussionIdentifier) async throws {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
+        guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); return }
+        try await appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator.userWantsToShareLocationContinuously(initialLocationData: initialLocationData, discussionIdentifier: discussionIdentifier, expirationDate: expirationDate)
+        // Since the `ContinuousSharingLocationManager` observes the `PersistedLocationContinuousSent` database thanks to its data source, and
+        // since the above call will create `PersistedLocationContinuousSent` database entry, the `ContinuousSharingLocationManager` will eventually start (or continue)
+        // its loop through locations live updates.
     }
     
 }
@@ -507,12 +516,31 @@ extension RootViewController: MapSharingHostingControllerDelegate {
 // MARK: - Implementing MetaFlowControllerDelegate
 
 extension RootViewController: MetaFlowControllerDelegate {
+
+    @MainActor
+    func userWantsToDeleteOwnedIdentityAndHasConfirmed(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws {
+        
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
+        guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
+
+        showHUD(type: .spinner)
+        
+        do {
+            try await appCoordinatorsHolder.obvOwnedIdentityCoordinator.processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
+            await showThenHideHUD(type: .checkmark)
+        } catch {
+            await showThenHideHUD(type: .xmark)
+        }
+        
+    }
     
+    
+    /// This method is called when the user taps on the location button of a discussion's message composition view.
     func userWantsToShowMapToSendOrShareLocationContinuously(_ metaFlowController: MetaFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
 
         if #available(iOS 17, *) {
 
-            let authorizationStatus = try await ObvLocationService.shared.requestPermissionIfNotDetermined()
+            let authorizationStatus = try await ObvLocationPermissionService.shared.requestPermissionIfNotDetermined()
             
             switch authorizationStatus {
             case .notDetermined:
@@ -538,11 +566,25 @@ extension RootViewController: MetaFlowControllerDelegate {
             }
             
             // If we reach this point, we have permission to use location
-                        
-            let vc = try MapSharingHostingController(discussionIdentifier: discussionIdentifier, viewContext: ObvStack.shared.viewContext, delegate: self)
+            let isAlreadyContinouslySharingLocationFromCurrentDevice: Bool
+            if let discussion = try? PersistedDiscussion.getPersistedDiscussion(discussionIdentifier: discussionIdentifier, within: ObvStack.shared.viewContext), let location = discussion.ownedIdentity?.currentDevice?.location {
+                isAlreadyContinouslySharingLocationFromCurrentDevice = !location.isSharingLocationExpired
+            } else {
+                isAlreadyContinouslySharingLocationFromCurrentDevice = false
+            }
+            
+            let vc = try MapSharingHostingController(discussionIdentifier: discussionIdentifier,
+                                                     isAlreadyContinouslySharingLocationFromCurrentDevice: isAlreadyContinouslySharingLocationFromCurrentDevice,
+                                                     delegate: self)
+            
             
             if let sheet = vc.sheetPresentationController {
-                sheet.detents = [ .custom { _ in 250.0 }, .medium() ]
+                if UIDevice.current.userInterfaceIdiom == .pad {
+                    sheet.detents = [ .large() ]
+                    sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+                } else {
+                    sheet.detents = [ .custom { _ in 250.0 }, .medium(), .large() ]
+                }
                 sheet.prefersGrabberVisible = true
                 sheet.delegate = vc
                 sheet.preferredCornerRadius = 30.0
@@ -556,6 +598,13 @@ extension RootViewController: MetaFlowControllerDelegate {
             
         }
         
+    }
+    
+    
+    func userWantsToStopSharingLocationInDiscussion(_ metaFlowController: MetaFlowController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
+        guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
+        try await appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator.userWantsToStopSharingLocationInDiscussion(discussionIdentifier: discussionIdentifier)
     }
     
     
@@ -624,9 +673,10 @@ extension RootViewController: MetaFlowControllerDelegate {
     }
     
     
-    
-    func userWantsToStopSharingLocation() async throws {
-        await ContinuousSharingLocationService.shared.stopSharingLocation()
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ metaFlowController: MetaFlowController) async throws {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
+        guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
+        try await appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator.userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice()
     }
     
     
@@ -816,6 +866,16 @@ extension RootViewController: MetaFlowControllerDelegate {
         
     }
     
+    
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ metaFlowController: MetaFlowController, groupIdentifier: ObvGroupV2Identifier) async throws {
+        
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { assertionFailure(); throw ObvError.couldNotGetAppDelegate }
+        guard let appCoordinatorsHolder = await appDelegate.appMainManager.appCoordinatorsHolder else { assertionFailure(); throw ObvError.appCoordinatorsHolderIsNil }
+
+        try await appCoordinatorsHolder.contactGroupCoordinator.userWantsToReplaceTrustedDetailsByPublishedDetails(groupIdentifier: groupIdentifier)
+        
+    }
+
 }
 
 
@@ -872,48 +932,48 @@ extension RootViewController {
 
 extension RootViewController {
     
-        private func observeVoIPNotifications() {
-            observationTokens.append(contentsOf: [
-                VoIPNotification.observeNewCallToShow { model in
-                    Task(priority: .userInitiated) { [weak self] in
-                        self?.preferMetaViewControllerOverCallViewController = false
-                        await self?.setCallViewControllerModel(to: model)
+    private func observeVoIPNotifications() {
+        observationTokens.append(contentsOf: [
+            VoIPNotification.observeNewCallToShow { model in
+                Task(priority: .userInitiated) { [weak self] in
+                    self?.preferMetaViewControllerOverCallViewController = false
+                    await self?.setCallViewControllerModel(to: model)
+                }
+            },
+            VoIPNotification.observeNoMoreCallInProgress {
+                Task(priority: .userInitiated) { [weak self] in
+                    self?.preferMetaViewControllerOverCallViewController = false
+                    await self?.setCallViewControllerModel(to: nil)
+                }
+            },
+            VoIPNotification.observeHideCallView {
+                Task(priority: .userInitiated) { [weak self] in
+                    self?.preferMetaViewControllerOverCallViewController = true
+                    do {
+                        try await self?.switchToNextViewController()
+                    } catch {
+                        assertionFailure(error.localizedDescription)
                     }
-                },
-                VoIPNotification.observeNoMoreCallInProgress {
-                    Task(priority: .userInitiated) { [weak self] in
-                        self?.preferMetaViewControllerOverCallViewController = false
-                        await self?.setCallViewControllerModel(to: nil)
+                }
+            },
+            VoIPNotification.observeShowCallView {
+                Task(priority: .userInitiated) { [weak self] in
+                    self?.preferMetaViewControllerOverCallViewController = false
+                    do {
+                        try await self?.switchToNextViewController()
+                    } catch {
+                        assertionFailure(error.localizedDescription)
                     }
-                },
-                VoIPNotification.observeHideCallView {
-                    Task(priority: .userInitiated) { [weak self] in
-                        self?.preferMetaViewControllerOverCallViewController = true
-                        do {
-                            try await self?.switchToNextViewController()
-                        } catch {
-                            assertionFailure(error.localizedDescription)
-                        }
-                    }
-                },
-                VoIPNotification.observeShowCallView {
-                    Task(priority: .userInitiated) { [weak self] in
-                        self?.preferMetaViewControllerOverCallViewController = false
-                        do {
-                            try await self?.switchToNextViewController()
-                        } catch {
-                            assertionFailure(error.localizedDescription)
-                        }
-                    }
-                },
-                VoIPNotification.observeAnotherCallParticipantStartedCamera { [weak self] otherParticipantNames in
-                    guard let self else { return }
-                    guard !sceneIsActive || preferMetaViewControllerOverCallViewController else { return }
-                    ObvMessengerInternalNotification.postUserNotificationAsAnotherCallParticipantStartedCamera(otherParticipantNames: otherParticipantNames)
-                        .postOnDispatchQueue()
-                },
-            ])
-        }
+                }
+            },
+            VoIPNotification.observeAnotherCallParticipantStartedCamera { [weak self] otherParticipantNames in
+                guard let self else { return }
+                guard !sceneIsActive || preferMetaViewControllerOverCallViewController else { return }
+                ObvMessengerInternalNotification.postUserNotificationAsAnotherCallParticipantStartedCamera(otherParticipantNames: otherParticipantNames)
+                    .postOnDispatchQueue()
+            },
+        ])
+    }
     
 }
 

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -172,6 +172,40 @@ extension ProtocolInstance {
     }
     
     
+    static func getAllOwnedCryptoIdsAssociatedToProtocolInstances(within context: NSManagedObjectContext) throws -> Set<ObvCryptoIdentity> {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: ProtocolInstance.entityName)
+        request.resultType = .dictionaryResultType
+        request.propertiesToFetch = [Predicate.Key.ownedCryptoIdentity.rawValue]
+        request.returnsDistinctResults = true
+        guard let results = try context.fetch(request) as? [[String: ObvCryptoIdentity]] else { assertionFailure(); throw ObvError.couldNotCastFetchedResult }
+        let ownedCryptoIds = Set(results.compactMap({ $0[Predicate.Key.ownedCryptoIdentity.rawValue] }))
+        return ownedCryptoIds
+    }
+    
+    
+    /// This is called during bootstrap. It allows to remove certain protocol instances (for a limited set of protocol kinds) associated to an owned identity that could not be found in the identity manager database.
+    static func batchDeleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentity(nonExistingOwnedCryptoId: ObvCryptoIdentity, within context: NSManagedObjectContext) throws {
+        let request: NSFetchRequest<NSFetchRequestResult> = ProtocolInstance.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedIdentity(nonExistingOwnedCryptoId),
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                Predicate.withCryptoProtocolId(.ownedDeviceDiscovery),
+            ]),
+        ])
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
+        } else {
+            assertionFailure()
+        }
+    }
+    
+    
     static func getAll(cryptoProtocolId: CryptoProtocolId, delegateManager: ObvProtocolDelegateManager, within obvContext: ObvContext) throws -> [ProtocolInstance] {
         let request: NSFetchRequest<ProtocolInstance> = ProtocolInstance.fetchRequest()
         request.predicate = Predicate.withCryptoProtocolId(cryptoProtocolId)
@@ -276,4 +310,15 @@ extension ProtocolInstance {
         let items = try obvContext.fetch(request)
         try items.forEach({ try $0.delete() })
     }
+}
+
+
+// MARK: - Errors
+
+extension ProtocolInstance {
+    
+    enum ObvError: Error {
+        case couldNotCastFetchedResult
+    }
+    
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,9 +33,9 @@ final class AppCoordinatorsHolder: ObvSyncAtomRequestDelegate {
     private let obvEngine: ObvEngine
     let persistedDiscussionsUpdatesCoordinator: PersistedDiscussionsUpdatesCoordinator
     let bootstrapCoordinator: BootstrapCoordinator
-    private let obvOwnedIdentityCoordinator: ObvOwnedIdentityCoordinator
+    let obvOwnedIdentityCoordinator: ObvOwnedIdentityCoordinator
     private let contactIdentityCoordinator: ContactIdentityCoordinator
-    private let contactGroupCoordinator: ContactGroupCoordinator
+    let contactGroupCoordinator: ContactGroupCoordinator
     private let appSyncSnapshotableCoordinator: AppSyncSnapshotableCoordinator
     let userNotificationsCoordinator: UserNotificationsCoordinator
 

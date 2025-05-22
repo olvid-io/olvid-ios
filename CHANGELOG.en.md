@@ -1,11 +1,35 @@
 # Changelog
 
-## [3.6 (852)] - 2025-02-07 - App Store
+## [3.8 (873)] - 2025-05-21
+
+- We've redesigned the group creation and editing experience from the ground up to make it more intuitive, efficient, and user-friendly.
+- Major improvement to the geolocation feature!
+- It is now possible to access all your contacts' shared locations at once.
+- Furthermore, sharing your location is now fully battery efficient.
+- Resolves an issue where notifications were not displayed for messages containing attachments only.
+- Addresses a problem causing specific timestamps to be overridden for sent messages.
+- We have made significant improvements to the profile deletion process, ensuring a more reliable experience with clearer visual indicators.
+- We optimized core aspects of the app, resulting in improved overall performance and efficiency.
+- Upon launching the directory screen, an initial search is performed immediately.
+- Additional design improvements have been made.
+
+## [3.7 (857)] - 2025-04-17
+
+- Introducing a New Backup Process!
+- The old backup process has been replaced with a new, simple, and secure method for backing up your profiles.
+- Automatically perform end-to-end encrypted backups of all your profiles, or choose to do it manually. You have full control.
+- Optimizes performance when marking all messages in a discussion as 'read'.
+- Now displays nicknames instead of first names for the sender of the last group message in the recent discussions list.
+- Improved the experience when transferring a message to multiple discussions.
+- Bug Fix: Resolved an issue that occasionally prevented the deletion of a locked discussion.
+- Improves certain designs.
+
+## [3.6 (852)] - 2025-02-07
 
 - Performance optimization for group updates, resulting in a significant speed increase.
 - Resolution of a bug causing notifications with solely attachments to fail to display properly.
 
-## [3.5 (851)] - 2025-01-13 - App Store
+## [3.5 (851)] - 2025-01-13
 
 - Introducing a highly anticipated feature! You can now share your location with your contacts.
 - As you would expect from Olvid, your location is end-to-end encrypted.
@@ -24,7 +48,7 @@
 - Resolved issues with Keycloak revocation process.
 - Addressed a problem causing difficulty when dragging and dropping an URL from certain browsers.
 
-## [3.4 (837)] - 2024-12-04 - App Store
+## [3.4 (837)] - 2024-12-04
 
 - A new progress bar now appears when Olvid is working hard to get everything ready for you.
 - For our Pro users: Enhanced security for managed profile transfers! Your administrator can now enforce authentication on the new device.
@@ -39,7 +63,7 @@
 - In a managed environment, we've added a new trust origin when a contact becomes certified.
 - In a managed environment, if authentication is required, the alert now clearly indicates which profile needs your attention.
 
-## [3.3 (815)] - 2024-10-21 - App Store
+## [3.3 (815)] - 2024-10-21
 
 - Our notifications have been completely revamped to make them less intrusive, yet more reliable and relevant than ever before.
 - Notifications about new messages are now grouped by discussion, making it easier to stay on top of your chats.
@@ -51,7 +75,7 @@
 - Addresses a problem that sometimes hindered the creation and editing of personal notes.
 - Sharing an invitation with AirDrop now shares the invitation URL.
 
-## [3.2 (807)] - 2024-09-18 - App Store
+## [3.2 (807)] - 2024-09-18
 
 ### macOS
 
@@ -61,7 +85,7 @@
 
 - Olvid is now fully compatible with iOS 18 and iPadOS 18.
 
-## [3.1 (803)] - 2024-09-12 - App Store
+## [3.1 (803)] - 2024-09-12
 
 ### macOS
 

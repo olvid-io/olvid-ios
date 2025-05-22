@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -95,8 +95,7 @@ extension ReceivedMessageCoordinator {
         }
 
         let op1 = DeleteProtocolInstancesInAFinalStateOperation()
-        let queueForComposedOperations = OperationQueue.createSerialQueue()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
         queueForProtocolOperations.addOperation(composedOp)
         
     }
@@ -115,8 +114,7 @@ extension ReceivedMessageCoordinator {
         }
 
         let op1 = DeleteOwnedIdentityTransferProtocolInstancesOperation()
-        let queueForComposedOperations = OperationQueue.createSerialQueue()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
         queueForProtocolOperations.addOperation(composedOp)
         
     }
@@ -135,8 +133,7 @@ extension ReceivedMessageCoordinator {
         }
 
         let op1 = DeleteReceivedMessagesConcerningAnOwnedIdentityTransferProtocolOperation()
-        let queueForComposedOperations = OperationQueue.createSerialQueue()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
         queueForProtocolOperations.addOperation(composedOp)
 
     }
@@ -153,8 +150,7 @@ extension ReceivedMessageCoordinator {
         }
 
         let op1 = DeleteObsoleteReceivedMessagesOperation(delegateManager: delegateManager)
-        let queueForComposedOperations = OperationQueue.createSerialQueue()
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId)
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
         queueForProtocolOperations.addOperation(composedOp)
 
     }

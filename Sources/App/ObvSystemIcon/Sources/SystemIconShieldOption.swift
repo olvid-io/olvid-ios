@@ -21,7 +21,7 @@
 import Foundation
 
 
-public enum SystemIconShieldOption {
+public enum SystemIconShieldOption: Sendable {
     case none
     case shield
 

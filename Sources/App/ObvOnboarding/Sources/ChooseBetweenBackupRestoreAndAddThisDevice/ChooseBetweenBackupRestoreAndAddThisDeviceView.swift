@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import SwiftUI
+import ObvDesignSystem
 
 
 protocol ChooseBetweenBackupRestoreAndAddThisDeviceViewActionsProtocol: AnyObject {
@@ -31,40 +32,78 @@ struct ChooseBetweenBackupRestoreAndAddThisDeviceView: View {
     
     let actions: ChooseBetweenBackupRestoreAndAddThisDeviceViewActionsProtocol
 
-    var body: some View {
-        ScrollView {
-            VStack {
-                
-                // Vertically center the view, but not on iPhone
-                
-                if UIDevice.current.userInterfaceIdiom != .phone {
-                    Spacer()
-                }
-                
-                NewOnboardingHeaderView(
-                    title: "WHAT_DO_YOU_WANT_TO_DO_ONBOARDING_TITLE",
-                    subtitle: nil)
-                
-                VStack {
-                    OnboardingSpecificPlainButton("ONBOARDING_BUTTON_TITLE_ACTIVATE_MY_PROFILE_ON_THIS_DEVICE", action: actions.userWantsToActivateHerProfileOnThisDevice)
-                    .padding(.bottom)
-                    OnboardingSpecificPlainButton("ONBOARDING_BUTTON_TITLE_RESTORE_BACKUP", action: actions.userWantsToRestoreBackup)
-                }
-                .padding(.horizontal)
-                .padding(.top)
-                
-                HStack {
-                    Text("ONBOARDING_NAME_CHOOSER_MANAGED_PROFILE_LABEL")
-                        .foregroundStyle(.secondary)
-                    Button("ONBOARDING_NAME_CHOOSER_MANAGED_PROFILE_BUTTON_TITLE".localizedInThisBundle,
-                           action: actions.userIndicatedHerProfileIsManagedByOrganisation)
-                }
-                .font(.subheadline)
-                .padding(.top, 40)
-                
+    
+    private struct ProfileManagedByOrganisationView: View {
+        let action: () -> Void
+        var body: some View {
+            HStack {
                 Spacer()
-                
+                Text("ONBOARDING_NAME_CHOOSER_MANAGED_PROFILE_LABEL")
+                    .foregroundStyle(.secondary)
+                Button("ONBOARDING_NAME_CHOOSER_MANAGED_PROFILE_BUTTON_TITLE".localizedInThisBundle,
+                       action: action)
             }
+            .font(.subheadline)
+        }
+    }
+    
+    
+    private struct InfoView: View {
+        var body: some View {
+            HStack(alignment: .firstTextBaseline) {
+                Image(systemIcon: .infoCircle)
+                Text("TEXT_INFO_RECOMMENDED_TRANSFER_INSTEAD_OF_BACKUP")
+                    .multilineTextAlignment(.leading)
+            }
+            .foregroundStyle(.secondary)
+            .font(.subheadline)
+        }
+    }
+    
+    
+    var body: some View {
+        VStack {
+            
+            ScrollView {
+                VStack {
+                    
+                    // Vertically center the view, but not on iPhone
+                    
+                    if UIDevice.current.userInterfaceIdiom != .phone {
+                        Spacer()
+                    }
+                    
+                    ObvHeaderView(
+                        title: "WHAT_DO_YOU_WANT_TO_DO_ONBOARDING_TITLE".localizedInThisBundle,
+                        subtitle: nil)
+                    .padding()
+                    
+                    VStack {
+                        
+                        Button(action: actions.userWantsToActivateHerProfileOnThisDevice) {
+                            Text("ONBOARDING_BUTTON_TITLE_ACTIVATE_MY_PROFILE_ON_THIS_DEVICE")
+                        }
+                        .buttonStyle(ObvButtonStyleForOnboarding())
+                        
+                        Button(action: actions.userWantsToRestoreBackup) {
+                            Text("ONBOARDING_BUTTON_TITLE_RESTORE_BACKUP")
+                        }
+                        .buttonStyle(ObvButtonStyleForOnboarding())
+
+                    }
+                    .padding(.horizontal)
+                    .padding(.top)
+                    
+                    InfoView()
+                        .padding()
+                                        
+                }
+            }
+            
+            ProfileManagedByOrganisationView(action: actions.userIndicatedHerProfileIsManagedByOrganisation)
+                .padding(.horizontal)
+                .padding(.bottom)
+
         }
     }
     
@@ -73,21 +112,15 @@ struct ChooseBetweenBackupRestoreAndAddThisDeviceView: View {
 
 
 
+// MARK: - Previews
+
+final private class ActionsForPreviews: ChooseBetweenBackupRestoreAndAddThisDeviceViewActionsProtocol {
+    func userWantsToRestoreBackup() {}
+    func userWantsToActivateHerProfileOnThisDevice() {}
+    func userIndicatedHerProfileIsManagedByOrganisation() {}
+}
 
 
-
-struct ChooseBetweenBackupRestoreAndAddThisDeviceView_Previews: PreviewProvider {
-    
-    private final class Actions: ChooseBetweenBackupRestoreAndAddThisDeviceViewActionsProtocol {
-        func userWantsToRestoreBackup() {}
-        func userWantsToActivateHerProfileOnThisDevice() {}
-        func userIndicatedHerProfileIsManagedByOrganisation() {}
-    }
-
-    private static let actions = Actions()
-    
-    static var previews: some View {
-        ChooseBetweenBackupRestoreAndAddThisDeviceView(actions: actions)
-    }
-    
+#Preview {
+    ChooseBetweenBackupRestoreAndAddThisDeviceView(actions: ActionsForPreviews())
 }

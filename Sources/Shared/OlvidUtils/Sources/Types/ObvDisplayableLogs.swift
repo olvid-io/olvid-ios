@@ -124,6 +124,7 @@ public actor ObvDisplayableLogs {
         return df
     }()
     
+    
     private let dateFormatterForLog: DateFormatter = {
         let df = DateFormatter()
         df.dateFormat = "HH:mm:ss:SSSSZZZZZ"
@@ -135,59 +136,18 @@ public actor ObvDisplayableLogs {
         displayableLogsAreEnabled = value
     }
     
+    
     private func setContainerURLForDisplayableLogsInternal(to url: URL) {
-        assert(containerURLForDisplayableLogs == nil, "In practice, we expect to set this value exactly once")
+        assert(containerURLForDisplayableLogs == nil || containerURLForDisplayableLogs == url, "In practice, we expect to set this value exactly once")
         containerURLForDisplayableLogs = url
     }
     
 
-    
-    
-//    public func getLogNSURL(_ logFilename: String) -> NSURL? {
-//        guard let logURL = try? logURL(for: logFilename) else { return nil }
-//        let fm = FileManager.default
-//        guard fm.fileExists(atPath: logURL.path) else { return nil }
-//        return logURL as NSURL
-//    }
-    
-    
-//    private var logFilename: String {
-//        "\(dateFormatterForFilename.string(from: Date()))-olvid.log"
-//    }
-    
     private func dateFromLog(_ log: NSURL) -> Date? {
         guard let dateAsString = log.lastPathComponent?.replacingOccurrences(of: "-olvid.log", with: "") else { assertionFailure(); return nil }
         return dateFormatterForFilename.date(from: dateAsString)
     }
 
-//    private func logURL(for logFilename: String) throws -> URL {
-//        guard let containerURLForDisplayableLogs else {
-//            assertionFailure()
-//            throw ObvError.containerURLForDisplayableLogsIsNil
-//        }
-//        return containerURLForDisplayableLogs.appendingPathComponent(logFilename, isDirectory: false)
-//    }
-    
-//    private var logURL: URL? {
-//        try? logURL(for: logFilename)
-//    }
-    
-    
-    
-    
-//    public func getContentOfLog(_ log: NSURL) throws -> String {
-//        return try String(contentsOf: log as URL, encoding: .utf8)
-//    }
-    
-    
-//    public func deleteLog(logFilename: String) throws {
-//        let fm = FileManager.default
-//        let logURL = try logURL(for: logFilename)
-//        try fm.removeItem(at: logURL)
-//    }
-    
-
-    
     
     enum ObvError: Error {
         case containerURLForDisplayableLogsIsNil

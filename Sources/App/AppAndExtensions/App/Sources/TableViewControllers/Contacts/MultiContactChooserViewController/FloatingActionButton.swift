@@ -20,6 +20,7 @@
 import ObvUI
 import SwiftUI
 import ObvSystemIcon
+import ObvDesignSystem
 
 
 /// Legacy model, shall not be used in the future

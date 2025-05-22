@@ -47,7 +47,7 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
     enum Result {
         case couldNotFindGroupV2InDatabase(groupIdentifier: GroupV2Identifier)
         case couldNotFindOneToOneContactInDatabase(contactCryptoId: ObvCryptoId)
-        case processed
+        case processed(receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>])
     }
 
     private(set) var result: Result?
@@ -88,10 +88,12 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
             self.ownedCryptoId = ownedIdentity.cryptoId
             self.ownedIdentityHasAnotherReachableDevice = ownedIdentity.hasAnotherDeviceWhichIsReachable
             
-            let lastReadMessageServerTimestamp = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId, 
-                                                                                           serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
-                                                                                           dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
-
+            let markAllMessagesAsNotNewResult = try ownedIdentity.markAllMessagesAsNotNew(discussionId: discussionId,
+                                                                                          serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
+                                                                                          dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+            
+            let lastReadMessageServerTimestamp = markAllMessagesAsNotNewResult?.maxTimestampOfModifiedMessages
+            
             do {
                 let isDiscussionActive = try ownedIdentity.isDiscussionActive(discussionId: discussionId)
                 let shouldSendDiscussionReadJSON = isDiscussionActive && !requestReceivedFromAnotherOwnedDevice
@@ -102,7 +104,7 @@ final class MarkAllMessagesAsNotNewWithinDiscussionOperation: ContextualOperatio
                 assertionFailure(error.localizedDescription) // Continue anyway
             }
             
-            result = .processed
+            result = .processed(receivedMessagesForReadReceipts: markAllMessagesAsNotNewResult?.receivedMessagesForReadReceipts ?? [])
             
         } catch {
             if let error = error as? ObvUICoreDataError {

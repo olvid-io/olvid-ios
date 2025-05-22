@@ -108,7 +108,7 @@ final class EditNicknameAndCustomPictureViewController: UIHostingController<Edit
         
         let imageFromPicker = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
             self.continuationForPicker = continuation
-            present(picker, animated: true)
+            presentOnTop(picker, animated: true)
         }
         
         guard let imageFromPicker else { return nil }
@@ -134,7 +134,7 @@ final class EditNicknameAndCustomPictureViewController: UIHostingController<Edit
 
         let imageFromPicker = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
             self.continuationForDocumentPicker = continuation
-            present(documentPicker, animated: true)
+            presentOnTop(documentPicker, animated: true)
         }
 
         guard let imageFromPicker else { return nil }
@@ -229,7 +229,7 @@ final class EditNicknameAndCustomPictureViewController: UIHostingController<Edit
 
         let resizedImage = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
             self.continuationForPicker = continuation
-            present(imageEditor, animated: true)
+            presentOnTop(imageEditor, animated: true)
         }
         
         return resizedImage

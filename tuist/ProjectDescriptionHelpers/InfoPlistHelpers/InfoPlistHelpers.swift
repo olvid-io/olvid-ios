@@ -33,6 +33,11 @@ extension InfoPlist {
                 "LSItemContentTypes": .array([.string("com.microsoft.word.doc")]),
             ]),
             .dictionary([
+                "CFBundleTypeName": .string("Apple m4a Audio"),
+                "LSHandlerRank": .string("Default"),
+                "LSItemContentTypes": .array([.string("com.apple.m4a-audio")]),
+            ]),
+            .dictionary([
                 "CFBundleTypeName": .string("Microsoft Word document"),
                 "LSHandlerRank": .string("Default"),
                 "LSItemContentTypes": .array([.string("org.openxmlformats.wordprocessingml.document")]),
@@ -140,6 +145,13 @@ extension InfoPlist {
                 ]),
             ]),
             .dictionary([
+                "UTTypeDescription": .string("Apple m4a Audio"),
+                "UTTypeIdentifier": .string("com.apple.m4a-audio"),
+                "UTTypeConformsTo": .array([
+                    .string("public.data"),
+                ]),
+            ]),
+            .dictionary([
                 "UTTypeDescription": .string("Microsoft Word 97 document"),
                 "UTTypeIdentifier": .string("com.microsoft.word.doc"),
                 "UTTypeConformsTo": .array([
@@ -199,6 +211,7 @@ extension InfoPlist {
         let bgTaskSchedulerPermittedIdentifiers: ProjectDescription.Plist.Value = .array([
             .string("io.olvid.background.tasks"), // The app refresh background task (there can be only one)
             .string("io.olvid.background.processing.database.sync"), // A processing background task for syncing the app database with the engine database (there can be at most 10 processing tasks)
+            .string("io.olvid.background.processing.perform.new.backup"), // A processing background task for performing a (new) backup of all the profiles
         ])
         
         let standardPlistValuesForExtendingDefault: [String : ProjectDescription.Plist.Value] = [

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import ObvUIObvCircledInitials
 import ObvSystemIcon
 
 
+@MainActor
 public protocol ObvPhotoButtonViewActionsProtocol {
     func userWantsToAddProfilPictureWithCamera()
     func userWantsToAddProfilPictureWithPhotoLibrary()
@@ -41,7 +42,6 @@ public struct ObvPhotoButtonView<Model: ObvPhotoButtonViewModelProtocol>: View {
 
     private let actions: ObvPhotoButtonViewActionsProtocol
     @ObservedObject private var model: Model
-    @State private var isPopoverPresented = false
     private let circleDiameter: CGFloat
     private let backgroundColor: Color?
 
@@ -52,12 +52,8 @@ public struct ObvPhotoButtonView<Model: ObvPhotoButtonViewModelProtocol>: View {
         self.backgroundColor = backgroundColor
     }
     
-    private func buttonTapped() {
-        isPopoverPresented = true
-    }
-    
     public var body: some View {
-        InitialCircleViewNew(model: model, state: .init(circleDiameter: circleDiameter))
+        InitialCircleViewNew(model: model, state: .circleDiameter(diameter: circleDiameter))
             .frame(width: circleDiameter, height: circleDiameter)
             .overlay(alignment: .init(horizontal: .trailing, vertical: .bottom)) {
                 Menu {

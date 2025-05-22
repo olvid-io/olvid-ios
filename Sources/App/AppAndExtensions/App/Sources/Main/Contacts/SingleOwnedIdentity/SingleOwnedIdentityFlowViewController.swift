@@ -41,6 +41,8 @@ protocol StoreKitDelegate: AnyObject {
     func userRequestedListOfSKProducts() async throws -> [Product]
     func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult
     func userWantsToRestorePurchases() async throws
+    func userWantsToKnowIfMultideviceSubscriptionIsActive() async throws -> Bool
+    func userWantsToRefreshSubscriptionStatus() async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult]
 }
 
 
@@ -721,10 +723,13 @@ extension SingleOwnedIdentityFlowViewController {
     
     @MainActor
     func userWantsToRefreshSubscriptionStatus() async {
-        let ownedCryptoId = self.ownedCryptoId
         showHUD(type: .spinner)
         do {
-            _ = try await obvEngine.refreshAPIPermissions(of: ownedCryptoId)
+            guard let delegate else {
+                assertionFailure()
+                throw ObvError.theDelegateIsNil
+            }
+            _ = try await delegate.userWantsToRefreshSubscriptionStatus()
             showHUD(type: .checkmark)
         } catch {
             showHUD(type: .xmark)

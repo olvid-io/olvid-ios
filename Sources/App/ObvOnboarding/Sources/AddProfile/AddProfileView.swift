@@ -18,10 +18,14 @@
  */
 
 import SwiftUI
+import ObvDesignSystem
 
+
+@MainActor
 protocol AddProfileViewActionsProtocol: AnyObject {
     func userWantsToCreateNewProfile() async
     func userWantsToImportProfileFromAnotherDevice() async
+    func userWantsToRestoreBackup() async
 }
 
 
@@ -29,6 +33,17 @@ struct AddProfileView: View {
     
     let actions: AddProfileViewActionsProtocol
     
+    @State private var isBadgeVisible = false
+
+    private func onAppear() {
+        Task {
+            try await Task.sleep(seconds: 0.2)
+            withAnimation {
+                isBadgeVisible = true
+            }
+        }
+    }
+
     var body: some View {
         VStack {
             
@@ -38,19 +53,36 @@ struct AddProfileView: View {
                 Spacer()
             }
             
-            NewOnboardingHeaderView(
-                title: "ONBOARDING_ADD_PROFILE_TITLE",
-                subtitle: nil)
+            ObvHeaderView(
+                title: "ONBOARDING_ADD_PROFILE_TITLE".localizedInThisBundle,
+                subtitle: nil,
+                isBadgeVisible: $isBadgeVisible)
+            .onAppear(perform: onAppear)
             .padding(.bottom, 35)
 
             VStack {
-                OnboardingSpecificPlainButton("ONBOARDING_ADD_PROFILE_IMPORT_BUTTON", action: {
+                
+                Button {
                     Task { await actions.userWantsToImportProfileFromAnotherDevice() }
-                })
-                .padding(.bottom)
-                OnboardingSpecificPlainButton("ONBOARDING_ADD_PROFILE_CREATE_BUTTON", action: {
+                } label: {
+                    Text("ONBOARDING_ADD_PROFILE_IMPORT_BUTTON")
+                }
+                .buttonStyle(ObvButtonStyleForOnboarding())
+
+                Button {
+                    Task { await actions.userWantsToRestoreBackup() }
+                } label: {
+                    Text("RESTORE_A_BACKUP")
+                }
+                .buttonStyle(ObvButtonStyleForOnboarding())
+
+                Button {
                     Task { await actions.userWantsToCreateNewProfile() }
-                })
+                } label: {
+                    Text("ONBOARDING_ADD_PROFILE_CREATE_BUTTON")
+                }
+                .buttonStyle(ObvButtonStyleForOnboarding())
+                
             }
             
             Spacer()

@@ -191,16 +191,22 @@ final class SentMessageCell: UICollectionViewCell, CellWithMessage, MessageCellS
         if message.isLocationMessage {
             let location = message.locationContinuousSent ?? message.locationOneShotSent
             let circledInitialsConfiguration = message.discussion?.ownedIdentity?.circledInitialsConfiguration
+            let isSharingLocationExpired: Bool
+            if message.locationOneShotSent != nil {
+                isSharingLocationExpired = false
+            } else {
+                isSharingLocationExpired = message.locationContinuousSent?.isSharingLocationExpired ?? true // If nil, we know the sharing expired
+            }
             let locationViewConfiguration = LocationView.Configuration(latitude: location?.latitude,
                                                                        longitude: location?.longitude,
                                                                        address: location?.address,
                                                                        sharingType: try? location?.continuousOrOneShot,
                                                                        expirationDate: location?.sharingExpiration?.timeIntervalSince1970,
+                                                                       isSharingLocationExpired: isSharingLocationExpired,
                                                                        userCircledInitialsConfiguration: circledInitialsConfiguration,
                                                                        userCanStopSharingLocation: true,
                                                                        sentFromAnotherDevice: message.status == .sentFromAnotherOwnedDevice,
-                                                                       messageObjectID: self.message?.typedObjectID.downcast,
-                                                                       snapshotFilename: location?.snapshotFilename)
+                                                                       messageObjectID: message.typedObjectID.downcast)
             content.locationViewConfiguration = locationViewConfiguration
         } else {
             content.locationViewConfiguration = nil

@@ -132,7 +132,6 @@ enum ObvMessengerInternalNotification {
 	case userWantsToAddOwnedProfile
 	case userWantsToSwitchToOtherOwnedIdentity(ownedCryptoId: ObvCryptoId)
 	case userWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: ObvCryptoId)
-	case userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool)
 	case userWantsToHideOwnedIdentity(ownedCryptoId: ObvCryptoId, password: String)
 	case failedToHideOwnedIdentity(ownedCryptoId: ObvCryptoId)
 	case userWantsToSwitchToOtherHiddenOwnedIdentity(password: String)
@@ -257,7 +256,6 @@ enum ObvMessengerInternalNotification {
 		case userWantsToAddOwnedProfile
 		case userWantsToSwitchToOtherOwnedIdentity
 		case userWantsToDeleteOwnedIdentityButHasNotConfirmedYet
-		case userWantsToDeleteOwnedIdentityAndHasConfirmed
 		case userWantsToHideOwnedIdentity
 		case failedToHideOwnedIdentity
 		case userWantsToSwitchToOtherHiddenOwnedIdentity
@@ -392,7 +390,6 @@ enum ObvMessengerInternalNotification {
 			case .userWantsToAddOwnedProfile: return Name.userWantsToAddOwnedProfile.name
 			case .userWantsToSwitchToOtherOwnedIdentity: return Name.userWantsToSwitchToOtherOwnedIdentity.name
 			case .userWantsToDeleteOwnedIdentityButHasNotConfirmedYet: return Name.userWantsToDeleteOwnedIdentityButHasNotConfirmedYet.name
-			case .userWantsToDeleteOwnedIdentityAndHasConfirmed: return Name.userWantsToDeleteOwnedIdentityAndHasConfirmed.name
 			case .userWantsToHideOwnedIdentity: return Name.userWantsToHideOwnedIdentity.name
 			case .failedToHideOwnedIdentity: return Name.failedToHideOwnedIdentity.name
 			case .userWantsToSwitchToOtherHiddenOwnedIdentity: return Name.userWantsToSwitchToOtherHiddenOwnedIdentity.name
@@ -840,11 +837,6 @@ enum ObvMessengerInternalNotification {
 		case .userWantsToDeleteOwnedIdentityButHasNotConfirmedYet(ownedCryptoId: let ownedCryptoId):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
-			]
-		case .userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: let ownedCryptoId, globalOwnedIdentityDeletion: let globalOwnedIdentityDeletion):
-			info = [
-				"ownedCryptoId": ownedCryptoId,
-				"globalOwnedIdentityDeletion": globalOwnedIdentityDeletion,
 			]
 		case .userWantsToHideOwnedIdentity(ownedCryptoId: let ownedCryptoId, password: let password):
 			info = [
@@ -1829,15 +1821,6 @@ enum ObvMessengerInternalNotification {
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			block(ownedCryptoId)
-		}
-	}
-
-	static func observeUserWantsToDeleteOwnedIdentityAndHasConfirmed(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Bool) -> Void) -> NSObjectProtocol {
-		let name = Name.userWantsToDeleteOwnedIdentityAndHasConfirmed.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let globalOwnedIdentityDeletion = notification.userInfo!["globalOwnedIdentityDeletion"] as! Bool
-			block(ownedCryptoId, globalOwnedIdentityDeletion)
 		}
 	}
 

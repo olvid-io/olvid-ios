@@ -1,0 +1,2380 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        }
+      }
+    },
+    "%lld_OF_THE_GROUP_MEMBERS_ARE_NOT_PART_OF_YOUR_CONTACTS" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "One of the group members is not part of your contacts yet."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld of the group members are not part of your contacts yet."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un membre du groupe ne fait pas encore partie de vos contacts."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld membres du groupe ne font pas encore partie de vos contacts."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld_OF_THE_GROUP_MEMBERS_ARE_NOT_PART_OF_YOUR_CONTACTS_BUT_YOU_CAN_INVITE_THEM" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "One of the group member is not part of your contacts yet, but you can invite them in one tap ☝️."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld group members are not part of your contacts yet, but you can invite them in one tap ☝️."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un membre du groupe ne fait pas encore partie de vos contacts. Mais vous pouvez l’inviter facilement ☝️."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld membres du groupe ne font pas encore partie de vos contacts. Mais vous pouvez facilement les inviter ☝️."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld_OF_THE_GROUP_MEMBERS_ARE_NOT_PART_OF_YOUR_CONTACTS_BUT_YOU_CANNOT_INVITE_THEM_UNTIL_THEY_ACCEPT_THE_GROUP_INVITATION" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "One of the group members is not part of your contacts. Once they accept the group invitation, you will be able to invite them to join your contacts in one tap ☝️."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld of the group members are not part of your contacts. Once they accept the group invitation, you will be able to invite them to join your contacts in one tap ☝️."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Un des membres du groupe ne fait pas partie de vos contacts. Lorsqu’il aura accepté l’invitation au groupe, vous pourrez facilement l’inviter à rejoindre vos contact ✌️."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des membres du groupe ne font pas partie de vos contacts. Lorsqu’ils auront accepté l’invitation au groupe, vous pourrez facilement les inviter à rejoindre vos contact ✌️."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ACCEPT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accept"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accepter"
+          }
+        }
+      }
+    },
+    "ADD_%lld_USERS_TO_THE_GROUP_CREATION" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Create a group with this user"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Create a group with these %lld users"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Create a group with no other member"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Créer un groupe avec cet utilisateur"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Créer un groupe avec ces %lld utilisateurs"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Créer un groupe sans autre membre"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ADD_%lld_USERS_TO_THE_GROUP_EDITION" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Add the user to the group"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Add the %lld users to the group"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Please select a user to add to the group"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ajouter l’utilisateur au groupe"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ajouter les %lld utilisateurs au groupe"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Veuillez choisir un utilisateur à ajouter au groupe"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ADD_GROUP_MEMBERS_TO_YOUR_CONTACTS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add group members to your contacts"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter les membres du groupe à vos contacts"
+          }
+        }
+      }
+    },
+    "ADD_MEMBERS_TO_THIS_GROUP_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add members"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter des membres"
+          }
+        }
+      }
+    },
+    "ADMIN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin"
+          }
+        }
+      }
+    },
+    "ADMINS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admins"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admins"
+          }
+        }
+      }
+    },
+    "ALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous"
+          }
+        }
+      }
+    },
+    "ALL_THE_GROUP_MEMBERS_ARE_PART_OF_YOUR_CONTACTS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All the group members are already part of your contacts."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les membres du groupe font déjà partie de vos contacts."
+          }
+        }
+      }
+    },
+    "ALL_YOUR_CONTACTS_ARE_ALREADY_PART_OF_THIS_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All your contacts are already part of this group ☺️."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous vos contacts font déjà partie de ce groupe ☺️."
+          }
+        }
+      }
+    },
+    "ARE_YOU_SURE_YOU_WANT_TO_CANCEL_THIS_ONE_TO_ONE_INVITATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do you want to cancel this invitation?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voulez-vous annuler cette invitation ?"
+          }
+        }
+      }
+    },
+    "ARE_YOU_SURE_YOU_WANT_TO_REMOVE_%@_FROM_THIS_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Are you sure you want to remove %@ from this group?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmez-vous vouloir retirer %@ du groupe ?"
+          }
+        }
+      }
+    },
+    "ARE_YOU_SURE_YOU_WANT_TO_REMOVE_THE_%lld_SELECTED_MEMBERS" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Are you sure you want to remove this member from the group?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Are you sure you want to remove these %lld members from the group?"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Êtes-vous sûr de vouloir retirer ce membre du groupe ?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Êtes-vous sûr de vouloir retirer ces %lldmembres du groupe ?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ARE_YOU_SURE_YOU_WANT_TO_SEND_ONE_TO_ONE_INVITATION_TO_%lld_USERS" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Are you sure you want to invite this user?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Are you sure you want to invite these %lld users?"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Êtes-vous sûr de vouloir inviter cet utilisateur ?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Êtes-vous sûr de vouloir inviter ces %lld utilisateurs ?"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "BUTTON_CALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Call"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appeler"
+          }
+        }
+      }
+    },
+    "BUTTON_CHAT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discuter"
+          }
+        }
+      }
+    },
+    "BUTTON_TITLE_ONE_TO_ONE_INVITATION_SENT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitation sent"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invitation envoyée"
+          }
+        }
+      }
+    },
+    "BUTTON_TITLE_SEND_ONE_TO_ONE_INVITATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inviter"
+          }
+        }
+      }
+    },
+    "CANCEL_ONE_TO_ONE_INVITATION_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel the invitation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler l’invitation"
+          }
+        }
+      }
+    },
+    "CHOOSE_ADMINS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose admins"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir les admins"
+          }
+        }
+      }
+    },
+    "CLONE_THIS_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clone this group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cloner ce groupe"
+          }
+        }
+      }
+    },
+    "CLONED_GROUP_NAME_FROM_ORIGINAL_NAME_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy of %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie de %@"
+          }
+        }
+      }
+    },
+    "CONFIRM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmer"
+          }
+        }
+      }
+    },
+    "DISBAND_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disband this group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer ce groupe"
+          }
+        }
+      }
+    },
+    "DISCUSSION_MODERATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Messages' moderation"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modération des messages"
+          }
+        }
+      }
+    },
+    "DISCUSSION_MODERATION_EXPLANATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Who can \"delete everywhere\" messages from other users?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qui peut « supprimer partout » les messages d'autres utilisateurs ?"
+          }
+        }
+      }
+    },
+    "EDIT_ADMINS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose admins"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir les admins"
+          }
+        }
+      }
+    },
+    "EDIT_GROUP_DETAILS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit group details"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Éditer les détails du groupe"
+          }
+        }
+      }
+    },
+    "EDIT_NICKNAME_AND_CUSTOM_PHOTO" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit custom name and photo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Éditer le surnom et la photo personnalisée"
+          }
+        }
+      }
+    },
+    "EDIT_PERSONAL_NOTE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit personal note"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Éditer la note personnelle"
+          }
+        }
+      }
+    },
+    "ENTER_GROUP_DETAILS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New name and description"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nouveaux nom et description"
+          }
+        }
+      }
+    },
+    "GROUP_ADMINISTRATION_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group administration"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Administration du groupe"
+          }
+        }
+      }
+    },
+    "GROUP_DESCRIPTION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group description"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Description du groupe"
+          }
+        }
+      }
+    },
+    "GROUP_MEMBERS_ADD" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add members"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter des membres"
+          }
+        }
+      }
+    },
+    "GROUP_MEMBERS_REMOVE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove members"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer des membres"
+          }
+        }
+      }
+    },
+    "GROUP_MEMBERS_TITLE_%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group members (%lld)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membres du groupe (%lld)"
+          }
+        }
+      }
+    },
+    "GROUP_MEMBERS_TITLE_WHEN_NO_OTHER_MEMBER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're the only member in this group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous êtes le seul membre de ce groupe"
+          }
+        }
+      }
+    },
+    "GROUP_NAME" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group name"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom du groupe"
+          }
+        }
+      }
+    },
+    "GROUP_TYPE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group type"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type de groupe"
+          }
+        }
+      }
+    },
+    "GROUP_TYPE_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the group type"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir le type de groupe"
+          }
+        }
+      }
+    },
+    "GROUP_TYPES_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group type"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type de groupe"
+          }
+        }
+      }
+    },
+    "GROUP_UPDATE_IN_PROGRESS_EXPLANATION_BODY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An update of this group is in progress. Please wait until it is done to make further modifications."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une mise à jour du groupe est en cours. Merci de patienter jusqu'à son terme pour faire de nouvelles modifications."
+          }
+        }
+      }
+    },
+    "GROUP_UPDATE_IN_PROGRESS_EXPLANATION_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update in progress"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mise à jour en cours"
+          }
+        }
+      }
+    },
+    "INVITE_THEM_ALL" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite them all"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les inviter tous"
+          }
+        }
+      }
+    },
+    "INVITE_USER_TO_ONE_TO_ONE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite to a one-to-one chat"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inviter à discuter en privé"
+          }
+        }
+      }
+    },
+    "IS_ADMIN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin"
+          }
+        }
+      }
+    },
+    "IS_NOT_ADMIN" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not admin"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas admin"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_ADVANCED_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unleash the full power of Olvid groups!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Libérez toute la puissance des groupes Olvid !"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_ADVANCED_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avancé"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_MANAGED_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only administrators can invite new members."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seuls les administrateurs peuvent inviter de nouveaux membres."
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_MANAGED_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controlled"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maîtrisé"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_READ_ONLY_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only administrators can post messages."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seuls les administrateurs peuvent écrire des messages."
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_READ_ONLY_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture seule"
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_STANDARD_SUBTITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All group members can invite new members."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les membres peuvent inviter de nouveaux membres."
+          }
+        }
+      }
+    },
+    "LABEL_GROUP_STANDARD_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard"
+          }
+        }
+      }
+    },
+    "LEAVE_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave this group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitter ce groupe"
+          }
+        }
+      }
+    },
+    "MANAGE_ADMINS_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admins"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admins"
+          }
+        }
+      }
+    },
+    "MANUAL_RESYNC_OF_GROUP_V2" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resynchronize this group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resynchroniser ce groupe"
+          }
+        }
+      }
+    },
+    "MODIFY_GROUP_NAME_AND_PHOTO_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group name and picture"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom et image du groupe"
+          }
+        }
+      }
+    },
+    "MODIFY_MEMBERS_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Members"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membres"
+          }
+        }
+      }
+    },
+    "NO_ADMIN_IN_KEYCLOAK_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This is a directory-managed group. Members cannot edit the group directly. For any modifications, please contact your administrator."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ceci est un groupe géré par l'annuaire. Les membres ne peuvent pas éditer le groupe directement. Pour tout changement, veuillez contacter votre administrateur."
+          }
+        }
+      }
+    },
+    "NO_CONTACT_FOUND_MATCHING_YOUR_SEARCH" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No contact found 🥲."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun contact trouvé 🥲."
+          }
+        }
+      }
+    },
+    "NO_GROUP_MEMBER_FOR_NOW" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No group member for now 🥲."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas de membre dans ce groupe pour le moment 🥲."
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_CHOOSE_PICTURE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo library"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Librairie de photos"
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_CHOOSE_PICTURE_FROM_DOCUMENT_PICKER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fichier"
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_REMOVE_PICTURE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove the photo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer la photo"
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_RESTORE_PICTURE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore the published photo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer la photo publiée"
+          }
+        }
+      }
+    },
+    "ONBOARDING_PROFILE_PICTURE_CHOOSER_BUTTON_TITLE_TAKE_PICTURE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take a photo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prendre une photo"
+          }
+        }
+      }
+    },
+    "PENDING" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pending"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente"
+          }
+        }
+      }
+    },
+    "PUBLISH_CHANGES" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publish changes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publier les changements"
+          }
+        }
+      }
+    },
+    "PUBLISH_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publish group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publier le groupe"
+          }
+        }
+      }
+    },
+    "PUBLISH_NEW_GROUP_TYPE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publish group type"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publier le type de groupe"
+          }
+        }
+      }
+    },
+    "READ_ONLY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture seule"
+          }
+        }
+      }
+    },
+    "REMOVE_%lld_MEMBERS" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Remove the member"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Remove the %lld members"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Remove the selected members"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Retirer le membre"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Retirer les %lld membres"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Retirer les membres sélectionnés"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "REMOVE_DELETE_ANYTHING_POLICY_ADMINS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admins only"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admins uniquement"
+          }
+        }
+      }
+    },
+    "REMOVE_DELETE_ANYTHING_POLICY_EVERYONE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everyone"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout le monde"
+          }
+        }
+      }
+    },
+    "REMOVE_DELETE_ANYTHING_POLICY_NOBDODY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personne"
+          }
+        }
+      }
+    },
+    "REMOVE_GROUP_MEMBER_BUTTON_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer"
+          }
+        }
+      }
+    },
+    "REMOVE_USER_FROM_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer du groupe"
+          }
+        }
+      }
+    },
+    "RESET_ADMINS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réinitialiser"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechercher"
+          }
+        }
+      }
+    },
+    "SEND_THE_%lld_ONE_TO_ONE_INVITATIONS" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send the invitation"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Send the %lld invitations"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Envoyer l’invitation"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Envoyer les %lld invitations"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "SHOW_ALL_GROUP_MEMBERS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show all"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir tout"
+          }
+        }
+      }
+    },
+    "SHOW_ALL_GROUP_MEMBERS_OR_RESTRICT_TO_ADMINS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show all group members or restrict to admins"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir tous les membres ou se restreindre aux administrateurs"
+          }
+        }
+      }
+    },
+    "SHOW_ME" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show me"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir plus"
+          }
+        }
+      }
+    },
+    "SHOW_PROFILE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show profile"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir le profil"
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_AS_KEYCLOAK_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Since this group a managed by your company's server, you cannot leave it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comme ce groupe et géré par le serveur de votre entreprise, il ne vous est pas possible de le quitter."
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_AS_KEYCLOAK_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot leave the group"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous ne pouvez pas quitter le groupe"
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Since you are the only administrator of this group, you cannot leave it now (you would leave the group with no administrator). You can name another administrator among the other group members and try again."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comme vous êtes le seul administrateur de ce groupe, il vous est impossible de le quitter (vous laisseriez le groupe sans administrateur). Une fois que vous aurez nommé un autre administrateur, vous pourrez essayer à nouveau."
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot leave the group for now"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous ne pouvez pas quitter le groupe pour le moment"
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please note that this action is irreversible. If you confirm, this group will be deleted for all members."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer un groupe est une opération irréversible. Si vous continuez, le groupe sera supprimé chez tous les membres."
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heads-up! Do you really wish to disband this group?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attention ! Voulez-vous vraiment supprimer ce groupe ?"
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_MESSAGE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please note that this action is irreversible (unless a group administrator decides to invite you again later on)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attention, cette action est irréversible (sauf si un administrateur du groupe vous y invite à nouveau après que vous l'ayez quitté)."
+          }
+        }
+      }
+    },
+    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do you really wish to leave this group?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voulez-vous vraiment quitter le groupe ?"
+          }
+        }
+      }
+    },
+    "THE_FOLLOWING_%lld_GROUP_MEMBERS_ARE_ALREADY_PART_OF_YOUR_CONTACTS" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The following group member is already part of your contacts."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The following %lld group members are already part of your contacts."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Le membre suivant fait déjà partie de vos contacts."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Les %lld membres suivants font déjà partie de vos contacts."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "THE_FOLLOWING_%lld_GROUP_MEMBERS_ARE_NOT_YET_PART_OF_YOUR_CONTACTS_AND_MUST_ACCEPT_GROUP_INVITATION" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The following group member is not part of your contacts. Once they accept the group invitation, you will be able to invite them to join your contacts in one tap ☝️."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The following %lld group members are not part of your contacts. Once they accept the group invitation, you will be able to invite them to join your contacts in one tap ☝️."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Le membre du groupe ci-dessous ne fait pas partie de vos contacts. Lorsqu’il aura accepté l’invitation au groupe, vous pourrez facilement l’inviter à rejoindre vos contact ✌️."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Les %lld membres du groupe ci-dessous ne font pas partie de vos contacts. Lorsqu’ils auront accepté l’invitation au groupe, vous pourrez facilement les inviter à rejoindre vos contact ✌️."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "THE_FOLLOWING_%lld_GROUP_MEMBERS_ARE_NOT_YET_PART_OF_YOUR_CONTACTS_BUT_YOU_CAN_INVITE_THEM" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The following group member is not part of your contacts yet, but you can invite them in one tap ☝️. They will just need to accept your invitation, no need to exchange codes 😉."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The following %lld group members are not part of your contacts yet, but you can invite them in one tap ☝️. They will just need to accept your invitation, no need to exchange codes 😉."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Le membre du groupe ci-dessous ne fait pas encore partie de vos contacts, mais vous l’y inviter facilement ☝️. Il lui suffira d’accepter votre invitation, sans besoin d’échanger de code 😉."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Les %lld membres du groupe ci-dessous ne font pas encore partie de vos contacts, mais vous les y inviter facilement ☝️. Il leur suffit d’accepter votre invitation, sans besoin d’échanger de code 😉."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "THE_GROUP_DESCRIPTION_AND_PHOTO_WERE_UPDATED_AS_FOLLOWS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following updates have been made to the group description and photo:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les mises à jour suivantes ont été apportées à la description et à la photo du groupe :"
+          }
+        }
+      }
+    },
+    "THE_GROUP_DESCRIPTION_WAS_UPDATED_AS_FOLLOWS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following update has been made to the group description:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mise à jour suivante a été apportée à la description du groupe :"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_AND_DESCRIPTION_WERE_UPDATED_AS_FOLLOWS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following updates have been made to the group name and description:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les mises à jour suivantes ont été apportées au nom et à la description du groupe :"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_AND_PHOTO_WERE_UPDATED_AS_FOLLOWS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following updates have been made to the group name and photo:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les mises à jour suivantes ont été apportées au nom et à la photo du groupe :"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_DESCRIPTION_AND_PHOTO_WERE_UPDATED_AS_FOLLOWS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following updates have been made to the group name, description, and photo:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les mises à jour suivantes ont été apportées au nom, à la description et à la photo du groupe :"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_DESCRIPTION_OR_PHOTO_WERE_UPDATED_AS_FOLLOWS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following updates have been made to the group:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mise à jour suivante a été apportée au groupe :"
+          }
+        }
+      }
+    },
+    "THE_GROUP_NAME_WAS_UPDATED_AS_FOLLOWS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following update has been made to the group name:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mise à jour suivante a été apportée au nom du groupe :"
+          }
+        }
+      }
+    },
+    "THE_GROUP_PHOTO_WAS_UPDATED_AS_FOLLOWS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The following update has been made to the group photo:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mise à jour suivante a été apportée à la photo du groupe :"
+          }
+        }
+      }
+    },
+    "THE_REMAINING_%lld_MUST_ACCEPT_THE_GROUP_INVITATION_BEFORE_YOU_CAN_ADD_THEM" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The remaining one must accept the group invitation before you can invite them."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The remaining %lld must accept the group invitation before you can invite them."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Le dernier doit accepter l’invitation au groupe avant que vous ne puissiez l’ajouter."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Les %lld derniers doivent accepter l’invitation au groupe avant que vous ne puissiez les ajouter."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "TITLE_ADD_GROUP_MEMBERS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add members"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter des membres"
+          }
+        }
+      }
+    },
+    "TITLE_CHOOSE_GROUP_ADMINS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose admins"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir les admins"
+          }
+        }
+      }
+    },
+    "TITLE_EDIT_GROUP_ADMINS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage admins"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gérer les admins"
+          }
+        }
+      }
+    },
+    "TITLE_GROUP_MEMBERS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group members"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membres du groupe"
+          }
+        }
+      }
+    },
+    "TITLE_REMOVE_GROUP_MEMBERS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove members"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer des membres"
+          }
+        }
+      }
+    },
+    "TO_REFLECT_THESE_CHANGES_ON_YOUR_DEVICE_YOU_NEED_TO_ACCEPT_THEM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For these updates to take effect on your device, please accept them."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour que ces mises à jour prennent effet sur votre appareil, veuillez les accepter."
+          }
+        }
+      }
+    },
+    "VALIDATE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validate"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valider"
+          }
+        }
+      }
+    },
+    "VALIDATION_REQUIRED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validation required"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validation requise"
+          }
+        }
+      }
+    },
+    "WHAT_DO_YOU_WANT_TO_DO_WITH_THIS_USER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What do you want to do?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Que voulez-vous faire ?"
+          }
+        }
+      }
+    },
+    "YOU" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous"
+          }
+        }
+      }
+    },
+    "YOU_ALREADY_INVITED_%lld_OF_THESE_MEMBERS" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You already invited one of these members."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You already invited %lld of these members."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous avez déjà invité un de ces membres."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous avez déjà invité %lld de ces membres."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "YOU_ALREADY_INVITED_ALL_THESE_MEMBERS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You already invited all these members."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez déjà invité tous ces membres."
+          }
+        }
+      }
+    },
+    "YOU_ALREADY_INVITED_THIS_MEMBER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You already invited this member."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez déjà invité ce membre."
+          }
+        }
+      }
+    },
+    "YOU_CAN_INVITE_%lld_OF_THEM_NOW" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You can invite one of them to join your contacts in one tap ☝️."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You can invite %lld of them to join you contacts in one tap ☝️."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous pouvez facilement inviter l’un d’entre eux à rejoindre vos contacts ☝️."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous pouvez facilement inviter %lld d’entre eux à rejoindre vos contacts ☝️."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

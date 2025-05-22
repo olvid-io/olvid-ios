@@ -17,6 +17,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
     ],
     dependencies: [
         .Olvid.App.obvUI,
+        .Olvid.App.obvDesignSystem,
         .Olvid.Shared.obvTypes,
     ])
 

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -52,10 +52,44 @@ final class GetPendingServerQueryTypeOperation: ContextualOperationWithSpecificR
             
             let ownedIdentity = try serverQuery.ownedIdentity
 
-            guard try identityDelegate.isOwnedIdentityActive(ownedIdentity: ownedIdentity, flowId: flowId) else {
-                serverQuery.deletePendingServerQuery(within: obvContext)
-                return cancel(withReason: .ownedIdentityIsNotActive)
+            // Most server queries expect an existing, active owned identity.
+            // Two exceptions for now: putGroupLog and deleteGroupLog, which can be executed after the deletion
+            // of an owned identity
+            
+            switch serverQuery.queryType {
+            case .deviceDiscovery,
+                    .putUserData,
+                    .getUserData,
+                    .checkKeycloakRevocation,
+                    .createGroupBlob,
+                    .getGroupBlob,
+                    .requestGroupBlobLock,
+                    .updateGroupBlob,
+                    .getKeycloakData,
+                    .ownedDeviceDiscovery,
+                    .setOwnedDeviceName,
+                    .deactivateOwnedDevice,
+                    .setUnexpiringOwnedDevice,
+                    .sourceGetSessionNumber,
+                    .sourceWaitForTargetConnection,
+                    .targetSendEphemeralIdentity,
+                    .transferRelay,
+                    .transferWait,
+                    .closeWebsocketConnection,
+                    .uploadPreKeyForCurrentDevice:
+                
+                guard try identityDelegate.isOwnedIdentityActive(ownedIdentity: ownedIdentity, flowId: flowId) else {
+                    serverQuery.deletePendingServerQuery(within: obvContext)
+                    return cancel(withReason: .ownedIdentityIsNotActive)
+                }
+                
+            case .putGroupLog,
+                    .deleteGroupBlob:
+                
+                break
+                
             }
+            
             
             queryTypeAndOwnedCryptoId = (serverQuery.queryType, ownedIdentity)
             

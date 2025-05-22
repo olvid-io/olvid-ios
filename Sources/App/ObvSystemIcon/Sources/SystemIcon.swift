@@ -21,7 +21,7 @@
 import Foundation
 
 
-public enum SystemIcon: SymbolIcon {
+public enum SystemIcon: SymbolIcon, Sendable {
 
     case airplayaudio
     case airpods
@@ -40,6 +40,7 @@ public enum SystemIcon: SymbolIcon {
     case arrowCounterclockwise
     case arrowCounterclockwiseCircle
     case arrowCounterclockwiseCircleFill
+    case arrowCounterclockwiseSquareFill
     case arrowDown
     case arrowDownCircle
     case arrowDownCircleFill
@@ -47,7 +48,12 @@ public enum SystemIcon: SymbolIcon {
     case arrowDownToLine
     case arrowDownToLineCircle
     case arrowForward
+    case arrowUpArrowDown
     case arrowUpArrowDownCircle
+    case arrowUp
+    case arrowTriangleheadClockwiseIcloudFill
+    case arrowTriangleheadCounterclockwiseIcloud
+    case arrowTriangleheadCounterclockwiseIcloudFill
     case arrowUpCircle
     case arrowUpLeftAndArrowDownRight
     case arrowUturnForwardCircleFill
@@ -79,17 +85,24 @@ public enum SystemIcon: SymbolIcon {
     case checkmarkShield
     case checkmarkShieldFill
     case checkmarkSquareFill
+    case chevronLeft
     case chevronLeftForwardslashChevronRight
     case chevronDown
     case chevronRight
     case chevronRightCircle
     case chevronRightCircleFill
     case chevronUp
+    case chevronUpChevronDown
     case circle
+    case circleCircle
     case circleDashed
     case circleFill
     case clock
+    case cloud
+    case cloudFill
     case creditcardFill
+    case desktopcomputerAndMacbook
+    case desktopcomputer
     case display
     case docBadgeGearshape
     case doc
@@ -104,9 +117,13 @@ public enum SystemIcon: SymbolIcon {
     case envelope
     case envelopeBadge
     case envelopeOpenFill
+    case eraser
     case exclamationmarkCircle
     case exclamationmarkBubble
     case exclamationmarkShieldFill
+    case externaldrive
+    case externaldriveFill
+    case exclamationmarkTriangleFill
     case eyeFill
     case eyes
     case eye
@@ -114,6 +131,7 @@ public enum SystemIcon: SymbolIcon {
     case eyesInverse
     case faceSmiling
     case figureStandLineDottedFigureStand
+    case fileMenuAndSelection
     case flameFill
     case folder
     case folderCircle
@@ -122,6 +140,10 @@ public enum SystemIcon: SymbolIcon {
     case gear
     case gearshapeFill
     case giftcardFill
+    case globe
+    case globeAmericasFill
+    case globeAsiaAustraliaFill
+    case globeEuropeAfricaFill
     case hammerCircle
     case handTap
     case handThumbsup
@@ -130,6 +152,7 @@ public enum SystemIcon: SymbolIcon {
     case headphones
     case hourglass
     case icloud(_: SystemIconFillOption = .none)
+    case icloudAndArrowDown
     case infoCircle
     case infinity
     case ipad
@@ -138,7 +161,9 @@ public enum SystemIcon: SymbolIcon {
     case iphoneGen3CircleFill
     case laptopcomputerAndIphone
     case key
+    case keyFill
     case keySlash
+    case lightbulbMax
     case link
     case location
     case locationFill
@@ -165,6 +190,7 @@ public enum SystemIcon: SymbolIcon {
     case musicQuarterNote3
     case musicNote
     case musicNoteList
+    case oneCircleFill
     case paperclip
     case paperplaneFill
     case pauseCircle
@@ -185,9 +211,12 @@ public enum SystemIcon: SymbolIcon {
     case personCropCircleBadgePlus
     case personCropCircleFillBadgeCheckmark
     case personCropCircleFillBadgeMinus
+    case personCropCircleFillBadgePlus
     case personCropCircleFillBadgeXmark
     case personCropRectangle
     case personTextRectangle
+    case personFillBadgeMinus
+    case personFillBadgePlus
     case personFillQuestionmark
     case personFillViewfinder
     case personFillXmark
@@ -224,6 +253,7 @@ public enum SystemIcon: SymbolIcon {
     case scanner
     case serverRack
     case shieldFill
+    case smartphone
     case speakerWave3Fill
     case speakerSlashFill
     case squareAndArrowDownOnSquare
@@ -259,10 +289,18 @@ public enum SystemIcon: SymbolIcon {
     case heartSlashFill
     case stopWatch
     case safari
+    case wrenchAdjustable
+    case wrenchAdjustableFill
     case zzz
 
     public var name: String {
         switch self {
+        case .lightbulbMax:
+            if #available(iOS 17, *) {
+                return "lightbulb.max"
+            } else {
+                return "lightbulb"
+            }
         case .airplayaudio:
             return "airplayaudio"
         case .airpods:
@@ -289,6 +327,8 @@ public enum SystemIcon: SymbolIcon {
             }
         case .arrowLeft:
             return "arrow.left"
+        case .arrowUp:
+            return "arrow.up"
         case .arrowUpCircle:
             return "arrow.up.circle"
         case .arrowUpLeftAndArrowDownRight:
@@ -387,6 +427,8 @@ public enum SystemIcon: SymbolIcon {
             return "doc.on.clipboard.fill"
         case .docOnDoc:
             return "doc.on.doc"
+        case .icloudAndArrowDown:
+            return "icloud.and.arrow.down"
         case .infoCircle:
             return "info.circle"
         case .infinity:
@@ -421,6 +463,8 @@ public enum SystemIcon: SymbolIcon {
         }
         case .key:
             return "key"
+        case .keyFill:
+            return "key.fill"
         case .keySlash:
             if #available(iOS 17, *) {
                 return "key.slash"
@@ -511,6 +555,12 @@ public enum SystemIcon: SymbolIcon {
             return "arrow.counterclockwise.circle"
         case .arrowCounterclockwiseCircleFill:
             return "arrow.counterclockwise.circle.fill"
+        case .arrowCounterclockwiseSquareFill:
+            if #available(iOS 17, *) {
+                return "arrow.counterclockwise.square.fill"
+            } else {
+                return "arrow.counterclockwise.circle.fill"
+            }
         case .questionmarkCircle:
             return "questionmark.circle"
         case .questionmarkCircleFill:
@@ -539,6 +589,10 @@ public enum SystemIcon: SymbolIcon {
             }
         case .clock:
             return "clock"
+        case .cloud:
+            return "cloud"
+        case .cloudFill:
+            return "cloud.fill"
         case .creditcardFill:
             return "creditcard.fill"
         case .link:
@@ -561,6 +615,14 @@ public enum SystemIcon: SymbolIcon {
             } else {
                 return "checkmark"
             }
+        case .globe:
+            return "globe"
+        case .globeAmericasFill:
+            return "globe.americas.fill"
+        case .globeAsiaAustraliaFill:
+            return "globe.asia.australia.fill"
+        case .globeEuropeAfricaFill:
+            return "globe.europe.africa.fill"
         case .checkmarkShield:
             return "checkmark.shield"
         case .checkmarkShieldFill:
@@ -593,6 +655,8 @@ public enum SystemIcon: SymbolIcon {
             } else {
                 return "person.2.fill"
             }
+        case .fileMenuAndSelection:
+            return "filemenu.and.selection"
         case .person3:
             return "person.3"
         case .person3Fill:
@@ -621,6 +685,8 @@ public enum SystemIcon: SymbolIcon {
             return "chevron.right.circle"
         case .chevronRightCircleFill:
             return "chevron.right.circle.fill"
+        case .chevronUpChevronDown:
+            return "chevron.up.chevron.down"
         case .chevronUp:
             return "chevron.up"
         case .textBubbleFill:
@@ -745,6 +811,12 @@ public enum SystemIcon: SymbolIcon {
             return "exclamationmark.bubble"
         case .exclamationmarkShieldFill:
             return "exclamationmark.shield.fill"
+        case .externaldrive:
+            return "externaldrive"
+        case .externaldriveFill:
+            return "externaldrive.fill"
+        case .exclamationmarkTriangleFill:
+            return "exclamationmark.triangle.fill"
         case .person:
             return "person"
         case .person2:
@@ -761,6 +833,8 @@ public enum SystemIcon: SymbolIcon {
             return "person.crop.circle.fill.badge.checkmark"
         case .personCropCircleFillBadgeMinus:
             return "person.crop.circle.fill.badge.minus"
+        case .personCropCircleFillBadgePlus:
+            return "person.crop.circle.fill.badge.plus"
         case .personCropCircleFillBadgeXmark:
             return "person.crop.circle.fill.badge.xmark"
         case .book:
@@ -777,8 +851,28 @@ public enum SystemIcon: SymbolIcon {
             return "bubble.left.and.bubble.right"
         case .bubbleLeftAndBubbleRightFill:
             return "bubble.left.and.bubble.right.fill"
+        case .arrowUpArrowDown:
+            return "arrow.up.arrow.down"
         case .arrowUpArrowDownCircle:
             return "arrow.up.arrow.down.circle"
+        case .arrowTriangleheadClockwiseIcloudFill:
+            if #available(iOS 18, *) {
+                return "arrow.trianglehead.clockwise.icloud.fill"
+            } else {
+                return "cloud.fill"
+            }
+        case .arrowTriangleheadCounterclockwiseIcloud:
+            if #available(iOS 18, *) {
+                return "arrow.trianglehead.counterclockwise.icloud"
+            } else {
+                return "cloud"
+            }
+        case .arrowTriangleheadCounterclockwiseIcloudFill:
+            if #available(iOS 18, *) {
+                return "arrow.trianglehead.counterclockwise.icloud.fill"
+            } else {
+                return "cloud.fill"
+            }
         case .speakerSlashFill:
             return "speaker.slash.fill"
         case .plusCircle:
@@ -867,6 +961,8 @@ public enum SystemIcon: SymbolIcon {
             return "heart.slash.fill"
         case .circle:
             return "circle"
+        case .circleCircle:
+            return "circle.circle"
         case .archivebox:
             return "archivebox"
         case .archiveboxFill:
@@ -889,6 +985,14 @@ public enum SystemIcon: SymbolIcon {
             return "envelope.badge"
         case .envelopeOpenFill:
             return "envelope.open.fill"
+        case .eraser:
+            return "eraser"
+        case .smartphone:
+            if #available(iOS 17.0, *) {
+                return "smartphone"
+            } else {
+                return "candybarphone"
+            }
         case .speakerWave3Fill:
             if #available(iOS 14.0, *) {
                 return "speaker.wave.3.fill"
@@ -903,6 +1007,8 @@ public enum SystemIcon: SymbolIcon {
             }
         case .musicNoteList:
             return "music.note.list"
+        case .oneCircleFill:
+            return "1.circle.fill"
         case .personCropRectangle:
             return "person.crop.rectangle"
         case .personTextRectangle:
@@ -911,10 +1017,22 @@ public enum SystemIcon: SymbolIcon {
             } else {
                 return "person.crop.circle"
             }
+        case .personFillBadgeMinus:
+            return "person.fill.badge.minus"
+        case .personFillBadgePlus:
+            return "person.fill.badge.plus"
         case .calendar:
             return "calendar"
         case .bookmark:
             return "bookmark"
+        case .desktopcomputerAndMacbook:
+            if #available(iOS 18.0, *) {
+                return "desktopcomputer.and.macbook"
+            } else {
+                return "desktopcomputer"
+            }
+        case .desktopcomputer:
+            return "desktopcomputer"
         case .display:
             if #available(iOS 14.0, *) {
                 return "display"
@@ -931,6 +1049,8 @@ public enum SystemIcon: SymbolIcon {
             } else {
                 return "gear"
             }
+        case .chevronLeft:
+            return "chevron.left"
         case .chevronLeftForwardslashChevronRight:
             if #available(iOS 15.0, *) {
                 return "chevron.left.forwardslash.chevron.right"
@@ -958,6 +1078,18 @@ public enum SystemIcon: SymbolIcon {
                 return "eyeglasses"
             }
         case .safari: return "safari"
+        case .wrenchAdjustable:
+            if #available(iOS 16, *) {
+                return "wrench.adjustable"
+            } else {
+                return "hammer"
+            }
+        case .wrenchAdjustableFill:
+            if #available(iOS 16, *) {
+                return "wrench.adjustable.fill"
+            } else {
+                return "hammer.fill"
+            }
         case .zzz:
             return "zzz"
         }

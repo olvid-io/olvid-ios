@@ -18,12 +18,14 @@
  */
 
 import Foundation
+import CoreData
 import ObvUICoreData
+import ObvDesignSystem
 
 
-extension PersistedObvContactIdentity: PersonalNoteViewModelProtocol {
+extension PersistedObvContactIdentity: @retroactive PersonalNoteViewModelProtocol {
     
-    var text: String? {
+    public var personalNote: String? {
         self.note
     }
     

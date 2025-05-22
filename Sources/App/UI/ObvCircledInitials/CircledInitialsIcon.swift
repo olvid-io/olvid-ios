@@ -22,13 +22,17 @@ import Foundation
 import ObvSystemIcon
 
 
-public enum CircledInitialsIcon: Hashable {
+public enum CircledInitialsIcon: Hashable, Sendable {
 
     case lockFill
     case person
     case person3Fill
     case personFillXmark
     case plus
+    case personBadgePlus
+    case personFillBadgeMinus
+    case personFillBadgePlus
+    
     
     public var icon: SystemIcon {
         switch self {
@@ -37,6 +41,9 @@ public enum CircledInitialsIcon: Hashable {
         case .person3Fill: return .person3Fill
         case .personFillXmark: return .personFillXmark
         case .plus: return .plus
+        case .personBadgePlus: return .personBadgePlus
+        case .personFillBadgeMinus: return .personFillBadgeMinus
+        case .personFillBadgePlus: return .personFillBadgePlus
         }
     }
 

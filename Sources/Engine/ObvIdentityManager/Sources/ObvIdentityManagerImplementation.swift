@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,6 +27,14 @@ import ObvEncoder
 import ObvTypes
 import ObvJWS
 
+
+public protocol ObvIdentityManagerImplementationDelegate: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsolete(_ identityManagerImplementation: ObvIdentityManagerImplementation, ownedCryptoId: ObvTypes.ObvCryptoId) async
+    func previousBackedUpDeviceSnapShotIsObsolete(_ identityManagerImplementation: ObvIdentityManagerImplementation) async
+    func anOwnedIdentityWasDeleted(_ identityManagerImplementation: ObvIdentityManagerImplementation, deletedOwnedCryptoId: ObvCryptoIdentity) async
+}
+
+
 public final class ObvIdentityManagerImplementation {
     
     // MARK: Instance variables
@@ -40,17 +48,34 @@ public final class ObvIdentityManagerImplementation {
     lazy private var log = OSLog(subsystem: logSubsystem, category: "ObvIdentityManagerImplementation")
     
     public func applicationAppearedOnScreen(forTheFirstTime: Bool, flowId: FlowIdentifier) async {
+        assert(self.delegate != nil, "The delegate must be set soon after initialization")
         guard forTheFirstTime else { return }
         createMissingGroupV2ServerUserData(flowId: flowId)
         deleteUnusedIdentityPhotos(flowId: flowId)
         pruneOldKeycloakRevokedIdentityAndUncertifyExpiredSignedContactDetails(flowId: flowId)
         deleteOrphanedContactGroupV2Details(flowId: flowId)
+        await OwnedIdentity.addObvObserver(self)
+        await KeycloakServer.addObvObserver(self)
+        await OwnedIdentityDetailsPublished.addObvObserver(self)
+        await ContactIdentity.addObvObserver(self)
+        await ContactGroup.addObvObserver(self)
+        await ContactGroupV2.addObvObserver(self)
+        await ContactIdentityDetails.addObvObserver(self)
+        await ContactGroupV2Member.addObvObserver(self)
+        await ContactGroupV2PendingMember.addObvObserver(self)
+        await ContactGroupV2Details.addObvObserver(self)
     }
 
     let prng: PRNGService
     let identityPhotosDirectory: URL
 
     private static let errorDomain = String(describing: ObvIdentityManagerImplementation.self)
+    
+    private weak var delegate: ObvIdentityManagerImplementationDelegate?
+    
+    public func setDelegate(to newDelegate: ObvIdentityManagerImplementationDelegate) {
+        self.delegate = newDelegate
+    }
     
     /// Strong reference to the delegate manager, which keeps strong references to all external and internal delegate requirements.
     let delegateManager: ObvIdentityDelegateManager
@@ -72,47 +97,293 @@ public final class ObvIdentityManagerImplementation {
 }
 
 
-// MARK: - Implementing ObvSnapshotable
+// MARK: - Implementing Database observers
 
-extension ObvIdentityManagerImplementation: ObvSnapshotable {
+extension ObvIdentityManagerImplementation: ContactGroupV2DetailsObserver {
     
-    public func getSyncSnapshotNode(for ownedCryptoId: ObvTypes.ObvCryptoId) throws -> any ObvSyncSnapshotNode {
+    /// Called by the database whenever the changes made to the details of a group v2 imply that the previous profile backup is obsolete
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2DetailsChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2DetailsChanged")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+
+}
+
+
+extension ObvIdentityManagerImplementation: ContactGroupV2PendingMemberObserver {
+    
+    /// Called by the database whenever the changes made to a group pending member imply that the previous profile backup is obsolete
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2PendingMemberChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2PendingMemberChanged")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+extension ObvIdentityManagerImplementation: ContactGroupV2MemberObserver {
+    
+    /// Called by the database whenever the changes made to a group member imply that the previous profile backup is obsolete
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2MemberChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2MemberChanged")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+extension ObvIdentityManagerImplementation: ContactIdentityDetailsObserver {
+    
+    /// Called by the database whenever the changes made to the published or trust details of a contact imply that the previous profile backup is obsolete
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityDetailsChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityDetailsChanged")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+extension ObvIdentityManagerImplementation: ContactGroupV2Observer {
+    
+    /// Called by the database whenever the changes made to a group V2 imply that the previous profile backup is obsolete
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2Changed(ownedCryptoId: ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2Changed")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+extension ObvIdentityManagerImplementation: ContactGroupObserver {
+    
+    /// Called by the database whenever the changes made to a group V1 imply that the previous profile backup is obsolete
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsContactGroupChanged")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+extension ObvIdentityManagerImplementation: ContactIdentityObserver {
+    
+    /// Called by the database whenever the changes made to a contact imply that the previous profile backup is obsolete
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityChanged")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+extension ObvIdentityManagerImplementation: OwnedIdentityObserver {
+        
+    /// Called by the database whenever the changes made to an owned identity imply that the previous device backup is obsolete
+    func previousBackedUpDeviceSnapShotIsObsoleteAsOwnedIdentityChanged() async {
+        guard let delegate else { assertionFailure(); return }
+        await delegate.previousBackedUpDeviceSnapShotIsObsolete(self)
+    }
+
+    
+    /// Called by the database whenever the changes made to an owned identity imply that the previous profile backup is obsolete.
+    /// This is also called when an owned identity is created.
+    func previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChangedOrWasInserted(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChanged")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+    
+    func anOwnedIdentityWasDeleted(deletedOwnedCryptoId: ObvCryptoIdentity) async {
+        guard let delegate else { assertionFailure(); return }
+        await delegate.anOwnedIdentityWasDeleted(self, deletedOwnedCryptoId: deletedOwnedCryptoId)
+    }
+
+}
+
+
+extension ObvIdentityManagerImplementation: KeycloakServerObserver {
+    
+    /// Called by the database whenever the changes made to a keycloak server  imply that the previous device backup is obsolete
+    func previousBackedUpDeviceSnapShotIsObsoleteAsKeycloakServerChanged() async {
+        guard let delegate else { assertionFailure(); return }
+        await delegate.previousBackedUpDeviceSnapShotIsObsolete(self)
+    }
+    
+    /// Called by the database whenever the changes made to a keycloak server imply that the previous profile backup is obsolete
+    func previousBackedUpProfileSnapShotIsObsoleteAsKeycloakServerChanged(ownedCryptoId: ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsKeycloakServerChanged")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+extension ObvIdentityManagerImplementation: OwnedIdentityDetailsPublishedObServer {
+    
+    /// Called by the database whenever the changes made to the published details of an owned identity imply that the previous device backup is obsolete
+    func previousBackedUpDeviceSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged() async {
+        guard let delegate else { assertionFailure(); return }
+        await delegate.previousBackedUpDeviceSnapShotIsObsolete(self)
+    }
+    
+
+    /// Called by the database whenever the changes made to the published details of an owned identity imply that the previous profile backup is obsolete
+    func previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged(ownedCryptoId: ObvCryptoId) async {
+        guard let delegate else { assertionFailure(); return }
+        debugPrint("😌 previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged")
+        await delegate.previousBackedUpProfileSnapShotIsObsolete(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+// MARK: - Implementing ObvIdentityManagerSnapshotable
+
+extension ObvIdentityManagerImplementation: ObvIdentityManagerSnapshotable {
+    
+    public func ownedIdentityExistsOnThisDevice(ownedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws -> Bool {
+        return try await self.isOwned(ownedCryptoId.cryptoIdentity, flowId: flowId)
+    }
+    
+    
+    /// We parse a profile snapshot by simulating a restore, without saving the context. This might be inefficient, but it's certainly ok for now.
+    public func parseProfileSnapshotNode(identityNode: any ObvSyncSnapshotNode, flowId: FlowIdentifier) async throws -> ObvProfileBackupFromServer.DataObtainedByParsingIdentityNode {
+        let parsedData: ObvProfileBackupFromServer.DataObtainedByParsingIdentityNode = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvProfileBackupFromServer.DataObtainedByParsingIdentityNode, any Error>) in
+            delegateManager.contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    try self.restoreObvSyncSnapshotNode(identityNode, customDeviceName: "", allowOwnedIdentityToExistInDatabase: true, within: obvContext)
+                    let insertedObjects = obvContext.context.insertedObjects
+                    let numberOfGroups = insertedObjects.filter({ $0 is ContactGroup || $0 is ContactGroupV2 }).count
+                    let numberOfContacts = insertedObjects.filter({ $0 is ContactIdentity }).count
+                    let isKeycloakManaged: ObvProfileBackupFromServer.DataObtainedByParsingIdentityNode.IsKeycloakManaged
+                    if let keycloakServer = insertedObjects.compactMap({ $0 as? KeycloakServer }).first, let keycloakConfiguration = try? keycloakServer.toObvKeycloakState.keycloakConfiguration {
+                        isKeycloakManaged = .yes(keycloakConfiguration: keycloakConfiguration, isTransferRestricted: keycloakServer.isTransferRestricted)
+                    } else {
+                        isKeycloakManaged = .no
+                    }
+                    let encodedPhotoServerKeyAndLabel: Data?
+                    let ownedCryptoIdentity: ObvOwnedCryptoIdentity
+                    let coreDetails: ObvIdentityCoreDetails
+                    if insertedObjects.count(where: { $0 is OwnedIdentity }) == 1, let ownedIdentity = insertedObjects.compactMap({ $0 as? OwnedIdentity }).first {
+                        encodedPhotoServerKeyAndLabel = try? ownedIdentity.publishedIdentityDetails.photoServerKeyAndLabel?.jsonEncode()
+                        ownedCryptoIdentity = ownedIdentity.ownedCryptoIdentity
+                        coreDetails = try ownedIdentity.publishedIdentityDetails.coreDetails
+                    } else {
+                        assertionFailure()
+                        throw ObvIdentityManagerError.unexpectedOwnedIdentity
+                    }
+                    let parsedData = ObvProfileBackupFromServer.DataObtainedByParsingIdentityNode(
+                        numberOfGroups: numberOfGroups,
+                        numberOfContacts: numberOfContacts,
+                        isKeycloakManaged: isKeycloakManaged,
+                        encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel,
+                        ownedCryptoIdentity: ownedCryptoIdentity,
+                        coreDetails: coreDetails)
+                    return continuation.resume(returning: parsedData)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+        
+        return parsedData
+        
+    }
+    
+    
+    /// Called when parsing a device backup downloaded from the server
+    public func parseDeviceSnapshotNode(identityNode: any ObvTypes.ObvSyncSnapshotNode, version: Int, flowId: OlvidUtils.FlowIdentifier) throws -> ObvTypes.ObvDeviceBackupFromServer {
+        
+        guard let deviceSnapshotNode = identityNode as? ObvIdentityManagerDeviceSnapshotNode else {
+            assertionFailure()
+            throw ObvIdentityManagerError.unexpectedSyncSnapshotNode
+        }
+
+        let deviceBackupFromServer = try deviceSnapshotNode.toObvDeviceBackupFromServer(version: version)
+        
+        return deviceBackupFromServer
+        
+    }
+    
+    
+    public func getSyncSnapshotNode(for context: ObvSyncSnapshot.Context) throws -> any ObvSyncSnapshotNode {
         let flowId = FlowIdentifier()
-        let ownedCryptoIdentity = ownedCryptoId.cryptoIdentity
         return try delegateManager.contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-            return try getSyncSnapshotNode(ownedCryptoIdentity: ownedCryptoIdentity, within: obvContext)
+            return try getSyncSnapshotNode(context: context, within: obvContext)
         }
     }
     
     
-    private func getSyncSnapshotNode(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> ObvIdentityManagerSyncSnapshotNode {
-        try ObvIdentityManagerSyncSnapshotNode(ownedCryptoIdentity: ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext)
+    private func getSyncSnapshotNode(context: ObvSyncSnapshot.Context, within obvContext: ObvContext) throws -> any ObvSyncSnapshotNode {
+        switch context {
+        case .transfer(let ownedCryptoId):
+            // We return the exact same snapshot node than in the "backupProfile" case
+            let ownedCryptoIdentity = ownedCryptoId.cryptoIdentity
+            return try ObvIdentityManagerSyncSnapshotNode(ownedCryptoIdentity: ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext)
+        case .backupDevice:
+            return try ObvIdentityManagerDeviceSnapshotNode(delegateManager: delegateManager, within: obvContext)
+        case .backupProfile(let ownedCryptoId):
+            // We return the exact same snapshot node than in the "transfer" case
+            let ownedCryptoIdentity = ownedCryptoId.cryptoIdentity
+            return try ObvIdentityManagerSyncSnapshotNode(ownedCryptoIdentity: ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext)
+        }
     }
 
     
     public func serializeObvSyncSnapshotNode(_ syncSnapshotNode: any ObvSyncSnapshotNode) throws -> Data {
-        guard let node = syncSnapshotNode as? ObvIdentityManagerSyncSnapshotNode else {
+        let jsonEncoder = JSONEncoder()
+        switch syncSnapshotNode {
+        case is ObvIdentityManagerSyncSnapshotNode:
+            return try jsonEncoder.encode(syncSnapshotNode)
+        case is ObvIdentityManagerDeviceSnapshotNode:
+            return try jsonEncoder.encode(syncSnapshotNode)
+        default:
             assertionFailure()
             throw Self.makeError(message: "Unexpected snapshot type")
         }
-        let jsonEncoder = JSONEncoder()
-        return try jsonEncoder.encode(node)
     }
  
     
-    public func deserializeObvSyncSnapshotNode(_ serializedSyncSnapshotNode: Data) throws -> any ObvSyncSnapshotNode {
+    public func deserializeObvSyncSnapshotNode(_ serializedSyncSnapshotNode: Data, context: ObvTypes.ObvSyncSnapshot.Context) throws -> any ObvSyncSnapshotNode {
         let jsonDecoder = JSONDecoder()
-        return try jsonDecoder.decode(ObvIdentityManagerSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
+        switch context {
+        case .transfer:
+            let node = try jsonDecoder.decode(ObvIdentityManagerSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
+            return node
+        case .backupProfile(ownedCryptoId: let ownedCryptoId):
+            let node = try jsonDecoder.decode(ObvIdentityManagerSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
+            guard node.ownedCryptoIdentity.getIdentity() == ownedCryptoId.cryptoIdentity.getIdentity() else {
+                assertionFailure()
+                throw ObvIdentityManagerError.unexpectedOwnedIdentity
+            }
+            return node
+        case .backupDevice:
+            return try jsonDecoder.decode(ObvIdentityManagerDeviceSnapshotNode.self, from: serializedSyncSnapshotNode)
+        }
     }
     
     
     public func restoreObvSyncSnapshotNode(_ syncSnapshotNode: any ObvSyncSnapshotNode, customDeviceName: String, within obvContext: ObvContext) throws {
+        try restoreObvSyncSnapshotNode(syncSnapshotNode, customDeviceName: customDeviceName, allowOwnedIdentityToExistInDatabase: false, within: obvContext)
+    }
+    
+    
+    private func restoreObvSyncSnapshotNode(_ syncSnapshotNode: any ObvSyncSnapshotNode, customDeviceName: String, allowOwnedIdentityToExistInDatabase: Bool, within obvContext: ObvContext) throws {
         guard let node = syncSnapshotNode as? ObvIdentityManagerSyncSnapshotNode else {
             assertionFailure()
             throw Self.makeError(message: "Unexpected snapshot type")
         }
-        try node.restore(prng: prng, customDeviceName: customDeviceName, delegateManager: delegateManager, within: obvContext)
+        try node.restore(prng: prng, customDeviceName: customDeviceName, delegateManager: delegateManager, allowOwnedIdentityToExistInDatabase: allowOwnedIdentityToExistInDatabase, within: obvContext)
     }
+
     
 }
 
@@ -191,16 +462,52 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     public var backupSource: ObvBackupableObjectSource { .engine }
     
-    public func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier) async throws -> (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource) {
+    
+    public func getAdditionalInfosFromIdentityManagerForProfileBackup(ownedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws -> AdditionalInfosFromIdentityManagerForProfileBackup {
+        let delegateManager = self.delegateManager
+        let defaultDeviceName = await UIDevice.current.preciseModel
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<AdditionalInfosFromIdentityManagerForProfileBackup, any Error>) in
+            delegateManager.contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoId.cryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
+                        assertionFailure()
+                        throw ObvIdentityManagerError.ownedIdentityNotFound
+                    }
+                    let currentDeviceName = ownedIdentity.currentDevice.name ?? defaultDeviceName
+                    let additionalInfos = AdditionalInfosFromIdentityManagerForProfileBackup(deviceDisplayName: currentDeviceName)
+                    return continuation.resume(returning: additionalInfos)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
+    public func getBackupSeedOfOwnedIdentity(ownedCryptoId: ObvCryptoId, restrictToActive: Bool, flowId: FlowIdentifier) async throws -> BackupSeed? {
+        let delegateManager = self.delegateManager
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<BackupSeed?, any Error>) in
+            delegateManager.contextCreator.performBackgroundTask { context in
+                do {
+                    let backupSeed = try OwnedIdentity.getBackupSeedOfOwnedIdentity(ownedCryptoId: ownedCryptoId, restrictToActive: restrictToActive, within: context)
+                    return continuation.resume(returning: backupSeed)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    public func provideInternalDataForLegacyBackup(backupRequestIdentifier: FlowIdentifier) async throws -> (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource) {
         let delegateManager = self.delegateManager
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), Error>) in
             do {
                 try delegateManager.contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: backupRequestIdentifier) { obvContext in
-                    let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+                    let ownedIdentities = try OwnedIdentity.getAll(restrictToActive: true, delegateManager: delegateManager, within: obvContext)
                     guard !ownedIdentities.isEmpty else {
                         throw Self.makeError(message: "No data to backup since we could not find any owned identity")
                     }
-                    let ownedIdentitiesBackupItems = Set(ownedIdentities.map { $0.backupItem })
+                    let ownedIdentitiesBackupItems = Set(try ownedIdentities.map { try $0.backupItem })
                     let jsonEncoder = JSONEncoder()
                     let data = try jsonEncoder.encode(ownedIdentitiesBackupItems)
                     guard let internalData = String(data: data, encoding: .utf8) else {
@@ -215,7 +522,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
-    public func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String?) async throws {
+    public func restoreLegacyBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String?) async throws {
         let delegateManager = self.delegateManager
         let log = self.log
         let prng = self.prng
@@ -225,7 +532,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             do {
                 try delegateManager.contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: backupRequestIdentifier) { (obvContext) in
-                    let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+                    let ownedIdentities = try OwnedIdentity.getAll(restrictToActive: false, delegateManager: delegateManager, within: obvContext)
                     guard ownedIdentities.isEmpty else {
                         throw Self.makeError(message: "📲 An owned identity is already present in database.")
                     }
@@ -345,6 +652,21 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
+    private func isOwned(_ identity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> Bool {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
+            delegateManager.contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let result = try self.isOwned(identity, within: obvContext)
+                    return continuation.resume(returning: result)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
     public func isOwnedIdentityActive(ownedIdentity identity: ObvCryptoIdentity, flowId: FlowIdentifier) throws -> Bool {
         var _isActive: Bool?
         try delegateManager.contextCreator.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { (obvContext) in
@@ -409,6 +731,11 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     }
     
     
+    public func isOwnedIdentityDeletedOrDeletionIsInProgress(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool {
+        return try OwnedIdentity.isOwnedIdentityDeletedOrDeletionIsInProgress(identity, within: obvContext.context)
+    }
+    
+    
     public func deleteOwnedIdentity(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         if let identityObj = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) {
             try identityObj.delete(delegateManager: delegateManager, within: obvContext)
@@ -422,9 +749,8 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     
     public func getActiveOwnedIdentitiesAndCurrentDeviceName(within obvContext: ObvContext) throws -> [ObvCryptoIdentity: String?] {
-        let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+        let ownedIdentities = try OwnedIdentity.getAll(restrictToActive: true, delegateManager: delegateManager, within: obvContext)
         let cryptoIdentitiesAndNames = ownedIdentities
-            .filter({ $0.isActive })
             .map { ($0.ownedCryptoIdentity.getObvCryptoIdentity(), $0.currentDevice.name) }
         return Dictionary(cryptoIdentitiesAndNames) { cryptoIdentity, _ in
             assertionFailure()
@@ -434,9 +760,8 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     
     public func getActiveOwnedIdentitiesThatAreNotKeycloakManaged(within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
-        let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+        let ownedIdentities = try OwnedIdentity.getAll(restrictToActive: true, delegateManager: delegateManager, within: obvContext)
         let cryptoIdentities = ownedIdentities
-            .filter({ $0.isActive })
             .filter({ !$0.isKeycloakManaged })
             .map { $0.ownedCryptoIdentity.getObvCryptoIdentity() }
         return Set(cryptoIdentities)
@@ -460,8 +785,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     
     public func getActiveOwnedIdentitiesAndCurrentDeviceUids(within obvContext: ObvContext) throws -> Set<OwnedCryptoIdentityAndCurrentDeviceUID> {
-        let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
-            .filter { $0.isActive }
+        let ownedIdentities = try OwnedIdentity.getAll(restrictToActive: true, delegateManager: delegateManager, within: obvContext)
         let ownedIdentitiesAndCurrentDeviceUids = ownedIdentities.map { OwnedCryptoIdentityAndCurrentDeviceUID(ownedCryptoId: $0.cryptoIdentity, currentDeviceUID: $0.currentDeviceUid) }
         return Set(ownedIdentitiesAndCurrentDeviceUids)
     }
@@ -533,28 +857,14 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         guard let ownedIdentityObj = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext)  else {
             throw ObvIdentityManagerError.ownedIdentityNotFound
         }
-        return try getDeterministicSeed(
-            diversifiedUsing: data,
-            secretMACKey: ownedIdentityObj.ownedCryptoIdentity.secretMACKey,
-            forProtocol: .trustEstablishmentWithSAS)
+        return try ownedIdentityObj.getDeterministicSeed(diversifiedUsing: data, forProtocol: .trustEstablishmentWithSAS)
     }
     
     
-    public func getDeterministicSeed(diversifiedUsing data: Data, secretMACKey: MACKey, forProtocol seedProtocol: ObvConstants.SeedProtocol) throws -> Seed {
-        guard !data.isEmpty else {
-            throw ObvIdentityManagerError.diversificationDataCannotBeEmpty
-        }
-        let sha256 = ObvCryptoSuite.sharedInstance.hashFunctionSha256()
-        let fixedByte = Data([seedProtocol.fixedByte])
-        var hashInput = try MAC.compute(forData: fixedByte, withKey: secretMACKey)
-        hashInput.append(data)
-        let r = sha256.hash(hashInput)
-        guard let seed = Seed(with: r) else {
-            throw ObvIdentityManagerError.failedToTurnRandomIntoSeed
-        }
-        return seed
+    public func getDeterministicSeed(diversifiedUsing data: Data, secretMACKey: any MACKey, forProtocol seedProtocol: ObvConstants.SeedProtocol) throws -> Seed {
+        return try OwnedIdentity.getDeterministicSeed(diversifiedUsing: data, secretMACKey: secretMACKey, forProtocol: seedProtocol)
     }
-    
+
     
     public func getFreshMaskingUIDForPushNotifications(for identity: ObvCryptoIdentity, pushToken: Data, within obvContext: ObvContext) throws -> UID {
         guard let ownedIdentityObj = try OwnedIdentity.get(identity, delegateManager: delegateManager, within: obvContext) else {
@@ -1109,7 +1419,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     
     
     public func getCryptoIdentitiesOfManagedOwnedIdentitiesAssociatedWithThePushTopic(_ pushTopic: String, within obvContext: ObvContext) throws -> Set<ObvCryptoIdentity> {
-        let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+        let ownedIdentities = try OwnedIdentity.getAll(restrictToActive: true, delegateManager: delegateManager, within: obvContext)
         let appropriateOwnedIdentities = try ownedIdentities
             .filter({ $0.isKeycloakManaged })
             .filter({ try $0.getPushTopicsForKeycloakServerAndForKeycloakManagedGroups().contains(pushTopic) == true })
@@ -1257,6 +1567,15 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
         
         return ownedDeviceDiscoveryResult
         
+    }
+    
+    
+    /// Used when the user requests the restoration of a (new) backup, to decide whether older owned devices would be deactivated or not.
+    public func decryptEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoIdentity ownedCryptoIdentity: ObvOwnedCryptoIdentity) throws -> OwnedDeviceDiscoveryResult {
+        
+        let ownedDeviceDiscoveryResult = try OwnedDeviceDiscoveryResult.decrypt(encryptedOwnedDeviceDiscoveryResult: encryptedOwnedDeviceDiscoveryResult, for: ownedCryptoIdentity)
+        return ownedDeviceDiscoveryResult
+
     }
     
     
@@ -2044,7 +2363,7 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
     // MARK: - User Data
 
     public func getAllServerDataToSynchronizeWithServer(within obvContext: ObvContext) throws -> (toDelete: Set<UserData>, toRefresh: Set<UserData>) {
-        let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+        let ownedIdentities = try OwnedIdentity.getAll(restrictToActive: true, delegateManager: delegateManager, within: obvContext)
         
         let now = Date()
         var toDelete = Set<UserData>()
@@ -2134,6 +2453,13 @@ extension ObvIdentityManagerImplementation: ObvIdentityDelegate {
                 }
             }
         }
+    }
+    
+    
+    /// This method returns as soon as the owned identity is deleted from database.
+    public func waitForOwnedIdentityDeletion(expectedOwnedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws {
+        let waiter = OwnedIdentityDeletionWaiter(expectedOwnedCryptoId: expectedOwnedCryptoId, identityManager: self, flowId: flowId)
+        try await waiter.waitForOwnedIdentityDeletion()
     }
     
 }
@@ -2235,6 +2561,23 @@ extension ObvIdentityManagerImplementation: ObvSolveChallengeDelegate {
 
     }
 
+    
+    public func solveChallenge(_ challengeType: ChallengeType, with authenticationKeyPair: (publicKey: any PublicKeyForAuthentication, privateKey: any PrivateKeyForAuthentication), using: any PRNGService) throws -> Data {
+        
+        guard let response = ObvSolveChallengeStruct.solveChallenge(challengeType,
+                                                                    with: authenticationKeyPair.privateKey,
+                                                                    and: authenticationKeyPair.publicKey,
+                                                                    using: prng)
+        else {
+            os_log("Could not compute the challenge's response", log: log, type: .error)
+            throw makeError(message: "Could not compute the challenge's response")
+        }
+        
+        return response
+
+    }
+    
+
 }
 
 
@@ -2327,17 +2670,6 @@ extension ObvIdentityManagerImplementation {
             throw ObvIdentityManagerImplementation.makeError(message: "Could not find other owned device")
         }
         return device.allCapabilities
-    }
-
-    
-    public func getCapabilitiesOfOwnedIdentities(within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<ObvCapability>] {
-        let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager,
-                                                       within: obvContext)
-        var result = [ObvCryptoIdentity: Set<ObvCapability>]()
-        ownedIdentities.forEach { ownedIdentity in
-            result[ownedIdentity.cryptoIdentity] = ownedIdentity.allCapabilities
-        }
-        return result
     }
 
     
@@ -2579,7 +2911,7 @@ extension ObvIdentityManagerImplementation {
         contextCreator.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
             guard let _self = self else { return }
             do {
-                let ownedIdentities = try OwnedIdentity.getAll(delegateManager: _self.delegateManager, within: obvContext)
+                let ownedIdentities = try OwnedIdentity.getAll(restrictToActive: false, delegateManager: _self.delegateManager, within: obvContext)
                 let managedOwnedIdentities = ownedIdentities.filter({ $0.isKeycloakManaged })
                 managedOwnedIdentities.forEach { ownedIdentity in
                     ownedIdentity.pruneOldKeycloakRevokedContacts(delegateManager: _self.delegateManager)
@@ -2630,7 +2962,7 @@ extension ObvIdentityManagerImplementation {
             
             do {
                 
-                let ownedIdentities = try OwnedIdentity.getAll(delegateManager: delegateManager, within: obvContext)
+                let ownedIdentities = try OwnedIdentity.getAll(restrictToActive: true, delegateManager: delegateManager, within: obvContext)
                 
                 for ownedIdentity in ownedIdentities {
                     
@@ -2658,7 +2990,6 @@ extension ObvIdentityManagerImplementation {
 
                 }
                 
-                
             } catch {
                 os_log("Could not create missing GroupV2ServerUserData: %{public}@", log: log, type: .fault, error.localizedDescription)
                 assertionFailure()
@@ -2666,6 +2997,72 @@ extension ObvIdentityManagerImplementation {
             
         }
         
+    }
+    
+}
+
+
+// MARK: - Helper actor used during an owned identity deletion
+
+/// This helper actor allows to await the identity manager's notification sent when an OwnedIdentity gets deleted from database.
+private actor OwnedIdentityDeletionWaiter: OwnedIdentityObserver {
+    
+    private weak var identityManager: ObvIdentityManagerImplementation?
+    private let expectedOwnedCryptoId: ObvCryptoId
+    private let flowId: FlowIdentifier
+
+    private var notificationToken: (any NSObjectProtocol)?
+    private var continuation: CheckedContinuation<Void, any Error>?
+    
+    init(expectedOwnedCryptoId: ObvCryptoId, identityManager: ObvIdentityManagerImplementation, flowId: FlowIdentifier) {
+        self.identityManager = identityManager
+        self.expectedOwnedCryptoId = expectedOwnedCryptoId
+        self.flowId = flowId
+    }
+    
+    private func getAndRemoveContinuation() -> CheckedContinuation<Void, any Error>? {
+        guard let continuationToReturn = self.continuation else { return nil }
+        self.continuation = nil
+        return continuationToReturn
+    }
+    
+    private func unsubscribeFromNotification() {
+        notificationToken = nil
+    }
+    
+    func waitForOwnedIdentityDeletion() async throws {
+        
+        guard let identityManager else { throw ObvError.identityManagerIsNil }
+        
+        await OwnedIdentity.addObvObserver(self)
+        
+        guard try await identityManager.ownedIdentityExistsOnThisDevice(ownedCryptoId: expectedOwnedCryptoId, flowId: flowId) else { return }
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            Task {
+                do {
+                    guard try await identityManager.ownedIdentityExistsOnThisDevice(ownedCryptoId: expectedOwnedCryptoId, flowId: flowId) else {
+                        return continuation.resume()
+                    }
+                    self.continuation = continuation
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+            
+        }
+    }
+    
+    /// Called by the OwnedIdentity database when an owned identity gets deleted
+    func anOwnedIdentityWasDeleted(deletedOwnedCryptoId: ObvCryptoIdentity) async {
+        guard deletedOwnedCryptoId.getIdentity() == expectedOwnedCryptoId.getIdentity() else { return }
+        let continuation = self.getAndRemoveContinuation()
+        continuation?.resume()
+    }
+    
+    
+    enum ObvError: Error {
+        case identityManagerIsNil
     }
     
 }

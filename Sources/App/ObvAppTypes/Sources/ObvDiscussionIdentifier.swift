@@ -25,7 +25,7 @@ import ObvEncoder
 /// This type uniquely identifies a discussion.
 ///
 /// It shall be used instead of the legacy type `DiscussionIdentifier` defined within the app.
-public enum ObvDiscussionIdentifier: Equatable, Hashable {
+public enum ObvDiscussionIdentifier: Sendable, Equatable, Hashable {
     
     case oneToOne(id: ObvContactIdentifier)
     case groupV1(id: ObvGroupV1Identifier)

@@ -35,7 +35,7 @@ extension PersistedGroupV2 {
         }
         return PersistedGroupV2BackupItem(
             groupIdentifier: self.groupIdentifier,
-            customName: self.customName,
+            customName: self.customNameSanitized,
             discussionConfigurationBackupItem: conf)
     }
 

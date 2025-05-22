@@ -20,7 +20,7 @@
 import Foundation
 import ObvEncoder
 
-public struct ObvGroupV2Identifier: Hashable {
+public struct ObvGroupV2Identifier: Hashable, Sendable {
     
     public let ownedCryptoId: ObvCryptoId
     public let identifier: ObvGroupV2.Identifier

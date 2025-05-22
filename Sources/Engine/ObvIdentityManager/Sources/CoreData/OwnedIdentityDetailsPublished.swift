@@ -40,9 +40,9 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
 
     // MARK: Attributes
     
+    @NSManaged private var photoFilename: String?
     @NSManaged private var photoServerKeyEncoded: Data?
     @NSManaged private var rawPhotoServerLabel: Data?
-    @NSManaged private var photoFilename: String?
     @NSManaged private(set) var serializedIdentityCoreDetails: Data
     @NSManaged private(set) var version: Int
 
@@ -55,6 +55,8 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
     
     private var notificationRelatedChanges: NotificationRelatedChanges = []
     private var labelToDelete: UID?
+
+    private var changedKeys = Set<String>()
 
     private(set) var photoServerLabel: UID? {
         get {
@@ -103,6 +105,13 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         let coreDetails = try! ObvIdentityCoreDetails(data)
         let photoURL = getPhotoURL(identityPhotosDirectory: identityPhotosDirectory)
         return ObvIdentityDetails(coreDetails: coreDetails, photoURL: photoURL)
+    }
+    
+    var coreDetails: ObvIdentityCoreDetails {
+        get throws {
+            let data = kvoSafePrimitiveValue(forKey: OwnedIdentityDetailsPublished.serializedIdentityCoreDetailsKey) as! Data
+            return try ObvIdentityCoreDetails(data)
+        }
     }
 
     func getIdentityDetailsElements(identityPhotosDirectory: URL) -> IdentityDetailsElements {
@@ -238,6 +247,15 @@ final class OwnedIdentityDetailsPublished: NSManagedObject, ObvManagedObject {
         } while (FileManager.default.fileExists(atPath: path!.path))
         return path
     }
+    
+    
+    // MARK: - Observers
+
+    private static var observersHolder = ObserversHolder()
+
+    static func addObvObserver(_ newObserver: OwnedIdentityDetailsPublishedObServer) async {
+        await observersHolder.addObserver(newObserver)
+    }
 
 }
 
@@ -337,9 +355,13 @@ extension OwnedIdentityDetailsPublished {
 
     struct Predicate {
         enum Key: String {
-            case rawPhotoServerLabel = "rawPhotoServerLabel"
-            case photoServerKeyEncoded = "photoServerKeyEncoded"
+            // Attributes
             case photoFilename = "photoFilename"
+            case photoServerKeyEncoded = "photoServerKeyEncoded"
+            case rawPhotoServerLabel = "rawPhotoServerLabel"
+            case serializedIdentityCoreDetails = "serializedIdentityCoreDetails"
+            case version = "version"
+            // Relationships
             case ownedIdentity = "ownedIdentity"
         }
         static var withoutPhotoFilename: NSPredicate {
@@ -429,10 +451,21 @@ extension OwnedIdentityDetailsPublished {
         labelToDelete = self.photoServerLabel
     }
     
+    override func willSave() {
+        super.willSave()
+        if !isInserted {
+            changedKeys = Set<String>(self.changedValues().keys)
+        }
+    }
+
+    
     override func didSave() {
         super.didSave()
         
-        defer { notificationRelatedChanges = [] }
+        defer {
+            notificationRelatedChanges = []
+            changedKeys.removeAll()
+        }
         
         guard let delegateManager = delegateManager else {
             let log = OSLog(subsystem: ObvIdentityDelegateManager.defaultLogSubsystem, category: OwnedIdentityDetailsPublished.entityName)
@@ -461,6 +494,51 @@ extension OwnedIdentityDetailsPublished {
             
         }
         
+        // Potentially notify that the previous backed up device snapshot is obsolete
+        // Other entities can also notify:
+        // - OwnedIdentity
+        // - KeycloakServer
+
+        let previousBackedUpDeviceSnapShotIsObsolete: Bool
+        if isInserted || isDeleted {
+            previousBackedUpDeviceSnapShotIsObsolete = true
+        } else if changedKeys.contains(Predicate.Key.serializedIdentityCoreDetails.rawValue) ||
+                    changedKeys.contains(Predicate.Key.photoServerKeyEncoded.rawValue) ||
+                    changedKeys.contains(Predicate.Key.rawPhotoServerLabel.rawValue) ||
+                    changedKeys.contains(Predicate.Key.version.rawValue) {
+            previousBackedUpDeviceSnapShotIsObsolete = true
+        } else {
+            previousBackedUpDeviceSnapShotIsObsolete = false
+        }
+        if previousBackedUpDeviceSnapShotIsObsolete {
+            Task { await Self.observersHolder.previousBackedUpDeviceSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged() }
+        }
+        
+        // Potentially notify that the previous backed up profile snapshot is obsolete
+        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+
+        if !isDeleted && !isInserted {
+            let previousBackedUpProfileSnapShotIsObsolete: Bool
+            if isInserted {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else if changedKeys.contains(Predicate.Key.serializedIdentityCoreDetails.rawValue) ||
+                        changedKeys.contains(Predicate.Key.photoServerKeyEncoded.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawPhotoServerLabel.rawValue) ||
+                        changedKeys.contains(Predicate.Key.version.rawValue) {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else {
+                previousBackedUpProfileSnapShotIsObsolete = false
+            }
+            if previousBackedUpProfileSnapShotIsObsolete {
+                if let ownedCryptoIdentity = self.ownedIdentity?.cryptoIdentity {
+                    let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
+                    Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged(ownedCryptoId: ownedCryptoId) }
+                } else {
+                    assertionFailure()
+                }
+            }
+        }
+
     }
     
 }
@@ -705,6 +783,70 @@ struct OwnedIdentityDetailsPublishedSyncSnapshotNode: ObvSyncSnapshotNode {
         case couldNotSerializeCoreDetails
         case couldNotDeserializeCoreDetails
         case couldNotDeserializePhotoServerLabel
+        case serializedIdentityCoreDetailsIsNil
     }
     
+    /// Called when parsing a device backup downloaded from the server
+    func toObvIdentityCoreDetails() throws -> ObvIdentityCoreDetails {
+        guard let serializedIdentityCoreDetails else {
+            assertionFailure()
+            throw ObvError.serializedIdentityCoreDetailsIsNil
+        }
+        return try ObvIdentityCoreDetails(serializedIdentityCoreDetails)
+    }
+    
+    var photoServerKeyAndLabel: PhotoServerKeyAndLabel? {
+        guard let photoServerKeyEncoded = self.photoServerKeyEncoded,
+              let obvEncoded = ObvEncoded(withRawData: photoServerKeyEncoded),
+              let key = try? AuthenticatedEncryptionKeyDecoder.decode(obvEncoded),
+              let label = photoServerLabel else {
+            return nil
+        }
+        return PhotoServerKeyAndLabel(key: key, label: label)
+    }
+
+}
+
+
+// MARK: - OwnedIdentityDetailsPublished observers
+
+protocol OwnedIdentityDetailsPublishedObServer: AnyObject {
+    func previousBackedUpDeviceSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged() async
+    func previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: OwnedIdentityDetailsPublishedObServer {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: OwnedIdentityDetailsPublishedObServer?
+        init(value: OwnedIdentityDetailsPublishedObServer?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: OwnedIdentityDetailsPublishedObServer) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing KeycloakServerObServer
+
+    func previousBackedUpDeviceSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged() async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpDeviceSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged() }
+            }
+        }
+    }
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityDetailsPublishedChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+
 }

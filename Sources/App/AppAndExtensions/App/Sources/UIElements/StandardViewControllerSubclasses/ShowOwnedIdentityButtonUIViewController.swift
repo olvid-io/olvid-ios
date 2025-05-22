@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -132,13 +132,11 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
     
     
     private func continuouslyUpdateTheRedDotOnTheProfilePictureView() {
+        Task { await PersistedObvOwnedIdentity.addObvObserver(self) }
         observationTokens.append(contentsOf: [
             ObvMessengerCoreDataNotification.observeBadgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity { [weak self] concernedOwnedIdentity in
                 // If the number of new messages changed for the current owned identity, no need to updae the red dot
                 guard self?.currentOwnedCryptoId != concernedOwnedIdentity else { return }
-                self?.updateTheRedDotOnTheProfilePictureView()
-            },
-            ObvMessengerCoreDataNotification.observePersistedObvOwnedIdentityWasDeleted { [weak self] in
                 self?.updateTheRedDotOnTheProfilePictureView()
             },
         ])
@@ -269,6 +267,17 @@ class ShowOwnedIdentityButtonUIViewController: UIViewController, OwnedIdentityCh
                     .postOnDispatchQueue()
             }
         }
+    }
+    
+}
+
+
+// MARK: - Implementing PersistedObvOwnedIdentityObserver
+
+extension ShowOwnedIdentityButtonUIViewController: PersistedObvOwnedIdentityObserver {
+    
+    func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async {
+        updateTheRedDotOnTheProfilePictureView()
     }
     
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,8 @@
  */
 
 import SwiftUI
+import ObvDesignSystem
+import ObvUI
 
 
 protocol NewOwnedIdentityGeneratedViewActionsProtocol: AnyObject {
@@ -29,52 +31,95 @@ struct NewOwnedIdentityGeneratedView: View {
     
     let actions: NewOwnedIdentityGeneratedViewActionsProtocol
     
+    @State private var isBadgeVisible = false
+    @State private var triggerConfettiCanon = 0
+
     private func startUsingOlvidAction() {
         Task {
             await actions.startUsingOlvidAction()
         }
     }
     
+    private func onAppear() {
+        Task {
+            if #available(iOS 17, *) {
+                try? await Task.sleep(seconds: 0.3)
+                withAnimation {
+                    isBadgeVisible = true
+                } completion: {
+                    triggerConfettiCanon += 1
+                }
+            } else {
+                withAnimation {
+                    isBadgeVisible = true
+                    triggerConfettiCanon += 1
+                }
+            }
+        }
+    }
+
     var body: some View {
         
-        VStack {
+        ZStack {
             
-            Image("badge-for-onboarding", bundle: nil)
-                .resizable()
-                .frame(width: 60, height: 60, alignment: .center)
+            Color(ObvDesignSystem.AppTheme.shared.colorScheme.systemBackground)
+                .ignoresSafeArea()
+            
+            VStack {
+                ScrollView {
+                    VStack {
+                        
+                        VStack {
+                            
+                            ObvHeaderView(
+                                title: "Congratulations!".localizedInThisBundle,
+                                subtitle: nil,
+                                isBadgeVisible: $isBadgeVisible)
+                            .onAppear(perform: onAppear)
+                            .padding(.bottom, 35)
+                            .confettiCannon(trigger: $triggerConfettiCanon,
+                                            num: 100,
+                                            openingAngle: Angle(degrees: 0),
+                                            closingAngle: Angle(degrees: 360),
+                                            radius: 200)
+                            
+                            ObvCardView(shadow: false) {
+                                
+                                Text("OWNED_IDENTITY_GENERATED_EXPLANATION")
+                                    .frame(minWidth: .none,
+                                           maxWidth: .infinity,
+                                           minHeight: .none,
+                                           idealHeight: .none,
+                                           maxHeight: .none,
+                                           alignment: .center)
+                                    .font(.body)
+                                    .padding()
+                                
+                            }
+                            
+                        }.padding(.horizontal)
+                        
+                    }
+                }
+                
+                // Show a "skip" button bellow the scroll view
+                
+                Spacer()
+                
+                Button(action: startUsingOlvidAction) {
+                    Text("START_USING_OLVID")
+                        .foregroundStyle(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                }
+                .background(Color.blue01)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding()
-            Text("Congratulations!")
-                .font(.title)
-                .multilineTextAlignment(.center)
-            
-            ScrollView {
-                Text("OWNED_IDENTITY_GENERATED_EXPLANATION")
-                    .frame(minWidth: .none,
-                           maxWidth: .infinity,
-                           minHeight: .none,
-                           idealHeight: .none,
-                           maxHeight: .none,
-                           alignment: .center)
-                    .font(.body)
-                    .padding()
+                
             }
-
-            // Show a "skip" button bellow the scroll view
             
-            Spacer()
-            
-            Button(action: startUsingOlvidAction) {
-                Text("START_USING_OLVID")
-                    .foregroundStyle(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-            }
-            .background(Color.blue01)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .padding()
         }
-        
-        
+            
     }
     
 }
@@ -94,7 +139,7 @@ struct NewOwnedIdentityGeneratedView_Previews: PreviewProvider {
         Group {
             NewOwnedIdentityGeneratedView(actions: actions)
             NewOwnedIdentityGeneratedView(actions: actions)
-                .environment(\.locale, .init(identifier: "fr"))
+                //.environment(\.locale, .init(identifier: "fr"))
         }
     }
 }

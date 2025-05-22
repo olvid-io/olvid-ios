@@ -156,12 +156,12 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
     // MARK: - Identifier
 
     /// The `Codable` conformance should **not** be used within long term storage since we may change it regularly.
-    public struct Identifier: ObvErrorMaker, ObvCodable, Equatable, Hashable, Codable {
+    public struct Identifier: ObvErrorMaker, ObvCodable, Equatable, Hashable, Codable, Sendable {
         
         public static let errorDomain = "ObvGroupV2.Identifier"
 
         /// The `Codable` conformance should **not** be used within long term storage since we may change it regularly.
-        public enum Category: Int, Codable {
+        public enum Category: Int, Codable, Sendable {
             case server = 0
             case keycloak = 1
         }
@@ -224,7 +224,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
 
     // MARK: - Permission
     
-    public enum Permission: String, CaseIterable, ObvCodable, ObvErrorMaker {
+    public enum Permission: String, CaseIterable, ObvCodable, ObvErrorMaker, Sendable {
         case groupAdmin = "ga"
         case remoteDeleteAnything = "rd" // Allows to remote delete any message or discussion
         case editOrRemoteDeleteOwnMessages = "eo" // Allows to edit and remote delete own messages
@@ -513,7 +513,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
         case groupType = 6
     }
     
-    public enum Change: Hashable, ObvFailableCodable {
+    public enum Change: Hashable, ObvFailableCodable, Sendable {
         case memberRemoved(contactCryptoId: ObvCryptoId)
         case memberAdded(contactCryptoId: ObvCryptoId, permissions: Set<Permission>)
         case memberChanged(contactCryptoId: ObvCryptoId, permissions: Set<Permission>)
@@ -544,6 +544,15 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
                 return true
             default:
                 return false
+            }
+        }
+        
+        public var serializedGroupTypeInChange: Data? {
+            switch self {
+            case .groupType(let serializedGroupType):
+                return serializedGroupType
+            default:
+                return nil
             }
         }
         
@@ -712,7 +721,7 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
     
     // MARK: - Changeset
     
-    public struct Changeset: ObvFailableCodable, ObvErrorMaker {
+    public struct Changeset: ObvFailableCodable, ObvErrorMaker, Sendable {
         
         public let changes: Set<Change>
         
@@ -743,6 +752,51 @@ public struct ObvGroupV2: ObvErrorMaker, ObvFailableCodable, Equatable, Hashable
             return changesAboutMembers.count == concernedMembers.count
         }
         
+        
+        public var removedMembersCryptoIds: Set<ObvCryptoId> {
+            var cryptoIds = Set<ObvCryptoId>()
+            for change in changes {
+                switch change {
+                case .memberRemoved(contactCryptoId: let cryptoId):
+                    cryptoIds.insert(cryptoId)
+                default:
+                    break
+                }
+            }
+            return cryptoIds
+        }
+
+        
+        public var addedMembersCryptoIds: Set<ObvCryptoId> {
+            var cryptoIds = Set<ObvCryptoId>()
+            for change in changes {
+                switch change {
+                case .memberAdded(contactCryptoId: let cryptoId, permissions: _):
+                    cryptoIds.insert(cryptoId)
+                default:
+                    break
+                }
+            }
+            return cryptoIds
+        }
+        
+        
+        public func specifiedPermissionsOfOtherMember(cryptoId: ObvCryptoId) -> Set<Permission>? {
+            for change in orderedChanges.reversed() {
+                switch change {
+                case .memberAdded(contactCryptoId: let contactCryptoId, permissions: let permissions):
+                    guard contactCryptoId == cryptoId else { continue }
+                    return permissions
+                case .memberChanged(contactCryptoId: let contactCryptoId, permissions: let permissions):
+                    guard contactCryptoId == cryptoId else { continue }
+                    return permissions
+                case .ownPermissionsChanged, .groupDetails, .groupPhoto, .groupType, .memberRemoved:
+                    continue
+                }
+            }
+            return nil
+        }
+
         
         /// When creating a `Changeset`, we do not want to have two distinct `groupDetails` changes.
         /// This method returns `true` iff there 0 or 1 `groupDetails` change in the `changes`.

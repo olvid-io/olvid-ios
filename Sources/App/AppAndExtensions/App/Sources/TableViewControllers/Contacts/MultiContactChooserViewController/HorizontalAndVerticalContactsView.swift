@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvSystemIcon
 import ObvUI
+import ObvDesignSystem
 
 
 protocol HorizontalAndVerticalUsersViewModelProtocol: ObservableObject, HorizontalUsersViewModelProtocol, VerticalUsersViewModelProtocol {

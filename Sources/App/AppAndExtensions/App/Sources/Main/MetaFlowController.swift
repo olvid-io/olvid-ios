@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -39,6 +39,43 @@ import ObvKeycloakManager
 import ObvOnboarding
 import ObvAppTypes
 import ObvSubscription
+import ObvAppBackup
+import ObvImageEditor
+import PhotosUI
+import ObvLocation
+
+
+// MARK: - MetaFlowControllerDelegate
+
+protocol MetaFlowControllerDelegate: AnyObject {
+    func userRequestedAppDatabaseSyncWithEngine(metaFlowController: MetaFlowController) async throws
+    func userWantsToSendDraft(_ metaFlowController: MetaFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToAddAttachmentsToDraft(_ metaFlowController: MetaFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws
+    func userWantsToAddAttachmentsToDraftFromURLs(_ metaFlowController: MetaFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws
+    func userWantsToUpdateDraftBodyAndMentions(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
+    func userWantsToDeleteAttachmentsFromDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
+    func userWantsToReplyToMessage(_ metaFlowController: MetaFlowController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
+    func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ metaFlowController: MetaFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
+    func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ metaFlowController: MetaFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
+    func userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ metaFlowController: MetaFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
+    func userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ metaFlowController: MetaFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
+    func userWantsToRemoveReplyToMessage(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
+    func insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(_ metaFlowController: MetaFlowController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool) async throws
+    func userWantsToUpdateDraftExpiration(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?) async throws
+    func userWantsToReadReceivedMessageThatRequiresUserAction(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier) async throws
+    func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ metaFlowController: MetaFlowController, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>) async throws
+    func messagesAreNotNewAnymore(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws
+    func userWantsToUpdateReaction(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ metaFlowController: MetaFlowController) async throws
+    func userWantsToStopSharingLocationInDiscussion(_ metaFlowController: MetaFlowController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ metaFlowController: MetaFlowController, groupIdentifier: ObvGroupV2Identifier) async throws
+    func userWantsToDeleteOwnedIdentityAndHasConfirmed(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws
+    
+    func userWantsToShowMapToSendOrShareLocationContinuously(_ metaFlowController: MetaFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+
+}
+
+
 
 
 @MainActor
@@ -46,6 +83,7 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: MetaFlowController.self))
     private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: MetaFlowController.self))
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: MetaFlowController.self))
 
     var observationTokens = [NSObjectProtocol]()
     
@@ -86,10 +124,20 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
     private var viewDidAppearWasCalledAtLeastOnce = false
     private var completionHandlersToCallOnViewDidAppear = [() -> Void]()
 
+    /// Used when presenting the navigation stack allowing to configure the backup seed of new backups
+    private var router: ObvAppBackupSetupRouter?
+
     // Shall only be accessed on the main thread
     private var automaticallyNavigateToCreatedDisplayedContactGroup = false
     
     private let obvEngine: ObvEngine
+    
+    private lazy var avatarHelper = AvatarHelper(obvEngine: obvEngine)
+    
+    /// This is used during the onboarding flow, when the user wants to see the subscription to Olvid+
+    private var continuationAndOwnedCryptoIdentity: (continuation: CheckedContinuation<ObvAppBackup.ObvDeviceDeactivationConsequence, any Error>, ownedCryptoIdentity: ObvOwnedCryptoIdentity)?
+    
+    private var continuationsForObtainingAvatar: CheckedContinuation<UIImage?, Never>?
     
     init(obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, localAuthenticationDelegate: LocalAuthenticationDelegate, appBackupDelegate: AppBackupDelegate, storeKitDelegate: StoreKitDelegate, metaFlowControllerDelegate: MetaFlowControllerDelegate, shouldShowCallBanner: Bool) {
         
@@ -168,9 +216,6 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
             ObvMessengerInternalNotification.observeUserWantsToSwitchToOtherHiddenOwnedIdentity { [weak self] password in
                 Task { await self?.processUserWantsToSwitchToOtherHiddenOwnedIdentity(password: password) }
             },
-            ObvMessengerCoreDataNotification.observePersistedObvOwnedIdentityWasDeleted { [weak self] in
-                Task { try? await self?.setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: nil) }
-            },
             ObvMessengerCoreDataNotification.observeOwnedIdentityHiddenStatusChanged { [weak self] _, isHidden in
                 guard isHidden else { return }
                 Task { await self?.askUserToChooseHiddenProfileClosePolicyIfItIsNotSetYet() }
@@ -192,18 +237,9 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
         // VoIP notifications
         
         observationTokens.append(contentsOf: [
-//            VoIPNotification.observeShowCallViewControllerForAnsweringNonCallKitIncomingCall(queue: .main) { [weak self] _ in
-//                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true)
-//            },
             VoIPNotification.observeNewCallToShow { [weak self] _ in
                 Task { [weak self] in await self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true, animate: true) }
             },
-//            VoIPNotification.observeNewOutgoingCall { [weak self] _ in
-//                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true)
-//            },
-//            VoIPNotification.observeAnIncomingCallShouldBeShownToUser(queue: .main) { [weak self] _ in
-//                self?.setupAndShowAppropriateCallBanner(shouldShowCallBanner: true)
-//            },
             VoIPNotification.observeNoMoreCallInProgress { [weak self] in
                 Task(priority: .userInitiated) { [weak self] in
                     os_log("☎️🔚 Observed observeNoMoreCallInProgress notification", log: Self.log, type: .info)
@@ -211,6 +247,18 @@ final class MetaFlowController: UIViewController, OlvidURLHandler {
                 }
             }
         ])
+
+        Task {
+            // Observing database changes
+            await PersistedObvOwnedIdentity.addObvObserver(self)
+            await PersistedObvContactIdentity.addObvObserver(self)
+            await PersistedContactGroup.addObvObserver(self)
+            await PersistedGroupV2.addObserver(self)
+            await PersistedDiscussionLocalConfiguration.addObvObserver(self)
+            await PersistedDiscussionSharedConfiguration.addObvObserver(self)
+            await PersistedDiscussion.addObvObserver(self)
+        }
+
     }
     
     
@@ -707,6 +755,7 @@ extension MetaFlowController {
         } else {
             
             destroyCurrentMainFlowViewController()
+            self.currentOwnedCryptoId = nil
 
             if let onboardingFlowViewController {
                 if onboardingFlowViewController.parent != nil {
@@ -721,7 +770,8 @@ extension MetaFlowController {
                 onboardingFlowViewController = NewOnboardingFlowViewController(
                     logSubsystem: ObvAppCoreConstants.logSubsystem,
                     directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
-                    mode: .initialOnboarding(mdmConfig: mdmConfig))
+                    mode: .initialOnboarding(mdmConfig: mdmConfig),
+                    dataSource: self)
                 onboardingFlowViewController?.delegate = self
             }
             
@@ -862,6 +912,91 @@ extension MetaFlowController {
 // MARK: - NewOnboardingFlowViewControllerDelegate
 
 extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
+    
+    func userWantsToBeRemindedToWriteDownBackupKey(_ onboardingFlow: ObvOnboarding.NewOnboardingFlowViewController) async {
+        await userWantsToBeRemindedToWriteDownBackupKey()
+    }
+    
+    
+    func shouldSetupNewBackupsDuringOnboarding(_ onboardingFlow: NewOnboardingFlowViewController) async -> Bool {
+        if ObvMessengerSettings.Backup.userDidSetupBackupsAtLeastOnce {
+            return false
+        } else if await userHasAnActiveDeviceBackupSeed() {
+            return false
+        } else {
+            return true
+        }
+    }
+    
+    func userWantsToDeactivateBackups(_ onboardingFlow: ObvOnboarding.NewOnboardingFlowViewController) async throws {
+        try await userWantsToDeactivateBackups()
+    }
+    
+    
+    /// This method is called from the onboarding during the profile backup restore process. At the end of this process, just before actually restoring the profile,
+    /// the user may be in a situation where restoring will deactivate all their older devices. The user then has the option to subscribe to Olvid+ to keep all their devices active by tapping on a button that eventually calls this method.
+    /// In this case, we want to present the subscription flow and recalculate the value of `ObvDeviceDeactivationConsiquence` when it is dismissed.
+    func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(_ onboardingFlow: ObvOnboarding.NewOnboardingFlowViewController, ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence {
+        return try await self.userWantsToKeepAllDevicesActiveThanksToOlvidPlus(ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+    
+    
+    /// This is called just before restoring a profile backup from the onboarding, in order to determine the consequence of this restoration in terms of devices deactivations.
+    func getDeviceDeactivationConsequencesOfRestoringBackup(_ onboardingFlow: NewOnboardingFlowViewController, ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvDeviceDeactivationConsequence {
+        return try await self.getDeviceDeactivationConsequencesOfRestoringBackup(ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+    
+        
+    func getOrCreateDeviceBackupSeed(_ onboardingFlow: ObvOnboarding.NewOnboardingFlowViewController, saveToKeychain: Bool) async throws -> ObvCrypto.BackupSeed {
+        return try await self.getOrCreateDeviceBackupSeed(saveToKeychain: saveToKeychain)
+    }
+    
+    
+    private func userHasAnActiveDeviceBackupSeed() async -> Bool {
+        do {
+            return try await obvEngine.getDeviceActiveBackupSeed() != nil
+        } catch {
+            assertionFailure()
+            return true
+        }
+    }
+    
+    
+    func fetchAvatarImage(_ onboardingFlow: ObvOnboarding.NewOnboardingFlowViewController, profileCryptoId: ObvTypes.ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage? {
+        do {
+            return try await self.avatarHelper.fetchAvatarImage(ownedCryptoId: profileCryptoId, encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel, size: frameSize)
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+                return nil
+            } else {
+                assertionFailure()
+                return nil
+            }
+        }
+    }
+    
+    
+    func userWantsToUseDeviceBackupSeed(_ onboardingFlow: NewOnboardingFlowViewController, deviceBackupSeed: BackupSeed) async throws -> ObvListOfDeviceBackupProfiles {
+        return try await userWantsToUseDeviceBackupSeed(deviceBackupSeed: deviceBackupSeed)
+    }
+
+    
+    func restoreProfileBackupFromServerNow(_ onboardingFlow: NewOnboardingFlowViewController, profileBackupFromServerToRestore: ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvRestoredOwnedIdentityInfos {
+        return try await restoreProfileBackupFromServerNow(profileBackupFromServerToRestore: profileBackupFromServerToRestore,
+                                                           rawAuthState: rawAuthState)
+    }
+    
+
+    func userWantsToFetchAllProfileBackupsFromServer(_ onboardingFlow: NewOnboardingFlowViewController, profileCryptoId: ObvCryptoId, profileBackupSeed: BackupSeed) async throws -> [ObvProfileBackupFromServer] {
+        return try await userWantsToFetchAllProfileBackupsFromServer(profileCryptoId: profileCryptoId, profileBackupSeed: profileBackupSeed)
+    }
+    
+    
+    func userWantsToFetchDeviceBakupFromServer(onboardingFlow: ObvOnboarding.NewOnboardingFlowViewController) async throws -> AsyncStream<ObvAppBackup.ObvDeviceBackupFromServerWithAppInfoKind> {
+        return try await self.userWantsToFetchDeviceBakupFromServer(currentOwnedCryptoId: nil)
+    }
+    
     
     @MainActor
     func userPastedStringWhichIsNotValidOlvidURL(onboardingFlow: NewOnboardingFlowViewController) async {
@@ -1057,7 +1192,7 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
     @MainActor
     func onboardingRequiresToRestoreBackup(onboardingFlow: NewOnboardingFlowViewController, backupRequestIdentifier: UUID) async throws -> ObvCryptoId {
         let ownedDeviceName = UIDevice.current.preciseModel
-        let cryptoIdsOfRestoredOwnedIdentities = try await obvEngine.restoreFullBackup(backupRequestIdentifier: backupRequestIdentifier, nameToGiveToCurrentDevice: ownedDeviceName)
+        let cryptoIdsOfRestoredOwnedIdentities = try await obvEngine.restoreFullLegacyBackup(backupRequestIdentifier: backupRequestIdentifier, nameToGiveToCurrentDevice: ownedDeviceName)
         guard let randomCryptoId = cryptoIdsOfRestoredOwnedIdentities.first else {
             assertionFailure()
             throw ObvError.couldNotFindOwnedIdentity
@@ -1076,7 +1211,7 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
     
     
     func onboardingRequiresToRecoverBackupFromEncryptedBackup(onboardingFlow: NewOnboardingFlowViewController, encryptedBackup: Data, backupKey: String) async throws -> (backupRequestIdentifier: UUID, backupDate: Date) {
-        return try await obvEngine.recoverBackupData(encryptedBackup, withBackupKey: backupKey)
+        return try await obvEngine.recoverLegacyBackupData(encryptedBackup, withBackupKey: backupKey)
     }
     
     
@@ -1152,10 +1287,250 @@ extension MetaFlowController: NewOnboardingFlowViewControllerDelegate {
     }
     
     
+    func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestrictedDuringBackupRestore(onboardingFlow: NewOnboardingFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data {
+        return try await KeycloakManagerSingleton.shared.userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestrictedDuringBackupRestore(keycloakConfiguration: keycloakConfiguration)
+    }
+    
+    
     func userProvidesProofOfAuthenticationOnKeycloakServer(onboardingFlow: NewOnboardingFlowViewController, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, proof: ObvKeycloakTransferProofAndAuthState) async throws {
         try await obvEngine.userProvidesProofOfAuthenticationOnKeycloakServer(ownedCryptoId: ownedCryptoId, protocolInstanceUID: protocolInstanceUID, proof: proof)
     }
 
+}
+
+
+// MARK: - Helpers for maps
+
+extension MetaFlowController {
+    
+    /// Helper function allowing to determine the device identifier from which a location was sent, given the identifier of the message associated with that location.
+    private func determineObvDeviceIdentifierAssociatedToMessageObjectID(_ messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws -> ObvDeviceIdentifier? {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvDeviceIdentifier?, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    let deviceIdentifier: ObvDeviceIdentifier?
+                    let message = try PersistedMessage.get(with: messageObjectID, within: context)
+                    if let messageSent = message as? PersistedMessageSent {
+                        deviceIdentifier = try messageSent.locationContinuousSent?.ownedDevice?.obvDeviceIdentifier
+                    } else if let messageReceived = message as? PersistedMessageReceived {
+                        deviceIdentifier = try messageReceived.locationContinuousReceived?.contactDevice?.obvDeviceIdentifier
+                    } else {
+                        assertionFailure()
+                        deviceIdentifier = nil
+                    }
+                    return continuation.resume(returning: deviceIdentifier)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+}
+
+
+// MARK: - Helper methods for new backups
+
+extension MetaFlowController {
+    
+    /// Called when the user chooses the deactivate backups from the "advanced settings" screen of the backup setup flow, and when the user "resets" the backups from the settings.
+    private func userWantsToDeactivateBackups() async throws {
+        try await obvEngine.userWantsToResetThisDeviceSeedAndBackups()
+        ObvMessengerSettings.Backup.userDidSetupBackupsAtLeastOnce = true
+    }
+
+    
+    /// This method is called from the onboarding or from the settings during the profile backup restore process. At the end of this process, just before actually restoring the profile,
+    /// the user may be in a situation where restoring will deactivate all their older devices. The user then has the option to subscribe to Olvid+ to keep all their devices active by tapping on a button that eventually calls this method.
+    /// In this case, we want to present the subscription flow and recalculate the value of `ObvDeviceDeactivationConsiquence` when it is dismissed.
+    func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvAppBackup.ObvDeviceDeactivationConsequence, any Error>) in
+            if let currentContinuation = self.continuationAndOwnedCryptoIdentity?.continuation {
+                self.continuationAndOwnedCryptoIdentity = nil
+                currentContinuation.resume(throwing: ObvError.userCancelled)
+            }
+            self.continuationAndOwnedCryptoIdentity = (continuation, ownedCryptoIdentity)
+            let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity.getObvCryptoIdentity())
+            self.userWantsToSubscribeOlvidPlus(ownedCryptoId: ownedCryptoId)
+        }
+    }
+    
+    
+    private func getDeviceDeactivationConsequencesOfRestoringBackup(ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvDeviceDeactivationConsequence {
+        
+        // Get the current owned devices of the profile
+        
+        let ownedDeviceDiscoveryResult: ObvOwnedDeviceDiscoveryResult = try await obvEngine.performOwnedDeviceDiscoveryNow(ownedCryptoIdentity: ownedCryptoIdentity)
+        
+        // If the user has no active owned devices, there cannot be any device deactivation
+        
+        guard !ownedDeviceDiscoveryResult.devices.isEmpty else {
+            return .noDeviceDeactivation
+        }
+        
+        // If the user's profile has multidevice activated, there won't be any device deactivation
+        
+        guard !ownedDeviceDiscoveryResult.isMultidevice else {
+            return .noDeviceDeactivation
+        }
+        
+        // At this point, the only "hope" is that the user's has an active in-app purchase
+        // Note that we return `noDeviceDeactivation` when there is a subscription: this assumes
+        // the app **will** associate the subscription with the restored owned identity as soon as it
+        // is restored.
+        
+        guard let storeKitDelegate else {
+            assertionFailure()
+            throw ObvError.storeKitDelegateIsNil
+        }
+                
+        let multideviceSubscriptionIsActive = try await storeKitDelegate.userWantsToKnowIfMultideviceSubscriptionIsActive()
+
+        guard !multideviceSubscriptionIsActive else {
+            return .noDeviceDeactivation
+        }
+        
+        // If we reach this point, restoring the profile would deactivate certain devices
+        
+        let deactivatedDevices: [OlvidPlatformAndDeviceName] = ownedDeviceDiscoveryResult.devices.map { device in
+            OlvidPlatformAndDeviceName(identifier: device.identifier, deviceName: device.name ?? String(device.identifier.hexString().prefix(4)), platform: .unknown)
+        }.sorted()
+        return .deviceDeactivations(deactivatedDevices: deactivatedDevices)
+
+    }
+    
+    
+    private func getOrCreateDeviceBackupSeed(saveToKeychain: Bool) async throws -> ObvCrypto.BackupSeed {
+
+        ObvMessengerSettings.Backup.userDidSetupBackupsAtLeastOnce = true
+        
+        let serverURLForStoringDeviceBackup = ObvAppCoreConstants.serverURLForStoringDeviceBackup
+        try await deactivateLegacyBackupsNow()
+        
+        let deviceBackupSeed: BackupSeed
+        
+        if let existingActiveBackupSeed = try await obvEngine.getDeviceActiveBackupSeed() {
+            deviceBackupSeed = existingActiveBackupSeed
+        } else {
+            deviceBackupSeed = try await obvEngine.createDeviceBackupSeed(serverURLForStoringDeviceBackup: serverURLForStoringDeviceBackup, saveToKeychain: saveToKeychain)
+        }
+        
+        
+        return deviceBackupSeed
+        
+    }
+    
+    
+    private func deactivateLegacyBackupsNow() async throws {
+        // If legacy backups are configured, remove them
+        guard try await obvEngine.getCurrentLegacyBackupKeyInformation() != nil else {
+            // No legacy backup, nothing left to do
+            return
+        }
+        // Best effort to delete old iCloud backups
+        ObvMessengerInternalNotification.userWantsToStartIncrementalCleanBackup(cleanAllDevices: false)
+            .postOnDispatchQueue()
+        // The rest is done at the engine level
+    }
+
+    
+    private func restoreProfileBackupFromServerNow(profileBackupFromServerToRestore: ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvRestoredOwnedIdentityInfos {
+        let currentDeviceName = UIDevice.current.preciseModel
+        try await obvEngine.restoreProfileBackupFromServerNow(profileBackupFromServerToRestore: profileBackupFromServerToRestore,
+                                                              currentDeviceName: currentDeviceName,
+                                                              rawAuthState: rawAuthState)
+        // If we reach this point, the profile should now be available within the app
+        let restoredOwnedIdentityInfos = try await getRestoredOwnedIdentityInfosForAppDatabase(ownedCryptoId: profileBackupFromServerToRestore.ownedCryptoId)
+        return restoredOwnedIdentityInfos
+    }
+    
+    
+    private func getRestoredOwnedIdentityInfosForAppDatabase(ownedCryptoId: ObvCryptoId) async throws -> ObvRestoredOwnedIdentityInfos {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvRestoredOwnedIdentityInfos, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context) else {
+                        assertionFailure()
+                        throw ObvError.couldNotFindOwnedIdentity
+                    }
+                    let isKeycloakManaged = ownedIdentity.isKeycloakManaged
+                    let restoredOwnedIdentityInfos = ObvRestoredOwnedIdentityInfos(ownedCryptoId: ownedCryptoId,
+                                                                                   firstNameThenLastName: ownedIdentity.identityCoreDetails.getDisplayNameWithStyle(.firstNameThenLastName),
+                                                                                   positionAtCompany: ownedIdentity.identityCoreDetails.getDisplayNameWithStyle(.positionAtCompany),
+                                                                                   displayedLetter: (ownedIdentity.customDisplayName ?? ownedIdentity.fullDisplayName).first ?? "?",
+                                                                                   isKeycloakManaged: isKeycloakManaged)
+                    return continuation.resume(returning: restoredOwnedIdentityInfos)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+    
+    /// Private method used during onboarding and when the user navigates to the backup settings.
+    private func userWantsToFetchAllProfileBackupsFromServer(profileCryptoId: ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvProfileBackupFromServer] {
+        let serverURLForStoringDeviceBackup = ObvAppCoreConstants.serverURLForStoringDeviceBackup
+        let backupSeedAndStorageServerURL = ObvBackupSeedAndStorageServerURL(backupSeed: profileBackupSeed, serverURLForStoringDeviceBackup: serverURLForStoringDeviceBackup)
+        let profileBackupsFromServer: [ObvProfileBackupFromServer] = try await obvEngine.userWantsToFetchAllProfileBackupsFromServer(profileCryptoId: profileCryptoId, backupSeedAndStorageServerURL: backupSeedAndStorageServerURL)
+        return profileBackupsFromServer
+    }
+
+    
+    private func userWantsToFetchDeviceBakupFromServer(currentOwnedCryptoId: ObvCryptoId?) async throws -> AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind> {
+        
+        return AsyncStream(ObvDeviceBackupFromServerWithAppInfoKind.self) { (continuation: AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind>.Continuation) in
+            Task {
+                
+                for try await deviceBackupFromServerKind in try await obvEngine.userWantsToFetchDeviceBakupFromServer() {
+                    
+                    switch deviceBackupFromServerKind {
+                        
+                    case .thisPhysicalDeviceHasNoBackupSeed:
+                        continuation.yield(.thisPhysicalDeviceHasNoBackupSeed)
+                        
+                    case .errorOccuredForFetchingBackupOfThisPhysicalDevice(error: let error):
+                        continuation.yield(.errorOccuredForFetchingBackupOfThisPhysicalDevice(error: error))
+                        
+                    case .thisPhysicalDevice(let deviceBackupFromServer):
+                        let profiles: ObvListOfDeviceBackupProfiles = await .init(deviceBackupFromServer: deviceBackupFromServer)
+                        let profilesToShow: ObvListOfDeviceBackupProfiles
+                        if let currentOwnedCryptoId {
+                            profilesToShow = await filterOutProfilesHiddenOnThisDevice(currentOwnedCryptoId: currentOwnedCryptoId, profiles: profiles)
+                        } else {
+                            profilesToShow = profiles
+                        }
+                        continuation.yield(.thisPhysicalDevice(profilesToShow))
+                        
+                    case .keychain(let deviceBackupFromServer):
+                        let profiles: ObvListOfDeviceBackupProfiles = await .init(deviceBackupFromServer: deviceBackupFromServer)
+                        continuation.yield(.keychain(profiles))
+
+                    case .errorOccuredForFetchingBackupsFromKeychain(error: let error):
+                        continuation.yield(.errorOccuredForFetchingBackupsFromKeychain(error: error))
+                        
+                    }
+                }
+                continuation.finish()
+            }
+        }
+        
+    }
+    
+    
+    private func userWantsToUseDeviceBackupSeed(deviceBackupSeed: ObvCrypto.BackupSeed) async throws -> ObvAppBackup.ObvListOfDeviceBackupProfiles {
+        let serverURLForStoringDeviceBackup = ObvAppCoreConstants.serverURLForStoringDeviceBackup
+        let backupSeedAndStorageServerURL = ObvBackupSeedAndStorageServerURL(backupSeed: deviceBackupSeed, serverURLForStoringDeviceBackup: serverURLForStoringDeviceBackup)
+        guard let deviceBackupFromServer = try await obvEngine.userWantsToUseDeviceBackupSeed(backupSeedAndStorageServerURL: backupSeedAndStorageServerURL) else {
+            // No device backup found for this key
+            throw ObvError.noDeviceBackupFoundForThisBackupSeed
+        }
+        let profiles = await ObvListOfDeviceBackupProfiles(deviceBackupFromServer: deviceBackupFromServer)
+        return profiles
+    }
+
+    
 }
 
 
@@ -1168,7 +1543,7 @@ extension MetaFlowController {
         // Step 1: Ask the engine (i.e., Olvid's server) whether a free trial is still available for this identity
         let freePlanIsAvailable: Bool
         if alsoFetchFreePlan {
-            freePlanIsAvailable = try await obvEngine.queryServerForFreeTrial(for: ownedCryptoId)
+            freePlanIsAvailable = (try? await obvEngine.queryServerForFreeTrial(for: ownedCryptoId)) ?? false
         } else {
             freePlanIsAvailable = false
         }
@@ -1205,15 +1580,191 @@ extension MetaFlowController {
 
 extension MetaFlowController: MainFlowViewControllerDelegate {
     
+    func userWantsToDeleteOwnedIdentityAndHasConfirmed(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToDeleteOwnedIdentityAndHasConfirmed(self, ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
+    }
+    
+    /// This is called when the user taps the "refresh" button on her own identity screen. This method request the current subscriptions to store
+    /// kit. If a valid subscription is found, it associated to each owned identity present on this device by contacting Olvid's servers.
+    /// Then, if there is a "current" owned identity, we refresh the permissions by requesting them from Olvid's servers.
+    func userWantsToRefreshSubscriptionStatus(_ mainFlowViewController: MainFlowViewController) async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult] {
+        return try await refreshSubscriptionStatus()
+    }
+    
+    
+    func userWantsToDisplayBackupKey(_ mainFlowViewController: MainFlowViewController) {
+        Task {
+            if let backupSeed = try await obvEngine.getDeviceActiveBackupSeed() {
+                // We show the backup key
+                let vc = BackupKeyDisplayerHostingHostingView(model: .init(backupSeed: backupSeed), delegate: self)
+                self.present(vc, animated: true)
+            } else {
+                // Unexpected, as we should not be displaying the proposal to write down the backup
+                // key, if there is no backup key yet
+                assertionFailure()
+                await userWantsToConfigureNewBackups(context: .afterOnboardingWithoutMigratingFromLegacyBackups)
+            }
+        }
+    }
+    
+    
+    func userWantsToBeRemindedToWriteDownBackupKey(_ mainFlowViewController: MainFlowViewController) async {
+        await userWantsToBeRemindedToWriteDownBackupKey()
+    }
+    
+    
+    func userWantsToConfigureNewBackups(_ mainFlowViewController: MainFlowViewController, context: ObvAppBackup.ObvAppBackupSetupContext) {
+        Task { await userWantsToConfigureNewBackups(context: context) }
+    }
+    
+    
+    private func userWantsToConfigureNewBackups(context: ObvAppBackupSetupContext) async {
+        
+        // Just make sure the user does not already have a device backup seed (which should not happen since this method was called)
+        guard await !userHasAnActiveDeviceBackupSeed() else {
+            assertionFailure("This method should not have been called in the first place")
+            ObvMessengerSettings.Backup.userDidSetupBackupsAtLeastOnce = true
+            return
+        }
+        
+        let router = ObvAppBackupSetupRouter(navigationController: nil, delegate: self, context: context)
+        self.router = router // Strong pointer to the router
+        router.pushInitialViewController()
+        guard let nav = router.localNavigationController else { assertionFailure(); return }
+        nav.setNavigationBarHidden(true, animated: false)
+        if let presentedViewController {
+            presentedViewController.present(nav, animated: true)
+        } else {
+            self.present(nav, animated: true)
+        }
+        
+    }
+    
+    
+    /// This is called just before restoring a profile backup from the settings, in order to determine the consequence of this restoration in terms of devices deactivations.
+    func getDeviceDeactivationConsequencesOfRestoringBackup(_ mainFlowViewController: MainFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence {
+        return try await self.getDeviceDeactivationConsequencesOfRestoringBackup(ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+    
+    
+    /// This method is called from the settings during the profile backup restore process. At the end of this process, just before actually restoring the profile,
+    /// the user may be in a situation where restoring will deactivate all their older devices. The user then has the option to subscribe to Olvid+ to keep all their devices active by tapping on a button that eventually calls this method.
+    /// In this case, we want to present the subscription flow and recalculate the value of `ObvDeviceDeactivationConsiquence` when it is dismissed.
+    func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(_ mainFlowViewController: MainFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence {
+        return try await self.userWantsToKeepAllDevicesActiveThanksToOlvidPlus(ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+    
+    
+    func fetchAvatarImage(_ mainFlowViewController: MainFlowViewController, profileCryptoId: ObvTypes.ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage? {
+        do {
+            return try await self.avatarHelper.fetchAvatarImage(ownedCryptoId: profileCryptoId, encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel, size: frameSize)
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+                return nil
+            } else {
+                assertionFailure()
+                return nil
+            }
+        }
+    }
+    
+    
+    func userWantsToDeleteProfileBackupFromSettings(_ mainFlowViewController: MainFlowViewController, infoForDeletion: ObvProfileBackupFromServer.InfoForDeletion) async throws {
+        try await obvEngine.userWantsToDeleteProfileBackup(infoForDeletion: infoForDeletion)
+    }
+    
+    
+    func userWantsToResetThisDeviceSeedAndBackups(_ mainFlowViewController: MainFlowViewController) async throws {
+        try await userWantsToDeactivateBackups()
+    }
+    
+    
+    func userWantsToAddDevice(_ mainFlowViewController: MainFlowViewController) {
+        guard let currentOwnedCryptoId else { assertionFailure(); return }
+        let deepLink = ObvDeepLink.myId(ownedCryptoId: currentOwnedCryptoId)
+        Task {
+            _ = await NewAppStateManager.shared.waitUntilAppIsInitializedAndMetaFlowControllerViewDidAppearAtLeastOnce()
+            ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: deepLink)
+                .postOnDispatchQueue()
+        }
+    }
+    
+    
+    func userWantsToSubscribeOlvidPlus(_ mainFlowViewController: MainFlowViewController) {
+        guard let currentOwnedCryptoId else { assertionFailure(); return }
+        self.userWantsToSubscribeOlvidPlus(ownedCryptoId: currentOwnedCryptoId)
+    }
+    
+    
+    func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(_ mainFlowViewController: MainFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data {
+        return try await KeycloakManagerSingleton.shared.userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestrictedDuringBackupRestore(keycloakConfiguration: keycloakConfiguration)
+    }
+    
+    
+    func restoreProfileBackupFromServerNow(_ mainFlowViewController: MainFlowViewController, profileBackupFromServerToRestore: ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvRestoredOwnedIdentityInfos {
+        return try await self.restoreProfileBackupFromServerNow(profileBackupFromServerToRestore: profileBackupFromServerToRestore,
+                                                                rawAuthState: rawAuthState)
+    }
+    
+    
+    func userWantsToFetchAllProfileBackupsFromServer(_ mainFlowViewController: MainFlowViewController, profileCryptoId: ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvProfileBackupFromServer] {
+        let profileBackupsFromServer = try await userWantsToFetchAllProfileBackupsFromServer(profileCryptoId: profileCryptoId, profileBackupSeed: profileBackupSeed)
+        return profileBackupsFromServer
+    }
+    
+    
+    func userWantsToUseDeviceBackupSeed(_ mainFlowViewController: MainFlowViewController, deviceBackupSeed: BackupSeed) async throws -> ObvListOfDeviceBackupProfiles {
+        return try await userWantsToUseDeviceBackupSeed(deviceBackupSeed: deviceBackupSeed)
+    }
+    
+    
+    func userWantsToFetchDeviceBakupFromServer(_ mainFlowViewController: MainFlowViewController, currentOwnedCryptoId: ObvCryptoId) async throws -> AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind> {
+        return try await self.userWantsToFetchDeviceBakupFromServer(currentOwnedCryptoId: currentOwnedCryptoId)
+    }
+    
+    
+    func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, ownedCryptoId: ObvCryptoId) async throws {
+        if #available(iOS 17.0, *) {
+            let dataSource = ObvMapViewControllerAppDataSource(ownedCryptoId: ownedCryptoId, delegate: self)
+            let mapViewController = ObvMapViewController(dataSource: dataSource, actions: self)
+            mapViewController.modalPresentationStyle = .overFullScreen
+            presentingViewController.presentOnTop(mapViewController, animated: true)
+        } else {
+            throw ObvError.osUpgradeRequired
+        }
+    }
+    
+    
+    func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws {
+        if #available(iOS 17.0, *) {
+            let initialDeviceIdentifierToSelect = try await determineObvDeviceIdentifierAssociatedToMessageObjectID(messageObjectID)
+            let dataSource = try ObvMapViewControllerAppDataSource(messageObjectID: messageObjectID, delegate: self)
+            let mapViewController = ObvMapViewController(dataSource: dataSource, actions: self, initialDeviceIdentifierToSelect: initialDeviceIdentifierToSelect)
+            mapViewController.modalPresentationStyle = .overFullScreen
+            presentingViewController.presentOnTop(mapViewController, animated: true)
+        } else {
+            throw ObvError.osUpgradeRequired
+        }
+    }
+    
+    
     func userWantsToShowMapToSendOrShareLocationContinuously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
         try await metaFlowControllerDelegate.userWantsToShowMapToSendOrShareLocationContinuously(self, presentingViewController: presentingViewController, discussionIdentifier: discussionIdentifier)
     }
     
     
-    func userWantsToStopSharingLocation() async throws {
+    func userWantsToStopSharingLocationInDiscussion(_ mainFlowViewController: MainFlowViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
-        try await metaFlowControllerDelegate.userWantsToStopSharingLocation()
+        try await metaFlowControllerDelegate.userWantsToStopSharingLocationInDiscussion(self, discussionIdentifier: discussionIdentifier)
+    }
+    
+    
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ mainFlowViewController: MainFlowViewController) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(self)
     }
     
     
@@ -1323,22 +1874,100 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
         try await metaFlowControllerDelegate?.userRequestedAppDatabaseSyncWithEngine(metaFlowController: self)
     }
     
-
+    
     @MainActor
-    func userWantsToPublishGroupV2Modification(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async {
+    func userWantsToPublishGroupV2Modification(_ mainFlowViewController: MainFlowViewController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
         
-        guard let group = try? PersistedGroupV2.get(objectID: groupObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
+        guard let group = try PersistedGroupV2.get(objectID: groupObjectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
         guard group.ownedIdentityIsAdmin else { assertionFailure(); return }
         guard !changeset.isEmpty else { return }
+        
+        // If the user decided to change the group type, we make sure that the permissions of each member (after the update)
+        // will be coherent with the group type.
+        
+        let changesetToConsider: ObvGroupV2.Changeset
+        
+        if let serializedGroupType = changeset.changes.compactMap({ $0.serializedGroupTypeInChange }).first {
+            
+            let newGroupType = try ObvGroupType(serializedGroupType: serializedGroupType)
+            let adminPermissions = ObvGroupType.exactPermissions(of: .admin, forGroupType: newGroupType)
+            let regularPermissions = ObvGroupType.exactPermissions(of: .regularMember, forGroupType: newGroupType)
 
+            var changesToConsider = Set<ObvGroupV2.Change>()
+            var cryptoIdsConsideredForPermissions: Set<ObvCryptoId> = []
+            var ownPermissionsConsidered: Bool = false
+            
+            // Make sure the received changes are coherent with the new group type
+            
+            for change in changeset.changes {
+                
+                switch change {
+                    
+                case .memberRemoved(contactCryptoId: let contactCryptoId):
+                    changesToConsider.insert(change)
+                    cryptoIdsConsideredForPermissions.insert(contactCryptoId)
+                    
+                case .memberAdded(contactCryptoId: let contactCryptoId, permissions: let permissions):
+                    let permissionsToConsider = permissions.contains(.groupAdmin) ? adminPermissions : regularPermissions
+                    changesToConsider.insert(.memberAdded(contactCryptoId: contactCryptoId, permissions: permissionsToConsider))
+                    cryptoIdsConsideredForPermissions.insert(contactCryptoId)
+
+                case .memberChanged(contactCryptoId: let contactCryptoId, permissions: let permissions):
+                    let permissionsToConsider = permissions.contains(.groupAdmin) ? adminPermissions : regularPermissions
+                    changesToConsider.insert(.memberChanged(contactCryptoId: contactCryptoId, permissions: permissionsToConsider))
+                    cryptoIdsConsideredForPermissions.insert(contactCryptoId)
+
+                case .ownPermissionsChanged(permissions: let permissions):
+                    let permissionsToConsider = permissions.contains(.groupAdmin) ? adminPermissions : regularPermissions
+                    changesToConsider.insert(.ownPermissionsChanged(permissions: permissionsToConsider))
+                    ownPermissionsConsidered = true
+                    
+                case .groupDetails:
+                    changesToConsider.insert(change)
+
+                case .groupPhoto:
+                    changesToConsider.insert(change)
+
+                case .groupType:
+                    changesToConsider.insert(change)
+                    
+                }
+            }
+            
+            // Scan through all members of the group and make sure the permissions they will have after
+            // the update are coherent with the new group type.
+            
+            for otherMember in group.otherMembers {
+                guard !cryptoIdsConsideredForPermissions.contains(otherMember.cryptoId) else { continue }
+                let permissionsToConsider = otherMember.isAnAdmin ? adminPermissions : regularPermissions
+                changesToConsider.insert(.memberChanged(contactCryptoId: otherMember.cryptoId, permissions: permissionsToConsider))
+            }
+            
+            // Make sure our own permissions will be coherent
+            
+            if !ownPermissionsConsidered {
+                let permissionsToConsider = group.ownedIdentityIsAdmin ? adminPermissions : regularPermissions
+                changesToConsider.insert(.ownPermissionsChanged(permissions: permissionsToConsider))
+            }
+                        
+            changesetToConsider = try .init(changes: changesToConsider)
+            
+        } else {
+            
+            changesetToConsider = changeset
+            
+        }
+                
+        // Request the update
+        
         automaticallyNavigateToCreatedDisplayedContactGroup = true
         let obvEngine = self.obvEngine
         guard let ownedCryptoId = try? group.ownCryptoId else { assertionFailure(); return }
         let groupIdentifier = group.groupIdentifier
         DispatchQueue(label: "Background queue for calling obvEngine.updateGroupV2").async {
             do {
-                try obvEngine.updateGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, changeset: changeset)
+                try obvEngine.updateGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier, changeset: changesetToConsider)
             } catch {
                 assertionFailure()
             }
@@ -1347,29 +1976,20 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
     
     
     @MainActor
-    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: PersistedGroupV2.GroupType) async {
+    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws {
         assert(Thread.isMainThread) // Required because we access automaticallyNavigateToCreatedDisplayedContactGroup
         automaticallyNavigateToCreatedDisplayedContactGroup = true
         let obvEngine = self.obvEngine
-        let log = self.log
-        DispatchQueue(label: "Background queue for calling obvEngine.startGroupV2CreationProtocol").async {
-            do {
-                let serializedGroupCoreDetails = try groupCoreDetails.jsonEncode()
-                let serializedGroupType = try groupType.toSerializedGroupType()
-                try obvEngine.startGroupV2CreationProtocol(serializedGroupCoreDetails: serializedGroupCoreDetails,
-                                                           ownPermissions: ownPermissions,
-                                                           otherGroupMembers: otherGroupMembers,
-                                                           ownedCryptoId: ownedCryptoId,
-                                                           photoURL: photoURL,
-                                                           serializedGroupType: serializedGroupType)
-            } catch {
-                os_log("Failed to create GroupV2: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-        }
+        let serializedGroupCoreDetails = try groupCoreDetails.jsonEncode()
+        let serializedGroupType = try groupType.toSerializedGroupType()
+        try await obvEngine.startGroupV2CreationProtocol(serializedGroupCoreDetails: serializedGroupCoreDetails,
+                                                         ownPermissions: ownPermissions,
+                                                         otherGroupMembers: otherGroupMembers,
+                                                         ownedCryptoId: ownedCryptoId,
+                                                         photoURL: photoURL,
+                                                         serializedGroupType: serializedGroupType)
     }
-
+    
     
     func userWantsToAddNewDevice(_ viewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async {
         guard let (ownedDetails, isKeycloakManaged) = try? await getOwnedIdentityDetails(ownedCryptoId: ownedCryptoId) else { assertionFailure(); return }
@@ -1383,11 +2003,12 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
         let newOnboardingFlowViewController = NewOnboardingFlowViewController(
             logSubsystem: ObvAppCoreConstants.logSubsystem,
             directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
-            mode: .addNewDevice(ownedCryptoId: ownedCryptoId, ownedDetails: ownedDetails, isTransferRestricted: isTransferRestricted))
+            mode: .addNewDevice(ownedCryptoId: ownedCryptoId, ownedDetails: ownedDetails, isTransferRestricted: isTransferRestricted),
+            dataSource: self)
         newOnboardingFlowViewController.delegate = self
         present(newOnboardingFlowViewController, animated: true)
     }
-
+    
     
     private func getOwnedIdentityDetails(ownedCryptoId: ObvCryptoId) async throws -> (ownedDetails: CNContact, isKeycloakManaged: Bool)? {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(ownedDetails: CNContact, isKeycloakManaged: Bool)?, Error>) in
@@ -1406,7 +2027,132 @@ extension MetaFlowController: MainFlowViewControllerDelegate {
         }
     }
     
+    func fetchAvatarImage(_ mainFlowViewController: MainFlowViewController, localPhotoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        return try await self.avatarHelper.fetchAvatarImage(localPhotoURL: localPhotoURL, size: avatarSize)
+    }
+    
+    
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws {
+        guard let metaFlowControllerDelegate else { assertionFailure(); throw ObvError.metaFlowControllerDelegateIsNil }
+        try await metaFlowControllerDelegate.userWantsToReplaceTrustedDetailsByPublishedDetails(self, groupIdentifier: groupIdentifier)
+    }
+    
+    
+    func userWantsToLeaveGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws {
+        try await obvEngine.leaveGroupV2(ownedCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
+    }
+    
+    
+    func userWantsToDisbandGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws {
+        try await obvEngine.performDisbandOfGroupV2(ownedCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
+    }
+        
+    
+    func userWantsObtainAvatar(_ mainFlowViewController: MainFlowViewController, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        return try await self.userWantsObtainAvatar(avatarSource: avatarSource, avatarSize: avatarSize)
+    }
+    
 }
+
+
+// MARK: - Implementing ObvMapViewControllerActionsProtocol
+
+@available(iOS 17.0, *)
+extension MetaFlowController: ObvMapViewControllerActionsProtocol {
+    
+    func userWantsToDismissObvMapView(_ vc: ObvMapViewController) {
+        vc.dismiss(animated: true)
+    }
+    
+}
+
+
+// MARK: - Implementing ObvMapViewControllerAppDataSourceDelegate
+
+@available(iOS 17.0, *)
+extension MetaFlowController: ObvMapViewControllerAppDataSourceDelegate {
+    
+    func fetchAvatar(_ vc: ObvMapViewControllerAppDataSource, photoURL: URL, avatarSize: ObvAvatarSize) async throws -> UIImage? {
+        do {
+            return try await self.avatarHelper.fetchAvatarImage(localPhotoURL: photoURL, size: avatarSize)
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+                return nil
+            } else {
+                assertionFailure()
+                return nil
+            }
+        }
+    }
+    
+}
+
+
+// MARK: - Implementing BackupKeyDisplayerHostingHostingViewDelegate
+
+extension MetaFlowController: BackupKeyDisplayerHostingHostingViewDelegate {
+    
+    func userConfirmedWritingDownTheBackupKey(_ vc: ObvAppBackup.BackupKeyDisplayerHostingHostingView, remindToSaveBackupKey: Bool) {
+        if presentedViewController == vc {
+            vc.dismiss(animated: true) {
+                ObvMessengerSettings.Backup.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey = remindToSaveBackupKey ? .now : nil
+            }
+        } else {
+            ObvMessengerSettings.Backup.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey = remindToSaveBackupKey ? .now : nil
+        }
+    }
+    
+}
+
+
+// MARK: - Implementing ObvAppBackupSetupRouterDelegate
+
+extension MetaFlowController: ObvAppBackupSetupRouterDelegate {
+    
+    func userWantsToBeRemindedToWriteDownBackupKey(_ router: ObvAppBackup.ObvAppBackupSetupRouter) async {
+        await userWantsToBeRemindedToWriteDownBackupKey()
+    }
+    
+    
+    func userWantsToDeactivateBackups(_ router: ObvAppBackupSetupRouter) async throws {
+        try await self.userWantsToDeactivateBackups()
+    }
+    
+    
+    func getOrCreateDeviceBackupSeed(_ router: ObvAppBackup.ObvAppBackupSetupRouter, saveToKeychain: Bool) async throws -> ObvCrypto.BackupSeed {
+        return try await self.getOrCreateDeviceBackupSeed(saveToKeychain: saveToKeychain)
+    }
+
+    
+    func userConfirmedWritingDownTheBackupKey(_ router: ObvAppBackup.ObvAppBackupSetupRouter) {
+        router.localNavigationController?.dismiss(animated: true)
+    }
+    
+    
+    func userHasFinishedTheBackupsSetup(_ router: ObvAppBackup.ObvAppBackupSetupRouter) {
+        router.localNavigationController?.dismiss(animated: true)
+    }
+    
+}
+
+
+// MARK: - Implementing NewOnboardingFlowViewControllerDataSource
+
+extension MetaFlowController: NewOnboardingFlowViewControllerDataSource {
+    
+    func getAnOwnedIdentityExistingOnThisDevice() async -> ObvTypes.ObvCryptoId? {
+        do {
+            let allOwnedIdentities = try PersistedObvOwnedIdentity.getAllActive(within: ObvStack.shared.viewContext)
+            return allOwnedIdentities.first(where: { !$0.isHidden })?.cryptoId
+        } catch {
+            assertionFailure(error.localizedDescription)
+            return nil
+        }
+    }
+    
+}
+
 
 
 // MARK: - Feeding the contact database
@@ -1729,7 +2475,8 @@ extension MetaFlowController {
         let newOnboardingFlowViewController = NewOnboardingFlowViewController(
             logSubsystem: ObvAppCoreConstants.logSubsystem,
             directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url,
-            mode: .addProfile)
+            mode: .addProfile,
+            dataSource: self)
         newOnboardingFlowViewController.delegate = self
         present(newOnboardingFlowViewController, animated: true)
     }
@@ -1880,6 +2627,12 @@ extension MetaFlowController {
         case installedOlvidAppIsOutdated
         case storeKitDelegateIsNil
         case metaFlowControllerDelegateIsNil
+        case userCancelled
+        case groupTypeIsNil
+        case unexpectedGroupMemberPermissions
+        case couldNotDetermineGroupMemberPermissions
+        case noDeviceBackupFoundForThisBackupSeed
+        case osUpgradeRequired
         
         var errorDescription: String? {
             switch self {
@@ -1897,6 +2650,18 @@ extension MetaFlowController {
                 return "The store kit delegate is nil"
             case .metaFlowControllerDelegateIsNil:
                 return "Meta flow controller delegate is nil"
+            case .userCancelled:
+                return "User cancelled"
+            case .groupTypeIsNil:
+                return "The group type is nil"
+            case .unexpectedGroupMemberPermissions:
+                return "Unexpected group member permissions"
+            case .couldNotDetermineGroupMemberPermissions:
+                return "Could not determine group member permissions"
+            case .noDeviceBackupFoundForThisBackupSeed:
+                return "No device backup found for this backup seed"
+            case .osUpgradeRequired:
+                return "OS upgrade required"
             }
         }
         
@@ -1916,6 +2681,18 @@ extension MetaFlowController {
                 return nil
             case .metaFlowControllerDelegateIsNil:
                 return nil
+            case .userCancelled:
+                return nil
+            case .groupTypeIsNil:
+                return nil
+            case .unexpectedGroupMemberPermissions:
+                return nil
+            case .couldNotDetermineGroupMemberPermissions:
+                return nil
+            case .noDeviceBackupFoundForThisBackupSeed:
+                return nil
+            case .osUpgradeRequired:
+                return nil
             }
         }
         
@@ -1924,27 +2701,658 @@ extension MetaFlowController {
 }
 
 
-// MARK: - MetaFlowControllerDelegate
+// MARK: - Private helpers for subscriptions
 
-protocol MetaFlowControllerDelegate: AnyObject {
-    func userRequestedAppDatabaseSyncWithEngine(metaFlowController: MetaFlowController) async throws
-    func userWantsToSendDraft(_ metaFlowController: MetaFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToAddAttachmentsToDraft(_ metaFlowController: MetaFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws
-    func userWantsToAddAttachmentsToDraftFromURLs(_ metaFlowController: MetaFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws
-    func userWantsToUpdateDraftBodyAndMentions(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, body: String, mentions: Set<MessageJSON.UserMention>) async throws
-    func userWantsToDeleteAttachmentsFromDraft(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, draftTypeToDelete: DeleteAllDraftFyleJoinOfDraftOperation.DraftType) async
-    func userWantsToReplyToMessage(_ metaFlowController: MetaFlowController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
-    func userWantsToDownloadReceivedFyleMessageJoinWithStatus(_ metaFlowController: MetaFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
-    func userWantsToPauseDownloadReceivedFyleMessageJoinWithStatus(_ metaFlowController: MetaFlowController, receivedJoinObjectID: TypeSafeManagedObjectID<ReceivedFyleMessageJoinWithStatus>) async throws
-    func userWantsToPauseSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ metaFlowController: MetaFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
-    func userWantsToDownloadSentFyleMessageJoinWithStatusFromOtherOwnedDevice(_ metaFlowController: MetaFlowController, sentJoinObjectID: TypeSafeManagedObjectID<SentFyleMessageJoinWithStatus>) async throws
-    func userWantsToRemoveReplyToMessage(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>) async throws
-    func insertDiscussionIsEndToEndEncryptedSystemMessageIntoDiscussionIfEmpty(_ metaFlowController: MetaFlowController, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>, markAsRead: Bool) async throws
-    func userWantsToUpdateDraftExpiration(_ metaFlowController: MetaFlowController, draftObjectID: TypeSafeManagedObjectID<PersistedDraft>, value: PersistedDiscussionSharedConfigurationValue?) async throws
-    func userWantsToReadReceivedMessageThatRequiresUserAction(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageId: ReceivedMessageIdentifier) async throws
-    func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ metaFlowController: MetaFlowController, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>) async throws
-    func messagesAreNotNewAnymore(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws
-    func userWantsToUpdateReaction(_ metaFlowController: MetaFlowController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws
-    func userWantsToStopSharingLocation() async throws
-    func userWantsToShowMapToSendOrShareLocationContinuously(_ metaFlowController: MetaFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+extension MetaFlowController {
+    
+    /// This is called when the user taps the "refresh" button on her own identity screen and when a new owned identity is inserted in the app database.
+    /// This method request the current subscriptions to store
+    /// kit. If a valid subscription is found, it associated to each owned identity present on this device by contacting Olvid's servers.
+    /// Then, if there is a "current" owned identity, we refresh the permissions by requesting them from Olvid's servers.
+    func refreshSubscriptionStatus() async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult] {
+        guard let storeKitDelegate else { assertionFailure(); throw ObvError.storeKitDelegateIsNil }
+        let results = try await storeKitDelegate.userWantsToRefreshSubscriptionStatus()
+        if let currentOwnedCryptoId {
+            _ = try await obvEngine.refreshAPIPermissions(of: currentOwnedCryptoId)
+        }
+        return results
+    }
+
+}
+
+
+// MARK: - Various helpers for new backups
+
+extension MetaFlowController {
+    
+    /// This method can be called from the onboarding, the backup setup, or from the settings, when the user taps
+    /// on the button (bellow the displayed device backup key) indicating that she wants to be reminded about writing down
+    /// the backup key.
+    private func userWantsToBeRemindedToWriteDownBackupKey() async {
+        ObvMessengerSettings.Backup.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey = .now
+    }
+    
+}
+
+
+// MARK: - Helpers for relaying backup profiles
+
+fileprivate extension ObvListOfDeviceBackupProfiles {
+    
+    convenience init(deviceBackupFromServer: ObvDeviceBackupFromServer) async {
+        
+        var profiles = [ObvListOfDeviceBackupProfiles.Profile]()
+        for deviceBackupFromServerProfile in deviceBackupFromServer.profiles {
+            let customDisplayName: String?
+            if let appDeviceSnapshotNode = deviceBackupFromServer.appNode as? AppDeviceSnapshotNode {
+                customDisplayName = appDeviceSnapshotNode.getCustomDisplayNameForOwnedCryptoId(deviceBackupFromServerProfile.ownedCryptoId)
+            } else {
+                customDisplayName = nil
+                assertionFailure("Unexpected app node")
+            }
+            let profile = await ObvListOfDeviceBackupProfiles.Profile(deviceBackupFromServerProfile: deviceBackupFromServerProfile, customDisplayName: customDisplayName)
+            profiles.append(profile)
+        }
+        
+        self.init(profiles: profiles)
+        
+    }
+    
+}
+
+fileprivate extension ObvListOfDeviceBackupProfiles.Profile {
+ 
+    convenience init(deviceBackupFromServerProfile: ObvDeviceBackupFromServer.Profile, customDisplayName: String?) async {
+        let ownedCryptoId = deviceBackupFromServerProfile.ownedCryptoId
+        let coreDetails = deviceBackupFromServerProfile.coreDetails
+        let isOnDevice = await (try? Self.isOnThisDevice(ownedCryptoId: ownedCryptoId)) ?? false
+        self.init(ownedCryptoId: ownedCryptoId,
+                  coreDetails: coreDetails,
+                  customDisplayName: customDisplayName,
+                  isOnThisDevice: isOnDevice,
+                  profileBackupSeed: deviceBackupFromServerProfile.backupSeed,
+                  showGreenShield: deviceBackupFromServerProfile.isKeycloakManaged,
+                  encodedPhotoServerKeyAndLabel: deviceBackupFromServerProfile.encodedPhotoServerKeyAndLabel)
+    }
+    
+    
+    private static func isOnThisDevice(ownedCryptoId: ObvCryptoId) async throws -> Bool {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    let isOnDevice = (try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context)) != nil
+                    return continuation.resume(returning: isOnDevice)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+}
+
+
+// MARK: - Helper function for hiding backup profiles of profiles hidden on this device
+
+extension MetaFlowController {
+    
+    private func filterOutProfilesHiddenOnThisDevice(currentOwnedCryptoId: ObvCryptoId, profiles: ObvListOfDeviceBackupProfiles) async -> ObvListOfDeviceBackupProfiles {
+        
+        var ownedCryptoIdsToHide = await getAllHiddenOwnedIdentities()
+        ownedCryptoIdsToHide.remove(currentOwnedCryptoId) // The current owned identity can be shown, even if it's a hidden owned identity
+        
+        if ownedCryptoIdsToHide.isEmpty {
+            return profiles
+        } else {
+            return .init(profiles: profiles.profiles.filter({ !ownedCryptoIdsToHide.contains($0.ownedCryptoId) }))
+        }
+        
+    }
+    
+    
+    /// Helper function for `filterOutProfilesHiddenOnThisDevice(profiles:)`.
+    private func getAllHiddenOwnedIdentities() async -> Set<ObvCryptoId> {
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Set<ObvCryptoId>, Never>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    let ownedCryptoIds = try PersistedObvOwnedIdentity.getAllHiddenOwnedIdentities(within: context).map({ $0.cryptoId })
+                    return continuation.resume(returning: Set(ownedCryptoIds))
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(returning: [])
+                }
+            }
+        }
+    }
+    
+}
+
+
+// MARK: - Helper functions for subscriptions and implementing SubscriptionPlansViewDismissActionsProtocol
+
+extension MetaFlowController: SubscriptionPlansViewDismissActionsProtocol {
+    
+    private func userWantsToSubscribeOlvidPlus(ownedCryptoId: ObvCryptoId) {
+        let model = SubscriptionPlansViewModel(
+            ownedCryptoId: ownedCryptoId,
+            showFreePlanIfAvailable: true)
+        let vc = SubscriptionPlansHostingView(model: model, actions: self, dismissActions: self)
+        if let presentedViewController = self.presentedViewController {
+            presentedViewController.present(vc, animated: true)
+        } else {
+            self.present(vc, animated: true)
+        }
+    }
+
+    
+    func userWantsToDismissSubscriptionPlansView() async {
+        presentedViewController?.dismiss(animated: true)
+        await processOnboardingContinuationIfRequired()
+    }
+    
+    
+    func dismissSubscriptionPlansViewAfterPurchaseWasMade() async {
+        presentedViewController?.dismiss(animated: true)
+        await processOnboardingContinuationIfRequired()
+    }
+    
+    
+    private func processOnboardingContinuationIfRequired() async {
+        guard let (continuation, ownedCryptoIdentity) = self.continuationAndOwnedCryptoIdentity else { return }
+        self.continuationAndOwnedCryptoIdentity = nil
+        do {
+            let consequence = try await getDeviceDeactivationConsequencesOfRestoringBackup(ownedCryptoIdentity: ownedCryptoIdentity)
+            return continuation.resume(returning: consequence)
+        } catch {
+            return continuation.resume(throwing: error)
+        }
+                
+    }
+            
+}
+
+
+// MARK: - Helper allowing to capture an avatar using the camera, the photo library, or the files app
+
+extension MetaFlowController {
+    
+    private func userWantsObtainAvatar(avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+
+        removeAnyPreviousContinuation()
+        
+        switch avatarSource {
+            
+        case .camera:
+            
+            guard UIImagePickerController.isSourceTypeAvailable(.camera) else { return nil }
+            
+            let picker = UIImagePickerController()
+            picker.delegate = self
+            picker.allowsEditing = false
+            picker.sourceType = .camera
+            picker.cameraDevice = .front
+
+            let imageFromPicker = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+                self.continuationsForObtainingAvatar = continuation
+                if let presentedViewController = self.presentedViewController {
+                    presentedViewController.present(picker, animated: true)
+                } else {
+                    present(picker, animated: true)
+                }
+            }
+
+            guard let imageFromPicker else { return nil }
+            
+            let resizedImage = await resizeImageFromPicker(imageFromPicker: imageFromPicker)
+            
+            return resizedImage
+
+        case .photoLibrary:
+            
+            guard UIImagePickerController.isSourceTypeAvailable(.photoLibrary) else { return nil }
+
+            var configuration = PHPickerConfiguration()
+            configuration.selectionLimit = 1
+            configuration.filter = .images
+            let picker = PHPickerViewController(configuration: configuration)
+            picker.delegate = self
+            
+            let imageFromPicker = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+                self.continuationsForObtainingAvatar = continuation
+                self.presentOnTop(picker, animated: true)
+            }
+            
+            guard let imageFromPicker else { return nil }
+            
+            let resizedImage = await resizeImageFromPicker(imageFromPicker: imageFromPicker)
+            
+            return resizedImage
+
+        case .files:
+            
+            let documentPicker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.jpeg, .png], asCopy: true)
+            documentPicker.delegate = self
+            documentPicker.allowsMultipleSelection = false
+            documentPicker.shouldShowFileExtensions = false
+
+            let imageFromPicker = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+                self.continuationsForObtainingAvatar = continuation
+                self.presentOnTop(documentPicker, animated: true)
+            }
+
+            guard let imageFromPicker else { return nil }
+
+            let resizedImage = await resizeImageFromPicker(imageFromPicker: imageFromPicker)
+            
+            return resizedImage
+        }
+        
+    }
+    
+    private func removeAnyPreviousContinuation() {
+        if let continuationsForObtainingAvatar {
+            continuationsForObtainingAvatar.resume(returning: nil)
+            self.continuationsForObtainingAvatar = nil
+        }
+    }
+
+
+    // Resizing the photos received from the camera or the photo library
+    
+    private func resizeImageFromPicker(imageFromPicker: UIImage) async -> UIImage? {
+        
+        let imageEditor = ObvImageEditorViewController(originalImage: imageFromPicker,
+                                                       showZoomButtons: ObvAppCoreConstants.targetEnvironmentIsMacCatalyst,
+                                                       maxReturnedImageSize: (1024, 1024),
+                                                       delegate: self)
+        
+        removeAnyPreviousContinuation()
+
+        let resizedImage = await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+            self.continuationsForObtainingAvatar = continuation
+            self.presentOnTop(imageEditor, animated: true)
+        }
+        
+        return resizedImage
+
+    }
+
+}
+
+
+// MARK: - Implementing ObvImageEditorViewControllerDelegate (used when resizing an avatar)
+
+extension MetaFlowController: ObvImageEditorViewControllerDelegate {
+    
+    func userCancelledImageEdition(_ imageEditor: ObvImageEditorViewController) async {
+        imageEditor.dismiss(animated: true)
+        guard let continuationsForObtainingAvatar else { assertionFailure(); return }
+        self.continuationsForObtainingAvatar = nil
+        continuationsForObtainingAvatar.resume(returning: nil)
+    }
+
+    
+    func userConfirmedImageEdition(_ imageEditor: ObvImageEditorViewController, image: UIImage) async {
+        imageEditor.dismiss(animated: true)
+        guard let continuationsForObtainingAvatar else { assertionFailure(); return }
+        self.continuationsForObtainingAvatar = nil
+        continuationsForObtainingAvatar.resume(returning: image)
+    }
+
+}
+
+
+// MARK: - Implementing UIDocumentPickerDelegate (used as when choosing a photo from the files app for an avatar)
+
+extension MetaFlowController: UIDocumentPickerDelegate {
+    
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        
+        controller.dismiss(animated: true)
+        guard let continuationsForObtainingAvatar else { assertionFailure(); return }
+        self.continuationsForObtainingAvatar = nil
+        guard let url = urls.first else { return continuationsForObtainingAvatar.resume(returning: nil) }
+
+        let needToCallStopAccessingSecurityScopedResource = url.startAccessingSecurityScopedResource()
+                
+        let image = UIImage(contentsOfFile: url.path)
+
+        if needToCallStopAccessingSecurityScopedResource {
+            url.stopAccessingSecurityScopedResource()
+        }
+
+        return continuationsForObtainingAvatar.resume(returning: image)
+
+    }
+    
+    
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        
+        controller.dismiss(animated: true)
+        guard let continuationsForObtainingAvatar else { return }
+        self.continuationsForObtainingAvatar = nil
+        continuationsForObtainingAvatar.resume(returning: nil)
+        
+    }
+
+}
+
+// MARK: - Implementing PHPickerViewControllerDelegate (used as when choosing a photo from the library for an avatar)
+
+extension MetaFlowController: PHPickerViewControllerDelegate {
+    
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        guard let continuationsForObtainingAvatar else { assertionFailure(); return }
+        self.continuationsForObtainingAvatar = nil
+        if results.count == 1, let result = results.first {
+            result.itemProvider.loadObject(ofClass: UIImage.self) { item, error in
+                guard error == nil else {
+                    continuationsForObtainingAvatar.resume(returning: nil)
+                    return
+                }
+                guard let image = item as? UIImage else {
+                    continuationsForObtainingAvatar.resume(returning: nil)
+                    return
+                }
+                continuationsForObtainingAvatar.resume(returning: image)
+            }
+        } else {
+            continuationsForObtainingAvatar.resume(with: .success(nil))
+        }
+    }
+
+}
+
+
+// MARK: - Implementing UIImagePickerControllerDelegate (used as when taking a photo for an avatar)
+
+extension MetaFlowController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+ 
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        assert(Thread.isMainThread)
+        picker.dismiss(animated: true)
+        guard let continuationsForObtainingAvatar else { assertionFailure(); return }
+        self.continuationsForObtainingAvatar = nil
+        let image = info[.originalImage] as? UIImage
+        continuationsForObtainingAvatar.resume(returning: image)
+    }
+    
+    
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        assert(Thread.isMainThread)
+        picker.dismiss(animated: true)
+        guard let continuationsForObtainingAvatar else { assertionFailure(); return }
+        self.continuationsForObtainingAvatar = nil
+        continuationsForObtainingAvatar.resume(returning: nil)
+    }
+
+}
+
+
+// MARK: - Internal helper pour fetch avatars during onboarding and settings, while showing profile backups that can be restored
+
+private actor AvatarHelper {
+    
+    let obvEngine: ObvEngine
+    
+    init(obvEngine: ObvEngine) {
+        self.obvEngine = obvEngine
+    }
+    
+    private var cache = NSCache<NSData, UIImage>()
+    
+    private var cacheOfLocalImages = NSCache<NSURL, UIImage>()
+    
+    func fetchAvatarImage(ownedCryptoId: ObvTypes.ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, size: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        
+        let frameSizeInPixels = await size.frameSizeInPixels
+        
+        // Try to fetch the image from the local app database
+        if let image = try await fetchAvatarImageOfPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId) {
+            let thumbnail = image.preparingThumbnail(of: frameSizeInPixels)
+            return thumbnail
+        }
+        
+        if let image = cache.object(forKey: ownedCryptoId.getIdentity() as NSData) {
+            let thumbnail = image.preparingThumbnail(of: frameSizeInPixels)
+            return thumbnail
+        }
+
+        // Forward the request to the engine, so as to fetch the image from the server
+        if let imageData = try await obvEngine.getUserDataNow(ownedCryptoId: ownedCryptoId, encodedServerKeyAndLabel: encodedPhotoServerKeyAndLabel), let image = UIImage(data: imageData) {
+            self.cache.setObject(image, forKey: ownedCryptoId.getIdentity() as NSData, cost: imageData.count)
+            let thumbnail = image.preparingThumbnail(of: frameSizeInPixels)
+            return thumbnail
+        }
+                
+        return nil
+        
+    }
+    
+    /// Appropriate function to call to fetch an avatar image (for an owned identity, a contact, a group member, a group, ...), when the local URL of the photo is known.
+    func fetchAvatarImage(localPhotoURL: URL, size: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        
+        let image: UIImage
+        
+        if let cachedImage = cacheOfLocalImages.object(forKey: localPhotoURL as NSURL) {
+            image = cachedImage
+        } else {
+            let data = try Data(contentsOf: localPhotoURL)
+            guard let imageFromDisk = UIImage(data: data) else { return nil }
+            cacheOfLocalImages.setObject(imageFromDisk, forKey: localPhotoURL as NSURL, cost: data.count)
+            image = imageFromDisk
+        }
+        
+        let frameSizeInPixels = await size.frameSizeInPixels
+        let thumbnail = image.preparingThumbnail(of: frameSizeInPixels)
+        return thumbnail
+        
+    }
+    
+
+    /// Helper function for `fetchAvatarImage(_:ownedCryptoId:)`. It allows to fetch an return an avatar photo for the owned identity asynchronously.
+    private func fetchAvatarImageOfPersistedObvOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId) async throws -> UIImage? {
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UIImage?, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    guard let ownedIdentity = try PersistedObvOwnedIdentity.get(cryptoId: ownedCryptoId, within: context) else {
+                        return continuation.resume(returning: nil)
+                    }
+                    guard let photoURL = ownedIdentity.photoURL else {
+                        return continuation.resume(returning: nil)
+                    }
+                    let data = try Data(contentsOf: photoURL)
+                    let image = UIImage(data: data)
+                    return continuation.resume(returning: image)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+}
+
+
+// MARK: - Observing the app database
+
+extension MetaFlowController: PersistedObvOwnedIdentityObserver {
+    
+    func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async {
+        do {
+            try await setupAndShowAppropriateChildViewControllers(ownedCryptoIdGeneratedDuringOnboarding: nil)
+        } catch {
+            assertionFailure()
+        }
+    }
+    
+    
+    func newPersistedObvOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId, isActive: Bool) async {
+        // When a new owned identity is created, we refresh the subscriptions to make sure any existing valid subscription
+        // is immediately associated to this new owned identity
+        do {
+            let results = try await refreshSubscriptionStatus()
+            var aSubscriptionIfValidOnServer = false
+            for result in results {
+                switch result {
+                case .purchaseSucceeded(let serverVerificationResult):
+                    switch serverVerificationResult {
+                    case .succeededAndSubscriptionIsValid:
+                        aSubscriptionIfValidOnServer = true
+                    case .succeededButSubscriptionIsExpired,
+                            .failed:
+                        continue
+                    }
+                case .userCancelled,
+                        .pending,
+                        .expired,
+                        .revoked:
+                    continue
+                }
+            }
+            if aSubscriptionIfValidOnServer {
+                Self.logger.info("A valid subscription was found and was re-associated to all owned identities")
+            } else {
+                Self.logger.info("No valid subscription found")
+            }
+        } catch {
+            Self.logger.fault("Could not refresh subscription status after the insertion of a new owned identity: \(error)")
+            assertionFailure()
+        }
+    }
+    
+    
+    func aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ObvTypes.ObvCryptoId, isHidden: Bool) async {
+        // This observer does nothing
+    }
+    
+    func previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() async {
+        do {
+            try await obvEngine.previousBackedUpDeviceSnapShotIsObsolete()
+        } catch {
+            Self.logger.fault("Failed to schedule device backup: \(error)")
+            assertionFailure()
+        }
+    }
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ObvCryptoId) async {
+        do {
+            try await obvEngine.previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChangedWithinApp(ownedCryptoId: ownedCryptoId)
+        } catch {
+            Self.logger.fault("Failed to schedule profile backup: \(error)")
+            assertionFailure()
+        }
+    }
+
+}
+
+
+extension MetaFlowController: PersistedObvContactIdentityObserver {
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        do {
+            try await obvEngine.previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChangedWithinApp(ownedCryptoId: ownedCryptoId)
+        } catch {
+            Self.logger.fault("Failed to schedule profile backup: \(error)")
+            assertionFailure()
+        }
+    }
+    
+}
+
+
+extension MetaFlowController: PersistedContactGroupObserver {
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedContactGroupChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        do {
+            try await obvEngine.previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChangedWithinApp(ownedCryptoId: ownedCryptoId)
+        } catch {
+            Self.logger.fault("Failed to schedule profile backup: \(error)")
+            assertionFailure()
+        }
+    }
+    
+}
+
+
+extension MetaFlowController: PersistedGroupV2Observer {
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        do {
+            try await obvEngine.previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChangedWithinApp(ownedCryptoId: ownedCryptoId)
+        } catch {
+            Self.logger.fault("Failed to schedule profile backup: \(error)")
+            assertionFailure()
+        }
+    }
+    
+}
+
+
+extension MetaFlowController: PersistedDiscussionLocalConfigurationObserver {
+    
+    func aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, value: ObvUICoreData.PersistedDiscussionLocalConfigurationValue) async {
+        // We do nothing in this observer
+    }
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        do {
+            try await obvEngine.previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChangedWithinApp(ownedCryptoId: ownedCryptoId)
+        } catch {
+            Self.logger.fault("Failed to schedule profile backup: \(error)")
+            assertionFailure()
+        }
+    }
+    
+}
+
+
+extension MetaFlowController: PersistedDiscussionSharedConfigurationObserver {
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionSharedConfigurationChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        do {
+            try await obvEngine.previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChangedWithinApp(ownedCryptoId: ownedCryptoId)
+        } catch {
+            Self.logger.fault("Failed to schedule profile backup: \(error)")
+            assertionFailure()
+        }
+    }
+    
+}
+
+
+extension MetaFlowController: PersistedDiscussionObserver {
+    
+    func aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) async {
+        // This observer does nothing
+    }
+    
+    func aPersistedDiscussionStatusChanged(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, status: ObvUICoreData.PersistedDiscussion.Status) async {
+        // This observer does nothing
+    }
+    
+    func aPersistedDiscussionIsArchivedChanged(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, isArchived: Bool) async {
+        // This observer does nothing
+    }
+    
+    func aPersistedDiscussionWasDeleted(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) async {
+        // This observer does nothing
+    }
+    
+    func aPersistedDiscussionWasRead(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, localDateWhenDiscussionRead: Date) async {
+        // This observer does nothing
+    }
+    
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        do {
+            try await obvEngine.previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChangedWithinApp(ownedCryptoId: ownedCryptoId)
+        } catch {
+            Self.logger.fault("Failed to schedule profile backup: \(error)")
+            assertionFailure()
+        }
+    }
+    
 }

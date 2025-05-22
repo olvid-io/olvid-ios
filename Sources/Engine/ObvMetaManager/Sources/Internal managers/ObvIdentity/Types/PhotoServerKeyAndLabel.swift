@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,7 +23,7 @@ import ObvEncoder
 import ObvTypes
 
 
-public struct PhotoServerKeyAndLabel: Equatable {
+public struct PhotoServerKeyAndLabel: Equatable, Sendable {
     
     public let key: AuthenticatedEncryptionKey
     public let label: UID
@@ -105,7 +105,7 @@ extension PhotoServerKeyAndLabel: Codable {
     }
 
 
-    static func jsonDecode(_ data: Data) throws -> PhotoServerKeyAndLabel {
+    public static func jsonDecode(_ data: Data) throws -> PhotoServerKeyAndLabel {
         let decoder = JSONDecoder()
         return try decoder.decode(PhotoServerKeyAndLabel.self, from: data)
     }

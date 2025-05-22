@@ -24,6 +24,7 @@ import ObvDesignSystem
 import ObvSettings
 import ObvSystemIcon
 import ObvUICoreDataStructs
+import OlvidUtils
 
 
 /// This class is in charge of mapping Communication Information into Intent framework objects.
@@ -483,6 +484,8 @@ extension PersistedObvContactIdentityStructure {
     
     func toINPerson(withINImage: Bool) -> INPerson {
         
+        ObvDisplayableLogs.shared.log("[CommunicationInteractor] toINPerson(withINImage: \(withINImage))")
+
         let nameComponents = self.personNameComponents
         let personHandle = self.contactIdentifier.toINPersonHandle
         
@@ -501,6 +504,8 @@ extension PersistedObvContactIdentityStructure {
             image = nil
         }
         
+        ObvDisplayableLogs.shared.log("[CommunicationInteractor] Will create INPerson (image is set: \(image != nil))")
+
         let person = INPerson(personHandle: personHandle,
                               nameComponents: nameComponents,
                               displayName: nameComponents.formatted(.name(style: .short)),

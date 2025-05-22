@@ -116,7 +116,6 @@ enum ObvMessengerConstants {
     
     struct TTL {
         static let cachedURLMetadata: TimeInterval = .init(days: 2)
-        static let cachedMapSnapshot: TimeInterval = .init(days: 2)
     }
         
     // WebRTC

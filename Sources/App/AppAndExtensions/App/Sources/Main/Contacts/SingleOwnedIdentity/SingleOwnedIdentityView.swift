@@ -24,6 +24,7 @@ import CoreData
 import ObvUI
 import ObvUICoreData
 import ObvDesignSystem
+import ObvCircleAndTitlesView
 
 
 final class APIKeyStatusAndExpiry: ObservableObject {

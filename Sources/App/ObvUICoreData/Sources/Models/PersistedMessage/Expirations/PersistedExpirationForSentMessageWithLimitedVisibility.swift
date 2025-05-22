@@ -69,7 +69,16 @@ extension PersistedExpirationForSentMessageWithLimitedVisibility {
         let request: NSFetchRequest<NSFetchRequestResult> = PersistedExpirationForSentMessageWithLimitedVisibility.fetchRequest()
         request.predicate = Predicate.withNoMessage
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        try context.execute(deleteRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
+        } else {
+            assertionFailure()
+        }
     }
     
 }

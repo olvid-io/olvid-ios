@@ -31,4 +31,6 @@ protocol ServerQueryDelegate {
     func processAllPendingServerQuery(flowId: FlowIdentifier) async throws
     func deletePendingServerQueryOfNonExistingOwnedIdentities(flowId: FlowIdentifier) async throws
     
+    func getUserDataNow(cryptoId: ObvCryptoId, serverLabel: UID, flowId: FlowIdentifier) async throws -> EncryptedData?
+
 }

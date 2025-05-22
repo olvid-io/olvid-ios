@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -105,7 +105,7 @@ class AllSettingsTableViewController: UITableViewController {
             case .privacy:
                 return UIImage(systemIcon: .lock(.none, .shield))
             case .backup:
-                return UIImage(systemIcon: .arrowCounterclockwise)
+                return UIImage(systemIcon: .arrowTriangleheadCounterclockwiseIcloud)
             case .voip:
                 return UIImage(systemIcon: .phoneFill)
             case .about:
@@ -190,7 +190,9 @@ extension AllSettingsTableViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         if let setting = Setting.forIndexPath(indexPath) {
-            delegate?.pushSetting(setting)
+            Task {
+                await delegate?.pushSetting(setting, tableView: tableView, didSelectRowAt: indexPath)
+            }
         }
     }
     

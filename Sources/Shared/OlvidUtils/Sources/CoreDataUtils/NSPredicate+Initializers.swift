@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -68,6 +68,22 @@ public extension NSPredicate {
         self.init(format: "%K >= %d", key.rawValue, int)
     }
 
+    convenience init<T: RawRepresentable>(_ key: T, LargerThanInt int64: Int64) where T.RawValue == String {
+        self.init(format: "%K > %lld", key.rawValue, int64)
+    }
+    
+    convenience init<T: RawRepresentable>(_ key: T, largerThanOrEqualToInt int64: Int64) where T.RawValue == String {
+        self.init(format: "%K >= %lld", key.rawValue, int64)
+    }
+
+    convenience init<T: RawRepresentable>(_ key: T, LessThanInt int64: Int64) where T.RawValue == String {
+        self.init(format: "%K < %lld", key.rawValue, int64)
+    }
+
+    convenience init<T: RawRepresentable>(_ key: T, LessOrEqualThanInt int64: Int64) where T.RawValue == String {
+        self.init(format: "%K <= %lld", key.rawValue, int64)
+    }
+    
     convenience init<T: RawRepresentable>(_ key: T, LargerThanDouble double: Double) where T.RawValue == String {
         self.init(format: "%K > %lf", key.rawValue, double)
     }
@@ -175,7 +191,12 @@ public extension NSPredicate {
     convenience init(withObjectID objectID: NSManagedObjectID) {
         self.init(format: "SELF == %@", objectID)
     }
-    
+
+    convenience init(withObjectIDIn objectIDs: [NSManagedObjectID]) {
+        assert(objectIDs.count < 150, "Warning, an SQL IN statement max size is limited.")
+        self.init(format: "SELF IN %@", objectIDs)
+    }
+
     convenience init<T: RawRepresentable>(withZeroCountForKey key: T) where T.RawValue == String {
         self.init(format: "%K.@count == 0", key.rawValue)
     }

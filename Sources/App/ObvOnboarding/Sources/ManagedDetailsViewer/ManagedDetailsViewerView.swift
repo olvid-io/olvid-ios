@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvSystemIcon
 import ObvKeycloakManager
+import ObvDesignSystem
 
 
 protocol ManagedDetailsViewerViewActionsProtocol: AnyObject {
@@ -116,7 +117,8 @@ private struct ManagedDetailsViewerInnerView: View {
     var body: some View {
         VStack {
             
-            NewOnboardingHeaderView(title: "ONBOARDING_NAME_CHOOSER_TITLE", subtitle: "ONBOARDING_MANAGED_IDENTITY_SUBTITLE")
+            ObvHeaderView(title: "ONBOARDING_NAME_CHOOSER_TITLE".localizedInThisBundle,
+                          subtitle: "ONBOARDING_MANAGED_IDENTITY_SUBTITLE".localizedInThisBundle)
                 .padding(.bottom, 40)
             
             if let coreDetails = model.coreDetails {

@@ -92,15 +92,23 @@ extension AnyObvUITabBarController {
         let menuElements: [UIMenuElement] = [
             UIAction(title: NSLocalizedString("SHOW_BACKUP_SCREEN", comment: ""),
                      image: UIImage(systemIcon: .arrowCounterclockwiseCircleFill)) { _ in
-                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .backupSettings)
-                    .postOnDispatchQueue()
-            },
+                         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .backupSettings)
+                             .postOnDispatchQueue()
+                     },
             UIAction(title: NSLocalizedString("SHOW_SETTINGS_SCREEN", comment: ""),
                      image: UIImage(systemIcon: .gearshapeFill)) { _ in
-                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .settings)
-                    .postOnDispatchQueue()
-            },
+                         ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .settings)
+                             .postOnDispatchQueue()
+                     },
         ]
+        
+//        if #available(iOS 17.0, *) {
+//            menuElements.append(UIAction(title: NSLocalizedString("STORAGE_MANAGEMENT", comment: ""),
+//                                         image: UIImage(systemIcon: .externaldriveFill)) { _ in
+//                ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .storageManagementSettings)
+//                    .postOnDispatchQueue()
+//            })
+//        }
         let menu = UIMenu(title: "", children: menuElements)
         return menu
     }

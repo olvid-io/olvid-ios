@@ -313,14 +313,20 @@ extension ContactGroupCoordinator {
 
     
     private func processGroupV2TrustedDetailsShouldBeReplacedByPublishedDetails(ownCryptoId: ObvCryptoId, groupIdentifier: Data) {
-        let obvEngine = self.obvEngine
-        Task.detached {
+        guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupIdentifier) else { assertionFailure(); return }
+        let groupIdentifier = ObvGroupV2Identifier(ownedCryptoId: ownCryptoId, identifier: identifier)
+        Task {
             do {
-                try await obvEngine.replaceTrustedDetailsByPublishedDetailsOfGroupV2(ownedCryptoId: ownCryptoId, groupIdentifier: groupIdentifier)
+                try await userWantsToReplaceTrustedDetailsByPublishedDetails(groupIdentifier: groupIdentifier)
             } catch {
                 assertionFailure(error.localizedDescription)
             }
         }
+    }
+    
+    
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(groupIdentifier: ObvGroupV2Identifier) async throws {
+        try await obvEngine.replaceTrustedDetailsByPublishedDetailsOfGroupV2(ownedCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
     }
     
 }

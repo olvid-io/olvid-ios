@@ -262,7 +262,7 @@ struct OlvidCallParticipantView<Model: OlvidCallParticipantViewModelProtocol>: V
                 
                 VHStack(orientation: orientation) {
                     
-                    InitialCircleViewNew(model: model, state: .init(circleDiameter: circleDiameter))
+                    InitialCircleViewNew(model: model, state: .circleDiameter(diameter: circleDiameter))
                         .overlay(alignment: .topTrailing) {
                             MuteView()
                                 .opacity(model.contactIsMuted ? 1.0 : 0.0)

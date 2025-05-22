@@ -93,8 +93,8 @@ final class BackupKey: NSManagedObject, ObvManagedObject, ObvErrorMaker {
         }
     }
     
-    var derivedKeysForBackup: DerivedKeysForBackup {
-        return DerivedKeysForBackup(backupKeyUid: self.uid,
+    var derivedKeysForBackup: DerivedKeysForLegacyBackup {
+        return DerivedKeysForLegacyBackup(backupKeyUid: self.uid,
                                     publicKeyForEncryption: self.encryptionPublicKey,
                                     macKey: self.macKey)
     }
@@ -154,23 +154,23 @@ final class BackupKey: NSManagedObject, ObvManagedObject, ObvErrorMaker {
     
     // MARK: - Initializer
     
-    convenience init(derivedKeysForBackup: DerivedKeysForBackup, within obvContext: ObvContext) {
-        
-        let entityDescription = NSEntityDescription.entity(forEntityName: Self.entityName, in: obvContext)!
-        self.init(entity: entityDescription, insertInto: obvContext)
-
-        self.encryptionPublicKey = derivedKeysForBackup.publicKeyForEncryption
-        self.keyGenerationTimestamp = Date()
-        self.lastKeyVerificationPromptTimestamp = nil
-        self.lastSuccessfulKeyVerificationTimestamp = nil
-        self.macKey = derivedKeysForBackup.macKey
-        self.successfulVerificationCount = 0
-        self.uid = derivedKeysForBackup.backupKeyUid
-        
-        self.backups = Set()
-        
-        self.obvContext = obvContext
-    }
+//    convenience init(derivedKeysForBackup: DerivedKeysForLegacyBackup, within obvContext: ObvContext) {
+//        
+//        let entityDescription = NSEntityDescription.entity(forEntityName: Self.entityName, in: obvContext)!
+//        self.init(entity: entityDescription, insertInto: obvContext)
+//
+//        self.encryptionPublicKey = derivedKeysForBackup.publicKeyForEncryption
+//        self.keyGenerationTimestamp = Date()
+//        self.lastKeyVerificationPromptTimestamp = nil
+//        self.lastSuccessfulKeyVerificationTimestamp = nil
+//        self.macKey = derivedKeysForBackup.macKey
+//        self.successfulVerificationCount = 0
+//        self.uid = derivedKeysForBackup.backupKeyUid
+//        
+//        self.backups = Set()
+//        
+//        self.obvContext = obvContext
+//    }
     
 }
 
@@ -178,10 +178,10 @@ final class BackupKey: NSManagedObject, ObvManagedObject, ObvErrorMaker {
 
 extension BackupKey {
     
-    func addSuccessfulVerification() {
-        self.lastSuccessfulKeyVerificationTimestamp = Date()
-        self.successfulVerificationCount += 1
-    }
+//    func addSuccessfulVerification() {
+//        self.lastSuccessfulKeyVerificationTimestamp = Date()
+//        self.successfulVerificationCount += 1
+//    }
 
 
     /// Deletes all failed backups that are older than the most recent uploaded or exported backup that succeded.

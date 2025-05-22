@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,32 +21,17 @@ import Foundation
 import ObvEncoder
 
 
-//public struct ObvSyncSnapshotAndVersion: ObvFailableCodable {
-//    public let version: Int
-//    public let syncSnapshot: ObvSyncSnapshot
-//    public init(version: Int, syncSnapshot: ObvSyncSnapshot) {
-//        self.version = version
-//        self.syncSnapshot = syncSnapshot
-//    }
-//    public func obvEncode() throws -> ObvEncoder.ObvEncoded {
-//        return [version.obvEncode(), try syncSnapshot.obvEncode()].obvEncode()
-//    }
-//    public init?(_ obvEncoded: ObvEncoded) {
-//        do {
-//            (version, syncSnapshot) = try obvEncoded.obvDecode()
-//        } catch {
-//            assertionFailure(error.localizedDescription)
-//            return nil
-//        }
-//    }
-//}
-
-
 public struct ObvSyncSnapshot {
 
     private enum Tag: String, CaseIterable {
         case appNode = "app"
         case identityNode = "identity"
+    }
+    
+    public enum Context {
+        case transfer(ownedCryptoId: ObvCryptoId)
+        case backupDevice
+        case backupProfile(ownedCryptoId: ObvCryptoId)
     }
 
 
@@ -60,14 +45,14 @@ public struct ObvSyncSnapshot {
     }
     
     
-    public init(ownedCryptoId: ObvCryptoId, appSnapshotableObject: ObvSnapshotable, identitySnapshotableObject: ObvSnapshotable) throws {
-        let appNode = try appSnapshotableObject.getSyncSnapshotNode(for: ownedCryptoId)
-        let identityNode = try identitySnapshotableObject.getSyncSnapshotNode(for: ownedCryptoId)
+    public init(context: Context, appSnapshotableObject: ObvSnapshotable, identitySnapshotableObject: ObvSnapshotable) throws {
+        let appNode = try appSnapshotableObject.getSyncSnapshotNode(for: context)
+        let identityNode = try identitySnapshotableObject.getSyncSnapshotNode(for: context)
         self.init(appNode: appNode, identityNode: identityNode)
     }
 
         
-    public static func fromObvDictionary(_ obvDictionary: ObvDictionary, appSnapshotableObject: ObvSnapshotable, identitySnapshotableObject: ObvSnapshotable) throws -> Self {
+    public static func fromObvDictionary(_ obvDictionary: ObvDictionary, appSnapshotableObject: ObvSnapshotable, identitySnapshotableObject: ObvSnapshotable, context: Context) throws -> Self {
         
         let dict: [Tag: Data] = .init(
             obvDictionary,
@@ -83,8 +68,8 @@ public struct ObvSyncSnapshot {
             throw ObvError.missingNode
         }
         
-        let identityNode = try identitySnapshotableObject.deserializeObvSyncSnapshotNode(serializedIdentityNode)
-        let appNode = try appSnapshotableObject.deserializeObvSyncSnapshotNode(serializedAppNode)
+        let identityNode = try identitySnapshotableObject.deserializeObvSyncSnapshotNode(serializedIdentityNode, context: context)
+        let appNode = try appSnapshotableObject.deserializeObvSyncSnapshotNode(serializedAppNode, context: context)
 
         return .init(appNode: appNode, identityNode: identityNode)
         
@@ -103,28 +88,6 @@ public struct ObvSyncSnapshot {
         return obvDict
         
     }
-
-
-    /// Returns `true` if both ObvSyncSnapshotNode are exactly the same (deep compare).
-//    public func isContentIdenticalTo(other syncSnapshot: ObvSyncSnapshot?) -> Bool {
-//        guard let syncSnapshot else { return false }
-//        let diffs = computeDiff(withOther: syncSnapshot)
-//        return diffs.isEmpty
-//    }
-
-
-//    public func computeDiff(withOther syncSnapshot: ObvSyncSnapshot) -> Set<ObvSyncDiff> {
-//        var diffs = Set<ObvSyncDiff>()
-//        for tag in Tag.allCases {
-//            switch tag {
-//            case .appNode:
-//                diffs.formUnion(self.appNode.computeDiff(withOther: syncSnapshot.appNode))
-//            case .identityNode:
-//                diffs.formUnion(self.identityNode.computeDiff(withOther: syncSnapshot.identityNode))
-//            }
-//        }
-//        return diffs
-//    }
 
 
     public enum ObvError: Error {

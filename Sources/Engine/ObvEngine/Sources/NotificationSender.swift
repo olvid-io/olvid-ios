@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -188,16 +188,6 @@ extension ObvEngine {
         }
         
         do {
-            let token = ObvBackupNotification.observeNewBackupSeedGenerated(within: notificationDelegate) { [weak self] (backupSeedString, backupKeyInformation, flowId)  in
-                guard let appNotificationCenter = self?.appNotificationCenter else { return }
-                let obvBackupKeyInformation = ObvBackupKeyInformation(backupKeyInformation: backupKeyInformation)
-                let notification = ObvEngineNotificationNew.newBackupKeyGenerated(backupKeyString: backupSeedString, obvBackupKeyInformation: obvBackupKeyInformation)
-                notification.postOnBackgroundQueue(within: appNotificationCenter)
-            }
-            notificationCenterTokens.append(token)
-        }
-        
-        do {
             let token = ObvIdentityNotificationNew.observeOwnedIdentityWasDeactivated(within: notificationDelegate) { [weak self] (ownedIdentity, flowId) in
                 guard let appNotificationCenter = self?.appNotificationCenter else { return }
                 let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedIdentity)
@@ -322,9 +312,6 @@ extension ObvEngine {
             },
             ObvIdentityNotificationNew.observeGroupV2WasDeleted(within: notificationDelegate) { [weak self] (ownedIdentity, appGroupIdentifier) in
                 self?.processGroupV2WasDeleted(ownedIdentity: ownedIdentity, appGroupIdentifier: appGroupIdentifier)
-            },
-            ObvIdentityNotificationNew.observeOwnedIdentityWasDeleted(within: notificationDelegate) { [weak self] _ in
-                self?.processOwnedIdentityWasDeleted()
             },
             ObvIdentityNotificationNew.observeNewRemoteOwnedDevice(within: notificationDelegate) { [weak self] ownedCryptoId, remoteDeviceUid, _ in
                 self?.processNewRemoteOwnedDevice(ownedCryptoId: ownedCryptoId, remoteDeviceUid: remoteDeviceUid)
@@ -770,7 +757,7 @@ extension ObvEngine {
     }
 
     
-    private func processOwnedIdentityWasDeleted() {
+    func notifyAppThatOwnedIdentityWasDeleted() {
         ObvEngineNotificationNew.ownedIdentityWasDeleted
             .postOnBackgroundQueue(queueForPostingNotificationsToTheApp, within: appNotificationCenter)
     }

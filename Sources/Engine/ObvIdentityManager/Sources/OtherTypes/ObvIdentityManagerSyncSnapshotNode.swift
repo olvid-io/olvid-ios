@@ -19,7 +19,7 @@
 
 import Foundation
 import ObvTypes
-import ObvCrypto
+@preconcurrency import ObvCrypto
 import OlvidUtils
 import ObvMetaManager
 
@@ -28,7 +28,7 @@ import ObvMetaManager
 struct ObvIdentityManagerSyncSnapshotNode: ObvSyncSnapshotNode, Codable {
     
     private let domain: Set<CodingKeys>
-    private let ownedCryptoIdentity: ObvCryptoIdentity
+    let ownedCryptoIdentity: ObvCryptoIdentity
     private let ownedIdentityNode: OwnedIdentitySyncSnapshotNode
     
     let id = Self.generateIdentifier()
@@ -47,7 +47,7 @@ struct ObvIdentityManagerSyncSnapshotNode: ObvSyncSnapshotNode, Codable {
         guard let ownedIdentity = try OwnedIdentity.get(ownedCryptoIdentity, delegateManager: delegateManager, within: obvContext) else {
             throw ObvError.couldNotFindOwnedIdentity
         }
-        self.ownedIdentityNode = ownedIdentity.syncSnapshotNode
+        self.ownedIdentityNode = try ownedIdentity.syncSnapshotNode
         self.domain = Self.defaultDomain
     }
     
@@ -73,9 +73,9 @@ struct ObvIdentityManagerSyncSnapshotNode: ObvSyncSnapshotNode, Codable {
     }
     
     
-    func restore(prng: PRNGService, customDeviceName: String, delegateManager: ObvIdentityDelegateManager, within obvContext: ObvContext) throws {
+    func restore(prng: PRNGService, customDeviceName: String, delegateManager: ObvIdentityDelegateManager, allowOwnedIdentityToExistInDatabase: Bool, within obvContext: ObvContext) throws {
         var associations = SnapshotNodeManagedObjectAssociations()
-        try ownedIdentityNode.restoreInstance(cryptoIdentity: ownedCryptoIdentity, within: obvContext, associations: &associations)
+        try ownedIdentityNode.restoreInstance(cryptoIdentity: ownedCryptoIdentity, allowOwnedIdentityToExistInDatabase: allowOwnedIdentityToExistInDatabase, within: obvContext, associations: &associations)
         try ownedIdentityNode.restoreRelationships(associations: associations, prng: prng, customDeviceName: customDeviceName, delegateManager: delegateManager, within: obvContext)
     }
     

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -115,7 +115,7 @@ final class ContactIdentityCoordinator: OlvidCoordinator, ObvErrorMaker, @unchec
                 self?.processContactIsActiveChangedWithinEngine(obvContactIdentity: obvContactIdentity)
             },
             ObvEngineNotificationNew.observeUpdatedContactIdentity(within: NotificationCenter.default) { [weak self] obvContactIdentity, trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated in
-                self?.processUpdatedContactIdentity(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated: publishedIdentityDetailsWereUpdated)
+                Task { await self?.processUpdatedContactIdentity(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated: publishedIdentityDetailsWereUpdated) }
             },
             ObvEngineNotificationNew.observeContactWasDeleted(within: NotificationCenter.default) { [weak self] ownedCryptoId, contactCryptoId in
                 self?.processContactWasDeleted(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
@@ -191,7 +191,7 @@ extension ContactIdentityCoordinator {
             return
         }
         
-        let op1 = UpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContact)
+        let op1 = CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContact)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         let blockOp = BlockOperation()
         blockOp.completionBlock = {
@@ -437,24 +437,27 @@ extension ContactIdentityCoordinator {
     }
 
 
-    private func processUpdatedContactIdentity(obvContactIdentity: ObvContactIdentity, trustedIdentityDetailsWereUpdated: Bool, publishedIdentityDetailsWereUpdated: Bool) {
-        let op1 = UpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContactIdentity)
+    private func processUpdatedContactIdentity(obvContactIdentity: ObvContactIdentity, trustedIdentityDetailsWereUpdated: Bool, publishedIdentityDetailsWereUpdated: Bool) async {
+        
+        let op1 = CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContactIdentity)
         let op2 = UpdatePersistedContactIdentityStatusWithInfoFromEngineOperation(obvContactIdentity: obvContactIdentity, trustedIdentityDetailsWereUpdated: trustedIdentityDetailsWereUpdated, publishedIdentityDetailsWereUpdated: publishedIdentityDetailsWereUpdated)
         let composedOp = createCompositionOfTwoContextualOperation(op1: op1, op2: op2)
-        let currentCompletion = composedOp.completionBlock
-        composedOp.completionBlock = {
-            currentCompletion?()
-            guard !composedOp.isCancelled else { return }
-            ObvMessengerInternalNotification.contactIdentityDetailsWereUpdated(contactCryptoId: obvContactIdentity.cryptoId, ownedCryptoId: obvContactIdentity.ownedIdentity.cryptoId)
-                .postOnDispatchQueue()
+        await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
+        
+        guard composedOp.isFinished, !composedOp.isCancelled else {
+            assertionFailure()
+            return
         }
-        self.coordinatorsQueue.addOperation(composedOp)
+        
+        ObvMessengerInternalNotification.contactIdentityDetailsWereUpdated(contactCryptoId: obvContactIdentity.cryptoId, ownedCryptoId: obvContactIdentity.ownedIdentity.cryptoId)
+            .postOnDispatchQueue()
+
     }
 
 
     private func processNewTrustedContactIdentity(obvContactIdentity: ObvContactIdentity) async {
         do {
-            let op1 = ProcessNewTrustedContactIdentityOperation(obvContactIdentity: obvContactIdentity)
+            let op1 = CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContactIdentity)
             await queueAndAwaitCompositionOfOneContextualOperation(op1: op1)
         }
         do {
@@ -573,7 +576,7 @@ extension ContactIdentityCoordinator {
     
     
     private func processContactIsActiveChangedWithinEngine(obvContactIdentity: ObvContactIdentity) {
-        let op1 = UpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContactIdentity)
+        let op1 = CreateOrUpdatePersistedContactIdentityWithObvContactIdentityOperation(obvContactIdentity: obvContactIdentity)
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }

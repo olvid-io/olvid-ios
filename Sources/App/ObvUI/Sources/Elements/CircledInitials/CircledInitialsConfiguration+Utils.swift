@@ -18,7 +18,6 @@
  */
 
 import Foundation
-import ObvUICoreData
 import UIKit
 import ObvTypes
 import ObvUIObvCircledInitials

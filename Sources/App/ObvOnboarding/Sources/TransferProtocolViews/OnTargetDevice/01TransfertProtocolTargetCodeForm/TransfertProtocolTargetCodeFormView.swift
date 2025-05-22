@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import Combine
 import ObvCrypto
+import ObvDesignSystem
 
 
 protocol TransfertProtocolTargetCodeFormViewActionsProtocol: AnyObject {
@@ -120,7 +121,8 @@ struct TransfertProtocolTargetCodeFormView: View, SessionNumberTextFieldActionsP
                 
                 ScrollViewReader { reader in
                     
-                    NewOnboardingHeaderView(title: "OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_OTHER_DEVICE", subtitle: nil)
+                    ObvHeaderView(title: "OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_OTHER_DEVICE".localizedInThisBundle,
+                                  subtitle: nil)
                     
                     Text("OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_OTHER_DEVICE_BODY")
                         .font(.body)

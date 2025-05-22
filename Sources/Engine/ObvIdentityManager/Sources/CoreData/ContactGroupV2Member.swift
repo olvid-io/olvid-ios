@@ -75,6 +75,7 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
     // Other variables
 
     weak var obvContext: ObvContext?
+    private var changedKeys = Set<String>()
 
     var identityAndPermissionsAndDetails: GroupV2.IdentityAndPermissionsAndDetails? {
         guard let contactIdentity = contactIdentity else { assertionFailure(); return nil }
@@ -144,7 +145,16 @@ final class ContactGroupV2Member: NSManagedObject, ObvManagedObject, ObvErrorMak
         guard groupInvitationNonce != newGroupInvitationNonce else { return }
         self.groupInvitationNonce = newGroupInvitationNonce
     }
+ 
     
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvObserver(_ newObserver: ContactGroupV2MemberObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
 }
 
 
@@ -175,10 +185,59 @@ extension ContactGroupV2Member {
     
     struct Predicate {
         enum Key: String {
+            // Attributes
+            case rawPermissions = "rawPermissions"
+            case groupInvitationNonce = "groupInvitationNonce"
+            // Relationships
             case rawContactIdentity = "rawContactIdentity"
         }
     }
     
+}
+
+
+// MARK: - Reacting to updates
+
+extension ContactGroupV2Member {
+    
+    override func willSave() {
+        super.willSave()
+        if isUpdated {
+            changedKeys = Set<String>(self.changedValues().keys)
+        }
+    }
+    
+    override func didSave() {
+        super.didSave()
+        
+        defer {
+            changedKeys.removeAll()
+        }
+        
+        // Potentially notify that the previous backed up profile snapshot is obsolete
+        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+        
+        if !isDeleted {
+            let previousBackedUpProfileSnapShotIsObsolete: Bool
+            if isInserted {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else if changedKeys.contains(Predicate.Key.rawPermissions.rawValue) ||
+                        changedKeys.contains(Predicate.Key.groupInvitationNonce.rawValue) {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else {
+                previousBackedUpProfileSnapShotIsObsolete = false
+            }
+            if previousBackedUpProfileSnapShotIsObsolete {
+                if let ownedCryptoIdentity = self.rawContactGroup?.ownedIdentity?.cryptoIdentity {
+                    let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
+                    Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2MemberChanged(ownedCryptoId: ownedCryptoId) }
+                } else {
+                    assertionFailure()
+                }
+            }
+        }
+
+    }
 }
 
 
@@ -272,7 +331,7 @@ extension ContactGroupV2Member {
 }
 
 
-struct ContactGroupV2MemberSyncSnapshotItem: Codable, Hashable, Identifiable {
+struct ContactGroupV2MemberSyncSnapshotItem: Codable, Hashable, Identifiable, Sendable {
     
     fileprivate let rawPermissions: [String]
     fileprivate let groupInvitationNonce: Data?
@@ -327,6 +386,41 @@ struct ContactGroupV2MemberSyncSnapshotItem: Codable, Hashable, Identifiable {
     enum ObvError: Error {
         case couldNotFindContactAssociatedToGroupV2Member
         case tryingToRestoreIncompleteNode
+    }
+    
+}
+
+
+// MARK: - ContactGroupV2Member observers
+
+protocol ContactGroupV2MemberObserver: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2MemberChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: ContactGroupV2MemberObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ContactGroupV2MemberObserver?
+        init(value: ContactGroupV2MemberObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ContactGroupV2MemberObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2MemberChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2MemberChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
     }
     
 }

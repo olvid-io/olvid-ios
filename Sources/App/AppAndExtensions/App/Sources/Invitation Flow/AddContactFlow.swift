@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -121,11 +121,6 @@ final class AddContactHostingViewController: UIHostingController<AddContactMainV
     }
     
     // KeycloakSearchViewControllerDelegate
-    
-    func showMyIdButtonTappedAction() {
-        assert(Thread.isMainThread)
-        presentedViewController?.dismiss(animated: true)
-    }
     
     func userSelectedContactOnKeycloakSearchView(ownedCryptoId: ObvCryptoId, userDetails: ObvKeycloakUserDetails) {
         assert(Thread.isMainThread)

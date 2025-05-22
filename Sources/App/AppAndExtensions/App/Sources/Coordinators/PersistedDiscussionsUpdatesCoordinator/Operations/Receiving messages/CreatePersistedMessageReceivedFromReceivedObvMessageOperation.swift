@@ -53,6 +53,7 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
         case contactIsNotPartOfTheGroup(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId)
         case messageIsPriorToLastRemoteDeletionRequest
         case cannotCreateReceivedMessageThatAlreadyExpired
+        case obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived
     }
     
     private(set) var result: Result?
@@ -61,6 +62,8 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
     var discussionPermanentID: ObvUICoreData.DiscussionPermanentID? {
         switch result {
         case .messageIsPriorToLastRemoteDeletionRequest, .couldNotFindGroupV2InDatabase, .couldNotFindContactInDatabase, .couldNotFindOneToOneContactInDatabase, .contactIsNotPartOfTheGroup, .cannotCreateReceivedMessageThatAlreadyExpired, nil:
+            return nil
+        case .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived:
             return nil
         case .messageCreated(discussionPermanentID: let discussionPermanentID):
             return discussionPermanentID
@@ -124,6 +127,19 @@ final class CreatePersistedMessageReceivedFromReceivedObvMessageOperation: Conte
                     case .contactIsNotPartOfTheGroup(groupIdentifier: let groupIdentifier, contactIdentifier: let contactIdentifier):
                         result = .contactIsNotPartOfTheGroup(groupIdentifier: groupIdentifier, contactCryptoId: contactIdentifier.contactCryptoId)
                         return
+                        
+                    case .messageHasNoBody:
+                        switch source {
+                        case .engine:
+                            assertionFailure("This is unexpected as no Olvid platform should be sending a message with no body and no attachments")
+                            return cancel(withReason: .obvUICoreDataError(error: error))
+                        case .userNotification:
+                            // This happens when the receiving a notification for a message that contains no body, but only attachments. In that case, the ObvMessage
+                            // received from the notification center only knows about the number of expected attachments, but not about the attachments themselves, resulting
+                            // in an ObvMessage that is not appropriate for creating a PersistedMessageReceived.
+                            result = .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived
+                            return
+                        }
 
                     default:
                         assertionFailure("We should make sure the type thrown doesn't deserve a special treatment, potentially allowing the message to wait like it does for the, e.g., couldNotFindGroupV2InDatabase error")

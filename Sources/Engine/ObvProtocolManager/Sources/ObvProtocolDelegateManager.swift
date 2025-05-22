@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -41,7 +41,13 @@ final class ObvProtocolDelegateManager {
     let receivedMessageDelegate: ReceivedMessageDelegate
     let protocolStarterDelegate: ProtocolStarterDelegate
     let contactTrustLevelWatcher: ContactTrustLevelWatcher // Not exactly a delegate, but still
-    
+
+    let queueForComposedOperations = {
+        let queue = OperationQueue()
+        queue.name = "ObvProtocolDelegateManager's queue for composed operations"
+        return queue
+    }()
+
     // MARK: Instance variables (external delegates)
     // Only when the `contextCreator`, the `notificationDelegate`, and the `identityDelegate` are set, the `ProtocolStarterCoordinator` can observe notifications. We notify the `ProtocolStarterCoordinator` each time one of these delegates is set. The third time, the `ProtocolStarterCoordinator` will automatically subscribe to notifications. Thanks to a mecanism within the DelegateManager, we know for sure that these delegates will be instantiated by the time the Manager is fully initialized. So we can safely force unwrapping.
 

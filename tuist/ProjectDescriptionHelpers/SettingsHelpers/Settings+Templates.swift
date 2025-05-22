@@ -3,9 +3,9 @@ import ProjectDescription
 
 extension Settings {
     
-    public static func settingsForFrameworkTarget(prepareForSwift6: Bool = false, enableSwift6: Bool = false) -> Self {
+    public static func settingsForFrameworkTarget(prepareForSwift6: Bool = false, enableSwift6: Bool = false, developmentAssets: String? = nil) -> Self {
         
-        let base: SettingsDictionary = .olvidBaseSettings(prepareForSwift6: prepareForSwift6, enableSwift6: enableSwift6)
+        let base: SettingsDictionary = .olvidBaseSettings(prepareForSwift6: prepareForSwift6, enableSwift6: enableSwift6, developmentAssets: developmentAssets)
 
         return .settings(base: base,
                          debug: base,

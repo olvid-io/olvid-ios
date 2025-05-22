@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,7 +29,7 @@ import os.log
 public final class ObvSyncSnapshotManagerImplementation: ObvSyncSnapshotDelegate {
         
     private weak var appSnapshotableObject: (any ObvAppSnapshotable)?
-    private weak var identitySnapshotableObject: (any ObvSnapshotable)?
+    private weak var identitySnapshotableObject: (any ObvIdentityManagerSnapshotable)?
     
     public init() {
     }
@@ -65,21 +65,66 @@ public final class ObvSyncSnapshotManagerImplementation: ObvSyncSnapshotDelegate
     
     // MARK: - ObvSyncSnapshotDelegate
         
+    public func parseDeviceBackup(deviceBackupToParse: DeviceBackupToParse, flowId: FlowIdentifier) throws -> ObvDeviceBackupFromServer {
+        
+        guard let identitySnapshotableObject else {
+            throw ObvError.identitySnapshotableObjectIsNil
+        }
+
+        let deviceSnapshot = try self.decodeSyncSnapshot(from: deviceBackupToParse.deviceBackupSnapshot, context: .backupDevice)
+        
+        let partialDeviceBackupFromServer = try identitySnapshotableObject.parseDeviceSnapshotNode(identityNode: deviceSnapshot.identityNode, version: deviceBackupToParse.version, flowId: flowId)
+        
+        let deviceBackupFromServer = partialDeviceBackupFromServer.withAppNode(deviceSnapshot.appNode)
+        
+        return deviceBackupFromServer
+
+    }
     
+    
+    public func parseProfileBackup(profileCryptoId: ObvCryptoId, profileBackupToParse: ProfileBackupToParse, flowId: FlowIdentifier) async throws -> ObvProfileBackupFromServer {
+        
+        guard let identitySnapshotableObject else {
+            throw ObvError.identitySnapshotableObjectIsNil
+        }
+
+        let profileSnapShot: ObvSyncSnapshot = try self.decodeSyncSnapshot(from: profileBackupToParse.profileBackupSnapshot.profileSnapshotNode, context: .backupProfile(ownedCryptoId: profileCryptoId))
+        
+        let parsedData: ObvProfileBackupFromServer.DataObtainedByParsingIdentityNode = try await identitySnapshotableObject.parseProfileSnapshotNode(identityNode: profileSnapShot.identityNode, flowId: flowId)
+        
+        let profileExistsOnThisDevice: Bool = try await identitySnapshotableObject.ownedIdentityExistsOnThisDevice(ownedCryptoId: profileCryptoId, flowId: flowId)
+        
+        let profileBackupFromServer: ObvProfileBackupFromServer = ObvProfileBackupFromServer(ownedCryptoId: profileCryptoId,
+                                                                                             profileExistsOnThisDevice: profileExistsOnThisDevice,
+                                                                                             parsedData: parsedData,
+                                                                                             identityNode: profileSnapShot.identityNode,
+                                                                                             appNode: profileSnapShot.appNode,
+                                                                                             additionalInfosForProfileBackup: profileBackupToParse.profileBackupSnapshot.additionalInfosForProfileBackup,
+                                                                                             creationDate: profileBackupToParse.profileBackupSnapshot.creationDate,
+                                                                                             backupSeed: profileBackupToParse.backupSeed,
+                                                                                             threadUID: profileBackupToParse.threadUID,
+                                                                                             backupVersion: profileBackupToParse.version,
+                                                                                             backupMadeByThisDevice: profileBackupToParse.backupMadeByThisDevice)
+
+        return profileBackupFromServer
+        
+    }
+    
+
     public func registerAppSnapshotableObject(_ appSnapshotableObject: ObvAppSnapshotable) {
         assert(self.appSnapshotableObject == nil, "We do not expect this method to be called twice")
         self.appSnapshotableObject = appSnapshotableObject
     }
     
     
-    public func registerIdentitySnapshotableObject(_ identitySnapshotableObject: ObvSnapshotable) {
+    public func registerIdentitySnapshotableObject(_ identitySnapshotableObject: ObvIdentityManagerSnapshotable) {
         assert(self.identitySnapshotableObject == nil, "We do not expect this method to be called twice")
         self.identitySnapshotableObject = identitySnapshotableObject
     }
 
     
-    public func getSyncSnapshotNode(for ownedCryptoId: ObvCryptoId) throws -> ObvSyncSnapshot {
-
+    private func getSyncSnapshotNode(context: ObvSyncSnapshot.Context) throws -> ObvSyncSnapshot {
+        
         guard let appSnapshotableObject else {
             throw ObvError.appSnapshotableObjectIsNil
         }
@@ -88,12 +133,14 @@ public final class ObvSyncSnapshotManagerImplementation: ObvSyncSnapshotDelegate
             throw ObvError.identitySnapshotableObjectIsNil
         }
 
-        return try ObvSyncSnapshot(ownedCryptoId: ownedCryptoId, appSnapshotableObject: appSnapshotableObject, identitySnapshotableObject: identitySnapshotableObject)
+        return try ObvSyncSnapshot(context: context,
+                                   appSnapshotableObject: appSnapshotableObject,
+                                   identitySnapshotableObject: identitySnapshotableObject)
 
     }
+
     
-    
-    public func getSyncSnapshotNodeAsObvDictionary(for ownedCryptoId: ObvCryptoId) throws -> ObvDictionary {
+    public func getSyncSnapshotNodeAsObvDictionary(context: ObvSyncSnapshot.Context) throws -> ObvDictionary {
         
         guard let appSnapshotableObject else {
             throw ObvError.appSnapshotableObjectIsNil
@@ -103,14 +150,14 @@ public final class ObvSyncSnapshotManagerImplementation: ObvSyncSnapshotDelegate
             throw ObvError.identitySnapshotableObjectIsNil
         }
         
-        let syncSnapshotNode = try getSyncSnapshotNode(for: ownedCryptoId)
+        let syncSnapshotNode = try getSyncSnapshotNode(context: context)
         let obvDict = try syncSnapshotNode.toObvDictionary(appSnapshotableObject: appSnapshotableObject, identitySnapshotableObject: identitySnapshotableObject)
         
         return obvDict
         
     }
     
-    public func decodeSyncSnapshot(from obvDictionary: ObvDictionary) throws -> ObvSyncSnapshot {
+    public func decodeSyncSnapshot(from obvDictionary: ObvDictionary, context: ObvSyncSnapshot.Context) throws -> ObvSyncSnapshot {
         
         guard let appSnapshotableObject else {
             throw ObvError.appSnapshotableObjectIsNil
@@ -120,7 +167,10 @@ public final class ObvSyncSnapshotManagerImplementation: ObvSyncSnapshotDelegate
             throw ObvError.identitySnapshotableObjectIsNil
         }
 
-        return try ObvSyncSnapshot.fromObvDictionary(obvDictionary, appSnapshotableObject: appSnapshotableObject, identitySnapshotableObject: identitySnapshotableObject)
+        return try ObvSyncSnapshot.fromObvDictionary(obvDictionary,
+                                                     appSnapshotableObject: appSnapshotableObject,
+                                                     identitySnapshotableObject: identitySnapshotableObject,
+                                                     context: context)
         
     }
     
@@ -132,6 +182,27 @@ public final class ObvSyncSnapshotManagerImplementation: ObvSyncSnapshotDelegate
     
     public func requestServerToKeepDeviceActive(ownedCryptoId: ObvCryptoId, deviceUidToKeepActive: UID) async throws {
         try await appSnapshotableObject?.requestServerToKeepDeviceActive(ownedCryptoId: ownedCryptoId, deviceUidToKeepActive: deviceUidToKeepActive)
+    }
+    
+    
+    public func getAdditionalInfosForProfileBackup(ownedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws -> AdditionalInfosForProfileBackup {
+        
+        guard let appSnapshotableObject else {
+            throw ObvError.appSnapshotableObjectIsNil
+        }
+
+        guard let identitySnapshotableObject else {
+            throw ObvError.identitySnapshotableObjectIsNil
+        }
+
+        let additionalInfosFromAppForProfileBackup = try await appSnapshotableObject.getAdditionalInfosFromAppForProfileBackup(ownedCryptoId: ownedCryptoId)
+        let additionalInfosFromIdentityManagerForProfileBackup = try await identitySnapshotableObject.getAdditionalInfosFromIdentityManagerForProfileBackup(ownedCryptoId: ownedCryptoId, flowId: flowId)
+        
+        let additionalInfosForProfileBackup = AdditionalInfosForProfileBackup(nameOfDeviceWhichPerformedBackup: additionalInfosFromIdentityManagerForProfileBackup.deviceDisplayName,
+                                                                              platformOfDeviceWhichPerformedBackup: additionalInfosFromAppForProfileBackup.platform)
+        
+        return additionalInfosForProfileBackup
+        
     }
 
     // MARK: ObvError

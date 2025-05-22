@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import ObvTypes
 import ObvEngine
 import ObvUICoreData
 import ObvUI
+import ObvDesignSystem
 
 protocol HiddenProfilePasswordChooserViewControllerDelegate: AnyObject {
     func userCancelledHiddenProfilePasswordChooserViewController() async

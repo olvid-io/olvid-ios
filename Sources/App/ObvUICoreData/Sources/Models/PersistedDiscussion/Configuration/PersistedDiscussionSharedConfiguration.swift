@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -46,6 +46,8 @@ public final class PersistedDiscussionSharedConfiguration: NSManagedObject {
 
     // Other variables
     
+    private var changedKeys = Set<String>()
+
     public fileprivate(set) var existenceDuration: TimeInterval? {
         get {
             guard let seconds = rawExistenceDuration?.intValue else { return nil }
@@ -78,6 +80,15 @@ public final class PersistedDiscussionSharedConfiguration: NSManagedObject {
         }
     }
     
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    public static func addObvObserver(_ newObserver: PersistedDiscussionSharedConfigurationObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
 }
 
 
@@ -377,6 +388,48 @@ extension PersistedDiscussionSharedConfiguration {
 }
 
 
+// MARK: On save
+
+extension PersistedDiscussionSharedConfiguration {
+        
+    public override func willSave() {
+        super.willSave()
+        if isUpdated {
+            changedKeys = Set<String>(self.changedValues().keys)
+        }
+    }
+    
+    public override func didSave() {
+        super.didSave()
+        
+        defer {
+            changedKeys.removeAll()
+        }
+        
+        // Potentially notify that the previous backed up profile snapshot is obsolete.
+        // We only notify in case of a change. Insertion/Deletion are notified by
+        // the engine.
+        // See `PersistedObvOwnedIdentity` for a list of entities that might post a similar notification.
+        
+        if !isDeleted && !isInserted && !changedKeys.isEmpty {
+            if changedKeys.contains(Predicate.Key.version.rawValue) ||
+                changedKeys.contains(Predicate.Key.rawExistenceDuration.rawValue) ||
+                changedKeys.contains(Predicate.Key.rawVisibilityDuration.rawValue) ||
+                changedKeys.contains(Predicate.Key.readOnce.rawValue) {
+                if let ownedCryptoId = self.discussion?.ownedIdentity?.cryptoId {
+                    Task {
+                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionSharedConfigurationChanged(ownedCryptoId: ownedCryptoId)
+                    }
+                } else {
+                    assertionFailure()
+                }
+            }
+        }
+        
+    }
+    
+}
+
 
 // MARK: - For snapshot purposes
 
@@ -432,6 +485,41 @@ struct PersistedDiscussionSharedConfigurationSyncSnapshotItem: Codable, Hashable
         configuration.setExistenceDuration(with: existenceDuration)
         configuration.setVisibilityDuration(with: visibilityDuration)
         configuration.setReadOnce(with: readOnce)
+    }
+    
+}
+
+
+// MARK: - PersistedDiscussionSharedConfiguration observers
+
+public protocol PersistedDiscussionSharedConfigurationObserver: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionSharedConfigurationChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: PersistedDiscussionSharedConfigurationObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: PersistedDiscussionSharedConfigurationObserver?
+        init(value: PersistedDiscussionSharedConfigurationObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: PersistedDiscussionSharedConfigurationObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionSharedConfigurationChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionSharedConfigurationChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
     }
     
 }

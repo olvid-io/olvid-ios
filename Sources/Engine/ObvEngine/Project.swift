@@ -11,6 +11,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
     dependencies: [
         .Olvid.Engine.obvJWS,
         .Olvid.Engine.obvBackupManager,
+        .Olvid.Engine.obvBackupManagerNew,
         .Olvid.Engine.obvChannelManager,
         .Olvid.Engine.obvCrypto,
         .Olvid.Engine.obvDatabaseManager,

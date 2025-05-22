@@ -23,6 +23,7 @@ import CoreData
 import ObvUICoreData
 import ObvSettings
 import ObvUI
+import ObvDesignSystem
 
 
 protocol DraftSettingsHostingViewControllerDelegate: AnyObject {

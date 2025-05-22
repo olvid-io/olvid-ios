@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -44,6 +44,7 @@ final class BackgroundTasksManager {
     /// The raw values are the identifiers of the processing background tasks.
     enum ObvProcessingTask: String, CaseIterable {
         case appDatabaseSync = "io.olvid.background.processing.database.sync"
+        case performNewBackup = "io.olvid.background.processing.perform.new.backup"
     }
 
     weak var delegate: BackgroundTasksManagerDelegate?
@@ -152,6 +153,8 @@ final class BackgroundTasksManager {
                     switch processingTask {
                     case .appDatabaseSync:
                         await self.handleAppDatabaseSync(bgProcessingTask: bgProcessingTask)
+                    case .performNewBackup:
+                        await self.handlePerformNewBackup(bgProcessingTask: bgProcessingTask)
                     }
                 }
             }
@@ -218,7 +221,7 @@ final class BackgroundTasksManager {
         // Schedule processing background tasks
         
         for processingTask in ObvProcessingTask.allCases {
-            scheduleProcessingTask(processingTask)
+            await scheduleProcessingTask(processingTask)
         }
 
         // We make sure the app was initialized. Otherwise, the shared stack is not garanteed to exist. Accessing it would crash the app.
@@ -248,21 +251,63 @@ final class BackgroundTasksManager {
     }
     
     
-    private func scheduleProcessingTask(_ processingTask: ObvProcessingTask) {
+    private func scheduleProcessingTask(_ processingTask: ObvProcessingTask) async {
         switch processingTask {
             
         case .appDatabaseSync:
 
-            guard let userDefaults else { assertionFailure(); return }
-            let dateOfLastAppDatabaseSync = userDefaults.dateOrNil(forKey: ObvMessengerConstants.UserDefaultsKeys.dateOfLastDatabaseSync.rawValue) ?? .distantPast
-            let dateOfNextAppDatabaseSync = max(Date.now, dateOfLastAppDatabaseSync.addingTimeInterval(.init(hours: 6)))
-            let request = BGProcessingTaskRequest(identifier: processingTask.rawValue)
-            request.earliestBeginDate = dateOfNextAppDatabaseSync
+            // If there already is a pending task request, we don't schedule one
+            
+            let pendingTaskRequests = await BGTaskScheduler.shared.pendingTaskRequests().filter({ $0.identifier == processingTask.rawValue })
+            
+            if let pendingRequest = pendingTaskRequests.first {
+                
+                Self.logger.info("🤿 We don't schedule a \(processingTask.rawValue) processing task as there already a pending task with earliestBeginDate \(pendingRequest.earliestBeginDate?.description ?? "none")")
+                
+            } else {
+                
+                guard let userDefaults else { assertionFailure(); return }
+                let dateOfLastAppDatabaseSync = userDefaults.dateOrNil(forKey: ObvMessengerConstants.UserDefaultsKeys.dateOfLastDatabaseSync.rawValue) ?? .distantPast
+                let dateOfNextAppDatabaseSync = max(Date.now, dateOfLastAppDatabaseSync.addingTimeInterval(.init(hours: 6)))
+                let request = BGProcessingTaskRequest(identifier: processingTask.rawValue)
+                request.earliestBeginDate = dateOfNextAppDatabaseSync
+                request.requiresNetworkConnectivity = false
+                do {
+                    try BGTaskScheduler.shared.submit(request)
+                    debugPrint("Task submitted (\(processingTask.rawValue)")
+                } catch {
+                    Self.logger.fault("🤿 Could not schedule processing task \(processingTask.rawValue)")
+                    assertionFailure()
+                }
+                
+            }
+            
+        case .performNewBackup:
+            
+            guard let delegate else { assertionFailure(); return }
             do {
-                try BGTaskScheduler.shared.submit(request)
-                debugPrint("Task submitted")
+                guard try await delegate.newBackupsAreConfiguredAndCanBePerformed() else { return }
+
+                // If there already is a pending backup task request, we don't schedule one
+
+                let pendingTaskRequests = await BGTaskScheduler.shared.pendingTaskRequests().filter({ $0.identifier == processingTask.rawValue })
+
+                if let pendingRequest = pendingTaskRequests.first {
+
+                    Self.logger.info("🤿 We don't schedule a \(processingTask.rawValue) processing task as there already a pending task with earliestBeginDate \(pendingRequest.earliestBeginDate?.description ?? "none")")
+
+                } else {
+
+                    let dateOfNextBackup = Date.now.addingTimeInterval(.init(hours: 24))
+                    let request = BGProcessingTaskRequest(identifier: processingTask.rawValue)
+                    request.earliestBeginDate = dateOfNextBackup
+                    request.requiresNetworkConnectivity = true
+                    try BGTaskScheduler.shared.submit(request)
+                    debugPrint("Task submitted (\(processingTask.rawValue)")
+
+                }
             } catch {
-                Self.logger.fault("Could not schedule processing background task for syncing app database")
+                Self.logger.fault("🤿 Could not schedule processing task \(processingTask.rawValue)")
                 assertionFailure()
             }
             
@@ -275,12 +320,7 @@ final class BackgroundTasksManager {
         //ObvDisplayableLogs.shared.log("Background Task '\(obvTask.description)' did complete. Success is: \(success.description)")
         backgroundTask.setTaskCompleted(success: success)
     }
-    
-    
-    func cancelAllPendingBGTask() {
-        BGTaskScheduler.shared.cancelAllTaskRequests()
-    }
-    
+        
 }
  
 
@@ -320,7 +360,7 @@ extension BackgroundTasksManager {
 }
 
 
-// MARK: - Handling the appDatabaseSync  ProcessingTask
+// MARK: - Handling the appDatabaseSync ProcessingTask
 
 extension BackgroundTasksManager {
     
@@ -346,12 +386,52 @@ extension BackgroundTasksManager {
         
         // Re-schedule a task of the same type
         
-        scheduleProcessingTask(.appDatabaseSync)
+        await scheduleProcessingTask(.appDatabaseSync)
 
         // Complete the task
         
         return bgProcessingTask.setTaskCompleted(success: true)
         
+    }
+    
+}
+
+
+// MARK: -
+
+extension BackgroundTasksManager {
+    
+    /// This is the handler of the `ProcessingTask.performNewBackup` background processing task.
+    private func handlePerformNewBackup(bgProcessingTask: BGProcessingTask) async {
+        
+        // Handle the task
+
+        guard let delegate = self.delegate else {
+            ObvDisplayableLogs.shared.log("🤿 The delegate is not set. Cannot handle the task.")
+            return bgProcessingTask.setTaskCompleted(success: false)
+        }
+
+        do {
+            ObvDisplayableLogs.shared.log("🤿 Calling the createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing delegate method.")
+            guard try await delegate.newBackupsAreConfiguredAndCanBePerformed() else {
+                ObvDisplayableLogs.shared.log("🤿 Since new backups are not yet configured, we cannot perform a backup. Returning now.")
+                return
+            }
+            try await delegate.createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing()
+            ObvDisplayableLogs.shared.log("🤿 The call to the createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing delegate did succeed.")
+        } catch {
+            ObvDisplayableLogs.shared.log("🤿 The call to the createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing delegate method failed.")
+            return bgProcessingTask.setTaskCompleted(success: false)
+        }
+
+        // Re-schedule a task of the same type
+        
+        await scheduleProcessingTask(.performNewBackup)
+
+        // Complete the task
+        
+        return bgProcessingTask.setTaskCompleted(success: true)
+
     }
     
 }

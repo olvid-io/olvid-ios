@@ -42,7 +42,7 @@ public final class ObvOwnedCryptoIdentity: NSObject, NSCopying {
         self.secretMACKey = secretMACKey
     }
     
-    public static func gen(withServerURL serverURL: URL, forAuthenticationImplementationId authenticationImplementationId: AuthenticationImplementationByteId = .Signature_with_EC_SDSA_with_MDC, andPublicKeyEncryptionImplementationByteId pubEncImplementationId: PublicKeyEncryptionImplementationByteId = .KEM_ECIES_MDC_and_DEM_CTR_AES_256_then_HMAC_SHA_256, using prng: PRNGService, andMacImplementationId macImplementationByteId: MACImplementationByteId = .HMAC_With_SHA256) -> ObvOwnedCryptoIdentity {
+    public static func gen(withServerURL serverURL: URL, forAuthenticationImplementationId authenticationImplementationId: AuthenticationImplementationByteId = .Signature_with_EC_SDSA_with_MDC, andPublicKeyEncryptionImplementationByteId pubEncImplementationId: PublicKeyEncryptionImplementationByteId = .KEM_ECIES_MDC_and_DEM_CTR_AES_256_then_HMAC_SHA_256, using prng: PRNG, andMacImplementationId macImplementationByteId: MACImplementationByteId = .HMAC_With_SHA256) -> ObvOwnedCryptoIdentity {
         let authenticationImplementation = authenticationImplementationId.algorithmImplementation
         let (pkForAuthentication, skForAuthentication) = authenticationImplementation.generateKeyPair(with: prng)
         let PubKeyEncImplementation = pubEncImplementationId.algorithmImplementation
@@ -184,7 +184,7 @@ extension ObvOwnedCryptoIdentity {
     
 }
 
-public struct ObvOwnedCryptoIdentityPrivateBackupItem: Codable, Hashable {
+public struct ObvOwnedCryptoIdentityPrivateBackupItem: Codable, Hashable, Sendable {
     
     private let rawPrivateKeyForAuthentication: Data
     private let rawPrivateKeyForPublicKeyEncryption: Data
@@ -212,7 +212,7 @@ public struct ObvOwnedCryptoIdentityPrivateBackupItem: Codable, Hashable {
         return PrivateKeyForPublicKeyEncryptionDecoder.obvDecode(encoded)
     }
     
-    private var secretMACKey: MACKey? {
+    public var secretMACKey: MACKey? {
         guard let encoded = ObvEncoded(withRawData: rawSecretMACKey) else { return nil }
         return MACKeyDecoder.decode(encoded)
     }

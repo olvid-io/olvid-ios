@@ -52,7 +52,7 @@ extension UNNotificationContent {
     
     public var obvProtocolMessage: ObvProtocolMessage? {
         get {
-            guard let raw = self.userInfo[UserInfoKey.obvProtocolMessage] as? Data else { assertionFailure(); return nil }
+            guard let raw = self.userInfo[UserInfoKey.obvProtocolMessage] as? Data else { return nil }
             guard let encoded = ObvEncoded(withRawData: raw) else { assertionFailure(); return nil }
             guard let obvProtocolMessage = ObvProtocolMessage(encoded) else { assertionFailure(); return nil }
             return obvProtocolMessage

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -64,6 +64,7 @@ private enum Library: Int, CaseIterable {
     case gmp
     case akxNotificationSounds
     case notificationSoundsDotCom
+    case confettiSwiftUI
 
     var licence: Licence {
         switch self {
@@ -72,8 +73,8 @@ private enum Library: Int, CaseIterable {
         case .JOSESwift: return .apache2
         case .gmp: return .LGPL3
         case .akxNotificationSounds: return .cc0PublicDomain
-        case .notificationSoundsDotCom:
-            return .creativeCommonsAttribution4
+        case .notificationSoundsDotCom: return .creativeCommonsAttribution4
+        case .confettiSwiftUI: return .mit
         }
     }
 
@@ -85,6 +86,7 @@ private enum Library: Int, CaseIterable {
         case .gmp: return "GMP"
         case .akxNotificationSounds: return "akx' notification sounds"
         case .notificationSoundsDotCom: return "Sounds from Notification Sounds"
+        case .confettiSwiftUI: return "ConfettiSwiftUI"
         }
     }
 
@@ -96,6 +98,7 @@ private enum Library: Int, CaseIterable {
         case .gmp: return "The GNU Multiple Precision Arithmetic Library"
         case .akxNotificationSounds: return link?.absoluteString
         case .notificationSoundsDotCom: return link?.absoluteString
+        case .confettiSwiftUI: return link?.absoluteString
         }
     }
 
@@ -107,6 +110,7 @@ private enum Library: Int, CaseIterable {
         case .gmp: return URL(string: "https://gmplib.org/")
         case .akxNotificationSounds: return URL(string: "https://github.com/akx/Notifications")
         case .notificationSoundsDotCom: return URL(string: "https://notificationsounds.com/")
+        case .confettiSwiftUI: return URL(string: "https://github.com/simibac/ConfettiSwiftUI")
         }
     }
 }

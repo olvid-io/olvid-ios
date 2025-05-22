@@ -21,14 +21,16 @@ import UIKit
 import SwiftUI
 
 
+@MainActor
 protocol AddProfileViewControllerDelegate: AnyObject {
     func userWantsToCloseOnboarding(controller: AddProfileViewController) async
     func userWantsToCreateNewProfile(controller: AddProfileViewController) async
     func userWantsToImportProfileFromAnotherDevice(controller: AddProfileViewController) async
+    func userWantsToRestoreBackup(controller: AddProfileViewController) async
 }
 
 
-final class AddProfileViewController: UIHostingController<AddProfileView>, AddProfileViewActionsProtocol {
+final class AddProfileViewController: UIHostingController<AddProfileView> {
         
     private weak var delegate: AddProfileViewControllerDelegate?
     
@@ -78,23 +80,35 @@ final class AddProfileViewController: UIHostingController<AddProfileView>, AddPr
             await delegate?.userWantsToCloseOnboarding(controller: self)
         }
     }
-
     
-    // AddProfileViewActionsProtocol
+}
+
+
+// MARK: - Implementing AddProfileViewActionsProtocol
+
+
+extension AddProfileViewController: AddProfileViewActionsProtocol {
     
     func userWantsToCreateNewProfile() async {
         await delegate?.userWantsToCreateNewProfile(controller: self)
     }
     
+    
     func userWantsToImportProfileFromAnotherDevice() async {
         await delegate?.userWantsToImportProfileFromAnotherDevice(controller: self)
     }
 
+    
+    func userWantsToRestoreBackup() async {
+        await delegate?.userWantsToRestoreBackup(controller: self)
+    }
+    
 }
 
 
+// MARK: - View's actions
 
-
+@MainActor
 private final class AddProfileViewActions: AddProfileViewActionsProtocol {
     
     weak var delegate: AddProfileViewActionsProtocol?
@@ -105,6 +119,10 @@ private final class AddProfileViewActions: AddProfileViewActionsProtocol {
     
     func userWantsToImportProfileFromAnotherDevice() async {
         await delegate?.userWantsToImportProfileFromAnotherDevice()
+    }
+    
+    func userWantsToRestoreBackup() async {
+        await delegate?.userWantsToRestoreBackup()
     }
     
 }

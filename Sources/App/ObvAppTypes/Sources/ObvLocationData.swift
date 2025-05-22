@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,24 +28,27 @@ public struct ObvLocationData: Equatable, Sendable {
     public let altitude: Double? // meters (default value null)
     public let precision: Double? // meters (default value null)
     public let address: String? // (default value empty string or null)
+    public let isStationary: Bool
     
-    public init(timestamp: Date?, latitude: Double, longitude: Double, altitude: Double?, precision: Double?, address: String?) {
+    public init(timestamp: Date?, latitude: Double, longitude: Double, altitude: Double?, precision: Double?, address: String?, isStationary: Bool) {
         self.timestamp = timestamp
         self.latitude = latitude
         self.longitude = longitude
         self.altitude = altitude
         self.precision = precision
         self.address = address
+        self.isStationary = isStationary
     }
     
     
-    public init(clLocation: CLLocation) {
+    public init(clLocation: CLLocation, isStationary: Bool) {
         self.init(timestamp: clLocation.timestamp,
                   latitude: clLocation.coordinate.latitude,
                   longitude: clLocation.coordinate.longitude,
                   altitude: clLocation.altitude,
                   precision: (clLocation.horizontalAccuracy + clLocation.verticalAccuracy) / 2.0,
-                  address: nil)
+                  address: nil,
+                  isStationary: isStationary)
     }
     
     
@@ -55,7 +58,8 @@ public struct ObvLocationData: Equatable, Sendable {
                              longitude: longitude,
                              altitude: altitude,
                              precision: precision,
-                             address: address)
+                             address: address,
+                             isStationary: isStationary)
     }
     
 }

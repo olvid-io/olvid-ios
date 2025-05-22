@@ -20,7 +20,7 @@
 import Foundation
 
 /// This types corresponds to the `JsonIdentityDetails` of Android
-public struct ObvIdentityCoreDetails: Equatable {
+public struct ObvIdentityCoreDetails: Equatable, Sendable {
     
     public let firstName: String?
     public let lastName: String?

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -67,7 +67,10 @@ public final class ObvProtocolManager: ObvProtocolDelegate, ObvFullRatchetProtoc
     }
     
     enum ObvError: Error {
-        case channelDelegateIsNotSet
+        case channelDelegateIsNil
+        case identityDelegateIsNil
+        case networkFetchDelegateIsNil
+        case contextCreatorIsNil
     }
     
 }
@@ -332,6 +335,24 @@ extension ObvProtocolManager {
 
 extension ObvProtocolManager {
     
+    
+    /// This is called during bootstrap and when an owned identity gets deleted from the identity manager.
+    public func deleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws {
+        
+        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); throw ObvError.contextCreatorIsNil }
+        
+        let ownedCryptoIdsWithProtocolInstance = try await getOwnedIdentitiesWithProtocolInstance(flowId: flowId)
+        let toDelete = ownedCryptoIdsWithProtocolInstance.subtracting(existingOwnedCryptoIds)
+        
+        for nonExistingOwnedCryptoId in toDelete {
+            let op1 = DeleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentityOperation(nonExistingOwnedCryptoId: nonExistingOwnedCryptoId)
+            let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: contextCreator, queueForComposedOperations: delegateManager.queueForComposedOperations, log: log, flowId: flowId)
+            try await delegateManager.receivedMessageDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+        }
+
+    }
+    
+
     public func processProtocolReceivedMessage(_ obvProtocolReceivedMessage: ObvProtocolReceivedMessage, within obvContext: ObvContext) throws {
         
         guard let genericReceivedMessage = GenericReceivedProtocolMessage(with: obvProtocolReceivedMessage) else {
@@ -725,6 +746,81 @@ extension ObvProtocolManager {
             proof: proof)
     }
     
+}
+
+
+// MARK: - Helper for new backup restoration
+
+extension ObvProtocolManager {
+    
+    public func restoreOwnedIdentitySnapshot(ownedCryptoId: ObvCryptoId, identityNode: any ObvSyncSnapshotNode, currentDeviceName: String, rawAuthState: Data?, flowId: FlowIdentifier) async throws {
+        
+        let prng = self.prng
+        
+        guard let identityDelegate = delegateManager.identityDelegate else { assertionFailure(); throw ObvError.identityDelegateIsNil }
+        guard let networkFetchDelegate = delegateManager.networkFetchDelegate else { assertionFailure(); throw ObvError.networkFetchDelegateIsNil }
+        guard let channelDelegate = delegateManager.channelDelegate else { assertionFailure(); throw ObvError.channelDelegateIsNil }
+        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); throw ObvError.contextCreatorIsNil }
+        let protocolStarterDelegate = delegateManager.protocolStarterDelegate
+        let log = self.log
+
+        let helper = OwnedIdentityRestorationHelper(identityNode: identityNode,
+                                                    currentDeviceName: currentDeviceName,
+                                                    rawAuthState: rawAuthState,
+                                                    transferredIdentity: ownedCryptoId.cryptoIdentity,
+                                                    prng: prng,
+                                                    identityDelegate: identityDelegate,
+                                                    networkFetchDelegate: networkFetchDelegate,
+                                                    protocolStarterDelegate: protocolStarterDelegate,
+                                                    channelDelegate: channelDelegate)
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    try helper.performRestoration(within: obvContext)
+                    try obvContext.save(logOnFailure: log)
+                    return continuation.resume()
+                } catch {
+                    if let error = error as? OwnedIdentityRestorationHelper.ObvError {
+                        switch error {
+                        case .definitiveError(let error):
+                            return continuation.resume(throwing: error)
+                        case .nonDefinitiveErrors(errors: _):
+                            return continuation.resume()
+                        }
+                    } else {
+                        return continuation.resume(throwing: error)
+                    }
+                }
+            }
+                        
+        }
+        
+        
+    }
+    
+    
+}
+
+
+// MARK: - Other helpers
+
+extension ObvProtocolManager {
+    
+    private func getOwnedIdentitiesWithProtocolInstance(flowId: FlowIdentifier) async throws -> Set<ObvCryptoIdentity> {
+        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); throw ObvError.contextCreatorIsNil }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<ObvCryptoIdentity>, any Error>) in
+            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let ownedCryptoIdsWithProtocolInstance = try ProtocolInstance.getAllOwnedCryptoIdsAssociatedToProtocolInstances(within: obvContext.context)
+                    return continuation.resume(returning: ownedCryptoIdsWithProtocolInstance)
+                } catch {
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
 }
 
 

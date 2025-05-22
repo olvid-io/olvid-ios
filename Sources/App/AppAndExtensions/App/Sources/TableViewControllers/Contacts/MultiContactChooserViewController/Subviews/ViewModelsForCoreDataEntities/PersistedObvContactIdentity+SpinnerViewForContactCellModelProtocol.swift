@@ -27,4 +27,12 @@ extension PersistedObvContactIdentity: SpinnerViewForUserCellModelProtocol {
         self.devices.isEmpty
     }
     
+    var userHasNoDevice: Bool {
+        self.contactHasNoDevice
+    }
+    
+    var atLeastOneDeviceAllowsThisUserToReceiveMessages: Bool {
+        self.atLeastOneDeviceAllowsThisContactToReceiveMessages
+    }
+
 }

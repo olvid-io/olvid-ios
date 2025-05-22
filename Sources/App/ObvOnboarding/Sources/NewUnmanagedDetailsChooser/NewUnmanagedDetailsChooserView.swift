@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvUIObvCircledInitials
 import ObvUIObvPhotoButton
+import ObvDesignSystem
 
 
 protocol NewUnmanagedDetailsChooserViewModelProtocol: ObservableObject, ObvPhotoButtonViewModelProtocol {
@@ -117,7 +118,8 @@ struct NewUnmanagedDetailsChooserView<Model: NewUnmanagedDetailsChooserViewModel
         ScrollView {
             VStack {
                 
-                NewOnboardingHeaderView(title: "ONBOARDING_NAME_CHOOSER_TITLE", subtitle: "LETS_CREATE_YOUR_PROFILE")
+                ObvHeaderView(title: "ONBOARDING_NAME_CHOOSER_TITLE".localizedInThisBundle,
+                              subtitle: "LETS_CREATE_YOUR_PROFILE".localizedInThisBundle)
                     .padding(.bottom, 20)
 
                 ObvPhotoButtonView(actions: self, model: model)

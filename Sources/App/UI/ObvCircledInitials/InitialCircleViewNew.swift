@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -41,10 +41,32 @@ public struct InitialCircleViewNew<Model: InitialCircleViewNewModelProtocol>: Vi
         self.state = state
     }
     
-    public struct State {
-        let circleDiameter: CGFloat
-        public init(circleDiameter: CGFloat) {
-            self.circleDiameter = circleDiameter
+    public enum State {
+        case circleDiameter(diameter: CGFloat)
+        case cornerRadius(diameter: CGFloat, cornerRadius: CGFloat)
+        
+        var diameter: CGFloat {
+            switch self {
+            case .circleDiameter(diameter: let diameter): return diameter
+            case .cornerRadius(diameter: let diameter, cornerRadius: _): return diameter
+            }
+        }
+        
+        var cornerRadius: CGFloat {
+            switch self {
+            case .circleDiameter: return 0
+            case .cornerRadius(diameter: _, cornerRadius: let cornerRadius): return cornerRadius
+            }
+        }
+        
+        func shape() -> UniversalShape {
+            switch self {
+                case .circleDiameter:
+                UniversalShape(Circle())
+                case .cornerRadius(_, let cornerRadius):
+                UniversalShape(RoundedRectangle(cornerRadius: cornerRadius))
+            }
+            
         }
     }
     
@@ -57,41 +79,40 @@ public struct InitialCircleViewNew<Model: InitialCircleViewNewModelProtocol>: Vi
         }
     }
 
-    
     public var body: some View {
         Group {
             if let profilePicture = model.circledInitialsConfiguration.photo {
                 Image(uiImage: profilePicture)
                     .resizable()
                     .scaledToFill() // 2023-09-07 was .scaledToFit()
-                    .frame(width: state.circleDiameter, height: state.circleDiameter)
-                    .clipShape(Circle())
+                    .frame(width: state.diameter, height: state.diameter)
+                    .clipShape(state.shape())
             } else {
                 ZStack {
-                    Circle()
-                        .frame(width: state.circleDiameter, height: state.circleDiameter)
+                    state.shape()
+                        .frame(width: state.diameter, height: state.diameter)
                         .foregroundColor(Color(model.circledInitialsConfiguration.backgroundColor(appTheme: AppTheme.shared)))
                     if let text = model.circledInitialsConfiguration.initials?.text {
                         Text(text)
-                            .font(Font.system(size: state.circleDiameter/2.0, weight: .black, design: .rounded))
+                            .font(Font.system(size: state.diameter/2.0, weight: .black, design: .rounded))
                             .foregroundColor(Color(model.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared)))
                     } else {
                         Image(systemIcon: model.circledInitialsConfiguration.icon)
-                            .font(Font.system(size: state.circleDiameter/iconSizeAdjustement, weight: .semibold, design: .default))
+                            .font(Font.system(size: state.diameter/iconSizeAdjustement, weight: .semibold, design: .default))
                             .foregroundColor(Color(model.circledInitialsConfiguration.foregroundColor(appTheme: AppTheme.shared)))
                     }
                 }
             }
         }
         .overlay(
-            Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: (state.circleDiameter) / 4))
+            Image(systemIcon: .checkmarkShieldFill)
+                .font(.system(size: (state.diameter) / 4))
                 .foregroundColor(model.circledInitialsConfiguration.showGreenShield ? Color(AppTheme.shared.colorScheme.green) : .clear),
             alignment: .topTrailing
         )
         .overlay(
             Image(systemIcon: .exclamationmarkShieldFill)
-                .font(.system(size: (state.circleDiameter) / 2))
+                .font(.system(size: (state.diameter) / 2))
                 .foregroundColor(model.circledInitialsConfiguration.showRedShield ? .red : .clear),
             alignment: .center
         )
@@ -99,4 +120,22 @@ public struct InitialCircleViewNew<Model: InitialCircleViewNewModelProtocol>: Vi
     
 }
 
+public struct UniversalShape: Shape, Sendable {
+    
+    public var make: @Sendable (CGRect, inout Path) -> ()
+
+    public init(_ make: @Sendable @escaping (CGRect, inout Path) -> ()) {
+        self.make = make
+    }
+
+    public init<S: Shape>(_ shape: S) {
+        self.make = { rect, path in
+            path = shape.path(in: rect)
+        }
+    }
+
+    public func path(in rect: CGRect) -> Path {
+        return Path { [make] in make(rect, &$0) }
+    }
+}
 

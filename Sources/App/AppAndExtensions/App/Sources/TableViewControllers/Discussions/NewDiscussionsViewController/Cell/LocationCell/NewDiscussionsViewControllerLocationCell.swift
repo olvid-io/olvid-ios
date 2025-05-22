@@ -19,10 +19,12 @@
 
 import SwiftUI
 import ObvAppCoreConstants
+import ObvTypes
 
 
 protocol NewDiscussionsViewControllerLocationCellDelegate: AnyObject {
     func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice()
+    func userWantsToShowMapToConsultLocationSharedContinously(ownedCryptoId: ObvTypes.ObvCryptoId) async throws
 }
 
 @available(iOS 16.0, *)
@@ -30,19 +32,19 @@ extension NewDiscussionsViewController {
     
     final class LocationCell: UICollectionViewListCell {
         
-        private var numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice: Int = 0
         private weak var delegate: NewDiscussionsViewControllerLocationCellDelegate?
-
-        func configure(numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice: Int, delegate: NewDiscussionsViewControllerLocationCellDelegate) {
-            self.numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice = max(0, numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice)
+        private var viewModel: LocationsCellViewModel?
+        
+        func configure(viewModel: LocationsCellViewModel, delegate: NewDiscussionsViewControllerLocationCellDelegate) {
+            self.viewModel = viewModel
             self.delegate = delegate
             setNeedsUpdateConfiguration()
         }
-
+        
         override func updateConfiguration(using state: UICellConfigurationState) {
             backgroundConfiguration = CustomBackgroundConfiguration.configuration()
             contentConfiguration = UIHostingConfiguration {
-                DiscussionsListLocationCellContentView(numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice: numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice, actions: self)
+                LocationsCellView(viewModel: viewModel, actions: self)
             }
         }
         
@@ -71,59 +73,15 @@ extension NewDiscussionsViewController {
 }
 
 @available(iOS 16.0, *)
-extension NewDiscussionsViewController.LocationCell: DiscussionsListLocationCellContentViewActions {
+extension NewDiscussionsViewController.LocationCell: LocationsCellViewActions {
     
     func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice() {
         delegate?.userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice()
     }
     
-}
-
-
-// MARK: - DiscussionsListLocationCellContentView
-
-@available(iOS 16.0, *)
-fileprivate protocol DiscussionsListLocationCellContentViewActions {
-    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice()
-}
-
-@available(iOS 16.0, *)
-fileprivate struct DiscussionsListLocationCellContentView: View {
-
-    let numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice: Int
-    let actions: DiscussionsListLocationCellContentViewActions
     
-    private func stopSharingButtonTapped() {
-        actions.userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice()
-    }
-
-    var body: some View {
-        HStack {
-            Label {
-                Text("YOU_ARE_SHARING_YOUR_LOCATION_IN_\(numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice)_MESSAGES")
-                    .font(.headline)
-            } icon: {
-                Image(systemIcon: .locationCircle)
-                    .foregroundStyle(Color(UIColor.systemBlue))
-            }
-            Spacer()
-            Button("STOP_SHARING", role: .destructive, action: stopSharingButtonTapped)
-                .buttonStyle(.bordered)
-        }
-        .padding()
+    func userWantsToShowMapToConsultLocationSharedContinously(ownedCryptoId: ObvTypes.ObvCryptoId) async throws {
+        try await delegate?.userWantsToShowMapToConsultLocationSharedContinously(ownedCryptoId: ownedCryptoId)
     }
     
-}
-
-
-
-// MARK: - Previews
-
-private struct ActionsForPreviews: DiscussionsListLocationCellContentViewActions {
-    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice() {}
-}
-
-@available(iOS 16.0, *)
-#Preview {
-    DiscussionsListLocationCellContentView(numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice: 5, actions: ActionsForPreviews())
 }

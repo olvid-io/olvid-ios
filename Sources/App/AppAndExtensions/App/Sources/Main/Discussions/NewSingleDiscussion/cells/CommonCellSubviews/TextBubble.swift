@@ -283,7 +283,7 @@ private extension AttributedString {
         for match in dataDetectorMatches {
             source.addAttribute(.link, value: match.link, range: match.range)
         }
-        return (try? AttributedString(source, including: \.olvidApp)) ?? self // Don't loose any existing attribute
+        return (try? AttributedString(source, including: \.olvidApp)) ?? self // Don't lose any existing attribute
     }
     
     

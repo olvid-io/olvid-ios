@@ -118,13 +118,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ is already part of your trusted contacts 🙌. Do you still wish to proceed?"
+            "value" : "%@ is already part of your contacts 🙌. Do you still wish to proceed?"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ fait déjà partie de vos contacts 🙌. Voulez-vous quand même poursuivre ?"
+            "value" : "%@ fait déjà partie de vos contacts 🙌. Voulez-vous quand même poursuivre ?"
           }
         }
       }
@@ -601,22 +601,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ajouter un appareil"
-          }
-        }
-      }
-    },
-    "ADD_MEMBER_BY_TAPPING_EDIT_GROUP_MEMBERS_BUTTON" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You are the only member of this group 😅. Start adding group members by tapping the **Edit group** button above ☝️."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous êtes le seul membre de ce groupe 😅. Ajoutez des membres en touchant le bouton **Modifier le groupe** ☝️."
           }
         }
       }
@@ -2728,6 +2712,38 @@
         }
       }
     },
+    "CHOOSE_THE_USERS_YOU_WANT_TO_ADD_TO_THE_GROUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please choose who to add to this group."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez qui ajouter à ce groupe."
+          }
+        }
+      }
+    },
+    "CHOOSE_YOUR_BACKUP_MODE_BODY" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introducing a new way to backup your profiles!"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bienvenue aux nouvelles sauvegardes."
+          }
+        }
+      }
+    },
     "CHOSEN_GROUP_MEMBERS" : {
       "localizations" : {
         "en" : {
@@ -2740,22 +2756,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Participants choisis"
-          }
-        }
-      }
-    },
-    "CHOSEN_MEMBERS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chosen members"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Membres choisis"
           }
         }
       }
@@ -2985,22 +2985,6 @@
         }
       }
     },
-    "CLONE_THIS_GROUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clone this group"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cloner ce groupe"
-          }
-        }
-      }
-    },
     "CLONE_THIS_GROUP_V1_TO_GROUP_V2" : {
       "localizations" : {
         "en" : {
@@ -3083,22 +3067,6 @@
         }
       }
     },
-    "CONFIGURE_BACKUPS_BUTTON_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Setup backups"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paramétrer les sauvegardes"
-          }
-        }
-      }
-    },
     "CONFIGURE_KEYBOARD_SHORTCUT" : {
       "localizations" : {
         "en" : {
@@ -3111,6 +3079,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Configurer le raccourci clavier"
+          }
+        }
+      }
+    },
+    "CONFIGURE_NEW_BACKUPS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activate new backups"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer les nouvelles sauvegardes"
+          }
+        }
+      }
+    },
+    "CONFIGURE_NEW_BACKUPS_NOW" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure backups"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurer les sauvegardes"
           }
         }
       }
@@ -3198,69 +3198,51 @@
         }
       }
     },
-    "CONTACT_HAS_N_DEVICES" : {
+    "CONTACT_%@_HAS_%lld_DEVICES" : {
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ has %#@count@"
-          },
-          "substitutions" : {
-            "count" : {
-              "formatSpecifier" : "d",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "one device"
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "%arg devices"
-                    }
-                  },
-                  "zero" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "no device"
-                    }
-                  }
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ one device"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ has %2$lld devices"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ has no device"
                 }
               }
             }
           }
         },
         "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ %#@count@"
-          },
-          "substitutions" : {
-            "count" : {
-              "formatSpecifier" : "d",
-              "variations" : {
-                "plural" : {
-                  "one" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "a un appareil"
-                    }
-                  },
-                  "other" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "a %arg appareils"
-                    }
-                  },
-                  "zero" : {
-                    "stringUnit" : {
-                      "state" : "translated",
-                      "value" : "n'a aucun appareil"
-                    }
-                  }
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ a un appareil"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ a %2$lld appareils"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ n’a aucun appareil"
                 }
               }
             }
@@ -3982,23 +3964,6 @@
         }
       }
     },
-    "Current backup key generated: %@" : {
-      "comment" : "Table view section footer",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Current backup key generated: %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clé de sauvegarde générée: %@"
-          }
-        }
-      }
-    },
     "CURRENT_DEVICE" : {
       "localizations" : {
         "en" : {
@@ -4667,6 +4632,22 @@
         }
       }
     },
+    "DELETE_ITEM" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete item"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer l’élément"
+          }
+        }
+      }
+    },
     "DELETE_ITEMS" : {
       "localizations" : {
         "en" : {
@@ -4679,6 +4660,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supprimer les éléments"
+          }
+        }
+      }
+    },
+    "DELETE_ITEMS_WITH_DUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete item and copies"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer l’élément ainsi que les copies"
           }
         }
       }
@@ -4908,22 +4905,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Distribué"
-          }
-        }
-      }
-    },
-    "DESELECT_ALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deselect all"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tout désélectionner"
           }
         }
       }
@@ -5203,22 +5184,6 @@
         }
       }
     },
-    "DISBAND_GROUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Disband this group"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer ce groupe"
-          }
-        }
-      }
-    },
     "Discard" : {
       "comment" : "Discard word, capitalized",
       "localizations" : {
@@ -5286,22 +5251,6 @@
         }
       }
     },
-    "DISCUSSION_ADMIN_CHOICE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Admin's choice"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choix des admins"
-          }
-        }
-      }
-    },
     "DISCUSSION_LAYOUT_TYPE" : {
       "localizations" : {
         "en" : {
@@ -5318,22 +5267,6 @@
         }
       }
     },
-    "DISCUSSION_MODERATION" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Messages' moderation"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modération des messages"
-          }
-        }
-      }
-    },
     "DISCUSSION_QUICK_EMOJI" : {
       "localizations" : {
         "en" : {
@@ -5346,22 +5279,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Emoji rapide pour cette discussion"
-          }
-        }
-      }
-    },
-    "DISCUSSION_READ_ONLY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Read only"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lecture seule"
           }
         }
       }
@@ -5865,22 +5782,6 @@
         }
       }
     },
-    "EDIT_GROUP_AS_ADMINISTRATOR_BUTTON_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit group"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modifier le groupe"
-          }
-        }
-      }
-    },
     "EDIT_MY_ID" : {
       "localizations" : {
         "en" : {
@@ -6059,23 +5960,6 @@
         }
       }
     },
-    "ENABLE_AUTOMATIC_BACKUP" : {
-      "comment" : "Table view section header",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enable automatic backups to iCloud"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activer la sauvegarde automatique vers iCloud"
-          }
-        }
-      }
-    },
     "ENABLE_RUNNING_LOGS" : {
       "localizations" : {
         "en" : {
@@ -6104,22 +5988,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Répertoires de l'engine"
-          }
-        }
-      }
-    },
-    "Enter backup key" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter backup key"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clé de sauvegarde"
           }
         }
       }
@@ -6728,22 +6596,6 @@
         }
       }
     },
-    "FILES_APP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Files"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fichiers"
-          }
-        }
-      }
-    },
     "FIRST_NAME_LAST_NAME" : {
       "localizations" : {
         "en" : {
@@ -6789,22 +6641,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pour pouvoir créer un groupe v2, tous les membres doivent utiliser une version récente d'Olvid 🤓. Avant d'essayer à nouveau, demandez aux contacts suivants de mettre Olvid à jour:\n%@."
-          }
-        }
-      }
-    },
-    "Forgot your backup key?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Forgot your backup key?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clé de sauvegarde oubliée ?"
           }
         }
       }
@@ -6967,71 +6803,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Galerie"
-          }
-        }
-      }
-    },
-    "Generate new backup key now" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Generate new backup key now"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regénérer une clé de sauvegarde maintenant"
-          }
-        }
-      }
-    },
-    "Generate new backup key?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Generate new backup key?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Générer une nouvelle clé de sauvegarde ?"
-          }
-        }
-      }
-    },
-    "GENERATE_BACKUP_KEY_SECTION_TITLE" : {
-      "comment" : "Table view section header",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Backup key"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clé de sauvegarde"
-          }
-        }
-      }
-    },
-    "GENERATE_NEW_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Generate a backup key"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Générer une clé de sauvegarde"
           }
         }
       }
@@ -7414,86 +7185,6 @@
         }
       }
     },
-    "GROUP_PARAMETERS_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Group's parameters"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paramètres de discussion"
-          }
-        }
-      }
-    },
-    "GROUP_TYPE_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Group types"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Types de discussion"
-          }
-        }
-      }
-    },
-    "GROUP_UPDATE_IN_PROGRESS_EXPLANATION_BODY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "An update of this group is in progress. Please wait until it is done to make further modifications."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Une mise à jour du groupe est en cours. Merci de patienter jusqu'à son terme pour faire de nouvelles modifications."
-          }
-        }
-      }
-    },
-    "GROUP_UPDATE_IN_PROGRESS_EXPLANATION_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Update in progress"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mise à jour en cours"
-          }
-        }
-      }
-    },
-    "GROUP_V2_PUBLISHED_DETAILS_EXPLANATION_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The group details were updated. If you wish to use these new details instead of the ones on your %@, please tap the button bellow."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les détails du groupe ont été mis à jour. Si vous désirez utiliser ces nouveaux détails au lieu de ceux sur votre %@, touchez le bouton ci-dessous."
-          }
-        }
-      }
-    },
     "Groups" : {
       "comment" : "Groups word, capitalized",
       "localizations" : {
@@ -7750,23 +7441,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tapez pour supprimer votre réaction."
-          }
-        }
-      }
-    },
-    "I have copied the key" : {
-      "comment" : "Button title shown to the user",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "I have copied the key"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "J'ai bien copié la clé"
           }
         }
       }
@@ -8915,38 +8589,6 @@
         }
       }
     },
-    "INVITE_ALL_GROUP_MEMBERS_BUTTON_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invite all at once"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inviter tous en une fois"
-          }
-        }
-      }
-    },
-    "INVITE_ALL_GROUP_MEMBERS_EXPLANATION" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To initiate a private conversation with a group member who is not yet in your contacts, tap on their name, and then choose the \"Invite\" button. If you want to invite all group members at the same time, tap the \"Invite all at once\" button. Please note that the group member must accept your invitation."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pour engager une conversation privée avec un membre du groupe qui n'est pas encore dans vos contacts, appuyez sur son nom, puis sélectionnez le bouton \"Inviter\". Si vous souhaitez inviter tous les membres du groupe simultanément, appuyez sur le bouton \"Inviter tous en une seule fois\". Veuillez noter que le membre du groupe doit accepter votre invitation."
-          }
-        }
-      }
-    },
     "INVITE_REQUIRED_ALERT_TITLE" : {
       "localizations" : {
         "en" : {
@@ -9015,22 +8657,6 @@
         }
       }
     },
-    "IS_ADMIN" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Admin"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Admin"
-          }
-        }
-      }
-    },
     "IS_DELETING" : {
       "localizations" : {
         "en" : {
@@ -9043,54 +8669,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "suppression en cours"
-          }
-        }
-      }
-    },
-    "IS_NOT_ADMIN" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not admin"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pas admin"
-          }
-        }
-      }
-    },
-    "IS_PENDING" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pending"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En attente"
-          }
-        }
-      }
-    },
-    "IS_PENDING_ADMIN" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pending\nadmin"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Admin\nen attente"
           }
         }
       }
@@ -9303,134 +8881,6 @@
         }
       }
     },
-    "LABEL_GROUP_ADVANCED_SUBTITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unleash the full power of Olvid groups!"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Libérez toute la puissance des groupes Olvid !"
-          }
-        }
-      }
-    },
-    "LABEL_GROUP_ADVANCED_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Advanced"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avancé"
-          }
-        }
-      }
-    },
-    "LABEL_GROUP_MANAGED_SUBTITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only administrators can invite new members."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Seuls les administrateurs peuvent inviter de nouveaux membres."
-          }
-        }
-      }
-    },
-    "LABEL_GROUP_MANAGED_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Controlled"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Maîtrisé"
-          }
-        }
-      }
-    },
-    "LABEL_GROUP_READ_ONLY_SUBTITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only administrators can post messages."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Seuls les administrateurs peuvent écrire des messages."
-          }
-        }
-      }
-    },
-    "LABEL_GROUP_READ_ONLY_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Read only"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lecture seule"
-          }
-        }
-      }
-    },
-    "LABEL_GROUP_STANDARD_SUBTITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All group members can invite new members."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tous les membres peuvent inviter de nouveaux membres."
-          }
-        }
-      }
-    },
-    "LABEL_GROUP_STANDARD_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Standard"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Standard"
-          }
-        }
-      }
-    },
     "LAST_NAME_FIRST_NAME" : {
       "localizations" : {
         "en" : {
@@ -9511,22 +8961,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quitter le groupe"
-          }
-        }
-      }
-    },
-    "LEAVE_GROUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Leave this group"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quitter ce groupe"
           }
         }
       }
@@ -9721,6 +9155,142 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Les réglages ci-dessous vous permettent de supprimer automatiquement de vieux messages dans cette discussion."
+          }
+        }
+      }
+    },
+    "LOCATION_CELL_LABEL_%lld_LOCATIONS_ARE_SHARED_WITH_YOU" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "One location is being shared with you."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld locations are being shared with you."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No location is being shared with you."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Une position est partagée avec vous."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld positions sont partagées avec vous."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Aucune position n’est partagée avec vous."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "LOCATION_CELL_LABEL_YOU_ARE_CURRENTLY_SHARING_YOUR_LOCATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are currently sharing this device’s location."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous partagez actuellement la position de cet appareil."
+          }
+        }
+      }
+    },
+    "LOCATION_CELL_LABEL_YOU_ARE_CURRENTLY_SHARING_YOUR_LOCATION_AND_%lld_LOCATIONS_ARE_SHARED_WITH_YOU" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You are currently sharing this device’s location, and one other location is being shared with you."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You are currently sharing this device’s location, and %lld other locations are being shared with you."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You are currently sharing this device’s location."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous partagez actuellement la position de cet appareil et une position est partagée avec vous."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous partagez actuellement la position de cet appareil et %lld positions sont partagées avec vous."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Vous partagez actuellement la position de cet appareil."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "LOCATION_CELL_LABEL_YOU_ARE_NOT_SHARING_YOUR_LOCATION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You are not sharing this device’s location."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous ne partagez pas la position de cet appareil."
           }
         }
       }
@@ -10171,22 +9741,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sauvegarde manuelle"
-          }
-        }
-      }
-    },
-    "MANUAL_RESYNC_OF_GROUP_V2" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Resynchronize this group"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Resynchroniser ce groupe"
           }
         }
       }
@@ -10793,7 +10347,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "New message notifications muted indefinitely"
+            "value" : "New message notifications muted indefinitely."
           }
         },
         "fr" : {
@@ -10903,6 +10457,9 @@
         }
       }
     },
+    "Name" : {
+      "shouldTranslate" : false
+    },
     "Name update available" : {
       "comment" : "Alert title",
       "localizations" : {
@@ -10982,23 +10539,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nouveau"
-          }
-        }
-      }
-    },
-    "New backup key" : {
-      "comment" : "Title of the view showing a new backup key",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New backup key"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nouvelle clé de sauvegarde"
           }
         }
       }
@@ -11117,23 +10657,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ a mis à jour ses informations. Si vous voulez utiliser ces nouveaux détails à la place de ceux actuellement stockés sur votre %2$@, touchez le bouton ci-dessous."
-          }
-        }
-      }
-    },
-    "NEW_GROUP" : {
-      "comment" : "View controller title",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New group"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nouveau groupe"
           }
         }
       }
@@ -11287,23 +10810,6 @@
         }
       }
     },
-    "NO_BACKUP_KEY_GENERATED_YET" : {
-      "comment" : "Table view section footer",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In order to perform encrypted backups of your contacts, groups, and settings, you first need to generate a backup key 🔐. No backup key has been generated yet."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pour effectuer une sauvegarde chiffrée de vos contacts, groupes et paramètres, la première étape est de générer une clé de sauvegarde 🔐. Aucune clé de sauvegarde n'a été générée pour le moment."
-          }
-        }
-      }
-    },
     "NO_GRACE_PERIOD_EXPLANATION" : {
       "localizations" : {
         "en" : {
@@ -11336,22 +10842,6 @@
         }
       }
     },
-    "NO_OTHER_MEMBER_FOR_NOW" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No other group member for now."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aucun autre membre pour le moment."
-          }
-        }
-      }
-    },
     "NON_EPHEMERAL_MESSAGES_LABEL" : {
       "localizations" : {
         "en" : {
@@ -11370,6 +10860,22 @@
     },
     "None" : {
       "comment" : "None word, capitalized",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun"
+          }
+        }
+      }
+    },
+    "NONE" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12150,22 +11656,6 @@
         }
       }
     },
-    "OTHER_GROUP_MEMBERS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Other group members"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autres membres du groupe"
-          }
-        }
-      }
-    },
     "OTHER_INFORMATIONS_ABOUT_MANAGED_PROFILE" : {
       "localizations" : {
         "en" : {
@@ -12194,6 +11684,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Autres utilisateurs"
+          }
+        }
+      }
+    },
+    "OTHER_STORAGE_CHART_LEGEND" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Others"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autres"
           }
         }
       }
@@ -12690,22 +12196,6 @@
         }
       }
     },
-    "PERFORM_MANUAL_BACKUP_NOW" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Make a backup now"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Faire une sauvegarde maintenant"
-          }
-        }
-      }
-    },
     "PERMUTE_DEVICE_EXPIRATION_CONFIRMATION_ALERT_TITLE" : {
       "localizations" : {
         "en" : {
@@ -12734,22 +12224,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Note personnelle"
-          }
-        }
-      }
-    },
-    "PHOTO_LIBRARY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Photo library"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Librairie de photos"
           }
         }
       }
@@ -12820,22 +12294,6 @@
         }
       }
     },
-    "Please enter all the characters of your backup key." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Please enter all the characters of your backup key."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrez tous les caractères de votre clé de sauvegarde."
-          }
-        }
-      }
-    },
     "Please fix this serious issue with Olvid" : {
       "comment" : "Mail subject",
       "localizations" : {
@@ -12865,22 +12323,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Veuillez patienter, nous travaillons dur pour tout préparer pour vous !"
-          }
-        }
-      }
-    },
-    "Please note that generating a new backup key will invalidate all your previous backups. If you generate a new backup key, please create a fresh backup right afterwards." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Please note that generating a new backup key will invalidate all your previous backups. If you generate a new backup key, please create a fresh backup right afterwards."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Générer une nouvelle clé de sauvegarde invalide vos sauvegardes précédentes. Si vous décidez de générer une nouvelle clé, nous vous recommandons d'effectuer une sauvegarde juste après."
           }
         }
       }
@@ -13269,22 +12711,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Appuyez sur Entrée pour envoyer votre message"
-          }
-        }
-      }
-    },
-    "PREV_DISCUSSION_REMOTE_DELETE_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Who can \"delete everywhere\" messages from other users?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Qui peut «supprimer partout» les messages d'autres utilisateurs ?"
           }
         }
       }
@@ -14013,22 +13439,6 @@
         }
       }
     },
-    "REMOVE_PICTURE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove the photo"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer la photo"
-          }
-        }
-      }
-    },
     "RENAME_DEVICE" : {
       "localizations" : {
         "en" : {
@@ -14270,22 +13680,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restaurer une sauvegarde"
-          }
-        }
-      }
-    },
-    "Restore this backup" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Restore this backup"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Restaurer la sauvegarde"
           }
         }
       }
@@ -14605,22 +13999,6 @@
         }
       }
     },
-    "Search in this discussion" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search in this discussion"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Faire une recherche dans cette discussion"
-          }
-        }
-      }
-    },
     "SEARCH_FOR_NEW_DEVICES" : {
       "localizations" : {
         "en" : {
@@ -14633,22 +14011,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rechercher des appareils manquants"
-          }
-        }
-      }
-    },
-    "SEARCH_HERE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search for a contact within your company 🔎"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recherchez un contact de votre entreprise 🔎"
           }
         }
       }
@@ -14746,22 +14108,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choisir"
-          }
-        }
-      }
-    },
-    "SELECT_ALL" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Select all"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tout sélectionner"
           }
         }
       }
@@ -15508,22 +14854,6 @@
         }
       }
     },
-    "Show my Id" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show my ID"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Montrer mon ID"
-          }
-        }
-      }
-    },
     "Show my QR code" : {
       "comment" : "Title of an alert action",
       "localizations" : {
@@ -15537,6 +14867,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Afficher mon code QR"
+          }
+        }
+      }
+    },
+    "SHOW_BACKUP_KEY_NOW" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display my backup key"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher ma clé de sauvegarde"
           }
         }
       }
@@ -15670,166 +15016,6 @@
         }
       }
     },
-    "SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_AS_KEYCLOAK_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Since this group a managed by your company's server, you cannot leave it."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comme ce groupe et géré par le serveur de votre entreprise, il ne vous est pas possible de le quitter."
-          }
-        }
-      }
-    },
-    "SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_AS_KEYCLOAK_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You cannot leave the group"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous ne pouvez pas quitter le groupe"
-          }
-        }
-      }
-    },
-    "SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Since you are the only administrator of this group, you cannot leave it now (you would leave the group with no administrator). You can name another administrator among the other group members and try again."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comme vous êtes le seul administrateur de ce groupe, il vous est impossible de le quitter (vous laisseriez le groupe sans administrateur). Une fois que vous aurez nommé un autre administrateur, vous pourrez essayer à nouveau."
-          }
-        }
-      }
-    },
-    "SINGLE_GROUP_V2_VIEW_ALERT_CANNOT_LEAVE_GROUP_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You cannot leave the group for now"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous ne pouvez pas quitter le groupe pour le moment"
-          }
-        }
-      }
-    },
-    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_BUTTON_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete this group for all members"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer ce groupe chez tous les utilisateurs"
-          }
-        }
-      }
-    },
-    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Please note that this action is irreversible. I you confirm, this group will be deleted for all members."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer un groupe est une opération irréversible. Si vous continuez, le groupe sera supprimé chez tous les membres."
-          }
-        }
-      }
-    },
-    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_DISBAND_GROUP_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heads-up! Do you really wish to disband this group?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Attention ! Voulez-vous vraiment supprimer ce groupe ?"
-          }
-        }
-      }
-    },
-    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_BUTTON_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Leave this group"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quitter ce groupe"
-          }
-        }
-      }
-    },
-    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Please note that this action is irreversible (unless a group administrator decides to invite you again later on)."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Attention, cette action est irréversible (sauf si un administrateur du groupe vous y invite à nouveau après que vous l'ayez quitté)."
-          }
-        }
-      }
-    },
-    "SINGLE_GROUP_V2_VIEW_SHEET_CONFIRM_LEAVE_GROUP_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Do you really wish to leave this group?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Voulez-vous vraiment quitter le groupe ?"
-          }
-        }
-      }
-    },
     "Size" : {
       "comment" : "Size word, capitalized",
       "localizations" : {
@@ -15843,22 +15029,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Taille"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BODY_CREATE_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "It's time to setup backups!"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il est temps de configurer les sauvegardes !"
           }
         }
       }
@@ -15959,22 +15129,6 @@
         }
       }
     },
-    "SNACK_BAR_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The last backup failed"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La dernière sauvegarde a échoué"
-          }
-        }
-      }
-    },
     "SNACK_BAR_BODY_NEW_APP_VERSION_AVAILABLE" : {
       "localizations" : {
         "en" : {
@@ -15987,54 +15141,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Une nouvelle version d'Olvid est disponible 🥳 !"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BODY_SHOULD_PERFORM_BACKUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "It's backup time!"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il est temps de faire une sauvegarde !"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BODY_SHOULD_VERIFY_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Do you remember your backup key?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous souvenez-vous de votre clé de sauvegarde ?"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BUTTON_TITLE_CREATE_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show me"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Info"
           }
         }
       }
@@ -16099,54 +15205,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Info"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BUTTON_TITLE_SHOULD_PERFORM_BACKUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show me"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Info"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BUTTON_TITLE_SHOULD_VERIFY_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show me"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Info"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_BODY_CREATE_BACKUP_KEY_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If you were to lose your %@, or to uninstall Olvid by mistake, you would lose your Olvid ID, all your contacts, and all your groups 😱. Luckily for you, it is possible to setup secure backups 😅.\n\nPress \"Setup backups\" to begin."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Si vous veniez à égarer votre %@, ou à désinstaller Olvid par erreur, vous perdriez votre ID Olvid, l'intégralité de vos contacts et tous vos groupes 😱. Fort heureusement, il est possible de les sauvegarder de façon sécurisée 😅. Appuyez sur « Paramétrer les sauvegardes » pour commencer."
           }
         }
       }
@@ -16247,22 +15305,6 @@
         }
       }
     },
-    "SNACK_BAR_DETAILS_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You should make sure your iCloud account is properly configured on this device. Once this is done, we can try again."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nous vous recommandons de vérifier que vous avez bien configuré votre compte iCloud sur cet appareil. Ensuite, vous pourrez essayer à nouveau."
-          }
-        }
-      }
-    },
     "SNACK_BAR_DETAILS_BODY_NEW_APP_VERSION_AVAILABLE" : {
       "localizations" : {
         "en" : {
@@ -16275,54 +15317,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Une nouvelle version d'Olvid est disponible dès maintenant sur l'App Store. Pour ne pas rater les dernières nouveautés d'Olvid 🤓, nous vous recommandons de mettre à jour maintenant 🚀."
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_BODY_SHOULD_PERFORM_BACKUP_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In order not to lose any contact, we recommend you activate automatic backups to iCloud. Don't worry, these backups are encrypted 🤓!\nOtherwise, you may also perform manual backups on a regular basis.\n\nPress \"Setup backups\" to begin."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pour ne perdre aucun contact, nous vous recommandons d'activer les sauvegardes automatiques vers iCloud. Rassurez-vous, elles sont chiffrées 🤓 ! Sinon, vous pouvez aussi effectuer des sauvegardes manuelles régulièrement. Appuyez sur « Paramétrer les sauvegardes » pour commencer."
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_BODY_SHOULD_VERIFY_BACKUP_KEY_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Having an up to date Olvid backup is essential, but you need your backup key to restore it!\n\nPress \"Setup backups\" to verify your key. If you lost it, don't worry, you can generate a new one 🤗."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avoir une sauvegarde à jour est essentiel, mais il vous faut votre clé de sauvegarde pour la restaurer ! Appuyez sur « Paramétrer les sauvegardes » pour vérifier votre clé. Si vous avez perdu cette clé, pas d'inquiétude, vous pourrez en générer une nouvelle 🤗."
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_TITLE_CREATE_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Why should I setup backups 🧐?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pourquoi configurer les sauvegardes 🧐 ?"
           }
         }
       }
@@ -16423,22 +15417,6 @@
         }
       }
     },
-    "SNACK_BAR_DETAILS_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Why should I fix this?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Que puis-je faire ?"
-          }
-        }
-      }
-    },
     "SNACK_BAR_DETAILS_TITLE_NEW_APP_VERSION_AVAILABLE" : {
       "localizations" : {
         "en" : {
@@ -16451,38 +15429,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Une nouvelle version d'Olvid est disponible 🥳 !"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_TITLE_SHOULD_PERFORM_BACKUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Why should I create a backup 🧐?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pourquoi faire une sauvegarde 🧐 ?"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_TITLE_SHOULD_VERIFY_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Why should I remember my backup key 🧐?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pourquoi vérifier sa clé de sauvegarde 🧐 ?"
           }
         }
       }
@@ -16525,22 +15471,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "More"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Info"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show me"
           }
         },
         "fr" : {
@@ -16699,6 +15629,267 @@
         }
       }
     },
+    "STORAGE_ALL_HEADER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All files"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les fichiers"
+          }
+        }
+      }
+    },
+    "STORAGE_DELETE_ELEMENTS_HEADER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review and delete items"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passer en revue et supprimer des éléments"
+          }
+        }
+      }
+    },
+    "STORAGE_DISCUSSION_HEADER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussions"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discussions"
+          }
+        }
+      }
+    },
+    "STORAGE_DISCUSSION_MENU_LAST_OPENED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
+          }
+        }
+      }
+    },
+    "STORAGE_DISCUSSION_MENU_NAME" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom"
+          }
+        }
+      }
+    },
+    "STORAGE_DISCUSSION_MENU_SIZE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taille"
+          }
+        }
+      }
+    },
+    "STORAGE_DISCUSSION_MENU_TYPE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type"
+          }
+        }
+      }
+    },
+    "STORAGE_ITEMS_SELECTED_%lld" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 item selected"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items selected"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No items selected"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "1 élément sélectionné"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld éléments sélectionnés"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Aucun élément sélectionné"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "STORAGE_LARGEST_FILES_HEADER_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More than %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus de %@"
+          }
+        }
+      }
+    },
+    "STORAGE_MANAGEMENT" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storage management"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestion du stockage"
+          }
+        }
+      }
+    },
+    "STORAGE_MANAGEMENT_CONTENT_UNAVAILABLE_DESCRIPTION" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Received and sent attachments will appear here."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les pièces jointes reçues et envoyées apparaîtront ici. "
+          }
+        }
+      }
+    },
+    "STORAGE_MANAGEMENT_CONTENT_UNAVAILABLE_TITLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your local storage is empty"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas de fichiers pour le moment"
+          }
+        }
+      }
+    },
+    "STORAGE_SENT_BY_ME_HEADER" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent by me"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyés par moi"
+          }
+        }
+      }
+    },
+    "STORAGE_USED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "used"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "utilisés"
+          }
+        }
+      }
+    },
     "Stored" : {
       "comment" : "Stored word, capitalized",
       "localizations" : {
@@ -16812,22 +16003,6 @@
         }
       }
     },
-    "TAKE_PICTURE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Take a photo"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prendre une photo"
-          }
-        }
-      }
-    },
     "Tap to see the message" : {
       "localizations" : {
         "en" : {
@@ -16892,54 +16067,6 @@
         }
       }
     },
-    "TEXT_GROUP_REMOTE_DELETE_SETTING_ADMINS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Admins only"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les administrateurs uniquement"
-          }
-        }
-      }
-    },
-    "TEXT_GROUP_REMOTE_DELETE_SETTING_EVERYONE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Everyone"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tout le monde"
-          }
-        }
-      }
-    },
-    "TEXT_GROUP_REMOTE_DELETE_SETTING_NOBODY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nobody"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Personne"
-          }
-        }
-      }
-    },
     "Thank you!" : {
       "comment" : "Body with title font",
       "localizations" : {
@@ -16953,135 +16080,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Merci !"
-          }
-        }
-      }
-    },
-    "The backup could not be recovered" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The backup could not be recovered"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La sauvegarde n'a pas pu être restaurée"
-          }
-        }
-      }
-    },
-    "The backup could not be recovered (error code: %@)." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The backup could not be recovered (error code: %@)."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La sauvegarde n'a pas pu être restaurée (code d'erreur : %@)."
-          }
-        }
-      }
-    },
-    "The backup could not be recovered (error code: %lld)." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The backup could not be recovered (error code: %lld)."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La sauvegarde n'a pas pu être récupérée (code d'erreur: %lld)"
-          }
-        }
-      }
-    },
-    "The backup file could not be read" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The backup file could not be read"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le fichier de sauvegarde n'a pas pu être lu"
-          }
-        }
-      }
-    },
-    "The backup key below will be used to encrypt all your Olvid backups. Please keep it in a safe place.\nOlvid will periodically check you are able to enter this key to ensure you do note lose access to your backups." : {
-      "comment" : "Explanation shown on on top of a backup key shown to the user.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The backup key below will be used to encrypt all your Olvid backups. Please keep it in a safe place.\nOlvid will periodically check you are able to enter this key to ensure you do note lose access to your backups."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La clé de sauvegarde ci-dessous sera utilisée pour chiffrer toutes vos sauvegardes d'Olvid. Gardez-la précieusement.\nIl vous sera périodiquement demandé d'entrer cette clé pour vous assurer de ne pas perdre l'accès à vos sauvegardes."
-          }
-        }
-      }
-    },
-    "The backup key is correct" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The backup key is correct"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La clé de sauvegarde est correcte"
-          }
-        }
-      }
-    },
-    "The backup key is incorrect" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The backup key is incorrect"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La clé de sauvegarde est incorrecte"
-          }
-        }
-      }
-    },
-    "The backuped data could not be decrypted." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The backuped data could not be decrypted."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La sauvegarde n'a pas pu être déchiffrée."
           }
         }
       }
@@ -17137,22 +16135,6 @@
         }
       }
     },
-    "The integrity check of the backuped data failed." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Are you sure this is the correct backup key?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Êtes-vous certain d'avoir utilisé la bonne clé de sauvegarde ?"
-          }
-        }
-      }
-    },
     "The scanned identity is already part of your trusted contacts 🙌. Do you still wish to proceed?" : {
       "comment" : "Alert message",
       "localizations" : {
@@ -17204,22 +16186,6 @@
         }
       }
     },
-    "The search is performed in all messages of this discussion." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The search is performed in all messages of this discussion."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La recherche est effectuée dans tous les messages de cette discussion."
-          }
-        }
-      }
-    },
     "THE_CALL_AUDIO_CONFIG_FOR_MAC_IS_AVAILABLE_IN_MENU_BAR" : {
       "localizations" : {
         "en" : {
@@ -17248,23 +16214,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Son code"
-          }
-        }
-      }
-    },
-    "This is the only time this key will be displayed. If you lose it, you will need to generate a new one." : {
-      "comment" : "Explanation shown below a backup key shown to the user.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This is the only time this key will be displayed. If you lose it, you will need to generate a new one."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "C'est votre seule occasion de noter cette clé puisqu'elle ne sera plus jamais réaffichée. Si vous la perdez, vous devrez en générer une nouvelle."
           }
         }
       }
@@ -17467,130 +16416,66 @@
         }
       }
     },
-    "TIP_CREATE_BACKUP_KEY_MESSAGE" : {
+    "TIP_REMEMBER_TO_WRITE_DOWN_BACKUP_KEY_MESSAGE" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Backups are crucial as they remain the sole method for recovering your profile and contacts in case of losing device access."
+            "value" : "Your backup key is essential for restoring your profiles if you lose access to this device."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les sauvegardes sont le seul moyen de récupérer votre profil et les contacts en cas de perte d'accès à l'appareil."
+            "value" : "Votre clé de sauvegarde sera essentielle pour restaurer votre profil si vous perdez l’accès à cet appareil."
           }
         }
       }
     },
-    "TIP_CREATE_BACKUP_KEY_TITLE" : {
+    "TIP_REMEMBER_TO_WRITE_DOWN_BACKUP_KEY_TITLE" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Backup your profile"
+            "value" : "Don’t forget to write down your backup key 😇"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sauvegarder votre profil"
+            "value" : "N’oubliez pas de noter votre clé de sauvegarde 😇"
           }
         }
       }
     },
-    "TIP_MESSAGE_NEW_SENT_MESSAGE_STATUS" : {
+    "TIP_SETUP_NEW_BACKUPS_MESSAGE" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "See easily if your messages are received and read with our new status icons! Press any message you've sent to get detailed information."
+            "value" : "Backups allow to restore your profiles if you lose access to this device. The new experience is easier than ever 😉, and can be setup in a few seconds."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voyez facilement si vos messages sont reçus et lus avec nos nouvelles icônes de statut ! Appuyez sur n'importe quel message que vous avez envoyé pour obtenir des informations détaillées."
+            "value" : "Les sauvegardes vous permettent de restaurer vos profils si vous perdez l’accès à cet appareil. La nouvelle expérience est plus simple que jamais 😉 et peut être configurée en quelques secondes."
           }
         }
       }
     },
-    "TIP_SHOULD_PERFORM_BACKUP_MESSAGE" : {
+    "TIP_SETUP_NEW_BACKUPS_TITLE" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Making a backup ensures you won't lose your profile if you lose access to your device."
+            "value" : "Don’t lose access to your profiles!"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Faire une sauvegarde garantit que vous ne perdrez pas votre profil si vous perdez l'accès à votre appareil."
-          }
-        }
-      }
-    },
-    "TIP_SHOULD_PERFORM_BACKUP_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "It's backup time!"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il est temps de faire une sauvegarde !"
-          }
-        }
-      }
-    },
-    "TIP_SHOULD_VERIFY_BACKUP_KEY_MESSAGE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your backup key is crucial as it is required to restore your profiles' backups in case of losing device access."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Votre clé de sauvegarde est essentielle car elle est nécessaire pour restaurer les sauvegardes de vos profils en cas de perte d'accès à votre dispositif."
-          }
-        }
-      }
-    },
-    "TIP_SHOULD_VERIFY_BACKUP_KEY_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Do you remember your backup key?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous souvenez-vous de votre clé de sauvegarde ?"
-          }
-        }
-      }
-    },
-    "TIP_TITLE_NEW_SENT_MESSAGE_STATUS" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Updated icons for message delivery statuses"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mise à jour des icônes de statuts d'envoi des messages"
+            "value" : "Ne perdez pas l’accès à vos profils !"
           }
         }
       }
@@ -17816,22 +16701,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SUPPRIMER"
-          }
-        }
-      }
-    },
-    "TYPE_PERSONAL_NOTE_HERE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Type a personal note here..."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Entrez votre note personnelle..."
           }
         }
       }
@@ -18426,53 +17295,8 @@
         }
       }
     },
-    "VERIFIY_OR_GENERATE_NEW_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verify or generate new backup key"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vérifier ou générer une nouvelle clé"
-          }
-        }
-      }
-    },
-    "Verify backup key" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verify backup key"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vérifier la clé de sauvegarde"
-          }
-        }
-      }
-    },
-    "VERIFY_BACKUP_KEY_NOW" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verify my backup key now"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vérifier ma clé de sauvegarde maintenant"
-          }
-        }
-      }
+    "Value" : {
+      "shouldTranslate" : false
     },
     "Version" : {
       "comment" : "Version word, capitalized",
@@ -18745,22 +17569,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "X"
-          }
-        }
-      }
-    },
-    "XXXX" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "XXXX"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "XXXX"
           }
         }
       }
@@ -19083,58 +17891,6 @@
         }
       }
     },
-    "YOU_ARE_SHARING_YOUR_LOCATION_IN_%lld_MESSAGES" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Sharing this device’s location in one message."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Sharing this device’s location in %lld messages."
-                }
-              },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Not sharing this device’s location."
-                }
-              }
-            }
-          }
-        },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "La position géographique de cet appareil est partagée dans un message."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "La position géographique de cet appareil est partagée dans %lld messages."
-                }
-              },
-              "zero" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Aucun partage de la position géographique de cet appareil."
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "YOU_HAVE_N_DEVICES" : {
       "localizations" : {
         "en" : {
@@ -19302,6 +18058,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre compte iCloud n'est pas accessible. L'accès a été refusé suite à des restrictions liées à du contrôle parental ou à la gestion des terminaux mobiles (MDM) de votre entreprise."
+          }
+        }
+      }
+    },
+    "YOUR_BACKUPS_HAVE_EVOLVED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your backups are evolving"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos sauvegardes évoluent"
           }
         }
       }

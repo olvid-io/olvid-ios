@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -51,6 +51,7 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
     // MARK: - Other variables
     
     weak var delegateManager: ObvIdentityDelegateManager?
+    private var changedKeys = Set<String>()
 
     private var photoServerLabel: UID? {
         get {
@@ -112,6 +113,14 @@ class ContactIdentityDetails: NSManagedObject, ObvManagedObject {
     }
 
     weak var obvContext: ObvContext?
+
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvObserver(_ newObserver: ContactIdentityDetailsObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
 
 }
 
@@ -312,9 +321,21 @@ extension ContactIdentityDetails {
 
 extension ContactIdentityDetails {
     
+    override func willSave() {
+        super.willSave()
+        if isUpdated {
+            changedKeys = Set<String>(self.changedValues().keys)
+        }
+    }
+    
+
     override func didSave() {
         super.didSave()
         
+        defer {
+            changedKeys.removeAll()
+        }
+
         // Send a backupableManagerDatabaseContentChanged notification
         do {
             
@@ -336,6 +357,65 @@ extension ContactIdentityDetails {
         }
 
         
+        // Potentially notify that the previous backed up profile snapshot is obsolete
+        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+        
+        if !isDeleted {
+            let previousBackedUpProfileSnapShotIsObsolete: Bool
+            if isInserted {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else if changedKeys.contains(Predicate.Key.serializedIdentityCoreDetails.rawValue) ||
+                        changedKeys.contains(Predicate.Key.photoServerKeyEncoded.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawPhotoServerLabel.rawValue) {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else {
+                previousBackedUpProfileSnapShotIsObsolete = false
+            }
+            if previousBackedUpProfileSnapShotIsObsolete {
+                let ownedIdentity = self.contactIdentity.ownedIdentityIdentity
+                if let ownedCryptoId = try? ObvCryptoId(identity: ownedIdentity) {
+                    Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityDetailsChanged(ownedCryptoId: ownedCryptoId) }
+                } else {
+                    assertionFailure()
+                }
+            }
+        }
+
+    }
+    
+}
+
+
+// MARK: - ContactIdentityDetails observers
+
+protocol ContactIdentityDetailsObserver: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityDetailsChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: ContactIdentityDetailsObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ContactIdentityDetailsObserver?
+        init(value: ContactIdentityDetailsObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ContactIdentityDetailsObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityDetailsChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityDetailsChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
     }
     
 }

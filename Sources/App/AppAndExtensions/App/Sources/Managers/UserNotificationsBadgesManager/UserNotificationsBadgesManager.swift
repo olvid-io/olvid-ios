@@ -121,12 +121,11 @@ actor UserNotificationsBadgesManager {
 extension UserNotificationsBadgesManager {
     
     
-    private func observeNotifications() {
+    private func observeNotifications() async {
         
+        await PersistedObvOwnedIdentity.addObvObserver(self)
+
         notificationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observeNewPersistedObvOwnedIdentity { _, _ in
-                Task { [weak self] in await self?.recomputeAllBadges() }
-            },
             ObvMessengerCoreDataNotification.observeOwnedIdentityWasReactivated { _ in
                 Task { [weak self] in await self?.recomputeAllBadges() }
             },
@@ -143,10 +142,31 @@ extension UserNotificationsBadgesManager {
                 Task { [weak self] in await self?.switchCurrentOwnedCryptoId(to: ownedCryptoId) }
             },
         ])
-        
+                
     }
     
         
+}
+
+
+// MARK: - Implementing PersistedObvOwnedIdentityObserver
+
+extension UserNotificationsBadgesManager: PersistedObvOwnedIdentityObserver {
+
+    // These delegates methods are not used by this manager
+    
+    func aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ObvTypes.ObvCryptoId, isHidden: Bool) async {}
+    func previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() async {}
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {}
+
+    func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async {
+        await recomputeAllBadges()
+    }
+    
+    func newPersistedObvOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId, isActive: Bool) async {
+        await recomputeAllBadges()
+    }
+    
 }
 
 

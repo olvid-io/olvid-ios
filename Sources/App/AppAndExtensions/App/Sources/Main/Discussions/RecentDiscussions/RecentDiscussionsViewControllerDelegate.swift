@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,9 @@
 
 import ObvUICoreData
 import UIKit
+import ObvTypes
 
+@MainActor
 protocol RecentDiscussionsViewControllerDelegate: AnyObject {
     
     func userWantsToDisplay(persistedDiscussion: PersistedDiscussion)
@@ -28,6 +30,12 @@ protocol RecentDiscussionsViewControllerDelegate: AnyObject {
 
     func userAskedToRefreshDiscussions() async throws
 
-    func userWantsToStopSharingLocation() async throws
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ vc: RecentDiscussionsViewController) async throws
+    
+    func userWantsToShowMapToConsultLocationSharedContinously(_ vc: RecentDiscussionsViewController, ownedCryptoId: ObvCryptoId) async throws
+
+    func userWantsToSetupNewBackups(_ vc: RecentDiscussionsViewController)
+    
+    func userWantsToDisplayBackupKey(_ vc: RecentDiscussionsViewController)
 
 }

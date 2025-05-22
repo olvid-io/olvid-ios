@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,6 +37,7 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
     
     public static let entityName = "PersistedObvOwnedIdentity"
     private static let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "PersistedObvOwnedIdentity")
+    private static let logger = Logger(subsystem: ObvUICoreDataConstants.logSubsystem, category: "PersistedObvOwnedIdentity")
 
     // MARK: Properties
 
@@ -69,6 +70,8 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
 
     // MARK: Variables
     
+    private var ownedCryptoIdOnDeletion: ObvCryptoId?
+    
     public var sortedDevices: [PersistedObvOwnedDevice] {
         devices.sorted { device1, device2 in
             return device1.objectInsertionDate < device2.objectInsertionDate
@@ -91,6 +94,11 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
     
     public var identityCoreDetails: ObvIdentityCoreDetails {
         return try! ObvIdentityCoreDetails(serializedIdentityCoreDetails)
+    }
+    
+    public var identityDetails: ObvIdentityDetails {
+        .init(coreDetails: identityCoreDetails,
+              photoURL: self.photoURL)
     }
 
     public var cryptoId: ObvCryptoId {
@@ -175,6 +183,15 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
             status: apiKeyStatus,
             permissions: apiPermissions,
             expirationDate: apiKeyExpirationDate)
+    }
+    
+    
+    public static func getAPIKeyElementsOfOwnedCryptoId(_ ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> APIKeyElements {
+        guard let ownedIdentity = try Self.get(cryptoId: ownedCryptoId, within: context) else {
+            assertionFailure()
+            throw ObvUICoreDataError.ownedIdentityIsNil
+        }
+        return ownedIdentity.apiKeyElements
     }
     
     
@@ -299,6 +316,7 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
         guard let context = managedObjectContext else {
             throw ObvUICoreDataError.noContext
         }
+        self.ownedCryptoIdOnDeletion = self.cryptoId
         context.delete(self)
     }
     
@@ -330,9 +348,9 @@ public final class PersistedObvOwnedIdentity: NSManagedObject, Identifiable, Obv
     
     // MARK: - Observers
     
-    private static var observersHolder = PersistedObvOwnedIdentityObserversHolder()
+    private static var observersHolder = ObserversHolder()
     
-    public static func addObserver(_ newObserver: PersistedObvOwnedIdentityObserver) async {
+    public static func addObvObserver(_ newObserver: PersistedObvOwnedIdentityObserver) async {
         await observersHolder.addObserver(newObserver)
     }
 
@@ -494,6 +512,15 @@ extension PersistedObvOwnedIdentity {
         try ownedDevice.updatePersistedObvOwnedDevice(with: deviceFromEngine)
     }
     
+    
+    public static func getNumberOfDevicesOfOwnedIdentity(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> Int {
+        guard let ownedIdentity = try Self.get(cryptoId: ownedCryptoId, within: context) else {
+            assertionFailure()
+            throw ObvUICoreDataError.ownedIdentityIsNil
+        }
+        return ownedIdentity.devices.count
+    }
+    
 }
 
 
@@ -643,7 +670,19 @@ extension PersistedObvOwnedIdentity {
                     throw ObvUICoreDataError.ownedDeviceNotFound
                 }
                 
-                let locationContinuousSent = try ownDevice.getOrCreatePersistedLocationContinuousSent(locationData: locationJSON.locationData, expirationDate: locationJSON.expirationDate)
+                let locationContinuousSent = try ownDevice.createOrUpdatePersistedLocationContinuousSent(locationData: locationJSON.locationData, expirationDate: locationJSON.expirationDate)
+                // The `locationContinuousSent` might be associated to a sent message in the same discussion. We delete these messages from the set of sent messages of the location before inserting a new one.
+                do {
+                    guard let obvDiscussionIdentifier = messageJSON.getDiscussionIdentifier(ownedCryptoId: obvOwnedMessage.ownedCryptoId) else {
+                        assertionFailure()
+                        throw ObvUICoreDataError.couldNotDetermineDiscussionIdentifier
+                    }
+                    let persistedDiscussion = try getPersistedDiscussion(withDiscussionIdenditifer: obvDiscussionIdentifier)
+                    _ = try locationContinuousSent.sentLocationNoLongerNeeded(by: persistedDiscussion)
+                } catch {
+                    Self.logger.warning("Could not remove previous messages sent for this location: \(error.localizedDescription)")
+                    // In production, continue anyway
+                }
                 if locationJSON.type == .END_SHARING  {
                     sentLocation = .continuous(location: locationContinuousSent.typedObjectID, toStop: .all)
                 } else {
@@ -1609,7 +1648,7 @@ extension PersistedObvOwnedIdentity {
     }
     
 
-    public func createPersistedLocationContinuousSent(locationData: ObvLocationData, expirationDate: Date?, discussionIdentifier: ObvDiscussionIdentifier) throws -> (unprocessedMessagesToSend: [MessageSentPermanentID], updatedSentMessages: Set<PersistedMessageSent>) {
+    public func createPersistedLocationContinuousSentForCurrentOwnedDevice(locationData: ObvLocationData, expirationDate: ObvLocationSharingExpirationDate, discussionIdentifier: ObvDiscussionIdentifier) throws -> (unprocessedMessagesToSend: [MessageSentPermanentID], updatedSentMessages: Set<PersistedMessageSent>) {
         
         let discussion = try getPersistedDiscussion(withDiscussionIdenditifer: discussionIdentifier)
 
@@ -1618,7 +1657,7 @@ extension PersistedObvOwnedIdentity {
             throw ObvUICoreDataError.ownedDeviceNotFound
         }
 
-        let persistedLocationContinuousSent = try currentDevice.getOrCreatePersistedLocationContinuousSent(locationData: locationData, expirationDate: expirationDate)
+        let persistedLocationContinuousSent = try currentDevice.createOrUpdatePersistedLocationContinuousSent(locationData: locationData, expirationDate: expirationDate)
 
         // We will share a location in the given discussion, we make sure to delete any previous location message from this discussion
         let unprocessedMessagesToSend = try persistedLocationContinuousSent.sentLocationNoLongerNeeded(by: discussion)
@@ -1897,22 +1936,8 @@ extension PersistedObvOwnedIdentity {
     }
     
     
-    /// Returns `true` if anything had to be updated on the contact, false otherwise
-    public func updateContact(with obvContactIdentityWithinEngine: ObvContactIdentity, isRestoringSyncSnapshotOrBackup: Bool) throws -> Bool {
-        guard self.cryptoId == obvContactIdentityWithinEngine.ownedIdentity.cryptoId else {
-            assertionFailure()
-            throw ObvUICoreDataError.unexpectedOwnedCryptoId
-        }
-        guard let contact = try PersistedObvContactIdentity.get(cryptoId: obvContactIdentityWithinEngine.cryptoId, ownedIdentity: self, whereOneToOneStatusIs: .any) else {
-            throw ObvUICoreDataError.couldNotFindContactWithId(contactIdentifier: .init(contactCryptoId: obvContactIdentityWithinEngine.cryptoId, ownedCryptoId: self.cryptoId))
-        }
-        let contactHadToBeUpdated = try contact.updateContact(with: obvContactIdentityWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
-        return contactHadToBeUpdated
-    }
-    
-    
     /// Returns `true` iff the contact had to be created or updated.
-    public func addOrUpdateContact(with obvContactIdentityWithinEngine: ObvContactIdentity, isRestoringSyncSnapshotOrBackup: Bool) throws -> PersistedObvContactIdentity {
+    public func addOrUpdateContact(with obvContactIdentityWithinEngine: ObvContactIdentity, isRestoringSyncSnapshotOrBackup: Bool) throws -> (contact: PersistedObvContactIdentity, contactWasCreatedOrUpdated: Bool) {
         guard let context = self.managedObjectContext else {
             assertionFailure()
             throw ObvUICoreDataError.noContext
@@ -1922,10 +1947,11 @@ extension PersistedObvOwnedIdentity {
             throw ObvUICoreDataError.unexpectedOwnedCryptoId
         }
         if let contact = try PersistedObvContactIdentity.get(cryptoId: obvContactIdentityWithinEngine.cryptoId, ownedIdentity: self, whereOneToOneStatusIs: .any) {
-            _ = try contact.updateContact(with: obvContactIdentityWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
-            return contact
+            let contactHadToBeUpdated = try contact.updateContact(with: obvContactIdentityWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
+            return (contact, contactHadToBeUpdated)
         } else {
-            return try PersistedObvContactIdentity.createPersistedObvContactIdentity(contactIdentity: obvContactIdentityWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup, within: context)
+            let contact = try PersistedObvContactIdentity.createPersistedObvContactIdentity(contactIdentity: obvContactIdentityWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup, within: context)
+            return (contact, true)
         }
     }
     
@@ -2100,16 +2126,16 @@ extension PersistedObvOwnedIdentity {
     }
 
     
-    public func markAllMessagesAsNotNew(discussionId: DiscussionIdentifier, serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
+    public func markAllMessagesAsNotNew(discussionId: DiscussionIdentifier, serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?, dateWhenMessageTurnedNotNew: Date) throws -> (maxTimestampOfModifiedMessages: Date, receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>])? {
         
         guard let discussion = try PersistedDiscussion.getPersistedDiscussion(ownedIdentity: self, discussionId: discussionId) else {
             throw ObvUICoreDataError.couldNotFindDiscussionWithId(discussionId: discussionId)
         }
-
-        let lastReadMessageServerTimestamp = try discussion.markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
-                                                                                    dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
         
-        return lastReadMessageServerTimestamp
+        let result = try discussion.markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
+                                                            dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+        
+        return result
 
     }
 
@@ -2402,17 +2428,6 @@ extension PersistedObvOwnedIdentity {
     }
     
     
-    public static func countCryptoIdsOfAllActiveNonHiddenNonKeycloakOwnedIdentities(within context: NSManagedObjectContext) throws -> Int {
-        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.whereIsActiveIs(true),
-            Predicate.isHidden(false),
-            Predicate.isKeycloakManaged(is: false),
-        ])
-        return try context.count(for: request)
-    }
-    
-    
     static func get(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedObvOwnedIdentity? {
         return try context.existingObject(with: objectID) as? PersistedObvOwnedIdentity
     }
@@ -2506,6 +2521,19 @@ extension PersistedObvOwnedIdentity {
         if sumOfBadgeCountsOfInvitationsTabs > 0 { return true }
         return false
     }
+    
+    
+    public static func getFetchedResultsController(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvOwnedIdentity> {
+        let request: NSFetchRequest<PersistedObvOwnedIdentity> = PersistedObvOwnedIdentity.fetchRequest()
+        request.predicate = Predicate.withOwnedCryptoId(ownedCryptoId)
+        request.fetchLimit = 1
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.fullDisplayName.rawValue, ascending: true)]
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+    
 }
 
 
@@ -2536,8 +2564,9 @@ extension PersistedObvOwnedIdentity {
         }
 
         if isInserted {
-            ObvMessengerCoreDataNotification.newPersistedObvOwnedIdentity(ownedCryptoId: self.cryptoId, isActive: self.isActive)
-                .postOnDispatchQueue()
+            let ownedCryptoId = self.cryptoId
+            let isActive = self.isActive
+            Task { await Self.observersHolder.newPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId, isActive: isActive) }
         }
         
         if !isDeleted {
@@ -2582,9 +2611,50 @@ extension PersistedObvOwnedIdentity {
             
         } else {
             
-            ObvMessengerCoreDataNotification.persistedObvOwnedIdentityWasDeleted
-                .postOnDispatchQueue()
-            
+            if let ownedCryptoIdOnDeletion {
+                Task { await Self.observersHolder.aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ownedCryptoIdOnDeletion) }
+            } else {
+                assertionFailure("It seems this owned identity was not deleted by calling the delete() method.")
+            }
+
+        }
+        
+        
+        // Potentially notify that the previous backed up device snapshot is obsolete
+        // We only notify in case of a change. Insertion/Deletion are notified by
+        // the engine
+
+        let previousBackedUpDeviceSnapShotIsObsolete: Bool
+        if !isDeleted && !isInserted && changedKeys.contains(Predicate.Key.customDisplayName.rawValue) {
+            previousBackedUpDeviceSnapShotIsObsolete = true
+        } else {
+            previousBackedUpDeviceSnapShotIsObsolete = false
+        }
+        if previousBackedUpDeviceSnapShotIsObsolete {
+            Task { await Self.observersHolder.previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() }
+        }
+
+        // Potentially notify that the previous backed up profile snapshot is obsolete.
+        // We only notify in case of a change. Insertion/Deletion are notified by
+        // the engine.
+        // Other entities can also notify:
+        // - PersistedObvContactIdentity (implemented)
+        // - PersistedContactGroup (implemented)
+        // - PersistedGroupV2 (implemented)
+        // - PersistedDiscussionLocalConfiguration (implemented)
+        // - PersistedDiscussionSharedConfiguration (implemented)
+        // - PersistedDiscussion (implemented)
+        
+        if !isDeleted && !isInserted && !changedKeys.isEmpty {
+            if changedKeys.contains(Predicate.Key.customDisplayName.rawValue) ||
+                changedKeys.contains(Predicate.Key.contacts.rawValue) ||
+                changedKeys.contains(Predicate.Key.contactGroups.rawValue) ||
+                changedKeys.contains(Predicate.Key.contactGroupsV2.rawValue) {
+                let ownedCryptoId = self.cryptoId
+                Task {
+                    await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ownedCryptoId)
+                }
+            }
         }
 
     }
@@ -2644,6 +2714,54 @@ extension PersistedObvOwnedIdentity {
         }
     }
     
+    
+    var deviceSnapshotNode: PersistedObvOwnedIdentityDeviceSnapshotNode {
+        return .init(customDisplayName: self.customDisplayName)
+    }
+    
+}
+
+
+struct PersistedObvOwnedIdentityDeviceSnapshotNode: ObvSyncSnapshotNode {
+    
+    private let domain: Set<CodingKeys>
+    let customDisplayName: String?
+    
+    let id = Self.generateIdentifier()
+
+    enum CodingKeys: String, CodingKey, CaseIterable, Codable {
+        case customDisplayName = "custom_name"
+        case domain = "domain"
+    }
+
+    private static let defaultDomain: Set<CodingKeys> = Set(CodingKeys.allCases.filter({ $0 != .domain }))
+
+    
+    init(customDisplayName: String?) {
+        self.domain = Self.defaultDomain
+        self.customDisplayName = customDisplayName
+    }
+    
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(customDisplayName, forKey: .customDisplayName)
+        try container.encode(domain, forKey: .domain)
+    }
+
+    
+    init(from decoder: Decoder) throws {
+        do {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            let rawKeys = try values.decode(Set<String>.self, forKey: .domain)
+            self.domain = Set(rawKeys.compactMap({ CodingKeys(rawValue: $0) }))
+            self.customDisplayName = try values.decodeIfPresent(String.self, forKey: .customDisplayName)
+        } catch {
+            assertionFailure()
+            throw error
+        }
+    }
+
 }
 
 
@@ -2880,24 +2998,77 @@ private extension Data {
 
 // MARK: - PersistedObvOwnedIdentity observers
 
-public protocol PersistedObvOwnedIdentityObserver {
+public protocol PersistedObvOwnedIdentityObserver: AnyObject {
     func aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ObvCryptoId, isHidden: Bool) async
+    func previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() async
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ObvCryptoId) async
+    func newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) async
+    func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async
+}
+
+public extension PersistedObvOwnedIdentityObserver {
+    func aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ObvCryptoId, isHidden: Bool) async {}
+    func previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() async {}
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ObvCryptoId) async {}
+    func newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) async {}
+    func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async {}
 }
 
 
-private actor PersistedObvOwnedIdentityObserversHolder: PersistedObvOwnedIdentityObserver {
+private actor ObserversHolder: PersistedObvOwnedIdentityObserver {
     
-    private var observers = [PersistedObvOwnedIdentityObserver]()
+    private var observers = [WeakObserver]()
     
-    func addObserver(_ newObserver: PersistedObvOwnedIdentityObserver) {
-        self.observers.append(newObserver)
+    private final class WeakObserver {
+        private(set) weak var value: PersistedObvOwnedIdentityObserver?
+        init(value: PersistedObvOwnedIdentityObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: any PersistedObvOwnedIdentityObserver) {
+        self.observers.append(.init(value: newObserver))
     }
     
     // Implementing PersistedObvOwnedIdentityObserver
     
     func aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ObvCryptoId, isHidden: Bool) async {
-        for observer in observers {
-            await observer.aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ownedCryptoId, isHidden: isHidden)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedObvOwnedIdentityIsHiddenChanged(ownedCryptoId: ownedCryptoId, isHidden: isHidden) }
+            }
+        }
+    }
+    
+    func previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpDeviceSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged() }
+            }
+        }
+    }
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvOwnedIdentityChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+
+    func newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.newPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId, isActive: isActive) }
+            }
+        }
+    }
+    
+    func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ownedCryptoId) }
+            }
         }
     }
 

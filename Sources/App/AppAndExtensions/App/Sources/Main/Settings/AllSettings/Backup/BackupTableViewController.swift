@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,6 +18,7 @@
  */
 
 import UIKit
+import SwiftUI
 import ObvEngine
 import os.log
 import ObvTypes
@@ -28,9 +29,16 @@ import ObvUICoreData
 import ObvSettings
 import ObvDesignSystem
 import ObvAppCoreConstants
+import ObvAppBackup
+
+
+protocol BackupTableViewControllerDelegate: AnyObject {
+    @MainActor func userWantsToConfigureNewBackups(_ backupTableViewController: BackupTableViewController, context: ObvAppBackupSetupContext)
+}
 
 
 /// First table view controller shown when navigating to the backup settings.
+/// 2025-01-15: This is a legacy TableViewController. We should only navigate to this VC if there is a legacy backup key configured and there is no "new" backups configured.
 @MainActor
 final class BackupTableViewController: UITableViewController {
 
@@ -43,6 +51,7 @@ final class BackupTableViewController: UITableViewController {
     private var ckRecordCountState: CKRecordCountState?
     private let obvEngine: ObvEngine
     private weak var appBackupDelegate: AppBackupDelegate?
+    private weak var delegate: BackupTableViewControllerDelegate?
     private static let waitingTimeBeforeRefreshingLatestCloudBackupInformation = 3 // In seconds
 
     private enum BackupKeyInformationState {
@@ -74,7 +83,7 @@ final class BackupTableViewController: UITableViewController {
     // MARK: - Sections description
     
     private enum Section: Int, CaseIterable {
-        case generateKey
+        case announcingNewBackups
         case manualBackup
         case automaticBackup
         case debug
@@ -82,12 +91,11 @@ final class BackupTableViewController: UITableViewController {
         static func shownFor(backupKeyInformationState: BackupKeyInformationState) -> [Section] {
             switch backupKeyInformationState {
             case .evaluating:
-                return []
+                return [Section.announcingNewBackups]
             case .none:
-                assert(Section.generateKey.rawValue == 0)
-                return [Section.generateKey]
+                return [Section.announcingNewBackups]
             case .some:
-                var result = [Section.generateKey, .manualBackup, .automaticBackup]
+                var result = [Section.announcingNewBackups, .manualBackup, .automaticBackup]
                 if ObvMessengerConstants.developmentMode && ObvMessengerSettings.BetaConfiguration.showBetaSettings {
                     result += [.debug]
                 }
@@ -97,7 +105,7 @@ final class BackupTableViewController: UITableViewController {
         
         var numberOfItems: Int {
             switch self {
-            case .generateKey: return GenerateKeyRow.shown.count
+            case .announcingNewBackups: return AnnouncingNewBackupsRow.shown.count
             case .manualBackup: return ManualBackupRow.shown.count
             case .automaticBackup: return AutomaticBackupRow.shown.count
             case .debug: return DebugRow.shown.count
@@ -114,23 +122,22 @@ final class BackupTableViewController: UITableViewController {
     
     // MARK: - Rows description
     
-    private enum GenerateKeyRow: CaseIterable {
-        case verifyOrGenerateKey
-        
-        static var shown: [GenerateKeyRow] {
+    private enum AnnouncingNewBackupsRow: CaseIterable {
+        case announcingNewBackups
+        static var shown: [Self] {
             return self.allCases
         }
-        static func shownRowAt(row: Int) -> GenerateKeyRow? {
+        static func shownRowAt(row: Int) -> Self? {
             guard row < shown.count else { assertionFailure(); return nil }
             return shown[row]
         }
         var cellIdentifier: String {
             switch self {
-            case .verifyOrGenerateKey: return "VerifyOrGenerateKeyCell"
+            case .announcingNewBackups: return "MigrateToNewBackupsCell"
             }
         }
     }
-
+    
     
     private enum ManualBackupRow: CaseIterable {
         case shareBackup
@@ -199,9 +206,10 @@ final class BackupTableViewController: UITableViewController {
     
     // MARK: - Init
 
-    init(obvEngine: ObvEngine, appBackupDelegate: AppBackupDelegate?) {
+    init(obvEngine: ObvEngine, appBackupDelegate: AppBackupDelegate?, delegate: BackupTableViewControllerDelegate) {
         self.obvEngine = obvEngine
         self.appBackupDelegate = appBackupDelegate
+        self.delegate = delegate
         self.backupKeyInformationState = .evaluating
         super.init(style: Self.settingsTableStyle)
     }
@@ -226,10 +234,6 @@ final class BackupTableViewController: UITableViewController {
     
     private func listenToNotifications() {
         notificationTokens.append(contentsOf: [
-            ObvEngineNotificationNew.observeNewBackupKeyGenerated(within: NotificationCenter.default, queue: OperationQueue.main) { [weak self] (backupKeyString, backupKeyInformation) in
-                self?.backupKeyInformationState = .some(backupKeyInformation)
-                self?.presentBackupKeyViewerViewController(backupKeyString: backupKeyString)
-            },
             ObvMessengerInternalNotification.observeIncrementalCleanBackupTerminates(queue: OperationQueue.main) { [weak self] in
                 self?.resetRecordCountState()
             },
@@ -238,31 +242,7 @@ final class BackupTableViewController: UITableViewController {
             },
         ])
     }
-    
-    
-    /// When a new backup key is generated, we always show this new key to the user. We show it only once.
-    private func presentBackupKeyViewerViewController(backupKeyString: String) {
-        assert(Thread.isMainThread)
-        let backupKeyViewerVC = BackupKeyViewerViewController()
-        backupKeyViewerVC.delegate = self
-        backupKeyViewerVC.backupKeyString = backupKeyString
-        let nav = UINavigationController(rootViewController: backupKeyViewerVC)
-        present(nav, animated: true) { [weak self] in
-            self?.tableView.reloadData()
-        }
-    }
-
-}
-
-
-// MARK: - BackupKeyViewerViewControllerDelegate
-
-extension BackupTableViewController: BackupKeyViewerViewControllerDelegate {
-    
-    func backupKeyViewerViewControllerDidDisappear() {
-        presentEnableAutomaticBackupActionSheet()
-    }
-    
+        
 }
 
 
@@ -291,22 +271,22 @@ extension BackupTableViewController {
         }
         
         switch section {
-            
-        case .generateKey:
-            guard let row = GenerateKeyRow.shownRowAt(row: indexPath.row) else { assertionFailure(); return cellInCaseOfError }
+
+        case .announcingNewBackups:
+            guard let row = AnnouncingNewBackupsRow.shownRowAt(row: indexPath.row) else { assertionFailure(); return cellInCaseOfError }
             switch row {
-            case .verifyOrGenerateKey:
-                let cell = tableView.dequeueReusableCell(withIdentifier: row.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: row.cellIdentifier)
-                switch backupKeyInformationState {
-                case .evaluating:
-                    cell.textLabel?.text = nil
-                case .none:
-                    cell.textLabel?.text = Strings.generateNewBackupKey
-                case .some:
-                    cell.textLabel?.text = Strings.verifyOrGenerateNewBackupKey
+            case .announcingNewBackups:
+                if #available(iOS 16, *) {
+                    return tableView.dequeueReusableCell(withIdentifier: row.cellIdentifier) ?? AnnoucingNewBackupsCell(delegate: self, reuseIdentifier: row.cellIdentifier)
+                } else {
+                    let cell = tableView.dequeueReusableCell(withIdentifier: row.cellIdentifier) ?? UITableViewCell(style: .default, reuseIdentifier: row.cellIdentifier)
+                    var content = cell.defaultContentConfiguration()
+                    content.text = String(localized: "YOUR_BACKUPS_HAVE_EVOLVED")
+                    content.secondaryText = String(localized: "CHOOSE_YOUR_BACKUP_MODE_BODY")
+                    cell.contentConfiguration = content
+                    cell.accessoryType = .disclosureIndicator
+                    return cell
                 }
-                cell.textLabel?.textColor = AppTheme.shared.colorScheme.link
-                return cell
             }
             
         case .manualBackup:
@@ -379,7 +359,7 @@ extension BackupTableViewController {
             return nil
         }
         switch section {
-        case .generateKey: return Strings.generateBackupKeySectionTitle
+        case .announcingNewBackups: return nil
         case .manualBackup: return Strings.manualBackup
         case .automaticBackup: return Strings.automaticBackup
         case .debug: return CommonString.Word.Debug
@@ -393,15 +373,8 @@ extension BackupTableViewController {
             return nil
         }
         switch section {
-        case .generateKey:
-            switch backupKeyInformationState {
-            case .evaluating:
-                return nil
-            case .none:
-                return Strings.noBackupKeyGeneratedYet
-            case .some(let info):
-                return Strings.currentBackupKeyGenerated(dateFormater.string(from: info.keyGenerationTimestamp))
-            }
+        case .announcingNewBackups:
+            return nil
         case .manualBackup:
             if case let .some(info) = backupKeyInformationState,
                let lastBackupExportTimestamp = info.lastBackupExportTimestamp {
@@ -442,6 +415,17 @@ extension BackupTableViewController {
 }
 
 
+// MARK: - Implementing AnnoucingNewBackupsCellDelegate
+
+extension BackupTableViewController: BackupTableViewController.AnnoucingNewBackupsCellDelegate {
+
+    func userWantsToConfigureNewBackups() {
+        delegate?.userWantsToConfigureNewBackups(self, context: .afterOnboardingMigratingFromLegacyBackups)
+    }
+    
+}
+
+
 // MARK: - UITableViewDelegate
 
 extension BackupTableViewController {
@@ -455,32 +439,11 @@ extension BackupTableViewController {
 
         switch section {
             
-        case .generateKey:
-            guard let row = GenerateKeyRow.shownRowAt(row: indexPath.row) else { assertionFailure(); return }
+        case .announcingNewBackups:
+            guard let row = AnnouncingNewBackupsRow.shownRowAt(row: indexPath.row) else { assertionFailure(); return }
             switch row {
-            case .verifyOrGenerateKey:
-                switch backupKeyInformationState {
-                case .evaluating:
-                    break
-                case .none:
-                    Task {
-                        await obvEngine.generateNewBackupKey()
-                    }
-                case .some:
-                    let vc = BackupKeyVerifierViewHostingController(obvEngine: obvEngine, dismissAction: { [weak self] in
-                        self?.dismiss(animated: true)
-                    }, dismissThenGenerateNewBackupKeyAction: { [weak self] in
-                        self?.dismiss(animated: true, completion: {
-                            Task {
-                                await self?.obvEngine.generateNewBackupKey()
-                            }
-                        })
-                    })
-                    let nav = UINavigationController(rootViewController: vc)
-                    present(nav, animated: true) {
-                        tableView.deselectRow(at: indexPath, animated: true)
-                    }
-                }
+            case .announcingNewBackups:
+                userWantsToConfigureNewBackups()
             }
             
         case .manualBackup:
@@ -618,7 +581,7 @@ extension BackupTableViewController {
         }
         Task {
             do {
-                if let info = try await obvEngine.getCurrentBackupKeyInformation() {
+                if let info = try await obvEngine.getCurrentLegacyBackupKeyInformation() {
                     self.backupKeyInformationState = .some(info)
                 } else {
                     self.backupKeyInformationState = .none
@@ -660,27 +623,6 @@ extension BackupTableViewController {
             configuration.secondaryText = nil
         }
         cell.contentConfiguration = configuration
-    }
-    
-
-    private func presentEnableAutomaticBackupActionSheet() {
-        guard !ObvMessengerSettings.Backup.isAutomaticBackupEnabled else { return }
-        let traitCollection = self.traitCollection
-        DispatchQueue.main.async {
-            let alert = UIAlertController(title: Strings.enableAutomaticBackup,
-                                          message: Strings.automaticBackupExplanation,
-                                          preferredStyleForTraitCollection: traitCollection)
-            alert.addAction(UIAlertAction(title: CommonString.Word.Enable, style: .default) { _ in
-                Task { [weak self] in
-                    await self?.isAutomaticBackupEnabledChangedTo(true)
-                    DispatchQueue.main.async {
-                        self?.reloadSection(.automaticBackup)
-                    }
-                }
-            })
-            alert.addAction(UIAlertAction(title: CommonString.Word.Later, style: .cancel))
-            self.present(alert, animated: true)
-        }
     }
 
 }
@@ -832,21 +774,13 @@ extension BackupTableViewController {
     
     private struct Strings {
         
-        static let generateNewBackupKey = NSLocalizedString("GENERATE_NEW_BACKUP_KEY", comment: "")
-        static let verifyOrGenerateNewBackupKey = NSLocalizedString("VERIFIY_OR_GENERATE_NEW_BACKUP_KEY", comment: "")
         static let backupAndShareNow = NSLocalizedString("BACKUP_AND_SHARE_NOW", comment: "Button title allowing to backup now")
         static let backupAndUploadNow = NSLocalizedString("BACKUP_AND_UPLOAD_NOW", comment: "Button title allowing to backup and upload now")
         static let iCloudBackupList = NSLocalizedString("iCloud backups list", comment: "Button title allowing to show backup list")
-        static let generateBackupKeySectionTitle = NSLocalizedString("GENERATE_BACKUP_KEY_SECTION_TITLE", comment: "Table view section header")
         static let manualBackup = NSLocalizedString("MANUAL_BACKUP_TITLE", comment: "Table view section header")
         static let automaticBackup = NSLocalizedString("AUTOMATIC_BACKUP", comment: "Table view section header")
-        static let enableAutomaticBackup = NSLocalizedString("ENABLE_AUTOMATIC_BACKUP", comment: "Table view section header")
         static let manualBackupExplanation = NSLocalizedString("MANUAL_BACKUP_EXPLANATION_FOOTER", comment: "Table view section footer")
         static let automaticBackupExplanation = NSLocalizedString("AUTOMATIC_BACKUP_EXPLANATION", comment: "Table view section footer")
-        static let noBackupKeyGeneratedYet = NSLocalizedString("NO_BACKUP_KEY_GENERATED_YET", comment: "Table view section footer")
-        static let currentBackupKeyGenerated = { (date: String) in
-            String.localizedStringWithFormat(NSLocalizedString("Current backup key generated: %@", comment: "Table view section footer"), date)
-        }
         static let fetchingLatestUpload = NSLocalizedString("Fetching latest upload", comment: "Table view section footer")
         static let fetchingLatestUploadError = NSLocalizedString("CANNOT_FETCH_LATEST_UPLOAD", comment: "Table view section footer")
         static let latestExport = { (date: String) in
@@ -865,4 +799,115 @@ extension BackupTableViewController {
         static let computeCKRecordCount = NSLocalizedString("COMPUTE_CKRECORD_COUNT", comment: "Button title allowing to show backup list")
     }
     
+}
+
+
+
+// MARK: Cell introducing new backups
+
+extension BackupTableViewController {
+    
+    protocol AnnoucingNewBackupsCellDelegate: AnyObject {
+        @MainActor func userWantsToConfigureNewBackups()
+    }
+    
+    @available(iOS 16, *)
+    final class AnnoucingNewBackupsCell: UITableViewCell {
+        
+        private weak var delegate: AnnoucingNewBackupsCellDelegate?
+        
+        init(delegate: AnnoucingNewBackupsCellDelegate, reuseIdentifier: String?) {
+            self.delegate = delegate
+            super.init(style: .default, reuseIdentifier: reuseIdentifier)
+        }
+        
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+        
+        func configure(delegate: AnnoucingNewBackupsCellDelegate) {
+            self.delegate = delegate
+            setNeedsUpdateConfiguration()
+        }
+        
+        private func configureNewBackupsAction() {
+            delegate?.userWantsToConfigureNewBackups()
+        }
+        
+        override func updateConfiguration(using state: UICellConfigurationState) {
+            backgroundConfiguration = CustomBackgroundConfiguration.configuration()
+            contentConfiguration = UIHostingConfiguration {
+                AnnoucingNewBackupsCellView(configureNewBackupsAction: configureNewBackupsAction)
+            }
+        }
+        
+        private struct CustomBackgroundConfiguration {
+            static func configuration() -> UIBackgroundConfiguration {
+
+                var background = UIBackgroundConfiguration.clear()
+                
+                background.backgroundColor = .systemBackground
+                if ObvAppCoreConstants.targetEnvironmentIsMacCatalyst {
+                    background.cornerRadius = 8
+                } else {
+                    background.cornerRadius = 12
+                }
+
+                return background
+
+            }
+        }
+
+    }
+    
+}
+
+
+fileprivate struct AnnoucingNewBackupsCellView: View {
+    
+    let configureNewBackupsAction: () -> Void
+    
+    var body: some View {
+        VStack {
+            
+            Label {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("YOUR_BACKUPS_HAVE_EVOLVED")
+                        .font(.headline)
+                    Text("CHOOSE_YOUR_BACKUP_MODE_BODY")
+                        .font(.body)
+                }
+            } icon: {
+                Image(systemIcon: .arrowCounterclockwiseCircle)
+                    .foregroundStyle(Color(UIColor.systemGreen))
+                    .font(.title)
+            }
+            .padding(.bottom)
+            
+            Button(action: configureNewBackupsAction) {
+                HStack {
+                    Spacer(minLength: 0)
+                    Text("CONFIGURE_NEW_BACKUPS")
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical)
+            }
+            .buttonStyle(.borderedProminent)
+
+        }
+    }
+}
+
+
+// MARK: - Previewing the AnnoucingNewBackupsCell
+
+#Preview {
+    ZStack {
+        Color(UIColor.systemGroupedBackground)
+            .ignoresSafeArea()
+        AnnoucingNewBackupsCellView(configureNewBackupsAction: {})
+            .padding()
+            .background(RoundedRectangle(cornerSize: CGSize(width: 10, height: 10), style: .continuous).fill(Color(UIColor.systemBackground)))
+            .padding()
+    }
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -231,16 +231,22 @@ final class ReceivedMessageCell: UICollectionViewCell, CellWithMessage, MessageC
         if message.isLocationMessage {
             let location = message.locationContinuousReceived ?? message.locationOneShotReceived
             let circledInitialsConfiguration = message.contactIdentity?.circledInitialsConfiguration
+            let isSharingLocationExpired: Bool
+            if message.locationOneShotReceived != nil {
+                isSharingLocationExpired = false
+            } else {
+                isSharingLocationExpired = message.locationContinuousReceived?.isSharingLocationExpired ?? true // If nil, we know the sharing expired
+            }
             let locationViewConfiguration = LocationView.Configuration(latitude: location?.latitude ?? 0,
                                                                        longitude: location?.longitude,
                                                                        address: location?.address,
                                                                        sharingType: try? location?.continuousOrOneShot,
                                                                        expirationDate: location?.sharingExpiration?.timeIntervalSince1970,
+                                                                       isSharingLocationExpired: isSharingLocationExpired,
                                                                        userCircledInitialsConfiguration: circledInitialsConfiguration,
                                                                        userCanStopSharingLocation: false,
                                                                        sentFromAnotherDevice: false,
-                                                                       messageObjectID: self.message?.typedObjectID.downcast,
-                                                                       snapshotFilename: location?.snapshotFilename)
+                                                                       messageObjectID: message.typedObjectID.downcast)
             content.locationViewConfiguration = locationViewConfiguration
         } else {
             content.locationViewConfiguration = nil

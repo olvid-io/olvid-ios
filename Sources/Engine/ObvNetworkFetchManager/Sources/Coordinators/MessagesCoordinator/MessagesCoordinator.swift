@@ -83,7 +83,7 @@ extension MessagesCoordinator: MessagesDelegate {
 
         if let downloadMessagesTaskInProgress = downloadMessagesTaskInProgressForOwnedCryptoId[ownedCryptoId] {
             
-            // A download message task is already in progress. Since it was created before our own call to downloadAllMessagesAndListAttachments(ownedCryptoId:flowId:), we wait until its done before performing our own work.
+            // A download message task is already in progress. Since it was created before our own call to downloadAllMessagesAndListAttachments(ownedCryptoId:flowId:), we wait until it's done before performing our own work.
             
             Self.logger.debug("[🚩][\(flowId.shortDebugDescription)] A task \(downloadMessagesTaskInProgress.shortDebugDescription) is already in progress for downloading messages for owned identity \(ownedCryptoId.debugDescription)")
             ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] A task \(downloadMessagesTaskInProgress.shortDebugDescription) is already in progress for downloading messages for owned identity \(ownedCryptoId.debugDescription)")
@@ -95,7 +95,7 @@ extension MessagesCoordinator: MessagesDelegate {
             
             if let newDownloadMessagesTaskInProgress = downloadMessagesTaskInProgressForOwnedCryptoId[ownedCryptoId], newDownloadMessagesTaskInProgress != downloadMessagesTaskInProgress {
 
-                // A download message task already exists. It was created *after* our call to downloadAllMessagesAndListAttachments(ownedCryptoId:flowId:) so we can simply await until its done
+                // A download message task already exists. It was created *after* our call to downloadAllMessagesAndListAttachments(ownedCryptoId:flowId:) so we can simply await until it's done
 
                 Self.logger.debug("[🚩][\(flowId.shortDebugDescription)] The previous download task \(downloadMessagesTaskInProgress.shortDebugDescription) is done. A new one was created in the meantime \(newDownloadMessagesTaskInProgress.shortDebugDescription). We await it.")
                 ObvDisplayableLogs.shared.log("[🚩][\(flowId.shortDebugDescription)] The previous download task \(downloadMessagesTaskInProgress.shortDebugDescription) is done. A new one was created in the meantime \(newDownloadMessagesTaskInProgress.shortDebugDescription). We await it.")

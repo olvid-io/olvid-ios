@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,6 +20,8 @@
 import Foundation
 import ObvTypes
 import ObvUICoreData
+import ObvAppTypes
+
 
 /// This manager is used by the `PersistedDiscussionsUpdatesCoordinator`. It is used when a receiving an `ObvMessage` or an `ObvOwnedMessage` "too early". This is for example the case
 /// when a contact creates a group while our second device is offline. Our first device accepts the invitation and exchanges a few messages. When our second device comes back online, it first receive the protocol
@@ -37,11 +39,13 @@ actor MessagesKeptForLaterManager {
         case obvMessageExpectingContact(contactCryptoId: ObvCryptoId, obvMessage: ObvMessage)
         case obvMessageExpectingOneToOneContact(contactCryptoId: ObvCryptoId, obvMessage: ObvMessage)
         case obvMessageExpectingGroupV2Member(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId, obvMessage: ObvMessage)
+        case obvMessageExpectingDiscussion(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, obvMessage: ObvMessage)
         
         case obvOwnedMessageForGroupV2(groupIdentifier: GroupV2Identifier, obvOwnedMessage: ObvOwnedMessage)
         case obvOwnedMessageExpectingContact(contactCryptoId: ObvCryptoId, obvOwnedMessage: ObvOwnedMessage)
         case obvOwnedMessageExpectingOneToOneContact(contactCryptoId: ObvCryptoId, obvOwnedMessage: ObvOwnedMessage)
         case obvOwnedMessageExpectingGroupV2Member(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId, obvOwnedMessage: ObvOwnedMessage)
+        case obvOwnedMessageExpectingDiscussion(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, obvOwnedMessage: ObvOwnedMessage)
         
     }
     
@@ -49,6 +53,7 @@ actor MessagesKeptForLaterManager {
     private var keptMessagesExpectingContactForOwnedCryptoId = [ObvCryptoId: [ObvCryptoId: [KindOfMessageToKeepForLater]]]()
     private var keptMessagesExpectingOneToOneContactForOwnedCryptoId = [ObvCryptoId: [ObvCryptoId: [KindOfMessageToKeepForLater]]]()
     private var keptMessagesExpectingGroupV2Member = [ObvCryptoId: [GroupV2Identifier: [KindOfMessageToKeepForLater]]]() // Note we don't store the identity of the expected member
+    private var keptMessagesExpectingDiscussion = [ObvAppTypes.ObvDiscussionIdentifier: [KindOfMessageToKeepForLater]]()
     
     // Keep for later PersistedMessageReceived for Groups V2
     
@@ -87,6 +92,11 @@ actor MessagesKeptForLaterManager {
             keptMessages.append(kind)
             keptGroupV2Messages[groupIdentifier] = keptMessages
             keptMessagesExpectingGroupV2Member[ownedCryptoId] = keptGroupV2Messages
+            
+        case .obvMessageExpectingDiscussion(discussionIdentifier: let discussionIdentifier, obvMessage: _):
+            var keptMessages = keptMessagesExpectingDiscussion[discussionIdentifier, default: [KindOfMessageToKeepForLater]()]
+            keptMessages.append(kind)
+            keptMessagesExpectingDiscussion[discussionIdentifier] = keptMessages
 
             
         case .obvOwnedMessageForGroupV2(groupIdentifier: let groupIdentifier, obvOwnedMessage: let obvOwnedMessage):
@@ -120,6 +130,11 @@ actor MessagesKeptForLaterManager {
             keptMessages.append(kind)
             keptGroupV2Messages[groupIdentifier] = keptMessages
             keptMessagesExpectingGroupV2Member[ownedCryptoId] = keptGroupV2Messages
+            
+        case .obvOwnedMessageExpectingDiscussion(discussionIdentifier: let discussionIdentifier, obvOwnedMessage: _):
+            var keptMessages = keptMessagesExpectingDiscussion[discussionIdentifier, default: [KindOfMessageToKeepForLater]()]
+            keptMessages.append(kind)
+            keptMessagesExpectingDiscussion[discussionIdentifier] = keptMessages
 
         }
         
@@ -154,6 +169,12 @@ actor MessagesKeptForLaterManager {
         guard var keptGroupV2Messages = keptMessagesExpectingGroupV2Member[ownedCryptoId] else { return [] }
         let keptForLater = keptGroupV2Messages.removeValue(forKey: groupIdentifier) ?? [KindOfMessageToKeepForLater]()
         keptMessagesExpectingGroupV2Member[ownedCryptoId] = keptGroupV2Messages
+        return keptForLater
+    }
+    
+
+    func getMessagesExpectingDiscussion(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) -> [KindOfMessageToKeepForLater] {
+        let keptForLater = keptMessagesExpectingDiscussion.removeValue(forKey: discussionIdentifier) ?? [KindOfMessageToKeepForLater]()
         return keptForLater
     }
     

@@ -42,7 +42,7 @@ struct SingleUserViewForHorizontalContactsLayout<Model: SingleUserViewForHorizon
     
     var body: some View {
         VStack(alignment: .center) {
-            InitialCircleViewNew(model: model, state: .init(circleDiameter: 58))
+            InitialCircleViewNew(model: model, state: .circleDiameter(diameter: 58))
                 .overlay(alignment: .topTrailing) {
                     if let actions {
                         DeleteButton(model: model, actions: actions)

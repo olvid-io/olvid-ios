@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -82,7 +82,6 @@ final class ProcessServerResponseToPendingServerQueryOperation: ContextualOperat
             
             guard let serverQuery = try PendingServerQuery.get(objectId: pendingServerQueryObjectID, delegateManager: delegateManager, within: obvContext) else {
                 os_log("Could not find server query in database %{public}@", log: log, type: .fault, pendingServerQueryObjectID.debugDescription)
-                assertionFailure()
                 return postOperationAction = .pendingServerQueryNotFound
             }
             

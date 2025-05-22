@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -53,15 +53,50 @@ final class AppSyncSnapshotableCoordinator: OlvidCoordinator, ObvAppSnapshotable
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {}
 
     
-    // MARK: - ObvSnapshotable
+    // MARK: - ObvAppSnapshotable
     
-    func getSyncSnapshotNode(for ownedCryptoId: ObvCryptoId) throws -> any ObvSyncSnapshotNode {
-        return try ObvStack.shared.performBackgroundTaskAndWaitOrThrow { context in
-            return try AppSyncSnapshotNode(ownedCryptoId: ownedCryptoId, within: context)
+    @MainActor
+    func getAdditionalInfosFromAppForProfileBackup(ownedCryptoId: ObvCryptoId) async throws -> AdditionalInfosFromAppForProfileBackup {
+        
+        let platform: OlvidPlatform
+        
+        switch UIDevice.current.userInterfaceIdiom {
+        case .phone:
+            platform = .iPhone
+        case .pad:
+            platform = .iPad
+        case .mac:
+            platform = .mac
+        default:
+            assertionFailure()
+            platform = .iPhone
+        }
+        
+        return .init(platform: platform)
+        
+    }
+    
+
+    func getSyncSnapshotNode(for context: ObvSyncSnapshot.Context) throws -> any ObvSyncSnapshotNode {
+        switch context {
+        case .transfer(let ownedCryptoId):
+            // We return the exact same snapshot node than in the "backupProfile" case
+            return try ObvStack.shared.performBackgroundTaskAndWaitOrThrow { context in
+                return try AppSyncSnapshotNode(ownedCryptoId: ownedCryptoId, within: context)
+            }
+        case .backupDevice:
+            return try ObvStack.shared.performBackgroundTaskAndWaitOrThrow { context in
+                return try AppDeviceSnapshotNode(within: context)
+            }
+        case .backupProfile(let ownedCryptoId):
+            // We return the exact same snapshot node than in the "transfer" case
+            return try ObvStack.shared.performBackgroundTaskAndWaitOrThrow { context in
+                return try AppSyncSnapshotNode(ownedCryptoId: ownedCryptoId, within: context)
+            }
         }
     }
-
     
+
     /// Called by the protocol restoring a sync snapshot during an owned identity transfer protocol
     func syncEngineDatabaseThenUpdateAppDatabase(using syncSnapshotNode: any ObvSyncSnapshotNode) async throws {
         
@@ -148,18 +183,27 @@ final class AppSyncSnapshotableCoordinator: OlvidCoordinator, ObvAppSnapshotable
 
     
     func serializeObvSyncSnapshotNode(_ syncSnapshotNode: any ObvSyncSnapshotNode) throws -> Data {
-        guard let node = syncSnapshotNode as? AppSyncSnapshotNode else {
+        let jsonEncoder = JSONEncoder()
+        switch syncSnapshotNode {
+        case is AppSyncSnapshotNode:
+            return try jsonEncoder.encode(syncSnapshotNode)
+        case is AppDeviceSnapshotNode:
+            return try jsonEncoder.encode(syncSnapshotNode)
+        default:
             assertionFailure()
             throw ObvError.unexpectedSnapshotType
         }
-        let jsonEncoder = JSONEncoder()
-        return try jsonEncoder.encode(node)
     }
     
     
-    func deserializeObvSyncSnapshotNode(_ serializedSyncSnapshotNode: Data) throws -> any ObvSyncSnapshotNode {
+    func deserializeObvSyncSnapshotNode(_ serializedSyncSnapshotNode: Data, context: ObvSyncSnapshot.Context) throws -> any ObvSyncSnapshotNode {
         let jsonDecoder = JSONDecoder()
-        return try jsonDecoder.decode(AppSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
+        switch context {
+        case .transfer, .backupProfile:
+            return try jsonDecoder.decode(AppSyncSnapshotNode.self, from: serializedSyncSnapshotNode)
+        case .backupDevice:
+            return try jsonDecoder.decode(AppDeviceSnapshotNode.self, from: serializedSyncSnapshotNode)
+        }
     }
 
     

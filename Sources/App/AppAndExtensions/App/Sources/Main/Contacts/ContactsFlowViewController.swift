@@ -23,6 +23,7 @@ import ObvEngine
 import ObvTypes
 import ObvUICoreData
 import ObvAppCoreConstants
+import ObvUIGroupV2
 
 
 final class ContactsFlowViewController: UINavigationController, ObvFlowController {
@@ -36,6 +37,22 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
     let obvEngine: ObvEngine
     var floatingButton: UIButton? // Used on iOS 18+ only, set at the ObvFlowController level
     private var floatingButtonAnimator: FloatingButtonAnimator?
+    let appDataSourceForObvUIGroupV2Router: AppDataSourceForObvUIGroupV2Router
+
+    /// This router allows to present the flow allowing to create a new group v2.
+    /// It is expected to be set only once.
+    /// The delegate methods are implemented in an extension of `ObvFlowController`.
+    private(set) lazy var routerForGroupCreation: ObvUIGroupV2Router = {
+        ObvUIGroupV2Router(mode: .creation(delegate: self),
+                           dataSource: appDataSourceForObvUIGroupV2Router)
+    }()
+    /// This router allows to push the flow allowing to edit a new group v2.
+    /// It is expected to be set only once.
+    /// The delegate methods are implemented in an extension of `ObvFlowController`.
+    private(set) lazy var routerForGroupEdition: ObvUIGroupV2Router = {
+        ObvUIGroupV2Router(mode: .edition(delegate: self),
+                           dataSource: appDataSourceForObvUIGroupV2Router)
+    }()
 
     var observationTokens = [NSObjectProtocol]()
 
@@ -49,10 +66,11 @@ final class ContactsFlowViewController: UINavigationController, ObvFlowControlle
 
     // MARK: - Factory
 
-    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
+    init(ownedCryptoId: ObvCryptoId, appListOfGroupMembersViewDataSource: AppDataSourceForObvUIGroupV2Router, obvEngine: ObvEngine) {
         
         self.currentOwnedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
+        self.appDataSourceForObvUIGroupV2Router = appListOfGroupMembersViewDataSource
         
         let allContactsVC = AllContactsViewController(ownedCryptoId: ownedCryptoId, oneToOneStatus: .oneToOne, showExplanation: true, textAboveContactList: nil)
         super.init(rootViewController: allContactsVC)

@@ -49,6 +49,8 @@ final class ConfigureAudioSessionOperation: OperationWithSpecificReasonForCancel
             defer { rtcAudioSession.unlockForConfiguration() }
             
 //            try rtcAudioSession.setCategory(.playAndRecord, mode: .voiceChat)
+            try rtcAudioSession.setCategory(.playAndRecord, mode: .videoChat)
+
             
             let configuration = RTCAudioSessionConfiguration.webRTC()
             configuration.categoryOptions = [.allowBluetooth, .allowBluetoothA2DP, .duckOthers]

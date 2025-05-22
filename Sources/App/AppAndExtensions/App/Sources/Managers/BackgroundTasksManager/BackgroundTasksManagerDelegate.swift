@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,5 +21,11 @@ import Foundation
 
 
 protocol BackgroundTasksManagerDelegate: AnyObject {
+
     func syncAppDatabasesWithEngine(backgroundTasksManager: BackgroundTasksManager) async throws
+
+    // For backups
+    func newBackupsAreConfiguredAndCanBePerformed() async throws -> Bool
+    func createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing() async throws
+    
 }

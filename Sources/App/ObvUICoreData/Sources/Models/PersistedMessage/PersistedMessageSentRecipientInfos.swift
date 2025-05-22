@@ -149,8 +149,10 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
 
     public func messageWasSentNoLaterThan(_ timestamp: Date, alsoMarkAttachmentsAsSent: Bool) {
         
-        if let currentTimeStamp = self.timestampMessageSent, currentTimeStamp != min(timestamp, currentTimeStamp) {
-            self.timestampMessageSent = min(timestamp, currentTimeStamp)
+        if let currentTimeStamp = self.timestampMessageSent {
+            if currentTimeStamp > timestamp {
+                self.timestampMessageSent = timestamp
+            }
         } else {
             self.timestampMessageSent = timestamp
         }
@@ -200,15 +202,19 @@ public final class PersistedMessageSentRecipientInfos: NSManagedObject {
 
         messageWasSentNoLaterThan(timestamp, alsoMarkAttachmentsAsSent: true)
 
-        if let currentTimeStamp = self.timestampDelivered, currentTimeStamp != min(timestamp, currentTimeStamp) {
-            self.timestampDelivered = min(timestamp, currentTimeStamp)
+        if let currentTimeStamp = self.timestampDelivered {
+            if currentTimeStamp > timestamp {
+                self.timestampDelivered = timestamp
+            }
         } else {
             self.timestampDelivered = timestamp
         }
         
         if andRead {
-            if let currentTimeStamp = self.timestampRead, currentTimeStamp != min(timestamp, currentTimeStamp) {
-                self.timestampRead = min(timestamp, currentTimeStamp)
+            if let currentTimeStamp = self.timestampRead {
+                if currentTimeStamp > timestamp {
+                    self.timestampRead = timestamp
+                }
             } else {
                 self.timestampRead = timestamp
             }

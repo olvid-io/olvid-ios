@@ -26,6 +26,7 @@ import ObvUICoreData
 import ObvSettings
 import ObvDesignSystem
 import ObvAppCoreConstants
+import ObvUIGroupV2
 
 
 final class GroupsFlowViewController: UINavigationController, ObvFlowController {
@@ -37,11 +38,28 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
     let obvEngine: ObvEngine
     var floatingButton: UIButton? // Used on iOS 18+ only, set at the ObvFlowController level
     private var floatingButtonAnimator: FloatingButtonAnimator?
+    let appDataSourceForObvUIGroupV2Router: AppDataSourceForObvUIGroupV2Router
 
     var observationTokens = [NSObjectProtocol]()
 
     static let errorDomain = "GroupsFlowViewController"
-
+    
+    /// This router allows to present the flow allowing to create a new group v2.
+    /// It is expected to be set only once.
+    /// The delegate methods are implemented in an extension of `ObvFlowController`.
+    private(set) lazy var routerForGroupCreation: ObvUIGroupV2Router = {
+        ObvUIGroupV2Router(mode: .creation(delegate: self),
+                           dataSource: appDataSourceForObvUIGroupV2Router)
+    }()
+    /// This router allows to push the flow allowing to edit a new group v2.
+    /// It is expected to be set only once.
+    /// The delegate methods are implemented in an extension of `ObvFlowController`.
+    private(set) lazy var routerForGroupEdition: ObvUIGroupV2Router = {
+        ObvUIGroupV2Router(mode: .edition(delegate: self),
+                           dataSource: appDataSourceForObvUIGroupV2Router)
+    }()
+        
+    
     // Constants
     
     let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: GroupsFlowViewController.self))
@@ -52,10 +70,11 @@ final class GroupsFlowViewController: UINavigationController, ObvFlowController 
 
     // MARK: - Factory
     
-    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
+    init(ownedCryptoId: ObvCryptoId, appListOfGroupMembersViewDataSource: AppDataSourceForObvUIGroupV2Router, obvEngine: ObvEngine) {
         
         self.currentOwnedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
+        self.appDataSourceForObvUIGroupV2Router = appListOfGroupMembersViewDataSource
         
         let allGroupsViewController = NewAllGroupsViewController(ownedCryptoId: ownedCryptoId)
         super.init(rootViewController: allGroupsViewController)
@@ -175,10 +194,13 @@ extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
         pushViewController(singleGroupVC, animated: true)
     }
     
-    func userDidSelect(_ group: PersistedGroupV2, within: UINavigationController?) {
-        guard let vc = try? SingleGroupV2ViewController(group: group, obvEngine: obvEngine, delegate: self) else { assertionFailure(); return }
-        pushViewController(vc, animated: true)
+
+    func userDidSelect(_ group: PersistedGroupV2, within navigationController: UINavigationController?) {
+        guard let groupV2Identifier = try? group.obvGroupIdentifier else { assertionFailure(); return }
+        // The following method is implemented at the ObvFlowController level
+        self.userWantsToNavigateToSingleGroupView(groupIdentifier: groupV2Identifier, within: navigationController)
     }
+
     
     func userWantsToAddContactGroup() {
         assert(Thread.isMainThread)
@@ -196,11 +218,9 @@ extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
             }))
             alert.addAction(UIAlertAction(title: NSLocalizedString("CHOOSE_GROUP_V2", comment: ""), style: .default, handler: { [weak self] (action) in
                 guard let self else { return }
-                let groupCreationFlowVC = NewGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId,
-                                                                            editionType: .createGroup(delegate: self),
-                                                                            logSubsystem: ObvAppCoreConstants.logSubsystem,
-                                                                            directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url)
-                self.present(groupCreationFlowVC, animated: true)
+                routerForGroupCreation.presentInitialViewControllerForGroupCreation(ownedCryptoId: currentOwnedCryptoId,
+                                                                                    presentingViewController: self,
+                                                                                    creationMode: .fromScratch)
             }))
             alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
             
@@ -214,11 +234,10 @@ extension GroupsFlowViewController: NewAllGroupsViewControllerDelegate {
             
             // Starting with version 0.12.0, we only allow the creation of groups v2.
             // The group creation flow was completely refactored in version 2.4
-            let groupCreationFlowVC = NewGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId,
-                                                                        editionType: .createGroup(delegate: self),
-                                                                        logSubsystem: ObvAppCoreConstants.logSubsystem,
-                                                                        directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url)
-            present(groupCreationFlowVC, animated: true)
+            // 2025-04-21: the group creation flow was re-coded from scratch.
+            routerForGroupCreation.presentInitialViewControllerForGroupCreation(ownedCryptoId: currentOwnedCryptoId,
+                                                                                presentingViewController: self,
+                                                                                creationMode: .fromScratch)
             
         }
     }

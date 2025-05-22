@@ -9,15 +9,24 @@ extension Target {
                                            infoPlist: InfoPlist = .default,
                                            sourcesDirectoryName: String = "",
                                            resources: ProjectDescription.ResourceFileElements? = nil,
+                                           developmentAssets: String? = nil,
                                            dependencies: [TargetDependency],
                                            coreDataModels: [CoreDataModel] = [],
                                            additionalFiles: [ProjectDescription.FileElement] = [],
                                            prepareForSwift6: Bool = false,
                                            enableSwift6: Bool = false) -> Target {
         
-        let settings: Settings = .settingsForFrameworkTarget(prepareForSwift6: prepareForSwift6, enableSwift6: enableSwift6)
+        let settings: Settings = .settingsForFrameworkTarget(prepareForSwift6: prepareForSwift6, enableSwift6: enableSwift6, developmentAssets: developmentAssets)
         
         let sources = sourcesDirectoryName.isEmpty ? "Sources/**/*.swift" : [sourcesDirectoryName, "Sources/**/*.swift"].joined(separator: "/")
+
+        let allSources: ProjectDescription.SourceFilesList
+        if let developmentAssets {
+            let developmentSources = [developmentAssets, "**/*.swift"].joined(separator: "/")
+            allSources = [.init(stringLiteral: sources), .init(stringLiteral: developmentSources)]
+        } else {
+            allSources = [.init(stringLiteral: sources)]
+        }
         
         return .target(name: name,
                        destinations: Constant.destinations,
@@ -26,7 +35,7 @@ extension Target {
                        bundleId: "io.olvid.\(name)",
                        deploymentTargets: Constant.deploymentTargets,
                        infoPlist: infoPlist,
-                       sources: [.init(stringLiteral: sources)],
+                       sources: allSources,
                        resources: resources,
                        copyFiles: nil,
                        headers: nil,
@@ -283,6 +292,7 @@ extension Target {
             .Olvid.App.obvAppTypes,
             .Olvid.App.obvKeycloakManager,
             .Olvid.App.UI.obvCircledInitials,
+            .Olvid.App.UI.obvCircleAndTitlesView,
             .Olvid.Engine.obvCrypto,
             .Olvid.Engine.obvEngine,
             .Olvid.App.UI.obvImageEditor,
@@ -382,6 +392,7 @@ extension Target {
             .Olvid.App.obvAppCoreConstants,
             .Olvid.App.obvUICoreData,
             .Olvid.App.obvDesignSystem,
+            .Olvid.App.obvUIGroupV2,
             .Olvid.App.Discussions.Mentions.AutoGrowingTextView.textViewDelegateProxy,
             .Olvid.App.Discussions.Mentions.Builders.composeMessage,
             .Olvid.App.Discussions.Mentions.Builders.buildersShared,
@@ -394,11 +405,13 @@ extension Target {
             .Olvid.App.Components.obvEmojiUtils,
             .Olvid.App.UI.obvPhotoButton,
             .Olvid.App.UI.obvCircledInitials,
+            .Olvid.App.UI.obvCircleAndTitlesView,
             .Olvid.App.UI.obvImageEditor,
             .Olvid.App.UI.obvScannerHostingView,
             .Olvid.App.obvSystemIcon,
             .Olvid.App.obvUI,
             .Olvid.App.obvLocation,
+            .Olvid.App.obvAppBackup,
             .Olvid.App.obvAppTypes,
             .Olvid.App.obvKeycloakManager,
             .Olvid.App.obvOnboarding,

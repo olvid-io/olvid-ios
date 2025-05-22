@@ -69,7 +69,9 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
         resetOwnObvCapabilities()
         autoAcceptPendingGroupInvitesIfPossible()
         
-        await removeOldCachedMapSnapshots()
+        if #available(iOS 17.0, *) {
+            await removeDirectoryForLegacyMapSnapshots()
+        }
         
         if forTheFirstTime {
             await syncAppDatabasesWithEngineIfRequired(queuePriority: .normal, syncRequestType: .foreground)
@@ -111,6 +113,17 @@ final class BootstrapCoordinator: OlvidCoordinator, ObvErrorMaker {
 // MARK: - Implementing BackgroundTasksManagerDelegate
 
 extension BootstrapCoordinator: BackgroundTasksManagerDelegate {
+    
+    func newBackupsAreConfiguredAndCanBePerformed() async throws -> Bool {
+        let deviceBackupSeed = try await obvEngine.getDeviceActiveBackupSeed()
+        return deviceBackupSeed != nil
+    }
+    
+    
+    func createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing() async throws {
+        try await obvEngine.createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing()
+    }
+    
     
     func syncAppDatabasesWithEngine(backgroundTasksManager: BackgroundTasksManager) async throws {
         await syncAppDatabasesWithEngineIfRequired(queuePriority: .veryHigh, syncRequestType: .processingBackgroundTask)
@@ -242,10 +255,16 @@ extension BootstrapCoordinator {
         MissingReceivedLinkPreviewFetcher.removeCachedPreviewFilesGenerated(olderThan: dateLimit)
     }
     
+    @available(iOS 17.0, *)
     @MainActor
-    private func removeOldCachedMapSnapshots() {
-        let dateLimit = Date.now.addingTimeInterval(-ObvMessengerConstants.TTL.cachedMapSnapshot)
-        ObvLocationService.removeCachedMapSnapshotGenerated(olderThan: dateLimit)
+    private func removeDirectoryForLegacyMapSnapshots() {
+        let snapshotDir = ObvUICoreDataConstants.ContainerURL.forMapSnapshots.url
+        guard FileManager.default.fileExists(atPath: snapshotDir.path) else { return }
+        do {
+            try FileManager.default.removeItem(at: snapshotDir)
+        } catch {
+            assertionFailure()
+        }
     }
 
     private func resyncPersistedInvitationsWithEngine() async {

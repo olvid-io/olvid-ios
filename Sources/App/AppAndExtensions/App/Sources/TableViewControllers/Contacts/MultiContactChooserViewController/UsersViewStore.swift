@@ -362,6 +362,26 @@ extension PersistedUser: SingleUserViewForHorizontalUsersLayoutModelProtocol {
 
 extension PersistedUser: ManagedUserViewForVerticalUsersLayoutModelProtocol {
     
+    var userHasNoDevice: Bool {
+        switch self.kind {
+        case .contact(contact: let contact):
+            return contact.userHasNoDevice
+        case .groupMember(groupMember: let groupMember):
+            return groupMember.userHasNoDevice
+        }
+    }
+    
+    
+    var atLeastOneDeviceAllowsThisUserToReceiveMessages: Bool {
+        switch self.kind {
+        case .contact(contact: let contact):
+            return contact.atLeastOneDeviceAllowsThisUserToReceiveMessages
+        case .groupMember(groupMember: let groupMember):
+            return groupMember.atLeastOneDeviceAllowsThisUserToReceiveMessages
+        }
+    }
+
+    
     var detailsStatus: UserCellViewTypes.UserDetailsStatus {
         switch self.kind {
         case .contact(contact: let contact):
@@ -461,4 +481,12 @@ extension PersistedGroupV2Member: ManagedUserViewForVerticalUsersLayoutModelProt
         return nil
     }
     
+    var userHasNoDevice: Bool {
+        return false
+    }
+    
+    var atLeastOneDeviceAllowsThisUserToReceiveMessages: Bool {
+        return true
+    }
+
 }

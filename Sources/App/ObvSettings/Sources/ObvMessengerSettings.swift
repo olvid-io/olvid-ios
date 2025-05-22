@@ -59,7 +59,7 @@ public struct ObvMessengerSettings {
 
         }
         
-        public enum AutoAcceptGroupInviteFrom: String, CaseIterable {
+        public enum AutoAcceptGroupInviteFrom: String, CaseIterable, Sendable {
             case everyone = "everyone"
             case oneToOneContactsOnly = "contacts"
             case noOne = "nobody"
@@ -668,21 +668,63 @@ public struct ObvMessengerSettings {
     
     public struct Backup {
         
+        enum Key: String {
+            // Legacy backups
+            case isAutomaticBackupEnabled = "isAutomaticBackupEnabled"
+            case isAutomaticCleaningBackupEnabled = "isAutomaticCleaningBackupEnabled"
+            // New backups
+            case userDidSetupBackupsAtLeastOnce = "userDidSetupBackupsAtLeastOnce"
+            case dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey = "dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey"
+            
+            private var kBackup: String { "backup" }
+            
+            var path: String {
+                [kSettingsKeyPath, kBackup, self.rawValue].joined(separator: ".")
+            }
+
+        }
+
+        /// For legacy backups
         public static var isAutomaticBackupEnabled: Bool {
             get {
-                return userDefaults.boolOrNil(forKey: "settings.backup.isAutomaticBackupEnabled") ?? false
+                return userDefaults.boolOrNil(forKey: Key.isAutomaticBackupEnabled.path) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: "settings.backup.isAutomaticBackupEnabled")
+                userDefaults.set(newValue, forKey: Key.isAutomaticBackupEnabled.path)
             }
         }
         
+        /// For legacy backups
         public static var isAutomaticCleaningBackupEnabled: Bool {
             get {
-                return userDefaults.boolOrNil(forKey: "settings.backup.isAutomaticCleaningBackupEnabled") ?? false
+                return userDefaults.boolOrNil(forKey: Key.isAutomaticCleaningBackupEnabled.path) ?? false
             }
             set {
-                userDefaults.set(newValue, forKey: "settings.backup.isAutomaticCleaningBackupEnabled")
+                userDefaults.set(newValue, forKey: Key.isAutomaticCleaningBackupEnabled.path)
+            }
+        }
+        
+        
+        // For new backups
+        public static var userDidSetupBackupsAtLeastOnce: Bool {
+            get {
+                return userDefaults.boolOrNil(forKey: Key.userDidSetupBackupsAtLeastOnce.path) ?? false
+            }
+            set {
+                guard newValue else { assertionFailure("Once true, this setting cannot be turned back to false"); return }
+                userDefaults.set(newValue, forKey: Key.userDidSetupBackupsAtLeastOnce.path)
+                ObvMessengerSettingsObservableObject.shared.userDidSetupBackupsAtLeastOnce = newValue
+            }
+        }
+        
+        
+        public static var dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: Date? {
+            get {
+                return userDefaults.dateOrNil(forKey: Key.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey.path)
+            }
+            set {
+                userDefaults.set(newValue, forKey: Key.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey.path)
+                ObvMessengerSettingsObservableObject.shared.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey = newValue
             }
         }
         
@@ -985,6 +1027,8 @@ public final class ObvMessengerSettingsObservableObject: ObservableObject {
     @Published public fileprivate(set) var hideGroupMemberChangeMessages: Bool
     @Published public fileprivate(set) var sendMessageShortcutType: ObvMessengerSettings.Interface.SendMessageShortcutType
     @Published public fileprivate(set) var performInteractionDonation: Bool
+    @Published public fileprivate(set) var userDidSetupBackupsAtLeastOnce: Bool
+    @Published public fileprivate(set) var dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: Date?
     
     private init() {
         defaultEmojiButton = ObvMessengerSettings.Emoji.defaultEmojiButton
@@ -994,6 +1038,8 @@ public final class ObvMessengerSettingsObservableObject: ObservableObject {
         hideGroupMemberChangeMessages = ObvMessengerSettings.ContactsAndGroups.hideGroupMemberChangeMessages
         sendMessageShortcutType = ObvMessengerSettings.Interface.sendMessageShortcutType
         performInteractionDonation = ObvMessengerSettings.Discussions.performInteractionDonation
+        userDidSetupBackupsAtLeastOnce = ObvMessengerSettings.Backup.userDidSetupBackupsAtLeastOnce
+        dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey = ObvMessengerSettings.Backup.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey
     }
     
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -345,6 +345,14 @@ public final class ObvProtocolManagerDummy: ObvProtocolDelegate, ObvFullRatchetP
         os_log("continueOwnedIdentityTransferProtocolOnUserProvidesProofOfAuthenticationOnKeycloakServer does nothing in this dummy implementation", log: log, type: .error)
     }
     
+    
+    public func restoreOwnedIdentitySnapshot(ownedCryptoId: ObvCryptoId, identityNode: any ObvSyncSnapshotNode, currentDeviceName: String, rawAuthState: Data?, flowId: FlowIdentifier) async throws {
+        os_log("restoreOwnedIdentitySnapshot does nothing in this dummy implementation", log: log, type: .error)
+    }
+    
+    public func deleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) throws {
+        os_log("deleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentity does nothing in this dummy implementation", log: log, type: .error)
+    }
     
     
     // MARK: - Implementing ObvManager

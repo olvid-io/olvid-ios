@@ -72,7 +72,7 @@ final class ProcessObvLocationForThisPhysicalDeviceOperation: ContextualOperatio
                     return cancel(withReason: .ownedIdentityIsInactive)
                 }
 
-                let (unprocessedMessagesToSend, updatedSentMessages) = try ownedIdentity.createPersistedLocationContinuousSent(locationData: locationData, expirationDate: expirationDate, discussionIdentifier: discussionIdentifier)
+                let (unprocessedMessagesToSend, updatedSentMessages) = try ownedIdentity.createPersistedLocationContinuousSentForCurrentOwnedDevice(locationData: locationData, expirationDate: expirationDate, discussionIdentifier: discussionIdentifier)
 
                 self.unprocessedMessagesToSend.formUnion(unprocessedMessagesToSend)
                 self.updateMessageJSONsToSend.formUnion(try updatedSentMessages.map({ try $0.toUpdateMessageJSONToSend() }))

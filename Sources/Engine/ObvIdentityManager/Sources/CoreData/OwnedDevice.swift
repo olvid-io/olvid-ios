@@ -679,13 +679,6 @@ struct OwnedDeviceBackupItem: Codable, Hashable {
         self.uid = uid
     }
     
-    private static let errorDomain = String(describing: Self.self)
-
-    private static func makeError(message: String) -> Error {
-        let userInfo = [NSLocalizedFailureReasonErrorKey: message]
-        return NSError(domain: errorDomain, code: 0, userInfo: userInfo)
-    }
-
     enum CodingKeys: String, CodingKey {
         case uid = "uid"
     }
@@ -699,16 +692,11 @@ struct OwnedDeviceBackupItem: Codable, Hashable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         let rawUid = try values.decode(Data.self, forKey: .uid)
         guard let uid = UID(uid: rawUid) else {
-            throw OwnedDeviceBackupItem.makeError(message: "Could not recover uid")
+            throw ObvError.couldNotRecoverUID
         }
         self.uid = uid
     }
     
-//    func restoreInstance(within obvContext: ObvContext, associations: inout BackupItemObjectAssociations) throws {
-//        let ownedDevice = OwnedDevice(backupItem: self, within: obvContext)
-//        try associations.associate(ownedDevice, to: self)
-//    }
-
     func restoreRelationships(associations: BackupItemObjectAssociations, within obvContext: ObvContext) throws {
         // Nothing do to here
     }
@@ -718,6 +706,10 @@ struct OwnedDeviceBackupItem: Codable, Hashable {
         let dummyBackupItem = OwnedDeviceBackupItem(uid: uid)
         let currentDevice = OwnedDevice(backupItem: dummyBackupItem, within: obvContext)
         return currentDevice
+    }
+    
+    enum ObvError: Error {
+        case couldNotRecoverUID
     }
 }
 

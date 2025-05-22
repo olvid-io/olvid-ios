@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvSystemIcon
 import ObvUI
+import ObvDesignSystem
 
 
 /// Is expected to be implemented by ``PersistedObvOwnedIdentity``.
@@ -41,16 +42,20 @@ struct AllInvitationsView<Model: AllInvitationsViewModelProtocol>: View {
     @ObservedObject var model: Model
     
     var contentView: some View {
-        ScrollView {
-            VStack {
-                ForEach(model.sortedInvitations, id: \.invitationUUID) { invitation in
-                    ObvCardView {
-                        InvitationView(actions: actions, model: invitation)
+        ZStack {
+            Color(AppTheme.shared.colorScheme.systemBackground)
+                .ignoresSafeArea(.all)
+            ScrollView {
+                VStack {
+                    ForEach(model.sortedInvitations, id: \.invitationUUID) { invitation in
+                        ObvCardView {
+                            InvitationView(actions: actions, model: invitation)
+                        }
+                        .padding(.bottom)
                     }
-                    .padding(.bottom)
                 }
+                .padding()
             }
-            .padding()
         }
     }
     
@@ -75,7 +80,9 @@ struct AllInvitationsView<Model: AllInvitationsViewModelProtocol>: View {
                     }
                 }
         } else {
-            ObvContentUnavailableView("CONTENT_UNAVAILABLE_INVITATIONS_TEXT", systemIcon: .tray, description: Text("CONTENT_UNAVAILABLE_INVITATIONS_DESCRIPTION"))
+            ObvContentUnavailableView(title: String(localized: "CONTENT_UNAVAILABLE_INVITATIONS_TEXT"),
+                                      systemIcon: .tray,
+                                      description: String(localized: "CONTENT_UNAVAILABLE_INVITATIONS_DESCRIPTION"))
         }
     }
 }

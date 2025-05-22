@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,7 +28,10 @@ internal extension ObvOwnedIdentity {
 
     init?(ownedCryptoIdentity: ObvCryptoIdentity, identityDelegate: ObvIdentityDelegate, within obvContext: ObvContext) {
         do {
-             guard try identityDelegate.isOwned(ownedCryptoIdentity, within: obvContext) else { return nil }
+            guard try !identityDelegate.isOwnedIdentityDeletedOrDeletionIsInProgress(ownedCryptoIdentity, within: obvContext) else {
+                return nil
+            }
+            guard try identityDelegate.isOwned(ownedCryptoIdentity, within: obvContext) else { return nil }
         } catch {
             return nil
         }

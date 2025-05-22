@@ -86,6 +86,13 @@ public struct ObvConstants {
             }
         }
     }
+    
+    
+    public struct BackupSeedForLegacyIdentity {
+        public static let macPayload: UInt8 = 0xcc
+        public static let hashPadding = "backupKey".data(using: .utf8)!
+    }
+    
 
     public static let transferMaxPayloadSize = 10_000 // in Bytes
     

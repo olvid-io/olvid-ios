@@ -21,6 +21,7 @@ import Foundation
 import UserNotifications
 import Intents
 import ObvAppTypes
+import OlvidUtils
 
 
 public final class ObvCommunicationInteractor {
@@ -64,8 +65,12 @@ public final class ObvCommunicationInteractor {
     public static func update(notificationContent: UNNotificationContent, communicationType: ObvCommunicationType) async throws -> UNNotificationContent {
         let interaction = try await suggest(communicationType: communicationType)
         guard let notificationContentProvider = interaction.intent as? UNNotificationContentProviding else {
+            assertionFailure()
             throw ObvError.unexpectedIntentType
         }
+        
+        ObvDisplayableLogs.shared.log("[CommunicationInteractor] Will update the notification content with a UNNotificationContentProviding")
+
         let updatedContent = try notificationContent.updating(from: notificationContentProvider)
         return updatedContent
     }

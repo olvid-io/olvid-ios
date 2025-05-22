@@ -38,6 +38,7 @@ enum ObvDeepLinkHost: CaseIterable {
     case voipSettings
     case privacySettings
     case interfaceSettings
+    case storageManagementSettings
     case message
     case allGroups
     case olvidCallView
@@ -74,6 +75,7 @@ enum ObvDeepLink: Equatable {
     case backupSettings
     case privacySettings
     case interfaceSettings
+    case storageManagementSettings
     case voipSettings
     case message(ObvMessageAppIdentifier)
     case allGroups(ownedCryptoId: ObvCryptoId)
@@ -114,6 +116,8 @@ enum ObvDeepLink: Equatable {
         case .privacySettings:
             return host.name
         case .interfaceSettings:
+            return host.name
+        case .storageManagementSettings:
             return host.name
         case .message(let messageAppIdentifier):
             return [host.name, messageAppIdentifier.description].joined(separator: "|")
@@ -185,6 +189,8 @@ enum ObvDeepLink: Equatable {
             self = .privacySettings
         case .interfaceSettings:
             self = .interfaceSettings
+        case .storageManagementSettings:
+            self = .storageManagementSettings
         case .message:
             guard splits.count == 2 else { assertionFailure(); return nil }
             guard let messageAppIdentifier = ObvMessageAppIdentifier(splits[1]) else { assertionFailure(); return nil }
@@ -216,6 +222,7 @@ enum ObvDeepLink: Equatable {
         case .voipSettings: return .voipSettings
         case .privacySettings: return .privacySettings
         case .interfaceSettings: return .interfaceSettings
+        case .storageManagementSettings: return .storageManagementSettings
         case .message: return .message
         case .allGroups: return .allGroups
         case .olvidCallView: return .olvidCallView
@@ -256,6 +263,8 @@ enum ObvDeepLink: Equatable {
         case .privacySettings:
             return nil
         case .interfaceSettings:
+            return nil
+        case .storageManagementSettings:
             return nil
         case .message(let messageAppIdentifier):
             return messageAppIdentifier.discussionIdentifier.ownedCryptoId

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -29,6 +29,7 @@ actor BatchUploadMessagesWithoutAttachmentCoordinator {
     private static let defaultLogSubsystem = ObvNetworkSendDelegateManager.defaultLogSubsystem
     private static let logCategory = "BatchUploadMessagesWithoutAttachmentCoordinator"
     private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
+    private static var logger = Logger(subsystem: defaultLogSubsystem, category: logCategory)
 
     private weak var delegateManager: ObvNetworkSendDelegateManager?
 
@@ -78,7 +79,7 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator: BatchUploadMessagesWi
     
     private func batchUploadMessagesWithoutAttachment(serverURL: URL, fetchLimit: Int, flowId: FlowIdentifier) async throws {
         
-        os_log("Call to batchUploadMessagesWithoutAttachment with fetchLimit=%d", log: Self.log, type: .debug, fetchLimit)
+        Self.logger.debug("Call to batchUploadMessagesWithoutAttachment with fetchLimit=\(fetchLimit)")
         
         guard let delegateManager else {
             assertionFailure()
@@ -174,7 +175,7 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator {
             
             let taskId = String(UUID().description.prefix(5))
 
-            let messagesToUpload = try await getAllMessagesToUploadWithoutAttachmentsForActiveOwnedIdentities(serverURL: serverURL, fetchLimit: fetchLimit, delegateManager: delegateManager, flowId: flowId)
+            let messagesToUpload = try await getAllMessagesToUploadWithoutAttachments(serverURL: serverURL, fetchLimit: fetchLimit, delegateManager: delegateManager, flowId: flowId)
             
             os_log("🎉 [%@] Starting the task for uploading %d messages without attachment", log: Self.log, type: .debug, taskId, messagesToUpload.count)
 
@@ -268,38 +269,20 @@ extension BatchUploadMessagesWithoutAttachmentCoordinator {
     }
     
     
-    /// Returns a dictionary, where the keys are server URLs, and the values are all the `MessageToUpload` on the server indicated by the key.
-    private func getAllMessagesToUploadWithoutAttachmentsForActiveOwnedIdentities(serverURL: URL, fetchLimit: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) async throws -> [ObvServerBatchUploadMessages.MessageToUpload] {
+    private func getAllMessagesToUploadWithoutAttachments(serverURL: URL, fetchLimit: Int, delegateManager: ObvNetworkSendDelegateManager, flowId: FlowIdentifier) async throws -> [ObvServerBatchUploadMessages.MessageToUpload] {
         
         guard let contextCreator = delegateManager.contextCreator else {
             assertionFailure()
             throw ObvError.theContextCreatorIsNotSet
         }
         
-        guard let identityDelegate = delegateManager.identityDelegate else {
-            assertionFailure()
-            throw ObvError.theIdentityDelegateIsNotSet
-        }
-        
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[ObvServerBatchUploadMessages.MessageToUpload], any Error>) in
             contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
                 do {
                     let outboxMessages = try OutboxMessage.getAllMessagesToUploadWithoutAttachments(serverURL: serverURL, fetchLimit: fetchLimit, delegateManager: delegateManager, within: obvContext)
-                    // Filter out messages corresponding to inactive owned identities and create one MessageToUpload per remaining OutboxMessage
-                    let ownedCryptoIds = Set(outboxMessages.compactMap(\.messageId?.ownedCryptoIdentity))
-                    let activeOwnedCryptoIds = ownedCryptoIds.filter { ownedCryptoId in
-                        do {
-                            return try identityDelegate.isOwnedIdentityActive(ownedIdentity: ownedCryptoId, flowId: flowId)
-                        } catch {
-                            assertionFailure()
-                            return false
-                        }
-                    }
+                    // 2025-05-07: We used to restrict to messages from active owned identities. We don't do that anymore as this prevents the sending of certain messages during a global deletion
+                    // of a profile.
                     let messagesToUpload = outboxMessages
-                        .filter {
-                            guard let ownedCryptoIdentity = $0.messageId?.ownedCryptoIdentity else { return false }
-                            return activeOwnedCryptoIds.contains(ownedCryptoIdentity)
-                        }
                         .compactMap({ ObvServerBatchUploadMessages.MessageToUpload(outboxMessage: $0) })
                     // Return the resulting MessageToUpload instances
                     return continuation.resume(returning: messagesToUpload)

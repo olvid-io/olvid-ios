@@ -39,7 +39,7 @@ public struct ObvKeycloakConfigurationAndServer: Decodable {
 }
 
 
-public struct ObvKeycloakConfiguration: Codable, Equatable {
+public struct ObvKeycloakConfiguration: Codable, Equatable, Sendable {
     
     public let keycloakServerURL: URL // Keycloak server URL
     public let clientId: String

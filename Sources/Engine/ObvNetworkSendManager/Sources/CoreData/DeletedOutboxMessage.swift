@@ -127,7 +127,16 @@ extension DeletedOutboxMessage {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: DeletedOutboxMessage.entityName)
         fetchRequest.predicate = Predicate.withMessageId(messageId)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        _ = try obvContext.execute(deleteRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(deleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
 
     
@@ -135,7 +144,16 @@ extension DeletedOutboxMessage {
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: DeletedOutboxMessage.entityName)
         request.predicate = Predicate.withTimestampFromServer(earlierOrEqualTo: date)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        _ = try obvContext.execute(deleteRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(deleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
 
     
@@ -143,7 +161,16 @@ extension DeletedOutboxMessage {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: DeletedOutboxMessage.entityName)
         fetchRequest.predicate = NSPredicate(format: "%K == %@", Predicate.Key.rawMessageIdOwnedIdentity.rawValue, ownedCryptoIdentity.getIdentity() as NSData)
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        _ = try obvContext.execute(request)
+        request.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
     
 }

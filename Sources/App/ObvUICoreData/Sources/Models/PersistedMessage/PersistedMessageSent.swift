@@ -1849,7 +1849,9 @@ extension PersistedMessageSent {
      *  - Returns fyleMessageJoinWithStatusesToDownload: [ReceivedFyleMessageJoinWithStatus]
      */
     public var fyleMessageJoinWithStatusesToDownload: [SentFyleMessageJoinWithStatus] {
-        fyleMessageJoinWithStatuses
+        // If the message is wiped, we never request the download of its attachments
+        guard !self.isWiped else { return [] }
+        return fyleMessageJoinWithStatuses
             .filter { join in
                 // A negative maxAttachmentSizeForAutomaticDownload means "unlimited"
                 return ObvMessengerSettings.Downloads.maxAttachmentSizeForAutomaticDownload < 0
@@ -1865,7 +1867,7 @@ extension PersistedMessageSent {
     public var fyleMessageJoinWithStatusesFromOtherOwnedDeviceToDeleteFromServer: [SentFyleMessageJoinWithStatus] {
         fyleMessageJoinWithStatuses
             .filter { $0.messageIdentifierFromEngine != nil }
-            .filter { $0.status == .cancelledByServer || $0.status == .complete }
+            .filter { $0.status == .cancelledByServer || $0.status == .complete || $0.isWiped }
     }
 
     

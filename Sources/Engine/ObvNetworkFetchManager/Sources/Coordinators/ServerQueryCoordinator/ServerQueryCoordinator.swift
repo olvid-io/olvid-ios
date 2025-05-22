@@ -118,6 +118,52 @@ actor ServerQueryCoordinator {
 
 extension ServerQueryCoordinator: ServerQueryDelegate {
 
+    /// Ad-hoc method called by the engine (and not used by any protocol) to immediately fetch user data.
+    func getUserDataNow(cryptoId: ObvCryptoId, serverLabel: UID, flowId: FlowIdentifier) async throws -> EncryptedData? {
+        
+        guard let delegateManager else {
+            os_log("🖲️ The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure()
+            throw ObvError.delegateManagerIsNil
+        }
+
+        let (responseData, urlResponse, _) = try await performServerMethodForGivenServerQueryType(
+            queryType: .getUserData(of: cryptoId.cryptoIdentity, label: serverLabel),
+            ownedCryptoId: cryptoId.cryptoIdentity,
+            delegateManager: delegateManager,
+            flowId: flowId)
+        
+        guard let httpResponse = urlResponse as? HTTPURLResponse else {
+            assertionFailure()
+            throw ObvError.serverReturnedNonHTTPURLResponse
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            switch httpResponse.statusCode {
+            case 413:
+                throw ObvError.serverQueryPayloadIsTooLargeForServer
+            default:
+                throw ObvError.serverReturnedBadStatusCode
+            }
+        }
+        
+        guard let result = ObvServerGetUserDataMethod.parseObvServerResponseAndReturnData(responseData: responseData, using: Self.log) else {
+            assertionFailure()
+            throw ObvError.resultIsNil
+        }
+        
+        switch result {
+        case .ok(let encryptedData):
+            return encryptedData
+        case .deletedFromServer:
+            return nil
+        case .generalError:
+            throw ObvError.serverReturnedGeneralError
+        }
+        
+    }
+    
+    
     /// Given a ``PendingServerQuery``, this method post the appropriate server method, save the result, and execute post operations. By the end of this method, the
     /// server ``PendingServerQuery`` is fully processed and deleted from database.
     func processPendingServerQuery(pendingServerQueryObjectID: NSManagedObjectID, flowId: FlowIdentifier) async throws {
@@ -675,7 +721,7 @@ extension ServerQueryCoordinator {
 
         case .getUserData(of: let contactIdentity, label: let label):
             os_log("🖲️ Creating a ObvServerGetUserDataMethod of the contact identity %@", log: Self.log, type: .debug, contactIdentity.debugDescription)
-            let method = ObvServerGetUserDataMethod(ownedIdentity: ownedCryptoId, toIdentity: contactIdentity, serverLabel: label, flowId: flowId)
+            let method = ObvServerGetUserDataMethod(toIdentity: contactIdentity, serverLabel: label, flowId: flowId)
             method.identityDelegate = identityDelegate
             let (returnedData, urlResponse) = try await self.session.data(for: method.getURLRequest())
             return (returnedData, urlResponse, nil)
@@ -811,6 +857,8 @@ extension ServerQueryCoordinator {
         case serverReturnedNonHTTPURLResponse
         case serverQueryPayloadIsTooLargeForServer
         case serverReturnedBadStatusCode
+        case resultIsNil
+        case serverReturnedGeneralError
     }
     
 }

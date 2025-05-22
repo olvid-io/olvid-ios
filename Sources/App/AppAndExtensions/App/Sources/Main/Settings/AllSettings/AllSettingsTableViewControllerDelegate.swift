@@ -22,6 +22,6 @@ import Foundation
 
 protocol AllSettingsTableViewControllerDelegate: AnyObject {
     
-    func pushSetting(_: AllSettingsTableViewController.Setting)
+    func pushSetting(_ setting: AllSettingsTableViewController.Setting, tableView: UITableView?, didSelectRowAt indexPath: IndexPath?) async
     
 }

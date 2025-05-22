@@ -1237,7 +1237,7 @@ extension NewComposeMessageView {
         documentPicker.delegate = self
         documentPicker.allowsMultipleSelection = true
         animatedEndEditing { [weak self] _ in
-            self?.delegateViewController?.present(documentPicker, animated: true)
+            self?.delegateViewController?.presentOnTop(documentPicker, animated: true)
         }
     }
     
@@ -1262,7 +1262,7 @@ extension NewComposeMessageView {
         let picker = PHPickerViewController(configuration: configuration)
         picker.delegate = self
         animatedEndEditing { [weak self] _ in
-            self?.delegateViewController?.present(picker, animated: true)
+            self?.delegateViewController?.presentOnTop(picker, animated: true)
         }
     }
 
@@ -1497,6 +1497,15 @@ extension NewComposeMessageView {
             completion(finished)
         }
 
+    }
+    
+    func animatedEndEditing() async {
+        await withCheckedContinuation { [weak self] (continuation: CheckedContinuation<Void, Never>) in
+            guard let self else { return }
+            animatedEndEditing { _ in
+                return continuation.resume()
+            }
+        }
     }
 
     private func setupAndPresentDocumentCameraViewController() {

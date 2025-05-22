@@ -24,6 +24,7 @@ import ObvEngine
 import ObvUICoreData
 import ObvAppCoreConstants
 import OlvidUtils
+import ObvUIGroupV2
 
 
 final class DiscussionsFlowViewController: UINavigationController, ObvFlowController {
@@ -35,15 +36,32 @@ final class DiscussionsFlowViewController: UINavigationController, ObvFlowContro
     let obvEngine: ObvEngine
     var floatingButton: UIButton? // Used on iOS 18+ only, set at the ObvFlowController level
     private var floatingButtonAnimator: FloatingButtonAnimator?
-    
+    let appDataSourceForObvUIGroupV2Router: AppDataSourceForObvUIGroupV2Router
+
+    /// This router allows to present the flow allowing to create a new group v2.
+    /// It is expected to be set only once.
+    /// The delegate methods are implemented in an extension of `ObvFlowController`.
+    private(set) lazy var routerForGroupCreation: ObvUIGroupV2Router = {
+        ObvUIGroupV2Router(mode: .creation(delegate: self),
+                           dataSource: appDataSourceForObvUIGroupV2Router)
+    }()
+    /// This router allows to push the flow allowing to edit a new group v2.
+    /// It is expected to be set only once.
+    /// The delegate methods are implemented in an extension of `ObvFlowController`.
+    private(set) lazy var routerForGroupEdition: ObvUIGroupV2Router = {
+        ObvUIGroupV2Router(mode: .edition(delegate: self),
+                           dataSource: appDataSourceForObvUIGroupV2Router)
+    }()
+
     static let errorDomain = "DiscussionsFlowViewController"
 
     var observationTokens = [NSObjectProtocol]()
 
-    init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine) {
+    init(ownedCryptoId: ObvCryptoId, appListOfGroupMembersViewDataSource: AppDataSourceForObvUIGroupV2Router, obvEngine: ObvEngine) {
 
         self.currentOwnedCryptoId = ownedCryptoId
         self.obvEngine = obvEngine
+        self.appDataSourceForObvUIGroupV2Router = appListOfGroupMembersViewDataSource
         
         let recentDiscussionsVC = RecentDiscussionsViewController(ownedCryptoId: ownedCryptoId, logCategory: "RecentDiscussionsViewController")
         recentDiscussionsVC.setTitle(CommonString.Word.Discussions)
@@ -156,10 +174,26 @@ extension DiscussionsFlowViewController {
 
 extension DiscussionsFlowViewController: RecentDiscussionsViewControllerDelegate {
     
-    func userWantsToStopSharingLocation() async throws {
-        try await flowDelegate?.userWantsToStopSharingLocation()
+    func userWantsToDisplayBackupKey(_ vc: RecentDiscussionsViewController) {
+        flowDelegate?.userWantsToDisplayBackupKey(self)
+    }
+    
+    
+    func userWantsToSetupNewBackups(_ vc: RecentDiscussionsViewController) {
+        flowDelegate?.userWantsToSetupNewBackups(self)
+    }
+    
+    
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ vc: RecentDiscussionsViewController) async throws {
+        try await flowDelegate?.userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(self)
     }
         
+    
+    func userWantsToShowMapToConsultLocationSharedContinously(_ vc: RecentDiscussionsViewController, ownedCryptoId: ObvTypes.ObvCryptoId) async throws {
+        try await flowDelegate?.userWantsToShowMapToConsultLocationSharedContinously(self, presentingViewController: vc, ownedCryptoId: ownedCryptoId)
+    }
+
+
     func userWantsToDeleteDiscussion(_ persistedDiscussion: PersistedDiscussion, completionHandler: @escaping (Bool) -> Void) {
         
         assert(Thread.isMainThread)

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,7 +26,6 @@ public struct FyleElementForFyleMessageJoinWithStatus: FyleElement {
 
     public let fyleURL: URL
     public let fileName: String
-    //public let uti: String
     public let contentType: UTType
     public let sha256: Data
     public let fullFileIsAvailable: Bool
@@ -139,6 +138,8 @@ extension FyleElementForFyleMessageJoinWithStatus {
     public static func trashMessageDirectoryIfEmpty(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentID: ObvManagedObjectPermanentID<PersistedMessage>, in currentSessionDirectoryForHardlinks: URL) throws {
         let urlToTrashIfEmpty = messageDirectory(discussionPermanentID: discussionPermanentID, messagePermanentID: messagePermanentID, in: currentSessionDirectoryForHardlinks)
         guard FileManager.default.isDirectory(url: urlToTrashIfEmpty) else { return }
+        let contents = try FileManager.default.contentsOfDirectory(at: urlToTrashIfEmpty, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
+        guard contents.isEmpty else { return }
         try trashMessageDirectory(discussionPermanentID: discussionPermanentID, messagePermanentID: messagePermanentID, in: currentSessionDirectoryForHardlinks)
     }
 

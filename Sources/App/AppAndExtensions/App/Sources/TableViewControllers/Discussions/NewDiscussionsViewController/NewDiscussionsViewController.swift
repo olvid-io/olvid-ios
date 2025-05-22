@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -30,13 +30,19 @@ import SwiftUI
 import UIKit
 import ObvDesignSystem
 import ObvAppCoreConstants
+import ObvSettings
 
 
+@available(iOS 16.0, *)
+@MainActor
 protocol NewDiscussionsViewControllerDelegate: AnyObject {
     func userDidSelect(persistedDiscussion: PersistedDiscussion)
     func userAskedToDeleteDiscussion(_ persistedDiscussion: PersistedDiscussion, completionHandler: @escaping (Bool) -> Void)
     func userAskedToRefreshDiscussions() async throws
-    func userWantsToStopSharingLocation() async throws
+    func userWantsToSetupNewBackups()
+    func userWantsToDisplayBackupKey()
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ vc: NewDiscussionsViewController) async throws
+    func userWantsToShowMapToConsultLocationSharedContinously(_ vc: NewDiscussionsViewController, ownedCryptoId: ObvCryptoId) async throws
 }
 
 
@@ -47,16 +53,29 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     private enum Section: Int, CaseIterable {
         case progress
         case tips
+        case setupNewBackups
         case location
         case pinnedDiscussions
         case discussions
+        
+        static func sectionsAfter(_ section: Section) -> [Section] {
+            Section.allCases.filter { $0.rawValue > section.rawValue }
+        }
+        
     }
     
     private enum Item: Hashable {
         case progress(progress: AppCoordinatorsQueueMonitor.CoordinatorsOperationsProgress)
         case tip(tipToDisplay: DisplayableTip)
         case persistedDiscussion(TypeSafeManagedObjectID<PersistedDiscussion>)
-        case location(TypeSafeManagedObjectID<PersistedLocationContinuousSent>)
+        case location(LocationsCellViewModel)
+        case setupNewBackups(item: SetupNewBackupsItem)
+        
+    }
+    
+    enum SetupNewBackupsItem {
+        case newBackupsShouldBeSetup
+        case rememberToWriteDownBackupKey
     }
 
     private typealias DataSource = UICollectionViewDiffableDataSource<Section, Item>
@@ -70,14 +89,14 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
     private var dataSource: DataSource!
     private weak var collectionView: UICollectionView!
     private var frc: NSFetchedResultsController<PersistedDiscussion>
-    private var frcForLocationContinuousSent: NSFetchedResultsController<PersistedLocationContinuousSent>
     private var firstTimeFetch = true
     private var rightBarButtonItemsFromParentViewController: [UIBarButtonItem]?
     private weak var delegate: NewDiscussionsViewControllerDelegate?
     private var observationTokens = [NSObjectProtocol]()
     
     private var latestSnapshotForFrc: NSDiffableDataSourceSnapshot<String, NSManagedObjectID>?
-    private var latestSnapshotForFrcForLocationContinuousSent: NSDiffableDataSourceSnapshot<String, NSManagedObjectID>?
+    
+    private var locationDataSource: NewDiscussionsViewControllerForLocationDataSource
     
     private var searchController: UISearchController?
     
@@ -96,12 +115,10 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
 
     /// Enumerates all the tips that can be displayed in a cell at the top of the list.
     private enum DisplayableTip: CaseIterable {
-        case newSentMessageStatus
         case doSendReadReceiptTip
-        case createBackupKeyTip
-        case shouldPerformBackupTip
-        case shouldVerifyBackupKeyTip
     }
+    
+    private var locationsCellViewModelPerCryptoId: [ObvCryptoId: LocationsCellViewModel] = [:]
     
     @Published private var tipToDisplay: DisplayableTip?
 
@@ -112,16 +129,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         if #available(iOS 17, *) {
             for tip in DisplayableTip.allCases {
                 switch tip {
-                case .newSentMessageStatus:
-                    result[tip] = OlvidTip.NewSentMessageStatus()
                 case .doSendReadReceiptTip:
                     result[tip] = OlvidTip.DoSendReadReceipt()
-                case .createBackupKeyTip:
-                    result[tip] = OlvidTip.Backup.CreateBackupKey()
-                case .shouldPerformBackupTip:
-                    result[tip] = OlvidTip.Backup.ShouldPerformBackup()
-                case .shouldVerifyBackupKeyTip:
-                    result[tip] = OlvidTip.Backup.ShouldVerifyBackupKey()
                 }
             }
         }
@@ -145,13 +154,10 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
                                          managedObjectContext: ObvStack.shared.viewContext,
                                          sectionNameKeyPath: viewModel.fetchRequestControllerModel.sectionNameKeyPath,
                                          cacheName: nil)
-        frcForLocationContinuousSent = NSFetchedResultsController(fetchRequest: viewModel.fetchRequestControllerForLocationContinuousSentModel.fetchRequest,
-                                                                  managedObjectContext: ObvStack.shared.viewContext,
-                                                                  sectionNameKeyPath: viewModel.fetchRequestControllerForLocationContinuousSentModel.sectionNameKeyPath,
-                                                                  cacheName: nil)
+        
+        self.locationDataSource = NewDiscussionsViewControllerForLocationDataSource()
         super.init(nibName: nil, bundle: nil)
         frc.delegate = self
-        frcForLocationContinuousSent.delegate = self
     }
     
     
@@ -173,6 +179,7 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
         observeDiscussionLocalConfigurationHasBeenUpdatedNotifications()
         continuouslyUpdateTheSelectedDiscussionCell()
         continuouslyObserveProgressToDisplayOnViewDidLoad()
+        continuouslyObserveBackupSettings()
         
     }
     
@@ -233,6 +240,8 @@ final class NewDiscussionsViewController: UIViewController, NSFetchedResultsCont
                     case .tip:
                         break
                     case .location:
+                        break
+                    case .setupNewBackups:
                         break
                     case .persistedDiscussion(let listItemID):
                         listItemIds += [listItemID]
@@ -300,10 +309,8 @@ extension NewDiscussionsViewController {
         
         if let progress {
             // Make sure the progress section exists. Do not show this progress section if there is no other section yet.
-            if !snapshot.sectionIdentifiers.contains(where: { $0 == .progress }) {
-                guard let topSection = snapshot.sectionIdentifiers.first else { return }
-                snapshot.insertSections([.progress], beforeSection: topSection)
-            }
+            guard !snapshot.sectionIdentifiers.isEmpty else { return }
+            insertSpecificSectionIfNeeded(in: &snapshot, sectionToInsertIfNeed: .progress)
             // Remove any previous progress in the progress section and append the requested progress to display
             snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .progress))
             snapshot.appendItems([.progress(progress: progress)], toSection: .progress)
@@ -314,6 +321,156 @@ extension NewDiscussionsViewController {
             }
         }
         
+    }
+    
+    
+}
+
+
+// MARK: - Managing the sections of a snapshot
+
+@available(iOS 16.0, *)
+extension NewDiscussionsViewController {
+ 
+    private func insertSpecificSectionIfNeeded(in snapshot: inout NSDiffableDataSourceSnapshot<NewDiscussionsViewController.Section, NewDiscussionsViewController.Item>, sectionToInsertIfNeed: Section) {
+        
+        defer {
+            assert(snapshot.sectionIdentifiers.contains(where: { $0 == sectionToInsertIfNeed }), "This method should not return without ensuring the section to insert is present in the snapshot")
+        }
+
+        // We first make sure that the sectionToInsertIfNeed is not already present in the snapshot. If it is the case, we return immediately.
+        // Failing to do so might crash the app.
+
+        guard !snapshot.sectionIdentifiers.contains(where: { $0 == sectionToInsertIfNeed }) else { return }
+
+        // At this point, we know the sectionToInsertIfNeed section is not present in the snapshot. We can safely insert it.
+
+        // We construct the array of the sections that (if they exist) must be located after the sectionToInsertIfNeed section.
+        
+        let sectionsAfterSectionToInsert: [Section] = Section.sectionsAfter(sectionToInsertIfNeed)
+        
+        // We traverse the sectionsAfterLocation array. As soon as one of the sections exists in the snapshot,
+        // we insert the sectionToInsertIfNeed section before it and return immediately (this allows to make sure we won't try
+        // to insert it twice).
+
+        for sectionAfter in sectionsAfterSectionToInsert {
+            if snapshot.sectionIdentifiers.contains(where: { $0 == sectionAfter }) {
+                return snapshot.insertSections([sectionToInsertIfNeed], beforeSection: sectionAfter)
+            }
+        }
+
+        // If we reach this point, the snapshot does not contain any of the sections in sectionsAfterLocation.
+        // We can simply insert the sectionToInsertIfNeed section at the end of the snapshot.
+        
+        return snapshot.appendSections([sectionToInsertIfNeed])
+
+    }
+
+}
+
+
+// MARK: - Managing the location Section
+
+@available(iOS 16.0, *)
+extension NewDiscussionsViewController {
+    
+    private func configureLocationsToDisplayInSnapshot(_ snapshot: inout NSDiffableDataSourceSnapshot<NewDiscussionsViewController.Section, NewDiscussionsViewController.Item>, with locationsCellViewModel: LocationsCellViewModel?) {
+        
+        // Do not show this location section if there is no other section yet.
+                                                
+        if let locationsCellViewModel, locationsCellViewModel.isRelevantToDisplay {
+            
+            // Make sure the location section exists
+            
+            insertSpecificSectionIfNeeded(in: &snapshot, sectionToInsertIfNeed: .location)
+            
+            // Remove all the items in the location section (this allows to make sure the location cell is updated if required)
+            
+            snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .location))
+                        
+            // Insert the location item
+            
+            return snapshot.appendItems([.location(locationsCellViewModel)], toSection: .location)
+            
+        } else {
+            
+            // Remove the progress section if it exists
+
+            removeLocationSectionIfNeeded(in: &snapshot)
+            
+        }
+    }
+    
+    
+    /// Helper method for ``configureLocationsToDisplayInSnapshot(_ snapshot: inout NSDiffableDataSourceSnapshot<NewDiscussionsViewController.Section, NewDiscussionsViewController.Item>, with locationsCellViewModel: LocationsCellViewModel?)``
+    private func removeLocationSectionIfNeeded(in snapshot: inout NSDiffableDataSourceSnapshot<NewDiscussionsViewController.Section, NewDiscussionsViewController.Item>) {
+
+        if snapshot.sectionIdentifiers.contains(where: { $0 == .location }) {
+            snapshot.deleteSections([.location])
+        }
+        
+    }
+
+}
+
+
+// MARK: - Setup new backups related stuff
+
+@available(iOS 16.0, *)
+extension NewDiscussionsViewController {
+    
+    private func continuouslyObserveBackupSettings() {
+        
+        ObvMessengerSettingsObservableObject.shared.$userDidSetupBackupsAtLeastOnce
+            .receive(on: OperationQueue.main)
+            .sink { [weak self] newValue in
+                guard let self else { return }
+                guard let dataSource else { assertionFailure(); return }
+                var snapshot = dataSource.snapshot()
+                let dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey = ObvMessengerSettings.Backup.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey
+                configureSetupBackupsCellInSnapshot(&snapshot,
+                                                    userDidSetupBackupsAtLeastOnce: newValue,
+                                                    dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey)
+                applySnapshotToDatasource(snapshot, animated: true)
+            }
+            .store(in: &cancellables)
+        
+        ObvMessengerSettingsObservableObject.shared.$dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey
+            .receive(on: OperationQueue.main)
+            .sink { [weak self] newValue in
+                guard let self else { return }
+                guard let dataSource else { assertionFailure(); return }
+                var snapshot = dataSource.snapshot()
+                let userDidSetupBackupsAtLeastOnce = ObvMessengerSettings.Backup.userDidSetupBackupsAtLeastOnce
+                configureSetupBackupsCellInSnapshot(&snapshot,
+                                                    userDidSetupBackupsAtLeastOnce: userDidSetupBackupsAtLeastOnce,
+                                                    dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: newValue)
+                applySnapshotToDatasource(snapshot, animated: true)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func configureSetupBackupsCellInSnapshot(_ snapshot: inout NSDiffableDataSourceSnapshot<NewDiscussionsViewController.Section, NewDiscussionsViewController.Item>, userDidSetupBackupsAtLeastOnce: Bool, dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: Date?) {
+        if userDidSetupBackupsAtLeastOnce && dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey == nil {
+            // The "setup backup cell" should not be displayed.
+            guard snapshot.sectionIdentifiers.contains(.setupNewBackups) else { return }
+            snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .setupNewBackups))
+            snapshot.deleteSections([.setupNewBackups])
+        } else {
+            // The "setup backup cell" should be displayed.
+            // Add the section if required
+            insertSpecificSectionIfNeeded(in: &snapshot, sectionToInsertIfNeed: .setupNewBackups)
+            // Remove all items in the section
+            snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .setupNewBackups))
+            // At this point, we know the .setupNewBackups section exists and that it is empty.
+            // Since we are here, we know that at least one of the two following items will be inserted
+            if !userDidSetupBackupsAtLeastOnce {
+                snapshot.appendItems([.setupNewBackups(item: .newBackupsShouldBeSetup)], toSection: .setupNewBackups)
+            }
+            if dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey != nil {
+                snapshot.appendItems([.setupNewBackups(item: .rememberToWriteDownBackupKey)], toSection: .setupNewBackups)
+            }
+        }
     }
     
 }
@@ -380,10 +537,8 @@ extension NewDiscussionsViewController {
         
         if let tipToDisplay {
             // Make sure the tips section exists. Do not show this tips section if there is no discussion section yet.
-            if !snapshot.sectionIdentifiers.contains(where: { $0 == .tips }) {
-                guard let discussionsSection = snapshot.sectionIdentifiers.first(where: { $0 == .discussions }) else { return }
-                snapshot.insertSections([.tips], beforeSection: discussionsSection)
-            }
+            guard snapshot.sectionIdentifiers.contains(where: { $0 == .discussions || $0 == .pinnedDiscussions }) else { return }
+            insertSpecificSectionIfNeeded(in: &snapshot, sectionToInsertIfNeed: .tips)
             // Remove any previous tip in the tips section and append the requested tip to display
             snapshot.deleteItems(snapshot.itemIdentifiers(inSection: .tips))
             snapshot.appendItems([.tip(tipToDisplay: tipToDisplay)], toSection: .tips)
@@ -424,7 +579,9 @@ extension NewDiscussionsViewController {
         ObvStack.shared.viewContext.refresh(localConfig, mergeChanges: false)
         ObvStack.shared.viewContext.refresh(discussion, mergeChanges: false)
         var snapshot = dataSource.snapshot()
-        snapshot.reconfigureItems([.persistedDiscussion(TypeSafeManagedObjectID(objectID: discussion.objectID))])
+        if snapshot.itemIdentifiers.contains(.persistedDiscussion(TypeSafeManagedObjectID(objectID: discussion.objectID))) {
+            snapshot.reconfigureItems([.persistedDiscussion(TypeSafeManagedObjectID(objectID: discussion.objectID))])
+        }
         applySnapshotToDatasource(snapshot)
     }
     
@@ -468,24 +625,13 @@ extension NewDiscussionsViewController {
                         
             self.latestSnapshotForFrc = snapshot as NSDiffableDataSourceSnapshot<String, NSManagedObjectID>
             
-        } else if controller == self.frcForLocationContinuousSent {
-
-            self.latestSnapshotForFrcForLocationContinuousSent = snapshot as NSDiffableDataSourceSnapshot<String, NSManagedObjectID>
-
         }
         
         var newSnapshot = Snapshot()
-
-        if let latestSnapshotForFrcForLocationContinuousSent {
-            
-            newSnapshot.appendSections([.location])
-            let itemIdentifiers = latestSnapshotForFrcForLocationContinuousSent.itemIdentifiers
-            let items = itemIdentifiers.map({ itemIdentifier in
-                return Item.location(TypeSafeManagedObjectID<PersistedLocationContinuousSent>(objectID: itemIdentifier))
-            })
-            newSnapshot.appendItems(items, toSection: .location)
-            
-        }
+        
+        configureSetupBackupsCellInSnapshot(&newSnapshot,
+                                            userDidSetupBackupsAtLeastOnce: ObvMessengerSettings.Backup.userDidSetupBackupsAtLeastOnce,
+                                            dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey: ObvMessengerSettings.Backup.dateWhenUserRequestedToBeToBeRemenberedToWriteDownBackupKey)
 
         if let latestSnapshotForFrc {
             
@@ -501,7 +647,7 @@ extension NewDiscussionsViewController {
                 case .unpinned:
                     section = .discussions
                 }
-                newSnapshot.appendSections([section])
+                insertSpecificSectionIfNeeded(in: &newSnapshot, sectionToInsertIfNeed: section)
                 let items = latestSnapshotForFrc.itemIdentifiers(inSection: rawSectionIdentifier)
                 newSnapshot.appendItems(items.compactMap(convertToPersistedDiscussionListItemID(using:)), toSection: section)
             }
@@ -517,6 +663,11 @@ extension NewDiscussionsViewController {
         if #available(iOS 17.0, *) {
             configureTipToDisplayInSnapshot(&newSnapshot, withTipToDisplay: tipToDisplay)
         }
+        
+        if #available(iOS 17.0, *) {
+            configureLocationsToDisplayInSnapshot(&newSnapshot, with: locationsCellViewModelPerCryptoId[viewModel.ownedCryptoId])
+        }
+
         
         applySnapshotToDatasource(newSnapshot, animated: !firstTimeFetch) // do not animate the first time we fetch data to have results already be present when switching to the discussion tab
         firstTimeFetch = false
@@ -547,6 +698,8 @@ extension NewDiscussionsViewController {
             break
         case .location:
             break
+        case .setupNewBackups:
+            break
         case .persistedDiscussion(let discussionId):
             if !collectionView.isEditing {
                 guard let discussion = try? PersistedDiscussion.get(objectID: discussionId.objectID, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
@@ -575,7 +728,7 @@ extension NewDiscussionsViewController {
     override func updateContentUnavailableConfiguration(using state: UIContentUnavailableConfigurationState) {
         
         var config: UIContentUnavailableConfiguration?
-        if let fetchedObjects = frc.fetchedObjects, fetchedObjects.isEmpty, let fetchedLocations = frcForLocationContinuousSent.fetchedObjects, fetchedLocations.isEmpty {
+        if let fetchedObjects = frc.fetchedObjects, fetchedObjects.isEmpty {
             config = .empty()
             config?.text = NSLocalizedString("CONTENT_UNAVAILABLE_RECENT_DISCUSSIONS_TEXT", comment: "")
             if #available(iOS 18, *) {
@@ -631,7 +784,7 @@ extension NewDiscussionsViewController {
     private func trailingSwipeActionsConfigurationProvider(_ indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else { return UISwipeActionsConfiguration(actions: []) }
         switch (selectedItem) {
-        case .tip, .progress, .location:
+        case .tip, .progress, .location, .setupNewBackups:
             return nil
         case .persistedDiscussion(let listItemID):
             let deleteAllMessagesAction = self.createDeleteAllMessagesContextualAction(for: listItemID)
@@ -652,10 +805,12 @@ extension NewDiscussionsViewController {
             return nil
         case .location:
             return nil
+        case .setupNewBackups:
+            return nil
         case .pinnedDiscussions: // list
             guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else { return UISwipeActionsConfiguration(actions: []) }
             switch (selectedItem) {
-            case .tip, .progress, .location:
+            case .tip, .progress, .location, .setupNewBackups:
                 return nil
             case .persistedDiscussion(let listItemID):
                 let unpinAction = self.createUnpinContextualAction(for: listItemID)
@@ -667,7 +822,7 @@ extension NewDiscussionsViewController {
         case .discussions: // list
             guard let selectedItem = dataSource.itemIdentifier(for: indexPath) else { return UISwipeActionsConfiguration(actions: []) }
             switch (selectedItem) {
-            case .tip, .progress, .location:
+            case .tip, .progress, .location, .setupNewBackups:
                 return nil
             case .persistedDiscussion(let listItemID):
                 let pinAction = self.createPinContextualAction(for: listItemID)
@@ -758,12 +913,12 @@ extension NewDiscussionsViewController {
 
         var actions = [UIAction]()
         switch item {
-        case .tip, .progress, .location:
+        case .tip, .progress, .location, .setupNewBackups:
             return nil
         case .persistedDiscussion(let listItemID):
             actions += [createMarkAllMessagesAsNotNewAction(for: listItemID)]
             switch sectionKind {
-            case .tips, .progress, .location:
+            case .tips, .progress, .location, .setupNewBackups:
                 break
             case .pinnedDiscussions:
                 actions += [createUnpinAction(for: listItemID)]
@@ -872,6 +1027,7 @@ extension NewDiscussionsViewController {
             case .progress: return nil
             case .tip: return nil
             case .location: return nil
+            case .setupNewBackups: return nil
             case .persistedDiscussion(let listItemID): return listItemID.objectID
             }
         })
@@ -883,7 +1039,7 @@ extension NewDiscussionsViewController {
         guard snapshot.sectionIdentifiers.contains(where: { $0 == .pinnedDiscussions }) else { return }
         let discussionObjectIds: [NSManagedObjectID] = snapshot.itemIdentifiers(inSection: .pinnedDiscussions).compactMap {
             switch $0 {
-            case .tip, .progress, .location:
+            case .tip, .progress, .location, .setupNewBackups:
                 return nil
             case .persistedDiscussion(let listItemID):
                 return listItemID.objectID
@@ -983,14 +1139,20 @@ extension NewDiscussionsViewController {
             cell.configure(progress: progress)
         }
         
-        let locationCellRegistration = UICollectionView.CellRegistration<LocationCell, TypeSafeManagedObjectID<PersistedLocationContinuousSent>> { cell, _, locationId in
-            guard let location = try? PersistedLocationContinuousSent.getPersistedLocationContinuousSent(objectID: locationId, within: ObvStack.shared.viewContext) else { assertionFailure(); return }
-            cell.configure(numberOfSentMessagesWithLocationContinuousSentFromCurrentOwnedDevice: location.sentMessages.count, delegate: self)
+        let locationCellRegistration = UICollectionView.CellRegistration<LocationCell, LocationsCellViewModel> { cell, _, viewModel in
+            cell.configure(viewModel: viewModel, delegate: self)
+        }
+        
+        let setupNewBackupsCellRegistration = UICollectionView.CellRegistration<SetupNewBackupsCell, SetupNewBackupsItem> { cell, _, item in
+            cell.configure(item: item, delegate: self)
         }
                 
         dataSource = DataSource(collectionView: collectionView) { [weak self] (collectionView: UICollectionView, indexPath: IndexPath, item: Item) -> UICollectionViewCell? in
 
             switch item {
+                
+            case .location(let locationCellViewModel):
+                return collectionView.dequeueConfiguredReusableCell(using: locationCellRegistration, for: indexPath, item: locationCellViewModel)
                 
             case .progress(progress: let progress):
                 return collectionView.dequeueConfiguredReusableCell(using: progressCellRegistration, for: indexPath, item: progress)
@@ -1002,8 +1164,8 @@ extension NewDiscussionsViewController {
                 }
                 return tipCell
                 
-            case .location(let locationId):
-                return collectionView.dequeueConfiguredReusableCell(using: locationCellRegistration, for: indexPath, item: locationId)
+            case .setupNewBackups(item: let item):
+                return collectionView.dequeueConfiguredReusableCell(using: setupNewBackupsCellRegistration, for: indexPath, item: item)
                 
             case .persistedDiscussion(let discussionId):
                 return collectionView.dequeueConfiguredReusableCell(using: cellRegistration, for: indexPath, item: discussionId)
@@ -1022,9 +1184,26 @@ extension NewDiscussionsViewController {
     private func setInitialData() {
         do {
             try frc.performFetch()
-            try frcForLocationContinuousSent.performFetch()
+            initAndStartLocationsMonitoring()
         } catch let error {
             fatalError("Failed to fetch entities: \(error.localizedDescription)")
+        }
+    }
+    
+    private func initAndStartLocationsMonitoring() {
+        do {
+            let locationDataSource = try locationDataSource.getAsyncSequenceOfLocationsCellViewModel(ownedCryptoId: viewModel.ownedCryptoId)
+            Task {
+                for await model in locationDataSource.stream {
+                    locationsCellViewModelPerCryptoId[viewModel.ownedCryptoId] = model
+                    guard let dataSource = self.dataSource else { continue }
+                    var snapshot = dataSource.snapshot()
+                    configureLocationsToDisplayInSnapshot(&snapshot, with: model)
+                    applySnapshotToDatasource(snapshot, animated: true)
+                }
+            }
+        } catch {
+            assertionFailure()
         }
     }
     
@@ -1038,8 +1217,29 @@ extension NewDiscussionsViewController: NewDiscussionsViewControllerLocationCell
     
     func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice() {
         Task {
-            try? await delegate?.userWantsToStopSharingLocation()
+            try? await delegate?.userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(self)
         }
+    }
+    
+    
+    func userWantsToShowMapToConsultLocationSharedContinously(ownedCryptoId: ObvCryptoId) async throws {
+        try await delegate?.userWantsToShowMapToConsultLocationSharedContinously(self, ownedCryptoId: ownedCryptoId)
+    }
+    
+}
+
+
+// MARK:
+
+@available(iOS 16.0, *)
+extension NewDiscussionsViewController: SetupNewBackupsCellDelegate {
+    
+    func userWantsToDisplayBackupKey() {
+        delegate?.userWantsToDisplayBackupKey()
+    }
+    
+    func userWantsToSetupNewBackups() {
+        delegate?.userWantsToSetupNewBackups()
     }
     
 }

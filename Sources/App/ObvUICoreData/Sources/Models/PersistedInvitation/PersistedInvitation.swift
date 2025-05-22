@@ -87,7 +87,7 @@ public class PersistedInvitation: NSManagedObject {
     
     private static var observersHolder = PersistedInvitationObserversHolder()
     
-    public static func addPersistedInvitationObserver(_ newObserver: PersistedInvitationObserver) async {
+    public static func addObvObserver(_ newObserver: PersistedInvitationObserver) async {
         await observersHolder.addObserver(newObserver)
     }
 

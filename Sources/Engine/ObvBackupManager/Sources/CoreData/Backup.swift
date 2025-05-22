@@ -373,6 +373,19 @@ extension Backup {
 
     }
     
+    
+    static func deleteAllBackups(within context: NSManagedObjectContext) throws {
+        
+        let request: NSFetchRequest<Backup> = Backup.fetchRequest()
+        request.fetchBatchSize = 500
+        request.propertiesToFetch = []
+        let backups = try context.fetch(request)
+        for backup in backups {
+            try Self.deleteBackup(backup)
+        }
+        
+    }
+    
 }
 
 struct SuccessfulBackupInfos {

@@ -98,6 +98,15 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable {
         }
     }
     
+    
+    public var obvDeviceIdentifier: ObvDeviceIdentifier {
+        get throws {
+            let contactDeviceIdentifier = try self.contactDeviceIdentifier
+            return .contactDevice(contactDeviceIdentifier)
+        }
+    }
+    
+
     private enum SecureChannelStatusRaw: Int {
         case creationInProgress = 0
         case created = 1
@@ -220,7 +229,7 @@ public final class PersistedObvContactDevice: NSManagedObject, Identifiable {
 
 extension PersistedObvContactDevice {
     
-    func createOrUpdatePersistedLocationContinuousReceived(locationData: ObvLocationData, count: Int, sharingExpiration: Date?) throws -> PersistedLocationContinuousReceived {
+    func createOrUpdatePersistedLocationContinuousReceived(locationData: ObvLocationData, count: Int, sharingExpiration: ObvLocationSharingExpirationDate) throws -> PersistedLocationContinuousReceived {
         
         if let location {
             try location.updateContentForContinuousLocation(with: locationData, count: count)

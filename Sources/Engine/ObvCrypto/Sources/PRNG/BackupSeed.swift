@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -18,14 +18,15 @@
  */
 
 import Foundation
+import ObvEncoder
 
 
-public struct BackupSeed: LosslessStringConvertible, CustomStringConvertible, Equatable {
+public struct BackupSeed: LosslessStringConvertible, CustomStringConvertible, Equatable, Sendable {
 
     /// the seed is 20-bytes, that is 8x4 characters (MAJ & number without I, O, S, Z)
-    static let byteLength = 20
+    public static let byteLength = 20
     
-    var raw: Data
+    public let raw: Data
     
     // The 32 characters we accept (5 bits of entropy per character)
     private static let seedArray: [Character] = ["0", "1", "2", "3", "4", "5", "6", "7",
@@ -82,7 +83,7 @@ public struct BackupSeed: LosslessStringConvertible, CustomStringConvertible, Eq
     }
     
     public init?(with raw: Data) {
-        guard raw.count == BackupSeed.byteLength else { return nil }
+        guard raw.count == BackupSeed.byteLength else { assertionFailure(); return nil }
         self.raw = raw
     }
 
@@ -148,16 +149,35 @@ public struct BackupSeed: LosslessStringConvertible, CustomStringConvertible, Eq
     }
 
     
-    public func deriveKeysForBackup() -> DerivedKeysForBackup {
+    public func deriveKeysForLegacyBackup() -> DerivedKeysForLegacyBackup {
 
+        // We padd the backup seed with 0x00's in order to generate a seed
+        let seed = deriveFullSeed()
+
+        let prng = PRNGWithHMACWithSHA256(with: seed)
+        return DerivedKeysForLegacyBackup.gen(with: prng)
+
+    }
+    
+    
+    public func deriveKeysForNewBackup() -> DerivedKeysForNewBackup {
+        
+        // We padd the backup seed with 0x00's in order to generate a seed
+        let seed = deriveFullSeed()
+
+        let prng = PRNGWithHMACWithSHA256(with: seed)
+        return DerivedKeysForNewBackup.gen(with: prng)
+
+    }
+    
+    
+    private func deriveFullSeed() -> Seed {
         // We padd the backup seed with 0x00's in order to generate a seed
         let rawSeed = self.raw + Data(repeating: 0, count: max(0, Seed.minLength - self.raw.count))
         let seed = Seed(with: rawSeed)!
-
-        let prng = PRNGWithHMACWithSHA256(with: seed)
-        return DerivedKeysForBackup.gen(with: prng)
-
+        return seed
     }
+    
     
     public static func == (lhs: BackupSeed, rhs: BackupSeed) -> Bool {
         return Array(lhs.raw) == Array(rhs.raw)
@@ -165,7 +185,29 @@ public struct BackupSeed: LosslessStringConvertible, CustomStringConvertible, Eq
 }
 
 
-public struct DerivedKeysForBackup: Equatable {
+// MARK: - DerivedKeysForNewBackup
+
+public struct DerivedKeysForNewBackup {
+    
+    public let backupKeyUID: UID
+    public let encryptionKey: any AuthenticatedEncryptionKey
+    public let authenticationKeyPair: (publicKey: any PublicKeyForAuthentication, privateKey: any PrivateKeyForAuthentication)
+
+    static func gen(with prng: PRNG) -> Self {
+        let backupKeyUID = UID.gen(with: prng)
+        let encryptionKey = AuthenticatedEncryption.generateKey(for: .CTR_AES_256_THEN_HMAC_SHA_256, with: prng)
+        let authenticationKeyPair = Authentication.generateKeyPair(for: .Signature_with_EC_SDSA_with_Curve25519, with: prng)
+        return self.init(backupKeyUID: backupKeyUID,
+                         encryptionKey: encryptionKey,
+                         authenticationKeyPair: authenticationKeyPair)
+    }
+    
+}
+
+
+// MARK: - DerivedKeysForLegacyBackup
+
+public struct DerivedKeysForLegacyBackup: Equatable {
     
     // Warning: Adding a local var requires updating the method required in order to implement Equatable
     public let backupKeyUid: UID // Not used for testing equality (due to a bug in the Android version  of the app)
@@ -177,7 +219,7 @@ public struct DerivedKeysForBackup: Equatable {
         let backupKeyUid = UID.gen(with: prng)
         let (publicKeyForEncryption, privateKeyForEncryption) = ECIESwithCurve25519andDEMwithCTRAES256thenHMACSHA256.generateKeyPairForBackupKey(with: prng)
         let macKey = HMACWithSHA256.generateKeyForBackup(with: prng)
-        return DerivedKeysForBackup(backupKeyUid: backupKeyUid, publicKeyForEncryption: publicKeyForEncryption, privateKeyForEncryption: privateKeyForEncryption, macKey: macKey)
+        return DerivedKeysForLegacyBackup(backupKeyUid: backupKeyUid, publicKeyForEncryption: publicKeyForEncryption, privateKeyForEncryption: privateKeyForEncryption, macKey: macKey)
     }
 
     private init(backupKeyUid: UID, publicKeyForEncryption: PublicKeyForPublicKeyEncryption, privateKeyForEncryption: PrivateKeyForPublicKeyEncryption, macKey: MACKey) {
@@ -194,16 +236,58 @@ public struct DerivedKeysForBackup: Equatable {
         self.macKey = macKey
     }
     
-    public static func == (lhs: DerivedKeysForBackup, rhs: DerivedKeysForBackup) -> Bool {
+    public static func == (lhs: DerivedKeysForLegacyBackup, rhs: DerivedKeysForLegacyBackup) -> Bool {
         // We do *not* test the equality of the backupKeyUid (due to a bug in the Android version  of the app)
         guard lhs.publicKeyForEncryption.getCompactKey() == rhs.publicKeyForEncryption.getCompactKey() else { return false }
         guard lhs.macKey.data == rhs.macKey.data else { return false }
         return true
     }
 
-    public func copyWithoutPrivateKeyForEncryption() -> DerivedKeysForBackup {
-        return DerivedKeysForBackup(backupKeyUid: self.backupKeyUid,
-                                    publicKeyForEncryption: self.publicKeyForEncryption,
-                                    macKey: self.macKey)
+}
+
+
+// MARK: - Implementing Hashable
+
+extension BackupSeed: Hashable {}
+
+// MARK: Implementing Codable (used by sync snapshots)
+
+extension BackupSeed: Codable {
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self.raw)
     }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(Data.self)
+        guard let backupSeed = BackupSeed(with: raw) else {
+            throw CodableError.decodingFailed
+        }
+        self = backupSeed
+    }
+    
+    enum CodableError: Error {
+        case decodingFailed
+    }
+
+}
+
+
+// MARK: Implementing ObvCodable
+
+extension BackupSeed: ObvCodable {
+    
+    public func obvEncode() -> ObvEncoded {
+        self.raw.obvEncode()
+    }
+    
+    
+    public init?(_ obvEncoded: ObvEncoded) {
+        guard let raw = Data(obvEncoded) else { assertionFailure(); return nil }
+        guard let backupSeed = BackupSeed(with: raw) else { assertionFailure(); return nil }
+        self = backupSeed
+    }
+    
 }

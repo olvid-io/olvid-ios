@@ -126,6 +126,10 @@ public final class Fyle: NSManagedObject {
 
 extension Fyle {
     
+    public func fyleMessageJoinWithStatuses(ownedCryptoId: ObvCryptoId) -> Set<FyleMessageJoinWithStatus> {
+        allFyleMessageJoinWithStatus.filter { $0.message?.discussion?.ownedIdentity?.cryptoId == ownedCryptoId }
+    }
+
     func remove(_ draftFyleJoin: PersistedDraftFyleJoin) {
         self.allDraftFyleJoins.remove(draftFyleJoin)
     }

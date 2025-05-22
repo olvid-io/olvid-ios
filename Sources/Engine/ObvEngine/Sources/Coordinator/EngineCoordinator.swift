@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -28,6 +28,7 @@ import OlvidUtils
 // This engine coordinator is *only* used when starting the full engine.
 final class EngineCoordinator {
         
+    private let logger: Logger
     private let log: OSLog
     private let logSubsystem: String
     private let prng: PRNGService
@@ -36,6 +37,7 @@ final class EngineCoordinator {
     
     init(logSubsystem: String, prng: PRNGService, queueForComposedOperations: OperationQueue, appNotificationCenter: NotificationCenter) {
         self.log = OSLog(subsystem: logSubsystem, category: "EngineCoordinator")
+        self.logger = Logger(subsystem: logSubsystem, category: "EngineCoordinator")
         self.logSubsystem = logSubsystem
         self.prng = prng
         self.appNotificationCenter = appNotificationCenter
@@ -84,9 +86,6 @@ final class EngineCoordinator {
             ObvIdentityNotificationNew.observeNewRemoteOwnedDevice(within: notificationDelegate) { [weak self] ownedCryptoId, remoteDeviceUid, createdDuringChannelCreation in
                 Task { [weak self] in await self?.processNewRemoteOwnedDevice(ownedCryptoId: ownedCryptoId, remoteDeviceUid: remoteDeviceUid, createdDuringChannelCreation: createdDuringChannelCreation) }
             },
-            ObvIdentityNotificationNew.observeOwnedIdentityWasDeleted(within: notificationDelegate) { [weak self] ownedCryptoId in
-                Task { [weak self] in await self?.processOwnedIdentityWasDeleted(ownedCryptoId: ownedCryptoId) }
-            }
         ])
         
         // Listening to ObvChannelNotification
@@ -119,10 +118,11 @@ extension EngineCoordinator {
     
     private func bootstrap() async {
         let flowId = FlowIdentifier()
-        deleteObsoleteObliviousChannels(flowId: flowId)
+        deleteItemsAssociatedToNonExistingOwnedIdentity(flowId: flowId)
+        await deleteObsoleteObliviousChannels(flowId: flowId)
         await pingAppropriateRemoteDevicesWithoutChannelOperation(flowId: flowId)
         startDeviceDiscoveryProtocolForContactsHavingNoDevice(flowId: flowId)
-        pruneObsoletePersistedEngineDialogs(flowId: flowId)
+        await pruneObsoletePersistedEngineDialogs(flowId: flowId)
         await sendTargetedPingMessageForKeycloakGroupV2ProtocolWhereContactIsPending(flowId: flowId)
     }
     
@@ -231,28 +231,21 @@ extension EngineCoordinator {
     }
     
     
-    private func pruneObsoletePersistedEngineDialogs(flowId: FlowIdentifier) {
+    private func pruneObsoletePersistedEngineDialogs(flowId: FlowIdentifier) async {
         
-        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
+        guard let delegateManager else { assertionFailure(); return }
+        guard let protocolDelegate = delegateManager.protocolDelegate else { assertionFailure(); return }
         guard let appNotificationCenter = self.appNotificationCenter else { return }
-        let log = self.log
         
-        createContextDelegate.performBackgroundTask(flowId: flowId) { (obvContext) in
+        let op1 = PruneObsoletePersistedEngineDialogsOperation(appNotificationCenter: appNotificationCenter)
 
-            do {
-                let dialogs = try PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext)
-                let dialogsToDelete = dialogs.filter({ $0.dialogIsObsolete })
-                guard !dialogsToDelete.isEmpty else { return }
-                try dialogsToDelete.forEach {
-                    try $0.delete()
-                }
-                try obvContext.save(logOnFailure: log)
-            } catch {
-                os_log("Could not prune obsolete PersistedEngineDialogs: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-            
+        do {
+            let composedOp = try createCompositionOfOneContextualOperation(op1: op1, flowId: flowId)
+            try await protocolDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+            logger.info("Successful prunned obsolete persisted engine dialogs")
+        } catch {
+            assertionFailure(error.localizedDescription)
+            logger.fault("Failed to prune obsolete persisted engine dialogs: \(error.localizedDescription)")
         }
         
     }
@@ -261,63 +254,22 @@ extension EngineCoordinator {
     /// When we delete a contact device, we normaly catch a notification allowing to delete all associated oblivious channels, but this is not atomic.
     /// This method scans all Oblivious channels an makes sure that there is still an associated device within the identity manager.
     /// If not, we delete the channel.
-    private func deleteObsoleteObliviousChannels(flowId: FlowIdentifier) {
+    private func deleteObsoleteObliviousChannels(flowId: FlowIdentifier) async {
         
-        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
-        guard let channelDelegate = delegateManager?.channelDelegate else { assertionFailure(); return }
-        guard let identityDelegate = delegateManager?.identityDelegate else { assertionFailure(); return }
-
-        createContextDelegate.performBackgroundTaskAndWait(flowId: flowId) { (obvContext) in
-
-            // Get the remote device uids associated to all the oblivious channels we have
-            let remoteDeviceUidsAssociatedToAnObliviousChannel: Set<ObliviousChannelIdentifier>
-            do {
-                remoteDeviceUidsAssociatedToAnObliviousChannel = try channelDelegate.getAllRemoteDeviceUidsAssociatedToAnObliviousChannel(within: obvContext)
-            } catch let error {
-                os_log("Could not get all remote device uids associated to an oblivious channel: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-            
-            // Get the remote device uids associated to all the device we have within the identity manager
-
-            let remoteDeviceUidsKnownToTheIdentityManager: Set<ObliviousChannelIdentifier>
-            do {
-                remoteDeviceUidsKnownToTheIdentityManager = try identityDelegate.getAllRemoteOwnedDevicesUidsAndContactDeviceUids(within: obvContext)
-            } catch let error {
-                os_log("Could not get all device uids known to the identity manager: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-                return
-            }
-            
-            // Get a set of device corresponding to obsolete oblivious channels
-            
-            let obsoleteObliviousChannels = remoteDeviceUidsAssociatedToAnObliviousChannel.subtracting(remoteDeviceUidsKnownToTheIdentityManager)
-            
-            // Delete all the obsolete oblivious channels
-            
-            os_log("[Bootstraping] Number of obsolete oblivious channels to delete: %d", log: log, type: .info, obsoleteObliviousChannels.count)
-            
-            for obsoleteChannel in obsoleteObliviousChannels {
-                do {
-                    try channelDelegate.deleteObliviousChannelBetweenCurentDeviceWithUid(currentDeviceUid: obsoleteChannel.currentDeviceUid,
-                                                                                         andTheRemoteDeviceWithUid: obsoleteChannel.remoteDeviceUid,
-                                                                                         ofRemoteIdentity: obsoleteChannel.remoteCryptoIdentity,
-                                                                                         within: obvContext)
-                } catch let error {
-                    os_log("Could not delete an obsolete oblivious channel: %{public}@", log: log, type: .fault, error.localizedDescription)
-                    assertionFailure()
-                    // Continue anyway
-                }
-            }
-            
-            do {
-                try obvContext.save(logOnFailure: log)
-            } catch let error {
-                os_log("Could not save context: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
-            }
-            
+        guard let delegateManager else { assertionFailure(); return }
+        guard let channelDelegate = delegateManager.channelDelegate else { assertionFailure(); return }
+        guard let identityDelegate = delegateManager.identityDelegate else { assertionFailure(); return }
+        guard let protocolDelegate = delegateManager.protocolDelegate else { assertionFailure(); return }
+        
+        let op1 = DeleteObsoleteObliviousChannelsOperation(channelDelegate: channelDelegate, identityDelegate: identityDelegate, logSubsystem: logSubsystem)
+        
+        do {
+            let composedOp = try createCompositionOfOneContextualOperation(op1: op1, flowId: flowId)
+            try await protocolDelegate.executeOnQueueForProtocolOperations(operation: composedOp)
+            logger.info("Successful deleted obsolete oblivious channels")
+        } catch {
+            assertionFailure(error.localizedDescription)
+            logger.fault("Failed to delete obsolete oblivious channels: \(error.localizedDescription)")
         }
         
     }
@@ -524,6 +476,81 @@ extension EngineCoordinator {
         }
         
     }
+    
+    
+    // This method is not asynchronous since we should not await for it.
+    // It is called during bootstrap and when an owned identity is deleted from database
+    private func deleteItemsAssociatedToNonExistingOwnedIdentity(flowId: FlowIdentifier) {
+        Task {
+            do {
+                guard let delegateManager else { assertionFailure(); throw ObvError.delegateManagerIsNotSet }
+                guard let networkFetchDelegate = delegateManager.networkFetchDelegate else { assertionFailure(); throw ObvError.networkFetchDelegateIsNil }
+                guard let protocolDelegate = delegateManager.protocolDelegate else { assertionFailure(); throw ObvError.theProtocolDelegateIsNotSet }
+                
+                let ownedCryptoIds = try await getOwnedIdentities(restrictToActive: false, flowId: flowId)
+                
+                Task {
+                    do {
+                        try await networkFetchDelegate.deleteServerSessionsAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: ownedCryptoIds, flowId: flowId)
+                        logger.info("Successfully deleted server sessions associated to non-existing owned identities.")
+                    } catch {
+                        assertionFailure()
+                        logger.fault("Could not delete server sessions associated to non-existing owned identities: \(error.localizedDescription)")
+                    }
+                }
+
+                Task {
+                    do {
+                        try await protocolDelegate.deleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: ownedCryptoIds, flowId: flowId)
+                        logger.info("Successfully deleted certain protocol instances associated to non existing owned identities")
+                    } catch {
+                        assertionFailure()
+                        logger.fault("Could not delete protocol instances associated to non existing owned identities: \(error.localizedDescription)")
+                    }
+                }
+                
+                Task {
+                    do {
+                        guard let obvEngine else { assertionFailure(); throw ObvError.obvEngineIsNil }
+                        guard let obvBackupManagerNew = obvEngine.obvBackupManagerNew else { assertionFailure(); throw ObvError.obvBackupManagerNewIsNil }
+                        let existingOwnedCryptoIds = Set(ownedCryptoIds.map({ ObvCryptoId(cryptoIdentity: $0) }))
+                        try await obvBackupManagerNew.deleteProfileBackupThreadsAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: existingOwnedCryptoIds, flowId: flowId)
+                        logger.info("Successfully deleted backup threads associated to non existing owned identities")
+                    } catch {
+                        assertionFailure()
+                        logger.fault("Could not delete backup threads associated to non existing owned identities: \(error.localizedDescription)")
+                    }
+                }
+                                
+            } catch {
+                
+                logger.fault("Could not delete items associated to non-existing owned identities: \(error.localizedDescription)")
+
+            }
+        }
+    }
+    
+    
+    private func getOwnedIdentities(restrictToActive: Bool, flowId: FlowIdentifier) async throws -> Set<ObvCryptoIdentity> {
+    
+        guard let delegateManager else { assertionFailure(); throw ObvError.delegateManagerIsNotSet }
+        guard let identityDelegate = delegateManager.identityDelegate else { assertionFailure(); throw ObvError.theIdentityDelegateIsNotSet }
+        guard let createContextDelegate = delegateManager.createContextDelegate else { assertionFailure(); throw ObvError.theCreateContextDelegateIsNotSet }
+        
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Set<ObvCryptoIdentity>, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let ownedCryptoIds = try identityDelegate.getOwnedIdentities(restrictToActive: restrictToActive, within: obvContext)
+                    return continuation.resume(returning: ownedCryptoIds)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+
+        
+    }
 
     /// Check whether each contact has at least one device. If not, perform a device discovery protocol.
     private func startDeviceDiscoveryProtocolForContactsHavingNoDevice(flowId: FlowIdentifier) {
@@ -645,36 +672,6 @@ extension EngineCoordinator {
 
     }
 
-        
-    /// Almost all the owned identity deletion work is performed in the OwnedIdentityDeletionProtocol (including deleting messages from the Inbox/Outbox).
-    /// Here, we simply clean the PersistedEngineDialog database and inform the network fetch manager about the new list of active owned identities (this essentially makes sure the appropriate WebSockets are connected).
-    private func processOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoIdentity) async {
-     
-        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
-        guard let appNotificationCenter = self.appNotificationCenter else { return }
-        
-        let log = self.log
-        
-        do {
-            try await informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
-        } catch {
-            os_log("Failed inform the fetch manager about the deleted owned identity: %{public}@", log: log, type: .fault, error.localizedDescription)
-            assertionFailure() // In production, continue anyway
-        }
-
-        createContextDelegate.performBackgroundTask(flowId: FlowIdentifier()) { obvContext in
-            
-            guard let obvDialogs = try? PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext) else { assertionFailure(); return }
-            for obvDialog in obvDialogs {
-                guard obvDialog.obvDialog?.ownedCryptoId == ObvCryptoId(cryptoIdentity: ownedCryptoId) else { continue }
-                try? obvDialog.delete()
-            }
-            try? obvContext.save(logOnFailure: log)
-
-        }
-        
-    }
-    
     
     /// When a new remote owned device is inserted, we immediately try to create an oblivious channel between the current device of the owned identity and this other remote owned device, but only if the remote device was *not* inserted during an existing channel creation.
     /// We also perform an owned device discovery.
@@ -1311,6 +1308,40 @@ extension EngineCoordinator {
         
     }
     
+    /// Called when an owned identity gets deleted from identity manager database
+    /// Almost all the owned identity deletion work is performed in the OwnedIdentityDeletionProtocol (including deleting messages from the Inbox/Outbox).
+    /// Here, we simply clean the PersistedEngineDialog database and inform the network fetch manager about the new list of active owned identities (this essentially makes sure the appropriate WebSockets are connected).
+    public func anOwnedIdentityWasDeleted(deletedOwnedCryptoId: ObvCryptoIdentity) async {
+        let flowId = FlowIdentifier()
+        
+        deleteItemsAssociatedToNonExistingOwnedIdentity(flowId: flowId)
+        
+        guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); return }
+        guard let appNotificationCenter = self.appNotificationCenter else { return }
+        
+        let log = self.log
+        
+        do {
+            try await informTheNetworkFetchManagerOfTheLatestSetOfOwnedIdentities()
+        } catch {
+            os_log("Failed inform the fetch manager about the deleted owned identity: %{public}@", log: log, type: .fault, error.localizedDescription)
+            assertionFailure() // In production, continue anyway
+        }
+
+        createContextDelegate.performBackgroundTask(flowId: FlowIdentifier()) { obvContext in
+            
+            guard let obvDialogs = try? PersistedEngineDialog.getAll(appNotificationCenter: appNotificationCenter, within: obvContext) else { assertionFailure(); return }
+            for obvDialog in obvDialogs {
+                guard obvDialog.obvDialog?.ownedCryptoId == ObvCryptoId(cryptoIdentity: deletedOwnedCryptoId) else { continue }
+                try? obvDialog.delete()
+            }
+            try? obvContext.save(logOnFailure: log)
+
+        }
+
+        
+    }
+        
 }
 
 
@@ -1325,22 +1356,10 @@ extension EngineCoordinator {
         case theIdentityDelegateIsNotSet
         case theProtocolDelegateIsNotSet
         case delegateManagerIsNotSet
+        case networkFetchDelegateIsNil
+        case obvEngineIsNil
+        case obvBackupManagerNewIsNil
         
-        var localizedDescription: String {
-            switch self {
-            case .theCreateContextDelegateIsNotSet:
-                return "The create context delegate is not set"
-            case .theChannelDelegateIsNotSet:
-                return "The channel delegate is not set"
-            case .theIdentityDelegateIsNotSet:
-                return "The identity delegate is not set"
-            case .theProtocolDelegateIsNotSet:
-                return "The protocol delegate is not set"
-            case .delegateManagerIsNotSet:
-                return "The delegate manager is not set"
-            }
-        }
-
     }
 
 }
@@ -1350,10 +1369,10 @@ extension EngineCoordinator {
 
 extension EngineCoordinator {
         
-    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>) throws -> CompositionOfOneContextualOperation<T> {
+    private func createCompositionOfOneContextualOperation<T: LocalizedErrorWithLogType>(op1: ContextualOperationWithSpecificReasonForCancel<T>, flowId: FlowIdentifier? = nil) throws -> CompositionOfOneContextualOperation<T> {
         guard let createContextDelegate = delegateManager?.createContextDelegate else { assertionFailure(); throw ObvError.theCreateContextDelegateIsNotSet  }
         let log = self.log
-        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: createContextDelegate, queueForComposedOperations: queueForComposedOperations, log: log, flowId: FlowIdentifier())
+        let composedOp = CompositionOfOneContextualOperation(op1: op1, contextCreator: createContextDelegate, queueForComposedOperations: queueForComposedOperations, log: log, flowId: flowId ?? FlowIdentifier())
         composedOp.completionBlock = { [weak composedOp] in
             assert(composedOp != nil)
             composedOp?.logReasonIfCancelled(log: log)

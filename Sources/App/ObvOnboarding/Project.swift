@@ -24,6 +24,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
         .Olvid.App.obvSystemIcon,
         .Olvid.App.obvSubscription,
         .Olvid.App.obvAppTypes,
+        .Olvid.App.obvAppBackup,
         .Olvid.App.UI.obvImageEditor,
         .Olvid.App.UI.obvScannerHostingView,
         .Olvid.App.UI.obvCircledInitials,

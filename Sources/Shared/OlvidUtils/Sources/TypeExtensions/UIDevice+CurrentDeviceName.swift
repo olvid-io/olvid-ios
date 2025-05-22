@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -148,7 +148,9 @@ public extension UIDevice {
             return "iPhone 16"
         case "iPhone17,4":
             return "iPhone 16 Plus"
-            
+        case "iPhone17,5":
+            return "iPhone 16e"
+
         //
         // iPads
         //
@@ -338,6 +340,23 @@ public extension UIDevice {
         case "iPad14,11":
             return "iPad Air" // 13-inch (M2)
 
+        case "iPad15,3":
+            return "iPad Air" // iPad Air 11-inch 7th Gen (WiFi)
+        case "iPad15,4":
+            return "iPad Air" // iPad Air 11-inch 7th Gen (WiFi+Cellular)
+        case "iPad15,5":
+            return "iPad Air" // iPad Air 13-inch 7th Gen (WiFi)
+        case "iPad15,6":
+            return "iPad Air" // iPad Air 13-inch 7th Gen (WiFi+Cellular)
+        case "iPad15,7":
+            return "iPad 11th Gen" // iPad 11th Gen (WiFi)
+        case "iPad15,8":
+            return "iPad 11th Gen" // iPad 11th Gen (WiFi+Cellular)
+            
+        case "iPad16,1":
+            return "iPad mini 7th Gen" // iPad mini 7th Gen (WiFi)
+        case "iPad16,2":
+            return "iPad mini 7th Gen" // iPad mini 7th Gen (WiFi+Cellular)
         case "iPad16,3":
             return "iPad Pro" // 11-inch 5th Gen
         case "iPad16,4":

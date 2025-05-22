@@ -26,6 +26,7 @@ import ObvEncoder
 public protocol ObvSolveChallengeDelegate: ObvManager {
     
     func solveChallenge(_ challengeType: ChallengeType, for: ObvCryptoIdentity, using: PRNGService, within obvContext: ObvContext) throws -> Data
+    func solveChallenge(_ challengeType: ChallengeType, with authenticationKeyPair: (publicKey: any PublicKeyForAuthentication, privateKey: any PrivateKeyForAuthentication), using: PRNGService) throws -> Data
     
 }
 
@@ -83,6 +84,8 @@ public enum ChallengeType {
     case ownedIdentityDeletion(notifiedContactIdentity: ObvCryptoIdentity)
     case devicePreKey(deviceBlobEncoded: Data)
     case encryptionWithPreKey(encodedToSend: ObvEncoded, toIdentity: ObvCryptoIdentity, toDeviceUID: UID, preKeyId: CryptoKeyId)
+    case backupUpload(backupKeyUID: UID, deviceOrProfileBackupThreadUID: UID, backupVersion: Int, encryptedBackup: EncryptedData)
+    case backupDelete(backupKeyUID: UID, deviceOrProfileBackupThreadUID: UID, backupVersion: Int)
 
     public var challengePrefix: Data {
         switch self {
@@ -116,6 +119,10 @@ public enum ChallengeType {
             return "devicePreKey".data(using: .utf8)!
         case .encryptionWithPreKey:
             return "encryptionWithPreKey".data(using: .utf8)!
+        case .backupUpload:
+            return "backupUpload".data(using: .utf8)!
+        case .backupDelete:
+            return "backupDelete".data(using: .utf8)!
         }
     }
     
@@ -155,6 +162,19 @@ public enum ChallengeType {
                 toIdentity.obvEncode(),
                 toDeviceUID.obvEncode(),
                 preKeyId.obvEncode(),
+            ].obvEncode().rawData
+        case .backupUpload(backupKeyUID: let backupKeyUID, deviceOrProfileBackupThreadUID: let deviceOrProfileBackupThreadUID, backupVersion: let backupVersion, encryptedBackup: let encryptedBackup):
+            return [
+                backupKeyUID.obvEncode(),
+                deviceOrProfileBackupThreadUID.obvEncode(),
+                backupVersion.obvEncode(),
+                encryptedBackup.obvEncode(),
+            ].obvEncode().rawData
+        case .backupDelete(backupKeyUID: let backupKeyUID, deviceOrProfileBackupThreadUID: let deviceOrProfileBackupThreadUID, backupVersion: let backupVersion):
+            return [
+                backupKeyUID.obvEncode(),
+                deviceOrProfileBackupThreadUID.obvEncode(),
+                backupVersion.obvEncode(),
             ].obvEncode().rawData
         }
     }

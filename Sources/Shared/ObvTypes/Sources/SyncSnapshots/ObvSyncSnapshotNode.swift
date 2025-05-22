@@ -21,7 +21,7 @@ import Foundation
 import ObvEncoder
 
 
-public protocol ObvSyncSnapshotNode: Codable, Hashable, Identifiable {
+public protocol ObvSyncSnapshotNode: Codable, Hashable, Identifiable, Sendable {
 
     /// Computes a list of differences between the current snapshot and the other snapshot.
     //func computeDiff(withOther syncSnapshotNode: Self) -> Set<ObvSyncDiff>

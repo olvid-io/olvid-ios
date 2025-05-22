@@ -115,8 +115,8 @@ final actor AppMainManager: ObvErrorMaker {
         try performAppCoreDataStackInitialization()
         try performObvUserNotificationsStackInitialization()
         let obvEngine = try await performEngineAndEngineCoreDataStackInitialization()
-        initializeManagers(obvEngine: obvEngine,
-                           backgroundTasksManager: backgroundTasksManager)
+        await initializeManagers(obvEngine: obvEngine,
+                                 backgroundTasksManager: backgroundTasksManager)
         initializeCoordinators(obvEngine: obvEngine,
                                userNotificationsCoordinator: userNotificationsCoordinator)
         await connectCoordinatorsAndManagers()
@@ -134,13 +134,13 @@ final actor AppMainManager: ObvErrorMaker {
         assert(appManagersHolder != nil)
         if let appCoordinatorsHolder {
             appCoordinatorsHolder.userNotificationsCoordinator.coordinator = appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator
-            await ContinuousSharingLocationService.shared.setDelegate(to: appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator)
         }
         if let appManagersHolder, let appCoordinatorsHolder {
             await appManagersHolder.setManagersDelegates(
                 backgroundTasksManagerDelegate: appCoordinatorsHolder.bootstrapCoordinator,
                 expirationMessagesManager: appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator,
-                signalingDelegate: appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator)
+                signalingDelegate: appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator,
+                continuousSharingLocationManagerDelegate: appCoordinatorsHolder.persistedDiscussionsUpdatesCoordinator)
         }
     }
     
@@ -285,14 +285,14 @@ final actor AppMainManager: ObvErrorMaker {
         do {
             let mainEngineContainer = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url
             ObvEngine.mainContainerURL = mainEngineContainer
-            obvEngine = try ObvEngine.startFull(logPrefix: "FullEngine",
-                                                appNotificationCenter: NotificationCenter.default,
-                                                backgroundTaskManager: backgroundTaskManagerBasedOnUIApplication,
-                                                sharedContainerIdentifier: ObvAppCoreConstants.appGroupIdentifier,
-                                                supportBackgroundTasks: ObvMessengerConstants.isRunningOnRealDevice, 
-                                                remoteNotificationByteIdentifierForServer: ObvAppCoreConstants.remoteNotificationByteIdentifierForServer,
-                                                appType: .mainApp,
-                                                runningLog: runningLog)
+            obvEngine = try await ObvEngine.startFull(logPrefix: "FullEngine",
+                                                      appNotificationCenter: NotificationCenter.default,
+                                                      backgroundTaskManager: backgroundTaskManagerBasedOnUIApplication,
+                                                      sharedContainerIdentifier: ObvAppCoreConstants.appGroupIdentifier,
+                                                      supportBackgroundTasks: ObvMessengerConstants.isRunningOnRealDevice,
+                                                      remoteNotificationByteIdentifierForServer: ObvAppCoreConstants.remoteNotificationByteIdentifierForServer,
+                                                      appType: .mainApp,
+                                                      runningLog: runningLog)
         } catch let error {
             runningLog.addEvent(message: "The Engine initialization failed: \(error.localizedDescription)")
             assertionFailure()
@@ -305,11 +305,11 @@ final actor AppMainManager: ObvErrorMaker {
     }
     
     
-    private func initializeManagers(obvEngine: ObvEngine, backgroundTasksManager: BackgroundTasksManager) {
+    private func initializeManagers(obvEngine: ObvEngine, backgroundTasksManager: BackgroundTasksManager) async {
         runningLog.addEvent(message: "Initialization of the managers starts")
         defer { runningLog.addEvent(message: "Initialization of the managers ends") }
-        self.appManagersHolder = AppManagersHolder(obvEngine: obvEngine,
-                                                   backgroundTasksManager: backgroundTasksManager)
+        self.appManagersHolder = await AppManagersHolder(obvEngine: obvEngine,
+                                                         backgroundTasksManager: backgroundTasksManager)
     }
     
     
@@ -1002,6 +1002,10 @@ extension AppMainManager {
         get async {
             await appManagersHolder?.storeKitDelegate
         }
+    }
+    
+    var continuousSharingLocationManager: ContinuousSharingLocationManager? {
+        appManagersHolder?.continuousSharingLocationManager
     }
 
 }

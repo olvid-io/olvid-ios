@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -94,6 +94,12 @@ extension OwnedDeviceDiscoveryProtocol {
         }
         
         override func executeStep(within obvContext: ObvContext) throws -> ConcreteProtocolState? {
+            
+            // Make sure we are not performing a deletion of the owned identity
+            
+            guard !(try identityDelegate.isOwnedIdentityDeletedOrDeletionIsInProgress(ownedIdentity, within: obvContext)) else {
+                return CancelledState()
+            }
             
             // Send the server query
             

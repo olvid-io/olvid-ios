@@ -43,7 +43,6 @@ public enum ObvEngineNotificationNew {
 	case contactGroupOwnedHasUpdatedLatestDetails(obvContactGroup: ObvContactGroup)
 	case deletedObliviousChannelWithContactDevice(obvContactIdentifier: ObvContactIdentifier)
 	case newTrustedContactIdentity(obvContactIdentity: ObvContactIdentity)
-	case newBackupKeyGenerated(backupKeyString: String, obvBackupKeyInformation: ObvBackupKeyInformation)
 	case ownedIdentityWasDeactivated(ownedIdentity: ObvCryptoId)
 	case ownedIdentityWasReactivated(ownedIdentity: ObvCryptoId)
 	case networkOperationFailedSinceOwnedIdentityIsNotActive(ownedIdentity: ObvCryptoId)
@@ -117,7 +116,6 @@ public enum ObvEngineNotificationNew {
 		case contactGroupOwnedHasUpdatedLatestDetails
 		case deletedObliviousChannelWithContactDevice
 		case newTrustedContactIdentity
-		case newBackupKeyGenerated
 		case ownedIdentityWasDeactivated
 		case ownedIdentityWasReactivated
 		case networkOperationFailedSinceOwnedIdentityIsNotActive
@@ -201,7 +199,6 @@ public enum ObvEngineNotificationNew {
 			case .contactGroupOwnedHasUpdatedLatestDetails: return Name.contactGroupOwnedHasUpdatedLatestDetails.name
 			case .deletedObliviousChannelWithContactDevice: return Name.deletedObliviousChannelWithContactDevice.name
 			case .newTrustedContactIdentity: return Name.newTrustedContactIdentity.name
-			case .newBackupKeyGenerated: return Name.newBackupKeyGenerated.name
 			case .ownedIdentityWasDeactivated: return Name.ownedIdentityWasDeactivated.name
 			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
 			case .networkOperationFailedSinceOwnedIdentityIsNotActive: return Name.networkOperationFailedSinceOwnedIdentityIsNotActive.name
@@ -310,11 +307,6 @@ public enum ObvEngineNotificationNew {
 		case .newTrustedContactIdentity(obvContactIdentity: let obvContactIdentity):
 			info = [
 				"obvContactIdentity": obvContactIdentity,
-			]
-		case .newBackupKeyGenerated(backupKeyString: let backupKeyString, obvBackupKeyInformation: let obvBackupKeyInformation):
-			info = [
-				"backupKeyString": backupKeyString,
-				"obvBackupKeyInformation": obvBackupKeyInformation,
 			]
 		case .ownedIdentityWasDeactivated(ownedIdentity: let ownedIdentity):
 			info = [
@@ -678,15 +670,6 @@ public enum ObvEngineNotificationNew {
 		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
 			let obvContactIdentity = notification.userInfo!["obvContactIdentity"] as! ObvContactIdentity
 			block(obvContactIdentity)
-		}
-	}
-
-	public static func observeNewBackupKeyGenerated(within appNotificationCenter: NotificationCenter, queue: OperationQueue? = nil, block: @escaping (String, ObvBackupKeyInformation) -> Void) -> NSObjectProtocol {
-		let name = Name.newBackupKeyGenerated.name
-		return appNotificationCenter.addObserver(forName: name, object: nil, queue: queue) { (notification) in
-			let backupKeyString = notification.userInfo!["backupKeyString"] as! String
-			let obvBackupKeyInformation = notification.userInfo!["obvBackupKeyInformation"] as! ObvBackupKeyInformation
-			block(backupKeyString, obvBackupKeyInformation)
 		}
 	}
 

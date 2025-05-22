@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,7 +19,7 @@
 
 import Foundation
 
-public enum AuthenticatedEncryptionImplementationByteId: UInt8 {
+public enum AuthenticatedEncryptionImplementationByteId: UInt8, Sendable {
     case CTR_AES_256_THEN_HMAC_SHA_256 = 0x00
     
     public var algorithmImplementation: AuthenticatedEncryptionConcrete.Type {

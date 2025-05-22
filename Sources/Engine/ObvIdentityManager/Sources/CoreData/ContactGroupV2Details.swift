@@ -103,6 +103,7 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
     weak var obvContext: ObvContext?
     var delegateManager: ObvIdentityDelegateManager?
     private var isRestoringBackup = false
+    private var changedKeys = Set<String>()
 
     // MARK: - Initializer
     
@@ -482,16 +483,34 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
         let request: NSFetchRequest<NSFetchRequestResult> = ContactGroupV2Details.fetchRequest()
         request.predicate = Predicate.withoutContactGroup
         let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        _ = try obvContext.execute(batchDeleteRequest)
+        batchDeleteRequest.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(batchDeleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
     
     
     // MARK: - Sending notifications
 
+    override func willSave() {
+        super.willSave()
+        if isUpdated {
+            changedKeys = Set<String>(self.changedValues().keys)
+        }
+    }
+    
+
     override func didSave() {
         super.didSave()
         
         defer {
+            changedKeys.removeAll()
             isRestoringBackup = false
         }
         
@@ -506,7 +525,41 @@ final class ContactGroupV2Details: NSManagedObject, ObvManagedObject, ObvErrorMa
             }
         }
         
+        // Potentially notify that the previous backed up profile snapshot is obsolete
+        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+        
+        if !isDeleted {
+            let previousBackedUpProfileSnapShotIsObsolete: Bool
+            if isInserted {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else if changedKeys.contains(Predicate.Key.rawPhotoServerIdentity.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawPhotoServerKeyEncoded.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawPhotoServerLabel.rawValue) ||
+                        changedKeys.contains(Predicate.Key.serializedCoreDetails.rawValue) {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else {
+                previousBackedUpProfileSnapShotIsObsolete = false
+            }
+            if previousBackedUpProfileSnapShotIsObsolete {
+                if let contactGroup = self.contactGroupInCaseTheDetailsAreTrusted ?? self.contactGroupInCaseTheDetailsArePublished, let ownedCryptoIdentity = contactGroup.ownedIdentity?.cryptoIdentity {
+                    let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
+                    Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2DetailsChanged(ownedCryptoId: ownedCryptoId) }
+                } else {
+                    assertionFailure()
+                }
+            }
+        }
+
     }
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvObserver(_ newObserver: ContactGroupV2DetailsObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
 }
 
 
@@ -766,6 +819,41 @@ struct ContactGroupV2DetailsSyncSnapshotNode: ObvSyncSnapshotNode, Equatable, Ha
         case couldNotDeserializeCoreDetails
         case couldNotDecodePhotoServerLabel
         case tryingToRestoreIncompleteNode
+    }
+    
+}
+
+
+// MARK: - ContactGroupV2Details observers
+
+protocol ContactGroupV2DetailsObserver: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2DetailsChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: ContactGroupV2DetailsObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ContactGroupV2DetailsObserver?
+        init(value: ContactGroupV2DetailsObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ContactGroupV2DetailsObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2DetailsChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2DetailsChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
     }
     
 }

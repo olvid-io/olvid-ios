@@ -28,6 +28,7 @@ import OlvidUtils
 import ObvUICoreData
 import ObvSettings
 import ObvAppCoreConstants
+import ObvLocation
 
 
 @UIApplicationMain
@@ -59,6 +60,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, ObvErrorMaker {
         }
     }
     
+    var continuousSharingLocationManager: ContinuousSharingLocationManager? {
+        get async {
+            await appMainManager.continuousSharingLocationManager
+        }
+    }
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
         #if DEBUG

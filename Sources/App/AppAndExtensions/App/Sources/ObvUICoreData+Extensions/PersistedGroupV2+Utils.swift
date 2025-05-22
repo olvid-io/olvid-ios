@@ -23,6 +23,7 @@ import ObvTypes
 import ObvUI
 import ObvUICoreData
 import CoreData
+import ObvAppTypes
 
 
 extension PersistedGroupV2 {

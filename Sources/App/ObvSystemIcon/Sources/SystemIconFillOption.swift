@@ -21,7 +21,7 @@
 import Foundation
 
 
-public enum SystemIconFillOption {
+public enum SystemIconFillOption: Sendable {
     case none
     case fill
 

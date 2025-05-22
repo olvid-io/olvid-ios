@@ -367,7 +367,16 @@ final class ContactIdentity: NSManagedObject, ObvManagedObject {
     func setDateOfLastBootstrappedContactDeviceDiscovery(to newDate: Date) {
         self.rawDateOfLastBootstrappedContactDeviceDiscovery = newDate
     }
+ 
     
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvObserver(_ newObserver: ContactIdentityObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
 }
 
 
@@ -1118,7 +1127,7 @@ extension ContactIdentity {
     
     override func didSave() {
         super.didSave()
-                
+        
         defer {
             changedKeys.removeAll()
             doNotNotifyOnOneToOneStatusChanged = false
@@ -1137,14 +1146,14 @@ extension ContactIdentity {
             os_log("The delegate manager is not set (5)", log: log, type: .fault)
             return
         }
-
+        
         let log = OSLog.init(subsystem: delegateManager.logSubsystem, category: String(describing: Self.self))
-
+        
         assert(obvContext != nil)
         let flowId = obvContext?.flowId ?? FlowIdentifier()
         
         if isInserted, let ownedIdentity, let cryptoIdentity = self.cryptoIdentity {
-
+            
             do {
                 os_log("Sending a ContactIdentityIsNowTrusted notification", log: log, type: .debug)
                 ObvIdentityNotificationNew.contactIdentityIsNowTrusted(contactIdentity: cryptoIdentity, ownedIdentity: ownedIdentity.ownedCryptoIdentity.getObvCryptoIdentity(), flowId: flowId)
@@ -1156,23 +1165,23 @@ extension ContactIdentity {
                 contactIdentity: cryptoIdentity,
                 flowId: flowId)
             .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
-
+            
         } else if isDeleted, let ownedIdentityCryptoIdentityOnDeletion, let rawIdentityOnDeletion, let cryptoIdentity = ObvCryptoIdentity(from: rawIdentityOnDeletion) {
-                        
+            
             os_log("Sending a ContactWasDeleted notification", log: log, type: .debug)
             ObvIdentityNotificationNew.contactWasDeleted(ownedCryptoIdentity: ownedIdentityCryptoIdentityOnDeletion,
                                                          contactCryptoIdentity: cryptoIdentity)
             .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
-
+            
         } else if let ownedIdentity, let cryptoIdentity {
-                        
+            
             if !changedKeys.isEmpty {
                 
                 //ObvDisplayableLogs.shared.log("[ContactIdentity] Will send contactWasUpdatedWithinTheIdentityManager notification as changedKeys = \(changedKeys)")
                 
                 ObvIdentityNotificationNew.contactWasUpdatedWithinTheIdentityManager(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: cryptoIdentity, flowId: flowId)
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
-
+                
             }
             
             if changedKeys.contains(Predicate.Key.isForcefullyTrustedByUser.rawValue) || changedKeys.contains(Predicate.Key.isRevokedAsCompromised.rawValue) {
@@ -1183,7 +1192,7 @@ extension ContactIdentity {
                     isActive: isRevokedAsCompromisedAndNotForcefullyTrustedByUser,
                     flowId: flowId)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
-
+                
             }
             
             if changedKeys.contains(Predicate.Key.isRevokedAsCompromised.rawValue) && self.isRevokedAsCompromised {
@@ -1193,7 +1202,7 @@ extension ContactIdentity {
                     contactIdentity: cryptoIdentity,
                     flowId: flowId)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
-
+                
             }
             
             if changedKeys.contains(Predicate.Key.rawOneToOneStatus.rawValue) {
@@ -1207,7 +1216,7 @@ extension ContactIdentity {
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
                     
                 }
-
+                
             }
             
             if changedKeys.contains(Predicate.Key.isCertifiedByOwnKeycloak.rawValue) {
@@ -1217,9 +1226,36 @@ extension ContactIdentity {
                     contactIdentity: cryptoIdentity,
                     newIsCertifiedByOwnKeycloak: isCertifiedByOwnKeycloak)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
-
+                
             }
             
+        }
+        
+        // Potentially notify that the previous backed up profile snapshot is obsolete
+        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+        
+        if !isDeleted {
+            let previousBackedUpProfileSnapShotIsObsolete: Bool
+            if isInserted {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else if changedKeys.contains(Predicate.Key.persistedTrustOrigins.rawValue) ||
+                        changedKeys.contains(Predicate.Key.publishedIdentityDetails.rawValue) ||
+                        changedKeys.contains(Predicate.Key.trustedIdentityDetails.rawValue) ||
+                        changedKeys.contains(Predicate.Key.trustLevelRaw.rawValue) ||
+                        changedKeys.contains(Predicate.Key.isRevokedAsCompromised.rawValue) ||
+                        changedKeys.contains(Predicate.Key.isForcefullyTrustedByUser.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawOneToOneStatus.rawValue) {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else {
+                previousBackedUpProfileSnapShotIsObsolete = false
+            }
+            if previousBackedUpProfileSnapShotIsObsolete {
+                if let ownedCryptoId = try? ObvCryptoId(identity: self.ownedIdentityIdentity) {
+                    Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityChanged(ownedCryptoId: ownedCryptoId) }
+                } else {
+                    assertionFailure()
+                }
+            }
         }
 
     }
@@ -1370,7 +1406,7 @@ extension ContactIdentity {
 
 
 
-struct ContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
+struct ContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
     
     private let domain: Set<CodingKeys>
     private let trustedIdentityDetails: ContactIdentityDetailsTrustedSyncSnapShotNode?
@@ -1495,4 +1531,39 @@ struct ContactIdentitySyncSnapshotNode: ObvSyncSnapshotNode {
         case tryingToRestoreIncompleteSnapshot
     }
 
+}
+
+
+// MARK: - ContactIdentity observers
+
+protocol ContactIdentityObserver: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: ContactIdentityObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ContactIdentityObserver?
+        init(value: ContactIdentityObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ContactIdentityObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsContactIdentityChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+    
 }

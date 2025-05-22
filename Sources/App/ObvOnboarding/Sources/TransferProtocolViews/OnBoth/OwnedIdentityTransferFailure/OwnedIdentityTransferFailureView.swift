@@ -21,6 +21,7 @@ import SwiftUI
 import MessageUI
 import ObvTypes
 import ObvAppCoreConstants
+import ObvDesignSystem
 
 
 
@@ -93,9 +94,9 @@ struct OwnedIdentityTransferFailureView: View {
             ScrollView {
                 VStack {
                     
-                    NewOnboardingHeaderView(
-                        title: "OWNED_IDENTITY_TRANSFER_FAILED_TITLE",
-                        subtitle: "OWNED_IDENTITY_TRANSFER_FAILED_SUBTITLE")
+                    ObvHeaderView(
+                        title: "OWNED_IDENTITY_TRANSFER_FAILED_TITLE".localizedInThisBundle,
+                        subtitle: "OWNED_IDENTITY_TRANSFER_FAILED_SUBTITLE".localizedInThisBundle)
                     
                     Image(systemIcon: .xmarkCircleFill)
                         .font(.title)

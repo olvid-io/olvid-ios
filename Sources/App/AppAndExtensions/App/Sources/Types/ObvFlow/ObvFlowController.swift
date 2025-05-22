@@ -28,9 +28,14 @@ import ObvUICoreData
 import ObvSettings
 import ObvAppCoreConstants
 import ObvAppTypes
+import ObvDesignSystem
+import ObvUIGroupV2
+import UniformTypeIdentifiers
+import ObvKeycloakManager
 
 
-protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate, ObvErrorMaker, NewGroupEditionFlowViewControllerGroupCreationDelegate {
+@MainActor
+protocol ObvFlowController: UINavigationController, SingleDiscussionViewControllerDelegate, SingleGroupViewControllerDelegate, SingleContactIdentityViewHostingControllerDelegate, ObvErrorMaker, ObvUIGroupV2RouterDelegateForCreation, ObvUIGroupV2RouterDelegateForEdition, EditNicknameAndCustomPictureViewControllerDelegate {
 
     var flowDelegate: ObvFlowControllerDelegate? { get }
     var log: OSLog { get }
@@ -38,8 +43,15 @@ protocol ObvFlowController: UINavigationController, SingleDiscussionViewControll
     var observationTokens: [NSObjectProtocol] { get set }
     var floatingButton: UIButton? { get set } // Used on iOS 18+ only
     var delegatesStack: ObvFlowControllerDelegatesStack { get }
+    
+    var routerForGroupCreation: ObvUIGroupV2Router { get }
+    var routerForGroupEdition: ObvUIGroupV2Router { get }
+    var appDataSourceForObvUIGroupV2Router: AppDataSourceForObvUIGroupV2Router { get }
 
+    @MainActor
     func userWantsToDisplay(persistedDiscussion discussion: PersistedDiscussion)
+    
+    @MainActor
     func userWantsToDisplay(persistedMessage message: PersistedMessage)
     
     // Switching the current owned identity
@@ -168,8 +180,8 @@ extension ObvFlowController {
     /// This method should be called from the `viewDidLoad` method of all view controllers (conforming to this protocol)
     func observeNotificationsImpactingTheNavigationStack() {
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observePersistedGroupV2WasDeleted { [weak self] persistedGroupV2ObjectID in
-                Task { [weak self] in await self?.removeGroupViewController(persistedGroupV2ObjectId: persistedGroupV2ObjectID) }
+            ObvMessengerCoreDataNotification.observePersistedGroupV2WasDeleted { [weak self] groupIdentifier in
+                Task { [weak self] in await self?.removeGroupViewController(groupIdentifier: groupIdentifier) }
             },
             ObvEngineNotificationNew.observeContactGroupDeleted(within: NotificationCenter.default) { _, _, groupUid in
                 Task { [weak self] in await self?.removeGroupViewController(groupUid: groupUid) }
@@ -293,16 +305,8 @@ extension ObvFlowController {
 
     /// If a a PersistedGroupV2 gets deleted (e.g., because we were kicked from the group), we want to dismiss any pushed `SingleGroupV2ViewController`.
     @MainActor
-    private func removeGroupViewController(persistedGroupV2ObjectId: TypeSafeManagedObjectID<PersistedGroupV2>) async {
-        var newViewController = [UIViewController]()
-        for vc in viewControllers {
-            guard let groupVC = vc as? SingleGroupV2ViewController, groupVC.persistedGroupV2ObjectID == persistedGroupV2ObjectId else {
-                newViewController += [vc]
-                continue
-            }
-            // Skip the view controller
-        }
-        setViewControllers(newViewController, animated: true)
+    private func removeGroupViewController(groupIdentifier: ObvGroupV2Identifier) async {
+        routerForGroupEdition.removeFromNavigationAllViewControllersRelatingToGroup(navigationController: self, groupIdentifier: groupIdentifier)
     }
 
 }
@@ -361,9 +365,21 @@ extension ObvFlowController {
 
 extension ObvFlowController {
     
+    /// Called when the user taps on a message representing `PersistedLocationContinuous`.
+    func userWantsToShowMapToConsultLocationSharedContinously(_ singleDiscussionViewController: any SomeSingleDiscussionViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws {
+        guard let flowDelegate else { assertionFailure(); throw Self.makeError(message: "Flow delegate is nil") }
+        try await flowDelegate.userWantsToShowMapToConsultLocationSharedContinously(self, presentingViewController: singleDiscussionViewController, messageObjectID: messageObjectID)
+    }
+    
     func userWantsToShowMapToSendOrShareLocationContinuously(_ singleDiscussionViewController: any SomeSingleDiscussionViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let flowDelegate else { assertionFailure(); throw Self.makeError(message: "Flow delegate is nil") }
         try await flowDelegate.userWantsToShowMapToSendOrShareLocationContinuously(self, presentingViewController: singleDiscussionViewController, discussionIdentifier: discussionIdentifier)
+    }
+    
+    
+    func userWantsToStopSharingLocationInDiscussion(_ singleDiscussionViewController: any SomeSingleDiscussionViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
+        guard let flowDelegate else { assertionFailure(); throw Self.makeError(message: "Flow delegate is nil") }
+        try await flowDelegate.userWantsToStopSharingLocationInDiscussion(self, discussionIdentifier: discussionIdentifier)
     }
     
     
@@ -500,12 +516,16 @@ extension ObvFlowController {
             
         case .groupV2(withGroup: let group):
             
-            guard let group = group else {
+            guard let obvGroupIdentifier = try? group?.obvGroupIdentifier else {
                 os_log("Could find group V2 (this is ok if it was just deleted)", log: log, type: .error)
                 return
             }
             
-            guard let singleGroupV2VC = try? SingleGroupV2ViewController(group: group, obvEngine: obvEngine, delegate: self) else { return }
+            guard let singleGroupV2VC = routerForGroupEdition.getInitialViewControllerToPresentForGroupEdition(groupIdentifier: obvGroupIdentifier) else {
+                assertionFailure()
+                return
+            }
+
             vcToPresent = singleGroupV2VC
 
         case .none:
@@ -643,7 +663,12 @@ extension ObvFlowController {
         if let groupV1 = group.groupV1 {
             userWantsToNavigateToSingleGroupView(persistedContactGroup: groupV1, within: appropriateNav)
         } else if let groupV2 = group.groupV2 {
-            userWantsToNavigateToSingleGroupView(persistedGroupV2: groupV2, within: appropriateNav)
+            do {
+                let groupIdentifier = try groupV2.obvGroupIdentifier
+                userWantsToNavigateToSingleGroupView(groupIdentifier: groupIdentifier, within: appropriateNav)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
         } else {
             assertionFailure()
         }
@@ -667,22 +692,6 @@ extension ObvFlowController {
 
     }
 
-    
-    private func userWantsToNavigateToSingleGroupView(persistedGroupV2: PersistedGroupV2, within nav: UINavigationController) {
-        
-        for vc in nav.children {
-            guard let singleGroupViewController = vc as? SingleGroupV2ViewController else { continue }
-            guard singleGroupViewController.persistedGroupV2ObjectID == persistedGroupV2.typedObjectID else { continue }
-            // If we reach this point, there exists an appropriate SingleGroupV2ViewController within the navigation stack, so we pop to this VC and return
-            nav.popToViewController(singleGroupViewController, animated: true)
-            return
-        }
-        // If we reach this point, we could not find an appropriate VC within the navigation stack, so we push a new one
-        guard let singleGroupViewController = try? SingleGroupV2ViewController(group: persistedGroupV2, obvEngine: obvEngine, delegate: self) else { return }
-        nav.pushViewController(singleGroupViewController, animated: true)
-        
-    }
-    
     
     @MainActor
     public func userWantsToPresentSingleGroupView(_ group: DisplayedContactGroup) {
@@ -718,16 +727,15 @@ extension ObvFlowController {
     
     @MainActor
     private func userWantsToPresentSingleGroupView(persistedGroupV2: PersistedGroupV2) {
-        
-        guard let singleGroupViewController = try? SingleGroupV2ViewController(group: persistedGroupV2, obvEngine: obvEngine, delegate: self) else { return }
-        if let presentedViewController {
-            presentedViewController.dismiss(animated: true) { [weak self] in
-                self?.present(singleGroupViewController, animated: true)
-            }
-        } else {
-            present(singleGroupViewController, animated: true)
+        guard let groupIdentifier: ObvGroupV2Identifier = try? persistedGroupV2.obvGroupIdentifier else {
+            assertionFailure()
+            return
         }
-        
+        guard let vcToPresent = routerForGroupEdition.getInitialViewControllerToPresentForGroupEdition(groupIdentifier: groupIdentifier) else {
+            assertionFailure()
+            return
+        }
+        self.presentOnTop(vcToPresent, animated: true)
     }
     
     
@@ -749,35 +757,37 @@ extension ObvFlowController {
     }
     
     
-    /// Method part of the `SingleGroupV2ViewControllerDelegate`, called when the user wants to add all the group members as one2one contacts at once.
-    func userWantsToInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>) async throws {
-        assert(flowDelegate != nil)
-        let users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)] = contactCryptoIds.map { ($0, nil) }
-        try await flowDelegate?.userWantsToInviteContactsToOneToOne(ownedCryptoId: ownedCryptoId, users: users)
-    }
-
-    
     func userWantsToCancelSentInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) {
+        Task {
+            try await cancelSentInviteContactToOneToOne(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
+        }
+    }
+    
+    
+    private func cancelSentInviteContactToOneToOne(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) async throws {
         let log = self.log
         let obvEngine = self.obvEngine
-        ObvStack.shared.performBackgroundTask { (context) in
-            do {
-                guard let oneToOneInvitationSent = try PersistedInvitationOneToOneInvitationSent.get(fromOwnedIdentity: ownedCryptoId,
-                                                                                                     toContact: contactCryptoId,
-                                                                                                     within: context) else {
-                    assertionFailure(); return
+        let dialog = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ObvDialog?, any Error>) in
+            ObvStack.shared.performBackgroundTask { context in
+                do {
+                    guard let oneToOneInvitationSent = try PersistedInvitationOneToOneInvitationSent.get(fromOwnedIdentity: ownedCryptoId,
+                                                                                                         toContact: contactCryptoId,
+                                                                                                         within: context) else {
+                        assertionFailure()
+                        return continuation.resume(returning: nil)
+                    }
+                    let dialog = oneToOneInvitationSent.obvDialog
+                    return continuation.resume(returning: dialog)
+                } catch {
+                    os_log("Could not cancel OneToOne invitation: %{public}@", log: log, type: .fault, error.localizedDescription)
+                    return continuation.resume(throwing: error)
                 }
-                guard var dialog = oneToOneInvitationSent.obvDialog else { assertionFailure(); return }
-                try dialog.cancelOneToOneInvitationSent()
-                let dialogForEngine = dialog
-                Task {
-                    try? await obvEngine.respondTo(dialogForEngine)
-                }
-            } catch {
-                os_log("Could not invite contact to OneToOne: %{public}@", log: log, type: .fault, error.localizedDescription)
-                assertionFailure()
             }
         }
+        guard var dialog else { return }
+        try dialog.cancelOneToOneInvitationSent()
+        let dialogForEngine = dialog
+        try await obvEngine.respondTo(dialogForEngine)
     }
     
     
@@ -808,17 +818,21 @@ extension ObvFlowController {
 }
 
 
-// MARK: - SingleGroupViewControllerDelegate, SingleGroupV2ViewControllerDelegate
+// MARK: - SingleGroupViewControllerDelegate
 
 extension ObvFlowController {
     
-    func userWantsToPublishGroupV2Modification(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async {
-        await flowDelegate?.userWantsToPublishGroupV2Modification(groupObjectID: groupObjectID, changeset: changeset)
+    func userWantsToDisplay(_ vc: SingleGroupViewController, persistedDiscussion discussion: PersistedDiscussion) {
+        userWantsToDisplay(persistedDiscussion: discussion)
+    }
+    
+
+    func userWantsToDisplay(_ vc: SingleGroupViewController, persistedContact: PersistedObvContactIdentity, within nav: UINavigationController?) {
+        userWantsToDisplay(persistedContact: persistedContact, within: nav)
     }
     
     
     func userWantsToDisplay(persistedContact: PersistedObvContactIdentity, within nav: UINavigationController?) {
-        
         let appropriateNav = nav ?? self
 
         for vc in appropriateNav.children {
@@ -838,115 +852,18 @@ extension ObvFlowController {
         }
         vcToPush.delegate = self
         appropriateNav.pushViewController(vcToPush, animated: true)
-        
     }
 
     
-    @MainActor
-    func userWantsToCloneGroup(displayedContactGroupObjectID: TypeSafeManagedObjectID<DisplayedContactGroup>) {
+    func userWantsToCloneGroup(_ vc: SingleGroupViewController, persistedContactGroup: PersistedContactGroup) async throws {
 
         assert(Thread.isMainThread)
-
-        guard let displayedContactGroup = try? DisplayedContactGroup.get(objectID: displayedContactGroupObjectID.objectID, within: ObvStack.shared.viewContext) else { return }
         
-        let ownedCryptoId: ObvCryptoId
-        let initialGroupMembers: Set<NewGroupEditionFlowViewController.EditionType.InitialGroupMember>
-        let originalGroupName: String?
-        let initialGroupDescription: String?
-        let originalPhotoURL: URL?
-        let initialGroupType: PersistedGroupV2.GroupType?
+        let valuesOfGroupToClone = try await appDataSourceForObvUIGroupV2Router.getValuesOfGroupToClone(persistedContactGroup: persistedContactGroup)
         
-        switch displayedContactGroup.group {
-        case .none:
-            return
-            
-        case .groupV2(group: let group):
-            
-            guard let _ownedCryptoId = try? group.ownCryptoId else { assertionFailure(); return }
-            ownedCryptoId = _ownedCryptoId
-            initialGroupMembers = Set(group.contactsAmongOtherPendingAndNonPendingMembers.map { persistedContact in
-                let cryptoId = persistedContact.cryptoId
-                let isAdmin = group.otherMembers.first(where: { $0.cryptoId == cryptoId })?.isAnAdmin ?? false
-                return NewGroupEditionFlowViewController.EditionType.InitialGroupMember(cryptoId: cryptoId, isAdmin: isAdmin)
-            })
-            originalGroupName = group.trustedName
-            initialGroupDescription = group.trustedDescription?.mapToNilIfZeroLength()
-            initialGroupType = group.getAdequateGroupType()
-            if let url = group.trustedPhotoURL, FileManager.default.fileExists(atPath: url.path) {
-                originalPhotoURL = url
-            } else {
-                originalPhotoURL = nil
-            }
-            
-        case .groupV1(group: let group):
-            
-            guard let ownedIdentity = group.ownedIdentity else { assertionFailure(); return }
-            ownedCryptoId = ownedIdentity.cryptoId
-            // Get a list of contacts that need to be included in the cloned group
-            let candidates: Set<PersistedObvContactIdentity>
-            do {
-                let contactsAmongPendingMembers = Set(group.pendingMembers
-                    .map({ $0.cryptoId })
-                    .compactMap({ try? PersistedObvContactIdentity.get(cryptoId: $0, ownedIdentity: ownedIdentity, whereOneToOneStatusIs: .any) }))
-                candidates = group.contactIdentities.union(contactsAmongPendingMembers)
-            }
-            // Check that all the candidates have the appropriate capability
-            let candidatesNotSupportingGroupV2 = candidates.filter({ !$0.supportsCapability(.groupsV2) })
-            guard candidatesNotSupportingGroupV2.isEmpty else {
-                displayAlertWhenTryingToCloneGroupV1WithMembersNotSupportingGroupsV2(contactsNotSupportingGroupV2: candidatesNotSupportingGroupV2)
-                return
-            }
-            initialGroupMembers = Set(candidates.map({ NewGroupEditionFlowViewController.EditionType.InitialGroupMember(cryptoId: $0.cryptoId, isAdmin: false) }))
-            originalGroupName = group.groupName.mapToNilIfZeroLength()
-            initialGroupDescription = nil // The description of a group v1 is only available at the engine level, we don't fetch it here
-            if let url = group.displayPhotoURL, FileManager.default.fileExists(atPath: url.path) {
-                originalPhotoURL = url
-            } else {
-                originalPhotoURL = nil
-            }
-            
-            initialGroupType = nil
-        }
-
-        let initialGroupName: String?
-        if let originalGroupName = originalGroupName, !originalGroupName.isEmpty {
-            initialGroupName = CommonString.clonedGroupNameFromOriginalName(originalGroupName)
-        } else {
-            initialGroupName = nil
-        }
-                
-        let initialPhotoURL: URL?
-        if let originalPhotoURL = originalPhotoURL {
-            let randomFilename = UUID().uuidString
-            let randomFileURL = ObvUICoreDataConstants.ContainerURL.forProfilePicturesCache.appendingPathComponent(randomFilename, isDirectory: false)
-            do {
-                try FileManager.default.copyItem(at: originalPhotoURL, to: randomFileURL)
-                initialPhotoURL = randomFileURL
-            } catch {
-                assertionFailure()
-                initialPhotoURL = nil
-            }
-        } else {
-            initialPhotoURL = nil
-        }
-        
-        let groupCreationFlowVC = NewGroupEditionFlowViewController(ownedCryptoId: ownedCryptoId,
-                                                                    editionType: .cloneGroup(delegate: self,
-                                                                                             initialGroupMembers: initialGroupMembers,
-                                                                                             initialGroupName: initialGroupName,
-                                                                                             initialGroupDescription: initialGroupDescription,
-                                                                                             initialPhotoURL: initialPhotoURL,
-                                                                                             initialGroupType: initialGroupType),
-                                                                    logSubsystem: ObvAppCoreConstants.logSubsystem,
-                                                                    directoryForTempFiles: ObvUICoreDataConstants.ContainerURL.forTempFiles.url)
-
-        if let presentedViewController = presentedViewController {
-            presentedViewController.dismiss(animated: true) { [weak self] in
-                self?.present(groupCreationFlowVC, animated: true)
-            }
-        } else {
-            present(groupCreationFlowVC, animated: true)
-        }
+        routerForGroupCreation.presentInitialViewControllerForGroupCreation(ownedCryptoId: currentOwnedCryptoId,
+                                                                            presentingViewController: self,
+                                                                            creationMode: .cloneExistingGroup(valuesOfGroupToClone: valuesOfGroupToClone))
 
     }
     
@@ -972,17 +889,349 @@ extension ObvFlowController {
 }
 
 
-// MARK: - NewGroupEditionFlowViewControllerGroupCreationDelegate
+// MARK: - Implementing EditNicknameAndCustomPictureViewControllerDelegate
 
 extension ObvFlowController {
     
-    func userWantsToPublishGroupV2Creation(controller: NewGroupEditionFlowViewController, groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: PersistedGroupV2.GroupType) async {
-        await flowDelegate?.userWantsToPublishGroupV2Creation(groupCoreDetails: groupCoreDetails,
-                                                              ownPermissions: ownPermissions,
-                                                              otherGroupMembers: otherGroupMembers,
-                                                              ownedCryptoId: ownedCryptoId,
-                                                              photoURL: photoURL,
-                                                              groupType: groupType)
+    func userWantsToSaveNicknameAndCustomPicture(controller: EditNicknameAndCustomPictureViewController, identifier: EditNicknameAndCustomPictureView.Model.IdentifierKind, nickname: String, customPhoto: UIImage?) async {
+        let ownedCryptoId: ObvCryptoId = self.currentOwnedCryptoId
+        let groupV2Identifier: GroupV2Identifier
+        switch identifier {
+        case .contact:
+            assertionFailure("The controller is expected to be configured with an identifier corresponding to the group shown by this view controller")
+            return
+        case .groupV2(let _groupV2Identifier):
+            guard let group = try? PersistedGroupV2.getWithPrimaryKey(ownCryptoId: ownedCryptoId, groupIdentifier: _groupV2Identifier, within: ObvStack.shared.viewContext) else {
+                assertionFailure()
+                return
+            }
+            guard group.groupIdentifier == _groupV2Identifier else { assertionFailure(); return }
+            groupV2Identifier = _groupV2Identifier
+        }
+        let sanitizedNickname = nickname.trimmingWhitespacesAndNewlines()
+        ObvMessengerInternalNotification.userWantsToUpdateCustomNameAndGroupV2Photo(
+            ownedCryptoId: ownedCryptoId,
+            groupIdentifier: groupV2Identifier,
+            customName: sanitizedNickname,
+            customPhoto: customPhoto)
+        .postOnDispatchQueue()
+        controller.dismiss(animated: true)
+    }
+    
+    
+    func userWantsToDismissEditNicknameAndCustomPictureViewController(controller: EditNicknameAndCustomPictureViewController) async {
+        controller.dismiss(animated: true)
+    }
+
+}
+
+
+// MARK: - Implementing ObvUIGroupV2RouterDelegateForCreation
+
+extension ObvFlowController {
+ 
+    /// Called when the user hits the cancel button on the view allowing to choose the group members during a group creation. Also called after a group was created.
+    func presentedGroupCreationFlowShouldBeDismissed(_ router: ObvUIGroupV2Router) {
+        self.presentedViewController?.dismiss(animated: true)
+    }
+
+    
+    func userWantsObtainAvatarDuringGroupCreation(_ router: ObvUIGroupV2Router, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        return try await userWantsObtainAvatar(avatarSource: avatarSource, avatarSize: avatarSize)
+    }
+    
+    
+    func userWantsToSaveImageToTempFileDuringGroupCreation(_ router: ObvUIGroupV2Router, image: UIImage) async throws -> URL {
+        try await userWantsToSaveImageToTempFile(image: image)
+    }
+    
+    
+    func userWantsToPublishCreatedGroupV2(_ router: ObvUIGroupV2Router, ownedCryptoId: ObvCryptoId, groupDetails: ObvTypes.ObvGroupDetails, groupType: ObvGroupType, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>) async throws {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        
+        let groupCoreDetails = GroupV2CoreDetails(groupName: groupDetails.coreDetails.name,
+                                                  groupDescription: groupDetails.coreDetails.description)
+        
+        let ownPermissions: Set<ObvGroupV2.Permission> = ObvGroupType.exactPermissions(of: .admin, forGroupType: groupType)
+        
+        try await flowDelegate.userWantsToPublishGroupV2Creation(groupCoreDetails: groupCoreDetails,
+                                                                 ownPermissions: ownPermissions,
+                                                                 otherGroupMembers: otherGroupMembers,
+                                                                 ownedCryptoId: ownedCryptoId,
+                                                                 photoURL: groupDetails.photoURL,
+                                                                 groupType: groupType)
+        
+
+    }
+    
+}
+
+
+// MARK: - Implementing ObvUIGroupV2RouterDelegateForEdition
+
+extension ObvFlowController {
+    
+    /// This method is not part of `ObvUIGroupV2RouterDelegateForEdition`, but allows to easily navigate
+    @MainActor
+    func userWantsToNavigateToSingleGroupView(groupIdentifier: ObvGroupV2Identifier, within navigationController: UINavigationController?) {
+        routerForGroupEdition.pushOrPopInitialViewControllerForGroupEdition(navigationController: navigationController ?? self, groupIdentifier: groupIdentifier)
+    }
+    
+    
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ router: ObvUIGroupV2Router, publishedDetails: PublishedDetailsValidationViewModel) async throws {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        let groupIdentifier = publishedDetails.groupIdentifier
+        try await flowDelegate.userWantsToReplaceTrustedDetailsByPublishedDetails(self, groupIdentifier: groupIdentifier)
+    }
+    
+    
+    func userWantsToLeaveGroup(_ router: ObvUIGroupV2Router, groupIdentifier: ObvGroupV2Identifier) async throws {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        try await flowDelegate.userWantsToLeaveGroup(self, groupIdentifier: groupIdentifier)
+    }
+    
+    
+    func userWantsToDisbandGroup(_ router: ObvUIGroupV2Router, groupIdentifier: ObvGroupV2Identifier) async throws {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        try await flowDelegate.userWantsToDisbandGroup(self, groupIdentifier: groupIdentifier)
+    }
+    
+    
+    func userWantsToChat(_ router: ObvUIGroupV2Router, groupIdentifier: ObvGroupV2Identifier) async {
+        guard let persistedGroup = try? PersistedGroupV2.get(ownIdentity: groupIdentifier.ownedCryptoId, appGroupIdentifier: groupIdentifier.identifier.appGroupIdentifier, within: ObvStack.shared.viewContext) else {
+            assertionFailure()
+            return
+        }
+        guard let persistedDiscussion = persistedGroup.discussion else {
+            assertionFailure()
+            return
+        }
+        self.userWantsToDisplayImpl(persistedDiscussion: persistedDiscussion, messageToShow: nil)
+    }
+    
+    
+    func userWantsToCall(_ router: ObvUIGroupV2Router, groupIdentifier: ObvGroupV2Identifier) async {
+        guard let flowDelegate else { assertionFailure(); return }
+        guard let persistedGroup = try? PersistedGroupV2.get(ownIdentity: groupIdentifier.ownedCryptoId, appGroupIdentifier: groupIdentifier.identifier.appGroupIdentifier, within: ObvStack.shared.viewContext) else {
+            assertionFailure()
+            return
+        }
+        let contactCryptoIds = Set(persistedGroup.otherMembers
+            .filter({ !$0.isPending })
+            .compactMap(\.cryptoId))
+        await flowDelegate.userWantsToSelectAndCallContacts(flowController: self,
+                                                            ownedCryptoId: groupIdentifier.ownedCryptoId,
+                                                            contactCryptoIds: contactCryptoIds,
+                                                            groupId: .groupV2(groupV2Identifier: groupIdentifier.identifier.appGroupIdentifier))
+    }
+    
+    
+    func userWantsToRemoveOtherUserFromGroup(_ router: ObvUIGroupV2Router, groupIdentifier: ObvGroupV2Identifier, contactIdentifier: ObvContactIdentifier) async throws {
+        
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        
+        guard groupIdentifier.ownedCryptoId == contactIdentifier.ownedCryptoId else {
+            assertionFailure()
+            throw ObvFlowControllerError.unexpectedOwnedCryptoId
+        }
+        guard let persistedGroup = try PersistedGroupV2.get(ownIdentity: groupIdentifier.ownedCryptoId, appGroupIdentifier: groupIdentifier.identifier.appGroupIdentifier, within: ObvStack.shared.viewContext) else {
+            assertionFailure()
+            throw ObvFlowControllerError.couldNotFindGRoup
+        }
+        
+        let groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2> = .init(objectID: persistedGroup.objectID)
+        let changeset: ObvGroupV2.Changeset = try .init(changes: [.memberRemoved(contactCryptoId: contactIdentifier.contactCryptoId)])
+        
+        try await flowDelegate.userWantsToPublishGroupV2Modification(self, groupObjectID: groupObjectID, changeset: changeset)
+        
+    }
+    
+    
+    func userWantsToRemoveMembersFromGroup(_ router: ObvUIGroupV2Router, groupIdentifier: ObvTypes.ObvGroupV2Identifier, membersToRemove: Set<SingleGroupMemberViewModelIdentifier>) async throws {
+        
+        guard !membersToRemove.isEmpty else { return }
+        
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        
+        for memberToRemove in membersToRemove {
+            guard memberToRemove.groupIdentifier == groupIdentifier else {
+                assertionFailure()
+                throw ObvFlowControllerError.unexpectedGroupIdentifier
+            }
+        }
+        
+        guard let persistedGroup = try PersistedGroupV2.get(ownIdentity: groupIdentifier.ownedCryptoId, appGroupIdentifier: groupIdentifier.identifier.appGroupIdentifier, within: ObvStack.shared.viewContext) else {
+            assertionFailure()
+            throw ObvFlowControllerError.couldNotFindGRoup
+        }
+        
+        let groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2> = .init(objectID: persistedGroup.objectID)
+        let changes: Set<ObvGroupV2.Change> = Set(try membersToRemove.map { memberIdentifier in
+            switch memberIdentifier {
+            case .contactIdentifierForExistingGroup(groupIdentifier: let groupIdentifier, contactIdentifier: let contactIdentifier):
+                guard groupIdentifier.ownedCryptoId == contactIdentifier.ownedCryptoId else {
+                    assertionFailure()
+                    throw ObvFlowControllerError.unexpectedOwnedCryptoId
+                }
+                let contactCryptoId = contactIdentifier.contactCryptoId
+                return .memberRemoved(contactCryptoId: contactCryptoId)
+            case .objectIDOfPersistedGroupV2Member(groupIdentifier: _, objectID: let objectID):
+                guard let groupMemberToRemove = persistedGroup.otherMembers.first(where: { $0.objectID == objectID }) else {
+                    assertionFailure()
+                    throw ObvFlowControllerError.groupMemberNotFound
+                }
+                let cryptoId = groupMemberToRemove.cryptoId
+                return .memberRemoved(contactCryptoId: cryptoId)
+            case .contactIdentifierForCreatingGroup:
+                assertionFailure("This identifier shall only be used when creating a new group, not for an existing one.")
+                throw ObvFlowControllerError.unexpectedIdentifier
+            case .objectIDOfPersistedContact(objectID: _):
+                assertionFailure("This identifier shall only be used when creating a new group, not for an existing one.")
+                throw ObvFlowControllerError.unexpectedIdentifier
+            }
+        })
+        let changeset: ObvGroupV2.Changeset = try .init(changes: changes)
+        
+        try await flowDelegate.userWantsToPublishGroupV2Modification(self, groupObjectID: groupObjectID, changeset: changeset)
+        
+    }
+    
+    
+    func userWantsToUpdateGroupV2(_ router: ObvUIGroupV2Router, groupIdentifier: ObvGroupV2Identifier, changeset: ObvGroupV2.Changeset) async throws {
+        
+        guard !changeset.isEmpty else { return }
+        
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        
+        guard let persistedGroup = try PersistedGroupV2.get(ownIdentity: groupIdentifier.ownedCryptoId, appGroupIdentifier: groupIdentifier.identifier.appGroupIdentifier, within: ObvStack.shared.viewContext) else {
+            assertionFailure()
+            throw ObvFlowControllerError.couldNotFindGRoup
+        }
+        
+        let groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2> = .init(objectID: persistedGroup.objectID)
+        
+        try await flowDelegate.userWantsToPublishGroupV2Modification(self, groupObjectID: groupObjectID, changeset: changeset)
+        
+    }
+    
+    
+    func userWantsObtainAvatarDuringGroupEdition(_ router: ObvUIGroupV2Router, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        return try await userWantsObtainAvatar(avatarSource: avatarSource, avatarSize: avatarSize)
+    }
+    
+    
+    private func userWantsObtainAvatar(avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        return try await flowDelegate.userWantsObtainAvatar(self, avatarSource: avatarSource, avatarSize: avatarSize)
+    }
+    
+    
+    func userWantsToSaveImageToTempFileDuringGroupEdition(_ router: ObvUIGroupV2Router, image: UIImage) async throws -> URL {
+        try await userWantsToSaveImageToTempFile(image: image)
+    }
+
+    
+    private func userWantsToSaveImageToTempFile(image: UIImage) async throws -> URL {
+        guard let jpegData = image.jpegData(compressionQuality: 1.0) else { assertionFailure(); throw ObvFlowControllerError.couldNotGenerateJPEGData }
+        let filename = [UUID().uuidString, UTType.jpeg.preferredFilenameExtension ?? "jpeg"].joined(separator: ".")
+        let directoryForTempFiles = ObvUICoreDataConstants.ContainerURL.forTempFiles.url
+        let filepath = directoryForTempFiles.appendingPathComponent(filename)
+        try jpegData.write(to: filepath)
+        return filepath
+    }
+    
+    
+    func userWantsToInviteOtherUserToOneToOne(_ router: ObvUIGroupV2Router, contactIdentifier: ObvTypes.ObvContactIdentifier) async throws {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        let users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)] = [(contactIdentifier.contactCryptoId, nil)]
+        try await flowDelegate.userWantsToInviteContactsToOneToOne(ownedCryptoId: contactIdentifier.ownedCryptoId, users: users)
+    }
+    
+    
+    func userWantsToInviteOtherUserToOneToOne(_ router: ObvUIGroupV2Router, contactIdentifiers: [ObvContactIdentifier]) async throws {
+        guard let flowDelegate else { assertionFailure(); throw ObvFlowControllerError.delegateIsNil }
+        let ownedCryptoIds = Set(contactIdentifiers.map { $0.ownedCryptoId })
+        guard ownedCryptoIds.count == 1, let ownedCryptoId = ownedCryptoIds.first else { assertionFailure(); return }
+        let users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)] = contactIdentifiers.map { contactIdentifier in
+            return (contactIdentifier.contactCryptoId, nil)
+        }
+        try await flowDelegate.userWantsToInviteContactsToOneToOne(ownedCryptoId: ownedCryptoId, users: users)
+    }
+    
+    
+    func userWantsToCancelOneToOneInvitationSent(_ router: ObvUIGroupV2Router, contactIdentifier: ObvContactIdentifier) async throws {
+        try await cancelSentInviteContactToOneToOne(ownedCryptoId: contactIdentifier.ownedCryptoId,
+                                                    contactCryptoId: contactIdentifier.contactCryptoId)
+    }
+    
+    func userWantsToShowOtherUserProfile(_ router: ObvUIGroupV2Router, navigationController: UINavigationController, contactIdentifier: ObvTypes.ObvContactIdentifier) async {
+        do {
+            guard let persistedContact = try PersistedObvContactIdentity.get(persisted: contactIdentifier, whereOneToOneStatusIs: .any, within: ObvStack.shared.viewContext) else {
+                assertionFailure("Could not find contact in database. Is the user a pending member of the group, not a contact yet?")
+                return
+            }
+            userWantsToDisplay(persistedContact: persistedContact, within: navigationController)
+        } catch {
+            assertionFailure(error.localizedDescription)
+        }
+    }
+ 
+    
+    func userWantsToUpdatePersonalNote(_ router: ObvUIGroupV2Router, groupIdentifier: ObvGroupV2Identifier, with newText: String?) async {
+        let ownedCryptoId = groupIdentifier.ownedCryptoId
+        let appGroupIdentifier: Data = groupIdentifier.identifier.appGroupIdentifier
+        ObvMessengerInternalNotification.userWantsToUpdatePersonalNoteOnGroupV2(ownedCryptoId: ownedCryptoId, groupIdentifier: appGroupIdentifier, newText: newText)
+            .postOnDispatchQueue()
+    }
+    
+    
+    func userWantsToEditGroupNicknameAndCustomPicture(_ router: ObvUIGroupV2Router, groupIdentifier: ObvGroupV2Identifier) {
+        guard let group = try? PersistedGroupV2.getWithPrimaryKey(ownCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier, within: ObvStack.shared.viewContext) else {
+            assertionFailure()
+            return
+        }
+        let groupV2Identifier = group.groupIdentifier
+        let defaultPhoto: UIImage?
+        if let url = group.trustedPhotoURL {
+            defaultPhoto = UIImage(contentsOfFile: url.path)
+        } else {
+            defaultPhoto = nil
+        }
+        let currentCustomPhoto: UIImage?
+        if let url = group.customPhotoURL {
+            currentCustomPhoto = UIImage(contentsOfFile: url.path)
+        } else {
+            currentCustomPhoto = nil
+        }
+        let currentNickname = group.customNameSanitized ?? ""
+        let vc = EditNicknameAndCustomPictureViewController(
+            model: .init(identifier: .groupV2(groupV2Identifier: groupV2Identifier),
+                         currentInitials: "", // No initials needed for groups
+                         defaultPhoto: defaultPhoto,
+                         currentCustomPhoto: currentCustomPhoto,
+                         currentNickname: currentNickname),
+            delegate: self)
+        presentOnTop(vc, animated: true)
+    }
+    
+    
+    func userWantsToCloneGroup(_ router: ObvUIGroupV2Router, valuesOfGroupToClone: ObvUIGroupV2Router.ValuesOfClonedGroup) {
+        routerForGroupCreation.presentInitialViewControllerForGroupCreation(ownedCryptoId: currentOwnedCryptoId,
+                                                                            presentingViewController: self,
+                                                                            creationMode: .cloneExistingGroup(valuesOfGroupToClone: valuesOfGroupToClone))
+    }
+
+    
+    func userTappedOnManualResyncOfGroupV2Button(_ router: ObvUIGroupV2Router, groupIdentifier: ObvGroupV2Identifier) async throws {
+        guard let persistedGroup = try PersistedGroupV2.get(groupIdentifier: groupIdentifier, within: ObvStack.shared.viewContext) else {
+            assertionFailure()
+            throw ObvFlowControllerError.couldNotFindGRoup
+        }
+        if persistedGroup.keycloakManaged {
+            try await KeycloakManagerSingleton.shared.syncAllManagedIdentities()
+        } else {
+            try await obvEngine.performReDownloadOfGroupV2(ownedCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
+        }
     }
 
 }
@@ -992,6 +1241,13 @@ extension ObvFlowController {
 
 enum ObvFlowControllerError: Error {
     case couldNotFindOwnedIdentity
+    case delegateIsNil
+    case couldNotFindGRoup
+    case unexpectedOwnedCryptoId
+    case unexpectedGroupIdentifier
+    case groupMemberNotFound
+    case couldNotGenerateJPEGData
+    case unexpectedIdentifier
 }
     
 
@@ -1005,8 +1261,8 @@ protocol ObvFlowControllerDelegate: AnyObject, SingleOwnedIdentityFlowViewContro
     func userWantsToUpdateTrustedIdentityDetailsOfContactIdentity(with: ObvCryptoId, using: ObvIdentityDetails)
     func userAskedToRefreshDiscussions() async throws
     func userWantsToInviteContactsToOneToOne(ownedCryptoId: ObvCryptoId, users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)]) async throws
-    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: PersistedGroupV2.GroupType) async
-    func userWantsToPublishGroupV2Modification(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async
+    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws
+    func userWantsToPublishGroupV2Modification(_ flowController: any ObvFlowController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws
     func userWantsToSendDraft(_ flowController: any ObvFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
     func userWantsToAddAttachmentsToDraft(_ flowController: any ObvFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws
     func userWantsToAddAttachmentsToDraftFromURLs(_ flowController: any ObvFlowController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, urls: [URL]) async throws
@@ -1024,8 +1280,19 @@ protocol ObvFlowControllerDelegate: AnyObject, SingleOwnedIdentityFlowViewContro
     func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ flowController: any ObvFlowController, discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>) async throws
     func messagesAreNotNewAnymore(_ flowController: any ObvFlowController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws
     func userWantsToUpdateReaction(_ flowController: any ObvFlowController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws
-    func userWantsToStopSharingLocation() async throws
+    func userWantsToStopSharingLocationInDiscussion(_ flowController: any ObvFlowController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToSetupNewBackups(_ flowController: any ObvFlowController)
+    func userWantsToDisplayBackupKey(_ flowController: any ObvFlowController)
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ flowController: any ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws
+    func userWantsToLeaveGroup(_ flowController: any ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws
+    func userWantsToDisbandGroup(_ flowController: any ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws
+    func userWantsToSelectAndCallContacts(flowController: any ObvFlowController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?) async
+    func userWantsObtainAvatar(_ flowController: any ObvFlowController, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage?
+
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ flowController: any ObvFlowController) async throws
+    func userWantsToShowMapToConsultLocationSharedContinously(_ flowController: any ObvFlowController, presentingViewController: UIViewController, ownedCryptoId: ObvTypes.ObvCryptoId) async throws
     func userWantsToShowMapToSendOrShareLocationContinuously(_ flowController: any ObvFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToShowMapToConsultLocationSharedContinously(_ flowController: any ObvFlowController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws
 
     @available(iOS 18, *)
     @MainActor func floatingButtonTapped(flow: ObvFlowController)

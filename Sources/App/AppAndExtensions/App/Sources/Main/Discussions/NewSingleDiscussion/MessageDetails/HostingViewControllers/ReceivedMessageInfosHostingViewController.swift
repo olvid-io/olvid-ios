@@ -84,7 +84,7 @@ fileprivate final class ReceivedMessageInfosViewStore: ObservableObject {
         self.timeBasedDeletionDateString = nil
         self.numberOfNewMessagesBeforeSuppression = nil
         self.receivedDateString = ReceivedMessageInfosViewStore.dateFormater.string(from: messageReceived.timestamp)
-        self.readDateString = ReceivedMessageInfosViewStore.dateStringFromDate(messageReceived.sortedMetadata.first(where: { $0.kind == .read })?.date)
+        self.readDateString = ReceivedMessageInfosViewStore.dateStringFromDate(messageReceived.dateWhenMessageWasRead)
         self.allReceivedFyleMessageJoinWithStatus = messageReceived.fyleMessageJoinWithStatuses
         refreshRetentionInformation()
     }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -31,7 +31,6 @@ import ObvKeycloakManager
 
 
 protocol KeycloakSearchViewControllerDelegate: AnyObject {
-    func showMyIdButtonTappedAction()
     func userSelectedContactOnKeycloakSearchView(ownedCryptoId: ObvCryptoId, userDetails: ObvKeycloakUserDetails)
 }
 
@@ -48,24 +47,24 @@ final class KeycloakSearchViewController: UIHostingController<KeycloakSearchView
         self.store = KeycloakSearchViewStore(ownedCryptoId: ownedCryptoId)
         self.searchController = UISearchController(searchResultsController: nil)
         self.searchController.obscuresBackgroundDuringPresentation = false
-        self.searchController.hidesNavigationBarDuringPresentation = true
+        self.searchController.hidesNavigationBarDuringPresentation = false
         self.searchController.searchResultsUpdater = self.store
+        self.searchController.automaticallyShowsCancelButton = false
         let view = KeycloakSearchView(store: store)
         super.init(rootView: view)
         navigationItem.searchController = self.searchController
         navigationItem.hidesSearchBarWhenScrolling = false
         store.delegate = self
-        title = CommonString.Word.Search
+        title = CommonString.Word.Directory
         self.delegate = delegate
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(userDidTapCloseButton))
-        navigationItem.setLeftBarButton(closeButton, animated: false)
+        let closeBarButtonItem = UIBarButtonItem.init(barButtonSystemItem: .cancel, target: self, action: #selector(userDidTapCloseButton))
+        navigationItem.setLeftBarButton(closeBarButtonItem, animated: false)
     }
-
+    
     @objc required dynamic init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -97,16 +96,11 @@ final class KeycloakSearchViewController: UIHostingController<KeycloakSearchView
         delegate?.userSelectedContactOnKeycloakSearchView(ownedCryptoId: ownedCryptoId, userDetails: userDetails)
     }
 
-    func showMyIdButtonTappedAction() {
-        delegate?.showMyIdButtonTappedAction()
-    }
-    
 }
 
 
 protocol KeycloakSearchViewDelegate: UIViewController {
     func userSelectedContact(ownedCryptoId: ObvCryptoId, userDetails: ObvKeycloakUserDetails)
-    func showMyIdButtonTappedAction()
     func startSpinner()
     func stopSpinner()
 }
@@ -114,11 +108,12 @@ protocol KeycloakSearchViewDelegate: UIViewController {
 
 final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResultsUpdating {
 
-    private static let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: "KeycloakSearchViewStore")
+    private static let logger = Logger(subsystem: ObvAppCoreConstants.logSubsystem, category: "KeycloakSearchViewStore")
 
     @Published var searchResult: [ObvKeycloakUserDetails]?
     @Published var numberOfMissingResults: Int = 0
     @Published var searchEncounteredAnError: Bool = false
+    @Published private var searchedText: String = ""
 
     private let ownedCryptoId: ObvCryptoId
     
@@ -126,12 +121,15 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
 
     private var cancellables = [AnyCancellable]()
 
-    @Published private var searchedText: String?
     
     init(ownedCryptoId: ObvCryptoId) {
         self.ownedCryptoId = ownedCryptoId
         super.init()
         continuouslyProcessSearchedText()
+    }
+    
+    deinit {
+        cancellables.forEach({ $0.cancel() })
     }
     
     func userSelectedContact(userDetails: ObvKeycloakUserDetails) {
@@ -141,7 +139,7 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
     // UISearchResultsUpdating
     
     func updateSearchResults(for searchController: UISearchController) {
-        self.searchedText = searchController.searchBar.text
+        self.searchedText = searchController.searchBar.text ?? ""
     }
     
     // Handling search
@@ -157,27 +155,27 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
         ])
     }
     
-    @MainActor
-    private func performKeycloakSearchNow(textToSearchNow: String?) async {
-        assert(Thread.isMainThread)
-        guard let searchQuery = textToSearchNow else {
-            withAnimation { [weak self] in
-                self?.searchResult = nil
-            }
-            return
+    fileprivate func performInitialSearchOnAppear() {
+        Task {
+            await performKeycloakSearchNow(textToSearchNow: searchedText)
         }
+    }
+    
+    @MainActor
+    private func performKeycloakSearchNow(textToSearchNow: String) async {
+
         delegate?.startSpinner()
         defer { delegate?.stopSpinner() }
         
         do {
-            let newSearchResults = try await KeycloakManagerSingleton.shared.search(ownedCryptoId: ownedCryptoId, searchQuery: searchQuery)
+            let newSearchResults = try await KeycloakManagerSingleton.shared.search(ownedCryptoId: ownedCryptoId, searchQuery: textToSearchNow)
             assert(Thread.isMainThread)
             mergeReceivedSearchResults(newSearchResults.userDetails, numberOfMissingResults: newSearchResults.numberOfMissingResults)
         } catch let searchError as KeycloakManager.SearchError {
-            os_log("Search error: %{public}@", log: Self.log, type: .error, searchError.localizedDescription)
+            Self.logger.error("Search error: \(searchError.localizedDescription)")
             searchEncounteredAnError = true
         } catch {
-            os_log("Search error: %{public}@", log: Self.log, type: .error, error.localizedDescription)
+            Self.logger.error("Search error: \(error.localizedDescription)")
             searchEncounteredAnError = true
         }
     }
@@ -191,12 +189,7 @@ final class KeycloakSearchViewStore: NSObject, ObservableObject, UISearchResults
             self.numberOfMissingResults = numberOfMissingResults
         }
     }
-    
-    
-    func showMyIdButtonTappedAction() {
-        delegate?.showMyIdButtonTappedAction()
-    }
-    
+        
 }
 
 
@@ -212,11 +205,8 @@ struct KeycloakSearchView: View {
                                     numberOfMissingResults: store.numberOfMissingResults,
                                     userSelectedContact: store.userSelectedContact,
                                     searchEncounteredAnError: $store.searchEncounteredAnError)
-            Spacer()
-            OlvidButton(style: .blue, title: Text("Show my Id"), systemIcon: .qrcode, action: store.showMyIdButtonTappedAction)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
         }
+        .onAppear(perform: store.performInitialSearchOnAppear)
     }
 }
 
@@ -232,27 +222,31 @@ struct KeycloakSearchViewInner: View {
     var body: some View {
         Group {
             if let searchResults = searchResults {
-                List {
-                    ForEach(searchResults) { userDetails in
-                        HStack {
-                            IdentityCardContentView(model: SingleIdentity(userDetails: userDetails))
-                            Spacer()
+                if searchResults.isEmpty {
+                    ObvContentUnavailableView.search
+                } else {
+                    List {
+                        ForEach(searchResults) { userDetails in
+                            HStack {
+                                IdentityCardContentView(model: SingleIdentity(userDetails: userDetails))
+                                Spacer()
+                            }
+                            .padding(.vertical, 6.0)
+                            .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
+                            .onTapGesture {
+                                userSelectedContact(userDetails)
+                            }
                         }
-                        .padding(.vertical, 6.0)
-                        .contentShape(Rectangle()) // This makes it possible to have an "on tap" gesture that also works when the Spacer is tapped
-                        .onTapGesture {
-                            userSelectedContact(userDetails)
+                        if numberOfMissingResults > 0 {
+                            Text(String.localizedStringWithFormat(NSLocalizedString("KEYCLOAK_MISSING_SEARCH_RESULT", comment: ""), numberOfMissingResults))
+                                .font(Font.system(.callout, design: .default))
+                                .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
+                                .padding(.vertical)
                         }
-                    }
-                    if numberOfMissingResults > 0 {
-                        Text(String.localizedStringWithFormat(NSLocalizedString("KEYCLOAK_MISSING_SEARCH_RESULT", comment: ""), numberOfMissingResults))
-                            .font(Font.system(.callout, design: .default))
-                            .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                            .padding(.vertical)
                     }
                 }
             } else {
-                ExplanationView()
+                ProgressView()
             }
         }
         .alert(isPresented: $searchEncounteredAnError) {
@@ -263,30 +257,4 @@ struct KeycloakSearchViewInner: View {
         }
     }
 
-}
-
-fileprivate struct ExplanationView: View {
-    
-    var body: some View {
-        VStack(alignment: .center) {
-            Group {
-                Text("SEARCH_HERE")
-                    .multilineTextAlignment(.center)
-                    .font(Font.system(size: 26, weight: .bold, design: .rounded))
-                    .frame(maxWidth: 200)
-                    .foregroundColor(Color(AppTheme.shared.colorScheme.secondaryLabel))
-                    .padding(10)
-                    .offset(CGSize(width: 0, height: 20))
-                    .background(
-                        Image(systemName: "bubble.middle.top.fill")
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .foregroundColor(Color(AppTheme.shared.colorScheme.systemFill))
-                    )
-            }
-            .offset(CGSize(width: 0, height: 50))
-            Spacer()
-       }
-    }
-    
 }

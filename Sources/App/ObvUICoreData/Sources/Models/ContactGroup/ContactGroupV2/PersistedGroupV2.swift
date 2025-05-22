@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,7 +37,7 @@ public final class PersistedGroupV2: NSManagedObject {
 
     // Attributes
     
-    @NSManaged public private(set) var customName: String?
+    @NSManaged private(set) var customName: String?
     @NSManaged private var customPhotoFilename: String?
     @NSManaged public private(set) var groupIdentifier: Data // Part of primary key
     @NSManaged public private(set) var keycloakManaged: Bool
@@ -55,7 +55,7 @@ public final class PersistedGroupV2: NSManagedObject {
 
     // Relationships
     
-    @NSManaged private var detailsPublished: PersistedGroupV2Details? // Non-nil iff there are untrusted new details
+    @NSManaged public private(set) var detailsPublished: PersistedGroupV2Details? // Non-nil iff there are untrusted new details
     @NSManaged public private(set) var detailsTrusted: PersistedGroupV2Details? // Expected to be non nil
     @NSManaged private var rawDiscussion: PersistedGroupV2Discussion? // Expected to be non nil
     @NSManaged public private(set) var displayedContactGroup: DisplayedContactGroup? // Expected to be non nil
@@ -129,9 +129,9 @@ public final class PersistedGroupV2: NSManagedObject {
         return rawDiscussion
     }
     
-    public var groupType: GroupType? {
+    public var groupType: ObvGroupType? {
         guard let serializedGroupType else { return nil }
-        return try? GroupType(serializedGroupType: serializedGroupType)
+        return try? ObvGroupType(serializedGroupType: serializedGroupType)
     }
     
 
@@ -161,6 +161,7 @@ public final class PersistedGroupV2: NSManagedObject {
     /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
     private(set) var isInsertedWhileRestoringSyncSnapshot = false
 
+    private var groupIdentifierOnDeletion: ObvGroupV2Identifier?
     
     // Initializer
     
@@ -258,11 +259,11 @@ public final class PersistedGroupV2: NSManagedObject {
         if let serializedGroupType = obvGroupV2.serializedGroupType {
             do {
                 if let selfSerializedGroupType = self.serializedGroupType {
-                    if try GroupType(serializedGroupType: serializedGroupType) != GroupType(serializedGroupType: selfSerializedGroupType) {
+                    if try ObvGroupType(serializedGroupType: serializedGroupType) != ObvGroupType(serializedGroupType: selfSerializedGroupType) {
                         self.serializedGroupType = serializedGroupType
                     }
                 } else {
-                    _ = try GroupType(serializedGroupType: serializedGroupType) // Make sure the serialized group type can be deserialized
+                    _ = try ObvGroupType(serializedGroupType: serializedGroupType) // Make sure the serialized group type can be deserialized
                     self.serializedGroupType = serializedGroupType
                 }
             } catch {
@@ -364,12 +365,25 @@ public final class PersistedGroupV2: NSManagedObject {
     }
     
     
+    public var customNameSanitized: String? {
+        guard let customName else { return nil }
+        let trimmed = customName.trimmingWhitespacesAndNewlines()
+        return trimmed.isEmpty ? nil : trimmed
+    }
+    
+    
     /// Returns `true` iff the group custom name had to be updated.
     func updateCustomNameWith(with newCustomName: String?) throws -> Bool {
-        guard self.customName != newCustomName else {
+        let sanitizedCustomName: String?
+        if let newCustomName, !newCustomName.trimmingWhitespacesAndNewlines().isEmpty {
+            sanitizedCustomName = newCustomName.trimmingWhitespacesAndNewlines()
+        } else {
+            sanitizedCustomName = nil
+        }
+        guard self.customName != sanitizedCustomName else {
             return false
         }
-        self.customName = newCustomName
+        self.customName = sanitizedCustomName
         try createOrUpdateTheAssociatedDisplayedContactGroup()
         try discussion?.resetTitle(to: self.displayName)
         return true
@@ -613,6 +627,7 @@ public final class PersistedGroupV2: NSManagedObject {
         if let discussion = discussion {
             try discussion.setStatus(to: .locked)
         }
+        self.groupIdentifierOnDeletion = try? self.obvGroupIdentifier
         context.delete(self)
     }
     
@@ -653,11 +668,29 @@ public final class PersistedGroupV2: NSManagedObject {
 
     struct Predicate {
         enum Key: String {
-            case groupIdentifier = "groupIdentifier"
-            case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
-            case updateInProgress = "updateInProgress"
-            case rawOtherMembers = "rawOtherMembers"
+            // Attributes
+            case customName = "customName"
             case customPhotoFilename = "customPhotoFilename"
+            case groupIdentifier = "groupIdentifier"
+            case keycloakManaged = "keycloakManaged"
+            case namesOfOtherMembers = "namesOfOtherMembers"
+            case ownPermissionAdmin = "ownPermissionAdmin"
+            case ownPermissionChangeSettings = "ownPermissionChangeSettings"
+            case ownPermissionEditOrRemoteDeleteOwnMessages = "ownPermissionEditOrRemoteDeleteOwnMessages"
+            case ownPermissionRemoteDeleteAnything = "ownPermissionRemoteDeleteAnything"
+            case ownPermissionSendMessage = "ownPermissionSendMessage"
+            case personalNote = "personalNote"
+            case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
+            case rawPublishedDetailsStatus = "rawPublishedDetailsStatus"
+            case updateInProgress = "updateInProgress"
+            case serializedGroupType = "serializedGroupType"
+            // Relationships
+            case detailsPublished = "detailsPublished"
+            case detailsTrusted = "detailsTrusted"
+            case rawDiscussion = "rawDiscussion"
+            case displayedContactGroup = "displayedContactGroup"
+            case rawOtherMembers = "rawOtherMembers"
+            case rawOwnedIdentity = "rawOwnedIdentity"
         }
         static func withOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
             NSPredicate(Key.rawOwnedIdentityIdentity, EqualToData: ownedIdentity.identity)
@@ -670,6 +703,10 @@ public final class PersistedGroupV2: NSManagedObject {
                 NSPredicate(Key.rawOwnedIdentityIdentity, EqualToData: ownCryptoId.getIdentity()),
                 NSPredicate(Key.groupIdentifier, EqualToData: groupIdentifier),
             ])
+        }
+        static func withPrimaryKey(groupIdentifier: ObvGroupV2Identifier) -> NSPredicate {
+            Self.withPrimaryKey(ownCryptoId: groupIdentifier.ownedCryptoId,
+                                groupIdentifier: groupIdentifier.identifier.appGroupIdentifier)
         }
         static func withObjectID(_ objectID: TypeSafeManagedObjectID<PersistedGroupV2>) -> NSPredicate {
             NSPredicate(withObjectID: objectID.objectID)
@@ -729,6 +766,12 @@ public final class PersistedGroupV2: NSManagedObject {
     public static func get(ownIdentity: ObvCryptoId, appGroupIdentifier: GroupV2Identifier, within context: NSManagedObjectContext) throws -> PersistedGroupV2? {
         return try getWithPrimaryKey(ownCryptoId: ownIdentity, groupIdentifier: appGroupIdentifier, within: context)
     }
+    
+    
+    public static func get(groupIdentifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) throws -> PersistedGroupV2? {
+        return try getWithPrimaryKey(ownCryptoId: groupIdentifier.ownedCryptoId, groupIdentifier: groupIdentifier.identifier.appGroupIdentifier, within: context)
+    }
+    
 
     public static func get(ownIdentity: PersistedObvOwnedIdentity, appGroupIdentifier: Data) throws -> PersistedGroupV2? {
         guard let context = ownIdentity.managedObjectContext else {
@@ -771,6 +814,20 @@ public final class PersistedGroupV2: NSManagedObject {
     }
     
     
+    // MARK: - Returning a NSFetchedResultsController
+    
+    public static func getFetchedResultsController(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2> {
+        let request: NSFetchRequest<PersistedGroupV2> = PersistedGroupV2.fetchRequest()
+        request.predicate = Predicate.withPrimaryKey(ownCryptoId: groupV2Identifier.ownedCryptoId, groupIdentifier: groupV2Identifier.identifier.appGroupIdentifier)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+    
+    
     // MARK: Displaying group information
     
     /// Used when displaying a group title in the interface
@@ -781,6 +838,14 @@ public final class PersistedGroupV2: NSManagedObject {
             return NSLocalizedString("GROUP_TITLE_WHEN_NO_SPECIFIC_TITLE_IS_GIVEN", comment: "")
         }
     }
+    
+    public var displayNameWithNamesOfOtherMembers: String? {
+        if let namesOfOtherMembers = namesOfOtherMembers, !namesOfOtherMembers.isEmpty {
+            return namesOfOtherMembers
+        } else {
+            return nil
+        }
+    }
 
     /// Used within `DisplayedContactGroup`, to set the title
     var displayNameWithNoDefault: String? {
@@ -788,13 +853,13 @@ public final class PersistedGroupV2: NSManagedObject {
             return customName
         } else if let trustedName = trustedName, !trustedName.isEmpty {
             return trustedName
-        } else if let namesOfOtherMembers = namesOfOtherMembers, !namesOfOtherMembers.isEmpty {
-            return namesOfOtherMembers
+        } else if let displayNameWithNamesOfOtherMembers {
+            return displayNameWithNamesOfOtherMembers
         } else {
             return nil
         }
     }
-
+    
     public var trustedName: String? {
         detailsTrusted?.name
     }
@@ -875,6 +940,9 @@ public final class PersistedGroupV2: NSManagedObject {
         if isUpdated {
             changedKeys = Set<String>(self.changedValues().keys)
         }
+        if self.isDeleted && groupIdentifierOnDeletion == nil {
+            groupIdentifierOnDeletion = try? self.obvGroupIdentifier
+        }
     }
     
     public override func didSave() {
@@ -894,8 +962,12 @@ public final class PersistedGroupV2: NSManagedObject {
 
         if isDeleted {
             
-            ObvMessengerCoreDataNotification.persistedGroupV2WasDeleted(objectID: self.typedObjectID)
-                .postOnDispatchQueue()
+            if let groupIdentifierOnDeletion {
+                ObvMessengerCoreDataNotification.persistedGroupV2WasDeleted(groupIdentifier: groupIdentifierOnDeletion)
+                    .postOnDispatchQueue()
+            } else {
+                assertionFailure("groupIdentifierOnDeletion is nil, we probably deleted this group without calling `func delete()`")
+            }
             
         } else {
             
@@ -922,185 +994,31 @@ public final class PersistedGroupV2: NSManagedObject {
             }
         }
         
-    }
-    
-    
-    // MARK: - Group type and associated permissions
-    
-    public enum GroupType: Codable, Equatable, Hashable {
+        // Potentially notify that the previous backed up profile snapshot is obsolete.
+        // We only notify in case of a change. Insertion/Deletion are notified by
+        // the engine.
+        // See `PersistedObvOwnedIdentity` for a list of entities that might post a similar notification.
         
-        case standard
-        case managed
-        case readOnly
-        case advanced(isReadOnly: Bool, remoteDeleteAnythingPolicy: RemoteDeleteAnythingPolicy)
-
-        
-        public enum RemoteDeleteAnythingPolicy: String, Codable, Equatable, CaseIterable, Comparable, Identifiable {
-            
-            case nobody = "nobody"
-            case admins = "admins"
-            case everyone = "everyone"
-            
-            public var id: Self { self }
-            
-            private var sortOrder: Int {
-                switch self {
-                case .nobody: return 0
-                case .admins: return 1
-                case .everyone: return 2
-                }
-            }
-            
-            public static func < (lhs: ObvUICoreData.PersistedGroupV2.GroupType.RemoteDeleteAnythingPolicy, rhs: ObvUICoreData.PersistedGroupV2.GroupType.RemoteDeleteAnythingPolicy) -> Bool {
-                lhs.sortOrder < rhs.sortOrder
-            }
-
-        }
-        
-        
-        private var deserializedGroupType: DeserializedGroupType {
-            switch self {
-            case .standard:
-                return .init(type: .standard, isReadOnly: nil, remoteDeleteAnythingPolicy: nil)
-            case .managed:
-                return .init(type: .managed, isReadOnly: nil, remoteDeleteAnythingPolicy: nil)
-            case .readOnly:
-                return .init(type: .readOnly, isReadOnly: nil, remoteDeleteAnythingPolicy: nil)
-            case .advanced(isReadOnly: let isReadOnly, remoteDeleteAnythingPolicy: let remoteDeleteAnythingPolicy):
-                return .init(type: .advanced, isReadOnly: isReadOnly, remoteDeleteAnythingPolicy: remoteDeleteAnythingPolicy)
-            }
-        }
-        
-        
-        public func encode(to encoder: Encoder) throws {
-            try self.deserializedGroupType.encode(to: encoder)
-        }
-
-        
-        public init(from decoder: Decoder) throws {
-            let deserializedGroupType = try DeserializedGroupType(from: decoder)
-            switch deserializedGroupType.type {
-            case .standard:
-                self = .standard
-            case .managed:
-                self = .managed
-            case .readOnly:
-                self = .readOnly
-            case .advanced:
-                assert(deserializedGroupType.isReadOnly != nil)
-                assert(deserializedGroupType.remoteDeleteAnythingPolicy != nil)
-                self = .advanced(isReadOnly: deserializedGroupType.isReadOnly ?? false, remoteDeleteAnythingPolicy: deserializedGroupType.remoteDeleteAnythingPolicy ?? .nobody)
-            }
-        }
-
-        
-        public func toSerializedGroupType() throws -> Data {
-            let encoder = JSONEncoder()
-            return try encoder.encode(self.deserializedGroupType)
-        }
-        
-        
-        init(serializedGroupType: Data) throws {
-            let decoder = JSONDecoder()
-            self = try decoder.decode(GroupType.self, from: serializedGroupType)
-        }
-
-        
-        /// Helper struct, allowing to serialize/deserialize a ``GroupType``.
-        private struct DeserializedGroupType: Codable {
-            
-            let type: GroupTypeValue
-            let isReadOnly: Bool? // Only makes sense if type is custom
-            let remoteDeleteAnythingPolicy: RemoteDeleteAnythingPolicy? // Only makes sense if type is custom
-
-            enum GroupTypeValue: String, Codable {
-                case standard = "simple"
-                case managed = "private"
-                case readOnly = "read_only"
-                case advanced = "custom"
-            }
-
-            private enum CodingKeys: String, CodingKey {
-                case type = "type"
-                case isReadOnly = "ro"
-                case remoteDeleteAnythingPolicy = "del"
-            }
-            
-        }
-        
-    }
-    
-    
-    public enum AdminOrRegularMember {
-        case admin
-        case regularMember
-    }
-    
-    
-    /// Returns the **exact** set of permissions of an admin or a regular member, for a given group type.
-    public static func exactPermissions(of adminOrRegularMember: AdminOrRegularMember, forGroupType groupType: GroupType) -> Set<ObvGroupV2.Permission> {
-
-        let permissions: [ObvGroupV2.Permission]
-        let isAdmin = adminOrRegularMember == .admin
-
-        switch groupType {
-
-        case .standard:
-            permissions = ObvGroupV2.Permission.allCases.filter { permission in
-                switch permission {
-                case .groupAdmin: return true
-                case .remoteDeleteAnything: return false
-                case .editOrRemoteDeleteOwnMessages: return true
-                case .changeSettings: return true
-                case .sendMessage: return true
-                }
-            }
-
-        case .managed:
-            permissions = ObvGroupV2.Permission.allCases.filter { permission in
-                switch permission {
-                case .groupAdmin: return isAdmin
-                case .remoteDeleteAnything: return false
-                case .editOrRemoteDeleteOwnMessages: return true
-                case .changeSettings: return isAdmin
-                case .sendMessage: return true
-                }
-            }
-
-        case .readOnly:
-            permissions = ObvGroupV2.Permission.allCases.filter { permission in
-                switch permission {
-                case .groupAdmin: return isAdmin
-                case .remoteDeleteAnything: return false
-                case .editOrRemoteDeleteOwnMessages: return true
-                case .changeSettings: return isAdmin
-                case .sendMessage: return isAdmin
-                }
-            }
-
-        case .advanced(isReadOnly: let isReadOnly, remoteDeleteAnythingPolicy: let remoteDeleteAnythingPolicy):
-            permissions = ObvGroupV2.Permission.allCases.filter { permission in
-                switch permission {
-                case .groupAdmin: return isAdmin
-                case .remoteDeleteAnything:
-                    switch remoteDeleteAnythingPolicy {
-                    case .nobody:
-                        return false
-                    case .admins:
-                        return isAdmin
-                    case .everyone:
-                        return true
+        if !isDeleted && !isInserted && !changedKeys.isEmpty {
+            if changedKeys.contains(Predicate.Key.customName.rawValue) ||
+                changedKeys.contains(Predicate.Key.personalNote.rawValue) ||
+                changedKeys.contains(Predicate.Key.rawDiscussion.rawValue) {
+                let ownedIdentity = self.rawOwnedIdentityIdentity
+                if let ownedCryptoId = try? ObvCryptoId(identity: ownedIdentity) {
+                    Task {
+                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ownedCryptoId)
                     }
-                case .editOrRemoteDeleteOwnMessages: return true
-                case .changeSettings: return isAdmin
-                case .sendMessage: return isReadOnly ? isAdmin : true
+                } else {
+                    assertionFailure()
                 }
             }
         }
-        
-        return Set(permissions)
-        
+
     }
+    
+    
+    
+    
     
     
     public var ownPermissions: Set<ObvGroupV2.Permission> {
@@ -1126,14 +1044,14 @@ public final class PersistedGroupV2: NSManagedObject {
     /// If a serialized group type is available, this the method returns its deserialized version, provided it is in adequation with the permissions of all group members (including us).
     ///
     /// Note: We don't try to infer the group type if there is no `serializedGroupType`.
-    public func getAdequateGroupType() -> GroupType? {
+    public func getAdequateGroupType() -> ObvGroupType? {
         
-        guard let serializedGroupType, let groupType = try? GroupType(serializedGroupType: serializedGroupType) else { return nil }
+        guard let serializedGroupType, let groupType = try? ObvGroupType(serializedGroupType: serializedGroupType) else { return nil }
         
         // Make sure the returned group type is adequate given the own permissions and the other member permissions
         
-        let exactPermissionsForAdmins = Self.exactPermissions(of: .admin, forGroupType: groupType)
-        let exactPermissionsForRegularMembers = Self.exactPermissions(of: .regularMember, forGroupType: groupType)
+        let exactPermissionsForAdmins = ObvGroupType.exactPermissions(of: .admin, forGroupType: groupType)
+        let exactPermissionsForRegularMembers = ObvGroupType.exactPermissions(of: .regularMember, forGroupType: groupType)
 
         if self.ownedIdentityIsAdmin {
             guard self.ownPermissions == exactPermissionsForAdmins else { return nil }
@@ -1142,7 +1060,9 @@ public final class PersistedGroupV2: NSManagedObject {
         }
         
         for member in self.otherMembers {
-            guard member.permissions == (member.isAnAdmin ? exactPermissionsForAdmins : exactPermissionsForRegularMembers) else { return nil }
+            guard member.permissions == (member.isAnAdmin ? exactPermissionsForAdmins : exactPermissionsForRegularMembers) else {
+                return nil
+            }
         }
         
         // If we reach this point, we can return the group type as it is in adequation with the current permissions of all group members
@@ -1696,6 +1616,15 @@ public final class PersistedGroupV2: NSManagedObject {
         
     }
     
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    public static func addObserver(_ newObserver: PersistedGroupV2Observer) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
 }
 
 
@@ -1769,12 +1698,33 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         }
     }
     
+    public var coreDetails: ObvIdentityCoreDetails {
+        get throws {
+            try .init(firstName: self.firstName,
+                      lastName: self.lastName,
+                      company: self.company,
+                      position: self.position,
+                      signedUserDetails: nil)
+        }
+    }
+    
+    public var identityDetails: ObvIdentityDetails {
+        get throws {
+            try .init(coreDetails: coreDetails,
+                      photoURL: nil)
+        }
+    }
+    
     public var isKeycloakManaged: Bool {
         if contact?.isCertifiedByOwnKeycloak == true {
             return true
         } else {
             return false
         }
+    }
+    
+    public var isOneToOne: Bool {
+        return contact?.isOneToOne ?? false
     }
     
     public var displayedCustomDisplayNameOrLastName: String? {
@@ -1819,6 +1769,15 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
     
     var displayedContactGroup: DisplayedContactGroup? {
         rawGroup?.displayedContactGroup
+    }
+    
+    public var persistedGroup: PersistedGroupV2 {
+        get throws {
+            guard let rawGroup else {
+                throw ObvUICoreDataError.groupV2IsNil
+            }
+            return rawGroup
+        }
     }
     
     public var permissions: Set<ObvGroupV2.Permission> {
@@ -2080,6 +2039,9 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
             case rawContact = "rawContact"
             case rawGroup = "rawGroup"
         }
+        static func withObjectID(objectID: TypeSafeManagedObjectID<PersistedGroupV2Member>) -> NSPredicate {
+            NSPredicate(withObjectID: objectID.objectID)
+        }
         static func withOwnCryptoId(_ ownCryptoId: ObvCryptoId) -> NSPredicate {
             NSPredicate(Key.rawOwnedIdentityIdentity, EqualToData: ownCryptoId.getIdentity())
         }
@@ -2092,12 +2054,42 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
         static func withGroupIdentifier(_ groupIdentifier: Data) -> NSPredicate {
             NSPredicate(Key.groupIdentifier, EqualToData: groupIdentifier)
         }
+        static func withGroupV2Identifier(groupV2Identifier: ObvGroupV2Identifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                Predicate.withOwnCryptoId(groupV2Identifier.ownedCryptoId),
+                Predicate.withGroupIdentifier(groupV2Identifier.identifier.appGroupIdentifier),
+            ])
+        }
         static var withNoAssociatedContact: NSPredicate {
             NSPredicate(withNilValueForKey: Key.rawContact)
         }
+        static var withAssociatedNonOneToOneContact: NSPredicate {
+            let isOneToOneKey = [Key.rawContact.rawValue, PersistedObvContactIdentity.Predicate.Key.isOneToOne.rawValue].joined(separator: ".")
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.rawContact),
+                NSPredicate(isOneToOneKey, is: false),
+            ])
+        }
+        static func permissionAdmin(is bool: Bool) -> NSPredicate {
+            NSPredicate(Key.permissionAdmin, is: bool)
+        }
+        public static func searchPredicate(_ searchedText: String) -> NSPredicate {
+            NSPredicate(format: "%K contains[cd] %@", Predicate.Key.normalizedSearchKey.rawValue, searchedText)
+        }
+        static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
+            NSPredicate(withObjectID: objectID)
+        }
     }
 
+    
+    public static func get(objectID: NSManagedObjectID, within context: NSManagedObjectContext) throws -> PersistedGroupV2Member? {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
 
+    
     public static func getAllPersistedGroupV2MemberOfOwnedIdentity(with ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) throws -> [PersistedGroupV2Member] {
         let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
@@ -2154,6 +2146,86 @@ public final class PersistedGroupV2Member: NSManagedObject, Identifiable {
     }
     
     
+    public static func getFetchedResultsController(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.predicate = Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier)
+        request.fetchBatchSize = 500
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+        
+
+    public static func getFetchedResultsControllerForAdmins(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier),
+            Predicate.permissionAdmin(is: true),
+        ])
+        request.fetchBatchSize = 500
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+    
+    
+    public static func getSearchPredicate(_ searchText: String?) -> NSPredicate {
+        let predicate: NSPredicate
+        let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let sanitizedSearchText, !sanitizedSearchText.isEmpty {
+            predicate = Predicate.searchPredicate(sanitizedSearchText)
+        } else {
+            predicate = NSPredicate(value: true)
+        }
+        return predicate
+    }
+
+    
+    public static func getFetchedResultsControllerForInvitableGroupMembers(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier),
+            Predicate.withAssociatedNonOneToOneContact,
+        ])
+        request.fetchBatchSize = 500
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
+    
+    public static func getFetchedResultsControllerForMembersWithNoAssociatedContact(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withGroupV2Identifier(groupV2Identifier: groupV2Identifier),
+            Predicate.withNoAssociatedContact,
+        ])
+        request.fetchBatchSize = 500
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
+
+    public static func getFetchedResultsController(objectID: TypeSafeManagedObjectID<PersistedGroupV2Member>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Member> {
+        let request: NSFetchRequest<PersistedGroupV2Member> = PersistedGroupV2Member.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID: objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.normalizedSortKey.rawValue, ascending: true)]
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
     // MARK: Computing changesets
 
     @MainActor fileprivate func computeChange() throws -> ObvGroupV2.Change? {
@@ -2219,8 +2291,8 @@ public final class PersistedGroupV2Details: NSManagedObject {
 
     // Attributes
     
-    @NSManaged private(set) var groupDescription: String?
-    @NSManaged private(set) var name: String?
+    @NSManaged public private(set) var groupDescription: String?
+    @NSManaged public private(set) var name: String?
     @NSManaged public private(set) var photoURLFromEngine: URL?
 
     // Relationships
@@ -2290,6 +2362,61 @@ public final class PersistedGroupV2Details: NSManagedObject {
 
     }
     
+    
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case groupDescription = "groupDescription"
+            case name = "name"
+            case photoURLFromEngine = "photoURLFromEngine"
+            // Relationships
+            case asPublishedDetailsOfGroup = "asPublishedDetailsOfGroup"
+            case asTrustedDetailsOfGroup = "asTrustedDetailsOfGroup"
+        }
+        static func asPublishedDetailsOfGroup(groupV2Identifier: ObvGroupV2Identifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.asPublishedDetailsOfGroup),
+                NSPredicate([Key.asPublishedDetailsOfGroup.rawValue, PersistedGroupV2.Predicate.Key.rawOwnedIdentityIdentity.rawValue].joined(separator: "."), EqualToData: groupV2Identifier.ownedCryptoId.getIdentity()),
+                NSPredicate([Key.asPublishedDetailsOfGroup.rawValue, PersistedGroupV2.Predicate.Key.groupIdentifier.rawValue].joined(separator: "."), EqualToData: groupV2Identifier.identifier.appGroupIdentifier),
+            ])
+        }
+        static func asTrustedDetailsOfGroup(groupV2Identifier: ObvGroupV2Identifier) -> NSPredicate {
+            NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(withNonNilValueForKey: Key.asTrustedDetailsOfGroup),
+                NSPredicate([Key.asTrustedDetailsOfGroup.rawValue, PersistedGroupV2.Predicate.Key.rawOwnedIdentityIdentity.rawValue].joined(separator: "."), EqualToData: groupV2Identifier.ownedCryptoId.getIdentity()),
+                NSPredicate([Key.asTrustedDetailsOfGroup.rawValue, PersistedGroupV2.Predicate.Key.groupIdentifier.rawValue].joined(separator: "."), EqualToData: groupV2Identifier.identifier.appGroupIdentifier),
+            ])
+        }
+    }
+    
+    @nonobjc class func fetchRequest() -> NSFetchRequest<PersistedGroupV2Details> {
+        return NSFetchRequest<PersistedGroupV2Details>(entityName: PersistedGroupV2Details.entityName)
+    }
+
+    
+    public static func getFetchedResultsControllerForPublishedDetails(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Details> {
+        let request: NSFetchRequest<PersistedGroupV2Details> = PersistedGroupV2Details.fetchRequest()
+        request.predicate = Predicate.asPublishedDetailsOfGroup(groupV2Identifier: groupV2Identifier)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
+    
+    public static func getFetchedResultsControllerForTrustedDetails(groupV2Identifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedGroupV2Details> {
+        let request: NSFetchRequest<PersistedGroupV2Details> = PersistedGroupV2Details.fetchRequest()
+        request.predicate = Predicate.asTrustedDetailsOfGroup(groupV2Identifier: groupV2Identifier)
+        request.fetchLimit = 1
+        request.sortDescriptors = []
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+
 }
 
 
@@ -2433,4 +2560,39 @@ struct PersistedGroupV2SyncSnapshotNode: ObvSyncSnapshotNode {
         
     }
  
+}
+
+
+// MARK: - PersistedGroupV2 observers
+
+public protocol PersistedGroupV2Observer: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: PersistedGroupV2Observer {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: PersistedGroupV2Observer?
+        init(value: PersistedGroupV2Observer?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: PersistedGroupV2Observer) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsPersistedGroupV2Changed(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+    
 }

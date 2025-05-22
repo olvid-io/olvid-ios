@@ -1,11 +1,35 @@
 # Changelog
 
-## [3.6 (852)] - 2025-02-07 - App Store
+## [3.8 (873)] - 2025-05-21
+
+- Nous avons entièrement repensé l'expérience de création et d'édition de groupes pour la rendre plus intuitive, efficace et conviviale.
+- Amélioration majeure de la fonctionnalité de géolocalisation.
+- Il est maintenant possible d'accéder à toutes les positions partagées par vos contacts en même temps.
+- De plus, le partage de votre localisation est désormais parfaitement économe en batterie.
+- Corrige un problème empêchant l'affichage d'une notification pour les messages contenant uniquement des pièces jointes.
+- Corrige un problème entraînant le remplacement de certains horodatages pour les messages envoyés.
+- Améliorations significatives au processus de suppression du profil, garantissant une expérience plus fiable avec des indicateurs visuels plus clairs.
+- Optimisation de certains aspects centraux de l'application, permettant d'améliorer les performances et l'efficacité globale.
+- Lorsque l'écran d'annuaire est lancé, une recherche initiale est effectuée immédiatement.
+- Des améliorations de design supplémentaires ont été apportées.
+
+## [3.7 (857)] - 2025-04-17
+
+- Bienvenue aux nouvelles sauvegardes !
+- L'ancien processus de sauvegarde a été remplacé par une nouvelle méthode simple et sécurisée pour sauvegarder vos profils.
+- Effectuez automatiquement des sauvegardes chiffrées de bout en bout de tous vos profils, ou choisissez de le faire manuellement. Vous avez un contrôle total.
+- Optimise les performances lors du marquage de tous les messages d'une discussion comme "lus".
+- Affiche désormais les surnoms au lieu des prénoms pour l'expéditeur du dernier message de groupe dans la liste des discussions récentes.
+- Amélioration de l'expérience lors du transfert d'un message vers plusieurs discussions.
+- Résolution d'un problème qui empêchait parfois la suppression d'une discussion verrouillée.
+- Amélioration de certains designs.
+
+## [3.6 (852)] - 2025-02-07
 
 - Optimisation importante des performances pour les mises à jour de groupe.
 - Résolution d'un problème empêchant l'affichage correct des notifications ne contenant que des pièces jointes.
 
-## [3.5 (851)] - 2025-01-13 - App Store
+## [3.5 (851)] - 2025-01-13
 
 - Fonctionnalité très attendue ! Vous pouvez maintenant partager votre position géographique avec vos contacts.
 - Comme vous pouvez l'attendre d'Olvid, votre localisation est chiffrée de bout en bout.
@@ -24,7 +48,7 @@
 - Les problèmes concernant le processus de révocation Keycloak sont résolus.
 - Correction d'un problème empêchant la fonctionnalité glisser-déposer pour une URL depuis certains navigateurs.
 
-## [3.4 (837)] - 2024-12-04 - App Store
+## [3.4 (837)] - 2024-12-04
 
 - Une nouvelle barre de progression apparaît maintenant lorsque Olvid travaille dur pour tout préparer pour vous.
 - Pour nos utilisateurs Pro : Sécurité renforcée pour les transferts de profils administrés ! Votre administrateur peut désormais exiger une authentification sur le nouvel appareil.
@@ -39,7 +63,7 @@
 - Dans un environnement géré, nous avons ajouté une nouvelle origine de confiance lorsque un contact devient certifié.
 - Dans un environnement géré, si l'authentification est requise, l'alerte indique maintenant clairement quel profil nécessite votre attention.
 
-## [3.3 (815)] - 2024-10-21 - App Store
+## [3.3 (815)] - 2024-10-21
 
 - Les notifications ont été entièrement repensées pour les rendre moins intrusives, mais plus fiables et pertinentes !
 - Les notifications concernant les nouveaux messages sont maintenant regroupées par discussion, ce qui facilite la gestion de vos conversations.
@@ -51,7 +75,7 @@
 - Corrige un problème qui empêchait parfois la création et la modification des notes personnelles.
 - Le partage d'une identité via AirDrop partage maintenant l'URL d'invitation.
 
-## [3.2 (807)] - 2024-09-18 - App Store
+## [3.2 (807)] - 2024-09-18
 
 ### macOS
 
@@ -61,7 +85,7 @@
 
 - Olvid est maintenant totalement compatible avec iOS 18 et iPadOS 18.
 
-## [3.1 (803)] - 2024-09-12 - App Store
+## [3.1 (803)] - 2024-09-12
 
 ### macOS
 

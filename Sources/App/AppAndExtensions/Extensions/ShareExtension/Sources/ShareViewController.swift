@@ -55,6 +55,7 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
 
     private static let errorDomain = "ShareViewController"
     private static func makeError(message: String) -> Error { NSError(domain: Self.errorDomain, code: 0, userInfo: [NSLocalizedFailureReasonErrorKey: message]) }
+    private var initializationPerformed = false
 
     override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
@@ -83,12 +84,23 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        Task {
+            await performInitializationIfRequired()
+        }
+    }
+    
+    @MainActor
+    private func performInitializationIfRequired() async {
+        
+        guard !initializationPerformed else { return }
+        defer { initializationPerformed = true }
+        
         do {
             // Initialize the CoreData Stack
             try ObvStack.initSharedInstance(transactionAuthor: ObvUICoreDataConstants.AppCategory.shareExtension.transactionAuthor, runningLog: runningLog, enableMigrations: false)
 
             // Initialize the Oblivious Engine
-            try initializeObliviousEngine(runningLog: runningLog)
+            try await initializeObliviousEngine(runningLog: runningLog)
         } catch let error {
             os_log("📤 Could not initialize the ObvStack and Engine within the main share view controller: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
             if (error as NSError).code == CoreDataStackErrorCodes.migrationRequiredButNotEnabled.rawValue {
@@ -144,11 +156,14 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
 
         // Show the appropriate view controller
         showAppropriateViewControllerView()
+
     }
+    
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         Task {
+            await performInitializationIfRequired()
             await authenticateIfRequired()
         }
     }
@@ -201,16 +216,16 @@ final class ShareViewController: UIViewController, ShareExtensionErrorViewContro
         }
     }
 
-    private func initializeObliviousEngine(runningLog: RunningLogError) throws {
+    private func initializeObliviousEngine(runningLog: RunningLogError) async throws {
         do {
             let mainEngineContainer = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url
             ObvEngine.mainContainerURL = mainEngineContainer
-            obvEngine = try ObvEngine.startLimitedToSending(logPrefix: "LimitedEngine",
-                                                            sharedContainerIdentifier: ObvAppCoreConstants.appGroupIdentifier,
-                                                            supportBackgroundTasks: ObvMessengerConstants.isRunningOnRealDevice,
-                                                            remoteNotificationByteIdentifierForServer: ObvAppCoreConstants.remoteNotificationByteIdentifierForServer,
-                                                            appType: .shareExtension,
-                                                            runningLog: runningLog)
+            obvEngine = try await ObvEngine.startLimitedToSending(logPrefix: "LimitedEngine",
+                                                                  sharedContainerIdentifier: ObvAppCoreConstants.appGroupIdentifier,
+                                                                  supportBackgroundTasks: ObvMessengerConstants.isRunningOnRealDevice,
+                                                                  remoteNotificationByteIdentifierForServer: ObvAppCoreConstants.remoteNotificationByteIdentifierForServer,
+                                                                  appType: .shareExtension,
+                                                                  runningLog: runningLog)
             debugPrint("The Oblivious Engine was initialized")
         } catch {
             debugPrint("[ERROR] Could not initialize the Oblivious Engine")

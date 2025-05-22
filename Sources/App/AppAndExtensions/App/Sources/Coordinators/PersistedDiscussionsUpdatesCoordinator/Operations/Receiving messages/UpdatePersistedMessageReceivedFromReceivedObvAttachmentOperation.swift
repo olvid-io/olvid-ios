@@ -100,8 +100,20 @@ final class UpdatePersistedMessageReceivedFromReceivedObvAttachmentOperation: Co
             }
             
         } catch {
-            assertionFailure(error.localizedDescription)
-            return cancel(withReason: .coreDataError(error: error))
+            if let uiCoreDataError = error as? ObvUICoreDataError {
+                switch uiCoreDataError {
+                case .cannotCreateReceivedFyleMessageJoinWithStatusForWipedMessage:
+                    // The received message was wiped, we can request a deletion of the attachment from the server.
+                    // This will be determined by the `DetermineAttachmentsProcessingRequestForMessageSentOperation` operation.
+                    return
+                default:
+                    assertionFailure(error.localizedDescription)
+                    return cancel(withReason: .coreDataError(error: error))
+                }
+            } else {
+                assertionFailure(error.localizedDescription)
+                return cancel(withReason: .coreDataError(error: error))
+            }
         }
         
     }

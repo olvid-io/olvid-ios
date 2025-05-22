@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,12 +19,15 @@
 
 import UIKit
 import SwiftUI
+import ObvTypes
 
 
+@MainActor
 protocol NewWelcomeScreenViewControllerDelegate: AnyObject {
     func userWantsToCloseOnboarding(controller: NewWelcomeScreenViewController) async
     func userWantsToLeaveWelcomeScreenAndHasNoOlvidProfileYet(controller: NewWelcomeScreenViewController) async
     func userWantsToLeaveWelcomeScreenAndHasAnOlvidProfile(controller: NewWelcomeScreenViewController) async
+    func userWantsToLeaveWelcomeScreenAndFinishOnboarding(controller: NewWelcomeScreenViewController, ownedIdentityThatCanBeOpened: ObvTypes.ObvCryptoId)
 }
 
 
@@ -34,10 +37,10 @@ final class NewWelcomeScreenViewController: UIHostingController<NewWelcomeScreen
     
     private let showCloseButton: Bool
     
-    init(delegate: NewWelcomeScreenViewControllerDelegate, showCloseButton: Bool) {
+    init(delegate: NewWelcomeScreenViewControllerDelegate, dataSource: NewWelcomeScreenViewDataSource, showCloseButton: Bool) {
         self.showCloseButton = showCloseButton
         let actions = NewWelcomeScreenViewActions()
-        let view = NewWelcomeScreenView(actions: actions)
+        let view = NewWelcomeScreenView(actions: actions, dataSource: dataSource)
         super.init(rootView: view)
         self.delegate = delegate
         actions.delegate = self
@@ -91,12 +94,16 @@ final class NewWelcomeScreenViewController: UIHostingController<NewWelcomeScreen
         await delegate?.userWantsToLeaveWelcomeScreenAndHasNoOlvidProfileYet(controller: self)
     }
 
+    func userWantsToLeaveWelcomeScreenAndFinishOnboarding(ownedIdentityThatCanBeOpened: ObvTypes.ObvCryptoId) {
+        delegate?.userWantsToLeaveWelcomeScreenAndFinishOnboarding(controller: self, ownedIdentityThatCanBeOpened: ownedIdentityThatCanBeOpened)
+    }
+    
 }
 
 
 
 private final class NewWelcomeScreenViewActions: NewWelcomeScreenViewActionsProtocol {
-    
+        
     weak var delegate: NewWelcomeScreenViewActionsProtocol?
     
     func userWantsToLeaveWelcomeScreenAndHasAnOlvidProfile() async {
@@ -106,6 +113,10 @@ private final class NewWelcomeScreenViewActions: NewWelcomeScreenViewActionsProt
     
     func userWantsToLeaveWelcomeScreenAndHasNoOlvidProfileYet() async {
         await delegate?.userWantsToLeaveWelcomeScreenAndHasNoOlvidProfileYet()
+    }
+
+    func userWantsToLeaveWelcomeScreenAndFinishOnboarding(ownedIdentityThatCanBeOpened: ObvTypes.ObvCryptoId) {
+        delegate?.userWantsToLeaveWelcomeScreenAndFinishOnboarding(ownedIdentityThatCanBeOpened: ownedIdentityThatCanBeOpened)
     }
 
 }

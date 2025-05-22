@@ -29,7 +29,7 @@ To build Olvid for iOS, you would need:
 - Git LFS
   - Make sure to run `git lfs install --system` to install the appropriate LFS hooks prior cloning
 - If you wish to run the project on a real device, specify your development by updating the value for `Constant.devTeam` in `Tuist/ProjectDescriptionHelpers/Constant.swift`
-- [`tuist`](https://github.com/tuist/tuist) installed (at least version 4.21.2)
+- [`tuist`](https://github.com/tuist/tuist) installed (at least version 4.30.0)
 - `tuist generate` to generate and open the Xcode workspace
 
 - If you encounter an issue with `error: 'swiftpackagemanager': invalid manifest` when executing `tuist generate`, make sure that you have an Xcode-defined command line tools path.
@@ -67,7 +67,7 @@ Olvid, as a company, has not yet put in place all the necessary processes to eas
 Olvid for iOS is licensed under the GNU Affero General Public License v3. The full license is available in [`LICENSE`](LICENSE).
 
     Olvid for iOS
-    Copyright © 2019-2024 Olvid SAS
+    Copyright © 2019-2025 Olvid SAS
 
     Olvid is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License, version 3,

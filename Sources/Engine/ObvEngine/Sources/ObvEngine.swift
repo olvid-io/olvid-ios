@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -38,6 +38,7 @@ import ObvBackupManager
 import ObvSyncSnapshotManager
 import OlvidUtils
 import ObvJWS
+import ObvBackupManagerNew
 
 
 public final class ObvEngine: ObvManager {
@@ -45,13 +46,15 @@ public final class ObvEngine: ObvManager {
     public static var mainContainerURL: URL? = nil
     
     private let delegateManager: ObvMetaManager
-    private let engineCoordinator: EngineCoordinator
+    let engineCoordinator: EngineCoordinator
     let prng: PRNGService
     let appNotificationCenter: NotificationCenter
     let returnReceiptSender: ReturnReceiptSender
     private let transactionsHistoryReplayer: TransactionsHistoryReplayer
     private let protocolWaiter: ProtocolWaiter
     private let remoteNotificationByteIdentifierForServer: Data
+    let obvBackupManagerNew: ObvBackupManagerNew? // Non-nil iff appType is .mainApp
+    let appType: AppType
 
     static let defaultLogSubsystem = "io.olvid.engine"
     public var logSubsystem: String = ObvEngine.defaultLogSubsystem
@@ -83,7 +86,7 @@ public final class ObvEngine: ObvManager {
     // MARK: - Public factory methods
     
     /// This method returns a full engine, with an initialized Core Data Stack
-    public static func startFull(logPrefix: String, appNotificationCenter: NotificationCenter, backgroundTaskManager: ObvBackgroundTaskManager, sharedContainerIdentifier: String, supportBackgroundTasks: Bool, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) throws -> ObvEngine {
+    public static func startFull(logPrefix: String, appNotificationCenter: NotificationCenter, backgroundTaskManager: ObvBackgroundTaskManager, sharedContainerIdentifier: String, supportBackgroundTasks: Bool, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) async throws -> ObvEngine {
         
         // The main container URL is shared between all the apps within the app group (i.e., between the main app, the share extension, and the notification extension).
         guard let mainContainerURL = ObvEngine.mainContainerURL else { throw makeError(message: "The main container URL is not set") }
@@ -145,7 +148,7 @@ public final class ObvEngine: ObvManager {
         // ObvFlowDelegate
         obvManagers.append(ObvFlowManager(backgroundTaskManager: backgroundTaskManager, prng: prng))
         
-        let fullEngine = try self.init(logPrefix: logPrefix,
+        let fullEngine = try await self.init(logPrefix: logPrefix,
                                        sharedContainerIdentifier: sharedContainerIdentifier,
                                        obvManagers: obvManagers,
                                        appNotificationCenter: appNotificationCenter,
@@ -153,6 +156,7 @@ public final class ObvEngine: ObvManager {
                                        appType: appType,
                                        runningLog: runningLog)
 
+        identityManager.setDelegate(to: fullEngine)
         channelManager.setObvUserInterfaceChannelDelegate(fullEngine)
         
         fullEngine.engineCoordinator.delegateManager = fullEngine.delegateManager
@@ -163,7 +167,7 @@ public final class ObvEngine: ObvManager {
     }
     
     
-    public static func startLimitedToSending(logPrefix: String, sharedContainerIdentifier: String, supportBackgroundTasks: Bool, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) throws -> ObvEngine {
+    public static func startLimitedToSending(logPrefix: String, sharedContainerIdentifier: String, supportBackgroundTasks: Bool, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) async throws -> ObvEngine {
 
         guard let mainContainerURL = ObvEngine.mainContainerURL else {
             debugPrint("ObvEngine ERROR: the mainContainerURL is not set")
@@ -193,7 +197,8 @@ public final class ObvEngine: ObvManager {
         obvManagers.append(ObvNetworkFetchManagerImplementationDummy())
 
         // ObvSolveChallengeDelegate, ObvKeyWrapperForIdentityDelegate, ObvIdentityDelegate, ObvKemForIdentityDelegate
-        obvManagers.append(ObvIdentityManagerImplementation(sharedContainerIdentifier: sharedContainerIdentifier, prng: prng, identityPhotosDirectory: identityPhotos))
+        let identityManager = ObvIdentityManagerImplementation(sharedContainerIdentifier: sharedContainerIdentifier, prng: prng, identityPhotosDirectory: identityPhotos)
+        obvManagers.append(identityManager)
 
         // ObvProcessDownloadedMessageDelegate, ObvChannelDelegate
         let channelManager = ObvChannelManagerImplementation(readOnly: false)
@@ -210,8 +215,15 @@ public final class ObvEngine: ObvManager {
 
         let dummyNotificationCenter = NotificationCenter.init()
 
-        let engine = try self.init(logPrefix: logPrefix, sharedContainerIdentifier: sharedContainerIdentifier, obvManagers: obvManagers, appNotificationCenter: dummyNotificationCenter, remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer, appType: appType, runningLog: runningLog)
+        let engine = try await self.init(logPrefix: logPrefix,
+                                         sharedContainerIdentifier: sharedContainerIdentifier,
+                                         obvManagers: obvManagers,
+                                         appNotificationCenter: dummyNotificationCenter,
+                                         remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer,
+                                         appType: appType,
+                                         runningLog: runningLog)
 
+        identityManager.setDelegate(to: engine)
         channelManager.setObvUserInterfaceChannelDelegate(engine)
         
         return engine
@@ -219,7 +231,7 @@ public final class ObvEngine: ObvManager {
     }
     
     
-    public static func startLimitedToDecrypting(sharedContainerIdentifier: String, logPrefix: String, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) throws -> ObvEngine {
+    public static func startLimitedToDecrypting(sharedContainerIdentifier: String, logPrefix: String, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) async throws -> ObvEngine {
         
         guard let mainContainerURL = ObvEngine.mainContainerURL else {
             debugPrint("ObvEngine ERROR: the mainContainerURL is not set")
@@ -245,7 +257,8 @@ public final class ObvEngine: ObvManager {
         obvManagers.append(ObvNetworkFetchManagerImplementationDummy())
         
         // ObvSolveChallengeDelegate, ObvKeyWrapperForIdentityDelegate, ObvIdentityDelegate, ObvKemForIdentityDelegate
-        obvManagers.append(ObvIdentityManagerImplementation(sharedContainerIdentifier: sharedContainerIdentifier, prng: prng, identityPhotosDirectory: identityPhotos))
+        let identityManager = ObvIdentityManagerImplementation(sharedContainerIdentifier: sharedContainerIdentifier, prng: prng, identityPhotosDirectory: identityPhotos)
+        obvManagers.append(identityManager)
         
         // ObvProcessDownloadedMessageDelegate, ObvChannelDelegate
         let channelManager = ObvChannelManagerImplementation(readOnly: true)
@@ -262,14 +275,15 @@ public final class ObvEngine: ObvManager {
         
         let dummyNotificationCenter = NotificationCenter.init()
         
-        let engine = try self.init(logPrefix: logPrefix,
-                                   sharedContainerIdentifier: sharedContainerIdentifier,
-                                   obvManagers: obvManagers,
-                                   appNotificationCenter: dummyNotificationCenter,
-                                   remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer,
-                                   appType: appType,
-                                   runningLog: runningLog)
+        let engine = try await self.init(logPrefix: logPrefix,
+                                         sharedContainerIdentifier: sharedContainerIdentifier,
+                                         obvManagers: obvManagers,
+                                         appNotificationCenter: dummyNotificationCenter,
+                                         remoteNotificationByteIdentifierForServer: remoteNotificationByteIdentifierForServer,
+                                         appType: appType,
+                                         runningLog: runningLog)
 
+        identityManager.setDelegate(to: engine)
         channelManager.setObvUserInterfaceChannelDelegate(engine)
         
         return engine
@@ -278,8 +292,9 @@ public final class ObvEngine: ObvManager {
     
     // MARK: - Initializer
     
-    init(logPrefix: String, sharedContainerIdentifier: String, obvManagers: [ObvManager], appNotificationCenter: NotificationCenter, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) throws {
+    private init(logPrefix: String, sharedContainerIdentifier: String, obvManagers: [ObvManager], appNotificationCenter: NotificationCenter, remoteNotificationByteIdentifierForServer: Data, appType: AppType, runningLog: RunningLogError) async throws {
         
+        self.appType = appType
         self.prng = ObvCryptoSuite.sharedInstance.prngService()
         self.appNotificationCenter = appNotificationCenter
         self.returnReceiptSender = ReturnReceiptSender(prng: prng)
@@ -289,6 +304,28 @@ public final class ObvEngine: ObvManager {
         self.protocolWaiter = ProtocolWaiter(delegateManager: delegateManager, prng: prng)
         self.remoteNotificationByteIdentifierForServer = remoteNotificationByteIdentifierForServer
 
+        switch appType {
+        case .mainApp:
+            guard let mainContainerURL = ObvEngine.mainContainerURL else {
+                assertionFailure()
+                throw Self.makeError(message: "The main container URL is not set")
+            }
+            guard let databaseForBackups = ObvEngine.createAndConfigureBox("databaseForBackups", mainContainerURL: mainContainerURL) else {
+                assertionFailure()
+                throw Self.makeError(message: "Could not create and configure the database for backup box")
+            }
+            let physicalDeviceName = await UIDevice.current.preciseModel
+            self.obvBackupManagerNew = try ObvBackupManagerNew(prng: prng,
+                                                               transactionAuthor: appType.transactionAuthor,
+                                                               enableMigrations: true,
+                                                               containerURL: databaseForBackups,
+                                                               appGroupIdentifier: sharedContainerIdentifier,
+                                                               physicalDeviceName: physicalDeviceName,
+                                                               runningLog: runningLog)
+        case .shareExtension, .notificationExtension:
+            self.obvBackupManagerNew = nil
+        }
+        
         prependLogSubsystem(with: logPrefix)
 
         try obvManagers.forEach {
@@ -301,6 +338,7 @@ public final class ObvEngine: ObvManager {
         let flowId = FlowIdentifier()
         os_log("Flow for finalizing the engine initialization: %{public}@", log: log, type: .debug, flowId.debugDescription)
         try delegateManager.initializationFinalized(flowId: flowId, runningLog: runningLog)
+        try await obvBackupManagerNew?.finalizeInitialization(delegate: self)
         try registerToInternalNotifications()
         self.transactionsHistoryReplayer.createContextDelegate = self.createContextDelegate
         self.transactionsHistoryReplayer.networkPostDelegate = self.networkPostDelegate
@@ -454,7 +492,7 @@ extension ObvEngine {
         return delegateManager.flowDelegate
     }
 
-    var backupDelegate: ObvBackupDelegate? {
+    var legacyBackupDelegate: ObvLegacyBackupDelegate? {
         if delegateManager.backupDelegate == nil {
             os_log("The backup delegate is not set", log: log, type: .fault)
             assertionFailure()
@@ -633,22 +671,25 @@ extension ObvEngine {
     }
     
     
-    public func deleteOwnedIdentity(with ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) throws {
+    public func deleteOwnedIdentity(with ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws {
 
-        guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+        guard let protocolDelegate else { assertionFailure(); throw ObvError.protocolDelegateIsNil }
+        guard let identityDelegate else { assertionFailure(); throw ObvError.identityDelegateIsNil }
 
         let ownedCryptoIdentity = ownedCryptoId.cryptoIdentity
         let flowId = FlowIdentifier()
 
-        try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in        
-            let message = try protocolDelegate.getInitiateOwnedIdentityDeletionMessage(
-                ownedCryptoIdentityToDelete: ownedCryptoIdentity,
-                globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
-            _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-            try obvContext.save(logOnFailure: log)
-        }
+        // Start an OwnedIdentityDeletionProtocol
+        
+        let message = try protocolDelegate.getInitiateOwnedIdentityDeletionMessage(
+            ownedCryptoIdentityToDelete: ownedCryptoIdentity,
+            globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
+
+        try await self.postChannelMessage(message, flowId: flowId)
+        
+        // Wait until the owned identity is deleted from the Identity manager database (which happens when committing the context of the last step of the OwnedIdentityDeletionProtocol)
+        
+        try await identityDelegate.waitForOwnedIdentityDeletion(expectedOwnedCryptoId: ownedCryptoId, flowId: flowId)
         
     }
     
@@ -2151,23 +2192,11 @@ extension ObvEngine {
 
     
     /// Starts a ``OneToOneContactInvitationProtocol``. In practice, this is called from a single place within the app (in the `ObvFlowController`) so as to make sure we always perform a simultaneous Keycloak invitation if possible.
-    public func sendOneToOneInvitation(ownedIdentity: ObvCryptoId, contactIdentity: ObvCryptoId) throws {
+    public func sendOneToOneInvitation(ownedIdentity: ObvCryptoId, contactIdentity: ObvCryptoId) async throws {
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
-        
         let message = try protocolDelegate.getInitialMessageForOneToOneContactInvitationProtocol(ownedIdentity: ownedIdentity.cryptoIdentity, contactIdentity: contactIdentity.cryptoIdentity)
         let flowId = FlowIdentifier()
-        createContextDelegate.performBackgroundTask(flowId: flowId) { [weak self] (obvContext) in
-            guard let _self = self else { return }
-            do {
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: _self.prng, within: obvContext)
-                try obvContext.save(logOnFailure: _self.log)
-            } catch {
-                os_log("Could not post initial message for starting OneToOne contact invitation protocol: %{public}@", log: _self.log, type: .fault, error.localizedDescription)
-                assertionFailure()
-            }
-        }
+        try await postChannelMessage(message, flowId: flowId)
     }
 
     
@@ -2940,19 +2969,14 @@ extension ObvEngine {
 
 extension ObvEngine {
     
-    public func startGroupV2CreationProtocol(serializedGroupCoreDetails: Data, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, serializedGroupType: Data) throws {
+    public func startGroupV2CreationProtocol(serializedGroupCoreDetails: Data, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, serializedGroupType: Data) async throws {
 
         // The photoURL typically points to a photo stored in a cache directory managed by the app.
         // When requesting the protocol message to the protocol manager, it creates a local copy of this photo that it will manage.
         
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
-        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
 
-        let log = self.log
-        
         let otherMembers: Set<GroupV2.IdentityAndPermissions> = Set(otherGroupMembers.map({ GroupV2.IdentityAndPermissions(from: $0) }))
         let ownRawPermissions: Set<String> = Set(ownPermissions.map({ GroupV2.Permission(obvGroupV2Permission: $0) }).map({ $0.rawValue }))
         
@@ -2966,33 +2990,9 @@ extension ObvEngine {
                                                                                              serializedGroupType: serializedGroupType)
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
+        try await self.postChannelMessage(message, flowId: flowId)
+        flowDelegate.endFlow(flowId: flowId)
 
-        do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-                
-                // Make sure all the other group members have the appropriate capability
-                
-                for otherGroupMember in otherGroupMembers.map({ $0.identity }) {
-                    guard let capabilities = try identityDelegate.getCapabilitiesOfContactIdentity(
-                        ownedIdentity: ownedCryptoId.cryptoIdentity,
-                        contactIdentity: otherGroupMember.cryptoIdentity,
-                        within: obvContext),
-                          capabilities.contains(.groupsV2)
-                    else {
-                        throw Self.makeError(message: "One of the requested group members hasn't the groupv2 capability")
-                    }
-                }
-                
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                
-                try obvContext.save(logOnFailure: log)
-                
-            }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
-        }
-        
     }
     
 
@@ -3132,15 +3132,10 @@ extension ObvEngine {
         
     }
     
-    
-    public func leaveGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) throws {
+    public func leaveGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) async throws {
         
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
-
-        let log = self.log
         
         guard let encodedGroupIdentifier = ObvEncoded(withRawData: groupIdentifier),
               let groupIdentifier = ObvGroupV2.Identifier(encodedGroupIdentifier)
@@ -3154,27 +3149,17 @@ extension ObvEngine {
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
 
-        do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
-        }
-
+        try await self.postChannelMessage(message, flowId: flowId)
+        
+        flowDelegate.endFlow(flowId: flowId)
+        
     }
     
     
-    public func performReDownloadOfGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) throws {
+    public func performReDownloadOfGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) async throws {
 
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
-
-        let log = self.log
 
         guard let encodedGroupIdentifier = ObvEncoded(withRawData: groupIdentifier),
               let groupIdentifier = ObvGroupV2.Identifier(encodedGroupIdentifier)
@@ -3190,14 +3175,13 @@ extension ObvEngine {
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
 
         do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            }
+            try await self.postChannelMessage(message, flowId: flowId)
         } catch {
             flowDelegate.endFlow(flowId: flowId)
             throw error
         }
+        
+        flowDelegate.endFlow(flowId: flowId)
 
     }
     
@@ -3255,6 +3239,19 @@ extension ObvEngine {
             }
         }
         
+    }
+    
+    
+    public func performOwnedDeviceDiscoveryNow(ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvOwnedDeviceDiscoveryResult {
+        
+        guard let networkFetchDelegate else { throw ObvError.networkFetchDelegateIsNil }
+        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
+        
+        let encryptedOwnedDeviceDiscoveryResult = try await networkFetchDelegate.performOwnedDeviceDiscoveryNow(ownedCryptoId: ownedCryptoIdentity.getObvCryptoIdentity(), flowId: FlowIdentifier())
+        let ownedDeviceDiscoveryResult = try identityDelegate.decryptEncryptedOwnedDeviceDiscoveryResult(encryptedOwnedDeviceDiscoveryResult, forOwnedCryptoIdentity: ownedCryptoIdentity)
+        
+        return ownedDeviceDiscoveryResult.obvOwnedDeviceDiscoveryResult
+
     }
     
     
@@ -3403,16 +3400,12 @@ extension ObvEngine {
     }
     
     
-    public func performDisbandOfGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) throws {
+    public func performDisbandOfGroupV2(ownedCryptoId: ObvCryptoId, groupIdentifier: Data) async throws {
 
         assert(!Thread.isMainThread)
 
         guard let flowDelegate else { throw ObvError.flowDelegateIsNil }
         guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
-        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
-        guard let channelDelegate else { throw ObvError.channelDelegateIsNil }
-
-        let log = self.log
 
         guard let encodedGroupIdentifier = ObvEncoded(withRawData: groupIdentifier),
               let groupIdentifier = ObvGroupV2.Identifier(encodedGroupIdentifier)
@@ -3426,15 +3419,9 @@ extension ObvEngine {
         
         let flowId = try flowDelegate.startBackgroundActivityForStartingOrResumingProtocol() // ok
 
-        do {
-            try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
-                _ = try channelDelegate.postChannelMessage(message, randomizedWith: prng, within: obvContext)
-                try obvContext.save(logOnFailure: log)
-            }
-        } catch {
-            flowDelegate.endFlow(flowId: flowId)
-            throw error
-        }
+        try await self.postChannelMessage(message, flowId: flowId)
+        
+        flowDelegate.endFlow(flowId: flowId)
 
     }
 
@@ -4002,10 +3989,11 @@ extension ObvEngine {
     }
     
     
-    public func postReturnReceiptWithElements(returnReceiptToSend: ObvReturnReceiptToSend) async throws {
-        self.logger.info("🧾 Call to postReturnReceiptWithElements with nonce \(returnReceiptToSend.elements.nonce.hexString()) and attachmentNumber: \(String(describing: returnReceiptToSend.attachmentNumber))")
+    public func postReturnReceiptsWithElements(returnReceiptsToSend: [ObvReturnReceiptToSend]) async throws {
+        //self.logger.info("🧾 Call to postReturnReceiptWithElements with nonce \(returnReceiptToSend.elements.nonce.hexString()) and attachmentNumber: \(String(describing: returnReceiptToSend.attachmentNumber))")
+        self.logger.info("🧾 Call to postReturnReceiptsWithElements for \(returnReceiptsToSend.count) return receipts")
         let flowId = FlowIdentifier()
-        try await returnReceiptSender.postReturnReceiptWithElements(returnReceiptToSend: returnReceiptToSend, flowId: flowId)        
+        try await returnReceiptSender.postReturnReceiptsWithElements(returnReceiptsToSend: returnReceiptsToSend, flowId: flowId)
     }
     
     
@@ -4346,6 +4334,68 @@ extension ObvEngine {
 }
 
 
+// MARK: - Public API for as-hoc fetching user data (like avatar images)
+
+extension ObvEngine {
+    
+    public func getUserDataNow(ownedCryptoId: ObvCryptoId, encodedServerKeyAndLabel: Data?) async throws -> Data? {
+        
+        guard let networkFetchDelegate else { assertionFailure(); throw ObvError.networkFetchDelegateIsNil }
+        
+        let flowId = FlowIdentifier()
+        
+        let photoServerKeyAndLabel: PhotoServerKeyAndLabel
+        if let encodedServerKeyAndLabel {
+            photoServerKeyAndLabel = try PhotoServerKeyAndLabel.jsonDecode(encodedServerKeyAndLabel)
+        } else {
+            guard let (ownedIdentityDetailsElements, photoURL) = try await getPublishedIdentityDetailsOfOwnedIdentity(ownedCryptoId: ownedCryptoId, flowId: flowId) else {
+                return nil
+            }
+            if let photoURL {
+                return try Data(contentsOf: photoURL)
+            } else if let _photoServerKeyAndLabel = ownedIdentityDetailsElements.photoServerKeyAndLabel {
+                photoServerKeyAndLabel = _photoServerKeyAndLabel
+            } else {
+                return nil
+            }
+        }
+        
+        let serverLabel = photoServerKeyAndLabel.label
+        let key = photoServerKeyAndLabel.key
+        
+        guard let encryptedData = try await networkFetchDelegate.getUserDataNow(cryptoId: ownedCryptoId, serverLabel: serverLabel, flowId: flowId) else {
+            return nil
+        }
+        
+        let plaintext = try AuthenticatedEncryption.decrypt(encryptedData, with: key)
+        
+        return plaintext
+        
+    }
+    
+    
+    private func getPublishedIdentityDetailsOfOwnedIdentity(ownedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws -> (ownedIdentityDetailsElements: IdentityDetailsElements, photoURL: URL?)? {
+        guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
+        guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(ownedIdentityDetailsElements: IdentityDetailsElements, photoURL: URL?)?, any Error>) in
+            createContextDelegate.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    guard try identityDelegate.isOwned(ownedCryptoId.cryptoIdentity, within: obvContext) else {
+                        return continuation.resume(returning: nil)
+                    }
+                    let result = try identityDelegate.getPublishedIdentityDetailsOfOwnedIdentity(ownedCryptoId.cryptoIdentity, within: obvContext)
+                    return continuation.resume(returning: result)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+    
+}
+
+
 // MARK: - Public API for Decrypting application messages
 
 extension ObvEngine {
@@ -4447,6 +4497,7 @@ extension ObvEngine {
         for manager in delegateManager.registeredManagers {
             await manager.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
         }
+        await obvBackupManagerNew?.applicationAppearedOnScreen(forTheFirstTime: forTheFirstTime, flowId: flowId)
         replayTransactionsHistory() // 2022-02-24: Used to be called only if forTheFirstTime. We now want to empty the history as soon as possible.
         if forTheFirstTime {
             do {
@@ -4520,41 +4571,299 @@ extension ObvEngine {
         
 }
 
+// MARK: - Public API for new backups
 
-// MARK: - Public API for backup
+extension ObvEngine {
+    
+    public func previousBackedUpProfileSnapShotIsObsoleteAsOwnedIdentityChangedWithinApp(ownedCryptoId: ObvCryptoId) async throws {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+
+        let flowId = FlowIdentifier()
+
+        await obvBackupManagerNew.previousBackupOfOwnedIdentityIsObsolete(ownedCryptoId: ownedCryptoId, flowId: flowId)
+
+    }
+    
+    
+    public func previousBackedUpDeviceSnapShotIsObsolete() async throws {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+
+        let flowId = FlowIdentifier()
+
+        await obvBackupManagerNew.previousBackedUpDeviceSnapShotIsObsolete(flowId: flowId)
+        
+    }
+
+    
+    public func createDeviceBackupSeed(serverURLForStoringDeviceBackup: URL, saveToKeychain: Bool) async throws -> ObvCrypto.BackupSeed {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        // In case legacy backups are in place, deactivate them
+        
+        if try await getCurrentLegacyBackupKeyInformation() != nil {
+            try await deactivateAndDeleteLegacyBackups()
+        }
+        
+        guard try await getCurrentLegacyBackupKeyInformation() == nil else {
+            assertionFailure("At this point, we expect legacy backups to be deactivated")
+            throw ObvError.failedToDeactivateLegacyBackups
+        }
+        
+        let physicalDeviceName = await UIDevice.current.preciseModel
+        let flowId = FlowIdentifier()
+        
+        return try await obvBackupManagerNew.createDeviceBackupSeed(serverURLForStoringDeviceBackup: serverURLForStoringDeviceBackup,
+                                                                    physicalDeviceName: physicalDeviceName,
+                                                                    saveToKeychain: saveToKeychain,
+                                                                    flowId: flowId)
+        
+    }
+    
+    
+    /// Returns the one (and only) backup seed for this physical device. If no seed was generated, this method returns `nil`.
+    public func getDeviceActiveBackupSeed() async throws -> ObvCrypto.BackupSeed? {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        let flowId = FlowIdentifier()
+
+        return try await obvBackupManagerNew.getDeviceActiveBackupSeedAndServerURL(flowId: flowId)?.backupSeed
+        
+    }
+    
+    
+    public func usersWantsToGetBackupParameterIsSynchronizedWithICloud() async throws -> Bool {
+
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+
+        let flowId = FlowIdentifier()
+
+        return try await obvBackupManagerNew.usersWantsToGetBackupParameterIsSynchronizedWithICloud(flowId: flowId)
+        
+    }
+    
+    
+    public func usersWantsToChangeBackupParameterIsSynchronizedWithICloud(newIsSynchronizedWithICloud: Bool) async throws {
+
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+
+        let physicalDeviceName = await UIDevice.current.preciseModel
+        let flowId = FlowIdentifier()
+        
+        try await obvBackupManagerNew.usersWantsToChangeBackupParameterIsSynchronizedWithICloud(newIsSynchronizedWithICloud: newIsSynchronizedWithICloud, physicalDeviceName: physicalDeviceName, flowId: flowId)
+
+    }
+    
+    
+    public func userWantsToEraseAndGenerateNewDeviceBackupSeed(serverURLForStoringDeviceBackup: URL) async throws -> ObvCrypto.BackupSeed {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        let physicalDeviceName = await UIDevice.current.preciseModel
+        let flowId = FlowIdentifier()
+
+        return try await obvBackupManagerNew.userWantsToEraseAndGenerateNewDeviceBackupSeed(serverURLForStoringDeviceBackup: serverURLForStoringDeviceBackup, physicalDeviceName: physicalDeviceName, flowId: flowId)
+
+    }
+
+    
+    public func userWantsToPerformBackupNow() async throws {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        let flowId = FlowIdentifier()
+
+        return try await obvBackupManagerNew.createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing(flowId: flowId)
+
+    }
+    
+    
+    public func createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing() async throws {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        let flowId = FlowIdentifier()
+
+        return try await obvBackupManagerNew.createAndUploadDeviceAndProfilesBackupDuringBackgroundProcessing(flowId: flowId)
+
+    }
+    
+    
+    public func userWantsToFetchDeviceBakupFromServer() async throws -> AsyncStream<ObvTypes.ObvDeviceBackupFromServerKind> {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        let flowId = FlowIdentifier()
+
+        return await obvBackupManagerNew.userWantsToFetchDeviceBakupFromServer(flowId: flowId)
+        
+    }
+
+    public func userWantsToUseDeviceBackupSeed(backupSeedAndStorageServerURL: ObvBackupSeedAndStorageServerURL) async throws -> ObvTypes.ObvDeviceBackupFromServer? {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        let flowId = FlowIdentifier()
+
+        return try await obvBackupManagerNew.userWantsToUseDeviceBackupSeed(backupSeedAndStorageServerURL: backupSeedAndStorageServerURL, flowId: flowId)
+
+    }
+
+    
+    public func userWantsToFetchAllProfileBackupsFromServer(profileCryptoId: ObvCryptoId, backupSeedAndStorageServerURL: ObvBackupSeedAndStorageServerURL) async throws -> [ObvProfileBackupFromServer] {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        let flowId = FlowIdentifier()
+
+        let profileBackupsFromServer = try await obvBackupManagerNew.userWantsToFetchAllProfileBackupsFromServer(profileCryptoId: profileCryptoId, backupSeedAndStorageServerURL: backupSeedAndStorageServerURL, flowId: flowId)
+
+        return profileBackupsFromServer
+        
+    }
+    
+    
+    public func restoreProfileBackupFromServerNow(profileBackupFromServerToRestore: ObvProfileBackupFromServer, currentDeviceName: String, rawAuthState: Data?) async throws {
+
+        guard let protocolDelegate else { throw ObvError.protocolDelegateIsNil }
+        guard let syncSnapshotDelegate else { throw ObvError.syncSnapshotDelegateIsNil }
+        
+        let flowId = FlowIdentifier()
+        
+        try await protocolDelegate.restoreOwnedIdentitySnapshot(ownedCryptoId: profileBackupFromServerToRestore.ownedCryptoId,
+                                                                identityNode: profileBackupFromServerToRestore.identityNode,
+                                                                currentDeviceName: currentDeviceName,
+                                                                rawAuthState: rawAuthState,
+                                                                flowId: flowId)
+        
+        do {
+            var tentative: Int = 0
+            while tentative < 3 {
+                do {
+                    try await syncSnapshotDelegate.syncEngineDatabaseThenUpdateAppDatabase(using: profileBackupFromServerToRestore.appNode)
+                    break
+                } catch {
+                    try? await Task.sleep(seconds: 1)
+                    tentative += 1
+                }
+            }
+        }
+        
+    }
+    
+    
+    public func userWantsToResetThisDeviceSeedAndBackups() async throws {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        let flowId = FlowIdentifier()
+
+        try await obvBackupManagerNew.userWantsToResetThisDeviceSeedAndBackups(flowId: flowId)
+        
+    }
+    
+    
+    public func userWantsToDeleteProfileBackup(infoForDeletion: ObvProfileBackupFromServer.InfoForDeletion) async throws {
+        
+        guard let obvBackupManagerNew else {
+            assertionFailure()
+            throw ObvError.obvBackupManagerNewIsNil
+        }
+        
+        let flowId = FlowIdentifier()
+
+        try await obvBackupManagerNew.userWantsToDeleteProfileBackup(infoForDeletion: infoForDeletion, flowId: flowId)
+        
+    }
+    
+    
+    public func getAPIKeyElementsDuringNewBackupRestore(cryptoId: ObvCryptoId, privateKeyForAuthentication: any PrivateKeyForAuthentication) async throws -> APIKeyElements {
+        
+        guard let networkFetchDelegate else { assertionFailure(); throw ObvError.networkFetchDelegateIsNil }
+        let flowId = FlowIdentifier()
+        return try await networkFetchDelegate.getAPIKeyElementsDuringNewBackupRestore(cryptoId: cryptoId, privateKeyForAuthentication: privateKeyForAuthentication, flowId: flowId)
+
+    }
+
+}
+
+
+// MARK: - Public API for legacy backup
 
 extension ObvEngine {
     
     public var isBackupRequired: Bool {
-        return backupDelegate?.isBackupRequired ?? false
+        return legacyBackupDelegate?.isBackupRequired ?? false
     }
     
     
     public func userJustActivatedAutomaticBackup() {
-        backupDelegate?.userJustActivatedAutomaticBackup()
+        legacyBackupDelegate?.userJustActivatedAutomaticBackup()
     }
     
     
-    public func markBackupAsUploaded(backupKeyUid: UID, backupVersion: Int) async throws {
+    public func markLegacyBackupAsUploaded(backupKeyUid: UID, backupVersion: Int) async throws {
         let flowId = FlowIdentifier()
-        try await backupDelegate?.markBackupAsUploaded(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
+        try await legacyBackupDelegate?.markLegacyBackupAsUploaded(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
     }
 
     
-    public func markBackupAsExported(backupKeyUid: UID, backupVersion: Int) async throws {
+    public func markLegacyBackupAsExported(backupKeyUid: UID, backupVersion: Int) async throws {
         let flowId = FlowIdentifier()
-        try await backupDelegate?.markBackupAsExported(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
+        try await legacyBackupDelegate?.markLegacyBackupAsExported(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
     }
     
-    public func markBackupAsFailed(backupKeyUid: UID, backupVersion: Int) async throws {
+    public func markLegacyBackupAsFailed(backupKeyUid: UID, backupVersion: Int) async throws {
         let flowId = FlowIdentifier()
-        try await backupDelegate?.markBackupAsFailed(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
+        try await legacyBackupDelegate?.markLegacyBackupAsFailed(backupKeyUid: backupKeyUid, backupVersion: backupVersion, flowId: flowId)
     }
     
     
-    public func getCurrentBackupKeyInformation() async throws -> ObvBackupKeyInformation? {
+    public func getCurrentLegacyBackupKeyInformation() async throws -> ObvBackupKeyInformation? {
         
-        guard let backupDelegate = self.backupDelegate else {
+        guard let backupDelegate = self.legacyBackupDelegate else {
             os_log("The backup delegate is not set", log: log, type: .fault)
             assertionFailure()
             throw ObvEngine.makeError(message: "Internal error")
@@ -4575,39 +4884,24 @@ extension ObvEngine {
     }
     
     
-    public func generateNewBackupKey() async {
+    private func deactivateAndDeleteLegacyBackups() async throws {
         
-        let flowId = FlowIdentifier()
-        os_log("Generating a new backup key within flow %{public}@", log: log, type: .info, flowId.debugDescription)
-        
-        guard let backupDelegate = self.backupDelegate else {
-            os_log("The backup delegate is not set", log: log, type: .fault)
+        guard let backupDelegate = self.legacyBackupDelegate else {
+            logger.fault("The backup delegate is not set")
             assertionFailure()
-            return
-        }
-        
-        backupDelegate.generateNewBackupKey(flowId: flowId)
-    }
-    
-    
-    public func verifyBackupKeyString(_ backupSeedString: String) async throws -> Bool {
-        
-        guard let backupDelegate = self.backupDelegate else {
-            os_log("The backup delegate is not set", log: log, type: .fault)
-            assertionFailure()
-            throw Self.makeError(message: "Internal error")
+            throw ObvError.backupDelegateIsNil
         }
 
         let flowId = FlowIdentifier()
 
-        return try await backupDelegate.verifyBackupKey(backupSeedString: backupSeedString, flowId: flowId)
+        try await backupDelegate.deleteAllAsUserMigratesToNewBackups(flowId: flowId)
         
     }
-
-
-    public func initiateBackup(forExport: Bool, requestUUID: UUID) async throws -> (backupKeyUid: UID, version: Int, encryptedContent: Data) {
+    
+    
+    public func initiateLegacyBackup(forExport: Bool, requestUUID: UUID) async throws -> (backupKeyUid: UID, version: Int, encryptedContent: Data) {
         let flowId = requestUUID
-        guard let backupDelegate = self.backupDelegate else { assertionFailure(); throw Self.makeError(message: "The backup delegate is not set") }
+        guard let backupDelegate = self.legacyBackupDelegate else { assertionFailure(); throw Self.makeError(message: "The backup delegate is not set") }
         os_log("Starting backup within flow %{public}@", log: log, type: .info, flowId.debugDescription)
         return try await backupDelegate.initiateBackup(forExport: forExport, backupRequestIdentifier: flowId)
     }
@@ -4618,9 +4912,9 @@ extension ObvEngine {
     }
     
     
-    public func recoverBackupData(_ backupData: Data, withBackupKey backupKey: String) async throws -> (backupRequestIdentifier: UUID, backupDate: Date) {
+    public func recoverLegacyBackupData(_ backupData: Data, withBackupKey backupKey: String) async throws -> (backupRequestIdentifier: UUID, backupDate: Date) {
         
-        guard let backupDelegate = self.backupDelegate else {
+        guard let backupDelegate = self.legacyBackupDelegate else {
             assertionFailure()
             throw makeError(message: "The backup delegate is not set")
         }
@@ -4634,11 +4928,11 @@ extension ObvEngine {
     
     
     /// Returns the ObvCryptoIds of the restored owned identities.
-    public func restoreFullBackup(backupRequestIdentifier: FlowIdentifier, nameToGiveToCurrentDevice: String) async throws -> Set<ObvCryptoId> {
+    public func restoreFullLegacyBackup(backupRequestIdentifier: FlowIdentifier, nameToGiveToCurrentDevice: String) async throws -> Set<ObvCryptoId> {
         
         os_log("Starting backup restore identified by %{public}@", log: log, type: .info, backupRequestIdentifier.debugDescription)
         
-        guard let backupDelegate else { assertionFailure(); throw ObvError.backupDelegateIsNil }
+        guard let legacyBackupDelegate else { assertionFailure(); throw ObvError.backupDelegateIsNil }
 
         // Get a set of owned identities that exist before the backup restore
         
@@ -4646,7 +4940,7 @@ extension ObvEngine {
         
         // Restore the backup
         
-        try await backupDelegate.restoreFullBackup(backupRequestIdentifier: backupRequestIdentifier)
+        try await legacyBackupDelegate.restoreFullBackup(backupRequestIdentifier: backupRequestIdentifier)
         
         // Get the set of restore owned identities
         
@@ -4664,7 +4958,7 @@ extension ObvEngine {
             .postOnBackgroundQueue(within: appNotificationCenter)
 
         // Perform a re-download of all group v2
-        try performReDownloadOfAllGroupV2AfterBackupRestore(backupRequestIdentifier: backupRequestIdentifier)
+        try await performReDownloadOfAllGroupV2AfterBackupRestore(backupRequestIdentifier: backupRequestIdentifier)
         
         // Since the notifications from the identity manager are not triggered during a backup restore,
         // we call the appropriate method from the engine coordinator now
@@ -4679,12 +4973,12 @@ extension ObvEngine {
     
     
     /// Helper method used, e.g. during a backup restore
-    private func getOwnedIdentities(restrictToActive: Bool) async throws -> Set<ObvCryptoIdentity> {
+    func getOwnedIdentities(restrictToActive: Bool, flowId: FlowIdentifier = FlowIdentifier()) async throws -> Set<ObvCryptoIdentity> {
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
         return try await withCheckedThrowingContinuation { continuation in
             do {
-                try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: FlowIdentifier()) { obvContext in
+                try createContextDelegate.performBackgroundTaskAndWaitOrThrow(flowId: flowId) { obvContext in
                     let ownedCryptoIds = try identityDelegate.getOwnedIdentities(restrictToActive: restrictToActive, within: obvContext)
                     return continuation.resume(returning: ownedCryptoIds)
                 }
@@ -4714,7 +5008,7 @@ extension ObvEngine {
     }
     
     
-    private func performReDownloadOfAllGroupV2AfterBackupRestore(backupRequestIdentifier: FlowIdentifier) throws {
+    private func performReDownloadOfAllGroupV2AfterBackupRestore(backupRequestIdentifier: FlowIdentifier) async throws {
         
         guard let createContextDelegate else { throw ObvError.createContextDelegateIsNil }
         guard let identityDelegate else { throw ObvError.identityDelegateIsNil }
@@ -4732,7 +5026,7 @@ extension ObvEngine {
         
         for (ownedIdentiy, groupsV2) in allGroupsV2 {
             for groupV2 in groupsV2 {
-                try performReDownloadOfGroupV2(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentiy), groupIdentifier: groupV2.appGroupIdentifier)
+                try await performReDownloadOfGroupV2(ownedCryptoId: ObvCryptoId(cryptoIdentity: ownedIdentiy), groupIdentifier: groupV2.appGroupIdentifier)
             }
         }
         
@@ -4740,7 +5034,7 @@ extension ObvEngine {
     
     
     public func registerAppBackupableObject(_ appBackupableObject: ObvBackupable) throws {
-        guard let backupDelegate = self.backupDelegate else {
+        guard let backupDelegate = self.legacyBackupDelegate else {
             os_log("The backup delegate is not set", log: log, type: .fault)
             assertionFailure()
             throw ObvError.backupDelegateIsNil
@@ -5515,9 +5809,17 @@ extension ObvEngine {
         case unexpectedNumberOfMessageIdentifiers
         case unexpectedContactIdentifier
         case unexpectedError
+        case obvBackupManagerNewIsNil
+        case solveChallengeDelegateIsNil
+        case failedToDeactivateLegacyBackups
+        case backupsAreNotActive
 
         var errorDescription: String? {
             switch self {
+            case .backupsAreNotActive:
+                return "Backups are not active"
+            case .obvBackupManagerNewIsNil:
+                return "ObvBackupManagerNew is nil"
             case .createContextDelegateIsNil:
                 return "Create context delegate is nil"
             case .protocolDelegateIsNil:
@@ -5556,6 +5858,10 @@ extension ObvEngine {
                 return "Unexpected contact identifier"
             case .unexpectedError:
                 return "Unexpected error"
+            case .solveChallengeDelegateIsNil:
+                return "The solve challenge delegate is nil"
+            case .failedToDeactivateLegacyBackups:
+                return "Failed to deactivate legacy backups"
             }
         }
         

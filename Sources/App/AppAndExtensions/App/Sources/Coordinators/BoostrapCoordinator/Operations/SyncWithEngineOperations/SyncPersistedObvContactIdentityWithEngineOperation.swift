@@ -74,7 +74,7 @@ final class SyncPersistedObvContactIdentityWithEngineOperation: ContextualOperat
                     return
                 }
                 
-                let persistedContact = try persistedOwnedIdentity.addOrUpdateContact(with: contactWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
+                let (persistedContact, _) = try persistedOwnedIdentity.addOrUpdateContact(with: contactWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
                 
                 // Get the contact capabilities within engine
                 guard let contactCapabilitiesWithinEngine = try? obvEngine.getCapabilitiesOfContact(with: contactIdentifier) else {
@@ -104,8 +104,10 @@ final class SyncPersistedObvContactIdentityWithEngineOperation: ContextualOperat
                     assertionFailure()
                     return
                 }
+                
+                // Update or create the contact. Note that creating the contact is ok, since the contact exists within the engine.
 
-                _ = try persistedOwnedIdentity.updateContact(with: contactWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
+                _ = try persistedOwnedIdentity.addOrUpdateContact(with: contactWithinEngine, isRestoringSyncSnapshotOrBackup: isRestoringSyncSnapshotOrBackup)
 
                 // Get the contact capabilities within engine
                 let contactCapabilitiesWithinEngine: Set<ObvCapability>

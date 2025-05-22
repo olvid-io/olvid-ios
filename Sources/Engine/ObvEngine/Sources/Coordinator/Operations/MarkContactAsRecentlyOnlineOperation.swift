@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -41,9 +41,14 @@ final class MarkContactAsRecentlyOnlineOperation: ContextualOperationWithSpecifi
         
         do {
 
+            guard try identityDelegate.isIdentity(contactIdentifier.contactCryptoId.cryptoIdentity, aContactIdentityOfTheOwnedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity, within: obvContext) else {
+                // This can happen if the contact was deleted right after decrypting a message
+                return
+            }
+            
             try identityDelegate.markContactAsRecentlyOnline(ownedIdentity: contactIdentifier.ownedCryptoId.cryptoIdentity,
-                                                         contactIdentity: contactIdentifier.contactCryptoId.cryptoIdentity,
-                                                         within: obvContext)
+                                                             contactIdentity: contactIdentifier.contactCryptoId.cryptoIdentity,
+                                                             within: obvContext)
             
         } catch {
             assertionFailure()

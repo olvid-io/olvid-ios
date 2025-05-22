@@ -23,6 +23,7 @@ import ObvTypes
 import ObvCrypto
 import Contacts
 import ObvSubscription
+import ObvDesignSystem
 
 
 protocol ChooseDeviceToKeepActiveViewActionsProtocol: AnyObject, SubscriptionPlansViewActionsProtocol {
@@ -86,20 +87,20 @@ struct ChooseDeviceToKeepActiveView<Model: ChooseDeviceToKeepActiveViewModelProt
     @State private var isSubscriptionPlansViewPresented = false
     @State private var userJustSubscribedToMultidevice = false
     
-    private var title: LocalizedStringKey {
+    private var title: String {
         if model.ownedDeviceDiscoveryResult.isMultidevice {
-            return "CHOOSE_ACTIVE_DEVICE_TITLE_WHEN_MULTIDEVICE_TRUE"
+            return "CHOOSE_ACTIVE_DEVICE_TITLE_WHEN_MULTIDEVICE_TRUE".localizedInThisBundle
         } else {
-            return "CHOOSE_ACTIVE_DEVICE_TITLE_WHEN_MULTIDEVICE_FALSE"
+            return "CHOOSE_ACTIVE_DEVICE_TITLE_WHEN_MULTIDEVICE_FALSE".localizedInThisBundle
         }
     }
 
     
-    private var subtitle: LocalizedStringKey {
+    private var subtitle: String {
         if model.ownedDeviceDiscoveryResult.isMultidevice {
-            return "CHOOSE_ACTIVE_DEVICE_SUBTITLE_WHEN_MULTIDEVICE_TRUE"
+            return "CHOOSE_ACTIVE_DEVICE_SUBTITLE_WHEN_MULTIDEVICE_TRUE".localizedInThisBundle
         } else {
-            return "CHOOSE_ACTIVE_DEVICE_SUBTITLE_WHEN_MULTIDEVICE_FALSE"
+            return "CHOOSE_ACTIVE_DEVICE_SUBTITLE_WHEN_MULTIDEVICE_FALSE".localizedInThisBundle
         }
     }
     
@@ -194,7 +195,7 @@ struct ChooseDeviceToKeepActiveView<Model: ChooseDeviceToKeepActiveViewModelProt
             ScrollView {
                 VStack {
                     
-                    NewOnboardingHeaderView(title: title, subtitle: subtitle)
+                    ObvHeaderView(title: title, subtitle: subtitle)
                         .padding(.bottom)
                     
                     if userJustSubscribedToMultidevice {

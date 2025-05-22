@@ -41,9 +41,14 @@ public final class ObvContext: Hashable, CustomDebugStringConvertible {
     private let line: Int
     private let function: StaticString
     private let timestamp = Date.timeIntervalSinceReferenceDate
+    private var isReadOnly = false
     
     public var debugDescription: String {
         return "ObvContext<\(self.context.description)|\(timestamp)|\(file)|\(line)|\(function)>"
+    }
+    
+    public func setReadOnly() {
+        self.isReadOnly = true
     }
     
     deinit {
@@ -109,6 +114,10 @@ public final class ObvContext: Hashable, CustomDebugStringConvertible {
     /// Saving an ObvContext *must* be done by means of this method. One should *never* save the underlying
     /// `NSManagedObjectContext` directly.
     public func save(logOnFailure log: OSLog) throws {
+        guard !isReadOnly else {
+            assertionFailure()
+            throw ObvError.cannotSaveReadOnlyContext
+        }
         self.saveWasCalled.value = true
         if saveWasCalledWithOnSaveCompletionHandlers {
             assertionFailure("An ObvContext cannot be saved twice if it has completion handlers")
@@ -160,6 +169,17 @@ public final class ObvContext: Hashable, CustomDebugStringConvertible {
         let childContext = NSManagedObjectContext(concurrencyType: self.context.concurrencyType)
         childContext.parent = self.context
         return ObvContext(context: childContext, flowId: flowId, file: file, line: line, function: function)
+    }
+    
+}
+
+
+// MARK: - Error {
+
+extension ObvContext {
+    
+    enum ObvError: Error {
+        case cannotSaveReadOnlyContext
     }
     
 }

@@ -30,7 +30,7 @@ extension SettingsDictionary {
     }
     
 
-    public static func olvidBaseSettings(prepareForSwift6: Bool = false, enableSwift6: Bool = false) -> SettingsDictionary {
+    public static func olvidBaseSettings(prepareForSwift6: Bool = false, enableSwift6: Bool = false, developmentAssets: String? = nil) -> SettingsDictionary {
         
         let base: SettingsDictionary = [:]
             .supportsMacCatalyst(true)
@@ -42,6 +42,7 @@ extension SettingsDictionary {
             .generateInfoPlistFile(false)
             .disableAppleGenericVersioning()
             .automaticCodeSigning(devTeam: Constant.devTeam)
+            .developmentAssets(developmentAssets)
         
         if enableSwift6 {
             return base

@@ -19,6 +19,7 @@
 
 import SwiftUI
 import ObvTypes
+import ObvDesignSystem
 
 
 protocol NewIdentityProviderManualConfigurationViewActionsProtocol: AnyObject {
@@ -74,8 +75,8 @@ struct NewIdentityProviderManualConfigurationView: View {
                 ScrollView {
                     VStack {
                         
-                        NewOnboardingHeaderView(
-                            title: "CONFIGURE_YOUR_IDENTITY_PROVIDER_MANUALLY",
+                        ObvHeaderView(
+                            title: "CONFIGURE_YOUR_IDENTITY_PROVIDER_MANUALLY".localizedInThisBundle,
                             subtitle: "")
                         
                         HStack {

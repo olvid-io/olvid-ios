@@ -1024,13 +1024,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Import a profile from another device"
+            "value" : "Yes, and I have it at hand"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Importer un profil depuis un autre appareil"
+            "value" : "Oui, et je l’ai avec moi"
           }
         }
       }
@@ -1067,18 +1067,34 @@
         }
       }
     },
-    "ONBOARDING_BUTTON_TITLE_RESTORE_BACKUP" : {
+    "ONBOARDING_BUTTON_TITLE_OPEN_YOUR_EXISTING_PROFILE" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restore a backup"
+            "value" : "Open your profile"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restaurer une sauvegarde"
+            "value" : "Ouvrir votre profil"
+          }
+        }
+      }
+    },
+    "ONBOARDING_BUTTON_TITLE_RESTORE_BACKUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non"
           }
         }
       }
@@ -1876,6 +1892,22 @@
         }
       }
     },
+    "RESTORE_A_BACKUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore a backup"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer une sauvegarde"
+          }
+        }
+      }
+    },
     "RESTORE_BACKUP_FAILED_EXPLANATION" : {
       "localizations" : {
         "en" : {
@@ -2017,6 +2049,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre serveur d'identités indique qu'un ID Olvid est déjà associé avec votre compte utilisateur. Si vous continuez, cet ID Olvid sera révoqué et remplacé par votre nouvel ID.\nVeuillez contacter votre administrateur si vous désirez plus d'informations."
+          }
+        }
+      }
+    },
+    "TEXT_INFO_RECOMMENDED_TRANSFER_INSTEAD_OF_BACKUP" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note that if you will soon be able to access your profile from another device, we recommend waiting until you have it at hand before proceeding with the activation."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attention, si vous pouvez bientôt avoir accès à votre profil depuis un autre appareil, nous vous recommandons d’attendre de vous en munir pour procéder à l’activation."
           }
         }
       }
@@ -2250,13 +2298,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "What do you want to do?"
+            "value" : "Do you regularly use your profile on another device?"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Que souhaitez-vous faire ?"
+            "value" : "Utilisez-vous régulièrement votre profil depuis un autre appareil ?"
           }
         }
       }

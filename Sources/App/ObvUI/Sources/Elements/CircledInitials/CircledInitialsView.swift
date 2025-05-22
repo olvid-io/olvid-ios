@@ -18,7 +18,6 @@
  */
 
 import Foundation
-import ObvUICoreData
 import SwiftUI
 import ObvUIObvCircledInitials
 import ObvSystemIcon

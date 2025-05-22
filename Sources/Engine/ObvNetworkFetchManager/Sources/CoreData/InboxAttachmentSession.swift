@@ -100,7 +100,16 @@ extension InboxAttachmentSession {
         let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: InboxAttachmentSession.entityName)
         fetch.predicate = NSPredicate(format: "%K == NIL", attachmentKey)
         let request = NSBatchDeleteRequest(fetchRequest: fetch)
-        _ = try obvContext.execute(request)
+        request.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
 
 }

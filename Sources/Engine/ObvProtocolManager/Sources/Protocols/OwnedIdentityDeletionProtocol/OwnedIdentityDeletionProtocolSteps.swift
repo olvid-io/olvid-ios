@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -159,9 +159,9 @@ extension OwnedIdentityDeletionProtocol {
             
             // Perform pre-deletion tasks (note that ObvDialogs are deleted asynchronously by the engine coordinator, when receiving the notification from the identity manager that the owned identity has been deleted).
             
-            try prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, within: obvContext)
+            try prepareProtocolManagerForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, within: obvContext)
             try networkPostDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, within: obvContext)
-            Task { try await networkFetchDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, flowId: obvContext.flowId) }
+            networkFetchDelegate.prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, flowId: obvContext.flowId)
             
             // In case we are performing a *global* deletion, we want our other devices to execute this protocol too
             // Note that in the case we perform a *local* deletion, we want our other owned devices to perform a simple owned device discovery.
@@ -214,7 +214,7 @@ extension OwnedIdentityDeletionProtocol {
         }
         
         
-        private func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
+        private func prepareProtocolManagerForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
             
             // Delete all received messages
             
@@ -228,7 +228,6 @@ extension OwnedIdentityDeletionProtocol {
             try GroupV2SignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
             try ContactOwnedIdentityDeletionSignatureReceived.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
             try ProtocolInstance.deleteAllProtocolInstancesOfOwnedIdentity(ownedIdentity, withProtocolInstanceUidDistinctFrom: self.protocolInstanceUid, within: obvContext)
-            try ReceivedMessage.deleteAllAssociatedWithOwnedIdentity(ownedCryptoIdentity, within: obvContext)
             
         }
 
@@ -372,22 +371,8 @@ extension OwnedIdentityDeletionProtocol {
                 assertionFailure(error.localizedDescription)
             }
 
-            // Delete all server session (note that the InitiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDeviceMessage posted above does not need one)
-
-            let flowId = obvContext.flowId
-            let networkFetchDelegate = self.networkFetchDelegate
-            let ownedIdentity = self.ownedIdentity
-            try obvContext.addContextDidSaveCompletionHandler { error in
-                guard error == nil else { assertionFailure(); return }
-                Task {
-                    do {
-                        try await networkFetchDelegate.finalizeOwnedIdentityDeletion(ownedCryptoIdentity: ownedIdentity, flowId: flowId)
-                    } catch {
-                        assertionFailure("Could not delete server session of the deleted owned identity: \(error.localizedDescription)")
-                    }
-                }
-
-            }
+            // We don't delete the server sessions here, they will be deleted automatically by the engine, when notified that the owned identity has been deleted.
+            // (note that the InitiateOwnedDeviceDiscoveryRequestedByAnotherOwnedDeviceMessage posted above does not need one)
 
             // We are done
             

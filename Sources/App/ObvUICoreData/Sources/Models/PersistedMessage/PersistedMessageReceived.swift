@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -46,13 +46,14 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
 
     // MARK: Attributes
 
+    @NSManaged public private(set) var dateWhenMessageWasRead: Date? // **Must** be set when the status is changed to "read"
     @NSManaged public private(set) var messageIdentifierFromEngine: Data
     @NSManaged public private(set) var missedMessageCount: Int
     @NSManaged private var rawObvMessageSource: NSNumber? // Expected to be non-nil
     @NSManaged private(set) var senderIdentifier: Data
     @NSManaged private(set) var senderThreadIdentifier: UUID
     @NSManaged private var serializedReturnReceipt: Data?
-
+    
     // MARK: Relationships
     
     @NSManaged public private(set) var contactIdentity: PersistedObvContactIdentity?
@@ -231,9 +232,9 @@ public final class PersistedMessageReceived: PersistedMessage, ObvIdentifiableMa
     
     // MARK: - Observers
     
-    private static var observersHolder = PersistedMessageReceivedObserversHolder()
+    private static var observersHolder = ObserversHolder()
     
-    public static func addPersistedMessageReceivedObserver(_ newObserver: PersistedMessageReceivedObserver) async {
+    public static func addObvObserver(_ newObserver: PersistedMessageReceivedObserver) async {
         await observersHolder.addObserver(newObserver)
     }
 
@@ -413,7 +414,7 @@ extension PersistedMessageReceived {
             receivedLocation: receivedLocation,
             missedMessageCount: missedMessageCount,
             discussion: discussion,
-            obvMessageContainsAttachments: !obvMessage.attachments.isEmpty)
+            obvMessageContainsAttachments: obvMessage.expectedAttachmentsCount > 0)
         
         // Process the attachments within the message
 
@@ -731,7 +732,7 @@ extension PersistedMessageReceived {
     }
     
     var infoActionCanBeMadeAvailableForReceivedMessage: Bool {
-        return !metadata.isEmpty
+        return !metadata.isEmpty || self.dateWhenMessageWasRead != nil
     }
 
     var deleteOwnReactionActionCanBeMadeAvailableForReceivedMessage: Bool {
@@ -785,6 +786,8 @@ extension PersistedMessageReceived {
         if self.status != .read {
 
             self.status = .read
+            assert(self.dateWhenMessageWasRead == nil)
+            self.dateWhenMessageWasRead = dateWhenMessageWasRead
 
             // In PersistedMessageReceived.didSave(), we decide wether to request the sending of read receipt
             // depending on various parameters, including self.markAsReadRequestedOnAnotherOwnedDevice
@@ -800,11 +803,18 @@ extension PersistedMessageReceived {
                     messageReceivedWithLimitedVisibility: self,
                     visibilityDuration: max(0, visibilityDuration - visibilityDurationCorrection))
             }
-
-            try self.addMetadata(kind: .read, date: dateWhenMessageWasRead)
             
         }
         
+    }
+    
+    
+    func markAsReadDuringMigrationOfLegacyMetadata(dateWhenMessageWasRead: Date) {
+        if self.status != .read {
+            assertionFailure()
+            self.status = .read
+        }
+        self.dateWhenMessageWasRead = dateWhenMessageWasRead
     }
         
     
@@ -834,6 +844,7 @@ extension PersistedMessageReceived {
     struct Predicate {
         enum Key: String {
             // Attributes
+            case dateWhenMessageWasRead = "dateWhenMessageWasRead"
             case messageIdentifierFromEngine = "messageIdentifierFromEngine"
             case missedMessageCount = "missedMessageCount"
             case rawObvMessageSource = "rawObvMessageSource"
@@ -886,6 +897,12 @@ extension PersistedMessageReceived {
         }
         static var readOnce: NSPredicate {
             NSPredicate(PersistedMessage.Predicate.Key.readOnce, is: true)
+        }
+        static var isEphemeralMessageWithUserAction: NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                Predicate.readOnce,
+                Predicate.hasVisibilityDuration,
+            ])
         }
         static func forOwnedIdentity(_ ownedIdentity: PersistedObvOwnedIdentity) -> NSPredicate {
             PersistedMessage.Predicate.withOwnedIdentity(ownedIdentity)
@@ -1032,46 +1049,159 @@ extension PersistedMessageReceived {
     }
 
     
+    /// This is called when the user locally marks all the discussions' messages as "not new", or when we receive a request from another owned device.
     /// Each message of the discussion that is in the status `new` changes status as follows:
     /// - If the message is such that `hasWipeAfterRead` is `true`, the new status is `unread`
     /// - Otherwise, the new status is `read`.
-    static func markAllAsNotNew(within discussion: PersistedDiscussion, dateWhenMessageTurnedNotNew: Date, requestedOnAnotherOwnedDevice: Bool) throws -> Date? {
-        os_log("Call to markAllAsNotNew in PersistedMessageReceived for discussion %{public}@", log: log, type: .debug, discussion.objectID.debugDescription)
-        guard let context = discussion.managedObjectContext else { assertionFailure(); return nil }
-        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.includesSubentities = true
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.withinDiscussion(discussion),
-            Predicate.isNew,
-        ])
-        let messages = try context.fetch(request)
-        guard !messages.isEmpty else { return nil }
-        try messages.forEach {
-            _ = try $0.markAsNotNew(dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew, requestedOnAnotherOwnedDevice: requestedOnAnotherOwnedDevice)
+    /// This method returns the maximum value of the timestamp attribute among all the modified messages, as well as the list of messages marked as "read" for which we can send read receipts.
+    /// This returned list of messages is always ampty when receiving a request from another owned device, since we never send read receipts in that case.
+    enum MarkAllAsNotNewQuestedOn {
+        case thisDevice(configuredToSendReadReceipts: Bool)
+        case anotherOwnedDevice(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date)
+    }
+    
+    static func markAllAsNotNew(within discussion: PersistedDiscussion, dateWhenMessageTurnedNotNew: Date, markAllAsNotNewQuestedOn: MarkAllAsNotNewQuestedOn) throws -> (maxTimestampOfModifiedMessages: Date, receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>])? {
+        os_log("Call to markAllAsNotNewRequestedOnThisDevice in PersistedMessageReceived for discussion %{public}@", log: log, type: .debug, discussion.objectID.debugDescription)
+
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
+        
+        // Before marking the messages as not new, we fetch the maximum value of the timestamp attribute among all the messages we are about to modify.
+        
+        let maxTimestampOfModifiedMessages: Date
+        do {
+            let expressionDescription = NSExpressionDescription()
+            expressionDescription.name = "maxTimestamp"
+            expressionDescription.expression = NSExpression(format: "@max.\(PersistedMessage.Predicate.Key.timestamp.rawValue)")
+            expressionDescription.expressionResultType = .dateAttributeType
+            let request = NSFetchRequest<NSFetchRequestResult>(entityName: PersistedMessageReceived.entityName)
+            switch markAllAsNotNewQuestedOn {
+            case .thisDevice:
+                request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    Predicate.withinDiscussion(discussion),
+                    Predicate.isNew,
+                ])
+            case .anotherOwnedDevice(let serverTimestampWhenDiscussionReadOnAnotherOwnedDevice):
+                request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    Predicate.withinDiscussion(discussion),
+                    Predicate.isNew,
+                    Predicate.createdBeforeOrAt(date: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice),
+                ])
+            }
+            request.resultType = .dictionaryResultType
+            request.propertiesToFetch = [expressionDescription]
+            request.includesPendingChanges = true
+            
+            guard let results = try context.fetch(request).first as? [String: Date], let maxTimestamp = results["maxTimestamp"] else {
+                // There is nothing to mark as not new, we can immediately return
+                return nil
+            }
+            maxTimestampOfModifiedMessages = maxTimestamp
         }
-        return messages.map({ $0.timestamp }).max()
+
+        // For all ".new" messages that have a limited visibility: mark them as ".unread".
+        
+        do {
+            let batchRequest = NSBatchUpdateRequest(entityName: PersistedMessageReceived.entityName)
+            switch markAllAsNotNewQuestedOn {
+            case .thisDevice:
+                batchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    Predicate.withinDiscussion(discussion),
+                    Predicate.isNew,
+                    Predicate.isEphemeralMessageWithUserAction,
+                ])
+            case .anotherOwnedDevice(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: let serverTimestampWhenDiscussionReadOnAnotherOwnedDevice):
+                batchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    Predicate.withinDiscussion(discussion),
+                    Predicate.isNew,
+                    Predicate.isEphemeralMessageWithUserAction,
+                    Predicate.createdBeforeOrAt(date: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice),
+                ])
+            }
+            batchRequest.propertiesToUpdate = [
+                PersistedMessage.Predicate.Key.rawStatus.rawValue : MessageStatus.unread.rawValue,
+            ]
+            batchRequest.resultType = .updatedObjectIDsResultType
+            do {
+                let result = try context.execute(batchRequest) as? NSBatchUpdateResult
+                // The previous call **immediately** updates the SQLite database
+                // We merge the changes back to the current context
+                if let objectIDArray = result?.result as? [NSManagedObjectID] {
+                    let changes = [NSUpdatedObjectsKey : objectIDArray]
+                    NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
+                } else {
+                    assertionFailure()
+                }
+            } catch {
+                Self.logger.fault("Could not mark all ephemeral messages as unread: \(error)")
+                assertionFailure() // In production, continue anyway
+            }
+        }
+        
+        // For all ".new" messages that have **no** limited visibility: mark them as ".read" and thus set the dateWhenMessageWasRead to now.
+        
+        let receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>]
+        do {
+            let batchRequest = NSBatchUpdateRequest(entityName: PersistedMessageReceived.entityName)
+            switch markAllAsNotNewQuestedOn {
+            case .thisDevice:
+                batchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    Predicate.withinDiscussion(discussion),
+                    Predicate.isNew,
+                    NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.isEphemeralMessageWithUserAction),
+                ])
+            case .anotherOwnedDevice(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: let serverTimestampWhenDiscussionReadOnAnotherOwnedDevice):
+                batchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                    Predicate.withinDiscussion(discussion),
+                    Predicate.isNew,
+                    NSCompoundPredicate(notPredicateWithSubpredicate: Predicate.isEphemeralMessageWithUserAction),
+                    Predicate.createdBeforeOrAt(date: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice),
+                ])
+            }
+            batchRequest.propertiesToUpdate = [
+                PersistedMessage.Predicate.Key.rawStatus.rawValue : MessageStatus.read.rawValue,
+                Predicate.Key.dateWhenMessageWasRead.rawValue : Date.now,
+            ]
+            batchRequest.resultType = .updatedObjectIDsResultType
+            do {
+                let result = try context.execute(batchRequest) as? NSBatchUpdateResult
+                // The previous call **immediately** updates the SQLite database
+                // We merge the changes back to the current context
+                if let objectIDArray = result?.result as? [NSManagedObjectID] {
+                    let changes = [NSUpdatedObjectsKey : objectIDArray]
+                    NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
+                } else {
+                    assertionFailure()
+                }
+                // When the request comes was made on another owned device, we never send read receipts.
+                // If the request is made on this device, we compute read receipts only if
+                // configuredToSendReadReceipts is true.
+                switch markAllAsNotNewQuestedOn {
+                case .thisDevice(configuredToSendReadReceipts: let configuredToSendReadReceipts):
+                    if configuredToSendReadReceipts {
+                        if let objectIDs = result?.result as? [NSManagedObjectID] {
+                            receivedMessagesForReadReceipts = objectIDs.map({ .init(objectID: $0) })
+                        } else {
+                            assertionFailure()
+                            receivedMessagesForReadReceipts = []
+                        }
+                    } else {
+                        receivedMessagesForReadReceipts = []
+                    }
+                case .anotherOwnedDevice:
+                    receivedMessagesForReadReceipts = []
+                }
+            } catch {
+                Self.logger.fault("Could not mark all non ephemeral messages as read: \(error)")
+                assertionFailure() // In production, continue anyway
+                receivedMessagesForReadReceipts = []
+            }
+        }
+        
+        return (maxTimestampOfModifiedMessages, receivedMessagesForReadReceipts)
+        
     }
 
     
-    static func markAllAsNotNew(within discussion: PersistedDiscussion, serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
-        os_log("Call to markAllAsNotNew in PersistedMessageReceived for discussion %{public}@", log: log, type: .debug, discussion.objectID.debugDescription)
-        guard let context = discussion.managedObjectContext else { assertionFailure(); return nil }
-        let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
-        request.includesSubentities = true
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            Predicate.createdBeforeOrAt(date: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice),
-            Predicate.withinDiscussion(discussion),
-            Predicate.isNew,
-        ])
-        let messages = try context.fetch(request)
-        guard !messages.isEmpty else { return nil }
-        try messages.forEach {
-            _ = try $0.markAsNotNew(dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew, requestedOnAnotherOwnedDevice: true)
-        }
-        return messages.map({ $0.timestamp }).max()
-    }
-
-
     /// Return readOnce and limited visibility messages with a timestamp less or equal to the specified date.
     /// As we expect these messages to be deleted, we only fetch a limited number of properties.
     /// This method should only be used to fetch messages that will eventually be deleted.
@@ -1365,6 +1495,50 @@ extension PersistedMessageReceived {
         request.fetchBatchSize = 1_000
         return try context.fetch(request)
     }
+ 
+    /// When locally marking a discussion as "read", we perform a batch update on "new" received messages to change their status. The messages that do not require a user interaction are marked as read.
+    /// Since these changes are performed thanks to a batch update, the didSave() method is not called and thus, the sending of all `ObvReturnReceiptToSend` is not requested. The actual sending
+    /// is thus performed at the coordinator level, after performing the operation that marks the messages as not new. This method is used by the coordinator to request the sending of one `ObvReturnReceiptToSend`
+    /// per message that was marked as "read".
+    public static func sendObvReturnReceiptForMessageReceived(objectIDs: [TypeSafeManagedObjectID<PersistedMessageReceived>], within context: NSManagedObjectContext) {
+        var items = [PersistedMessageReceived]()
+        for objectID in objectIDs {
+            let request: NSFetchRequest<PersistedMessageReceived> = PersistedMessageReceived.fetchRequest()
+            request.predicate = Predicate.withObjectID(objectID.objectID)
+            request.fetchLimit = 1
+            guard let item = try? context.fetch(request).first else {
+                assertionFailure()
+                continue
+            }
+            items.append(item)
+        }
+        Self.sendObvReturnReceipt(for: items, status: .read)
+    }
+    
+    
+    private static func sendObvReturnReceipt(for messages: [PersistedMessageReceived], status: ObvReturnReceiptStatus) {
+        
+        let returnReceiptsToSend: [ObvReturnReceiptToSend] = messages.compactMap { message in
+            if let elements = message.returnReceipt?.elements,
+               let contactIdentifier = try? message.contactIdentity?.obvContactIdentifier,
+               let contactDeviceUIDs = message.contactIdentity?.devices.compactMap({ UID(uid: $0.identifier) }),
+               !contactDeviceUIDs.isEmpty {
+                let returnReceiptToSend = ObvReturnReceiptToSend(elements: elements,
+                                                                 status: status,
+                                                                 contactIdentifier: contactIdentifier,
+                                                                 contactDeviceUIDs: Set(contactDeviceUIDs),
+                                                                 attachmentNumber: nil)
+                return returnReceiptToSend
+            } else {
+                return nil
+            }
+        }
+
+        Task {
+            await Self.observersHolder.newReturnReceiptsToSendForPersistedMessageReceived(returnReceiptsToSend: returnReceiptsToSend)
+        }
+
+    }
     
 }
 
@@ -1494,25 +1668,16 @@ extension PersistedMessageReceived {
                     assertionFailure()
                 }
                 
-                // Request the sending of a "read" receipt, if appropriate
+                // Request the sending of a "read" receipt, if appropriate.
+                // Note that this is not used when a whole discussion is marked as read (as we perform batch updates).
+                // See the markAllAsNotNewRequestedOnThisDevice(within:dateWhenMessageTurnedNotNew:) method to understand who
+                // read receipts are sent back in that case.
                 
                 assert(markAsReadRequestedOnAnotherOwnedDevice != nil, "This variable should always be set when setting the status to read")
                 
                 let markAsReadRequestedOnAnotherOwnedDevice = self.markAsReadRequestedOnAnotherOwnedDevice ?? false
                 if !markAsReadRequestedOnAnotherOwnedDevice && (self.discussion?.localConfiguration.doSendReadReceipt ?? ObvMessengerSettings.Discussions.doSendReadReceipt) {
-                    if let elements = self.returnReceipt?.elements,
-                       let contactIdentifier = try? self.contactIdentity?.obvContactIdentifier,
-                       let contactDeviceUIDs = self.contactIdentity?.devices.compactMap({ UID(uid: $0.identifier) }),
-                       !contactDeviceUIDs.isEmpty {
-                        let returnReceiptToSend = ObvReturnReceiptToSend(elements: elements,
-                                                                         status: .read,
-                                                                         contactIdentifier: contactIdentifier,
-                                                                         contactDeviceUIDs: Set(contactDeviceUIDs),
-                                                                         attachmentNumber: nil)
-                        Task { await Self.observersHolder.newReturnReceiptToSendForPersistedMessageReceived(returnReceiptToSend: returnReceiptToSend) }
-                    } else {
-                        assertionFailure()
-                    }
+                    Self.sendObvReturnReceipt(for: [self], status: .read)
                 }
                 
             }
@@ -1520,19 +1685,7 @@ extension PersistedMessageReceived {
             // Request the sending of a "delivered" receipt, if appropriate
 
             if isInserted {
-                if let elements = self.returnReceipt?.elements,
-                   let contactIdentifier = try? self.contactIdentity?.obvContactIdentifier,
-                   let contactDeviceUIDs = self.contactIdentity?.contactDeviceUIDs,
-                   !contactDeviceUIDs.isEmpty {
-                    let returnReceiptToSend = ObvReturnReceiptToSend(elements: elements,
-                                                                     status: .delivered,
-                                                                     contactIdentifier: contactIdentifier,
-                                                                     contactDeviceUIDs: contactDeviceUIDs,
-                                                                     attachmentNumber: nil)
-                    Task { await Self.observersHolder.newReturnReceiptToSendForPersistedMessageReceived(returnReceiptToSend: returnReceiptToSend) }
-                } else {
-                    assertionFailure()
-                }
+                Self.sendObvReturnReceipt(for: [self], status: .delivered)
             }
 
         }
@@ -1571,38 +1724,57 @@ public typealias MessageReceivedPermanentID = ObvManagedObjectPermanentID<Persis
 
 // MARK: - PersistedMessageReceived observers
 
-public protocol PersistedMessageReceivedObserver {
+public protocol PersistedMessageReceivedObserver: AnyObject {
     func persistedMessageReceivedWasInserted(receivedMessage: PersistedMessageReceivedStructure) async
     func persistedMessageReceivedWasRead(ownedCryptoId: ObvCryptoId, messageIdFromServer: UID) async
-    func newReturnReceiptToSendForPersistedMessageReceived(returnReceiptToSend: ObvReturnReceiptToSend) async
+    func newReturnReceiptsToSendForPersistedMessageReceived(returnReceiptsToSend: [ObvReturnReceiptToSend]) async
 }
 
 
-private actor PersistedMessageReceivedObserversHolder: PersistedMessageReceivedObserver {
+private actor ObserversHolder: PersistedMessageReceivedObserver {
     
-    private var observers = [PersistedMessageReceivedObserver]()
+    private var observers = [WeakObserver]()
     
+    private final class WeakObserver {
+        private(set) weak var value: PersistedMessageReceivedObserver?
+        init(value: PersistedMessageReceivedObserver?) {
+            self.value = value
+        }
+    }
+
     func addObserver(_ newObserver: PersistedMessageReceivedObserver) {
-        self.observers.append(newObserver)
+        self.observers.append(.init(value: newObserver))
     }
     
     // Implementing PersistedMessageReceivedObserver
     
     func persistedMessageReceivedWasInserted(receivedMessage: PersistedMessageReceivedStructure) async {
-        for observer in observers {
-            await observer.persistedMessageReceivedWasInserted(receivedMessage: receivedMessage)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.persistedMessageReceivedWasInserted(receivedMessage: receivedMessage)
+                }
+            }
         }
     }
     
     func persistedMessageReceivedWasRead(ownedCryptoId: ObvCryptoId, messageIdFromServer: UID) async {
-        for observer in observers {
-            await observer.persistedMessageReceivedWasRead(ownedCryptoId: ownedCryptoId, messageIdFromServer: messageIdFromServer)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.persistedMessageReceivedWasRead(ownedCryptoId: ownedCryptoId, messageIdFromServer: messageIdFromServer)
+                }
+            }
         }
     }
 
-    func newReturnReceiptToSendForPersistedMessageReceived(returnReceiptToSend: ObvReturnReceiptToSend) async {
-        for observer in observers {
-            await observer.newReturnReceiptToSendForPersistedMessageReceived(returnReceiptToSend: returnReceiptToSend)
+    func newReturnReceiptsToSendForPersistedMessageReceived(returnReceiptsToSend: [ObvReturnReceiptToSend]) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.newReturnReceiptsToSendForPersistedMessageReceived(returnReceiptsToSend: returnReceiptsToSend)
+                }
+            }
         }
     }
 

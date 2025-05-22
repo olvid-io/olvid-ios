@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -63,11 +63,11 @@ final class UserNotificationsCoordinator: NSObject {
         listenToNotifications()
         continuouslyRemoveUserNotificationsOfReactionOnEnteringDiscussion()
         Task {
-            await PersistedMessageReceived.addPersistedMessageReceivedObserver(self)
+            await PersistedMessageReceived.addObvObserver(self)
             await PersistedMessage.addObserver(self)
-            await PersistedInvitation.addPersistedInvitationObserver(self)
-            await PersistedDiscussion.addObserver(self)
-            await PersistedObvOwnedIdentity.addObserver(self)
+            await PersistedInvitation.addObvObserver(self)
+            await PersistedDiscussion.addObvObserver(self)
+            await PersistedObvOwnedIdentity.addObvObserver(self)
             await PersistedCallLogItem.addObserver(self)
         }
     }
@@ -406,6 +406,17 @@ extension UserNotificationsCoordinator: PersistedDiscussionObserver {
 
     }
         
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        // Nothing to do
+    }
+
+    
+    func aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: ObvDiscussionIdentifier) async {
+        // Nothing to do
+    }
+    
+
 }
 
 
@@ -418,7 +429,7 @@ extension UserNotificationsCoordinator: PersistedMessageReceivedObserver {
     }
     
     
-    func newReturnReceiptToSendForPersistedMessageReceived(returnReceiptToSend: ObvTypes.ObvReturnReceiptToSend) async {
+    func newReturnReceiptsToSendForPersistedMessageReceived(returnReceiptsToSend: [ObvReturnReceiptToSend]) async {
         // Nothing to do in this coordinator, the return receipts are sent by the PersistedDiscussionsUpdatesCoordinator
     }
     

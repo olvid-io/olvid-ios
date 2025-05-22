@@ -26,6 +26,7 @@ import SwiftUI
 import ObvSystemIcon
 import ObvSettings
 import ObvTypes
+import ObvCircleAndTitlesView
 
 
 protocol MessageReactionsListHostingViewControllerDelegate: AnyObject {

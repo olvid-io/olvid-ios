@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -52,7 +52,7 @@ final class ComputeHintsAboutRequiredOwnedIdentitiesSyncWithEngineOperation: Asy
             
             // Get all owned identities within the engine
             
-            let obvOwnedIdentitiesWithinEngine = try obvEngine.getOwnedIdentities(restrictToActive: true)
+            let obvOwnedIdentitiesWithinEngine = try obvEngine.getOwnedIdentities(restrictToActive: false)
             let cryptoIdsWithinEngine = Set(obvOwnedIdentitiesWithinEngine.map { $0.cryptoId })
             
             // Get the owned identities within the app

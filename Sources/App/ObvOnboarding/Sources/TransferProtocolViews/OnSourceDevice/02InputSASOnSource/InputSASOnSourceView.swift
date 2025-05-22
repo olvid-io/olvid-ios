@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvCrypto
 import Contacts
+import ObvDesignSystem
 
 
 protocol InputSASOnSourceViewActionsProtocol: AnyObject {
@@ -95,8 +96,8 @@ struct InputSASOnSourceView: View, SessionNumberTextFieldActionsProtocol {
         ScrollView {
             VStack {
                 
-                NewOnboardingHeaderView(
-                    title: "OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_NEW_DEVICE",
+                ObvHeaderView(
+                    title: "OWNED_IDENTITY_TRANSFER_ENTER_CODE_FROM_NEW_DEVICE".localizedInThisBundle,
                     subtitle: nil)
                 
                 SessionNumberTextField(actions: self, model: .init(mode: .enterSessionNumber))

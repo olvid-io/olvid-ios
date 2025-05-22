@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -37,7 +37,7 @@ public final class ObvServerGetGroupBlobServerMethod: ObvServerDataMethod {
     public let groupUID: UID
     public let flowId: FlowIdentifier
     weak public var identityDelegate: ObvIdentityDelegate? = nil
-    public let isActiveOwnedIdentityRequired = false
+    public let isActiveOwnedIdentityRequired = true
 
     public init(ownedIdentity: ObvCryptoIdentity, groupIdentifier: GroupV2.Identifier, flowId: FlowIdentifier) {
         self.ownedIdentity = ownedIdentity

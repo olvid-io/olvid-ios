@@ -20,6 +20,7 @@
 import SwiftUI
 import ObvTypes
 import ObvAppCoreConstants
+import ObvDesignSystem
 
 
 protocol SuccessfulTransferConfirmationViewActionsProtocol: AnyObject {
@@ -64,7 +65,7 @@ struct SuccessfulTransferConfirmationView: View {
         ScrollView {
             VStack {
              
-                NewOnboardingHeaderView(title: "PROFILE_ADDED_SUCCESSFULLY",
+                ObvHeaderView(title: "PROFILE_ADDED_SUCCESSFULLY".localizedInThisBundle,
                                         subtitle: nil)
                 
                 

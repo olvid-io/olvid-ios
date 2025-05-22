@@ -21,7 +21,7 @@
 import Foundation
 
 
-public enum SystemIconFillCircleCircleFillOption {
+public enum SystemIconFillCircleCircleFillOption: Sendable {
     case fill
     case circle
     case circleFill

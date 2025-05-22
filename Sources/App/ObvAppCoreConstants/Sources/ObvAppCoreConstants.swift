@@ -96,6 +96,7 @@ public struct ObvAppCoreConstants {
     public static let urlForManagingPaymentsOnTheAppStore = URL(string: "https://apps.apple.com/account/billing")!
 
     public static let serverURL = URL(string: Bundle.main.infoDictionary!["OBV_SERVER_URL"]! as! String)!
+    public static var serverURLForStoringDeviceBackup: URL { serverURL }
 
     public static let iCloudContainerIdentifierForEngineBackup = "iCloud.io.olvid.messenger.backup"
 

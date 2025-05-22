@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -135,13 +135,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
     private var shareLocationTip: Any? = {
         if #available(iOS 17, *) {
             return OlvidTip.ShareLocation()
-        } else {
-            return nil
-        }
-    }()
-    private var searchWithinDiscussionTip: Any? = {
-        if #available(iOS 17, *) {
-            return OlvidTip.SearchWithinDiscussion()
         } else {
             return nil
         }
@@ -426,7 +419,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
         
         if #available(iOS 17.0, *) {
             guard let shareLocationTip = shareLocationTip as? OlvidTip.ShareLocation,
-                  let searchWithinDiscussionTip = searchWithinDiscussionTip as? OlvidTip.SearchWithinDiscussion,
                   let keyboardShortcutForSendingMessage = keyboardShortcutForSendingMessage as? OlvidTip.KeyboardShortcutForSendingMessage else {
                 assertionFailure()
                 return
@@ -458,20 +450,6 @@ final class NewSingleDiscussionViewController: UIViewController, NSFetchedResult
                                 dismiss(animated: animated)
                                 tipPopoverController = nil
                             }
-                        }
-                    }
-                }
-                guard tipPopoverController == nil else { return }
-                for await shouldDisplay in searchWithinDiscussionTip.shouldDisplayUpdates {
-                    if shouldDisplay {
-                        guard let sourceItem = viewSavedToDisplayTip as? UIPopoverPresentationControllerSourceItem else { assertionFailure(); return }
-                        let popoverController = TipUIPopoverViewController(searchWithinDiscussionTip, sourceItem: sourceItem)
-                        present(popoverController, animated: true)
-                        tipPopoverController = popoverController
-                    } else {
-                        if presentedViewController is TipUIPopoverViewController {
-                            dismiss(animated: animated)
-                            tipPopoverController = nil
                         }
                     }
                 }
@@ -741,14 +719,21 @@ extension NewSingleDiscussionViewController {
         // Configure the unmute button if necessary (as a menu, with a primary action)
 
         if let muteNotificationEndDate = discussion.localConfiguration.currentMuteNotificationsEndDate {
-            let unmuteDateFormatted = PersistedDiscussionLocalConfiguration.formatDateForMutedNotification(muteNotificationEndDate)
+            
+            let title: String
+            if muteNotificationEndDate.timeIntervalSinceNow > TimeInterval(years: 10) {
+                title = String(localized: "MUTED_NOTIFICATIONS_FOOTER_INDEFINITELY")
+            } else {
+                let unmuteDateFormatted = muteNotificationEndDate.formatted()
+                title = Strings.mutedNotificationsConfirmation(unmuteDateFormatted)
+            }
             let symbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20.0, weight: .bold)
             let unmuteImage = UIImage(systemIcon: .moonZzzFill, withConfiguration: symbolConfiguration)
             let unmuteAction = UIAction.init(title: Strings.unmuteNotifications, image: UIImage(systemIcon: .moonZzzFill)) { _ in
                 ObvMessengerInternalNotification.userWantsToUpdateDiscussionLocalConfiguration(value: .muteNotificationsEndDate(nil), localConfigurationObjectID: discussion.localConfiguration.typedObjectID).postOnDispatchQueue()
             }
             let menuElements: [UIMenuElement] = [unmuteAction]
-            let menu = UIMenu(title: Strings.mutedNotificationsConfirmation(unmuteDateFormatted), children: menuElements)
+            let menu = UIMenu(title: title, children: menuElements)
             let unmuteButton = UIBarButtonItem(
                 title: nil,
                 image: unmuteImage,
@@ -2016,7 +2001,17 @@ extension NewSingleDiscussionViewController: LocationViewDelegate {
     
     
     func locationViewUserWantsToStopSharingLocation(_ locationView: LocationView) {
-        Task { await ContinuousSharingLocationService.shared.stopSharingLocation(discussionIdentifier: self.discussion.discussionIdentifier) }
+        if #available(iOS 17.0, *) {
+            guard let delegate else { assertionFailure(); return }
+            guard let discussionIdentifier = self.discussion.discussionIdentifier else { assertionFailure(); return }
+            Task {
+                do {
+                    try await delegate.userWantsToStopSharingLocationInDiscussion(self, discussionIdentifier: discussionIdentifier)
+                } catch {
+                    assertionFailure()
+                }
+            }
+        }
     }
 }
 
@@ -2900,6 +2895,7 @@ extension NewSingleDiscussionViewController: AttachmentsCollectionViewController
 
 extension NewSingleDiscussionViewController: NewComposeMessageViewDelegate {
     
+    /// This method is called when the user taps the location button in the view allowint to compose a message.
     func userWantsToShowMapToSendOrShareLocationContinuously(_ newComposeMessageView: NewComposeMessageView, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let delegate else { assertionFailure(); throw Self.makeError(message: "Delegate is nil") }
         try await delegate.userWantsToShowMapToSendOrShareLocationContinuously(self, discussionIdentifier: discussionIdentifier)
@@ -3301,10 +3297,10 @@ extension NewSingleDiscussionViewController {
         case let .openExternalMapAt(latitude: latitude, longitude: longitude, address: address):
             Task { await UIApplication.shared.userWantsToOpenMapAt(latitude: latitude, longitude: longitude, address: address, within: self) }
             
-        case let .openMap(messageObjectId):
+        case let .openMap(messageObjectID: messageObjectID):
             if #available(iOS 17.0, *) {
                 Task {
-                    await displayMapForSharedLocation(from: messageObjectId)
+                    await displayMapForSharedLocation(messageObjectID: messageObjectID)
                 }
             }
             
@@ -3664,35 +3660,18 @@ extension NewSingleDiscussionViewController: AudioPlayerViewDelegate {
 @available(iOS 17.0, *)
 extension NewSingleDiscussionViewController {
     
-    private func displayMapForSharedLocation(from messageObjectId: TypeSafeManagedObjectID<PersistedMessage>?) async {
-        guard let ownedIdentity = discussion.ownedIdentity else { assertionFailure(); return }
-        
-        var locationsPublisher: AnyPublisher<[PersistedLocationContinuous], Never> {
-            let fetchRequest = PersistedLocationContinuous.getFetchRequestForLocations(in: discussion)
-            let publisher = ObvStack.shared.viewContext.fetchRequestPublisher(for: fetchRequest)
-                .catch { _ in
-                    Empty<NSFetchRequestPublisher<PersistedLocationContinuous>.Output, Never>()
-                }
-                .eraseToAnyPublisher()
-            return publisher
+    private func displayMapForSharedLocation(messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async {
+
+        guard let delegate else { assertionFailure(); return }
+
+        await composeMessageView.animatedEndEditing()
+
+        do {
+            try await delegate.userWantsToShowMapToConsultLocationSharedContinously(self, messageObjectID: messageObjectID)
+        } catch {
+            Self.logger.fault("Could not show map to consult location shared continously: \(error)")
         }
         
-        let currentUserCanUseLocation = await ObvLocationService.shared.currentUserCanUseLocation
-        
-        let vc = MapSharedLocationHostingController(ownedIdentity: ownedIdentity,
-                                                    currentUserCanUseLocation: currentUserCanUseLocation,
-                                                    locationsPublisher: locationsPublisher,
-                                                    centeredMessageId: messageObjectId)
-        
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [ .medium(), .large() ]
-            sheet.prefersGrabberVisible = true
-            sheet.delegate = vc
-            sheet.preferredCornerRadius = 30.0
-        }
-        composeMessageView.animatedEndEditing { [weak self] _ in
-            self?.present(vc, animated: true)
-        }
     }
     
 }

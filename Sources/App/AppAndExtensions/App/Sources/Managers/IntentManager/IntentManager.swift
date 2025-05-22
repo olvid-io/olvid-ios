@@ -1,6 +1,6 @@
  /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -26,6 +26,7 @@ import ObvUICoreDataStructs
 import ObvCommunicationInteractor
 import ObvAppTypes
 import ObvSettings
+import ObvTypes
 
 
 /// The purpose of this manager is to donate intents.
@@ -46,8 +47,8 @@ actor IntentManager {
     func performPostInitialization() async {
         
         await PersistedMessageSent.addObserver(self)
-        await PersistedDiscussion.addObserver(self)
-        await PersistedDiscussionLocalConfiguration.addObserver(self)
+        await PersistedDiscussion.addObvObserver(self)
+        await PersistedDiscussionLocalConfiguration.addObvObserver(self)
         await PersistedCallLogItem.addObserver(self)
         
         ObvMessengerSettingsObservableObject.shared.$performInteractionDonation
@@ -139,6 +140,15 @@ extension IntentManager: PersistedDiscussionObserver {
         // Nothing to do
     }
     
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        // Nothing to do
+    }
+
+    func aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: ObvDiscussionIdentifier) async {
+        // Nothing to do
+    }
+
 }
 
 
@@ -161,6 +171,10 @@ extension IntentManager: PersistedDiscussionLocalConfigurationObserver {
 
         ObvCommunicationInteractor.delete(with: discussionIdentifier)
         
+    }
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        // We do nothing in this manager
     }
 
 }

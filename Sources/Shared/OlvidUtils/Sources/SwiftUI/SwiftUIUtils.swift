@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -32,6 +32,20 @@ extension View {
     }
 
     public func apply<V: View>(@ViewBuilder _ block: (Self) -> V) -> V { block(self) }
+    
+}
+
+
+extension View {
+    
+    @ViewBuilder
+    public func isHidden(_ isHidden: Bool) -> some View {
+        if isHidden {
+            self.hidden()
+        } else {
+            self
+        }
+    }
     
 }
 

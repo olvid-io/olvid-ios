@@ -164,6 +164,24 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
             }
         }
     }
+    
+    
+    public var ownedDeviceIdentifier: ObvOwnedDeviceIdentifier {
+        get throws {
+            let deviceUID = try self.deviceUID
+            let ownedCryptoId = try self.ownedCryptoId
+            return ObvOwnedDeviceIdentifier(ownedCryptoId: ownedCryptoId, deviceUID: deviceUID)
+        }
+    }
+    
+    
+    public var obvDeviceIdentifier: ObvDeviceIdentifier {
+        get throws {
+            let ownedDeviceIdentifier = try self.ownedDeviceIdentifier
+            let isCurrentDevice = secureChannelStatus == .currentDevice
+            return .ownedDevice(ownedDeviceIdentifier, isCurrentDevice: isCurrentDevice)
+        }
+    }
 
     
     // MARK: - Initializer
@@ -255,9 +273,10 @@ public final class PersistedObvOwnedDevice: NSManagedObject, Identifiable {
 
 extension PersistedObvOwnedDevice {
     
-    func getOrCreatePersistedLocationContinuousSent(locationData: ObvLocationData, expirationDate: Date?) throws -> PersistedLocationContinuousSent {
+    func createOrUpdatePersistedLocationContinuousSent(locationData: ObvLocationData, expirationDate: ObvLocationSharingExpirationDate) throws -> PersistedLocationContinuousSent {
         
-        if let location, !location.isDeleted {
+        if let location = self.location, !location.isDeleted {
+            _ = try location.updatePersistedLocationContinuousSent(with: locationData, updatedExpirationDate: expirationDate)
             return location
         } else {
             let location = try PersistedLocationContinuousSent(locationData: locationData, sharingExpiration: expirationDate, ownedDevice: self)
@@ -269,7 +288,8 @@ extension PersistedObvOwnedDevice {
     
     func updatePersistedLocationContinuousSent(locationData: ObvLocationData) throws -> (unprocessedMessagesToSend: [MessageSentPermanentID], updatedSentMessages: Set<PersistedMessageSent>) {
         guard let location else { return ([], []) }
-        return try location.updatePersistedLocationContinuousSent(with: locationData)
+        // We pass nil as the updatedExpirationDate as we don't need to update the expiration
+        return try location.updatePersistedLocationContinuousSent(with: locationData, updatedExpirationDate: nil)
     }
     
     
@@ -410,6 +430,21 @@ extension PersistedObvOwnedDevice {
         ])
         request.fetchBatchSize = 500
         return try context.fetch(request)
+    }
+    
+    
+    public static func getFetchedResultsControllerForCurrentOwnedDevice(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvOwnedDevice> {
+        let fetchRequest: NSFetchRequest<PersistedObvOwnedDevice> = self.fetchRequest()
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+            Predicate.withSecureChannelStatus(.currentDevice),
+        ])
+        fetchRequest.fetchLimit = 1
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.specifiedName.rawValue, ascending: true)]
+        return NSFetchedResultsController(fetchRequest: fetchRequest,
+                                          managedObjectContext: context,
+                                          sectionNameKeyPath: nil,
+                                          cacheName: nil)
     }
     
 }

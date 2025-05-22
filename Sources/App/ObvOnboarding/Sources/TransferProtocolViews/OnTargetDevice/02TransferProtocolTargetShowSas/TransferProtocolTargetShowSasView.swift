@@ -22,6 +22,7 @@ import AppAuth
 import ObvTypes
 import ObvCrypto
 import ObvJWS
+import ObvDesignSystem
 
 
 protocol TransferProtocolTargetShowSasViewActionsProtocol: AnyObject {
@@ -101,7 +102,8 @@ struct TransferProtocolTargetShowSasView: View {
         ScrollView {
             VStack {
                 
-                NewOnboardingHeaderView(title: "OWNED_IDENTITY_TRANSFER_ENTER_CODE_ON_OTHER_DEVICE", subtitle: nil)
+                ObvHeaderView(title: "OWNED_IDENTITY_TRANSFER_ENTER_CODE_ON_OTHER_DEVICE".localizedInThisBundle,
+                              subtitle: nil)
                 
                 OnboardingSasView(sas: model.sas)
                     .padding(.top)

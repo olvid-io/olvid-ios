@@ -42,7 +42,7 @@ public final class ObvServerUploadReturnReceipt: ObvServerDataMethod {
     
     public struct ReturnReceipt: ObvEncodable {
                 
-        let toIdentity: ObvCryptoIdentity
+        public let toIdentity: ObvCryptoIdentity
         let deviceUids: [UID]
         let nonce: Data
         let encryptedPayload: EncryptedData

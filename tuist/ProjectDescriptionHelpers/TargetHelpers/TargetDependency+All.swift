@@ -20,6 +20,7 @@ extension TargetDependency {
             public static let obvJWS = TargetDependency.project(target: "ObvJWS", path: .olvidPath("ObvJWS", in: .engine))
             public static let obvMetaManager = TargetDependency.project(target: "ObvMetaManager", path: .olvidPath("ObvMetaManager", in: .engine))
             public static let obvBackupManager = TargetDependency.project(target: "ObvBackupManager", path: .olvidPath("ObvBackupManager", in: .engine))
+            public static let obvBackupManagerNew = TargetDependency.project(target: "ObvBackupManagerNew", path: .olvidPath("ObvBackupManagerNew", in: .engine))
             public static let obvChannelManager = TargetDependency.project(target: "ObvChannelManager", path: .olvidPath("ObvChannelManager", in: .engine))
             public static let obvFlowManager = TargetDependency.project(target: "ObvFlowManager", path: .olvidPath("ObvFlowManager", in: .engine))
             public static let obvIdentityManager = TargetDependency.project(target: "ObvIdentityManager", path: .olvidPath("ObvIdentityManager", in: .engine))
@@ -39,8 +40,10 @@ extension TargetDependency {
             public static let obvAppTypes = TargetDependency.project(target: "ObvAppTypes", path: .olvidPath("ObvAppTypes", in: .app))
             public static let obvUICoreData = TargetDependency.project(target: "ObvUICoreData", path: .olvidPath("ObvUICoreData", in: .app))
             public static let obvLocation = TargetDependency.project(target: "ObvLocation", path: .olvidPath("ObvLocation", in: .app))
+            public static let obvAppBackup = TargetDependency.project(target: "ObvAppBackup", path: .olvidPath("ObvAppBackup", in: .app))
             public static let obvUICoreDataStructs = TargetDependency.project(target: "ObvUICoreDataStructs", path: .olvidPath("ObvUICoreDataStructs", in: .app))
             public static let obvAppCoreConstants = TargetDependency.project(target: "ObvAppCoreConstants", path: .olvidPath("ObvAppCoreConstants", in: .app))
+            public static let obvUIGroupV2 = TargetDependency.project(target: "ObvUIGroupV2", path: .olvidPath("ObvUIGroupV2", in: .app))
             public static let obvUI = TargetDependency.project(target: "ObvUI", path: .olvidPath("ObvUI", in: .app))
             public static let obvDesignSystem = TargetDependency.project(target: "ObvDesignSystem", path: .olvidPath("ObvDesignSystem", in: .app))
             public static let obvSettings = TargetDependency.project(target: "ObvSettings", path: .olvidPath("ObvSettings", in: .app))
@@ -68,6 +71,7 @@ extension TargetDependency {
                 public static let obvPhotoButton: TargetDependency = .project(target: "ObvUIObvPhotoButton", path: .olvidPath("UI", in: .app))
                 public static let obvImageEditor: TargetDependency = .project(target: "ObvImageEditor", path: .olvidPath("UI", in: .app))
                 public static let obvScannerHostingView: TargetDependency = .project(target: "ObvScannerHostingView", path: .olvidPath("UI", in: .app))
+                public static let obvCircleAndTitlesView: TargetDependency = .project(target: "ObvCircleAndTitlesView", path: .olvidPath("UI", in: .app))
             }
             public struct Components {
                 public static let textInputShortcutsResultView: TargetDependency = .project(target: "ObvComponentsTextInputShortcutsResultView", path: .olvidPath("Components/TextInputShortcutsResultView", in: .app))
@@ -78,6 +82,9 @@ extension TargetDependency {
                 public static let database: TargetDependency = .project(target: "ObvUserNotificationsDatabase", path: .olvidPath("ObvUserNotifications", in: .app))
                 public static let sounds: TargetDependency = .project(target: "ObvUserNotificationsSounds", path: .olvidPath("ObvUserNotifications", in: .app))
                 public static let creator: TargetDependency = .project(target: "ObvUserNotificationsCreator", path: .olvidPath("ObvUserNotifications", in: .app))
+            }
+            public struct ThirdParty {
+                public static let confettiSwiftUI: TargetDependency = .project(target: "ConfettiSwiftUI", path: .olvidPath("ThirdParty/ConfettiSwiftUI", in: .app))
             }
         }
         

@@ -86,10 +86,14 @@ public final class PersistedOneToOneDiscussion: PersistedDiscussion, ObvIdentifi
             guard let ownedCryptoId = ownedIdentity?.cryptoId else {
                 throw ObvUICoreDataError.ownedIdentityIsNil
             }
-            guard let contactCryptoId = contactIdentity?.cryptoId else {
+            if let contactCryptoId = contactIdentity?.cryptoId {
+                return OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
+            } else if let contactIdentityIdentity = self.rawContactIdentityIdentity, let contactCryptoId = try? ObvCryptoId(identity: contactIdentityIdentity) {
+                return OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
+            } else {
+                assertionFailure()
                 throw ObvUICoreDataError.contactIdentityIsNil
             }
-            return OneToOneIdentifierJSON(ownedCryptoId: ownedCryptoId, contactCryptoId: contactCryptoId)
         }
     }
 

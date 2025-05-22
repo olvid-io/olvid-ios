@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,7 @@ import ObvUICoreData
 import UIKit
 
 
-final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem, OlvidMenuProvider, DiscussionsTableViewControllerDelegate, NewDiscussionsViewControllerDelegate {
+final class RecentDiscussionsViewController: ShowOwnedIdentityButtonUIViewController, ViewControllerWithEllipsisCircleRightBarButtonItem, OlvidMenuProvider, DiscussionsTableViewControllerDelegate {
 
     weak var delegate: RecentDiscussionsViewControllerDelegate?
 
@@ -124,20 +124,31 @@ extension RecentDiscussionsViewController {
 
 // MARK: - DiscussionsTableViewControllerDelegate and NewDiscussionsViewControllerDelegate
 
+@available(iOS 16.0, *)
+extension RecentDiscussionsViewController: NewDiscussionsViewControllerDelegate {
+    
+    func userWantsToShowMapToConsultLocationSharedContinously(_ vc: NewDiscussionsViewController, ownedCryptoId: ObvCryptoId) async throws {
+        try await delegate?.userWantsToShowMapToConsultLocationSharedContinously(self, ownedCryptoId: ownedCryptoId)
+    }
+        
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ vc: NewDiscussionsViewController) async throws {
+        try await delegate?.userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(self)
+    }
+    
+    
+    func userWantsToSetupNewBackups() {
+        delegate?.userWantsToSetupNewBackups(self)
+    }
+    
+    func userWantsToDisplayBackupKey() {
+        delegate?.userWantsToDisplayBackupKey(self)
+    }
+
+}
+
+
 extension RecentDiscussionsViewController {
-    
-    func userWantsToStopSharingLocation() async throws {
-        try await delegate?.userWantsToStopSharingLocation()
-    }
-    
-    func userDidSelect(persistedDiscussion discussion: PersistedDiscussion) {
-        assert(Thread.current == Thread.main)
-        assert(discussion.managedObjectContext == ObvStack.shared.viewContext)
-        delegate?.userWantsToDisplay(persistedDiscussion: discussion)
-    }
-    
-    func userDidDeselect(_ discussion: PersistedDiscussion) {}
-    
+
     func userAskedToDeleteDiscussion(_ discussion: PersistedDiscussion, completionHandler: @escaping (Bool) -> Void) {
         delegate?.userWantsToDeleteDiscussion(discussion, completionHandler: completionHandler)
     }
@@ -145,8 +156,17 @@ extension RecentDiscussionsViewController {
     func userAskedToRefreshDiscussions() async throws {
         try await delegate?.userAskedToRefreshDiscussions()
     }
+
+    func userDidDeselect(_ discussion: PersistedDiscussion) {}
+
+    func userDidSelect(persistedDiscussion discussion: PersistedDiscussion) {
+        assert(Thread.current == Thread.main)
+        assert(discussion.managedObjectContext == ObvStack.shared.viewContext)
+        delegate?.userWantsToDisplay(persistedDiscussion: discussion)
+    }
     
 }
+
 
 // MARK: - CanScrollToTop
 

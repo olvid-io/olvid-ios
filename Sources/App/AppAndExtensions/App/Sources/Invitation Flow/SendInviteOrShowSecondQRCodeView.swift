@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -226,11 +226,13 @@ fileprivate struct IdentitySection: View {
                     VStack {
                         HStack {
                             IdentityCardContentView(model: SingleContactIdentity(persistedContact: contact, observeChangesMadeToContact: false))
+                                .padding(8)
+                            
                             Spacer()
                         }
                         if !showQRCodeFullScreen && contact.isOneToOne {
                             HStack {
-                                Text("\(contact.identityCoreDetails?.getDisplayNameWithStyle(.firstNameThenLastName) ?? contact.fullDisplayName) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
+                                Text("\(contact.identityCoreDetails?.getDisplayNameWithStyle(.short) ?? contact.fullDisplayName) is already part of your trusted contacts 🙌. Do you still wish to proceed?")
                                     .font(.body)
                                     .allowsTightening(true)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -238,6 +240,7 @@ fileprivate struct IdentitySection: View {
                                     .multilineTextAlignment(.leading)
                                     .font(.body)
                                     .foregroundColor(.secondary)
+                                    .padding(.horizontal, 8)
                                     .padding(.bottom, 8)
                                 Spacer()
                             }
@@ -348,7 +351,7 @@ private struct InviteLocallyView: View {
                         showQRCodeFullScreen.toggle()
                     }
                 })
-                .onLongPressGesture(perform: copyMutualScanURLToPasteboard)
+                .onTapGesture(count: 2, perform: copyMutualScanURLToPasteboard)
 
         }
     }

@@ -398,11 +398,11 @@ public struct GroupV2 {
     
     // MARK: - Identifier
 
-    public struct Identifier: ObvCodable, ObvErrorMaker, Equatable, Hashable, LosslessStringConvertible {
+    public struct Identifier: ObvCodable, ObvErrorMaker, Equatable, Hashable, LosslessStringConvertible, Sendable {
         
         public static let errorDomain = "GroupV2.Identifier"
 
-        public enum Category: Int {
+        public enum Category: Int, Sendable {
             case server = 0
             case keycloak = 1
             

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -515,6 +515,15 @@ public class PersistedContactGroup: NSManagedObject {
     /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
     private(set) var isInsertedWhileRestoringSyncSnapshot = false
 
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    public static func addObvObserver(_ newObserver: PersistedContactGroupObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
 }
 
 
@@ -697,6 +706,7 @@ extension PersistedContactGroup {
             // Attributes
             case groupName = "groupName"
             case groupUidRaw = "groupUidRaw"
+            case note = "note"
             case ownerIdentity = "ownerIdentity"
             case photoURL = "photoURL"
             case rawCategory = "rawCategory"
@@ -855,6 +865,26 @@ extension PersistedContactGroup {
             .postOnDispatchQueue()
         }
         
+        // Potentially notify that the previous backed up profile snapshot is obsolete.
+        // We only notify in case of a change. Insertion/Deletion are notified by
+        // the engine.
+        // See `PersistedObvOwnedIdentity` for a list of entities that might post a similar notification.
+        
+        if !isDeleted && !isInserted && !changedKeys.isEmpty {
+            if changedKeys.contains("groupNameCustom") ||
+                changedKeys.contains(Predicate.Key.note.rawValue) ||
+                changedKeys.contains(Predicate.Key.discussion.rawValue) {
+                let ownedIdentity = self.rawOwnedIdentityIdentity
+                if let ownedCryptoId = try? ObvCryptoId(identity: ownedIdentity) {
+                    Task {
+                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedContactGroupChanged(ownedCryptoId: ownedCryptoId)
+                    }
+                } else {
+                    assertionFailure()
+                }
+            }
+        }
+        
     }
     
 }
@@ -931,4 +961,39 @@ struct PersistedContactGroupSyncSnapshotNode: ObvSyncSnapshotNode {
         
     }
     
+}
+
+
+// MARK: - PersistedContactGroup observers
+
+public protocol PersistedContactGroupObserver: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedContactGroupChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: PersistedContactGroupObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: PersistedContactGroupObserver?
+        init(value: PersistedContactGroupObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: PersistedContactGroupObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+    
+    // Implementing PersistedObvOwnedIdentityObserver
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedContactGroupChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsPersistedContactGroupChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+
 }

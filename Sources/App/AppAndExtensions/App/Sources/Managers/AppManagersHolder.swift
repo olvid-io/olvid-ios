@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -25,6 +25,7 @@ import CloudKit
 import ObvUICoreData
 import ObvAppCoreConstants
 import ObvKeycloakManager
+import ObvLocation
 
 
 final actor AppManagersHolder {
@@ -51,6 +52,9 @@ final actor AppManagersHolder {
     private let localAuthenticationManager: LocalAuthenticationManager
     private let intentManager = IntentManager()
     private let tipManager: OlvidTipManager
+    let continuousSharingLocationManager: ContinuousSharingLocationManager
+    
+    private let appContinuousSharingLocationManagerDataSource: AppContinuousSharingLocationManagerDataSource
 
     private var observationTokens = [NSObjectProtocol]()
 
@@ -67,12 +71,14 @@ final actor AppManagersHolder {
     var storeKitDelegate: StoreKitDelegate {
         subscriptionManager
     }
-
-    init(obvEngine: ObvEngine, backgroundTasksManager: BackgroundTasksManager) {
+    
+    init(obvEngine: ObvEngine, backgroundTasksManager: BackgroundTasksManager) async {
 
         self.obvEngine = obvEngine
         self.backgroundTasksManager = backgroundTasksManager
 
+        self.appContinuousSharingLocationManagerDataSource = await AppContinuousSharingLocationManagerDataSource()
+        
         self.userNotificationsBadgesManager = UserNotificationsBadgesManager()
         self.hardLinksToFylesManager = HardLinksToFylesManager.makeHardLinksToFylesManagerForMainApp()
         self.thumbnailManager = ThumbnailManager.makeThumbnailManagerForMainApp()
@@ -89,6 +95,7 @@ final actor AppManagersHolder {
         self.webSocketManager = WebSocketManager(obvEngine: obvEngine)
         self.localAuthenticationManager = LocalAuthenticationManager()
         self.tipManager = OlvidTipManager(obvEngine: obvEngine)
+        self.continuousSharingLocationManager = ContinuousSharingLocationManager()
 
         // Listen to StoreKit transactions
         self.subscriptionManager.listenToSKPaymentTransactions()
@@ -130,10 +137,14 @@ final actor AppManagersHolder {
 
     
     /// Called by the `AppMainManager` to set the delegates of certain managers using coordinators.
-    func setManagersDelegates(backgroundTasksManagerDelegate: any BackgroundTasksManagerDelegate, expirationMessagesManager: any ExpirationMessagesManagerDelegate, signalingDelegate: any CallProviderDelegateSignalingDelegate) {
+    func setManagersDelegates(backgroundTasksManagerDelegate: any BackgroundTasksManagerDelegate,
+                              expirationMessagesManager: any ExpirationMessagesManagerDelegate,
+                              signalingDelegate: any CallProviderDelegateSignalingDelegate,
+                              continuousSharingLocationManagerDelegate: any ContinuousSharingLocationManagerDelegate) async {
         self.backgroundTasksManager.delegate = backgroundTasksManagerDelegate
         self.expirationMessagesManager.delegate = expirationMessagesManager
         self.callProvider.signalingDelegate = signalingDelegate
+        await continuousSharingLocationManager.setDelegateAndDatasource(delegate: continuousSharingLocationManagerDelegate, datasource: appContinuousSharingLocationManagerDataSource)
     }
     
 
@@ -146,7 +157,7 @@ final actor AppManagersHolder {
                  os_log("didEnterBackgroundNotification", log: Self.log, type: .info)
                  Task { [weak self] in
                      os_log("Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground starts", log: Self.log, type: .info)
-                     await self?.cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground()
+                     await self?.scheduleBackgroundTasksWhenAppDidEnterBackground()
                      os_log("Call to cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground ends", log: Self.log, type: .info)
                  }
             },
@@ -160,8 +171,7 @@ final actor AppManagersHolder {
     }
     
     
-    private func cancelThenScheduleBackgroundTasksWhenAppDidEnterBackground() async {
-        backgroundTasksManager.cancelAllPendingBGTask()
+    private func scheduleBackgroundTasksWhenAppDidEnterBackground() async {
         await backgroundTasksManager.scheduleBackgroundTasks()
     }
 

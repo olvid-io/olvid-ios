@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -55,6 +55,33 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
     }
 
     
+    /// Called during bootstrap or when an owned identity gets deleted
+    func deleteServerSessionsAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws {
+        
+        guard let delegateManager else { assertionFailure(); throw ObvError.theDelegateManagerIsNotSet }
+
+        let op1 = GetOwnedIdentitiesHavingServerSessionOperation()
+        let composedOp = try createCompositionOfOneContextualOperation(op1: op1, flowId: flowId)
+        await delegateManager.queueSharedAmongCoordinators.addAndAwaitOperation(composedOp)
+
+        guard let ownedCryptoIdsWithServerSession = op1.ownedCryptoIds else {
+            assertionFailure()
+            throw ObvError.couldNotGetOwnedIdentitiesHavingServerSession
+        }
+        
+        let toDelete = ownedCryptoIdsWithServerSession.subtracting(existingOwnedCryptoIds)
+        
+        for ownedCryptoId in toDelete {
+            do {
+                try await deleteServerSession(of: ownedCryptoId, flowId: flowId)
+            } catch {
+                assertionFailure() // Continue with the next owned identity
+            }
+        }
+        
+    }
+
+    
     func deleteServerSession(of ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws {
         
         let requestUUID = UUID()
@@ -92,6 +119,20 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
         
     }
     
+    
+    func getAPIKeyElementsDuringNewBackupRestore(cryptoId: ObvCryptoId, privateKeyForAuthentication: any PrivateKeyForAuthentication, flowId: FlowIdentifier) async throws -> APIKeyElements {
+        
+        let nonce = prng.genBytes(count: ObvConstants.serverSessionNonceLength)
+
+        let challenge = try await requestChallengeFromServer(for: cryptoId.cryptoIdentity, nonce: nonce, flowId: flowId)
+
+        let response = try await solveChallenge(challenge: challenge, with: (cryptoId.cryptoIdentity.publicKeyForAuthentication, privateKeyForAuthentication), flowId: flowId)
+
+        let serverSessionTokenAndAPIKeyElements = try await requestSessionFromServer(for: cryptoId.cryptoIdentity, response: response, nonce: nonce, flowId: flowId)
+
+        return serverSessionTokenAndAPIKeyElements.apiKeyElements
+        
+    }
 
     
     
@@ -389,6 +430,31 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
     }
     
     
+    private func solveChallenge(challenge: Data, with authenticationKeyPair: (publicKey: any PublicKeyForAuthentication, privateKey: any PrivateKeyForAuthentication), flowId: FlowIdentifier) async throws -> Data {
+        
+        guard let delegateManager else {
+            os_log("The Delegate Manager is not set", log: Self.log, type: .fault)
+            assertionFailure("The Delegate Manager is not set")
+            throw ObvError.theDelegateManagerIsNotSet
+        }
+
+        guard let solveChallengeDelegate = delegateManager.solveChallengeDelegate else {
+            os_log("The solve challenge delegate is not set", log: Self.log, type: .fault)
+            assertionFailure("The solve challenge delegate is not set")
+            throw ObvError.theSolveChallengeDelegateIsNotSet
+        }
+
+        let prng = ObvCryptoSuite.sharedInstance.prngService()
+        let challengeType = ChallengeType.authentChallenge(challengeFromServer: challenge)
+
+        let response = try solveChallengeDelegate.solveChallenge(challengeType, with: authenticationKeyPair, using: prng)
+
+        return response
+        
+    }
+
+    
+    
     private func requestChallengeFromServer(for ownedCryptoIdentity: ObvCryptoIdentity, nonce: Data, flowId: FlowIdentifier) async throws -> Data {
         
         // No cached server session token exists. To get a new one, we first request a challenge to the server
@@ -557,6 +623,7 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
         case serverReportedGeneralError
         case serverNonceDiffersFromLocalNonce
         case serverReportedThatItDidNotFindChallengeCorrespondingToResponse
+        case couldNotGetOwnedIdentitiesHavingServerSession
         
         var errorDescription: String? {
             switch self {
@@ -584,6 +651,8 @@ actor ServerSessionCoordinator: ServerSessionDelegate {
                 return "Server nonce differs from local nonce"
             case .serverReportedThatItDidNotFindChallengeCorrespondingToResponse:
                 return "Server reported that no challenge corresponding to response could be found"
+            case .couldNotGetOwnedIdentitiesHavingServerSession:
+                return "Could not get owned identities having server session"
             }
         }
     }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -23,6 +23,7 @@ import ObvUICoreData
 import ObvSystemIcon
 import ObvTypes
 import ObvEngine
+import ObvDesignSystem
 
 
 // MARK: - OwnedDevicesListViewModelProtocol
@@ -77,27 +78,33 @@ struct OwnedDevicesListView<Model: OwnedDevicesListViewModelProtocol>: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack {
-                ForEach(model.ownedDevices, id: \.deviceIdentifier) { ownedDevice in
-                    ObvCardView {
-                        OwnedDeviceView(
-                            ownedDevice: ownedDevice,
-                            actions: actions)
-                    }.padding(.bottom)
-                }
-                OlvidButton(
-                    style: .standard,
-                    title: Text("SEARCH_FOR_NEW_DEVICES"),
-                    systemIcon: .magnifyingglass,
-                    action: userWantsToSearchForNewOwnedDevices)
-                OlvidButton(
-                    style: .red,
-                    title: Text("CLEAR_ALL_DEVICES"),
-                    systemIcon: .trash,
-                    action: userWantsToClearAllOtherOwnedDevicesAndMustConfirm)
-                Spacer()
-            }.padding()
+        ZStack {
+            
+            Color(AppTheme.shared.colorScheme.systemBackground)
+                .ignoresSafeArea(.all)
+
+            ScrollView {
+                VStack {
+                    ForEach(model.ownedDevices, id: \.deviceIdentifier) { ownedDevice in
+                        ObvCardView {
+                            OwnedDeviceView(
+                                ownedDevice: ownedDevice,
+                                actions: actions)
+                        }.padding(.bottom)
+                    }
+                    OlvidButton(
+                        style: .standard,
+                        title: Text("SEARCH_FOR_NEW_DEVICES"),
+                        systemIcon: .magnifyingglass,
+                        action: userWantsToSearchForNewOwnedDevices)
+                    OlvidButton(
+                        style: .red,
+                        title: Text("CLEAR_ALL_DEVICES"),
+                        systemIcon: .trash,
+                        action: userWantsToClearAllOtherOwnedDevicesAndMustConfirm)
+                    Spacer()
+                }.padding()
+            }
         }
         .alert(isPresented: $isAlertPresented) {
             switch self.alertKind {

@@ -50,7 +50,6 @@ public enum ObvMessengerCoreDataNotification {
 	case persistedDiscussionHasNewTitle(objectID: TypeSafeManagedObjectID<PersistedDiscussion>, title: String)
 	case persistedDiscussionWasDeleted(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, objectIDOfDeletedDiscussion: TypeSafeManagedObjectID<PersistedDiscussion>)
 	case persistedDiscussionWasInsertedOrReactivated(ownedCryptoId: ObvCryptoId, discussionIdentifier: DiscussionIdentifier)
-	case newPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool)
 	case ownedIdentityWasReactivated(ownedIdentityObjectID: NSManagedObjectID)
 	case ownedIdentityWasDeactivated(ownedIdentityObjectID: NSManagedObjectID)
 	case persistedMessageSystemWasDeleted(objectID: NSManagedObjectID, discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>)
@@ -58,10 +57,9 @@ public enum ObvMessengerCoreDataNotification {
 	case persistedMessagesWereWiped(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, messagePermanentIDs: Set<ObvManagedObjectPermanentID<PersistedMessage>>)
 	case persistedDiscussionStatusChanged(discussionPermanentID: ObvManagedObjectPermanentID<PersistedDiscussion>, newStatus: PersistedDiscussion.Status)
 	case persistedGroupV2UpdateIsFinished(objectID: TypeSafeManagedObjectID<PersistedGroupV2>, ownedCryptoId: ObvCryptoId, groupIdentifier: GroupV2Identifier)
-	case persistedGroupV2WasDeleted(objectID: TypeSafeManagedObjectID<PersistedGroupV2>)
+	case persistedGroupV2WasDeleted(groupIdentifier: ObvGroupV2Identifier)
 	case aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 	case ownedCircledInitialsConfigurationDidChange(ownedIdentityPermanentID: ObvManagedObjectPermanentID<PersistedObvOwnedIdentity>, ownedCryptoId: ObvCryptoId, newOwnedCircledInitialsConfiguration: CircledInitialsConfiguration)
-	case persistedObvOwnedIdentityWasDeleted
 	case ownedIdentityHiddenStatusChanged(ownedCryptoId: ObvCryptoId, isHidden: Bool)
 	case badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity(ownedCryptoId: ObvCryptoId)
 	case displayedContactGroupWasJustCreated(permanentID: ObvManagedObjectPermanentID<DisplayedContactGroup>)
@@ -95,7 +93,6 @@ public enum ObvMessengerCoreDataNotification {
 		case persistedDiscussionHasNewTitle
 		case persistedDiscussionWasDeleted
 		case persistedDiscussionWasInsertedOrReactivated
-		case newPersistedObvOwnedIdentity
 		case ownedIdentityWasReactivated
 		case ownedIdentityWasDeactivated
 		case persistedMessageSystemWasDeleted
@@ -106,7 +103,6 @@ public enum ObvMessengerCoreDataNotification {
 		case persistedGroupV2WasDeleted
 		case aPersistedGroupV2MemberChangedFromPendingToNonPending
 		case ownedCircledInitialsConfigurationDidChange
-		case persistedObvOwnedIdentityWasDeleted
 		case ownedIdentityHiddenStatusChanged
 		case badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity
 		case displayedContactGroupWasJustCreated
@@ -150,7 +146,6 @@ public enum ObvMessengerCoreDataNotification {
 			case .persistedDiscussionHasNewTitle: return Name.persistedDiscussionHasNewTitle.name
 			case .persistedDiscussionWasDeleted: return Name.persistedDiscussionWasDeleted.name
 			case .persistedDiscussionWasInsertedOrReactivated: return Name.persistedDiscussionWasInsertedOrReactivated.name
-			case .newPersistedObvOwnedIdentity: return Name.newPersistedObvOwnedIdentity.name
 			case .ownedIdentityWasReactivated: return Name.ownedIdentityWasReactivated.name
 			case .ownedIdentityWasDeactivated: return Name.ownedIdentityWasDeactivated.name
 			case .persistedMessageSystemWasDeleted: return Name.persistedMessageSystemWasDeleted.name
@@ -161,7 +156,6 @@ public enum ObvMessengerCoreDataNotification {
 			case .persistedGroupV2WasDeleted: return Name.persistedGroupV2WasDeleted.name
 			case .aPersistedGroupV2MemberChangedFromPendingToNonPending: return Name.aPersistedGroupV2MemberChangedFromPendingToNonPending.name
 			case .ownedCircledInitialsConfigurationDidChange: return Name.ownedCircledInitialsConfigurationDidChange.name
-			case .persistedObvOwnedIdentityWasDeleted: return Name.persistedObvOwnedIdentityWasDeleted.name
 			case .ownedIdentityHiddenStatusChanged: return Name.ownedIdentityHiddenStatusChanged.name
 			case .badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity: return Name.badgeCountForDiscussionsOrInvitationsTabChangedForOwnedIdentity.name
 			case .displayedContactGroupWasJustCreated: return Name.displayedContactGroupWasJustCreated.name
@@ -257,11 +251,6 @@ public enum ObvMessengerCoreDataNotification {
 				"ownedCryptoId": ownedCryptoId,
 				"discussionIdentifier": discussionIdentifier,
 			]
-		case .newPersistedObvOwnedIdentity(ownedCryptoId: let ownedCryptoId, isActive: let isActive):
-			info = [
-				"ownedCryptoId": ownedCryptoId,
-				"isActive": isActive,
-			]
 		case .ownedIdentityWasReactivated(ownedIdentityObjectID: let ownedIdentityObjectID):
 			info = [
 				"ownedIdentityObjectID": ownedIdentityObjectID,
@@ -296,9 +285,9 @@ public enum ObvMessengerCoreDataNotification {
 				"ownedCryptoId": ownedCryptoId,
 				"groupIdentifier": groupIdentifier,
 			]
-		case .persistedGroupV2WasDeleted(objectID: let objectID):
+		case .persistedGroupV2WasDeleted(groupIdentifier: let groupIdentifier):
 			info = [
-				"objectID": objectID,
+				"groupIdentifier": groupIdentifier,
 			]
 		case .aPersistedGroupV2MemberChangedFromPendingToNonPending(contactObjectID: let contactObjectID):
 			info = [
@@ -310,8 +299,6 @@ public enum ObvMessengerCoreDataNotification {
 				"ownedCryptoId": ownedCryptoId,
 				"newOwnedCircledInitialsConfiguration": newOwnedCircledInitialsConfiguration,
 			]
-		case .persistedObvOwnedIdentityWasDeleted:
-			info = nil
 		case .ownedIdentityHiddenStatusChanged(ownedCryptoId: let ownedCryptoId, isHidden: let isHidden):
 			info = [
 				"ownedCryptoId": ownedCryptoId,
@@ -549,15 +536,6 @@ public enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	public static func observeNewPersistedObvOwnedIdentity(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvCryptoId, Bool) -> Void) -> NSObjectProtocol {
-		let name = Name.newPersistedObvOwnedIdentity.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
-			let isActive = notification.userInfo!["isActive"] as! Bool
-			block(ownedCryptoId, isActive)
-		}
-	}
-
 	public static func observeOwnedIdentityWasReactivated(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (NSManagedObjectID) -> Void) -> NSObjectProtocol {
 		let name = Name.ownedIdentityWasReactivated.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
@@ -620,11 +598,11 @@ public enum ObvMessengerCoreDataNotification {
 		}
 	}
 
-	public static func observePersistedGroupV2WasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (TypeSafeManagedObjectID<PersistedGroupV2>) -> Void) -> NSObjectProtocol {
+	public static func observePersistedGroupV2WasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping (ObvGroupV2Identifier) -> Void) -> NSObjectProtocol {
 		let name = Name.persistedGroupV2WasDeleted.name
 		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			let objectID = notification.userInfo!["objectID"] as! TypeSafeManagedObjectID<PersistedGroupV2>
-			block(objectID)
+			let groupIdentifier = notification.userInfo!["groupIdentifier"] as! ObvGroupV2Identifier
+			block(groupIdentifier)
 		}
 	}
 
@@ -643,13 +621,6 @@ public enum ObvMessengerCoreDataNotification {
 			let ownedCryptoId = notification.userInfo!["ownedCryptoId"] as! ObvCryptoId
 			let newOwnedCircledInitialsConfiguration = notification.userInfo!["newOwnedCircledInitialsConfiguration"] as! CircledInitialsConfiguration
 			block(ownedIdentityPermanentID, ownedCryptoId, newOwnedCircledInitialsConfiguration)
-		}
-	}
-
-	public static func observePersistedObvOwnedIdentityWasDeleted(object obj: Any? = nil, queue: OperationQueue? = nil, block: @escaping () -> Void) -> NSObjectProtocol {
-		let name = Name.persistedObvOwnedIdentityWasDeleted.name
-		return NotificationCenter.default.addObserver(forName: name, object: obj, queue: queue) { (notification) in
-			block()
 		}
 	}
 

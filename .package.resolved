@@ -1,21 +1,21 @@
 {
   "pins" : [
     {
-      "identity" : "appauth-ios-for-olvid",
+      "identity" : "appauth-ios",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/olvid-io/AppAuth-iOS-for-Olvid",
+      "location" : "https://github.com/openid/AppAuth-iOS",
       "state" : {
-        "branch" : "targetfix",
-        "revision" : "0d90e24667c4a1fd9a84edb27ce966cc395f1314"
+        "revision" : "c89ed571ae140f8eb1142735e6e23d7bb8c34cb2",
+        "version" : "1.7.5"
       }
     },
     {
-      "identity" : "joseswift-for-olvid",
+      "identity" : "joseswift",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/olvid-io/JOSESwift-for-Olvid",
+      "location" : "https://github.com/airsidemobile/JOSESwift",
       "state" : {
-        "branch" : "targetfix",
-        "revision" : "a1cd4c990da61c86e5bb4cd7605e2d372cc10c72"
+        "revision" : "c2664a902e75c0426a1d43132bd4babc6fd173d3",
+        "version" : "3.0.0"
       }
     }
   ],

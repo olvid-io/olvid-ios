@@ -302,7 +302,7 @@ private struct DetailsView<Model: DetailsViewModelProtocol>: View {
                     ZStack {
                         Color(UIColor.secondarySystemFill)
                         VStack {
-                            InitialCircleViewNew(model: model.ownedInitialCircle, state: .init(circleDiameter: 100))
+                            InitialCircleViewNew(model: model.ownedInitialCircle, state: .circleDiameter(diameter: 100))
                             Text("YOU")
                                 .font(.title)
                                 .fontWeight(.heavy)

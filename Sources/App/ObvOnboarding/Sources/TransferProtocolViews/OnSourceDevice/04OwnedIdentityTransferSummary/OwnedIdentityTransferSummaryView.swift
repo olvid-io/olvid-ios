@@ -22,6 +22,7 @@ import Contacts
 import ObvTypes
 import ObvCrypto
 import ObvAppCoreConstants
+import ObvDesignSystem
 
 
 protocol OwnedIdentityTransferSummaryViewActionsProtocol: AnyObject {
@@ -139,9 +140,9 @@ struct OwnedIdentityTransferSummaryView: View {
             ScrollView {
                 VStack {
                     
-                    NewOnboardingHeaderView(
-                        title: "OWNED_IDENTITY_SUMMARY_VIEW_TITLE",
-                        subtitle: "OWNED_IDENTITY_SUMMARY_VIEW_SUBTITLE")
+                    ObvHeaderView(
+                        title: "OWNED_IDENTITY_SUMMARY_VIEW_TITLE".localizedInThisBundle,
+                        subtitle: "OWNED_IDENTITY_SUMMARY_VIEW_SUBTITLE".localizedInThisBundle)
                     
                     Divider()
                         .padding(.top)

@@ -21,7 +21,7 @@ import Foundation
 import CoreData
 import os.log
 import ObvTypes
-import ObvCrypto
+@preconcurrency import ObvCrypto
 import ObvMetaManager
 import OlvidUtils
 
@@ -101,6 +101,7 @@ class ContactGroup: NSManagedObject, ObvManagedObject {
     private var groupOwnerCryptoIdentityOnDeletion: ObvCryptoIdentity?
     private var notificationRelatedChanges: NotificationRelatedChanges = []
     private var labelToDelete: UID?
+    private var changedKeys = Set<String>()
 
     // MARK: - Initializer
     
@@ -151,6 +152,16 @@ class ContactGroup: NSManagedObject, ObvManagedObject {
         self.pendingGroupMembers = pendingGroupMembers
         self.publishedDetails = publishedDetails
     }
+    
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvObserver(_ newObserver: ContactGroupObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
 }
 
 // MARK: - Convenience methods
@@ -338,6 +349,19 @@ extension ContactGroup {
 // MARK: - Convenience DB getters
 
 extension ContactGroup {
+    
+    struct Predicate {
+        enum Key: String {
+            // Attributes
+            case groupMembersVersion = "groupMembersVersion"
+            case groupUid = "groupUid"
+            // Relationships
+            case groupMembers = "groupMembers"
+            case ownedIdentity = "ownedIdentity"
+            case pendingGroupMembers = "pendingGroupMembers"
+            case publishedDetails = "publishedDetails"
+        }
+    }
 
     @nonobjc class func fetchRequest() -> NSFetchRequest<ContactGroup> {
         return NSFetchRequest<ContactGroup>(entityName: entityName)
@@ -394,6 +418,13 @@ extension ContactGroup {
         labelToDelete = publishedDetails.photoServerLabel
     }
     
+    
+    override func willSave() {
+        super.willSave()
+        if !isInserted {
+            changedKeys = Set<String>(self.changedValues().keys)
+        }
+    }
 
     
     override func didSave() {
@@ -401,6 +432,7 @@ extension ContactGroup {
         
         defer {
             notificationRelatedChanges = []
+            changedKeys.removeAll()
         }
         
         guard let delegateManager = delegateManager else {
@@ -512,9 +544,31 @@ extension ContactGroup {
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
         }
         
+        
+        // Potentially notify that the previous backed up profile snapshot is obsolete
+        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+        
+        if !isDeleted {
+            let previousBackedUpProfileSnapShotIsObsolete: Bool
+            if isInserted {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else if changedKeys.contains(Predicate.Key.groupMembersVersion.rawValue) ||
+                        changedKeys.contains(Predicate.Key.groupMembers.rawValue) ||
+                        changedKeys.contains(Predicate.Key.pendingGroupMembers.rawValue) ||
+                        changedKeys.contains(Predicate.Key.publishedDetails.rawValue) {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else {
+                previousBackedUpProfileSnapShotIsObsolete = false
+            }
+            if previousBackedUpProfileSnapShotIsObsolete {
+                let cryptoIdentity = self.ownedIdentity.cryptoIdentity
+                let ownedCryptoId = ObvCryptoId(cryptoIdentity: cryptoIdentity)
+                Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+
     }
 
-    
 }
 
 // MARK: - Helpers for snapshots
@@ -554,7 +608,7 @@ extension ContactGroup {
 }
 
 
-struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode {
+struct ContactGroupSyncSnapshotNode: ObvSyncSnapshotNode, Sendable {
     
     private let domain: Set<CodingKeys>
     private let publishedDetails: ContactGroupDetailsSyncSnapshotNode?
@@ -805,6 +859,41 @@ private extension Data {
     var identityToObvCryptoIdentity: ObvCryptoIdentity? {
         guard let cryptoIdentity = ObvCryptoIdentity(from: self) else { assertionFailure(); return nil }
         return cryptoIdentity
+    }
+    
+}
+
+
+// MARK: - ContactGroup observers
+
+protocol ContactGroupObserver: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: ContactGroupObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ContactGroupObserver?
+        init(value: ContactGroupObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ContactGroupObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
     }
     
 }

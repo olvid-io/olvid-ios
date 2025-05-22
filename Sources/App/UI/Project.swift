@@ -48,6 +48,21 @@ let obvScannerHostingView = Target.makeSwiftLibraryTarget(
     isExtensionSafe: true)
 
 
+let obvCircleAndTitlesView = Target.makeFrameworkTarget(
+    name: "ObvCircleAndTitlesView",
+    sourcesDirectoryName: "ObvCircleAndTitlesView",
+    resources: [
+        "ObvCircleAndTitlesView/Resources/Localizable.xcstrings",
+    ],
+    dependencies: [
+        .Olvid.App.UI.obvCircledInitials,
+        .Olvid.App.UI.obvImageEditor,
+        .Olvid.App.obvDesignSystem,
+        .Olvid.App.obvSystemIcon,
+        .Olvid.App.obvAppCoreConstants,
+    ],
+    enableSwift6: true)
+
 let project = Project.createProjectForFrameworkLegacy(
     name: "UI",
     packages: [],
@@ -56,4 +71,5 @@ let project = Project.createProjectForFrameworkLegacy(
         obvPhotoButton,
         obvImageEditor,
         obvScannerHostingView,
+        obvCircleAndTitlesView,
     ])

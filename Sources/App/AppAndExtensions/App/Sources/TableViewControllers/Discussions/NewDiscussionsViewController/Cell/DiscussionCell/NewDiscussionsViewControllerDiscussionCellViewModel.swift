@@ -264,7 +264,7 @@ private extension PersistedMessage {
         if let receivedMessage = self as? PersistedMessageReceived {
             switch try? self.discussion?.kind {
             case .groupV1, .groupV2:
-                if let sender = receivedMessage.contactIdentity?.firstName {
+                if let sender = receivedMessage.contactIdentity?.customOrShortDisplayName {
                     prefixContent = AttributedString("\(sender): ")
                 } else {
                     prefixContent = nil

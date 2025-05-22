@@ -31,6 +31,8 @@ public protocol ObvProtocolDelegate: ObvManager {
     
     func abortProtocol(withProtocolInstanceUid: UID, forOwnedIdentity: ObvCryptoIdentity) throws
     
+    func deleteAppropriateProtocolInstancesAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws
+
     func getInitialMessageForTrustEstablishmentProtocol(of: ObvCryptoIdentity, withFullDisplayName: String, forOwnedIdentity: ObvCryptoIdentity, withOwnedIdentityCoreDetails: ObvIdentityCoreDetails) throws -> ObvChannelProtocolMessageToSend
     
     func getInitialMessageForContactMutualIntroductionProtocol(of identity1: ObvCryptoIdentity, with identity2: ObvCryptoIdentity, byOwnedIdentity ownedIdentity: ObvCryptoIdentity, usingProtocolInstanceUid protocolInstanceUid: UID) throws -> ObvChannelProtocolMessageToSend
@@ -146,4 +148,6 @@ public protocol ObvProtocolDelegate: ObvManager {
     
     func continueOwnedIdentityTransferProtocolOnUserProvidesProofOfAuthenticationOnKeycloakServer(ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, proof: ObvKeycloakTransferProofAndAuthState) async throws
     
+    func restoreOwnedIdentitySnapshot(ownedCryptoId: ObvCryptoId, identityNode: any ObvSyncSnapshotNode, currentDeviceName: String, rawAuthState: Data?, flowId: FlowIdentifier) async throws
+
 }

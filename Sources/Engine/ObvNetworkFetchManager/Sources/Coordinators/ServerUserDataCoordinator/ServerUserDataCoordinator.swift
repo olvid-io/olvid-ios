@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -52,6 +52,7 @@ actor ServerUserDataCoordinator {
     private static let defaultLogSubsystem = ObvNetworkFetchDelegateManager.defaultLogSubsystem
     private static let logCategory = "ServerUserDataCoordinator"
     private static var log = OSLog(subsystem: defaultLogSubsystem, category: logCategory)
+    private static var logger = Logger(subsystem: defaultLogSubsystem, category: logCategory)
 
     weak var delegateManager: ObvNetworkFetchDelegateManager?
     
@@ -118,15 +119,20 @@ actor ServerUserDataCoordinator {
         }
 
         notificationCenterTokens.append(ObvIdentityNotificationNew.observeServerLabelHasBeenDeleted(within: notificationDelegate) { [weak self] (ownedCryptoIdentity, label) in
+            guard let self else { return }
             Task { [weak self] in
                 guard let self else { return }
                 let flowId = FlowIdentifier()
                 let input = ServerUserDataInput(label: label, ownedIdentity: ownedCryptoIdentity, kind: .deleted)
                 do {
-                    try await deleteUserData(input, delegateManager: delegateManager, identityDelegate: identityDelegate, currentInvalidToken: nil, flowId: flowId)
+                    // Make sure the owned identity still exists (i.e., that we are not processing a profile deletion request).
+                    // If this is the case, we cannot request the deletion of the user data. It will be deleted soon from the server anyway.
+                    if try await isIdentityOwned(ownedCryptoIdentity: ownedCryptoIdentity, flowId: flowId) {
+                        try await deleteUserData(input, delegateManager: delegateManager, identityDelegate: identityDelegate, currentInvalidToken: nil, flowId: flowId)
+                    }
                     await cleanupDownloadedUserDataDirectoryOfOrphanedFiles()
                 } catch {
-                    os_log("Could not delete user data on notification that a server label was deleted within the identity manager", log: Self.log, type: .fault)
+                    Self.logger.fault("Could not delete user data on notification that a server label was deleted within the identity manager: \(error.localizedDescription)")
                     assertionFailure()
                 }
             }
@@ -179,7 +185,7 @@ extension ServerUserDataCoordinator: ServerUserDataDelegate {
                 let serverUserDataInput = ServerUserDataInput(label: userData.label, ownedIdentity: userData.ownedIdentity, kind: .refresh)
                 try await refreshUserData(serverUserDataInput, delegateManager: delegateManager, identityDelegate: identityDelegate, currentInvalidToken: nil, flowId: flowId)
             } catch {
-                os_log("Failed to refresh user data", log: Self.log, type: .fault)
+                Self.logger.fault("Failed to refresh user data: \(error.localizedDescription)")
                 assertionFailure(error.localizedDescription)
                 // In production, continue anyway with the next item
             }
@@ -216,6 +222,27 @@ extension ServerUserDataCoordinator {
 // MARK: - Helpers
 
 extension ServerUserDataCoordinator {
+    
+    private func isIdentityOwned(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> Bool {
+        
+        guard let delegateManager else { assertionFailure(); throw ObvError.delegateManagerIsNil }
+        guard let contextCreator = delegateManager.contextCreator else { assertionFailure(); throw ObvError.contextCreatorIsNil }
+        guard let identityDelegate = delegateManager.identityDelegate else { assertionFailure(); throw ObvError.identityDelegateIsNil }
+
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, any Error>) in
+            contextCreator.performBackgroundTask(flowId: flowId) { obvContext in
+                do {
+                    let isOwned = try identityDelegate.isOwned(ownedCryptoIdentity, within: obvContext)
+                    return continuation.resume(returning: isOwned)
+                } catch {
+                    assertionFailure()
+                    return continuation.resume(throwing: error)
+                }
+            }
+        }
+        
+    }
+    
     
     private func cleanupDownloadedUserDataDirectoryOfOrphanedFiles() {
         
@@ -395,6 +422,7 @@ extension ServerUserDataCoordinator {
                     throw error
                 }
             } else {
+                Self.logger.error("Failed to delete user data: \(error.localizedDescription)")
                 assertionFailure()
                 throw error
             }

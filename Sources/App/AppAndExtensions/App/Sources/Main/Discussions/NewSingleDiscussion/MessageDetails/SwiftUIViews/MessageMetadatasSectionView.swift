@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -91,7 +91,7 @@ struct MessageMetadatasSectionView: View {
     let stringFromDate: (Date?) -> String?
     
     init(messageObjectID: NSManagedObjectID, ownedCryptoId: ObvCryptoId, stringFromDate: @escaping (Date?) -> String?) {
-        let nsFetchRequest = PersistedMessageTimestampedMetadata.getFetchRequest(messageObjectID: messageObjectID, excludeKindRead: true)
+        let nsFetchRequest = PersistedMessageTimestampedMetadata.getFetchRequest(messageObjectID: messageObjectID)
         self.fetchRequest = FetchRequest(fetchRequest: nsFetchRequest, animation: .easeInOut)
         self.ownedCryptoId = ownedCryptoId
         self.stringFromDate = stringFromDate
@@ -120,8 +120,6 @@ fileprivate struct MetadataView: View {
     
     private var icon: any SymbolIcon {
         switch forKind {
-        case .read:
-            return CustomIcon.checkmarkCircleFill
         case .wiped:
             return SystemIcon.flameFill
         case .remoteWiped:
@@ -133,7 +131,6 @@ fileprivate struct MetadataView: View {
     
     private var title: String {
         switch forKind {
-        case .read: return NSLocalizedString("Read", comment: "")
         case .wiped: return NSLocalizedString("Wiped", comment: "")
         case .remoteWiped(remoteCryptoId: let cryptoId):
             if cryptoId == ownedCryptoId {

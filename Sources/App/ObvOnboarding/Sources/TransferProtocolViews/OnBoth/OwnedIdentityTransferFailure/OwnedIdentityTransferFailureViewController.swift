@@ -86,9 +86,27 @@ final class OwnedIdentityTransferFailureViewController: UIHostingController<Owne
     // MFMailComposeViewControllerDelegate
     
     func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
-        guard error == nil else { return }
         Task { [weak self] in
-            await self?.showSuccess()
+            guard let self else { return }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                controller.dismiss(animated: true) {
+                    if error != nil {
+                        Task { [weak self] in await self?.showFailure() }
+                    } else {
+                        switch result {
+                        case .cancelled:
+                            return
+                        case .saved, .sent:
+                            Task { [weak self] in await self?.showSuccess() }
+                        case .failed:
+                            Task { [weak self] in await self?.showFailure() }
+                        @unknown default:
+                            return
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -100,7 +118,13 @@ final class OwnedIdentityTransferFailureViewController: UIHostingController<Owne
         hideHUD()
     }
 
-    
+    @MainActor
+    private func showFailure() async {
+        await showHUDAndAwaitAnimationEnd(type: .xmark)
+        try? await Task.sleep(seconds: 1)
+        hideHUD()
+    }
+
     // Strings
     
     private struct Strings {

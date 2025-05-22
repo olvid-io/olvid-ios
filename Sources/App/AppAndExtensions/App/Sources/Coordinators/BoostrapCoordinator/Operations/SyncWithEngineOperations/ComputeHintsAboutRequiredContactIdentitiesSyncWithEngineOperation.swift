@@ -183,7 +183,7 @@ final class ComputeHintsAboutRequiredContactIdentitiesSyncWithEngineOperation: A
                         assertionFailure()
                         return continuation.resume(returning: false)
                     }
-                    let contactIsUpdated = try persistedOwnedIdentity.updateContact(with: obvContactIdentityWithinEngine, isRestoringSyncSnapshotOrBackup: false)
+                    let (_, contactIsUpdated) = try persistedOwnedIdentity.addOrUpdateContact(with: obvContactIdentityWithinEngine, isRestoringSyncSnapshotOrBackup: false)
                     let capabilitiesWereUpdated = try persistedOwnedIdentity.setContactCapabilities(contactCryptoId: obvContactIdentityWithinEngine.cryptoId, newCapabilities: capabilitiesWithinEngine)
                     return continuation.resume(returning: contactIsUpdated || capabilitiesWereUpdated)
                 } catch {

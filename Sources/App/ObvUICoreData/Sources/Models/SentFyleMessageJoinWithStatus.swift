@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,7 @@ import ObvTypes
 import UniformTypeIdentifiers
 
 @objc(SentFyleMessageJoinWithStatus)
-public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Identifiable {
+public final class SentFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     
     public static let entityName = "SentFyleMessageJoinWithStatus"
 
@@ -379,7 +379,16 @@ extension SentFyleMessageJoinWithStatus {
         let request: NSFetchRequest<NSFetchRequestResult> = SentFyleMessageJoinWithStatus.fetchRequest()
         request.predicate = Predicate.withoutSentMessage
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        try context.execute(deleteRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
+        } else {
+            assertionFailure()
+        }
     }
 }
 

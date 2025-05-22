@@ -87,6 +87,7 @@ final class SyncPersistedObvOwnedDeviceWithEngineOperation: ContextualOperationW
                 
                 // Make sure the owned device still does not exist within the engine
                 guard try obvEngine.getObvOwnedDevice(with: ownedDeviceIdentifier) == nil else {
+                    // This can happen for an inactive identity. This should be investigated.
                     assertionFailure()
                     return
                 }

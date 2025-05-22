@@ -22,7 +22,7 @@ import ObvCrypto
 import ObvEncoder
 
 
-public struct ObvGroupV1Identifier: Hashable {
+public struct ObvGroupV1Identifier: Sendable, Hashable {
     
     public let ownedCryptoId: ObvCryptoId
     public let groupV1Identifier: GroupV1Identifier
@@ -111,7 +111,7 @@ extension ObvGroupV1Identifier: ObvCodable {
 // MARK: - GroupV1Identifier
 
 /// 2023-09-23 Type introduced for sync snapshots. It should have been introduced earlier...
-public struct GroupV1Identifier: Hashable {
+public struct GroupV1Identifier: Hashable, Sendable {
     
     public let groupUid: UID
     public let groupOwner: ObvCryptoId

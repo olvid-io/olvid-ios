@@ -58,6 +58,7 @@ final class NotificationService: UNNotificationServiceExtension {
     override func serviceExtensionTimeWillExpire() {
         // Called just before the extension will be terminated by the system.
         // For now, we simply discard the received encrypted payload and publish a minimal user notification.
+        ObvDisplayableLogs.shared.log("[NotificationService] serviceExtensionTimeWillExpire")
         Self.logger.fault("The notification service serviceExtensionTimeWillExpire method was called: we discard the remote user notification.")
         contentHandler?(ObvUserNotificationContentCreator.createMinimalNotificationContent(badge: .unchanged).content)
     }
@@ -65,6 +66,10 @@ final class NotificationService: UNNotificationServiceExtension {
     
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
 
+        ObvDisplayableLogs.shared.setContainerURLForDisplayableLogs(to: ObvUICoreDataConstants.ContainerURL.forDisplayableLogs.url)
+        ObvDisplayableLogs.shared.doEnableRunningLogs(ObvMessengerSettings.Advanced.enableRunningLogs)
+        ObvDisplayableLogs.shared.log("[NotificationService] didReceive request")
+        
         self.contentHandler = contentHandler
         self.notificationContent = NotificationContent()
         
@@ -72,8 +77,14 @@ final class NotificationService: UNNotificationServiceExtension {
 
             // Initialize the engine if required
             
-            let engine = try self.obvEngine ?? initializeObvEngine()
-
+            let engine: ObvEngine
+            if let _engine = self.obvEngine {
+                engine = _engine
+            } else {
+                engine = try await initializeObvEngine()
+                self.obvEngine = engine
+            }
+            
             do {
                 try await didReceive(request, engine: engine)
             } catch {
@@ -94,7 +105,7 @@ final class NotificationService: UNNotificationServiceExtension {
             let bestAttemptContent = await self.notificationContent.bestAttemptContent
             contentHandler(bestAttemptContent)
             
-            self.obvEngine = nil
+            //self.obvEngine = nil
             Self.runningLog.removeAllEvents()
 
         }
@@ -216,7 +227,7 @@ final class NotificationService: UNNotificationServiceExtension {
                                                                          contactIdentifier: obvMessage.fromContactIdentity,
                                                                          contactDeviceUIDs: contactDeviceUIDs,
                                                                          attachmentNumber: nil)
-                        try await engine.postReturnReceiptWithElements(returnReceiptToSend: returnReceiptToSend)
+                        try await engine.postReturnReceiptsWithElements(returnReceiptsToSend: [returnReceiptToSend])
                     }
                 } catch {
                     Self.logger.fault("The Return Receipt could not be posted")
@@ -479,10 +490,10 @@ final class NotificationService: UNNotificationServiceExtension {
     }
     
     
-    private func initializeObvEngine() throws -> ObvEngine {
+    private func initializeObvEngine() async throws -> ObvEngine {
         let mainEngineContainer = ObvUICoreDataConstants.ContainerURL.mainEngineContainer.url
         ObvEngine.mainContainerURL = mainEngineContainer
-        let obvEngine = try ObvEngine.startLimitedToDecrypting(
+        let obvEngine = try await ObvEngine.startLimitedToDecrypting(
             sharedContainerIdentifier: ObvAppCoreConstants.appGroupIdentifier,
             logPrefix: "DecryptingLimitedEngine",
             remoteNotificationByteIdentifierForServer: ObvAppCoreConstants.remoteNotificationByteIdentifierForServer,

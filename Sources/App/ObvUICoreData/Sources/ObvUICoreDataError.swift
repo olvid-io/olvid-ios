@@ -204,9 +204,12 @@ public enum ObvUICoreDataError: Error {
     case unexpectedLocationType
     case cannotSendWipedMessage
     case couldNotTurnPersistedMessageSentIntoAMessageJSON
+    case contactHasNoCoreDetails
 
     public var errorDescription: String? {
         switch self {
+        case .contactHasNoCoreDetails:
+            return "Contact has no core details"
         case .couldNotTurnPersistedMessageSentIntoAMessageJSON:
             return "Could not turn PersistedMessageSent into a MessageJSON"
         case .cannotSendWipedMessage:

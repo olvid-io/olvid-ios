@@ -23,10 +23,11 @@ import ObvUICoreData
 import ObvTypes
 import ObvAppTypes
 
+@MainActor
 protocol SingleDiscussionViewControllerDelegate: AnyObject {
     
     func userTappedTitleOfDiscussion(_ discussion: PersistedDiscussion)
-    @MainActor func userDidTapOnContactImage(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
+    func userDidTapOnContactImage(contactObjectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>)
 
 
     /// Delegation method called whenever a user taps on a user mention within the text
@@ -52,5 +53,9 @@ protocol SingleDiscussionViewControllerDelegate: AnyObject {
     func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ singleDiscussionViewController: SomeSingleDiscussionViewController, discussionPermanentID: ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedDiscussion>, messagePermanentIDs: Set<ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedMessage>>) async throws
     func messagesAreNotNewAnymore(_ singleDiscussionViewController: SomeSingleDiscussionViewController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws
     func userWantsToUpdateReaction(_ singleDiscussionViewController: SomeSingleDiscussionViewController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws
+
+    func userWantsToShowMapToConsultLocationSharedContinously(_ singleDiscussionViewController: SomeSingleDiscussionViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws
     func userWantsToShowMapToSendOrShareLocationContinuously(_ singleDiscussionViewController: SomeSingleDiscussionViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToStopSharingLocationInDiscussion(_ singleDiscussionViewController: SomeSingleDiscussionViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    
 }

@@ -37,12 +37,14 @@ import ObvScannerHostingView
 import ObvAppTypes
 import ObvOnboarding
 import ObvSubscription
+import ObvAppBackup
+import ObvDesignSystem
 
 
 protocol MainFlowViewControllerDelegate: AnyObject {
     func userWantsToAddNewDevice(_ viewController: MainFlowViewController, ownedCryptoId: ObvCryptoId) async
-    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: PersistedGroupV2.GroupType) async
-    func userWantsToPublishGroupV2Modification(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async
+    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws
+    func userWantsToPublishGroupV2Modification(_ mainFlowViewController: MainFlowViewController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws
     func userRequestedAppDatabaseSyncWithEngine(mainFlowViewController: MainFlowViewController) async throws
     func userWantsToSendDraft(mainFlowViewController: MainFlowViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, textBody: String, mentions: Set<MessageJSON.UserMention>) async throws
     func userWantsToAddAttachmentsToDraft(_ mainFlowViewController: MainFlowViewController, draftPermanentID: ObvManagedObjectPermanentID<PersistedDraft>, itemProviders: [NSItemProvider]) async throws
@@ -61,8 +63,35 @@ protocol MainFlowViewControllerDelegate: AnyObject {
     func updatedSetOfCurrentlyDisplayedMessagesWithLimitedVisibility(_ mainFlowViewController: MainFlowViewController, discussionPermanentID: ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedDiscussion>, messagePermanentIDs: Set<ObvUICoreData.ObvManagedObjectPermanentID<ObvUICoreData.PersistedMessage>>) async throws
     func messagesAreNotNewAnymore(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, discussionId: DiscussionIdentifier, messageIds: [MessageIdentifier]) async throws
     func userWantsToUpdateReaction(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>, newEmoji: String?) async throws
-    func userWantsToStopSharingLocation() async throws
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ mainFlowViewController: MainFlowViewController) async throws
+    func userWantsToStopSharingLocationInDiscussion(_ mainFlowViewController: MainFlowViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToFetchDeviceBakupFromServer(_ mainFlowViewController: MainFlowViewController, currentOwnedCryptoId: ObvCryptoId) async throws -> AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind>
+    func userWantsToUseDeviceBackupSeed(_ mainFlowViewController: MainFlowViewController, deviceBackupSeed: ObvCrypto.BackupSeed) async throws -> ObvAppBackup.ObvListOfDeviceBackupProfiles
+    func userWantsToFetchAllProfileBackupsFromServer(_ mainFlowViewController: MainFlowViewController, profileCryptoId: ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvProfileBackupFromServer]
+    func restoreProfileBackupFromServerNow(_ mainFlowViewController: MainFlowViewController, profileBackupFromServerToRestore: ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvRestoredOwnedIdentityInfos
+    func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(_ mainFlowViewController: MainFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data
+    @MainActor func userWantsToSubscribeOlvidPlus(_ mainFlowViewController: MainFlowViewController)
+    @MainActor func userWantsToAddDevice(_ mainFlowViewController: MainFlowViewController)
+    func userWantsToResetThisDeviceSeedAndBackups(_ mainFlowViewController: MainFlowViewController) async throws
+    func userWantsToDeleteProfileBackupFromSettings(_ mainFlowViewController: MainFlowViewController, infoForDeletion: ObvProfileBackupFromServer.InfoForDeletion) async throws
+    func fetchAvatarImage(_ mainFlowViewController: MainFlowViewController, profileCryptoId: ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage?
+    func getDeviceDeactivationConsequencesOfRestoringBackup(_ mainFlowViewController: MainFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
+    func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(_ mainFlowViewController: MainFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
+    @MainActor func userWantsToConfigureNewBackups(_ mainFlowViewController: MainFlowViewController, context: ObvAppBackupSetupContext)
+    @MainActor func userWantsToBeRemindedToWriteDownBackupKey(_ mainFlowViewController: MainFlowViewController) async
+    @MainActor func userWantsToDisplayBackupKey(_ mainFlowViewController: MainFlowViewController)
+    @MainActor func userWantsToRefreshSubscriptionStatus(_ mainFlowViewController: MainFlowViewController) async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult]
+    func fetchAvatarImage(_ mainFlowViewController: MainFlowViewController, localPhotoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage?
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws
+    func userWantsToLeaveGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws
+    func userWantsToDisbandGroup(_ mainFlowViewController: MainFlowViewController, groupIdentifier: ObvGroupV2Identifier) async throws
+    func userWantsObtainAvatar(_ mainFlowViewController: MainFlowViewController, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage?
+    @MainActor func userWantsToDeleteOwnedIdentityAndHasConfirmed(_ mainFlowViewController: MainFlowViewController, ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws
+    
     func userWantsToShowMapToSendOrShareLocationContinuously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws
+    func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws
+    func userWantsToShowMapToConsultLocationSharedContinously(_ mainFlowViewController: MainFlowViewController, presentingViewController: UIViewController, ownedCryptoId: ObvCryptoId) async throws
+
 }
 
 
@@ -93,7 +122,7 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     private var observationTokens = [NSObjectProtocol]()
     
     private var secureCallsInBetaModalWasShown = false
-    
+        
     /// This variable is set when Olvid is started because an invite or configuration link was opened.
     /// When this happens, this link is processed as soon as this view controller's view appears.
     private var externallyScannedOrTappedOlvidURL: OlvidURL?
@@ -112,6 +141,8 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
     // When an AirDrop deeplink is performed at a time no discussion is presented, we keep the file URL here so as to insert the file in the chosen discussion.
     private var airDroppedFileURLs = [URL]()
     
+    private let appDataSourceForObvUIGroupV2Router = AppDataSourceForObvUIGroupV2Router()
+    
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: MainFlowViewController.self))
     
     init(ownedCryptoId: ObvCryptoId, obvEngine: ObvEngine, createPasscodeDelegate: CreatePasscodeDelegate, localAuthenticationDelegate: LocalAuthenticationDelegate, appBackupDelegate: AppBackupDelegate, mainFlowViewControllerDelegate: MainFlowViewControllerDelegate, storeKitDelegate: StoreKitDelegate) {
@@ -127,10 +158,22 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         self.mainFlowViewControllerDelegate = mainFlowViewControllerDelegate
         self.splitDelegate = MainFlowViewControllerSplitDelegate()
         
-        let discussionsFlowViewController = DiscussionsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
-        let contactsFlowViewController = ContactsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
-        let groupsFlowViewController = GroupsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
-        let invitationsFlowViewController = NewInvitationsFlowViewController(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine)
+        let discussionsFlowViewController = DiscussionsFlowViewController(
+            ownedCryptoId: ownedCryptoId,
+            appListOfGroupMembersViewDataSource: appDataSourceForObvUIGroupV2Router,
+            obvEngine: obvEngine)
+        let contactsFlowViewController = ContactsFlowViewController(
+            ownedCryptoId: ownedCryptoId,
+            appListOfGroupMembersViewDataSource: appDataSourceForObvUIGroupV2Router,
+            obvEngine: obvEngine)
+        let groupsFlowViewController = GroupsFlowViewController(
+            ownedCryptoId: ownedCryptoId,
+            appListOfGroupMembersViewDataSource: appDataSourceForObvUIGroupV2Router,
+            obvEngine: obvEngine)
+        let invitationsFlowViewController = NewInvitationsFlowViewController(
+            ownedCryptoId: ownedCryptoId,
+            appListOfGroupMembersViewDataSource: appDataSourceForObvUIGroupV2Router,
+            obvEngine: obvEngine)
 
         self.discussionsFlowViewController = discussionsFlowViewController
         self.contactsFlowViewController = contactsFlowViewController
@@ -184,6 +227,8 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
         
         super.init(nibName: nil, bundle: nil)
 
+        self.appDataSourceForObvUIGroupV2Router.setDelegate(to: self)
+        
         self.delegate = splitDelegate
         // This single discussion view controller looks bad in split view under iPad. It looked ok when using .allVisible
         self.preferredDisplayMode = .oneBesideSecondary // .allVisible
@@ -300,9 +345,6 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
             primaryAction: { [weak self] in
                 (self?.presentedViewController as? OlvidAlertViewController)?.dismiss(animated: true) {
                     switch snackBarCategory {
-                    case .createBackupKey, .shouldPerformBackup, .shouldVerifyBackupKey, .lastUploadBackupHasFailed:
-                        ObvMessengerInternalNotification.userWantsToNavigateToDeepLink(deepLink: .backupSettings)
-                            .postOnDispatchQueue()
                     case .grantPermissionToRecord:
                         AVAudioSession.sharedInstance().requestRecordPermission { _ in
                             ObvMessengerInternalNotification.displayedSnackBarShouldBeRefreshed.postOnDispatchQueue()
@@ -327,7 +369,7 @@ final class MainFlowViewController: UISplitViewController, OlvidURLHandler {
             secondaryAction: { [weak self] in
                 (self?.presentedViewController as? OlvidAlertViewController)?.dismiss(animated: true) {
                     switch snackBarCategory {
-                    case .createBackupKey, .shouldPerformBackup, .shouldVerifyBackupKey, .grantPermissionToRecord, .grantPermissionToRecordInSettings, .lastUploadBackupHasFailed:
+                    case .grantPermissionToRecord, .grantPermissionToRecordInSettings:
                         ObvMessengerInternalNotification.UserDismissedSnackBarForLater(ownedCryptoId: ownedCryptoId, snackBarCategory: snackBarCategory)
                             .postOnDispatchQueue()
                     case .upgradeIOS:
@@ -868,16 +910,36 @@ extension MainFlowViewController {
             textField.text = ""
             textField.autocapitalizationType = .allCharacters
         }
-        alert.addAction(UIAlertAction(title: Strings.AlertTypeDeleteToProceedWithOwnedIdentityDeletion.doDelete, style: .destructive, handler: { [unowned alert] _ in
+        alert.addAction(UIAlertAction(title: Strings.AlertTypeDeleteToProceedWithOwnedIdentityDeletion.doDelete, style: .destructive, handler: { [weak self, unowned alert] _ in
             guard let textField = alert.textFields?.first else { assertionFailure(); return }
             guard textField.text?.trimmingWhitespacesAndNewlines() == Strings.AlertTypeDeleteToProceedWithOwnedIdentityDeletion.wordToType else { return }
-            ObvMessengerInternalNotification.userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
-                .postOnDispatchQueue()
+            Task { await self?.userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion) }
         }))
         alert.addAction(UIAlertAction(title: CommonString.Word.Cancel, style: .cancel))
         present(alert, animated: true)
     }
 
+    
+    @MainActor
+    private func userWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async {
+        do {
+            guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+            try await mainFlowViewControllerDelegate.userWantsToDeleteOwnedIdentityAndHasConfirmed(self, ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
+        } catch {
+            await showThenHideHUD(type: .xmark)
+        }
+    }
+    
+}
+
+// MARK: - Implementing AppListOfGroupMembersViewDataSourceDelegate
+
+extension MainFlowViewController: AppListOfGroupMembersViewDataSourceDelegate {
+    
+    func fetchAvatarImage(_ dataSource: AppDataSourceForObvUIGroupV2Router, localPhotoURL: URL, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.fetchAvatarImage(self, localPhotoURL: localPhotoURL, avatarSize: avatarSize)
+    }
     
 }
 
@@ -886,15 +948,44 @@ extension MainFlowViewController {
 
 extension MainFlowViewController: ObvFlowControllerDelegate {
     
+    
+    func userWantsToDisplayBackupKey(_ flowController: any ObvFlowController) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        mainFlowViewControllerDelegate.userWantsToDisplayBackupKey(self)
+    }
+    
+    
+    func userWantsToSetupNewBackups(_ flowController: any ObvFlowController) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        mainFlowViewControllerDelegate.userWantsToConfigureNewBackups(self, context: .afterOnboardingWithoutMigratingFromLegacyBackups)
+    }
+    
+    func userWantsToShowMapToConsultLocationSharedContinously(_ flowController: any ObvFlowController, presentingViewController: UIViewController, ownedCryptoId: ObvCryptoId) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToShowMapToConsultLocationSharedContinously(self, presentingViewController: presentingViewController, ownedCryptoId: ownedCryptoId)
+    }
+    
+    func userWantsToShowMapToConsultLocationSharedContinously(_ flowController: any ObvFlowController, presentingViewController: UIViewController, messageObjectID: TypeSafeManagedObjectID<PersistedMessage>) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToShowMapToConsultLocationSharedContinously(self, presentingViewController: presentingViewController, messageObjectID: messageObjectID)
+    }
+
+    
     func userWantsToShowMapToSendOrShareLocationContinuously(_ flowController: any ObvFlowController, presentingViewController: UIViewController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
         try await mainFlowViewControllerDelegate.userWantsToShowMapToSendOrShareLocationContinuously(self, presentingViewController: presentingViewController, discussionIdentifier: discussionIdentifier)
     }
     
     
-    func userWantsToStopSharingLocation() async throws {
+    func userWantsToStopSharingLocationInDiscussion(_ flowController: any ObvFlowController, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
-        try await mainFlowViewControllerDelegate.userWantsToStopSharingLocation()
+        try await mainFlowViewControllerDelegate.userWantsToStopSharingLocationInDiscussion(self, discussionIdentifier: discussionIdentifier)
+    }
+    
+    
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(_ flowController: any ObvFlowController) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice(self)
     }
     
     
@@ -1004,18 +1095,20 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         userWantsToAddContact(alreadyScannedOrTappedURL: nil)
     }
     
-    func userWantsToPublishGroupV2Modification(groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async {
-        await mainFlowViewControllerDelegate?.userWantsToPublishGroupV2Modification(groupObjectID: groupObjectID, changeset: changeset)
+    
+    func userWantsToPublishGroupV2Modification(_ flowController: any ObvFlowController, groupObjectID: TypeSafeManagedObjectID<PersistedGroupV2>, changeset: ObvGroupV2.Changeset) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToPublishGroupV2Modification(self, groupObjectID: groupObjectID, changeset: changeset)
     }
     
     
-    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: PersistedGroupV2.GroupType) async {
-        await mainFlowViewControllerDelegate?.userWantsToPublishGroupV2Creation(groupCoreDetails: groupCoreDetails,
-                                                                                ownPermissions: ownPermissions,
-                                                                                otherGroupMembers: otherGroupMembers,
-                                                                                ownedCryptoId: ownedCryptoId,
-                                                                                photoURL: photoURL,
-                                                                                groupType: groupType)
+    func userWantsToPublishGroupV2Creation(groupCoreDetails: GroupV2CoreDetails, ownPermissions: Set<ObvGroupV2.Permission>, otherGroupMembers: Set<ObvGroupV2.IdentityAndPermissions>, ownedCryptoId: ObvCryptoId, photoURL: URL?, groupType: ObvAppTypes.ObvGroupType) async throws {
+        try await mainFlowViewControllerDelegate?.userWantsToPublishGroupV2Creation(groupCoreDetails: groupCoreDetails,
+                                                                                    ownPermissions: ownPermissions,
+                                                                                    otherGroupMembers: otherGroupMembers,
+                                                                                    ownedCryptoId: ownedCryptoId,
+                                                                                    photoURL: photoURL,
+                                                                                    groupType: groupType)
     }
 
     
@@ -1170,7 +1263,11 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
     /// Central method to call to invite a contact to be one2one. In most cases, this only triggers a `OneToOneContactInvitationProtocol`. In the case the owned identity is keycloak managed by the same server as the contact, this *also* triggers a Keycloak invitation.
     func userWantsToInviteContactsToOneToOne(ownedCryptoId: ObvCryptoId, users: [(cryptoId: ObvCryptoId, keycloakDetails: ObvKeycloakUserDetails?)]) async throws {
 
+        guard !users.isEmpty else { assertionFailure(); return }
+        
         let invitationsToSend = try await computeListOfOneToOneInvitationsToSend(ownedCryptoId: ownedCryptoId, users: users)
+        
+        guard !invitationsToSend.isEmpty else { return }
         
         for invitationToSend in invitationsToSend {
             
@@ -1179,10 +1276,14 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
             case .oneToOneInvitationProtocol(ownedCryptoId: let ownedCryptoId, userCryptoId: let userCryptoId):
                 
                 do {
-                    try obvEngine.sendOneToOneInvitation(ownedIdentity: ownedCryptoId, contactIdentity: userCryptoId)
+                    try await obvEngine.sendOneToOneInvitation(ownedIdentity: ownedCryptoId, contactIdentity: userCryptoId)
                 } catch {
                     assertionFailure(error.localizedDescription)
-                    continue // In production, do not fail the whole process because something went wrong for one invitation
+                    if users.count == 1 {
+                        throw error
+                    } else {
+                        continue // In production, do not fail the whole process because something went wrong for one invitation
+                    }
                 }
 
             case .keycloak(ownedCryptoId: let ownedCryptoId, userCryptoId: let userCryptoId, userIdOrSignedDetails: let userIdOrSignedDetails):
@@ -1265,6 +1366,10 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
                         
                         if let contact = try PersistedObvContactIdentity.get(contactCryptoId: user.cryptoId, ownedIdentityCryptoId: ownedCryptoId, whereOneToOneStatusIs: .any, within: context) {
                             
+                            // Make sure no invitation exists for this contact: we don't want to spam the user
+                            let oneToOneInvitationPreviouslySent = try PersistedInvitationOneToOneInvitationSent.get(fromOwnedIdentity: ownedCryptoId, toContact: user.cryptoId, within: context)
+                            guard oneToOneInvitationPreviouslySent == nil else { continue }
+                            
                             if !contact.isOneToOne && contact.isActive && contact.hasAtLeastOneRemoteContactDevice() {
                                 invitationsToPerform.append(.oneToOneInvitationProtocol(ownedCryptoId: ownedCryptoId, userCryptoId: user.cryptoId))
                             }
@@ -1310,6 +1415,34 @@ extension MainFlowViewController: ObvFlowControllerDelegate {
         }
     }
 
+    
+    func userWantsToReplaceTrustedDetailsByPublishedDetails(_ flowController: any ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToReplaceTrustedDetailsByPublishedDetails(self, groupIdentifier: groupIdentifier)
+    }
+ 
+    
+    func userWantsToLeaveGroup(_ flowController: any ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToLeaveGroup(self, groupIdentifier: groupIdentifier)
+    }
+    
+    
+    func userWantsToDisbandGroup(_ flowController: any ObvFlowController, groupIdentifier: ObvGroupV2Identifier) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToDisbandGroup(self, groupIdentifier: groupIdentifier)
+    }
+    
+    
+    func userWantsToSelectAndCallContacts(flowController: any ObvFlowController, ownedCryptoId: ObvCryptoId, contactCryptoIds: Set<ObvCryptoId>, groupId: GroupIdentifier?) async {
+        await self.processUserWantsToSelectAndCallContacts(ownedCryptoId: ownedCryptoId, contactCryptoIds: contactCryptoIds, groupId: groupId)
+    }
+    
+    func userWantsObtainAvatar(_ flowController: any ObvFlowController, avatarSource: ObvAvatarSource, avatarSize: ObvDesignSystem.ObvAvatarSize) async throws -> UIImage? {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsObtainAvatar(self, avatarSource: avatarSource, avatarSize: avatarSize)
+    }
+    
 }
 
 
@@ -1774,6 +1907,17 @@ extension MainFlowViewController {
                 presentSettingsFlowViewController(specificSetting: .interface)
             }
 
+        case .storageManagementSettings:
+            assert(Thread.isMainThread)
+            if #available(iOS 17.0, *) {
+                if let presentedViewController = self.presentedViewController {
+                    presentedViewController.dismiss(animated: true) { [weak self] in
+                        self?.presentStorageManagementViewController()
+                    }
+                } else {
+                    presentStorageManagementViewController()
+                }
+            }
         case .message(let messsageAppIdentifier):
             mainTabBarController.selectedObvTab = .latestDiscussions
             presentedViewController?.dismiss(animated: true)
@@ -1827,6 +1971,14 @@ extension MainFlowViewController {
         present(vc, animated: true)
     }
 
+    @available(iOS 17.0, *)
+    @MainActor
+    private func presentStorageManagementViewController() {
+        assert(Thread.isMainThread)
+        let vc = StorageManagementHostingController(currentOwnedCryptoId: currentOwnedCryptoId)
+        present(vc, animated: true)
+    }
+    
 
     @MainActor
     private func presentSettingsFlowViewController(specificSetting: AllSettingsTableViewController.Setting) {
@@ -1843,7 +1995,9 @@ extension MainFlowViewController {
         let closeButton = UIBarButtonItem.forClosing(target: self, action: #selector(dismissPresentedViewController))
         vc.viewControllers.first?.navigationItem.setLeftBarButton(closeButton, animated: false)
         present(vc, animated: true) {
-            vc.pushSetting(specificSetting)
+            Task {
+                await vc.pushSetting(specificSetting, tableView: nil, didSelectRowAt: nil)
+            }
         }
     }
 
@@ -2136,7 +2290,7 @@ extension MainFlowViewController: ObvScannerHostingViewDelegate {
 // MARK: - SingleOwnedIdentityFlowViewControllerDelegate
 
 extension MainFlowViewController: SingleOwnedIdentityFlowViewControllerDelegate {
-    
+        
     func userWantsToUnbindOwnedIdentityFromKeycloak(_ viewController: SingleOwnedIdentityFlowViewController, ownedCryptoId: ObvTypes.ObvCryptoId) async throws(ObvUnbindOwnedIdentityFromKeycloakError) {
         try await KeycloakManagerSingleton.shared.unregisterKeycloakManagedOwnedIdentity(ownedCryptoId: ownedCryptoId)
     }
@@ -2171,11 +2325,25 @@ extension MainFlowViewController: SingleOwnedIdentityFlowViewControllerDelegate 
     }
     
     
+    func userWantsToRefreshSubscriptionStatus() async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult] {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToRefreshSubscriptionStatus(self)
+    }
+    
+    
     func userWantsToRestorePurchases() async throws {
         guard let storeKitDelegate else {
             throw ObvError.storeKitDelegateIsNil
         }
         return try await storeKitDelegate.userWantsToRestorePurchases()
+    }
+    
+    
+    func userWantsToKnowIfMultideviceSubscriptionIsActive() async throws -> Bool {
+        guard let storeKitDelegate else {
+            throw ObvError.storeKitDelegateIsNil
+        }
+        return try await storeKitDelegate.userWantsToKnowIfMultideviceSubscriptionIsActive()
     }
 
 }
@@ -2495,9 +2663,117 @@ extension MainFlowViewController {
 
 extension MainFlowViewController: SettingsFlowViewControllerDelegate {
     
+    func userWantsToBeRemindedToWriteDownBackupKey(_ settingsFlowViewController: SettingsFlowViewController) async {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        await mainFlowViewControllerDelegate.userWantsToBeRemindedToWriteDownBackupKey(self)
+    }
+    
+    
+    func getDeviceDeactivationConsequencesOfRestoringBackup(_ settingsFlowViewController: SettingsFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.getDeviceDeactivationConsequencesOfRestoringBackup(self, ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+    
+    
+    func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(_ settingsFlowViewController: SettingsFlowViewController, ownedCryptoIdentity: ObvCrypto.ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToKeepAllDevicesActiveThanksToOlvidPlus(self, ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+    
+    
+    func fetchAvatarImage(_ settingsFlowViewController: SettingsFlowViewController, profileCryptoId: ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage? {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return nil }
+        return await mainFlowViewControllerDelegate.fetchAvatarImage(self, profileCryptoId: profileCryptoId, encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel, frameSize: frameSize)
+    }
+    
+    
+    func userWantsToDeleteProfileBackupFromSettings(_ settingsFlowViewController: SettingsFlowViewController, infoForDeletion: ObvProfileBackupFromServer.InfoForDeletion) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToDeleteProfileBackupFromSettings(self, infoForDeletion: infoForDeletion)
+    }
+    
+    
+    func userWantsToResetThisDeviceSeedAndBackups(_ settingsFlowViewController: SettingsFlowViewController) async throws {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        try await mainFlowViewControllerDelegate.userWantsToResetThisDeviceSeedAndBackups(self)
+    }
+    
+    
+    func userWantsToAddDevice(_ settingsFlowViewController: SettingsFlowViewController) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        mainFlowViewControllerDelegate.userWantsToAddDevice(self)
+    }
+    
+    
+    func userWantsToSubscribeOlvidPlus(_ settingsFlowViewController: SettingsFlowViewController) {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); return }
+        mainFlowViewControllerDelegate.userWantsToSubscribeOlvidPlus(self)
+    }
+    
+    
+    func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(_ settingsFlowViewController: SettingsFlowViewController, keycloakConfiguration: ObvTypes.ObvKeycloakConfiguration) async throws -> Data {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(self, keycloakConfiguration: keycloakConfiguration)
+    }
+    
+    
+    func restoreProfileBackupFromServerNow(_ settingsFlowViewController: SettingsFlowViewController, profileBackupFromServerToRestore: ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvRestoredOwnedIdentityInfos {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.restoreProfileBackupFromServerNow(self,
+                                                                                          profileBackupFromServerToRestore: profileBackupFromServerToRestore,
+                                                                                          rawAuthState: rawAuthState)
+    }
+    
+    
+    func userWantsToFetchAllProfileBackupsFromServer(_ settingsFlowViewController: SettingsFlowViewController, profileCryptoId: ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvProfileBackupFromServer] {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        let profileBackupsFromServer = try await mainFlowViewControllerDelegate.userWantsToFetchAllProfileBackupsFromServer(self, profileCryptoId: profileCryptoId, profileBackupSeed: profileBackupSeed)
+        return profileBackupsFromServer
+    }
+    
+    
+    func userWantsToUseDeviceBackupSeed(_ settingsFlowViewController: SettingsFlowViewController, deviceBackupSeed: ObvCrypto.BackupSeed) async throws -> ObvAppBackup.ObvListOfDeviceBackupProfiles {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToUseDeviceBackupSeed(self, deviceBackupSeed: deviceBackupSeed)
+    }
+    
+
+    func userWantsToFetchDeviceBakupFromServer(_ settingsFlowViewController: SettingsFlowViewController) async throws -> AsyncStream<ObvDeviceBackupFromServerWithAppInfoKind> {
+        guard let mainFlowViewControllerDelegate else { assertionFailure(); throw ObvError.mainFlowViewControllerDelegateIsNil }
+        return try await mainFlowViewControllerDelegate.userWantsToFetchDeviceBakupFromServer(self, currentOwnedCryptoId: self.currentOwnedCryptoId)
+    }
+
+    
+    func userWantsToPerformBackupNow(_ settingsFlowViewController: SettingsFlowViewController) async throws {
+        try await obvEngine.userWantsToPerformBackupNow()
+    }
+    
+    
     func userRequestedAppDatabaseSyncWithEngine(settingsFlowViewController: SettingsFlowViewController) async throws {
         assert(mainFlowViewControllerDelegate != nil)
         try await mainFlowViewControllerDelegate?.userRequestedAppDatabaseSyncWithEngine(mainFlowViewController: self)
+    }
+
+    
+    func userWantsToConfigureNewBackups(_ settingsFlowViewController: SettingsFlowViewController, context: ObvAppBackupSetupContext) {
+        assert(mainFlowViewControllerDelegate != nil)
+        mainFlowViewControllerDelegate?.userWantsToConfigureNewBackups(self, context: context)
+    }
+
+    
+    func usersWantsToGetBackupParameterIsSynchronizedWithICloud(_ settingsFlowViewController: SettingsFlowViewController) async throws -> Bool {
+        return try await obvEngine.usersWantsToGetBackupParameterIsSynchronizedWithICloud()
+    }
+
+    
+    func usersWantsToChangeBackupParameterIsSynchronizedWithICloud(_ settingsFlowViewController: SettingsFlowViewController, newIsSynchronizedWithICloud: Bool) async throws {
+        try await obvEngine.usersWantsToChangeBackupParameterIsSynchronizedWithICloud(newIsSynchronizedWithICloud: newIsSynchronizedWithICloud)
+    }
+    
+    
+    func userWantsToEraseAndGenerateNewDeviceBackupSeed(_ settingsFlowViewController: SettingsFlowViewController) async throws -> ObvCrypto.BackupSeed {
+        let serverURLForStoringDeviceBackup = ObvAppCoreConstants.serverURLForStoringDeviceBackup
+        return try await obvEngine.userWantsToEraseAndGenerateNewDeviceBackupSeed(serverURLForStoringDeviceBackup: serverURLForStoringDeviceBackup)
     }
     
 }

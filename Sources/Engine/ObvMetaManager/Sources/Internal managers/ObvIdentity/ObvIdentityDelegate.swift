@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,7 +24,7 @@ import OlvidUtils
 import ObvJWS
 
 public protocol 
-ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
+ObvIdentityDelegate: ObvBackupableManager, ObvIdentityManagerSnapshotable {
     
     
     // MARK: - API related to owned identities
@@ -51,8 +51,11 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     func generateOwnedIdentity(onServerURL serverURL: URL, with identityDetails: ObvIdentityDetails, nameForCurrentDevice: String, keycloakState: ObvKeycloakState?, using prng: PRNGService, within obvContext: ObvContext) -> ObvCryptoIdentity?
     
     func markOwnedIdentityForDeletion(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws
+    func isOwnedIdentityDeletedOrDeletionIsInProgress(_ identity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Bool
     
     func deleteOwnedIdentity(_: ObvCryptoIdentity, within: ObvContext) throws
+    
+    func waitForOwnedIdentityDeletion(expectedOwnedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws
 
     func getOwnedIdentities(restrictToActive: Bool, within: ObvContext) throws -> Set<ObvCryptoIdentity>
     
@@ -229,6 +232,8 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     
     func decryptEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> OwnedDeviceDiscoveryResult
     
+    func decryptEncryptedOwnedDeviceDiscoveryResult(_ encryptedOwnedDeviceDiscoveryResult: EncryptedData, forOwnedCryptoIdentity ownedCryptoIdentity: ObvOwnedCryptoIdentity) throws -> OwnedDeviceDiscoveryResult
+    
     func decryptProtocolCiphertext(_ ciphertext: EncryptedData, forOwnedCryptoId ownedCryptoId: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Data
 
     func getInfosAboutOwnedDevice(withUid uid: UID, ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> (name: String?, expirationDate: Date?, latestRegistrationDate: Date?)
@@ -391,8 +396,6 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
 
     func getCapabilitiesOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>?
     
-    func getCapabilitiesOfOwnedIdentities(within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<ObvCapability>]
-
     func getCapabilitiesOfCurrentDeviceOfOwnedIdentity(ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws -> Set<ObvCapability>?
     
     func getCapabilitiesOfOtherOwnedDevice(ownedIdentity: ObvCryptoIdentity, deviceUID: UID, within obvContext: ObvContext) throws -> Set<ObvCapability>?
@@ -436,5 +439,12 @@ ObvIdentityDelegate: ObvBackupableManager, ObvSnapshotable {
     func getUIDsOfRemoteDevicesForWhichHavePreKeys(ownedCryptoId: ObvCryptoIdentity, remoteCryptoIds: Set<ObvCryptoIdentity>, within obvContext: ObvContext) throws -> [ObvCryptoIdentity: Set<UID>]
     
     func deleteCurrentDeviceExpiredPreKeysOfOwnedIdentity(ownedCryptoId: ObvCryptoIdentity, downloadTimestampFromServer: Date, within obvContext: ObvContext) throws
+    
+    // MARK: - New Backups
+    
+    func getBackupSeedOfOwnedIdentity(ownedCryptoId: ObvCryptoId, restrictToActive: Bool, flowId: FlowIdentifier) async throws -> BackupSeed?
 
+    func getAdditionalInfosFromIdentityManagerForProfileBackup(ownedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws -> AdditionalInfosFromIdentityManagerForProfileBackup
+
+    
 }

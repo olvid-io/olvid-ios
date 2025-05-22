@@ -123,7 +123,16 @@ public final class PersistedAttachmentSentRecipientInfos: NSManagedObject, Ident
         let request: NSFetchRequest<NSFetchRequestResult> = PersistedAttachmentSentRecipientInfos.fetchRequest()
         request.predicate = Predicate.withoutAssociatedPersistedMessageSentRecipientInfos
         let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        _ = try obvContext.execute(batchDeleteRequest)
+        batchDeleteRequest.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(batchDeleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
 
     

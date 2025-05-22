@@ -23,6 +23,7 @@ import AppAuth
 import ObvSystemIcon
 import AuthenticationServices
 import ObvTypes
+import ObvDesignSystem
 
 
 protocol IdentityProviderValidationViewActionsProtocol: AnyObject {
@@ -143,7 +144,8 @@ struct IdentityProviderValidationView: View {
             ScrollView {
                 VStack {
                     
-                    NewOnboardingHeaderView(title: "IDENTITY_PROVIDER", subtitle: nil)
+                    ObvHeaderView(title: "IDENTITY_PROVIDER".localizedInThisBundle,
+                                  subtitle: nil)
                     
                     HStack {
                         Spacer()

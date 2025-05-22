@@ -23,7 +23,7 @@ import ObvTypes
 import ObvSettings
 
 
-/// This is the top level `ObvSyncSnapshotNode` at the app level (its identity manager counterpart at the engine level is called `ObvIdentityManagerSyncSnapshotNode`).
+/// This is the top level `ObvSyncSnapshotNode` at the app level when creating a snapshot in the context of a profile transfer (its identity manager counterpart at the engine level is called `ObvIdentityManagerSyncSnapshotNode`).
 public struct AppSyncSnapshotNode: ObvSyncSnapshotNode, Codable {
     
     private let domain: Set<CodingKeys>

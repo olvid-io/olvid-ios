@@ -19,7 +19,6 @@
 
 import SwiftUI
 import UIKit
-import ObvUICoreData
 import ObvUIObvCircledInitials
 import ObvSystemIcon
 import ObvDesignSystem

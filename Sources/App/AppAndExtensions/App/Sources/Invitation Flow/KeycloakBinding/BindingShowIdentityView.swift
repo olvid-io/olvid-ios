@@ -24,6 +24,7 @@ import ObvUI
 import ObvUICoreData
 import ObvDesignSystem
 import ObvKeycloakManager
+import ObvCircleAndTitlesView
 
 
 struct BindingShowIdentityView: View {

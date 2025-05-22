@@ -11,16 +11,6 @@
         }
       }
     },
-    " " : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : ""
-          }
-        }
-      }
-    },
     "-" : {
       "localizations" : {
         "en" : {
@@ -566,22 +556,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Totalement"
-          }
-        }
-      }
-    },
-    "CONFIGURE_BACKUPS_BUTTON_TITLE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Setup backups"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paramétrer les sauvegardes"
           }
         }
       }
@@ -1377,22 +1351,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Exporter vers l'App Fichiers"
-          }
-        }
-      }
-    },
-    "FILES_APP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Files"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fichiers"
           }
         }
       }
@@ -2272,22 +2230,6 @@
         }
       }
     },
-    "PHOTO_LIBRARY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Photo library"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Librairie de photos"
-          }
-        }
-      }
-    },
     "Pin" : {
       "comment" : "Pin word, capitalized",
       "localizations" : {
@@ -2533,22 +2475,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supprimer le surnom"
-          }
-        }
-      }
-    },
-    "REMOVE_PICTURE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove the photo"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Supprimer la photo"
           }
         }
       }
@@ -2858,22 +2784,6 @@
         }
       }
     },
-    "SNACK_BAR_BODY_CREATE_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "It's time to setup backups!"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il est temps de configurer les sauvegardes !"
-          }
-        }
-      }
-    },
     "SNACK_BAR_BODY_GRANT_PERMISSION_TO_RECORD" : {
       "localizations" : {
         "en" : {
@@ -2970,22 +2880,6 @@
         }
       }
     },
-    "SNACK_BAR_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The last backup failed"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La dernière sauvegarde a échoué"
-          }
-        }
-      }
-    },
     "SNACK_BAR_BODY_NEW_APP_VERSION_AVAILABLE" : {
       "localizations" : {
         "en" : {
@@ -2998,54 +2892,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Une nouvelle version d'Olvid est disponible 🥳 !"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BODY_SHOULD_PERFORM_BACKUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "It's backup time!"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il est temps de faire une sauvegarde !"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BODY_SHOULD_VERIFY_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Do you remember your backup key?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous souvenez-vous de votre clé de sauvegarde ?"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BUTTON_TITLE_CREATE_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show me"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Info"
           }
         }
       }
@@ -3110,54 +2956,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Info"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BUTTON_TITLE_SHOULD_PERFORM_BACKUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show me"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Info"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_BUTTON_TITLE_SHOULD_VERIFY_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show me"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Info"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_BODY_CREATE_BACKUP_KEY_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If you were to lose your %@, or to uninstall Olvid by mistake, you would lose your Olvid ID, all your contacts, and all your groups 😱. Luckily for you, it is possible to setup secure backups 😅.\n\nPress \"Setup backups\" to begin."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Si vous veniez à égarer votre %@, ou à désinstaller Olvid par erreur, vous perdriez votre ID Olvid, l'intégralité de vos contacts et tous vos groupes 😱. Fort heureusement, il est possible de les sauvegarder de façon sécurisée 😅. Appuyez sur « Paramétrer les sauvegardes » pour commencer."
           }
         }
       }
@@ -3258,22 +3056,6 @@
         }
       }
     },
-    "SNACK_BAR_DETAILS_BODY_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You should make sure your iCloud account is properly configured on this device. Once this is done, we can try again."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nous vous recommandons de vérifier que vous avez bien configuré votre compte iCloud sur cet appareil. Ensuite, vous pourrez essayer à nouveau."
-          }
-        }
-      }
-    },
     "SNACK_BAR_DETAILS_BODY_NEW_APP_VERSION_AVAILABLE" : {
       "localizations" : {
         "en" : {
@@ -3286,54 +3068,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Une nouvelle version d'Olvid est disponible dès maintenant sur l'App Store. Pour ne pas rater les dernières nouveautés d'Olvid 🤓, nous vous recommandons de mettre à jour maintenant 🚀."
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_BODY_SHOULD_PERFORM_BACKUP_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In order not to lose any contact, we recommend you activate automatic backups to iCloud. Don't worry, these backups are encrypted 🤓!\nOtherwise, you may also perform manual backups on a regular basis.\n\nPress \"Setup backups\" to begin."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pour ne perdre aucun contact, nous vous recommandons d'activer les sauvegardes automatiques vers iCloud. Rassurez-vous, elles sont chiffrées 🤓 ! Sinon, vous pouvez aussi effectuer des sauvegardes manuelles régulièrement. Appuyez sur « Paramétrer les sauvegardes » pour commencer."
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_BODY_SHOULD_VERIFY_BACKUP_KEY_%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Having an up to date Olvid backup is essential, but you need your backup key to restore it!\n\nPress \"Setup backups\" to verify your key. If you lost it, don't worry, you can generate a new one 🤗."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avoir une sauvegarde à jour est essentiel, mais il vous faut votre clé de sauvegarde pour la restaurer ! Appuyez sur « Paramétrer les sauvegardes » pour vérifier votre clé. Si vous avez perdu cette clé, pas d'inquiétude, vous pourrez en générer une nouvelle 🤗."
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_TITLE_CREATE_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Why should I setup backups 🧐?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pourquoi configurer les sauvegardes 🧐 ?"
           }
         }
       }
@@ -3434,22 +3168,6 @@
         }
       }
     },
-    "SNACK_BAR_DETAILS_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Why should I fix this?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Que puis-je faire ?"
-          }
-        }
-      }
-    },
     "SNACK_BAR_DETAILS_TITLE_NEW_APP_VERSION_AVAILABLE" : {
       "localizations" : {
         "en" : {
@@ -3462,38 +3180,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Une nouvelle version d'Olvid est disponible 🥳 !"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_TITLE_SHOULD_PERFORM_BACKUP" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Why should I create a backup 🧐?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pourquoi faire une sauvegarde 🧐 ?"
-          }
-        }
-      }
-    },
-    "SNACK_BAR_DETAILS_TITLE_SHOULD_VERIFY_BACKUP_KEY" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Why should I remember my backup key 🧐?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pourquoi vérifier sa clé de sauvegarde 🧐 ?"
           }
         }
       }
@@ -3546,22 +3232,6 @@
         }
       }
     },
-    "SNACK_BAR_TITLE_LAST_UPLOAD_BACKUP_HAS_FAILED" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show me"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Info"
-          }
-        }
-      }
-    },
     "SOME_OF_YOUR_CONTACTS_MAY_NOT_APPEAR_AS_GROUP_V2_CANDIDATES" : {
       "localizations" : {
         "en" : {
@@ -3595,6 +3265,23 @@
         }
       }
     },
+    "STORAGE_MANAGEMENT" : {
+      "comment" : "Title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Storage management"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestion du stockage"
+          }
+        }
+      }
+    },
     "Stored" : {
       "comment" : "Stored word, capitalized",
       "localizations" : {
@@ -3608,22 +3295,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Stocké"
-          }
-        }
-      }
-    },
-    "TAKE_PICTURE" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Take a photo"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prendre une photo"
           }
         }
       }

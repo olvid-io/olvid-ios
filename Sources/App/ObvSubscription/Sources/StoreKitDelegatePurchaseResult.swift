@@ -25,4 +25,6 @@ public enum StoreKitDelegatePurchaseResult {
     case purchaseSucceeded(serverVerificationResult: ObvAppStoreReceipt.VerificationStatus)
     case userCancelled
     case pending
+    case expired
+    case revoked
 }

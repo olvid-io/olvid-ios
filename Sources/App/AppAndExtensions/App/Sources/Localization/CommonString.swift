@@ -185,6 +185,7 @@ extension CommonString {
         static let deleteOwnReaction = NSLocalizedString("DELETE_OWN_REACTION", comment: "Title")
         static let contactsAndGroups = NSLocalizedString("CONTACTS_AND_GROUPS", comment: "Title")
         static let contactsSortOrder = NSLocalizedString("CONTACTS_SORT_ORDER", comment: "Title")
+        static let storageManagement = NSLocalizedString("STORAGE_MANAGEMENT", comment: "Title")
         static let sendMessage = NSLocalizedString("SEND_MESSAGE", comment: "Title")
         static let markAsRead = NSLocalizedString("MARK_AS_READ", comment: "Title")
         static let gracePeriod = NSLocalizedString("GRACE_PERIOD", comment: "")

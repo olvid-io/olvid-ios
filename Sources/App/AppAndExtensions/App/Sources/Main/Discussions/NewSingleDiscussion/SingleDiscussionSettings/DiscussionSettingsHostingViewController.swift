@@ -366,7 +366,7 @@ fileprivate struct DiscussionExpirationSettingsView: View {
 
     var muteNotificationsFooter: Text {
         if let muteNotificationsEndDate = muteNotificationsEndDate {
-            if muteNotificationsEndDate == Date.distantFuture {
+            if muteNotificationsEndDate.timeIntervalSinceNow > TimeInterval(years: 10) {
                 return Text("MUTED_NOTIFICATIONS_FOOTER_INDEFINITELY")
             } else {
                 return Text("MUTED_NOTIFICATIONS_FOOTER_UNTIL_\(PersistedDiscussionLocalConfiguration.formatDateForMutedNotification(muteNotificationsEndDate))")

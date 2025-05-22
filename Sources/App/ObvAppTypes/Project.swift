@@ -11,6 +11,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
     name: name,
     resources: [],
     dependencies: [
+        .Olvid.App.obvAppCoreConstants,
         .Olvid.Shared.obvTypes,
         .Olvid.Engine.obvCrypto,
         .Olvid.Engine.obvEncoder,

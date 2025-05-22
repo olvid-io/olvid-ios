@@ -29,7 +29,11 @@ import ObvSubscription
 
 final class SubscriptionManager: NSObject, StoreKitDelegate {
     
-    private static let allProductIdentifiers = Set(["io.olvid.premium_2020_monthly"])
+    private static let allProductIdentifiers = Set(ProductIdentifier.allCases.map(\.rawValue))
+    
+    private enum ProductIdentifier: String, CaseIterable {
+        case ioOlvidPremiumMonthly = "io.olvid.premium_2020_monthly"
+    }
             
     private let obvEngine: ObvEngine
     private let log = OSLog(subsystem: ObvAppCoreConstants.logSubsystem, category: String(describing: SubscriptionManager.self))
@@ -74,6 +78,19 @@ final class SubscriptionManager: NSObject, StoreKitDelegate {
 
 extension SubscriptionManager {
     
+    /// Called when the user taps on the refresh button. This will look for the current entitlements.
+    /// If a valid subscription is found, the server is contacted with this subscription for all
+    /// owned identities.
+    func userWantsToRefreshSubscriptionStatus() async throws -> [ObvSubscription.StoreKitDelegatePurchaseResult] {
+        var results = [StoreKitDelegatePurchaseResult]()
+        for await verificationResult in Transaction.currentEntitlements {
+            let result = try await handle(updatedTransaction: verificationResult)
+            results.append(result)
+        }
+        return results
+    }
+    
+        
     func userRequestedListOfSKProducts() async throws -> [Product] {
 
         os_log("💰 User requested a list of available SKProducts", log: log, type: .info)
@@ -88,6 +105,44 @@ extension SubscriptionManager {
         return storeProducts
 
     }
+    
+    
+    func userWantsToKnowIfMultideviceSubscriptionIsActive() async throws -> Bool {
+        
+        let storeProducts = try await userRequestedListOfSKProducts()
+        
+        for product in storeProducts {
+            guard let subscription = product.subscription else { continue }
+            guard productIncludesMultiDeviceSubScription(product) else { continue }
+            let statuses = try await subscription.status
+            for status in statuses {
+                switch status.state {
+                case .subscribed, .inBillingRetryPeriod, .inGracePeriod:
+                    return true
+                case .expired, .revoked:
+                    continue
+                default:
+                    assertionFailure()
+                    continue
+                }
+            }
+        }
+        
+        return false
+        
+    }
+    
+    
+    private func productIncludesMultiDeviceSubScription(_ product: Product) -> Bool {
+        guard let productIdentifier = ProductIdentifier(rawValue: product.id) else {
+            assertionFailure()
+            return false
+        }
+        switch productIdentifier {
+        case .ioOlvidPremiumMonthly:
+            return true
+        }
+    }
 
     
     func userWantsToBuy(_ product: Product) async throws -> StoreKitDelegatePurchaseResult {
@@ -95,18 +150,8 @@ extension SubscriptionManager {
         let log = self.log
         os_log("💰 User requested purchase of the SKProduct with identifier %{public}@", log: log, type: .info, product.id)
         
-        // Make sure the user has at least one active (non-hidden) identity
-        
-        do {
-            guard try await userHasAtLeastOneActiveNonKeycloakNonHiddenIdentity() else {
-                os_log("💰 User requested a purchase but has no active non-hidden non-keycloak identity. Aborting.", log: log, type: .error)
-                throw ObvError.userHasNoActiveIdentity
-            }
-        } catch {
-            assertionFailure()
-            os_log("💰 User requested a purchase but we could not check if she has at least one active non-hidden non-keycloak identity. Aborting", log: log, type: .error)
-            throw ObvError.userHasNoActiveIdentity
-        }
+        // 2025-02-25: we used to make sure that the user had at least on active non-keycloak, non-hidden identity.
+        // We don't do that anymore, since this method may be called during the first onboarding, while restoring a backup.
         
         // Proceed with the purchase
         
@@ -139,7 +184,27 @@ extension SubscriptionManager {
     /// Called either when the user makes a purchase in the app, or when a transaction is obtained in `SubscriptionManager.listenForTransactions()`.
     private func handle(updatedTransaction verificationResult: VerificationResult<Transaction>) async throws -> StoreKitDelegatePurchaseResult {
         
-        let (transaction, signedAppStoreTransactionAsJWS) = try checkVerified(verificationResult)
+        let (transaction, signedAppStoreTransactionAsJWS, state) = try await checkVerified(verificationResult)
+        
+        switch state {
+        case .subscribed:
+            // We will process the purchase at the server level
+            break
+        case .expired:
+            return .expired
+        case .inBillingRetryPeriod:
+            // We will process the purchase at the server level
+            break
+        case .inGracePeriod:
+            // We will process the purchase at the server level
+            break
+        case .revoked:
+            return .revoked
+        default:
+            assertionFailure("Add the missing case")
+            // We will process the purchase at the server level
+            break
+        }
         
         let results = try await obvEngine.processAppStorePurchase(signedAppStoreTransactionAsJWS: signedAppStoreTransactionAsJWS, transactionIdentifier: transaction.id)
         
@@ -180,30 +245,17 @@ extension SubscriptionManager {
 
 extension SubscriptionManager {
         
-    private func checkVerified(_ result: VerificationResult<Transaction>) throws -> (transaction: Transaction, jwsRepresentation: String) {
+    private func checkVerified(_ result: VerificationResult<Transaction>) async throws -> (transaction: Transaction, jwsRepresentation: String, state: Product.SubscriptionInfo.RenewalState?) {
         switch result {
         case .unverified:
             throw ObvError.failedVerification
         case .verified(let signedType):
             let jwsRepresentation = result.jwsRepresentation
-            return (signedType, jwsRepresentation)
+            let state = await signedType.subscriptionStatus?.state
+            return (signedType, jwsRepresentation, state)
         }
     }
 
-    
-    private func userHasAtLeastOneActiveNonKeycloakNonHiddenIdentity() async throws -> Bool {
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
-            ObvStack.shared.performBackgroundTask { context in
-                do {
-                    let count = try PersistedObvOwnedIdentity.countCryptoIdsOfAllActiveNonHiddenNonKeycloakOwnedIdentities(within: context)
-                    continuation.resume(returning: count > 0)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
-    }
-    
     
     enum ObvError: LocalizedError {
         case transactionHasNoIdentifier

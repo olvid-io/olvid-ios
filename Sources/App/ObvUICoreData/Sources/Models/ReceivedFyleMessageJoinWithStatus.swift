@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,7 +27,7 @@ import ObvUICoreDataStructs
 
 
 @objc(ReceivedFyleMessageJoinWithStatus)
-public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus, Identifiable {
+public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus {
     
     private static let entityName = "ReceivedFyleMessageJoinWithStatus"
     private static let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "ReceivedFyleMessageJoinWithStatus")
@@ -232,7 +232,7 @@ public final class ReceivedFyleMessageJoinWithStatus: FyleMessageJoinWithStatus,
     
     private static var observersHolder = ReceivedFyleMessageJoinWithStatusObserversHolder()
     
-    public static func addReceivedFyleMessageJoinWithStatusObserver(_ newObserver: ReceivedFyleMessageJoinWithStatusObserver) async {
+    public static func addObvObserver(_ newObserver: ReceivedFyleMessageJoinWithStatusObserver) async {
         await observersHolder.addObserver(newObserver)
     }
 
@@ -375,7 +375,16 @@ extension ReceivedFyleMessageJoinWithStatus {
         let request: NSFetchRequest<NSFetchRequestResult> = ReceivedFyleMessageJoinWithStatus.fetchRequest()
         request.predicate = NSPredicate(format: "%K == NIL", Predicate.Key.receivedMessage.rawValue)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        try context.execute(deleteRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
+        } else {
+            assertionFailure()
+        }
     }
 
     

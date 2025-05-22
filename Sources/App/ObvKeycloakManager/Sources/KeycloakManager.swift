@@ -86,6 +86,21 @@ public final class KeycloakManagerSingleton {
     }
     
     
+    /// Called when trying to restore a profile backup on this device in the case where the transfer is restricted:
+    /// - the profile is keycloak-managed
+    /// - the backup indicates that an authentication is required
+    public func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestrictedDuringBackupRestore(keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data {
+        let (_, configuration) = try await discoverKeycloakServer(for: keycloakConfiguration.keycloakServerURL)
+        let authState = try await authenticate(
+            configuration: configuration,
+            clientId: keycloakConfiguration.clientId,
+            clientSecret: keycloakConfiguration.clientSecret,
+            ownedCryptoId: nil)
+        let rawAuthState = try authState.serialize()
+        return rawAuthState
+    }
+    
+    
     @MainActor
     public func resumeExternalUserAgentFlow(with url: URL) async throws -> Bool {
         guard let manager = manager else {

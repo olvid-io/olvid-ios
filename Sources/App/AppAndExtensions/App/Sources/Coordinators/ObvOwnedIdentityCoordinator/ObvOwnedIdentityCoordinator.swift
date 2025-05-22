@@ -53,6 +53,10 @@ final class ObvOwnedIdentityCoordinator: OlvidCoordinator {
 
     private func listenToNotifications() {
         
+        Task {
+            await PersistedObvOwnedIdentity.addObvObserver(self)
+        }
+        
         // Engine notifications
         
         observationTokens.append(contentsOf: [
@@ -100,9 +104,6 @@ final class ObvOwnedIdentityCoordinator: OlvidCoordinator {
         // Internal Notifications
         
         observationTokens.append(contentsOf: [
-            ObvMessengerCoreDataNotification.observeNewPersistedObvOwnedIdentity { [weak self] (ownedCryptoId, isActive) in
-                self?.processNewPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId, isActive: isActive)
-            },
             ObvMessengerInternalNotification.observeUserWantsToBindOwnedIdentityToKeycloak { (ownedCryptoId, obvKeycloakState, keycloakUserId, completionHandler) in
                 Task { [weak self] in
                     await self?.processUserWantsToBindOwnedIdentityToKeycloakNotification(ownedCryptoId: ownedCryptoId, obvKeycloakState: obvKeycloakState, keycloakUserId: keycloakUserId, completionHandler: completionHandler)
@@ -116,9 +117,6 @@ final class ObvOwnedIdentityCoordinator: OlvidCoordinator {
             },
             ObvMessengerInternalNotification.observeUserWantsToUnhideOwnedIdentity { [weak self] ownedCryptoId in
                 self?.processUserWantsToUnhideOwnedIdentity(ownedCryptoId: ownedCryptoId)
-            },
-            ObvMessengerInternalNotification.observeUserWantsToDeleteOwnedIdentityAndHasConfirmed { [weak self] ownedCryptoId, globalOwnedIdentityDeletion in
-                self?.processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ownedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
             },
             ObvMessengerInternalNotification.observeUserWantsToUpdateOwnedCustomDisplayName { [weak self] ownedCryptoId, newCustomDisplayName in
                 self?.updateOwnedNickname(ownedCryptoId: ownedCryptoId, newCustomDisplayName: newCustomDisplayName)
@@ -139,6 +137,17 @@ final class ObvOwnedIdentityCoordinator: OlvidCoordinator {
         }
     }
 
+}
+
+
+// MARK: - Implementing PersistedObvOwnedIdentityObserver
+
+extension ObvOwnedIdentityCoordinator: PersistedObvOwnedIdentityObserver {
+    
+    func newPersistedObvOwnedIdentity(ownedCryptoId: ObvTypes.ObvCryptoId, isActive: Bool) async {
+        await processNewPersistedObvOwnedIdentity(ownedCryptoId: ownedCryptoId, isActive: isActive)
+    }
+    
 }
 
 
@@ -174,15 +183,7 @@ extension ObvOwnedIdentityCoordinator {
         let composedOp = createCompositionOfOneContextualOperation(op1: op1)
         self.coordinatorsQueue.addOperation(composedOp)
     }
-    
-    
-    private func processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) {
-        let op1 = DeleteOwnedIdentityOperation(ownedCryptoId: ownedCryptoId, obvEngine: obvEngine, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion, delegate: self)
-        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
-        composedOp.queuePriority = .veryHigh
-        self.coordinatorsQueue.addOperation(composedOp)
-    }
-    
+
     
     private func processUserWantsToUnhideOwnedIdentity(ownedCryptoId: ObvCryptoId) {
         let op1 = UnhideOwnedIdentityOperation(ownedCryptoId: ownedCryptoId)
@@ -218,12 +219,10 @@ extension ObvOwnedIdentityCoordinator {
     }
 
     
-    private func processNewPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) {
-        Task {
-            await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
-            try? await obvEngine.downloadMessagesAndConnectWebsockets()
-            try? obvEngine.setCapabilitiesOfCurrentDeviceForAllOwnedIdentities(ObvMessengerConstants.supportedObvCapabilities)
-        }
+    private func processNewPersistedObvOwnedIdentity(ownedCryptoId: ObvCryptoId, isActive: Bool) async {
+        await ObvPushNotificationManager.shared.requestRegisterToPushNotificationsForAllActiveOwnedIdentities()
+        try? await obvEngine.downloadMessagesAndConnectWebsockets()
+        try? obvEngine.setCapabilitiesOfCurrentDeviceForAllOwnedIdentities(ObvMessengerConstants.supportedObvCapabilities)
     }
     
 
@@ -331,12 +330,43 @@ extension ObvOwnedIdentityCoordinator {
 }
 
 
-// MARK: - DeleteOwnedIdentityOperationDelegate
+// MARK: - Processing user's calls, relayed by the RootViewController
 
-extension ObvOwnedIdentityCoordinator: DeleteOwnedIdentityOperationDelegate {
+extension ObvOwnedIdentityCoordinator {
     
-    func deleteHiddenOwnedIdentityAsTheLastVisibleOwnedIdentityIsBeingDeleted(hiddenOwnedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) {
-        processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: hiddenOwnedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
+    func processUserWantsToDeleteOwnedIdentityAndHasConfirmed(ownedCryptoId: ObvCryptoId, globalOwnedIdentityDeletion: Bool) async throws {
+        
+        let op1 = DetermineHiddenOwnedIdentitiesToDeleteOnOwnedIdentityDeletionRequestOperation(ownedCryptoId: ownedCryptoId)
+        let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+        composedOp.queuePriority = .veryHigh
+        await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
+
+        guard let hiddenCryptoIdsToDelete = op1.hiddenCryptoIdsToDelete else {
+            assertionFailure()
+            throw ObvError.couldNotDetermineHiddenIdentitiesToDelete
+        }
+        
+        for hiddenOwnedCryptoIdToDelete in hiddenCryptoIdsToDelete {
+            try await obvEngine.deleteOwnedIdentity(with: hiddenOwnedCryptoIdToDelete, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
+        }
+        
+        try await obvEngine.deleteOwnedIdentity(with: ownedCryptoId, globalOwnedIdentityDeletion: globalOwnedIdentityDeletion)
+
+        let ops = await getOperationsRequiredToSyncOwnedIdentities(isRestoringSyncSnapshotOrBackup: false)
+        await coordinatorsQueue.addAndAwaitOperations(ops)
+
+    }
+
+    
+}
+
+
+// MARK: - Errors
+
+extension ObvOwnedIdentityCoordinator {
+    
+    enum ObvError: Error {
+        case couldNotDetermineHiddenIdentitiesToDelete
     }
     
 }

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -33,6 +33,13 @@ import ObvKeycloakManager
 import ObvSubscription
 import ObvAppTypes
 import ObvScannerHostingView
+import ObvAppBackup
+import ObvDesignSystem
+
+
+public protocol NewOnboardingFlowViewControllerDataSource: NewWelcomeScreenViewDataSource {
+    // No additional methods
+}
 
 
 public protocol NewOnboardingFlowViewControllerDelegate: AnyObject, SubscriptionPlansViewActionsProtocol {
@@ -101,12 +108,36 @@ public protocol NewOnboardingFlowViewControllerDelegate: AnyObject, Subscription
 
     func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(onboardingFlow: NewOnboardingFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration, transferProofElements: ObvKeycloakTransferProofElements) async throws -> ObvKeycloakTransferProofAndAuthState
 
+    func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestrictedDuringBackupRestore(onboardingFlow: NewOnboardingFlowViewController, keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data
+
     func userProvidesProofOfAuthenticationOnKeycloakServer(onboardingFlow: NewOnboardingFlowViewController, ownedCryptoId: ObvCryptoId, protocolInstanceUID: UID, proof: ObvTypes.ObvKeycloakTransferProofAndAuthState) async throws
 
     func handleOlvidURL(onboardingFlow: NewOnboardingFlowViewController, olvidURL: OlvidURL) async
     
     func userPastedStringWhichIsNotValidOlvidURL(onboardingFlow: NewOnboardingFlowViewController) async
     
+    func userWantsToFetchDeviceBakupFromServer(onboardingFlow: NewOnboardingFlowViewController) async throws -> AsyncStream<ObvAppBackup.ObvDeviceBackupFromServerWithAppInfoKind>
+    
+    func userWantsToFetchAllProfileBackupsFromServer(_ onboardingFlow: NewOnboardingFlowViewController, profileCryptoId: ObvTypes.ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvTypes.ObvProfileBackupFromServer]
+    
+    func restoreProfileBackupFromServerNow(_ onboardingFlow: NewOnboardingFlowViewController, profileBackupFromServerToRestore: ObvTypes.ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvAppBackup.ObvRestoredOwnedIdentityInfos
+
+    func userWantsToUseDeviceBackupSeed(_ onboardingFlow: NewOnboardingFlowViewController, deviceBackupSeed: ObvCrypto.BackupSeed) async throws -> ObvAppBackup.ObvListOfDeviceBackupProfiles
+
+    func fetchAvatarImage(_ onboardingFlow: NewOnboardingFlowViewController, profileCryptoId: ObvTypes.ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage?
+    
+    func getOrCreateDeviceBackupSeed(_ onboardingFlow: NewOnboardingFlowViewController, saveToKeychain: Bool) async throws -> ObvCrypto.BackupSeed
+
+    func userWantsToDeactivateBackups(_ onboardingFlow: NewOnboardingFlowViewController) async throws
+    
+    func getDeviceDeactivationConsequencesOfRestoringBackup(_ onboardingFlow: NewOnboardingFlowViewController, ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
+
+    func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(_ onboardingFlow: NewOnboardingFlowViewController, ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence
+    
+    func shouldSetupNewBackupsDuringOnboarding(_ onboardingFlow: NewOnboardingFlowViewController) async -> Bool
+    
+    func userWantsToBeRemindedToWriteDownBackupKey(_ onboardingFlow: NewOnboardingFlowViewController) async
+
 }
 
 
@@ -147,7 +178,7 @@ public struct Onboarding {
 
 
 @MainActor
-public final class NewOnboardingFlowViewController: UIViewController, NewWelcomeScreenViewControllerDelegate, NewUnmanagedDetailsChooserViewControllerDelegate, NewOwnedIdentityGeneratedViewControllerDelegate, UINavigationControllerDelegate, ChooseBetweenBackupRestoreAndAddThisDeviceViewControllerDelegate, ChooseBackupFileViewControllerDelegate, EnterBackupKeyViewControllerDelegate, WaitingForBackupRestoreViewControllerDelegate, ManagedDetailsViewerViewControllerDelegate, TransfertProtocolSourceCodeDisplayerViewControllerDelegate, AddProfileViewControllerDelegate, CurrentDeviceNameChooserViewControllerDelegate, TransfertProtocolTargetCodeFormViewControllerDelegate, InputSASOnSourceViewControllerDelegate, OwnedIdentityTransferSummaryViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
+public final class NewOnboardingFlowViewController: UIViewController, NewOwnedIdentityGeneratedViewControllerDelegate, UINavigationControllerDelegate, ChooseBetweenBackupRestoreAndAddThisDeviceViewControllerDelegate, ChooseBackupFileViewControllerDelegate, EnterBackupKeyViewControllerDelegate, WaitingForBackupRestoreViewControllerDelegate, ManagedDetailsViewerViewControllerDelegate, TransfertProtocolSourceCodeDisplayerViewControllerDelegate, TransfertProtocolTargetCodeFormViewControllerDelegate, InputSASOnSourceViewControllerDelegate, OwnedIdentityTransferSummaryViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
     
     private var internalState = NewOnboardingState.initial
     
@@ -169,7 +200,10 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
     
     private let directoryForTempFiles: URL
     
-    public init(logSubsystem: String, directoryForTempFiles: URL, mode: Onboarding.Mode) {
+    private let dataSource: NewOnboardingFlowViewControllerDataSource
+    
+    public init(logSubsystem: String, directoryForTempFiles: URL, mode: Onboarding.Mode, dataSource: NewOnboardingFlowViewControllerDataSource) {
+        self.dataSource = dataSource
         self.mode = mode
         self.directoryForTempFiles = directoryForTempFiles
         super.init(nibName: nil, bundle: nil)
@@ -179,6 +213,11 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
     required init?(coder aDecoder: NSCoder) { fatalError("die") }
     
     private var requestKeycloakSyncOnDeinit = true
+    
+    private var appBackupOnboardingRouter: ObvAppBackupOnboardingRouter?
+    
+    /// Used when configuring automatic backups of the device seed to the iCloud Keychain
+    private var routerAndProfileKind: (router: ObvAppBackupSetupRouter, profileKind: NewOnboardingState.ProfileKind)?
     
     deinit {
         if requestKeycloakSyncOnDeinit {
@@ -249,7 +288,7 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
             // See the delegate method lower in this file:
             // NewOnboardingFlowViewController.userWantsToLeaveWelcomeScreenAndHasNoOlvidProfileYet(controller:)
             
-            rootViewController = NewWelcomeScreenViewController(delegate: self, showCloseButton: defaultShowCloseButton)
+            rootViewController = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
             
         case .addNewDevice(ownedCryptoId: let ownedCryptoId, ownedDetails: let ownedDetails, isTransferRestricted: let isTransferRestricted):
             
@@ -309,11 +348,12 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
                 flowNavigationController.popToRootViewController(animated: true)
                 return
             } else if !flowNavigationController.viewControllers.isEmpty {
-                let newViewControllers: [UIViewController] = [NewWelcomeScreenViewController(delegate: self, showCloseButton: defaultShowCloseButton)] + flowNavigationController.viewControllers
+                let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
+                let newViewControllers: [UIViewController] = [vc] + flowNavigationController.viewControllers
                 flowNavigationController.setViewControllers(newViewControllers, animated: false)
                 flowNavigationController.popToRootViewController(animated: true)
             } else {
-                let welcomeScreenVC = NewWelcomeScreenViewController(delegate: self, showCloseButton: defaultShowCloseButton)
+                let welcomeScreenVC = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
                 flowNavigationController.setViewControllers([welcomeScreenVC], animated: animated)
                 return
             }
@@ -351,7 +391,8 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
             }
         case .keycloakConfigAvailable(keycloakConfiguration: let keycloakConfiguration, isConfiguredFromMDM: let isConfiguredFromMDM):
             var viewControllers = [UIViewController]()
-            let welcomeScreenVC = flowNavigationController.viewControllers.first(where: { $0 is NewWelcomeScreenViewController }) ?? NewWelcomeScreenViewController(delegate: self, showCloseButton: defaultShowCloseButton)
+            let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
+            let welcomeScreenVC = flowNavigationController.viewControllers.first(where: { $0 is NewWelcomeScreenViewController }) ?? vc
             viewControllers.append(welcomeScreenVC)
             if let manualVC = flowNavigationController.viewControllers.first(where: { $0 is NewIdentityProviderManualConfigurationViewController }) {
                 viewControllers.append(manualVC)
@@ -369,19 +410,23 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
                 delegate: self)
             flowNavigationController.pushViewController(managedDetailsViewerVC, animated: true)
         case .userIndicatedSheHasAnExistingProfile:
-            let welcomeScreenVC = flowNavigationController.viewControllers.first(where: { $0 is NewWelcomeScreenViewController }) ?? NewWelcomeScreenViewController(delegate: self, showCloseButton: defaultShowCloseButton)
+            let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
+            let welcomeScreenVC = flowNavigationController.viewControllers.first(where: { $0 is NewWelcomeScreenViewController }) ?? vc
             let chooseVC = flowNavigationController.viewControllers.first(where: { $0 is ChooseBetweenBackupRestoreAndAddThisDeviceViewController }) ?? ChooseBetweenBackupRestoreAndAddThisDeviceViewController(delegate: self)
             flowNavigationController.setViewControllers([welcomeScreenVC, chooseVC], animated: animated)
-        case .userWantsToRestoreSomeBackup:
-            let welcomeScreenVC = flowNavigationController.viewControllers.first(where: { $0 is NewWelcomeScreenViewController }) ?? NewWelcomeScreenViewController(delegate: self, showCloseButton: defaultShowCloseButton)
+        case .userWantsToRestoreSomeLegacyBackup(backupSeedManuallyEntered: let backupSeedManuallyEntered):
+            let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
+            let welcomeScreenVC = flowNavigationController.viewControllers.first(where: { $0 is NewWelcomeScreenViewController }) ?? vc
             let chooseVC = flowNavigationController.viewControllers.first(where: { $0 is ChooseBetweenBackupRestoreAndAddThisDeviceViewController }) ?? ChooseBetweenBackupRestoreAndAddThisDeviceViewController(delegate: self)
             let chooseBackupFileVC = flowNavigationController.viewControllers.first(where: { $0 is ChooseBackupFileViewController }) ?? ChooseBackupFileViewController(delegate: self)
+            (chooseBackupFileVC as? ChooseBackupFileViewController)?.setBackupSeedManuallyEntered(backupSeedManuallyEntered: backupSeedManuallyEntered)
             flowNavigationController.setViewControllers([welcomeScreenVC, chooseVC, chooseBackupFileVC], animated: animated)
-        case .userWantsToRestoreThisEncryptedBackup(encryptedBackup: let encryptedBackup):
+        case .userWantsToRestoreThisEncryptedLegacyBackup(encryptedBackup: let encryptedBackup, backupSeedManuallyEntered: let backupSeedManuallyEntered):
             guard let acceptableCharactersForBackupKeyString = await delegate?.onboardingRequiresAcceptableCharactersForBackupKeyString() else { assertionFailure(); return }
             let enterBackupKeyViewController = EnterBackupKeyViewController(
                 model: .init(encryptedBackup: encryptedBackup,
-                             acceptableCharactersForBackupKeyString: acceptableCharactersForBackupKeyString),
+                             acceptableCharactersForBackupKeyString: acceptableCharactersForBackupKeyString,
+                             initialValueOfBackupSeedManuallyEntered: backupSeedManuallyEntered),
                 delegate: self)
             flowNavigationController.pushViewController(enterBackupKeyViewController, animated: true)
         case .userWantsToRestoreThisDecryptedBackup(backupRequestIdentifier: let backupRequestIdentifier):
@@ -435,13 +480,19 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
                 delegate: self)
             flowNavigationController.pushViewController(vc, animated: animated)
         case .showOwnedIdentityTransferFailed(error: let error):
-            let welcomeScreenVC = flowNavigationController.viewControllers.first as? NewWelcomeScreenViewController ?? NewWelcomeScreenViewController(delegate: self, showCloseButton: defaultShowCloseButton)
+            let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
+            let welcomeScreenVC = flowNavigationController.viewControllers.first as? NewWelcomeScreenViewController ?? vc
             let failureVC = OwnedIdentityTransferFailureViewController(model: .init(error: error))
             flowNavigationController.setViewControllers([welcomeScreenVC, failureVC], animated: animated)
         case .userWantsToManuallyConfigureTheIdentityProvider:
-            let welcomeScreenVC = flowNavigationController.viewControllers.first as? NewWelcomeScreenViewController ?? NewWelcomeScreenViewController(delegate: self, showCloseButton: defaultShowCloseButton)
+            let vc = NewWelcomeScreenViewController(delegate: self, dataSource: dataSource, showCloseButton: defaultShowCloseButton)
+            let welcomeScreenVC = flowNavigationController.viewControllers.first as? NewWelcomeScreenViewController ?? vc
             let manualVC = NewIdentityProviderManualConfigurationViewController(delegate: self)
             flowNavigationController.setViewControllers([welcomeScreenVC, manualVC], animated: animated)
+        case .setupNewBackups(profileKind: let profileKind):
+            let router = ObvAppBackupSetupRouter(navigationController: flowNavigationController, delegate: self, context: .onboarding)
+            self.routerAndProfileKind = (router, profileKind) // Strong pointer to the router
+            router.pushInitialViewController()
         }
     }
     
@@ -497,8 +548,20 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
     }
     
     
-    // MARK: - NewWelcomeScreenViewControllerDelegate
+}
+
+
+// MARK: - NewWelcomeScreenViewControllerDelegate
+
+extension NewOnboardingFlowViewController: NewWelcomeScreenViewControllerDelegate {
     
+    func userWantsToLeaveWelcomeScreenAndFinishOnboarding(controller: NewWelcomeScreenViewController, ownedIdentityThatCanBeOpened: ObvTypes.ObvCryptoId) {
+        Task {
+            await delegate?.onboardingIsFinished(onboardingFlow: self, ownedCryptoIdGeneratedDuringOnboarding: ownedIdentityThatCanBeOpened)
+        }
+    }
+    
+        
     func userWantsToCloseOnboarding(controller: NewWelcomeScreenViewController) async {
         await delegate?.userWantsToCloseOnboardingAndCancelAnyOwnedTransferProtocol(onboardingFlow: self)
     }
@@ -529,7 +592,10 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
         await showNextOnboardingScreen(animated: true)
     }
     
-    
+}
+
+extension NewOnboardingFlowViewController: NewUnmanagedDetailsChooserViewControllerDelegate {
+
     // MARK: - NewUnmanagedDetailsChooserViewControllerDelegate
     
     func userWantsToCloseOnboarding(controller: NewUnmanagedDetailsChooserViewController) async {
@@ -604,7 +670,7 @@ public final class NewOnboardingFlowViewController: UIViewController, NewWelcome
     }
     
 }
- 
+
 
 // MARK: - NewAutorisationRequesterViewControllerDelegate
 
@@ -626,14 +692,14 @@ extension NewOnboardingFlowViewController: NewAutorisationRequesterViewControlle
             if await requestingAutorisationIsNecessary(for: .recordPermission) {
                 internalState = .shouldRequestPermission(profileKind: profileKind, category: .recordPermission)
             } else {
-                internalState = determineLastInternalState(profileKind: profileKind)
+                internalState = await determineInternalStateAfterPermissionRequests(profileKind: profileKind)
             }
         case .recordPermission:
             if now {
                 let granted = await AVAudioSession.sharedInstance().requestRecordPermission()
                 os_log("User granted access to audio: %@", log: Self.log, type: .info, String(describing: granted))
             }
-            internalState = determineLastInternalState(profileKind: profileKind)
+            internalState = await determineInternalStateAfterPermissionRequests(profileKind: profileKind)
         }
         await showNextOnboardingScreen(animated: true)
     }
@@ -751,9 +817,24 @@ extension NewOnboardingFlowViewController {
     
     // MARK: - ChooseBetweenBackupRestoreAndAddThisDeviceViewControllerDelegate
     
+    /// This is called after the user indicated that:
+    /// 1. She already has a profile
+    /// 2. She has no other device with the profile available
+    /// In that case, we launch the backup restore flow
+    /// This used to be the starting place of the legacy backup flow.
     func userWantsToRestoreBackup(controller: ChooseBetweenBackupRestoreAndAddThisDeviceViewController) async {
-        self.internalState = .userWantsToRestoreSomeBackup
-        await showNextOnboardingScreen(animated: true)
+        guard let flowNavigationController else { assertionFailure(); return }
+        
+        let userIsPerformingInitialOnboarding: Bool
+        switch mode {
+        case .initialOnboarding:
+            userIsPerformingInitialOnboarding = true
+        case .addNewDevice, .addProfile:
+            userIsPerformingInitialOnboarding = false
+        }
+        
+        appBackupOnboardingRouter = ObvAppBackupOnboardingRouter(navigationController: flowNavigationController, delegate: self, userIsPerformingInitialOnboarding: userIsPerformingInitialOnboarding)
+        appBackupOnboardingRouter?.pushInitialViewController()
     }
     
     
@@ -770,8 +851,8 @@ extension NewOnboardingFlowViewController {
     
     // MARK: - ChooseBackupFileViewControllerDelegate
     
-    func userWantsToProceedWithBackup(controller: ChooseBackupFileViewController, encryptedBackup: Data) async {
-        self.internalState = .userWantsToRestoreThisEncryptedBackup(encryptedBackup: encryptedBackup)
+    func userWantsToProceedWithLegacyBackup(controller: ChooseBackupFileViewController, encryptedBackup: Data, backupSeedManuallyEntered: BackupSeed?) async {
+        self.internalState = .userWantsToRestoreThisEncryptedLegacyBackup(encryptedBackup: encryptedBackup, backupSeedManuallyEntered: backupSeedManuallyEntered)
         await showNextOnboardingScreen(animated: true)
     }
     
@@ -811,8 +892,80 @@ extension NewOnboardingFlowViewController {
     
     
     func backupRestorationFailed(controller: WaitingForBackupRestoreViewController) async {
-        self.internalState = .userWantsToRestoreSomeBackup
+        self.internalState = .userWantsToRestoreSomeLegacyBackup(backupSeedManuallyEntered: nil)
         await showNextOnboardingScreen(animated: true)
+    }
+    
+}
+
+
+// MARK: - Implementing ObvAppBackupOnboardingRouterDelegate
+
+extension NewOnboardingFlowViewController: ObvAppBackupOnboardingRouterDelegate {
+    
+    public func userWantsToKeepAllDevicesActiveThanksToOlvidPlus(_ router: ObvAppBackup.ObvAppBackupOnboardingRouter, ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvAppBackup.ObvDeviceDeactivationConsequence {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.userWantsToKeepAllDevicesActiveThanksToOlvidPlus(self, ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+    
+    
+    public func userWantsToCancelProfileRestoration(_ router: ObvAppBackup.ObvAppBackupOnboardingRouter) {
+        self.appBackupOnboardingRouter = nil
+    }
+    
+    
+    public func getDeviceDeactivationConsequencesOfRestoringBackup(_ router: ObvAppBackupOnboardingRouter, ownedCryptoIdentity: ObvOwnedCryptoIdentity) async throws -> ObvDeviceDeactivationConsequence {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.getDeviceDeactivationConsequencesOfRestoringBackup(self, ownedCryptoIdentity: ownedCryptoIdentity)
+    }
+    
+    
+    public func fetchAvatarImage(_ router: ObvAppBackup.ObvAppBackupOnboardingRouter, profileCryptoId: ObvTypes.ObvCryptoId, encodedPhotoServerKeyAndLabel: Data?, frameSize: ObvDesignSystem.ObvAvatarSize) async -> UIImage? {
+        guard let delegate else { assertionFailure(); return nil }
+        return await delegate.fetchAvatarImage(self, profileCryptoId: profileCryptoId, encodedPhotoServerKeyAndLabel: encodedPhotoServerKeyAndLabel, frameSize: frameSize)
+    }
+    
+    
+    public func userWantsToFetchDeviceBakupFromServer(_ router: ObvAppBackup.ObvAppBackupOnboardingRouter) async throws -> AsyncStream<ObvAppBackup.ObvDeviceBackupFromServerWithAppInfoKind> {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.userWantsToFetchDeviceBakupFromServer(onboardingFlow: self)
+    }
+    
+    
+    public func userWantsToUseDeviceBackupSeed(_ router: ObvAppBackup.ObvAppBackupOnboardingRouter, deviceBackupSeed: ObvCrypto.BackupSeed) async throws -> ObvAppBackup.ObvListOfDeviceBackupProfiles {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.userWantsToUseDeviceBackupSeed(self, deviceBackupSeed: deviceBackupSeed)
+    }
+    
+    
+    public func userWantsToFetchAllProfileBackupsFromServer(_ router: ObvAppBackup.ObvAppBackupOnboardingRouter, profileCryptoId: ObvTypes.ObvCryptoId, profileBackupSeed: ObvCrypto.BackupSeed) async throws -> [ObvTypes.ObvProfileBackupFromServer] {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.userWantsToFetchAllProfileBackupsFromServer(self, profileCryptoId: profileCryptoId, profileBackupSeed: profileBackupSeed)
+    }
+    
+    
+    public func restoreProfileBackupFromServerNow(_ router: ObvAppBackup.ObvAppBackupOnboardingRouter, profileBackupFromServerToRestore: ObvTypes.ObvProfileBackupFromServer, rawAuthState: Data?) async throws -> ObvAppBackup.ObvRestoredOwnedIdentityInfos {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.restoreProfileBackupFromServerNow(self, profileBackupFromServerToRestore: profileBackupFromServerToRestore, rawAuthState: rawAuthState)
+    }
+    
+    
+    public func userWantsToOpenProfile(_ router: ObvAppBackup.ObvAppBackupOnboardingRouter, ownedCryptoId: ObvTypes.ObvCryptoId) {
+        Task {
+            await requestNextAutorisationPermissionAfterCreatingTheOwnedIdentity(profileKind: .backupRestored(ownedCryptoId: ownedCryptoId))
+        }
+    }
+    
+    
+    public func userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestricted(_ router: ObvAppBackupOnboardingRouter, keycloakConfiguration: ObvKeycloakConfiguration) async throws -> Data {
+        guard let delegate else { assertionFailure(); throw ObvError.theDelegateIsNotSet }
+        return try await delegate.userNeedsToProveCapacityToAuthenticateOnKeycloakServerAsTransferIsRestrictedDuringBackupRestore(onboardingFlow: self, keycloakConfiguration: keycloakConfiguration)
+    }
+
+    
+    public func userWantsToRestoreLegacyBackup(_ router: ObvAppBackupOnboardingRouter, backupSeedManuallyEntered: BackupSeed) {
+        self.internalState = .userWantsToRestoreSomeLegacyBackup(backupSeedManuallyEntered: backupSeedManuallyEntered)
+        Task { await showNextOnboardingScreen(animated: true) }
     }
     
 }
@@ -954,6 +1107,13 @@ extension NewOnboardingFlowViewController: IdentityProviderValidationViewControl
         await showNextOnboardingScreen(animated: true)
     }
     
+}
+
+
+// MARK: - Implementing AddProfileViewControllerDelegate
+
+extension NewOnboardingFlowViewController: AddProfileViewControllerDelegate {
+    
     // MARK: - AddProfileViewControllerDelegate
     
     func userWantsToCloseOnboarding(controller: AddProfileViewController) async {
@@ -973,7 +1133,18 @@ extension NewOnboardingFlowViewController: IdentityProviderValidationViewControl
     }
     
     
-    // MARK: - CurrentDeviceNameChooserViewControllerDelegate
+    func userWantsToRestoreBackup(controller: AddProfileViewController) async {
+        guard let flowNavigationController else { assertionFailure(); return }
+        appBackupOnboardingRouter = ObvAppBackupOnboardingRouter(navigationController: flowNavigationController, delegate: self, userIsPerformingInitialOnboarding: false)
+        appBackupOnboardingRouter?.pushInitialViewController()
+    }
+    
+}
+
+
+// MARK: - Implementing CurrentDeviceNameChooserViewControllerDelegate
+
+extension NewOnboardingFlowViewController: CurrentDeviceNameChooserViewControllerDelegate {
     
     func userWantsToCloseOnboarding(controller: CurrentDeviceNameChooserViewController) async {
         await delegate?.userWantsToCloseOnboardingAndCancelAnyOwnedTransferProtocol(onboardingFlow: self)
@@ -1183,6 +1354,56 @@ extension NewOnboardingFlowViewController: NewIdentityProviderManualConfiguratio
 }
 
 
+// MARK: - Implementing ObvAppBackupSetupRouterDelegate
+
+extension NewOnboardingFlowViewController: ObvAppBackupSetupRouterDelegate {
+    
+    public func userWantsToBeRemindedToWriteDownBackupKey(_ router: ObvAppBackup.ObvAppBackupSetupRouter) async {
+        guard let delegate else { assertionFailure(); return }
+        await delegate.userWantsToBeRemindedToWriteDownBackupKey(self)
+    }
+    
+    
+    public func userWantsToDeactivateBackups(_ router: ObvAppBackup.ObvAppBackupSetupRouter) async throws {
+        guard let delegate else {
+            assertionFailure()
+            throw ObvError.theDelegateIsNotSet
+        }
+        return try await delegate.userWantsToDeactivateBackups(self)
+    }
+    
+    
+    public func getOrCreateDeviceBackupSeed(_ router: ObvAppBackup.ObvAppBackupSetupRouter, saveToKeychain: Bool) async throws -> ObvCrypto.BackupSeed {
+        guard let delegate else {
+            assertionFailure()
+            throw ObvError.theDelegateIsNotSet
+        }
+        return try await delegate.getOrCreateDeviceBackupSeed(self, saveToKeychain: saveToKeychain)
+    }
+    
+    
+    public func userConfirmedWritingDownTheBackupKey(_ router: ObvAppBackup.ObvAppBackupSetupRouter) {
+        assertionFailure("Since we never show the screen allowing the user to write down the backup seed, this call is unexpected")
+        userHasFinishedTheBackupsSetup(router)
+    }
+    
+    
+    public func userHasFinishedTheBackupsSetup(_ router: ObvAppBackup.ObvAppBackupSetupRouter) {
+        guard let routerAndProfileKind else {
+            assertionFailure("When showing the ObvAppBackupSetupRouter flow, we should have stored the profile kind to make it accessible here")
+            return
+        }
+        let profileKind = routerAndProfileKind.profileKind
+        Task {
+            internalState = await determineInternalStateAfterPermissionRequests(profileKind: profileKind)
+            await showNextOnboardingScreen(animated: true)
+        }
+    }
+    
+
+}
+
+
 // MARK: - OlvidURLHandler
 
 extension NewOnboardingFlowViewController: OlvidURLHandler {
@@ -1317,20 +1538,26 @@ extension NewOnboardingFlowViewController: OlvidURLHandler {
         } else if await requestingAutorisationIsNecessary(for: .recordPermission) {
             internalState = .shouldRequestPermission(profileKind: profileKind, category: .recordPermission)
         } else {
-            internalState = determineLastInternalState(profileKind: profileKind)
+            internalState = await determineInternalStateAfterPermissionRequests(profileKind: profileKind)
         }
         await showNextOnboardingScreen(animated: true)
     }
     
     
     @MainActor
-    private func determineLastInternalState(profileKind: NewOnboardingState.ProfileKind) -> NewOnboardingState {
-        switch profileKind {
-        case .unmanaged, .keycloakManaged, .backupRestored:
-            return .finalize(profileKind: profileKind)
-        case .transferred(ownedCryptoId: let transferredOwnedCryptoId, postTransferError: let postTransferError):
-            return .successfulTransferWasPerfomed(transferredOwnedCryptoId: transferredOwnedCryptoId, postTransferError: postTransferError)
+    private func determineInternalStateAfterPermissionRequests(profileKind: NewOnboardingState.ProfileKind) async -> NewOnboardingState {
+        assert(delegate != nil)
+        if let delegate, await delegate.shouldSetupNewBackupsDuringOnboarding(self) {
+            return .setupNewBackups(profileKind: profileKind)
+        } else {
+            switch profileKind {
+            case .unmanaged, .keycloakManaged, .backupRestored:
+                return .finalize(profileKind: profileKind)
+            case .transferred(ownedCryptoId: let transferredOwnedCryptoId, postTransferError: let postTransferError):
+                return .successfulTransferWasPerfomed(transferredOwnedCryptoId: transferredOwnedCryptoId, postTransferError: postTransferError)
+            }
         }
+            
     }
 
     
@@ -1361,7 +1588,7 @@ extension NewOnboardingFlowViewController: OlvidURLHandler {
             }
         }
     }
-
+    
     
     private var defaultNameForCurrentDevice: String {
         UIDevice.current.preciseModel

@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -277,6 +277,23 @@ public struct DiscussionSharedConfigurationJSON: Codable {
     let oneToOneIdentifier: OneToOneIdentifierJSON?
     let groupV1Identifier: GroupV1Identifier?
     let groupV2Identifier: GroupV2Identifier?
+    
+    public func getDiscussionIdentifier(ownedCryptoId: ObvCryptoId) -> ObvDiscussionIdentifier? {
+        if let oneToOneIdentifier {
+            guard let contactIdentifier = oneToOneIdentifier.getContactIdentifier(ownedCryptoId: ownedCryptoId) else { assertionFailure(); return nil }
+            return ObvDiscussionIdentifier.oneToOne(id: contactIdentifier)
+        } else if let groupV1Identifier {
+            let obvGroupV1Identifier = ObvGroupV1Identifier(ownedCryptoId: ownedCryptoId, groupV1Identifier: groupV1Identifier)
+            return ObvDiscussionIdentifier.groupV1(id: obvGroupV1Identifier)
+        } else if let groupV2Identifier {
+            guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupV2Identifier) else { assertionFailure(); return nil }
+            let obvGroupV2Identifier = ObvGroupV2Identifier(ownedCryptoId: ownedCryptoId, identifier: identifier)
+            return ObvDiscussionIdentifier.groupV2(id: obvGroupV2Identifier)
+        } else {
+            assertionFailure()
+            return nil
+        }
+    }
 
     public var groupIdentifier: GroupIdentifier? {
         if let groupV1Identifier = groupV1Identifier {
@@ -484,6 +501,12 @@ public struct OneToOneIdentifierJSON: Codable, Equatable, Hashable {
             return nil
         }
     }
+    
+    public func getContactIdentifier(ownedCryptoId: ObvCryptoId) -> ObvContactIdentifier? {
+        guard identities.contains(ownedCryptoId) else { assertionFailure(); return nil }
+        guard let contactCryptoId: ObvCryptoId = getContactIdentity(ownedIdentity: ownedCryptoId) else { assertionFailure(); return nil }
+        return ObvContactIdentifier(contactCryptoId: contactCryptoId, ownedCryptoId: ownedCryptoId)
+    }
 
     public init(ownedCryptoId: ObvCryptoId, contactCryptoId: ObvCryptoId) {
         self.identity1 = ownedCryptoId
@@ -605,7 +628,8 @@ public struct LocationJSON: Codable, Equatable, Hashable {
                         longitude: longitude,
                         altitude: altitude,
                         precision: precision,
-                        address: address)
+                        address: address,
+                        isStationary: false)
     }
     
     var timestamp: Date? {
@@ -613,9 +637,12 @@ public struct LocationJSON: Codable, Equatable, Hashable {
         return Date(timeIntervalSince1970: timeIntervalSince1970)
     }
     
-    var expirationDate: Date? {
-        guard let sharingExpiration else { return nil }
-        return Date(timeIntervalSince1970: sharingExpiration)
+    var expirationDate: ObvLocationSharingExpirationDate {
+        if let sharingExpiration {
+            return .after(date: Date(timeIntervalSince1970: sharingExpiration))
+        } else {
+            return .never
+        }
     }
     
     enum CodingKeys: String, CodingKey {
@@ -789,6 +816,26 @@ public struct MessageJSON: Codable, Equatable, Hashable {
             return nil
         }
     }
+    
+    
+    /// Expected to be non-nil
+    public func getDiscussionIdentifier(ownedCryptoId: ObvCryptoId) -> ObvDiscussionIdentifier? {
+        if let oneToOneIdentifier {
+            guard let contactIdentifier = oneToOneIdentifier.getContactIdentifier(ownedCryptoId: ownedCryptoId) else { assertionFailure(); return nil }
+            return ObvDiscussionIdentifier.oneToOne(id: contactIdentifier)
+        } else if let groupV1Identifier {
+            let obvGroupV1Identifier = ObvGroupV1Identifier(ownedCryptoId: ownedCryptoId, groupV1Identifier: groupV1Identifier)
+            return ObvDiscussionIdentifier.groupV1(id: obvGroupV1Identifier)
+        } else if let groupV2Identifier {
+            guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupV2Identifier) else { assertionFailure(); return nil }
+            let obvGroupV2Identifier = ObvGroupV2Identifier(ownedCryptoId: ownedCryptoId, identifier: identifier)
+            return ObvDiscussionIdentifier.groupV2(id: obvGroupV2Identifier)
+        } else {
+            assertionFailure()
+            return nil
+        }
+    }
+
 
     enum CodingKeys: String, CodingKey {
         case senderSequenceNumber = "ssn"
@@ -1457,6 +1504,23 @@ public struct DeleteDiscussionJSON: Codable {
             return .oneToOne(id: .contactCryptoId(contactCryptoId: contactCryptoId))
         } else {
             throw ObvUICoreDataError.noDiscussionWasSpecified
+        }
+    }
+
+    public func getDiscussionIdentifier(ownedCryptoId: ObvCryptoId) -> ObvDiscussionIdentifier? {
+        if let oneToOneIdentifier {
+            guard let contactIdentifier = oneToOneIdentifier.getContactIdentifier(ownedCryptoId: ownedCryptoId) else { assertionFailure(); return nil }
+            return ObvDiscussionIdentifier.oneToOne(id: contactIdentifier)
+        } else if let groupV1Identifier {
+            let obvGroupV1Identifier = ObvGroupV1Identifier(ownedCryptoId: ownedCryptoId, groupV1Identifier: groupV1Identifier)
+            return ObvDiscussionIdentifier.groupV1(id: obvGroupV1Identifier)
+        } else if let groupV2Identifier {
+            guard let identifier = ObvGroupV2.Identifier(appGroupIdentifier: groupV2Identifier) else { assertionFailure(); return nil }
+            let obvGroupV2Identifier = ObvGroupV2Identifier(ownedCryptoId: ownedCryptoId, identifier: identifier)
+            return ObvDiscussionIdentifier.groupV2(id: obvGroupV2Identifier)
+        } else {
+            assertionFailure()
+            return nil
         }
     }
 

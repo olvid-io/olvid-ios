@@ -83,7 +83,16 @@ extension OutboxAttachmentSession {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: OutboxAttachmentSession.entityName)
         fetchRequest.predicate = NSPredicate(format: "%K == NIL", attachmentKey)
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        _ = try obvContext.execute(request)
+        request.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
     
     

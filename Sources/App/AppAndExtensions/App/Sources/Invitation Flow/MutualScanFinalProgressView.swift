@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -22,6 +22,7 @@ import ObvTypes
 import ObvEngine
 import ObvUICoreData
 import ObvUI
+import ObvDesignSystem
 
 
 /// View shown to confirm that the contact will be added as soon as network is back. When both devices are in normal condition, this view shows a spinner and is automatically dismissed as soon as the contact's one2one discussion is added.

@@ -19,6 +19,7 @@ private let frameworkTarget = Target.makeFrameworkTarget(
         .Olvid.App.UI.obvCircledInitials,
         .Olvid.App.obvSystemIcon,
         .Olvid.App.obvUICoreData,
+        .Olvid.App.obvAppCoreConstants
     ])
 
 

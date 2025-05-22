@@ -36,7 +36,7 @@ public final class PersistedInvitationOneToOneInvitationSent: PersistedInvitatio
     
     // MARK: Computed variables
     
-    var contactIdentity: ObvCryptoId? {
+    public private(set) var contactIdentity: ObvCryptoId? {
         get {
             try? ObvCryptoId(identity: rawContactIdentity)
         }
@@ -113,6 +113,35 @@ extension PersistedInvitationOneToOneInvitationSent {
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.date.rawValue, ascending: true)]
         request.fetchLimit = 1
         return request
+    }
+    
+    /// Allows to monitor the existence of a one2one invitation sent
+    public static func getFetchedResultsController(ownedCryptoId: ObvCryptoId, remoteCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedInvitationOneToOneInvitationSent> {
+        let request: NSFetchRequest<PersistedInvitationOneToOneInvitationSent> = PersistedInvitationOneToOneInvitationSent.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedIdentity(ownedCryptoId),
+            SubentityPredicate.toContactIdentity(remoteCryptoId),
+        ])
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.date.rawValue, ascending: true)]
+        request.fetchLimit = 1
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+    }
+    
+    
+    public static func getFetchedResultsControllerForAll(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedInvitationOneToOneInvitationSent> {
+        let request: NSFetchRequest<PersistedInvitationOneToOneInvitationSent> = PersistedInvitationOneToOneInvitationSent.fetchRequest()
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            Predicate.withOwnedIdentity(ownedCryptoId),
+        ])
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.date.rawValue, ascending: true)]
+        request.fetchBatchSize = 500
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
     }
     
 }

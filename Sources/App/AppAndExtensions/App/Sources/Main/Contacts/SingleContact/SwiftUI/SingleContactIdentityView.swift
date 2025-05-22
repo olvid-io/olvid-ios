@@ -24,6 +24,7 @@ import ObvUI
 import ObvUICoreData
 import SwiftUI
 import ObvDesignSystem
+import ObvCircleAndTitlesView
 
 
 struct SingleContactIdentityView: View {
@@ -381,7 +382,7 @@ fileprivate struct ContactDevicesCardView: View {
                         .font(.system(size: 22))
                         .frame(width: 40)
 
-                    Text(String.localizedStringWithFormat(NSLocalizedString("CONTACT_HAS_N_DEVICES", comment: ""), contact.customOrShortDisplayName, contact.devices.count))
+                    Text("CONTACT_\(contact.customOrShortDisplayName)_HAS_\(contact.devices.count)_DEVICES")
                         .lineLimit(nil)
                         .fixedSize(horizontal: false, vertical: true)
                         .font(.system(.headline, design: .rounded))

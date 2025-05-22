@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -90,8 +90,10 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
         self.messagesKeptForLaterManager = messagesKeptForLaterManager
         listenToNotifications()
         Task {
-            await PersistedMessageReceived.addPersistedMessageReceivedObserver(self)
-            await ReceivedFyleMessageJoinWithStatus.addReceivedFyleMessageJoinWithStatusObserver(self)
+            await PersistedMessageReceived.addObvObserver(self)
+            await ReceivedFyleMessageJoinWithStatus.addObvObserver(self)
+            await PersistedDiscussion.addObvObserver(self)
+            await PersistedObvOwnedIdentity.addObvObserver(self)
             screenCaptureDetector = await ScreenCaptureDetector()
             await screenCaptureDetector?.setDelegate(to: self)
             await screenCaptureDetector?.startDetecting()
@@ -107,6 +109,7 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
     func applicationAppearedOnScreen(forTheFirstTime: Bool) async {
 
         if forTheFirstTime {
+            migrateReadMetadataOfPersistedMessageReceived()
             periodicallyRefreshReceivedAttachmentProgress()
             await processUnprocessedRecipientInfosThatCanNowBeProcessed()
             deleteEmptyLockedDiscussion()
@@ -121,7 +124,6 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
             cleanOrphanedPersistedMessageTimestampedMetadata()
             synchronizeAllOneToOneDiscussionTitlesWithContactNameOperation()
             refreshNumberOfNewMessagesForAllDiscussions()
-            await updateSharingLocationToFinishedState()
             Task {
                 await regularlyUpdateFyleMessageJoinWithStatusProgresses()
                 //fake()
@@ -283,15 +285,9 @@ final class PersistedDiscussionsUpdatesCoordinator: OlvidCoordinator, Coordinato
             ObvMessengerCoreDataNotification.observePersistedContactWasDeleted { [weak self ] _, _ in
                 self?.processPersistedContactWasDeletedNotification()
             },
-            ObvMessengerCoreDataNotification.observePersistedObvOwnedIdentityWasDeleted { [weak self] in
-                self?.processPersistedObvOwnedIdentityWasDeleted()
-            },
             ObvMessengerCoreDataNotification.observeAPersistedGroupV2MemberChangedFromPendingToNonPending { [weak self] contactObjectID in
                 self?.sendAppropriateDiscussionSharedConfigurationsToContact(input: .contact(contactObjectID: contactObjectID), sendSharedConfigOfOneToOneDiscussion: false)
                 Task { [weak self] in await self?.processUnprocessedRecipientInfosThatCanNowBeProcessed() }
-            },
-            ObvMessengerCoreDataNotification.observePersistedDiscussionWasInsertedOrReactivated { [weak self] ownedCryptoId, discussionIdentifier in
-                self?.processPersistedDiscussionWasInsertedOrReactivated(ownedCryptoId: ownedCryptoId, discussionIdentifier: discussionIdentifier)
             },
             ObvMessengerCoreDataNotification.observeAPersistedGroupV2WasInsertedInDatabase { [weak self] ownedCryptoId, groupIdentifier in
                 Task { [weak self] in await self?.processAPersistedGroupV2WasInsertedInDatabase(ownedCryptoId: ownedCryptoId, groupIdentifier: groupIdentifier) }
@@ -607,18 +603,47 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    /// Method called when starting App to update messages with a location in a SHARING state whereas it should be cancelled.
-    private func updateSharingLocationToFinishedState() async {
-        
-        let location = ObvLocation.endSharing(type: .all)
-        
-        do {
-            try await processObvLocationForThisPhysicalDevice(location)
-        } catch {
-            Self.logger.fault("Could not update location messages to finished state: \(error)")
-            assertionFailure()
+    /// Previously, we stored the timestamp when a received message was read as metadata associated with the message.
+    /// However, this approach impeded the implementation of batch updates to mark all new messages as 'not new'.
+    /// To resolve this issue, we migrated to storing the "read" timestamp directly in the `PersistedMessageReceived` table.
+    /// This method lazily handles migration from the legacy "read" metadata storage format.
+    private func migrateReadMetadataOfPersistedMessageReceived() {
+        Task {
+            
+            guard let userDefaults else { assertionFailure(); return }
+            let userDefaultsKey = "PersistedDiscussionsUpdatesCoordinator.migrateReadMetadataOfPersistedMessageReceived.wasFullyPerformed"
+            guard userDefaults.value(forKey: userDefaultsKey) == nil else { return }
+            
+            var migrationIsFinished = false
+            
+            while(!migrationIsFinished) {
+                
+                let op1 = MigrateReadMetadataOfPersistedMessageReceivedOperation()
+                let composedOp = createCompositionOfOneContextualOperation(op1: op1)
+                composedOp.queuePriority = .low
+                await self.coordinatorsQueue.addAndAwaitOperation(composedOp)
+                
+                guard composedOp.isFinished && !composedOp.isCancelled else {
+                    Self.logger.fault("Failed to migrate read metadatas of received messsages. Will retry in a few seconds.")
+                    assertionFailure()
+                    try? await Task.sleep(seconds: Double.random(in: 1.0..<10.0))
+                    continue
+                }
+                
+                migrationIsFinished = op1.migrationIsFinished
+                
+                Self.logger.info("Is read metadata about received messages finished: \(migrationIsFinished)")
+                
+                if migrationIsFinished {
+                    userDefaults.setValue(true, forKey: userDefaultsKey)
+                    return
+                } else {
+                    try? await Task.sleep(seconds: Double.random(in: 1.0..<2.0))
+                }
+                
+            }
+            
         }
-        
     }
 
     
@@ -713,6 +738,84 @@ extension PersistedDiscussionsUpdatesCoordinator: ObvDarwinNotificationObserver 
 
 }
 
+// MARK: - Implementing PersistedObvOwnedIdentityObserver
+
+extension PersistedDiscussionsUpdatesCoordinator: PersistedObvOwnedIdentityObserver {
+    
+    func aPersistedObvOwnedIdentityWasDeleted(ownedCryptoId: ObvCryptoId) async {
+        let operationsToQueue = getOperationsForDeletingOrphanedDatabaseItems { [weak self] _ in
+            self?.trashOrphanedFilesFoundInTheFylesDirectory()
+            self?.deleteOldOrOrphanedDatabaseEntries()
+            self?.cleanExpiredMuteNotificationsSetting()
+            self?.cleanOrphanedPersistedMessageTimestampedMetadata()
+        }
+        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
+        await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
+    }
+
+}
+
+
+// MARK: - Implementing PersistedDiscussionObserver
+
+extension PersistedDiscussionsUpdatesCoordinator: PersistedDiscussionObserver {
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ObvTypes.ObvCryptoId) async {
+        // This coordinator does nothing in this case
+    }
+        
+    func aPersistedDiscussionStatusChanged(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, status: ObvUICoreData.PersistedDiscussion.Status) async {
+        // This coordinator does nothing in this case
+    }
+    
+    func aPersistedDiscussionIsArchivedChanged(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, isArchived: Bool) async {
+        // This coordinator does nothing in this case
+    }
+    
+    func aPersistedDiscussionWasDeleted(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) async {
+        // This coordinator does nothing in this case
+    }
+    
+    func aPersistedDiscussionWasRead(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier, localDateWhenDiscussionRead: Date) async {
+        // This coordinator does nothing in this case
+    }
+    
+    func aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier) async {
+        
+        sendPersistedDiscussionSharedConfigurationIfAllowedTo(ownedCryptoId: discussionIdentifier.ownedCryptoId, discussionIdentifier: discussionIdentifier.toDiscussionIdentifier())
+        
+        let messagesKeptForLater = await messagesKeptForLaterManager.getMessagesExpectingDiscussion(discussionIdentifier: discussionIdentifier)
+        
+        for messageKeptForLater in messagesKeptForLater {
+            switch messageKeptForLater {
+            case .obvMessageExpectingDiscussion(discussionIdentifier: _, obvMessage: let obvMessage):
+                await processNewMessageReceivedNotification(obvMessage: obvMessage)
+            case .obvOwnedMessageExpectingDiscussion(discussionIdentifier: _, obvOwnedMessage: let obvOwnedMessage):
+                await processNewOwnedMessageReceivedNotification(obvOwnedMessage: obvOwnedMessage)
+            case .obvMessageExpectingContact,
+                 .obvOwnedMessageExpectingContact,
+                 .obvMessageExpectingOneToOneContact,
+                 .obvOwnedMessageExpectingOneToOneContact,
+                 .obvMessageForGroupV2,
+                 .obvOwnedMessageForGroupV2,
+                 .obvMessageExpectingGroupV2Member,
+                 .obvOwnedMessageExpectingGroupV2Member:
+                assertionFailure("Those messages are not expected to be part of the returned results")
+            }
+        }
+    }
+    
+    
+    /// When a new discussion is inserted in database (or when a locked/pre discussion becomes active again), we send our shared configuration (that was applied using the default settings for new discussions) to all contacts and owned devices.
+    private func sendPersistedDiscussionSharedConfigurationIfAllowedTo(ownedCryptoId: ObvCryptoId, discussionIdentifier: DiscussionIdentifier) {
+        let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(ownedCryptoId: ownedCryptoId, discussionId: discussionIdentifier, sendTo: .allContactsAndOtherOwnedDevices, obvEngine: obvEngine)
+        op.queuePriority = .low
+        op.completionBlock = { if op.isCancelled { assertionFailure() } }
+        coordinatorsQueue.addOperation(op)
+    }
+
+}
+
 
 
 // MARK: - ReceivedFyleMessageJoinWithStatusObserver
@@ -721,7 +824,7 @@ extension PersistedDiscussionsUpdatesCoordinator: ReceivedFyleMessageJoinWithSta
     
     func newReturnReceiptToSendForReceivedFyleMessageJoinWithStatus(returnReceiptToSend: ObvTypes.ObvReturnReceiptToSend) async {
         do {
-            try await obvEngine.postReturnReceiptWithElements(returnReceiptToSend: returnReceiptToSend)
+            try await obvEngine.postReturnReceiptsWithElements(returnReceiptsToSend: [returnReceiptToSend])
         } catch {
             assertionFailure()
         }
@@ -738,9 +841,9 @@ extension PersistedDiscussionsUpdatesCoordinator: PersistedMessageReceivedObserv
     
     func persistedMessageReceivedWasRead(ownedCryptoId: ObvCryptoId, messageIdFromServer: UID) async {}
     
-    func newReturnReceiptToSendForPersistedMessageReceived(returnReceiptToSend: ObvTypes.ObvReturnReceiptToSend) async {
+    func newReturnReceiptsToSendForPersistedMessageReceived(returnReceiptsToSend: [ObvReturnReceiptToSend]) async {
         do {
-            try await obvEngine.postReturnReceiptWithElements(returnReceiptToSend: returnReceiptToSend)
+            try await obvEngine.postReturnReceiptsWithElements(returnReceiptsToSend: returnReceiptsToSend)
         } catch {
             assertionFailure()
         }
@@ -785,8 +888,13 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case .couldNotFindGroupV2InDatabase,
                 .couldNotFindContactInDatabase,
                 .couldNotFindOneToOneContactInDatabase,
-                .contactIsNotPartOfTheGroup:
+                .contactIsNotPartOfTheGroup,
+                .couldNotFindDiscussionInDatabase:
             assertionFailure()
+            return .notificationMustBeRemoved
+        case .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived:
+            // This happens when we are notified of a new message without body but with an attachment. In that case, the content of the ObvMessage
+            // from the notification center is insufficient to create a proper PersistedMessageReceived in database.
             return .notificationMustBeRemoved
         }
         
@@ -924,15 +1032,6 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
     }
     
-
-    /// When a new discussion is inserted in databse (or when a locked/pre discussion becomes active again), we send our shared configuration (that was applied using the default settings for new discussions) to all contacts and owned devices.
-    private func processPersistedDiscussionWasInsertedOrReactivated(ownedCryptoId: ObvCryptoId, discussionIdentifier: DiscussionIdentifier) {
-        let op = SendPersistedDiscussionSharedConfigurationIfAllowedToOperation(ownedCryptoId: ownedCryptoId, discussionId: discussionIdentifier, sendTo: .allContactsAndOtherOwnedDevices, obvEngine: obvEngine)
-        op.queuePriority = .low
-        op.completionBlock = { if op.isCancelled { assertionFailure() } }
-        coordinatorsQueue.addOperation(op)
-    }
-
     
     /// When receiving a NewPersistedObvContactDevice notification of a contact, we look for all group v2 discussions where this contact is a member and that we administrate.
     /// For each discussion found, we send the shared configuration.
@@ -1116,9 +1215,17 @@ extension PersistedDiscussionsUpdatesCoordinator {
         
         var operationsToQueue = [OperationKind]()
 
-        let op = SendGlobalDeleteDiscussionJSONOperation(persistedDiscussionObjectID: discussionObjectID.objectID, deletionType: deletionType, obvEngine: obvEngine)
-        op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
-        operationsToQueue.append(.engineCall(op: op))
+        do {
+            let op = SendGlobalDeleteDiscussionJSONOperation(persistedDiscussionObjectID: discussionObjectID.objectID, deletionType: deletionType, obvEngine: obvEngine)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(.engineCall(op: op))
+        }
+        
+        do {
+            let op = SendEndSharingLocationJSONWhenDeletingDiscussionOperation(discussionIdentifier: .objectID(discussionObjectID.objectID), obvEngine: obvEngine)
+            op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+            operationsToQueue.append(.engineCall(op: op))
+        }
         
         do {
             let op1 = DetermineEngineIdentifiersOfMessagesToCancelOperation(
@@ -1159,17 +1266,6 @@ extension PersistedDiscussionsUpdatesCoordinator {
             }
         }
 
-//        ObvStack.shared.performBackgroundTask { [weak self] context in
-//            guard let discussion = try? PersistedDiscussion.get(objectID: persistedDiscussionObjectID, within: context) else {
-//                return
-//            }
-//            guard let ownedCryptoId = discussion.ownedIdentity?.cryptoId else { return }
-//            self?.deletePersistedDiscussion(
-//                withObjectID: persistedDiscussionObjectID,
-//                requester: .ownedIdentity(ownedCryptoId: ownedCryptoId, deletionType: deletionType),
-//                completionHandler: completionHandler)
-//        }
-        
     }
     
     
@@ -1436,7 +1532,35 @@ extension PersistedDiscussionsUpdatesCoordinator {
             let postOp = PostDiscussionReadJSONEngineOperation(op: op1, obvEngine: obvEngine)
             queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
         }
+        
+        // Send read receipts.
+        // Note that the check about whether we should send read receipts has been made already: if
+        // the array of sent messages for read receipt is non-empty, it means we must send these
+        // receipts.
+        
+        if let result = op1.result {
+            switch result {
+            case .couldNotFindGroupV2InDatabase,
+                    .couldNotFindOneToOneContactInDatabase:
+                break
+            case .processed(let receivedMessagesForReadReceipts):
+                sendReadReceipts(receivedMessagesForReadReceipts: receivedMessagesForReadReceipts)
+            }
+        }
 
+    }
+    
+    
+    /// This method is typically called after (locally) marking a complete discussion as read or when sending a draft (which also mark the discussion as read).
+    /// In that case, we might have to send one read receipt per read messages (if
+    /// appropriate given the current discussion or global configuration). If we receive a non-empty list here, it means that we *must* send these read receipts.
+    /// Note that this method returns immediately.
+    private func sendReadReceipts(receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>]) {
+        ObvStack.shared.performBackgroundTask { context in
+            PersistedMessageReceived.sendObvReturnReceiptForMessageReceived(objectIDs: receivedMessagesForReadReceipts, within: context)
+            // We do **not** save the context. It is only used to fetch data, which is also the reason why the method is not
+            // performed on any particular queue.
+        }
     }
     
     
@@ -1479,6 +1603,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         self.coordinatorsQueue.addOperation(composedOp)
     }
 
+    
     private func processUserWantsToUpdateLocalConfigurationOfDiscussionNotification(with value: PersistedDiscussionLocalConfigurationValue, discussionPermanentID: DiscussionPermanentID) async {
         let op1 = UpdateDiscussionLocalConfigurationOperation(
             value: value,
@@ -1491,12 +1616,20 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
 }
 
-// MARK: - Implementing ContinuousSharingLocationServiceDelegate
+// MARK: - Implementing ContinuousSharingLocationManagerDelegate
 
-extension PersistedDiscussionsUpdatesCoordinator: ContinuousSharingLocationServiceDelegate {
+extension PersistedDiscussionsUpdatesCoordinator: ContinuousSharingLocationManagerDelegate {
     
-    func newObvLocationToProcessForThisPhysicalDevice(_ continuousSharingLocationService: ContinuousSharingLocationService, location: ObvLocation) async throws {
-        try await processObvLocationForThisPhysicalDevice(location)
+    /// This method is called each time we have a new location generated by CoreLocation, for the current physical device.
+    /// Note that the `ContinuousSharingLocationManager` filters out certain location, to limit the number of updates we send to our contacts.
+    /// So we can immediatly process the new location.
+    func newObvLocationToProcessForThisPhysicalDevice(_ continuousSharingLocationManager: ContinuousSharingLocationManager, location: ObvLocation) async {
+        do {
+            try await processObvLocationForThisPhysicalDevice(location)
+        } catch {
+            Self.logger.fault("Failed to process ObvLocation for this physical device: \(error.localizedDescription)")
+            assertionFailure()
+        }
     }
     
 }
@@ -1540,8 +1673,26 @@ extension PersistedDiscussionsUpdatesCoordinator {
 
 extension PersistedDiscussionsUpdatesCoordinator {
     
+    func userWantsToStopSharingLocationInDiscussion(discussionIdentifier: ObvDiscussionIdentifier) async throws {
+        let obvLocation = ObvLocation.endSharing(type: .discussion(discussionIdentifier: discussionIdentifier))
+        try await processObvLocationForThisPhysicalDevice(obvLocation)
+    }
+
+    
+    func userWantsToStopAllContinuousSharingFromCurrentPhysicalDevice() async throws {
+        let obvLocation = ObvLocation.endSharing(type: .all)
+        try await processObvLocationForThisPhysicalDevice(obvLocation)
+    }
+    
+    
     func userWantsToSendLocation(locationData: ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier) async throws {
         let obvLocation = ObvLocation.send(locationData: locationData, discussionIdentifier: discussionIdentifier)
+        try await processObvLocationForThisPhysicalDevice(obvLocation)
+    }
+    
+    
+    func userWantsToShareLocationContinuously(initialLocationData: ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier, expirationDate: ObvLocationSharingExpirationDate) async throws {
+        let obvLocation = ObvLocation.startSharing(locationData: initialLocationData, discussionIdentifier: discussionIdentifier, expirationDate: expirationDate)
         try await processObvLocationForThisPhysicalDevice(obvLocation)
     }
     
@@ -1774,7 +1925,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         }
         
         // If we reach this point, the sent message is created in database, in the unprocess state.
-        // We can liberate the current task, whcih unfreezes the ui.
+        // We free the current task we want to unfreeze the UI.
         // We still need to request the sending of the message.
         
         Task {
@@ -1821,6 +1972,21 @@ extension PersistedDiscussionsUpdatesCoordinator {
             if op5.ownedIdentityHasAnotherReachableDevice {
                 let postOp = PostDiscussionReadJSONEngineOperation(op: op5, obvEngine: obvEngine)
                 queueForOperationsMakingEngineCalls.addOperation(postOp) // No need to await the end
+            }
+
+            // Send read receipts.
+            // Note that the check about whether we should send read receipts has been made already: if
+            // the array of sent messages for read receipt is non-empty, it means we must send these
+            // receipts.
+            
+            if let result = op5.result {
+                switch result {
+                case .couldNotFindGroupV2InDatabase,
+                        .couldNotFindOneToOneContactInDatabase:
+                    break
+                case .processed(let receivedMessagesForReadReceipts):
+                    sendReadReceipts(receivedMessagesForReadReceipts: receivedMessagesForReadReceipts)
+                }
             }
 
         }
@@ -1901,6 +2067,10 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case .done(attachmentsProcessingRequest: let attachmentsProcessingRequest):
             notifyEngine = .notify(attachmentsProcessingRequest: attachmentsProcessingRequest)
             
+        case .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived:
+            assertionFailure("This is unexpected as the message was not received from the notification extension but from the engine. This should be investigated.")
+            notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
+            
         case .couldNotFindGroupV2InDatabase(groupIdentifier: let groupIdentifier):
             
             os_log("🧦 The received message belongs to a group we couldn't find in database", log: Self.log, type: .debug)
@@ -1960,6 +2130,21 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 await messagesKeptForLaterManager.keepForLater(.obvMessageExpectingGroupV2Member(
                     groupIdentifier: groupIdentifier,
                     contactCryptoId: contactCryptoId,
+                    obvMessage: obvMessage))
+                notifyEngine = .doNotNotify
+
+            } else {
+                
+                notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
+
+            }
+            
+        case .couldNotFindDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
+            
+            if Date.now.timeIntervalSince(obvMessage.localDownloadTimestamp) < ObvMessengerConstants.maximumTimeIntervalForKeptForLaterMessages {
+                
+                await messagesKeptForLaterManager.keepForLater(.obvMessageExpectingDiscussion(
+                    discussionIdentifier: discussionIdentifier,
                     obvMessage: obvMessage))
                 notifyEngine = .doNotNotify
 
@@ -2075,6 +2260,21 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
 
             }
+            
+        case .couldNotFindDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
+            
+            if Date.now.timeIntervalSince(obvOwnedMessage.localDownloadTimestamp) < ObvMessengerConstants.maximumTimeIntervalForKeptForLaterMessages {
+                
+                await messagesKeptForLaterManager.keepForLater(.obvOwnedMessageExpectingDiscussion(
+                    discussionIdentifier: discussionIdentifier,
+                    obvOwnedMessage: obvOwnedMessage))
+                notifyEngine = .doNotNotify
+
+            } else {
+                
+                notifyEngine = .notify(attachmentsProcessingRequest: .deleteAll)
+
+            }
 
         }
 
@@ -2112,7 +2312,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
                  .obvMessageExpectingOneToOneContact,
                  .obvOwnedMessageExpectingOneToOneContact,
                  .obvMessageExpectingGroupV2Member,
-                 .obvOwnedMessageExpectingGroupV2Member:
+                 .obvOwnedMessageExpectingGroupV2Member,
+                 .obvMessageExpectingDiscussion,
+                 .obvOwnedMessageExpectingDiscussion:
                 assertionFailure("Those messages are not expected to be part of the returned results")
             }
         }
@@ -2137,7 +2339,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
                     .obvMessageExpectingOneToOneContact,
                     .obvOwnedMessageExpectingOneToOneContact,
                     .obvMessageExpectingGroupV2Member,
-                    .obvOwnedMessageExpectingGroupV2Member:
+                    .obvOwnedMessageExpectingGroupV2Member,
+                    .obvMessageExpectingDiscussion,
+                    .obvOwnedMessageExpectingDiscussion:
                 assertionFailure("Those messages are not expected to be part of the returned results")
             }
         }
@@ -2166,7 +2370,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
                     .obvOwnedMessageForGroupV2,
                     .obvOwnedMessageExpectingContact,
                     .obvMessageExpectingGroupV2Member,
-                    .obvOwnedMessageExpectingGroupV2Member:
+                    .obvOwnedMessageExpectingGroupV2Member,
+                    .obvMessageExpectingDiscussion,
+                    .obvOwnedMessageExpectingDiscussion:
                 assertionFailure("Those messages are not expected to be part of the returned results")
             }
         }
@@ -2189,7 +2395,9 @@ extension PersistedDiscussionsUpdatesCoordinator {
                  .obvMessageExpectingOneToOneContact,
                  .obvOwnedMessageExpectingOneToOneContact,
                  .obvMessageForGroupV2,
-                 .obvOwnedMessageForGroupV2:
+                 .obvOwnedMessageForGroupV2,
+                 .obvMessageExpectingDiscussion,
+                 .obvOwnedMessageExpectingDiscussion:
                 assertionFailure("Those messages are not expected to be part of the returned results")
             }
         }
@@ -2665,17 +2873,6 @@ extension PersistedDiscussionsUpdatesCoordinator {
     }
     
     
-    private func processPersistedObvOwnedIdentityWasDeleted() {
-        let operationsToQueue = getOperationsForDeletingOrphanedDatabaseItems { [weak self] _ in
-            self?.trashOrphanedFilesFoundInTheFylesDirectory()
-            self?.deleteOldOrOrphanedDatabaseEntries()
-            self?.cleanExpiredMuteNotificationsSetting()
-            self?.cleanOrphanedPersistedMessageTimestampedMetadata()
-        }
-        operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
-        coordinatorsQueue.addOperations(operationsToQueue, waitUntilFinished: false)
-    }
-
     private func processBetaUserWantsToDebugCoordinatorsQueue() {
 //        guard let logString = (coordinatorsQueue as? AppCoordinatorsQueue)?.logOperations(ops: []) else { return }
 //        ObvMessengerInternalNotification.betaUserWantsToSeeLogString(logString: logString)
@@ -2775,6 +2972,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case couldNotFindOneToOneContactInDatabase(contactCryptoId: ObvCryptoId)
         case contactIsNotPartOfTheGroup(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId)
+        case couldNotFindDiscussionInDatabase(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier)
+
     }
     
     /// Returns `true` if the message can be marked for deletion in the engine, and `false` otherwise.
@@ -2852,6 +3051,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 return .couldNotFindOneToOneContactInDatabase(contactCryptoId: contactCryptoId)
             case .contactIsNotPartOfTheGroup(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
                 return .contactIsNotPartOfTheGroup(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
+            case .couldNotFindDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
+                return .couldNotFindDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
             }
         }
 
@@ -2885,7 +3086,18 @@ extension PersistedDiscussionsUpdatesCoordinator {
         if let deleteDiscussionJSON = persistedItemJSON.deleteDiscussionJSON {
             ObvDisplayableLogs.shared.log("[✉️][O][\(obvOwnedMessage.messageId.uid.debugDescription)] deleteDiscussionJSON")
             os_log("The owned message is a delete discussion JSON", log: Self.log, type: .debug)
-            var operationsToQueue = [Operation]()
+            
+            var operationsToQueue = [OperationKind]()
+
+            // Assuming that we are sharing the current physical device location in the discussion we are about to delete, we want to send END_SHARING location
+            // messages before deleting the discussion, since we are about to end sharing (as soon as the sent messages containing the location are deleted).
+            if let discussionIdentifier = deleteDiscussionJSON.getDiscussionIdentifier(ownedCryptoId: obvOwnedMessage.ownedCryptoId) {
+                let op = SendEndSharingLocationJSONWhenDeletingDiscussionOperation(discussionIdentifier: .obvDiscussionIdentifier(discussionIdentifier), obvEngine: obvEngine)
+                op.completionBlock = { op.logReasonIfCancelled(log: Self.log) }
+                operationsToQueue.append(.engineCall(op: op))
+            }
+
+            
             do {
                 let op1 = DetermineEngineIdentifiersOfMessagesToCancelOperation(
                     input: .remoteDiscussionDeletionRequestFromOtherOwnedDevice(deleteDiscussionJSON: deleteDiscussionJSON, obvOwnedMessage: obvOwnedMessage),
@@ -2907,15 +3119,24 @@ extension PersistedDiscussionsUpdatesCoordinator {
                     currentCompletion?()
                     composedOp.logReasonIfCancelled(log: Self.log)
                 }
-                operationsToQueue.append(composedOp)
+                operationsToQueue.append(.contextual(op: composedOp))
             }
             do {
                 let operations = getOperationsForDeletingOrphanedDatabaseItems()
-                operationsToQueue.append(contentsOf: operations)
+                operationsToQueue.append(contentsOf: operations.map({ .contextual(op: $0) }))
             }
             guard !operationsToQueue.isEmpty else { assertionFailure(); return .definitiveFailure }
             operationsToQueue.makeEachOperationDependentOnThePreceedingOne()
-            await coordinatorsQueue.addAndAwaitOperations(operationsToQueue)
+            
+            for op in operationsToQueue {
+                switch op {
+                case .contextual(let op):
+                    await coordinatorsQueue.addAndAwaitOperation(op)
+                case .engineCall(let op):
+                    queueForOperationsMakingEngineCalls.addOperation(op)
+                }
+            }
+            
             assert(op1.isFinished)
 
             switch op1.result {
@@ -3063,7 +3284,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 return .couldNotFindGroupV2InDatabase(groupIdentifier: groupIdentifier)
             case .couldNotFindOneToOneContactInDatabase(contactCryptoId: let contactCryptoId):
                 return .couldNotFindOneToOneContactInDatabase(contactCryptoId: contactCryptoId)
-            case .processed:
+            case .processed(receivedMessagesForReadReceipts: let receivedMessagesForReadReceipts):
+                assert(receivedMessagesForReadReceipts.isEmpty, "The operation is expected to return an empty array here, since we do not send read receipts when the messages are read from another owned device")
                 return .done(attachmentsProcessingRequest: .deleteAll)
             case nil:
                 assertionFailure()
@@ -3137,6 +3359,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case couldNotFindOneToOneContactInDatabase(contactCryptoId: ObvCryptoId)
         case contactIsNotPartOfTheGroup(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId)
+        case couldNotFindDiscussionInDatabase(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier)
+        case obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived
     }
     
 
@@ -3188,6 +3412,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 return .couldNotFindOneToOneContactInDatabase(contactCryptoId: contactCryptoId)
             case .contactIsNotPartOfTheGroup(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
                 return .contactIsNotPartOfTheGroup(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
+            case .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived:
+                return .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived
             case .receivedMessageCreationFailure:
                 return .definitiveFailure
             case .messageIsPriorToLastRemoteDeletionRequest:
@@ -3220,6 +3446,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
                 return .couldNotFindOneToOneContactInDatabase(contactCryptoId: contactCryptoId)
             case .contactIsNotPartOfTheGroup(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
                 return .contactIsNotPartOfTheGroup(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
+            case .couldNotFindDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
+                return .couldNotFindDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
             }
         }
 
@@ -3435,6 +3663,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case couldNotFindOneToOneContactInDatabase(contactCryptoId: ObvCryptoId)
         case contactIsNotPartOfTheGroup(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId)
+        case couldNotFindDiscussionInDatabase(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier)
     }
     
     /// This method is called when receiving a message from the engine that contains a shared configuration for a persisted discussion (typically, either one2one, or a group discussion owned by the sender of this message).
@@ -3459,9 +3688,12 @@ extension PersistedDiscussionsUpdatesCoordinator {
             return .couldNotFindOneToOneContactInDatabase(contactCryptoId: contactCryptoId)
         case .contactIsNotPartOfTheGroup(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
             return .contactIsNotPartOfTheGroup(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
+        case .couldNotFindDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
+            return .couldNotFindDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
         case .merged:
             return .done
         case nil:
+            assert(op1.isCancelled)
             assertionFailure()
             return .failed
         }
@@ -3476,6 +3708,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case couldNotFindOneToOneContactInDatabase(contactCryptoId: ObvCryptoId)
         case contactIsNotPartOfTheGroup(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId)
+        case couldNotFindDiscussionInDatabase(discussionIdentifier: ObvAppTypes.ObvDiscussionIdentifier)
     }
 
     
@@ -3501,6 +3734,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
             return .couldNotFindOneToOneContactInDatabase(contactCryptoId: contactCryptoId)
         case .contactIsNotPartOfTheGroup(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
             return .contactIsNotPartOfTheGroup(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
+        case .couldNotFindDiscussionInDatabase(discussionIdentifier: let discussionIdentifier):
+            return .couldNotFindDiscussionInDatabase(discussionIdentifier: discussionIdentifier)
         case .merged:
             return .done
         case nil:
@@ -3534,6 +3769,7 @@ extension PersistedDiscussionsUpdatesCoordinator {
         case couldNotFindContactInDatabase(contactCryptoId: ObvCryptoId)
         case couldNotFindOneToOneContactInDatabase(contactCryptoId: ObvCryptoId)
         case contactIsNotPartOfTheGroup(groupIdentifier: GroupV2Identifier, contactCryptoId: ObvCryptoId)
+        case obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived
         case receivedMessageCreationFailure
         case messageIsPriorToLastRemoteDeletionRequest
         case cannotCreateReceivedMessageThatAlreadyExpired
@@ -3584,6 +3820,8 @@ extension PersistedDiscussionsUpdatesCoordinator {
             return .couldNotFindOneToOneContactInDatabase(contactCryptoId: contactCryptoId)
         case .contactIsNotPartOfTheGroup(groupIdentifier: let groupIdentifier, contactCryptoId: let contactCryptoId):
             return .contactIsNotPartOfTheGroup(groupIdentifier: groupIdentifier, contactCryptoId: contactCryptoId)
+        case .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived:
+            return .obvMessageReceivedFromUserNotificationIsInsufficientToCreateMessageReceived
         case nil:
             return .receivedMessageCreationFailure
         case .messageCreated(discussionPermanentID: _):

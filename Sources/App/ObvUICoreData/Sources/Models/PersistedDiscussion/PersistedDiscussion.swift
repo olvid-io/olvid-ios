@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -72,7 +72,7 @@ public class PersistedDiscussion: NSManagedObject {
     
     // Other variables
     
-    /// 2023-07-17: This is the most appropriate identifier to use in, e.g., notifications
+    /// 2025-03-12: User `discussionIdentifier` instead whenever possible
     public var identifier: DiscussionIdentifier {
         get throws {
             switch try self.kind {
@@ -491,9 +491,9 @@ public class PersistedDiscussion: NSManagedObject {
     
     // MARK: - Observers
     
-    private static var observersHolder = PersistedDiscussionObserversHolder()
+    private static var observersHolder = ObserversHolder()
     
-    public static func addObserver(_ newObserver: PersistedDiscussionObserver) async {
+    public static func addObvObserver(_ newObserver: PersistedDiscussionObserver) async {
         await observersHolder.addObserver(newObserver)
     }
     
@@ -2112,36 +2112,59 @@ extension PersistedDiscussion {
     }
 
     
-    func markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?, dateWhenMessageTurnedNotNew: Date) throws -> Date? {
+    func markAllMessagesAsNotNew(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: Date?, dateWhenMessageTurnedNotNew: Date) throws -> (maxTimestampOfModifiedMessages: Date, receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>])? {
         
-        let lastReadReceivedMessageServerTimestamp: Date?
+        let result: (maxTimestampOfModifiedMessages: Date, receivedMessagesForReadReceipts: [TypeSafeManagedObjectID<PersistedMessageReceived>])?
+        
+        // Received messages
+        
         if let serverTimestampWhenDiscussionReadOnAnotherOwnedDevice {
-            self.serverTimestampWhenDiscussionReadOnAnotherOwnedDevice = serverTimestampWhenDiscussionReadOnAnotherOwnedDevice
-            lastReadReceivedMessageServerTimestamp = try PersistedMessageReceived.markAllAsNotNew(within: self,
-                                                                                                  serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice,
-                                                                                                  dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+            result = try PersistedMessageReceived.markAllAsNotNew(
+                within: self,
+                dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew,
+                markAllAsNotNewQuestedOn: .anotherOwnedDevice(serverTimestampWhenDiscussionReadOnAnotherOwnedDevice: serverTimestampWhenDiscussionReadOnAnotherOwnedDevice))
+            assert(result?.receivedMessagesForReadReceipts ?? [] == [])
         } else {
-            lastReadReceivedMessageServerTimestamp = try PersistedMessageReceived.markAllAsNotNew(within: self,
-                                                                                                  dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew,
-                                                                                                  requestedOnAnotherOwnedDevice: false)
+            let configuredToSendReadReceipts = self.localConfiguration.doSendReadReceipt ?? ObvMessengerSettings.Discussions.doSendReadReceipt
+            result = try PersistedMessageReceived.markAllAsNotNew(
+                within: self,
+                dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew,
+                markAllAsNotNewQuestedOn: .thisDevice(configuredToSendReadReceipts: configuredToSendReadReceipts))
+            assert(configuredToSendReadReceipts || result?.receivedMessagesForReadReceipts ?? [] == [])
         }
+        
+        // System messages
+        
         let lastReadSystemMessageServerTimestamp = try PersistedMessageSystem.markAllAsNotNew(within: self, dateWhenMessageTurnedNotNew: dateWhenMessageTurnedNotNew)
+
+        // Since the static markAllAsNotNew(within:dateWhenMessageTurnedNotNew:markAllAsNotNewQuestedOn:) method performs a batch update, the willSave method will not be called and we thus must
+        // explicitely refresh the number of new messages by hand.
+
+        if result != nil || lastReadSystemMessageServerTimestamp != nil {
+            do {
+                try self.refreshNumberOfNewMessages()
+                resetNewReceivedMessageDoesMentionOwnedIdentityValue()
+            } catch {
+                assertionFailure()
+                // In production, continue anyway
+            }
+        }
 
         self.localDateWhenDiscussionRead = dateWhenMessageTurnedNotNew
 
         // Before returning the result, we add a notification on the context save, allowing to remove all user notifications concerning
 
-        switch (lastReadReceivedMessageServerTimestamp, lastReadSystemMessageServerTimestamp) {
-        case (.some(let date1), .some(let date2)):
-            return max(date1, date2)
-        case (.some(let date), .none):
-            return date
+        switch (result, lastReadSystemMessageServerTimestamp) {
+        case (.some(let result), .some(let date2)):
+            return (max(result.maxTimestampOfModifiedMessages, date2), result.receivedMessagesForReadReceipts)
+        case (.some(let result), .none):
+            return result
         case (.none, .some(let date)):
-            return date
+            return (date, [])
         case (.none, .none):
             return nil
         }
-        
+
     }
     
     
@@ -2233,6 +2256,7 @@ extension PersistedDiscussion {
             case messages = "messages"
             case ownedIdentity = "ownedIdentity"
             case sharedConfiguration = "sharedConfiguration"
+            
             static let ownedIdentityIdentity = [Key.ownedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
             static let muteNotificationsEndDate = [Predicate.Key.localConfiguration.rawValue, PersistedDiscussionLocalConfiguration.Predicate.Key.muteNotificationsEndDate.rawValue].joined(separator: ".")
         }
@@ -2714,15 +2738,22 @@ extension PersistedDiscussion {
             if let discussionIdentifier = self.discussionIdentifierOnDeletion {
                 Task { await Self.observersHolder.aPersistedDiscussionWasDeleted(discussionIdentifier: discussionIdentifier) }
             } else {
-                assertionFailure() // In production, continue
+                // This happens when the owned identity is deleted
+                assert(self.ownedIdentity == nil, "Since this discussion was deleted, but owned identity still exists, discussionIdentifierOnDeletion should be non-nil") // In production, continue
             }
         }
         
         if isInserted || (changedKeys.contains(Predicate.Key.rawStatus.rawValue) && self.status == .active) {
-            guard let ownedCryptoId = ownedIdentity?.cryptoId,
-                  let discussionIdentifier = try? self.identifier else { assertionFailure(); return }
-            ObvMessengerCoreDataNotification.persistedDiscussionWasInsertedOrReactivated(ownedCryptoId: ownedCryptoId, discussionIdentifier: discussionIdentifier)
-                .postOnDispatchQueue()
+            do {
+                let discussionIdentifier = try self.discussionIdentifier
+                Task { await Self.observersHolder.aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: discussionIdentifier) }
+                // We also send the legacy notification, for legacy situations...
+                ObvMessengerCoreDataNotification.persistedDiscussionWasInsertedOrReactivated(ownedCryptoId: discussionIdentifier.ownedCryptoId, discussionIdentifier: discussionIdentifier.toDiscussionIdentifier())
+                    .postOnDispatchQueue()
+            } catch {
+                assertionFailure(error.localizedDescription)
+                // Continue anyway
+            }
         }
         
         if !isDeleted && changedKeys.contains(Predicate.Key.rawLocalDateWhenDiscussionRead.rawValue) {
@@ -2736,6 +2767,24 @@ extension PersistedDiscussion {
             }
         }
         
+        // Potentially notify that the previous backed up profile snapshot is obsolete.
+        // We only notify in case of a change. Insertion/Deletion are notified by
+        // the engine.
+        // See `PersistedObvOwnedIdentity` for a list of entities that might post a similar notification.
+        
+        if !isDeleted && !isInserted && !changedKeys.isEmpty {
+            if changedKeys.contains(Predicate.Key.localConfiguration.rawValue) ||
+                changedKeys.contains(Predicate.Key.sharedConfiguration.rawValue) {
+                if let ownedCryptoId = self.ownedIdentity?.cryptoId {
+                    Task {
+                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ownedCryptoId)
+                    }
+                } else {
+                    assertionFailure()
+                }
+            }
+        }
+
     }
     
 }
@@ -2777,7 +2826,8 @@ extension PersistedDiscussion {
     
     var syncSnapshotNode: PersistedDiscussionConfigurationSyncSnapshotNode {
         .init(localConfiguration: localConfiguration,
-              sharedConfiguration: sharedConfiguration)
+              sharedConfiguration: sharedConfiguration,
+              isArchived: self.isArchived)
     }
     
 }
@@ -2788,33 +2838,44 @@ struct PersistedDiscussionConfigurationSyncSnapshotNode: ObvSyncSnapshotNode {
     private let domain: Set<CodingKeys>
     private let localConfiguration: PersistedDiscussionLocalConfigurationSyncSnapshotItem?
     private let sharedConfiguration: PersistedDiscussionSharedConfigurationSyncSnapshotItem?
-    
+    private let isArchived: Bool?
+
     let id = Self.generateIdentifier()
 
     enum CodingKeys: String, CodingKey, CaseIterable, Codable {
         case localConfiguration = "local_settings"
         case sharedConfiguration = "shared_settings"
+        case isArchived = "archived"
         case domain = "domain"
     }
 
     private static let defaultDomain = Set(CodingKeys.allCases.filter({ $0 != .domain }))
 
-    init(localConfiguration: PersistedDiscussionLocalConfiguration, sharedConfiguration: PersistedDiscussionSharedConfiguration) {
+    init(localConfiguration: PersistedDiscussionLocalConfiguration, sharedConfiguration: PersistedDiscussionSharedConfiguration, isArchived: Bool?) {
         self.domain = Self.defaultDomain
         self.localConfiguration = localConfiguration.syncSnapshotNode
         self.sharedConfiguration = sharedConfiguration.syncSnapshotNode
+        self.isArchived = isArchived
     }
     
-    
-    // Synthesized implementation of encode(to encoder: Encoder)
-
-    
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.localConfiguration, forKey: .localConfiguration)
+        try container.encodeIfPresent(self.sharedConfiguration, forKey: .sharedConfiguration)
+        if isArchived == true {
+            try container.encodeIfPresent(self.isArchived, forKey: .isArchived)
+        }
+        // domain
+        try container.encode(domain, forKey: .domain)
+    }
+        
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let rawKeys = try container.decode(Set<String>.self, forKey: .domain)
         self.domain = Set(rawKeys.compactMap({ CodingKeys(rawValue: $0) }))
         self.localConfiguration = try container.decodeIfPresent(PersistedDiscussionLocalConfigurationSyncSnapshotItem.self, forKey: .localConfiguration)
         self.sharedConfiguration = try container.decodeIfPresent(PersistedDiscussionSharedConfigurationSyncSnapshotItem.self, forKey: .sharedConfiguration)
+        self.isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived)
     }
     
 
@@ -2828,6 +2889,16 @@ struct PersistedDiscussionConfigurationSyncSnapshotNode: ObvSyncSnapshotNode {
             sharedConfiguration?.useToUpdate(discussion.sharedConfiguration)
         }
         
+        if domain.contains(.isArchived) {
+            if let isArchived {
+                if isArchived {
+                    try? discussion.archive()
+                } else {
+                    discussion.unarchive()
+                }
+            }
+        }
+        
     }
 
 }
@@ -2835,48 +2906,93 @@ struct PersistedDiscussionConfigurationSyncSnapshotNode: ObvSyncSnapshotNode {
 
 // MARK: - PersistedDiscussion observers
 
-public protocol PersistedDiscussionObserver {
+public protocol PersistedDiscussionObserver: AnyObject {
     func aPersistedDiscussionStatusChanged(discussionIdentifier: ObvDiscussionIdentifier, status: PersistedDiscussion.Status) async
     func aPersistedDiscussionIsArchivedChanged(discussionIdentifier: ObvDiscussionIdentifier, isArchived: Bool) async
     func aPersistedDiscussionWasDeleted(discussionIdentifier: ObvDiscussionIdentifier) async
     func aPersistedDiscussionWasRead(discussionIdentifier: ObvDiscussionIdentifier, localDateWhenDiscussionRead: Date) async
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ObvCryptoId) async
+    func aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: ObvDiscussionIdentifier) async
 }
 
 
-private actor PersistedDiscussionObserversHolder: PersistedDiscussionObserver {
+private actor ObserversHolder: PersistedDiscussionObserver {
     
-    private var observers = [PersistedDiscussionObserver]()
+    private var observers = [WeakObserver]()
     
+    private final class WeakObserver {
+        private(set) weak var value: PersistedDiscussionObserver?
+        init(value: PersistedDiscussionObserver?) {
+            self.value = value
+        }
+    }
+
     func addObserver(_ newObserver: PersistedDiscussionObserver) {
-        self.observers.append(newObserver)
+        self.observers.append(.init(value: newObserver))
     }
     
     // Implementing PersistedDiscussionObserver
     
     func aPersistedDiscussionStatusChanged(discussionIdentifier: ObvDiscussionIdentifier, status: PersistedDiscussion.Status) async {
-        for observer in observers {
-            await observer.aPersistedDiscussionStatusChanged(discussionIdentifier: discussionIdentifier, status: status)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.aPersistedDiscussionStatusChanged(discussionIdentifier: discussionIdentifier, status: status)
+                }
+            }
         }
     }
     
     func aPersistedDiscussionIsArchivedChanged(discussionIdentifier: ObvDiscussionIdentifier, isArchived: Bool) async {
-        for observer in observers {
-            await observer.aPersistedDiscussionIsArchivedChanged(discussionIdentifier: discussionIdentifier, isArchived: isArchived)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.aPersistedDiscussionIsArchivedChanged(discussionIdentifier: discussionIdentifier, isArchived: isArchived)
+                }
+            }
         }
     }
     
     func aPersistedDiscussionWasDeleted(discussionIdentifier: ObvDiscussionIdentifier) async {
-        for observer in observers {
-            await observer.aPersistedDiscussionWasDeleted(discussionIdentifier: discussionIdentifier)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.aPersistedDiscussionWasDeleted(discussionIdentifier: discussionIdentifier)
+                }
+            }
         }
     }
 
     func aPersistedDiscussionWasRead(discussionIdentifier: ObvDiscussionIdentifier, localDateWhenDiscussionRead: Date) async {
-        for observer in observers {
-            await observer.aPersistedDiscussionWasRead(discussionIdentifier: discussionIdentifier, localDateWhenDiscussionRead: localDateWhenDiscussionRead)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.aPersistedDiscussionWasRead(discussionIdentifier: discussionIdentifier, localDateWhenDiscussionRead: localDateWhenDiscussionRead)
+                }
+            }
         }
     }
 
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionChanged(ownedCryptoId: ownedCryptoId)
+                }
+            }
+        }
+    }
+    
+    func aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: ObvDiscussionIdentifier) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask {
+                    await observer.aPersistedDiscussionWasInsertedOrReactivated(discussionIdentifier: discussionIdentifier)
+                }
+            }
+        }
+    }
+    
 }
 
 

@@ -22,6 +22,7 @@ import Foundation
 import SwiftUI
 import UIKit
 import ObvDesignSystem
+import ObvAppCoreConstants
 
 
 @available(iOS 16.0, *)
@@ -35,10 +36,15 @@ extension HorizontalListOfSelectedDiscussionsViewController {
         
         override func updateConfiguration(using state: UICellConfigurationState) {
             contentConfiguration = UIHostingConfiguration {
-                HStack(alignment: .center) {
+                VStack(alignment: .center) {
                     Text("DISCUSSIONS_LIST_SELECTION_PLACEHOLDER_CELL")
-                        .foregroundColor(Color(AppTheme.shared.colorScheme.label))
+                        .foregroundStyle(.primary)
                         .font(.headline)
+                    if ObvAppCoreConstants.targetEnvironmentIsMacCatalyst {
+                        Text("HOLD_DOWN_CMD_TO_SELECT_MULTIPLE_DISCUSSIONS")
+                            .foregroundStyle(.primary)
+                            .font(.subheadline)
+                    }
                 }
             }.updated(for: state)
             

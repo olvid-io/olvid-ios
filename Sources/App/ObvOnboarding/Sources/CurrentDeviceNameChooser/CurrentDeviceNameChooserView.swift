@@ -18,6 +18,8 @@
  */
 
 import SwiftUI
+import ObvDesignSystem
+
 
 protocol CurrentDeviceNameChooserViewActionsProtocol: AnyObject {
     func userDidChooseCurrentDeviceName(deviceName: String) async
@@ -52,7 +54,8 @@ struct CurrentDeviceNameChooserView: View {
         ScrollView {
             VStack {
                 
-                NewOnboardingHeaderView(title: "ONBOARDING_DEVICE_NAME_CHOOSER_TITLE", subtitle: "ONBOARDING_DEVICE_NAME_CHOOSER_SUBTITLE")
+                ObvHeaderView(title: "ONBOARDING_DEVICE_NAME_CHOOSER_TITLE".localizedInThisBundle,
+                              subtitle: "ONBOARDING_DEVICE_NAME_CHOOSER_SUBTITLE".localizedInThisBundle)
                     .padding(.bottom, 40)
 
                 InternalTextField("ONBOARDING_DEVICE_NAME_CHOOSER_TEXTFIELD_\(model.defaultDeviceName)", text: $deviceName)

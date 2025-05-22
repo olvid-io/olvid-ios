@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -177,15 +177,17 @@ public final class PersistedDiscussionLocalConfiguration: NSManagedObject {
     
     private var updatedLocalConfigurationValueTypes = Set<PersistedDiscussionLocalConfigurationValueType>()
     
+    private var changedKeys = Set<String>()
+
     /// Used when restoring a sync snapshot or when restoring a backup to prevent any notification on insertion
     private var isInsertedWhileRestoringSyncSnapshot = false
 
     
     // MARK: - Observers
     
-    private static var observersHolder = PersistedDiscussionLocalConfigurationObserversHolder()
+    private static var observersHolder = ObserversHolder()
     
-    public static func addObserver(_ newObserver: PersistedDiscussionLocalConfigurationObserver) async {
+    public static func addObvObserver(_ newObserver: PersistedDiscussionLocalConfigurationObserver) async {
         await observersHolder.addObserver(newObserver)
     }
 
@@ -365,8 +367,17 @@ extension PersistedDiscussionLocalConfiguration {
     
     struct Predicate {
         enum Key: String {
+            case defaultEmoji = "defaultEmoji"
             case muteNotificationsEndDate = "muteNotificationsEndDate"
+            case rawAutoRead = "rawAutoRead"
+            case rawCountBasedRetention = "rawCountBasedRetention"
+            case rawCountBasedRetentionIsActive = "rawCountBasedRetentionIsActive"
+            case rawDoNotifyWhenMentionnedInMutedDiscussion = "rawDoNotifyWhenMentionnedInMutedDiscussion"
+            case rawDoSendReadReceipt = "rawDoSendReadReceipt"
+            case rawNotificationSound = "rawNotificationSound"
             case rawPerformInteractionDonation = "rawPerformInteractionDonation"
+            case rawRetainWipedOutboundMessages = "rawRetainWipedOutboundMessages"
+            case rawTimeBasedRetention = "rawTimeBasedRetention"
         }
         static func withMuteNotificationsEndDateLaterThan(_ date: Date) -> NSPredicate {
             NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -429,9 +440,20 @@ extension PersistedDiscussionLocalConfiguration {
 
 extension PersistedDiscussionLocalConfiguration {
     
+    public override func willSave() {
+        super.willSave()
+        if isUpdated {
+            changedKeys = Set<String>(self.changedValues().keys)
+        }
+    }
+
     public override func didSave() {
         super.didSave()
         
+        defer {
+            changedKeys.removeAll()
+        }
+
         defer {
             updatedLocalConfigurationValueTypes.removeAll()
             isInsertedWhileRestoringSyncSnapshot = false
@@ -495,6 +517,23 @@ extension PersistedDiscussionLocalConfiguration {
                         
         }
         
+        // Potentially notify that the previous backed up profile snapshot is obsolete.
+        // We only notify in case of a change. Insertion/Deletion are notified by
+        // the engine.
+        // See `PersistedObvOwnedIdentity` for a list of entities that might post a similar notification.
+        
+        if !isDeleted && !isInserted && !changedKeys.isEmpty {
+            if changedKeys.contains(Predicate.Key.rawDoSendReadReceipt.rawValue) {
+                if let ownedCryptoId = self.discussion?.ownedIdentity?.cryptoId {
+                    Task {
+                        await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ownedCryptoId)
+                    }
+                } else {
+                    assertionFailure()
+                }
+            }
+        }
+        
     }
     
 }
@@ -514,7 +553,7 @@ extension PersistedDiscussionLocalConfiguration {
 extension PersistedDiscussionLocalConfiguration {
     
     var syncSnapshotNode: PersistedDiscussionLocalConfigurationSyncSnapshotItem {
-        .init(doSendReadReceipt: doSendReadReceipt)
+        .init(doSendReadReceipt: doSendReadReceipt, muteNotificationsEndDate: muteNotificationsEndDate)
     }
     
 }
@@ -523,21 +562,64 @@ extension PersistedDiscussionLocalConfiguration {
 struct PersistedDiscussionLocalConfigurationSyncSnapshotItem: Codable, Hashable {
 
     private let doSendReadReceipt: Bool?
+    private let isMuted: Bool?
+    private let muteEndDate: Date?
     
-    init(doSendReadReceipt: Bool?) {
+    init(doSendReadReceipt: Bool?, muteNotificationsEndDate: Date?) {
         self.doSendReadReceipt = doSendReadReceipt
+        if let muteNotificationsEndDate {
+            self.isMuted = true
+            if muteNotificationsEndDate.timeIntervalSinceNow > TimeInterval(years: 10) {
+                self.muteEndDate = nil
+            } else {
+                self.muteEndDate = muteNotificationsEndDate
+            }
+        } else {
+            self.isMuted = false
+            self.muteEndDate = nil
+        }
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable, Codable {
         case doSendReadReceipt = "send_read_receipt"
+        case isMuted = "mute"
+        case muteEndDate = "mute_timestamp"
     }
 
-    // Synthesized implementation of encode(to encoder: Encoder)
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.doSendReadReceipt, forKey: .doSendReadReceipt)
+        if isMuted == true {
+            try container.encodeIfPresent(self.isMuted, forKey: .isMuted)
+            try container.encodeIfPresent(self.muteEndDate?.timeIntervalSince1970.toMilliseconds, forKey: .muteEndDate)
+        }
+    }
     
-    // Synthesized implementation of init(from decoder: Decoder)
-
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.doSendReadReceipt = try container.decodeIfPresent(Bool.self, forKey: .doSendReadReceipt)
+        let isMuted = try container.decodeIfPresent(Bool.self, forKey: .isMuted)
+        if let isMuted {
+            self.isMuted = isMuted
+            if let muteEndDateInMilliseconds = try container.decodeIfPresent(Int.self, forKey: .muteEndDate) {
+                self.muteEndDate = Date(timeIntervalSince1970: TimeInterval(milliseconds: muteEndDateInMilliseconds))
+            } else {
+                self.muteEndDate = nil
+            }
+        } else {
+            self.isMuted = false
+            self.muteEndDate = nil
+        }
+        
+    }
+    
     func useToUpdate(_ configuration: PersistedDiscussionLocalConfiguration) {
         _ = configuration.setDoSendReadReceipt(to: doSendReadReceipt)
+        if isMuted == true {
+            configuration.update(with: .muteNotificationsEndDate(muteEndDate ?? Date.distantFuture))
+        } else {
+            configuration.update(with: .muteNotificationsEndDate(nil))
+        }
     }
     
 }
@@ -545,25 +627,43 @@ struct PersistedDiscussionLocalConfigurationSyncSnapshotItem: Codable, Hashable 
 
 // MARK: - PersistedDiscussionLocalConfiguration observers
 
-public protocol PersistedDiscussionLocalConfigurationObserver {
+public protocol PersistedDiscussionLocalConfigurationObserver: AnyObject {
     func aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: ObvDiscussionIdentifier, value: PersistedDiscussionLocalConfigurationValue) async
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ObvCryptoId) async
 }
 
 
-private actor PersistedDiscussionLocalConfigurationObserversHolder: PersistedDiscussionLocalConfigurationObserver {
+private actor ObserversHolder: PersistedDiscussionLocalConfigurationObserver {
     
-    private var observers = [PersistedDiscussionLocalConfigurationObserver]()
+    private var observers = [WeakObserver]()
     
+    private final class WeakObserver {
+        private(set) weak var value: PersistedDiscussionLocalConfigurationObserver?
+        init(value: PersistedDiscussionLocalConfigurationObserver?) {
+            self.value = value
+        }
+    }
+
     func addObserver(_ newObserver: PersistedDiscussionLocalConfigurationObserver) {
-        self.observers.append(newObserver)
+        self.observers.append(.init(value: newObserver))
     }
     
     // Implementing PersistedDiscussionLocalConfigurationObserver
     
     func aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: ObvDiscussionIdentifier, value: PersistedDiscussionLocalConfigurationValue) async {
-        for observer in observers {
-            await observer.aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: discussionIdentifier, value: value)
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.aPersistedDiscussionLocalConfigurationWasUpdated(discussionIdentifier: discussionIdentifier, value: value) }
+            }
         }
     }
         
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsPersistedDiscussionLocalConfigurationChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+
 }

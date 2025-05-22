@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -93,9 +93,18 @@ extension TrustEstablishmentCommitmentReceived {
     
     static func batchDeleteAllTrustEstablishmentCommitmentReceivedForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: TrustEstablishmentCommitmentReceived.entityName)
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", Self.rawOwnedIdentityKey, ownedCryptoIdentity.getIdentity() as NSData)
+        fetchRequest.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
         let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        _ = try obvContext.execute(request)
+        request.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(request) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
 
 }

@@ -25,7 +25,7 @@ import OlvidUtils
 import ObvCrypto
 
 
-final public class ObvBackupManagerImplementationDummy: ObvBackupDelegate {
+final public class ObvBackupManagerImplementationDummy: ObvLegacyBackupDelegate {
             
     static let defaultLogSubsystem = "io.olvid.backup.dummy"
     lazy public var logSubsystem: String = {
@@ -92,23 +92,18 @@ final public class ObvBackupManagerImplementationDummy: ObvBackupDelegate {
         throw ObvBackupManagerImplementationDummy.makeError(message: "initiateBackup does nothing in this dummy implementation")
     }
 
-    public func markBackupAsExported(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) throws {
+    public func markLegacyBackupAsExported(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) throws {
         os_log("markBackupAsExported does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func markBackupAsUploaded(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) throws {
+    public func markLegacyBackupAsUploaded(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) throws {
         os_log("markBackupAsUploaded does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func markBackupAsFailed(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) throws {
+    public func markLegacyBackupAsFailed(backupKeyUid: UID, backupVersion: Int, flowId: FlowIdentifier) throws {
         os_log("markBackupAsFailed does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func verifyBackupKey(backupSeedString: String, flowId: FlowIdentifier) async throws -> Bool {
-        os_log("verifyBackupKey does nothing in this dummy implementation", log: log, type: .error)
-        throw Self.makeError(message: "verifyBackupKey does nothing in this dummy implementation")
-    }
-
     public func recoverBackupData(_: Data, withBackupKey: String, backupRequestIdentifier: FlowIdentifier) async throws -> (backupRequestIdentifier: UUID, backupDate: Date) {
         os_log("recoverBackupData does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "recoverBackupData does nothing in this dummy implementation")
@@ -117,5 +112,10 @@ final public class ObvBackupManagerImplementationDummy: ObvBackupDelegate {
     public func restoreFullBackup(backupRequestIdentifier: FlowIdentifier) async throws {
         os_log("restoreFullBackup does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "restoreFullBackup does nothing in this dummy implementation")
+    }
+    
+    public func deleteAllAsUserMigratesToNewBackups(flowId: FlowIdentifier) async throws {
+        os_log("deleteAllAsUserMigratesToNewBackups does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "deleteAllAsUserMigratesToNewBackups does nothing in this dummy implementation")
     }
 }

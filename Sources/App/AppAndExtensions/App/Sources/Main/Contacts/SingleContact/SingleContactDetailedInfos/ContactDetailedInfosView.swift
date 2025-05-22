@@ -22,6 +22,7 @@ import ObvTypes
 import ObvUI
 import ObvUICoreData
 import ObvDesignSystem
+import ObvCircleAndTitlesView
 
 
 struct ContactDetailedInfosView: View {

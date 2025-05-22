@@ -19,7 +19,7 @@
 
 import Foundation
 
-public struct ObvIdentityDetails: Equatable {
+public struct ObvIdentityDetails: Equatable, Sendable {
     
     public let coreDetails: ObvIdentityCoreDetails
     public let photoURL: URL?

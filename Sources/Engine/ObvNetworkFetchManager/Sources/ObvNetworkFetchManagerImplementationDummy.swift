@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -199,19 +199,30 @@ public final class ObvNetworkFetchManagerImplementationDummy: ObvNetworkFetchDel
         os_log("postServerQuery(_: ServerQuery, within: ObvContext) does nothing in this dummy implementation", log: log, type: .error)
     }
     
-    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws {
+    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         os_log("prepareForOwnedIdentityDeletion does nothing in this dummy implementation", log: log, type: .error)
     }
 
-    public func finalizeOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) throws {
-        os_log("finalizeOwnedIdentityDeletion does nothing in this dummy implementation", log: log, type: .error)
-    }
-    
     public func performOwnedDeviceDiscoveryNow(ownedCryptoId: ObvCryptoIdentity, flowId: FlowIdentifier) async throws -> EncryptedData {
         os_log("performOwnedDeviceDiscoveryNow does nothing in this dummy implementation", log: log, type: .error)
         throw Self.makeError(message: "performOwnedDeviceDiscoveryNow does nothing in this dummy implementation")
     }
     
+    public func getUserDataNow(cryptoId: ObvTypes.ObvCryptoId, serverLabel: ObvCrypto.UID, flowId: OlvidUtils.FlowIdentifier) async throws -> EncryptedData? {
+        os_log("getUserDataNow does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getUserDataNow does nothing in this dummy implementation")
+    }
+    
+    public func getAPIKeyElementsDuringNewBackupRestore(cryptoId: ObvCryptoId, privateKeyForAuthentication: any PrivateKeyForAuthentication, flowId: FlowIdentifier) async throws -> APIKeyElements {
+        os_log("getAPIKeyElementsDuringNewBackupRestore does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "getAPIKeyElementsDuringNewBackupRestore does nothing in this dummy implementation")
+    }
+    
+    public func deleteServerSessionsAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws {
+        os_log("deleteServerSessionsAssociatedToNonExistingOwnedIdentity does nothing in this dummy implementation", log: log, type: .error)
+        throw Self.makeError(message: "deleteServerSessionsAssociatedToNonExistingOwnedIdentity does nothing in this dummy implementation")
+    }
+
     // MARK: - Implementing ObvManager
     
     public let requiredDelegates = [ObvEngineDelegateType]()

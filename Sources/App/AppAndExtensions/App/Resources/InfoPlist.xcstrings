@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Apple m4a Audio" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple m4a Audio"
+          }
+        }
+      }
+    },
     "CFBundleDisplayName" : {
       "comment" : "Bundle display name",
       "extractionState" : "extracted_with_value",
@@ -8,12 +18,12 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Olvid_dev"
+            "value" : "Olvid"
           }
         },
         "fr" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Olvid"
           }
         }

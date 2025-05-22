@@ -94,10 +94,24 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
         return try? ObvIdentityCoreDetails(serializedIdentityCoreDetails)
     }
     
+    public var identityDetails: ObvIdentityDetails {
+        get throws {
+            guard let identityCoreDetails else { assertionFailure(); throw ObvUICoreDataError.contactHasNoCoreDetails }
+            return .init(coreDetails: identityCoreDetails, photoURL: self.photoURL)
+        }
+    }
+    
     public var personNameComponents: PersonNameComponents? {
         var pnc = identityCoreDetails?.personNameComponents
         pnc?.nickname = customDisplayName
         return pnc
+    }
+    
+    
+    public var customDisplayNameSanitized: String? {
+        guard let customDisplayName else { return nil }
+        let trimmed = customDisplayName.trimmingWhitespacesAndNewlines()
+        return trimmed.isEmpty ? nil : trimmed
     }
     
     public lazy var cryptoId: ObvCryptoId = {
@@ -330,6 +344,15 @@ public final class PersistedObvContactIdentity: NSManagedObject, ObvIdentifiable
                 self.rawWasRecentlyOnline = new
             }
         }
+    }
+
+    
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    public static func addObvObserver(_ newObserver: PersistedObvContactIdentityObserver) async {
+        await observersHolder.addObserver(newObserver)
     }
 
 }
@@ -1414,6 +1437,7 @@ extension PersistedObvContactIdentity {
     public struct Predicate {
         public enum Key: String {
             // Attributes
+            case atLeastOneDeviceAllowsThisContactToReceiveMessages = "atLeastOneDeviceAllowsThisContactToReceiveMessages"
             case capabilityGroupsV2 = "capabilityGroupsV2"
             case capabilityOneToOneContacts = "capabilityOneToOneContacts"
             case capabilityWebrtcContinuousICE = "capabilityWebrtcContinuousICE"
@@ -1426,14 +1450,20 @@ extension PersistedObvContactIdentity {
             case isOneToOne = "isOneToOne"
             case note = "note"
             case permanentUUID = "permanentUUID"
-            case rawOwnedIdentity = "rawOwnedIdentity"
+            case rawOwnedIdentityIdentity = "rawOwnedIdentityIdentity"
             case rawStatus = "rawStatus"
             case sortDisplayName = "sortDisplayName" // Should be renamed normalizedSortAndSearchKey
             // Relationships
+            case asGroupV2Member = "asGroupV2Member"
             case contactGroups = "contactGroups"
             case devices = "devices"
+            case rawOneToOneDiscussion = "rawOneToOneDiscussion"
+            case rawOwnedIdentity = "rawOwnedIdentity"
             // Others
             static let ownedIdentityIdentity = [rawOwnedIdentity.rawValue, PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
+        }
+        static var atLeastOneDeviceAllowsThisContactToReceiveMessages: NSPredicate {
+            NSPredicate(Key.atLeastOneDeviceAllowsThisContactToReceiveMessages, is: true)
         }
         static var withNonNilNote: NSPredicate {
             NSPredicate(withNonNilValueForKey: Key.note)
@@ -1471,6 +1501,32 @@ extension PersistedObvContactIdentity {
         static func inPersistedContactGroup(_ persistedContactGroup: PersistedContactGroup) -> NSPredicate {
             NSPredicate(format: "%@ IN %K", persistedContactGroup, Key.contactGroups.rawValue)
         }
+        static func withOwnedCryptoId(_ ownedCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownedCryptoId.getIdentity())
+        }
+        static func inGroupWithIdentifier(_ groupIdentifier: ObvGroupV2Identifier) -> NSPredicate {
+            
+            // The following predicate ensures the contact's `asGroupV2Member` set contains a `PersistedGroupV2Member` instance
+            // such that the associated PersistedGroupV2 has the requested identifier. This means the contact is part of the group.
+            
+            let asGroupV2Member = Key.asGroupV2Member.rawValue
+            let variableName = "$\(asGroupV2Member)"
+            let groupIdentifierKeyPath = [variableName,
+                                          PersistedGroupV2Member.Predicate.Key.rawGroup.rawValue,
+                                          PersistedGroupV2.Predicate.Key.groupIdentifier.rawValue].joined(separator: ".")
+
+            let format = "SUBQUERY(\(asGroupV2Member), \(variableName), \(groupIdentifierKeyPath) == %@).@count > 0"
+            let predicate = NSPredicate(format: format, groupIdentifier.identifier.appGroupIdentifier as NSData)
+            
+            return NSCompoundPredicate(andPredicateWithSubpredicates: [
+                predicate,
+                Self.withOwnedCryptoId(groupIdentifier.ownedCryptoId),
+            ])
+            
+        }
+        static func notInGroupWithIdentifier(_ groupIdentifier: ObvGroupV2Identifier) -> NSPredicate {
+            NSCompoundPredicate(notPredicateWithSubpredicate: inGroupWithIdentifier(groupIdentifier))
+        }
         static func isOneToOneIs(_ value: Bool) -> NSPredicate {
             NSPredicate(Key.isOneToOne, is: value)
         }
@@ -1507,6 +1563,15 @@ extension PersistedObvContactIdentity {
         static func withObjectID(_ objectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(withObjectID: objectID)
         }
+        static func withObjectID(objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>) -> NSPredicate {
+            NSPredicate(withObjectID: objectID.objectID)
+        }
+        static func withObjectIDIn(objectIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>]) -> NSPredicate {
+            NSPredicate(withObjectIDIn: objectIDs.map({ $0.objectID }))
+        }
+        static func searchPredicate(_ searchedText: String) -> NSPredicate {
+            NSPredicate(format: "%K contains[cd] %@", Predicate.Key.sortDisplayName.rawValue, searchedText)
+        }
     }
     
     
@@ -1520,6 +1585,48 @@ extension PersistedObvContactIdentity {
         ])
         request.fetchLimit = 1
         return try context.fetch(request).first
+    }
+    
+    
+    /// Given a set of persisted contacts (identified by their objectIDs), this method returns a subset of these contacts, restricting to those matching the search text.
+    /// This is used during a group creation, during a search, on the screen showing the group admins.
+    public static func filterAll(objectIDs: [TypeSafeManagedObjectID<PersistedObvContactIdentity>], searchText: String?, within context: NSManagedObjectContext) throws -> [TypeSafeManagedObjectID<PersistedObvContactIdentity>] {
+        
+        let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let sanitizedSearchText, !sanitizedSearchText.isEmpty else {
+            return objectIDs
+        }
+
+        // We will use the input objectIDs in an SQL "IN" statement. Since the maximum size of an "IN" statement is limited,
+        // we split the received set of objectIDs in small slices.
+
+        var outputObjectIDs = [TypeSafeManagedObjectID<PersistedObvContactIdentity>]()
+
+        let inputObjectIDsSlices = objectIDs.toSlices(ofMaxSize: 50)
+        
+        for inputObjectIDsSlice in inputObjectIDsSlices {
+            
+            let request = NSFetchRequest<NSFetchRequestResult>(entityName: Self.entityName)
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                PersistedObvContactIdentity.Predicate.withObjectIDIn(objectIDs: inputObjectIDsSlice),
+                PersistedObvContactIdentity.Predicate.searchPredicate(sanitizedSearchText),
+            ])
+            request.resultType = .managedObjectIDResultType
+            let result = try context.fetch(request) as? [NSManagedObjectID] ?? []
+            
+            // Keep the input order
+            let inputOrder = inputObjectIDsSlice.map(\.objectID)
+            let sortedResult = result.sorted { objectID1, objectID2 in
+                (inputOrder.firstIndex(of: objectID1) ?? 0) < (inputOrder.firstIndex(of: objectID2) ?? 0)
+            }
+            
+            let outputObjectIDsToAppend: [TypeSafeManagedObjectID<PersistedObvContactIdentity>] = sortedResult.map { TypeSafeManagedObjectID<PersistedObvContactIdentity>(objectID: $0) }
+            outputObjectIDs.append(contentsOf: outputObjectIDsToAppend)
+
+        }
+        
+        return outputObjectIDs
+
     }
     
     
@@ -1739,6 +1846,12 @@ extension PersistedObvContactIdentity {
     }
 
     
+    public static func getFetchedResultsControllerForGroupV2(groupIdentifier: ObvTypes.ObvGroupV2Identifier, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        let predicate = Predicate.inGroupWithIdentifier(groupIdentifier) // This also ensures we restrict to the correct owned identity
+        return getFetchedResultsController(predicate: predicate, whereOneToOneStatusIs: oneToOneStatus, within: context)
+    }
+
+    
     public static func getFetchedResultsController(predicate: NSPredicate, whereOneToOneStatusIs oneToOneStatus: OneToOneStatus, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
         let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
@@ -1751,6 +1864,85 @@ extension PersistedObvContactIdentity {
                                                                   sectionNameKeyPath: nil,
                                                                   cacheName: nil)
         return fetchedResultsController
+    }
+    
+    
+    /// This method is used when displaying a list of contacts that can be added to a group.
+    public static func getFetchedResultsControllerForAllReachableContactsOfOwnedIdentityButExcludingGroupMembers(groupIdentifier: ObvGroupV2Identifier, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        //let fetchRequest: NSFetchRequest<NSManagedObjectID> = NSFetchRequest<NSManagedObjectID>(entityName: self.entityName)
+        let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        fetchRequest.predicate = getPredicateForAllReachableContactsOfOwnedIdentityButExcludingGroupMembers(groupIdentifier: groupIdentifier, searchText: nil)
+        fetchRequest.fetchBatchSize = 1_000
+        fetchRequest.propertiesToFetch = []
+        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
+                                                                  managedObjectContext: context,
+                                                                  sectionNameKeyPath: nil,
+                                                                  cacheName: nil)
+        return fetchedResultsController
+    }
+    
+    
+    public static func getPredicateForAllReachableContactsOfOwnedIdentityButExcludingGroupMembers(groupIdentifier: ObvGroupV2Identifier, searchText: String?) -> NSPredicate {
+        let predicate: NSPredicate
+        let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var andPredicateWithSubpredicates: [NSPredicate] = [
+            Predicate.withOwnedCryptoId(groupIdentifier.ownedCryptoId),
+            Predicate.atLeastOneDeviceAllowsThisContactToReceiveMessages,
+            Predicate.notInGroupWithIdentifier(groupIdentifier),
+        ]
+        if let sanitizedSearchText, !sanitizedSearchText.isEmpty {
+            andPredicateWithSubpredicates += [
+                Predicate.searchPredicate(sanitizedSearchText),
+            ]
+        }
+        predicate = NSCompoundPredicate(andPredicateWithSubpredicates: andPredicateWithSubpredicates)
+        return predicate
+    }
+
+    
+    /// For now, this is only used when displaying all the contacts that the user can add to a group during the group creation.
+    public static func getFetchedResultsControllerForAllReachableContactsOfOwnedIdentity(ownedCryptoId: ObvCryptoId, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        let fetchRequest: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        fetchRequest.predicate = getPredicateForAllReachableContactsOfOwnedIdentity(ownedCryptoId: ownedCryptoId, searchText: nil)
+        fetchRequest.fetchBatchSize = 1_000
+        fetchRequest.propertiesToFetch = []
+        let fetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest,
+                                                                  managedObjectContext: context,
+                                                                  sectionNameKeyPath: nil,
+                                                                  cacheName: nil)
+        return fetchedResultsController
+    }
+
+    
+    public static func getPredicateForAllReachableContactsOfOwnedIdentity(ownedCryptoId: ObvCryptoId, searchText: String?) -> NSPredicate {
+        let predicate: NSPredicate
+        let sanitizedSearchText = searchText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        var andPredicateWithSubpredicates: [NSPredicate] = [
+            Predicate.withOwnedCryptoId(ownedCryptoId),
+            Predicate.atLeastOneDeviceAllowsThisContactToReceiveMessages,
+        ]
+        if let sanitizedSearchText, !sanitizedSearchText.isEmpty {
+            andPredicateWithSubpredicates += [
+                Predicate.searchPredicate(sanitizedSearchText)
+            ]
+        }
+        predicate = NSCompoundPredicate(andPredicateWithSubpredicates: andPredicateWithSubpredicates)
+        return predicate
+    }
+    
+    
+    public static func getFetchedResultsController(objectID: TypeSafeManagedObjectID<PersistedObvContactIdentity>, within context: NSManagedObjectContext) -> NSFetchedResultsController<PersistedObvContactIdentity> {
+        let request: NSFetchRequest<PersistedObvContactIdentity> = PersistedObvContactIdentity.fetchRequest()
+        request.predicate = Predicate.withObjectID(objectID: objectID)
+        request.fetchLimit = 1
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.sortDisplayName.rawValue, ascending: true)]
+        return .init(fetchRequest: request,
+                     managedObjectContext: context,
+                     sectionNameKeyPath: nil,
+                     cacheName: nil)
+
     }
     
 }
@@ -1836,6 +2028,26 @@ extension PersistedObvContactIdentity {
             if !changedKeys.isEmpty {
                 ObvMessengerCoreDataNotification.persistedContactWasUpdated(contactObjectID: typedObjectID)
                     .postOnDispatchQueue()
+            }
+
+            // Potentially notify that the previous backed up profile snapshot is obsolete.
+            // We only notify in case of a change. Insertion/Deletion are notified by
+            // the engine.
+            // See `PersistedObvOwnedIdentity` for a list of entities that might post a similar notification.
+            
+            if !isDeleted && !isInserted && !changedKeys.isEmpty {
+                if changedKeys.contains(Predicate.Key.customDisplayName.rawValue) ||
+                    changedKeys.contains(Predicate.Key.note.rawValue) ||
+                    changedKeys.contains(Predicate.Key.rawOneToOneDiscussion.rawValue) {
+                    let ownedIdentity = self.rawOwnedIdentityIdentity
+                    if let ownedCryptoId = try? ObvCryptoId(identity: ownedIdentity) {
+                        Task {
+                            await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ownedCryptoId)
+                        }
+                    } else {
+                        assertionFailure()
+                    }
+                }
             }
 
         }
@@ -2004,4 +2216,39 @@ public extension NSFetchedResultsController<PersistedObvContactIdentity> {
         return self.object(at: indexPath)
     }
     
+}
+
+
+// MARK: - PersistedObvContactIdentity observers
+
+public protocol PersistedObvContactIdentityObserver: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: PersistedObvContactIdentityObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: PersistedObvContactIdentityObserver?
+        init(value: PersistedObvContactIdentityObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: PersistedObvContactIdentityObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+    
+    // Implementing PersistedObvOwnedIdentityObserver
+    
+    func previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsPersistedObvContactIdentityChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
+    }
+
 }

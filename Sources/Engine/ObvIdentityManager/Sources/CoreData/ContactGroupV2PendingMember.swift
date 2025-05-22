@@ -75,6 +75,7 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
     weak var obvContext: ObvContext?
     private var isRestoringBackup = false
     var delegateManager: ObvIdentityDelegateManager?
+    private var changedKeys = Set<String>()
 
     var identityAndPermissionsAndDetails: GroupV2.IdentityAndPermissionsAndDetails? {
         guard let cryptoIdentity = cryptoIdentity else { assertionFailure(); return nil }
@@ -215,6 +216,14 @@ final class ContactGroupV2PendingMember: NSManagedObject, ObvManagedObject, ObvE
         self.groupInvitationNonce = newGroupInvitationNonce
     }
 
+    // MARK: - Observers
+    
+    private static var observersHolder = ObserversHolder()
+    
+    static func addObvObserver(_ newObserver: ContactGroupV2PendingMemberObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
 }
 
 
@@ -247,7 +256,12 @@ extension ContactGroupV2PendingMember {
 
     struct Predicate {
         enum Key: String {
+            // Attributes
+            case groupInvitationNonce = "groupInvitationNonce"
             case rawIdentity = "rawIdentity"
+            case rawPermissions = "rawPermissions"
+            case serializedIdentityCoreDetails = "serializedIdentityCoreDetails"
+            // Relationships
             case rawContactGroup = "rawContactGroup"
         }
         static func withIdentity(_ identity: ObvCryptoIdentity) -> NSPredicate {
@@ -319,10 +333,18 @@ extension ContactGroupV2PendingMember {
     
     // MARK: - Sending notifications
 
+    override func willSave() {
+        super.willSave()
+        if isUpdated {
+            changedKeys = Set<String>(self.changedValues().keys)
+        }
+    }
+
     override func didSave() {
         super.didSave()
         
         defer {
+            changedKeys.removeAll()
             isRestoringBackup = false
         }
         
@@ -334,6 +356,30 @@ extension ContactGroupV2PendingMember {
                 guard let flowId = obvContext?.flowId else { assertionFailure(); return }
                 ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
                     .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+            }
+        }
+
+        // Potentially notify that the previous backed up profile snapshot is obsolete
+        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+        
+        if !isDeleted {
+            let previousBackedUpProfileSnapShotIsObsolete: Bool
+            if isInserted {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else if changedKeys.contains(Predicate.Key.groupInvitationNonce.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawPermissions.rawValue) ||
+                        changedKeys.contains(Predicate.Key.serializedIdentityCoreDetails.rawValue) {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else {
+                previousBackedUpProfileSnapShotIsObsolete = false
+            }
+            if previousBackedUpProfileSnapShotIsObsolete {
+                if let ownedCryptoIdentity = self.rawContactGroup?.ownedIdentity?.cryptoIdentity {
+                    let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
+                    Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2PendingMemberChanged(ownedCryptoId: ownedCryptoId) }
+                } else {
+                    assertionFailure()
+                }
             }
         }
 
@@ -437,7 +483,7 @@ extension ContactGroupV2PendingMember {
 }
 
 
-struct ContactGroupV2PendingMemberSyncSnapshotItem: Codable, Hashable, Identifiable {
+struct ContactGroupV2PendingMemberSyncSnapshotItem: Codable, Hashable, Identifiable, Sendable {
     
     fileprivate let groupInvitationNonce: Data?
     fileprivate let rawPermissions: [String]
@@ -509,6 +555,41 @@ struct ContactGroupV2PendingMemberSyncSnapshotItem: Codable, Hashable, Identifia
         case couldNotSerializeCoreDetails
         case couldNotDeserializeCoreDetails
         case tryingToRestoreIncompleteNode
+    }
+    
+}
+
+
+// MARK: - ContactGroupV2PendingMember observers
+
+protocol ContactGroupV2PendingMemberObserver: AnyObject {
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2PendingMemberChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: ContactGroupV2PendingMemberObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: ContactGroupV2PendingMemberObserver?
+        init(value: ContactGroupV2PendingMemberObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: ContactGroupV2PendingMemberObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing OwnedIdentityObserver
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2PendingMemberChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsContactGroupV2PendingMemberChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
     }
     
 }

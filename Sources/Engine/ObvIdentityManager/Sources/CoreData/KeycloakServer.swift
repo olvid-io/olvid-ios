@@ -240,7 +240,16 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             self.isTransferRestricted = isTransferRestricted
         }
     }
+   
     
+    // MARK: - Observers
+
+    private static var observersHolder = ObserversHolder()
+
+    static func addObvObserver(_ newObserver: KeycloakServerObserver) async {
+        await observersHolder.addObserver(newObserver)
+    }
+
     
     // MARK: - Verifying Keycloak signature on restricted transfer
     
@@ -411,6 +420,26 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
     // MARK: - Searching
     
     private struct Predicate {
+        enum Key: String {
+            // Attributes
+            case clientId = "clientId"
+            case clientSecret = "clientSecret"
+            case keycloakUserId = "keycloakUserId"
+            case latestGroupUpdateTimestamp = "latestGroupUpdateTimestamp"
+            case latestRevocationListTimetamp = "latestRevocationListTimetamp"
+            case ownAPIKey = "ownAPIKey"
+            case rawAuthState = "rawAuthState"
+            case rawJwks = "rawJwks"
+            case rawOwnedIdentity = "rawOwnedIdentity"
+            case rawPushTopics = "rawPushTopics"
+            case selfRevocationTestNonce = "selfRevocationTestNonce"
+            case rawServerSignatureKey = "rawServerSignatureKey"
+            case serverURL = "serverURL"
+            case isTransferRestricted = "isTransferRestricted"
+            // Relationships
+            case managedOwnedIdentity = "managedOwnedIdentity"
+            case revokedIdentities = "revokedIdentities"
+        }
         static func withRawOwnedIdentity(_ identity: Data) -> NSPredicate {
             NSPredicate(format: "%K == %@", KeycloakServer.rawOwnedIdentityKey, identity as NSData)
         }
@@ -663,6 +692,47 @@ final class KeycloakServer: NSManagedObject, ObvManagedObject {
             }
             ObvBackupNotification.backupableManagerDatabaseContentChanged(flowId: flowId)
                 .postOnBackgroundQueue(delegateManager.queueForPostingNotifications, within: delegateManager.notificationDelegate)
+        }
+        
+        // Potentially notify that the previous backed up device snapshot is obsolete
+        // Other entities can also notify:
+        // - OwnedIdentity
+        // - OwnedIdentityDetailsPublished
+        
+        let previousBackedUpDeviceSnapShotIsObsolete: Bool
+        if isInserted || isDeleted {
+            previousBackedUpDeviceSnapShotIsObsolete = true
+        } else {
+            previousBackedUpDeviceSnapShotIsObsolete = false
+        }
+        if previousBackedUpDeviceSnapShotIsObsolete {
+            Task { await Self.observersHolder.previousBackedUpDeviceSnapShotIsObsoleteAsKeycloakServerChanged() }
+        }
+
+        // Potentially notify that the previous backed up profile snapshot is obsolete
+        // For a list of all the entities that can perform a similar notification, see `OwnedIdentity`
+        
+        if !isDeleted {
+            let previousBackedUpProfileSnapShotIsObsolete: Bool
+            if isInserted {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else if changedKeys.contains(Predicate.Key.serverURL.rawValue) ||
+                        changedKeys.contains(Predicate.Key.clientId.rawValue) ||
+                        changedKeys.contains(Predicate.Key.clientSecret.rawValue) ||
+                        changedKeys.contains(Predicate.Key.keycloakUserId.rawValue) ||
+                        changedKeys.contains(Predicate.Key.selfRevocationTestNonce.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawJwks.rawValue) ||
+                        changedKeys.contains(Predicate.Key.rawServerSignatureKey.rawValue) ||
+                        changedKeys.contains(Predicate.Key.isTransferRestricted.rawValue) {
+                previousBackedUpProfileSnapShotIsObsolete = true
+            } else {
+                previousBackedUpProfileSnapShotIsObsolete = false
+            }
+            if previousBackedUpProfileSnapShotIsObsolete {
+                let ownedCryptoIdentity = self.managedOwnedIdentity.cryptoIdentity
+                let ownedCryptoId = ObvCryptoId(cryptoIdentity: ownedCryptoIdentity)
+                Task { await Self.observersHolder.previousBackedUpProfileSnapShotIsObsoleteAsKeycloakServerChanged  (ownedCryptoId: ownedCryptoId) }
+            }
         }
 
     }
@@ -989,6 +1059,50 @@ struct KeycloakServerSnapshotNode: ObvSyncSnapshotNode {
     
     enum ObvError: Error {
         case tryingToRestoreIncompleteSnapshot
+    }
+
+}
+
+
+// MARK: - KeycloakServer observers
+
+protocol KeycloakServerObserver: AnyObject {
+    func previousBackedUpDeviceSnapShotIsObsoleteAsKeycloakServerChanged() async
+    func previousBackedUpProfileSnapShotIsObsoleteAsKeycloakServerChanged(ownedCryptoId: ObvCryptoId) async
+}
+
+
+private actor ObserversHolder: KeycloakServerObserver {
+    
+    private var observers = [WeakObserver]()
+    
+    private final class WeakObserver {
+        private(set) weak var value: KeycloakServerObserver?
+        init(value: KeycloakServerObserver?) {
+            self.value = value
+        }
+    }
+
+    func addObserver(_ newObserver: KeycloakServerObserver) {
+        self.observers.append(.init(value: newObserver))
+    }
+
+    // Implementing KeycloakServerObServer
+
+    func previousBackedUpDeviceSnapShotIsObsoleteAsKeycloakServerChanged() async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpDeviceSnapShotIsObsoleteAsKeycloakServerChanged() }
+            }
+        }
+    }
+
+    func previousBackedUpProfileSnapShotIsObsoleteAsKeycloakServerChanged(ownedCryptoId: ObvCryptoId) async {
+        await withTaskGroup(of: Void.self) { taskGroup in
+            for observer in observers.compactMap(\.value) {
+                taskGroup.addTask { await observer.previousBackedUpProfileSnapShotIsObsoleteAsKeycloakServerChanged(ownedCryptoId: ownedCryptoId) }
+            }
+        }
     }
 
 }

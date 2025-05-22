@@ -59,6 +59,22 @@
         }
       }
     },
+    "HOLD_DOWN_CMD_TO_SELECT_MULTIPLE_DISCUSSIONS" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please hold down the Command key to select multiple discussions at once."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maintenez la touche Commande enfoncée pour sélectionner plusieurs conversations."
+          }
+        }
+      }
+    },
     "NINETY_DAYS" : {
       "localizations" : {
         "en" : {
@@ -151,46 +167,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "6 heures"
-          }
-        }
-      }
-    },
-    "TAP_TO_CANCEL" : {
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "device" : {
-              "mac" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Click to cancel"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Tap to cancel"
-                }
-              }
-            }
-          }
-        },
-        "fr" : {
-          "variations" : {
-            "device" : {
-              "mac" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Cliquez pour annuler"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Touchez pour annuler"
-                }
-              }
-            }
           }
         }
       }

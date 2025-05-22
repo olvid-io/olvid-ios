@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -19,10 +19,11 @@
 
 import Foundation
 
+
 public enum ObvLocation: Equatable {
     
     case send(locationData: ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier)
-    case startSharing(locationData: ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier, expirationDate: Date?)
+    case startSharing(locationData: ObvLocationData, discussionIdentifier: ObvDiscussionIdentifier, expirationDate: ObvLocationSharingExpirationDate)
     case updateSharing(locationData: ObvLocationData)
     case endSharing(type: EndSharingDestination)
     
@@ -48,4 +49,10 @@ public enum ObvLocation: Equatable {
         }
     }
     
+}
+
+
+public enum ObvLocationSharingExpirationDate: Equatable, Sendable {
+    case never
+    case after(date: Date)
 }

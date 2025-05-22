@@ -29,22 +29,15 @@ extension NewDiscussionsViewController {
         let ownedCryptoId: ObvCryptoId
 
         let fetchRequestControllerModel: FetchRequestControllerModel<PersistedDiscussion>
-        let fetchRequestControllerForLocationContinuousSentModel: FetchRequestControllerModel<PersistedLocationContinuousSent>
         
         init(ownedCryptoId: ObvCryptoId) {
             self.ownedCryptoId = ownedCryptoId
             self.fetchRequestControllerModel = Self.createFrc(using: ownedCryptoId)
-            self.fetchRequestControllerForLocationContinuousSentModel = Self.createLocationFrc(using: ownedCryptoId)
         }
         
         private static func createFrc(using cryptoId: ObvCryptoId) -> FetchRequestControllerModel<PersistedDiscussion> {
             return PersistedDiscussion.getFetchRequestForNonArchivedRecentDiscussionsForOwnedIdentity(with: cryptoId, splitPinnedDiscussionsIntoSections: true)
         }
-        
-        private static func createLocationFrc(using cryptoId: ObvCryptoId) -> FetchRequestControllerModel<PersistedLocationContinuousSent> {
-            return PersistedLocationContinuousSent.getFetchRequestForPersistedLocationContinuousSentFromCurrentOwnedDevice(ownedCryptoId: cryptoId)
-        }
-
     }
     
 }

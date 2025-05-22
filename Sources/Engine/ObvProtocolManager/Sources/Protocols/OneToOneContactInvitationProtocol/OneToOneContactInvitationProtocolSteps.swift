@@ -959,7 +959,7 @@ extension OneToOneContactInvitationProtocol {
             // - we already consider the contact as OneToOne, everything is fine
             // - we consider the contact as not OneToOne, there is a desync situation
             // - we consider the contact as toBeDefined, there is a desync situation
-            // The desync situations are preferable to the situation where a user "looses" a contact for not good reason.
+            // The desync situations are preferable to the situation where a user "loses" a contact for not good reason.
             // If our contact considers us as not OneToOne, we downgrade her
             
             guard !contactConsidersUsAsOneToOne else {

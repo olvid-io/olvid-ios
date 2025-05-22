@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -203,7 +203,16 @@ extension ReceivedMessage {
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
         request.predicate = Predicate.withMessageIdentifier(messageId)
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        _ = try obvContext.execute(deleteRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(deleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
     
     
@@ -215,15 +224,16 @@ extension ReceivedMessage {
         ])
         
         let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        _ = try obvContext.execute(deleteRequest)
-    }
-    
-    
-    static func deleteAllAssociatedWithOwnedIdentity(_ ownedIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
-        let request = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
-        request.predicate = Predicate.withOwnedCryptoIdentity(ownedIdentity)
-        let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
-        _ = try obvContext.execute(deleteRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(deleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
     
     
@@ -248,9 +258,18 @@ extension ReceivedMessage {
     
     static func batchDeleteAllReceivedMessagesForOwnedCryptoIdentity(_ ownedCryptoIdentity: ObvCryptoIdentity, within obvContext: ObvContext) throws {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: ReceivedMessage.entityName)
-        fetchRequest.predicate = NSPredicate(format: "%K == %@", Predicate.Key.rawMessageIdOwnedIdentity.rawValue, ownedCryptoIdentity.getIdentity() as NSData)
-        let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        _ = try obvContext.execute(request)
+        fetchRequest.predicate = Predicate.withOwnedCryptoIdentity(ownedCryptoIdentity)
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+        let result = try obvContext.execute(deleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [obvContext.context])
+        } else {
+            assertionFailure()
+        }
     }
     
     

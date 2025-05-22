@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -184,7 +184,13 @@ extension ObvNetworkFetchManagerImplementation {
 // MARK: - Implementing ObvNetworkFetchDelegate
 
 extension ObvNetworkFetchManagerImplementation {
-
+    
+    /// Ad-hoc method called by the engine (and not used by any protocol) to immediately fetch user data.
+    public func getUserDataNow(cryptoId: ObvCryptoId, serverLabel: UID, flowId: FlowIdentifier) async throws -> EncryptedData? {
+        try await delegateManager.serverQueryDelegate.getUserDataNow(cryptoId: cryptoId, serverLabel: serverLabel, flowId: flowId)
+    }
+    
+    
     public func updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: Set<OwnedCryptoIdentityAndCurrentDeviceUID>, flowId: FlowIdentifier) async throws {
         try await delegateManager.networkFetchFlowDelegate.updatedListOfOwnedIdentites(activeOwnedCryptoIdsAndCurrentDeviceUIDs: activeOwnedCryptoIdsAndCurrentDeviceUIDs, flowId: flowId)
     }
@@ -327,25 +333,41 @@ extension ObvNetworkFetchManagerImplementation {
         
     
     /// Called when an owned identity is about to be deleted.
-    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws {
+    public func prepareForOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) {
         
-        // Delete all inbox messages relating to the owned identity
-                
-        let messageIds = try await getAllInboxMessageIdsForOwnedIdentity(ownedCryptoId: ownedCryptoIdentity, flowId: flowId)
-        for messageId in messageIds {
+        // Since this method is being called from a protocol step, it cannot be asynchronous.
+        // We block it until the async task is performed.
+        
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        Task {
+            
             do {
-                try await deleteApplicationMessageAndAttachments(messageId: messageId, flowId: flowId)
+                // Delete all inbox messages relating to the owned identity
+                
+                let messageIds = try await getAllInboxMessageIdsForOwnedIdentity(ownedCryptoId: ownedCryptoIdentity, flowId: flowId)
+                for messageId in messageIds {
+                    do {
+                        try await deleteApplicationMessageAndAttachments(messageId: messageId, flowId: flowId)
+                    } catch {
+                        assertionFailure() //Continue anyway
+                    }
+                }
+                
+                // We do not delete the server sessions now, as the owned identity deletion protocol will need them to propagate information.                
+                // Likewise, we don't delete PendingServerQueries now, as there might be one user to deactivate the owned identity.
+                
+                semaphore.signal()
+                
             } catch {
                 assertionFailure()
+                semaphore.signal()
             }
+
         }
         
-        // We do not delete the server sessions now, as the owned identity deletion protocol will need them to propagate information.
-        // Those session are deleted in finalizeOwnedIdentityDeletion(ownedCryptoIdentity:within:)
+        semaphore.wait()
         
-        // Likewise, we don't delete PendingServerQueries now, as there might be one user to deactivate the owned identity.
-        // The PendingServerQueries are deleted in finalizeOwnedIdentityDeletion(ownedCryptoIdentity:within:)
-
     }
     
     
@@ -366,17 +388,8 @@ extension ObvNetworkFetchManagerImplementation {
     }
     
     
-    public func finalizeOwnedIdentityDeletion(ownedCryptoIdentity: ObvCryptoIdentity, flowId: FlowIdentifier) async throws {
-        
-        // Delete all server sessions of owned identity
-        
-        try await delegateManager.serverSessionDelegate.deleteServerSession(of: ownedCryptoIdentity, flowId: flowId)
-        
-        // Delete all pending all pending server queries relating to the owned identity
-
-        let op1 = DeleteAllPendingServerQueryOperation(ownedCryptoId: ownedCryptoIdentity, delegateManager: delegateManager)
-        try await delegateManager.queueAndAwaitCompositionOfOneContextualOperation(op1: op1, log: Self.log, flowId: flowId)
-
+    public func deleteServerSessionsAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: Set<ObvCryptoIdentity>, flowId: FlowIdentifier) async throws {
+        try await delegateManager.serverSessionDelegate.deleteServerSessionsAssociatedToNonExistingOwnedIdentity(existingOwnedCryptoIds: existingOwnedCryptoIds, flowId: flowId)
     }
     
     
@@ -415,6 +428,12 @@ extension ObvNetworkFetchManagerImplementation {
             expectedContactsThatAreNowContacts: Set([contactIdentifier]),
             flowId: flowId)
 
+    }
+    
+    
+    /// When performing a new backup restoration, it's necessary to ascertain the multi-device subscription status of the intended restored profile. This method facilitates that process.
+    public func getAPIKeyElementsDuringNewBackupRestore(cryptoId: ObvCryptoId, privateKeyForAuthentication: any PrivateKeyForAuthentication, flowId: FlowIdentifier) async throws -> APIKeyElements {
+        return try await delegateManager.serverSessionDelegate.getAPIKeyElementsDuringNewBackupRestore(cryptoId: cryptoId, privateKeyForAuthentication: privateKeyForAuthentication, flowId: flowId)
     }
 
 }

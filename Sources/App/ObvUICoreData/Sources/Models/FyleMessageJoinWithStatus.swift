@@ -24,7 +24,7 @@ import UIKit
 import OlvidUtils
 import UniformTypeIdentifiers
 import ObvSettings
-
+import ObvTypes
 
 @objc(FyleMessageJoinWithStatus)
 public class FyleMessageJoinWithStatus: NSManagedObject, FyleJoin {
@@ -83,6 +83,42 @@ public class FyleMessageJoinWithStatus: NSManagedObject, FyleJoin {
         ObvManagedObjectPermanentID(entityName: FyleMessageJoinWithStatus.entityName, uuid: self.permanentUUID)
     }
 
+    // MARK: detect attachment type
+    
+    fileprivate static let imageUTTypes: [UTType] = [.jpeg, .gif, .png, .image, .tiff, .rawImage, .svg, .heic, .heif]
+    fileprivate static let imageUTIs: [String] = imageUTTypes.map(\.description)
+    
+    fileprivate static let videoUTTypes: [UTType] = [.movie, .quickTimeMovie, .mpeg4Movie, .mpeg, .avi]
+    fileprivate static let videoUTIs: [String] = videoUTTypes.map(\.description)
+
+    fileprivate static let audioUTTypes: [UTType] = [.m4a]
+    fileprivate static let audioUTIs: [String] = audioUTTypes.map(\.description)
+
+    fileprivate static let mediaUTIs: [String] = videoUTIs + audioUTIs
+    
+    public var attachmentType: FyleMessageJoinType {
+        if Self.videoUTIs.contains(uti) {
+            return .video
+        }
+        
+        if Self.audioUTIs.contains(uti) {
+            return .audio
+        }
+        
+        if !(Self.mediaUTIs + Self.imageUTIs).contains(uti) {
+            return .other
+        }
+        
+        return .photo
+    }
+    
+    public enum FyleMessageJoinType {
+        case photo
+        case video
+        case audio
+        case other
+    }
+    
     // MARK: - Initializer
 
     convenience init(sha256: Data, totalByteCount: Int64, fileName: String, uti: String, rawStatus: Int, messageSortIndex: Double, index: Int, forEntityName entityName: String, within context: NSManagedObjectContext) throws {
@@ -182,6 +218,19 @@ extension FyleMessageJoinWithStatus {
             case messageSortIndex = "messageSortIndex"
             case permanentUUID = "permanentUUID"
             case isWiped = "isWiped"
+            case totalByteCount = "totalByteCount"
+            
+            static let receivedMessage = ReceivedFyleMessageJoinWithStatus.Predicate.Key.receivedMessage.rawValue
+            static let sentMessage = SentFyleMessageJoinWithStatus.Predicate.Key.sentMessage.rawValue
+            static let ownedIdentityIdentity = [PersistedDiscussion.Predicate.Key.ownedIdentity.rawValue,
+                                                PersistedObvOwnedIdentity.Predicate.Key.identity.rawValue].joined(separator: ".")
+            static let receivedOwnedIdentity = [receivedMessage,
+                                                PersistedMessage.Predicate.Key.discussion.rawValue,
+                                                ownedIdentityIdentity].joined(separator: ".")
+            static let sentOwnedIdentity = [sentMessage,
+                                            PersistedMessage.Predicate.Key.discussion.rawValue,
+                                            ownedIdentityIdentity].joined(separator: ".")
+            
             // Other
             static let fyleSha256 = [fyle.rawValue, Fyle.Predicate.Key.sha256.rawValue].joined(separator: ".")
         }
@@ -195,11 +244,26 @@ extension FyleMessageJoinWithStatus {
                 NSPredicate(format: "%K == %@", discussionKey, discussionObjectID.objectID),
             ])
         }
+        static var isSentFyleMessageJoinWithStatus: NSPredicate {
+            return NSPredicate(withEntity: SentFyleMessageJoinWithStatus.entity())
+        }
+        static var isReceivedFyleMessageJoinWithStatus: NSPredicate {
+            return NSPredicate(withEntity: ReceivedFyleMessageJoinWithStatus.entity())
+        }
+        static func forReceivedOwnedCryptoId(_ ownCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.receivedOwnedIdentity, EqualToData: ownCryptoId.getIdentity())
+        }
+        static func forSentOwnedCryptoId(_ ownCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.sentOwnedIdentity, EqualToData: ownCryptoId.getIdentity())
+        }
         static func forStatus(_ rawStatus: Int) -> NSPredicate {
             NSPredicate(Key.rawStatus, EqualToInt: rawStatus)
         }
         static func withUTI(_ uti: String) -> NSPredicate {
             NSPredicate(Key.uti, EqualToString: uti)
+        }
+        static func withOwnCryptoId(_ ownCryptoId: ObvCryptoId) -> NSPredicate {
+            NSPredicate(Key.ownedIdentityIdentity, EqualToData: ownCryptoId.getIdentity())
         }
         static func isWiped(is value: Bool) -> NSPredicate {
             NSPredicate(Key.isWiped, is: value)
@@ -212,6 +276,9 @@ extension FyleMessageJoinWithStatus {
                 fyleIsNonNil,
                 NSPredicate(Key.fyleSha256, EqualToData: sha256),
             ])
+        }
+        static func withTotalByteCountIsGreaterThanOrEqualTo(_ count: Int64) -> NSPredicate {
+            NSPredicate(Key.totalByteCount, largerThanOrEqualToInt: count)
         }
         static func withPermanentID(_ permanentID: ObvManagedObjectPermanentID<FyleMessageJoinWithStatus>) -> NSPredicate {
             NSPredicate(Key.permanentUUID, EqualToUuid: permanentID.uuid)
@@ -272,6 +339,94 @@ extension FyleMessageJoinWithStatus {
         return receivedPreviewsNotDownloaded + sentPreviewsNotDownloaded
     }
     
+    /**
+     * Get all `FyleMessageJoinWithStatus` persisted on the local database already downloaded.
+     *  - Returns [FyleMessageJoinWithStatus]
+     */
+    /// Returns all `FyleMessageJoinWithStatus` already downloaded
+    public static func getFetchRequestForAllFyleMessageJoinWithStatusDownloaded(for ownCryptoId: ObvCryptoId, withMinimumThresholdOfTotalByteCount totalByteCount: Int64? = nil, within discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>? = nil) -> NSFetchRequest<FyleMessageJoinWithStatus> {
+        
+        let request: NSFetchRequest<FyleMessageJoinWithStatus> = FyleMessageJoinWithStatus.fetchRequest()
+        
+        request.sortDescriptors = sortDescriptorsForAllFyleMessageJoinWithStatusDownloaded()
+        request.predicate = predicateForAllFyleMessageJoinWithStatusDownloaded(for: ownCryptoId,
+                                                                               withMinimumThresholdOfTotalByteCount: totalByteCount,
+                                                                               within: discussionObjectID)
+        
+        return request
+    }
+    
+    private static func sortDescriptorsForAllFyleMessageJoinWithStatusDownloaded() -> [NSSortDescriptor] {
+        [NSSortDescriptor(key: FyleMessageJoinWithStatus.Predicate.Key.index.rawValue, ascending: true)]
+    }
+    
+    public static func predicateForAllFyleMessageJoinWithStatusDownloaded(for ownCryptoId: ObvCryptoId, withMinimumThresholdOfTotalByteCount totalByteCount: Int64? = nil, within discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>? = nil) -> NSPredicate {
+        
+        let receivedPredicate = predicateForReceivedFyleMessageJoinWithStatusDownloaded(for: ownCryptoId,
+                                                                                        withMinimumThresholdOfTotalByteCount: totalByteCount,
+                                                                                        within: discussionObjectID)
+        
+        let sentPredicate = predicateForSentFyleMessageJoinWithStatusDownloaded(for: ownCryptoId,
+                                                                                withMinimumThresholdOfTotalByteCount: totalByteCount,
+                                                                                within: discussionObjectID)
+        
+        return NSCompoundPredicate(orPredicateWithSubpredicates: [receivedPredicate, sentPredicate])
+    }
+    
+    public static func predicateForReceivedFyleMessageJoinWithStatusDownloaded(for ownCryptoId: ObvCryptoId, withMinimumThresholdOfTotalByteCount totalByteCount: Int64? = nil, within discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>? = nil) -> NSPredicate {
+        
+        var subPredicates = [
+            Predicate.isReceivedFyleMessageJoinWithStatus,
+            Predicate.forStatus(ReceivedFyleMessageJoinWithStatus.FyleStatus.complete.rawValue),
+            Predicate.forReceivedOwnedCryptoId(ownCryptoId),
+            Predicate.isWiped(is: false)
+        ]
+        
+        if let totalByteCount {
+            subPredicates.append(Predicate.withTotalByteCountIsGreaterThanOrEqualTo(totalByteCount))
+        }
+        
+        if let discussionObjectID {
+            subPredicates.append(Predicate.isFyleMessageJoinWithStatusInDiscussion(discussionObjectID))
+        }
+        
+        return NSCompoundPredicate(andPredicateWithSubpredicates: subPredicates)
+    }
+    
+    public static func predicateForSentFyleMessageJoinWithStatusDownloaded(for ownCryptoId: ObvCryptoId, withMinimumThresholdOfTotalByteCount totalByteCount: Int64? = nil, within discussionObjectID: TypeSafeManagedObjectID<PersistedDiscussion>? = nil) -> NSPredicate {
+        
+        var subPredicates = [
+            Predicate.isSentFyleMessageJoinWithStatus,
+            Predicate.forStatus(SentFyleMessageJoinWithStatus.FyleStatus.complete.rawValue),
+            Predicate.forSentOwnedCryptoId(ownCryptoId),
+            Predicate.isWiped(is: false)
+        ]
+        
+        if let totalByteCount {
+            subPredicates.append(Predicate.withTotalByteCountIsGreaterThanOrEqualTo(totalByteCount))
+        }
+        
+        if let discussionObjectID {
+            subPredicates.append(Predicate.isFyleMessageJoinWithStatusInDiscussion(discussionObjectID))
+        }
+        
+        return NSCompoundPredicate(andPredicateWithSubpredicates: subPredicates)
+    }
+    
+    /**
+     * Get all `FyleMessageJoinWithStatus` persisted on the local database already downloaded regardless of the owned identity
+     *  - Returns [FyleMessageJoinWithStatus]
+     */
+    /// Returns all `FyleMessageJoinWithStatus` already downloaded, regardless of the owned identity.
+    public static func getFetchRequestForSentFyleMessageJoinWithStatusDownloaded(for ownCryptoId: ObvCryptoId) -> NSFetchRequest<FyleMessageJoinWithStatus> {
+        
+        let request: NSFetchRequest<FyleMessageJoinWithStatus> = FyleMessageJoinWithStatus.fetchRequest()
+        
+        request.sortDescriptors = sortDescriptorsForAllFyleMessageJoinWithStatusDownloaded()
+        request.predicate = predicateForSentFyleMessageJoinWithStatusDownloaded(for: ownCryptoId)
+        
+        return request
+    }
     
     /// Returns the ``objectID`` of all ``FyleMessageJoinWithStatus`` objects whose UTI starts with the string "dyn."
     public static func getIdentifiersOfFyleMessageJoinWithStatusWithDynamicUTI(within context: NSManagedObjectContext) throws -> [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>] {
@@ -316,6 +471,7 @@ extension FyleMessageJoinWithStatus {
     
 }
 
+extension FyleMessageJoinWithStatus: Identifiable {}
 
 // MARK: - NSFetchedResultsController safeObject
 

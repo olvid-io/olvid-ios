@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23605" systemVersion="24D70" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="ObvBackupManagerModel-v1">
+    <entity name="PersistedDeviceBackupSeed" representedClassName="PersistedDeviceBackupSeed" syncable="YES">
+        <attribute name="isActive" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="rawBackupSeed" attributeType="Binary"/>
+        <attribute name="rawNextBackupUUID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="rawSecAttrAccount" attributeType="String"/>
+        <attribute name="rawServerURL" attributeType="URI"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawBackupSeed"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+    <entity name="PersistedProfileBackupThreadId" representedClassName="PersistedProfileBackupThreadId" syncable="YES">
+        <attribute name="rawNextBackupUUID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="rawOwnedIdentity" attributeType="Binary"/>
+        <attribute name="rawThreadUID" attributeType="Binary"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="rawOwnedIdentity"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
+</model>

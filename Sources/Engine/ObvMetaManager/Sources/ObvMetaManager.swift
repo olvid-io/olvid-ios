@@ -31,7 +31,7 @@ public final class ObvMetaManager: ObvErrorMaker {
     
     // MARK: One instance variable per case of the `ObvEngineDelegateType` enum.
     
-    public private(set) var backupDelegate: ObvBackupDelegate? {
+    public private(set) var backupDelegate: ObvLegacyBackupDelegate? {
         didSet {
             fulfillPreviouslyRegisteredManagersRequirements(ofType: .ObvBackupDelegate, with: backupDelegate)
         }
@@ -183,7 +183,7 @@ public final class ObvMetaManager: ObvErrorMaker {
                 }
 
             case .ObvBackupDelegate:
-                if let manager = manager as? ObvBackupDelegate {
+                if let manager = manager as? ObvLegacyBackupDelegate {
                     guard backupDelegate == nil else {
                         throw Self.makeError(message: "Failed to instantiate delegate (ObvBackupDelegate)")
                     }

@@ -21,6 +21,7 @@ import SwiftUI
 import ObvTypes
 import ObvCrypto
 import Contacts
+import ObvDesignSystem
 
 
 protocol TransfertProtocolSourceCodeDisplayerViewActionsProtocol: AnyObject {
@@ -91,7 +92,8 @@ struct TransfertProtocolSourceCodeDisplayerView: View {
                 
                 ScrollView {
                     
-                    NewOnboardingHeaderView(title: "OWNED_IDENTITY_TRANSFER_ENTER_CODE_ON_NEW_DEVICE", subtitle: nil)
+                    ObvHeaderView(title: "OWNED_IDENTITY_TRANSFER_ENTER_CODE_ON_NEW_DEVICE".localizedInThisBundle,
+                                  subtitle: nil)
                     
                     Text("OWNED_IDENTITY_TRANSFER_ENTER_CODE_ON_OTHER_DEVICE_BODY")
                         .font(.body)

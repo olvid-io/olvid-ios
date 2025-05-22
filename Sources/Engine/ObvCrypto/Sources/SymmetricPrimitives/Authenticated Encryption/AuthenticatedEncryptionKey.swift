@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -20,7 +20,7 @@
 import Foundation
 import ObvEncoder
 
-public protocol AuthenticatedEncryptionKey: SymmetricKey, CustomStringConvertible {
+public protocol AuthenticatedEncryptionKey: SymmetricKey, CustomStringConvertible, Sendable {
     var algorithmImplementationByteId: AuthenticatedEncryptionImplementationByteId { get }
 }
 

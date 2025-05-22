@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2022 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -36,7 +36,6 @@ actor SnackBarManager {
 
     private var observationTokens = [NSObjectProtocol]()
     private var alreadyCheckedIdentities = Set<ObvCryptoId>()
-    private var showLastUploadBackupWasFailedSnackBar = false
 
     private var currentCryptoId: ObvCryptoId? {
         didSet {
@@ -97,15 +96,6 @@ actor SnackBarManager {
             ObvMessengerInternalNotification.observeUserRequestedToResetAllAlerts { [weak self] in
                 Task { [weak self] in await self?.processUserRequestedToResetAllAlerts() }
             },
-            ObvEngineNotificationNew.observeNewBackupKeyGenerated(within: NotificationCenter.default) { [weak self] _, _ in
-                Task { [weak self] in
-                    await self?.removeAllAlreadyCheckedIdentities()
-                    if let currentCryptoId = await self?.currentCryptoId {
-                        // Since a backup is not linked to a specific owned identity, we use the current one for the snack bar
-                        await self?.determineSnackBarToDisplay(for: currentCryptoId)
-                    }
-                }
-            },
             ObvMessengerInternalNotification.observeBackupForExportWasExported { [weak self] in
                 Task { [weak self] in
                     await self?.removeAllAlreadyCheckedIdentities()
@@ -120,7 +110,6 @@ actor SnackBarManager {
                     await self?.removeAllAlreadyCheckedIdentities()
                     if let currentCryptoId = await self?.currentCryptoId {
                         // Since a backup is not linked to a specific owned identity, we use the current one for the snack bar
-                        await self?.setShowLastUploadBackupWasFailedSnackBar(to: false)
                         await self?.determineSnackBarToDisplay(for: currentCryptoId)
                     }
                 }
@@ -129,10 +118,9 @@ actor SnackBarManager {
                 Task { [weak self] in
                     guard let _self = self else { return }
                     guard ObvMessengerSettings.Backup.isAutomaticBackupEnabled else { return }
-                    guard let backupKeyInformation = try await _self.obvEngine.getCurrentBackupKeyInformation() else { return }
+                    guard let backupKeyInformation = try await _self.obvEngine.getCurrentLegacyBackupKeyInformation() else { return }
                     guard backupKeyInformation.lastBackupUploadFailureTimestamp != nil else { return }
                     await _self.removeAllAlreadyCheckedIdentities()
-                    await _self.setShowLastUploadBackupWasFailedSnackBar(to: true)
                     if let currentCryptoId = await _self.currentCryptoId {
                         await _self.determineSnackBarToDisplay(for: currentCryptoId)
                     }
@@ -174,10 +162,6 @@ actor SnackBarManager {
     
     private func removeAllAlreadyCheckedIdentities() {
         alreadyCheckedIdentities.removeAll()
-    }
-
-    private func setShowLastUploadBackupWasFailedSnackBar(to value: Bool) {
-        showLastUploadBackupWasFailedSnackBar = value
     }
     
     
@@ -221,7 +205,6 @@ actor SnackBarManager {
         guard currentCryptoId == self.currentCryptoId else { return }
         guard !alreadyCheckedIdentities.contains(currentCryptoId) else { return }
         alreadyCheckedIdentities.insert(currentCryptoId)
-        let obvEngine = self.obvEngine
 
         var ownedIdentityHasAtLeastOneContact: Bool = false
         var ownedIdentityIsActive = true
@@ -258,15 +241,6 @@ actor SnackBarManager {
             return
         }
 
-        // If the last upload backup has failed, we show it
-        do {
-            if showLastUploadBackupWasFailedSnackBar {
-                ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.lastUploadBackupHasFailed)
-                    .postOnDispatchQueue()
-                return
-            }
-        }
-        
         // If the user should upgrade to a newer version of Olvid, recommend the update
 
         do {
@@ -342,84 +316,6 @@ actor SnackBarManager {
             assertionFailure()
         }
         
-        do {
-            os_log("⏲ The SnackBarManager will request information about the current backup", log: Self.log, type: .info)
-            let backupKeyInformation = try await obvEngine.getCurrentBackupKeyInformation()
-            os_log("⏲ The SnackBarManager did request information about the current backup", log: Self.log, type: .info)
-
-            // If the owned identity
-            // - has no backup key (i.e., backupKeyInformation == nil)
-            // - has at least one contact
-            // - did not dismiss the OlvidSnackBarCategory.createBackupKey for the past week
-            // Then notify that we should display a OlvidSnackBarCategory.createBackupKey snack bar.
-
-            if #available(iOS 17, *) {
-                // We use TipKip to display a tip instead of a snackbar
-            } else {
-                if backupKeyInformation == nil {
-                    let lastDisplayDate = OlvidSnackBarCategory.createBackupKey.lastDisplayDate ?? Date.distantPast
-                    let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(days: 7)
-                    guard didDismissSnackBarRecently else {
-                        ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.createBackupKey)
-                            .postOnDispatchQueue()
-                        return
-                    }
-                }
-            }
-
-            // If the owned identity
-            // - has a backup key (i.e., backupKeyInformation != nil)
-            // - did not activate automatic backups
-            // - did not dismiss the OlvidSnackBarCategory.shouldPerformBackup for the past month
-            // - did not export a backup for more than a month
-            // Then notify that we should display a OlvidSnackBarCategory.shouldPerformBackup snack bar.
-
-            if #available(iOS 17, *) {
-                // We use TipKip to display a tip instead of a snackbar
-            } else {
-                if let backupKeyInformation, !ObvMessengerSettings.Backup.isAutomaticBackupEnabled {
-                    let lastBackupExportTimestamp = backupKeyInformation.lastBackupExportTimestamp ?? Date.distantPast
-                    let didExportBackupRecently = abs(lastBackupExportTimestamp.timeIntervalSinceNow) < TimeInterval(months: 1)
-                    let lastDisplayDate = OlvidSnackBarCategory.shouldPerformBackup.lastDisplayDate ?? Date.distantPast
-                    let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(months: 1)
-                    guard didDismissSnackBarRecently || didExportBackupRecently else {
-                        ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.shouldPerformBackup)
-                            .postOnDispatchQueue()
-                        return
-                    }
-                }
-            }
-
-            // If the owned identity
-            // - has a backup key
-            // - did not verify her backup key for the past 3 months
-            // - did generate her key more than a two weeks ago
-            // - did not dismiss the OlvidSnackBarCategory.shouldVerifyBackupKey for the past month
-            // Then notify that we should display a OlvidSnackBarCategory.shouldVerifyBackupKey snack bar.
-
-            if #available(iOS 17, *) {
-                // We use TipKip to display a tip instead of a snackbar
-            } else {
-                if let backupKeyInformation {
-                    let keyGenerationTimestamp = backupKeyInformation.keyGenerationTimestamp
-                    let didGenerateKeyRecently = abs(keyGenerationTimestamp.timeIntervalSinceNow) < TimeInterval(days: 14)
-                    let lastSuccessfulKeyVerificationTimestamp = backupKeyInformation.lastSuccessfulKeyVerificationTimestamp ?? Date.distantPast
-                    let didSuccessfullyVerifyKeyRecently = abs(lastSuccessfulKeyVerificationTimestamp.timeIntervalSinceNow) < TimeInterval(months: 3)
-                    let lastDisplayDate = OlvidSnackBarCategory.shouldVerifyBackupKey.lastDisplayDate ?? Date.distantPast
-                    let didDismissSnackBarRecently = abs(lastDisplayDate.timeIntervalSinceNow) < TimeInterval(months: 7)
-                    guard didGenerateKeyRecently || didSuccessfullyVerifyKeyRecently || didDismissSnackBarRecently else {
-                        ObvMessengerInternalNotification.olvidSnackBarShouldBeShown(ownedCryptoId: currentCryptoId, snackBarCategory: OlvidSnackBarCategory.shouldVerifyBackupKey)
-                            .postOnDispatchQueue()
-                        return
-                    }
-                }
-            }
-        } catch {
-            os_log("SnackBarManager error: %{public}@", log: Self.log, type: .fault, error.localizedDescription)
-            assertionFailure()
-            return
-        }
-
         // If we rech this point, there is no appropriate snackbar to display, so we request to hide all already shown snackbar
         ObvMessengerInternalNotification.olvidSnackBarShouldBeHidden(ownedCryptoId: currentCryptoId)
             .postOnDispatchQueue()

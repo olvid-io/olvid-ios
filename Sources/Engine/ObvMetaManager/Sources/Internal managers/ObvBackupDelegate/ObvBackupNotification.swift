@@ -33,13 +33,9 @@ fileprivate struct OptionalWrapper<T> {
 }
 
 public enum ObvBackupNotification {
-	case newBackupSeedGenerated(backupSeedString: String, backupKeyInformation: BackupKeyInformation, flowId: FlowIdentifier)
-	case backupSeedGenerationFailed(flowId: FlowIdentifier)
 	case backupableManagerDatabaseContentChanged(flowId: FlowIdentifier)
 
 	private enum Name {
-		case newBackupSeedGenerated
-		case backupSeedGenerationFailed
 		case backupableManagerDatabaseContentChanged
 
 		private var namePrefix: String { String(describing: ObvBackupNotification.self) }
@@ -53,8 +49,6 @@ public enum ObvBackupNotification {
 
 		static func forInternalNotification(_ notification: ObvBackupNotification) -> NSNotification.Name {
 			switch notification {
-			case .newBackupSeedGenerated: return Name.newBackupSeedGenerated.name
-			case .backupSeedGenerationFailed: return Name.backupSeedGenerationFailed.name
 			case .backupableManagerDatabaseContentChanged: return Name.backupableManagerDatabaseContentChanged.name
 			}
 		}
@@ -62,16 +56,6 @@ public enum ObvBackupNotification {
 	private var userInfo: [AnyHashable: Any]? {
 		let info: [AnyHashable: Any]?
 		switch self {
-		case .newBackupSeedGenerated(backupSeedString: let backupSeedString, backupKeyInformation: let backupKeyInformation, flowId: let flowId):
-			info = [
-				"backupSeedString": backupSeedString,
-				"backupKeyInformation": backupKeyInformation,
-				"flowId": flowId,
-			]
-		case .backupSeedGenerationFailed(flowId: let flowId):
-			info = [
-				"flowId": flowId,
-			]
 		case .backupableManagerDatabaseContentChanged(flowId: let flowId):
 			info = [
 				"flowId": flowId,
@@ -86,24 +70,6 @@ public enum ObvBackupNotification {
 		let backgroundQueue = queue ?? DispatchQueue(label: label)
 		backgroundQueue.async {
 			notificationDelegate.post(name: name, userInfo: userInfo)
-		}
-	}
-
-	public static func observeNewBackupSeedGenerated(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (String, BackupKeyInformation, FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.newBackupSeedGenerated.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let backupSeedString = notification.userInfo!["backupSeedString"] as! String
-			let backupKeyInformation = notification.userInfo!["backupKeyInformation"] as! BackupKeyInformation
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(backupSeedString, backupKeyInformation, flowId)
-		}
-	}
-
-	public static func observeBackupSeedGenerationFailed(within notificationDelegate: ObvNotificationDelegate, queue: OperationQueue? = nil, block: @escaping (FlowIdentifier) -> Void) -> NSObjectProtocol {
-		let name = Name.backupSeedGenerationFailed.name
-		return notificationDelegate.addObserver(forName: name, queue: queue) { (notification) in
-			let flowId = notification.userInfo!["flowId"] as! FlowIdentifier
-			block(flowId)
 		}
 	}
 

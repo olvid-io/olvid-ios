@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2024 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -24,6 +24,7 @@ import QuickLook
 import UIKit
 import ObvDesignSystem
 import ObvAppCoreConstants
+import AVFoundation
 
 
 final class DiscussionCacheManager: DiscussionCacheDelegate {
@@ -46,6 +47,9 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
     private var hardlinksCache = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: HardLinkToFyle]()
     private var hardlinksCacheCompletions = [TypeSafeManagedObjectID<PersistedMessage>: [(Bool) -> Void]]()
     private var hardlinksCacheContinuations = [TypeSafeManagedObjectID<FyleMessageJoinWithStatus>: [CheckedContinuation<Void, Error>]]()
+    
+    private var durationsFormattedCache = [URL: String]()
+    private var durationsFormattedCacheContinuations = [URL: [CheckedContinuation<String?, Error>]]()
     
     private var replyToCache = [TypeSafeManagedObjectID<PersistedMessage>: ReplyToBubbleView.Configuration]()
     private var replyToCacheCompletions = [TypeSafeManagedObjectID<PersistedMessage>: [() -> Void]]()
@@ -170,10 +174,87 @@ final class DiscussionCacheManager: DiscussionCacheDelegate {
         
     }
     
+    // MARK: - Images (and thumbnails) for FyleMessageJoinWithStatus
+
+    func getCachedDurationFormatted(for objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) -> String? {
+        guard let hardlink = getCachedHardlinkForFyleMessageJoinWithStatus(with: objectID) else { return nil }
+        return getCachedDurationFormattedForHardlink(hardlink: hardlink)
+    }
+    
+    @MainActor
+    func requestDurationFormatted(objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) async throws {
+        try await requestHardlinkForFyleMessageJoinWithStatus(with: objectID)
+        guard let hardlink = getCachedHardlinkForFyleMessageJoinWithStatus(with: objectID) else { assertionFailure(); throw Self.makeError(message: "Internal error") }
+        _ = try await requestDurationFormattedForHardlink(hardlink: hardlink)
+    }
+    
+    func getCachedDurationFormattedForHardlink(hardlink: HardLinkToFyle) -> String? {
+        guard let hardlinkURL = hardlink.hardlinkURL else { return nil }
+        return durationsFormattedCache[hardlinkURL]
+    }
+    
+    @MainActor
+    @discardableResult func requestDurationFormattedForHardlink(hardlink: HardLinkToFyle) async throws -> String? {
+        guard let hardlinkURL = hardlink.hardlinkURL else {
+            assertionFailure()
+            throw Self.makeError(message: "Could not find hardlink URL in hardlink \(hardlink.fyleURL.lastPathComponent)")
+        }
+        
+        if let duration = durationsFormattedCache[hardlinkURL] {
+            return duration
+        }
+        
+        guard FileManager.default.fileExists(atPath: hardlinkURL.path) else {
+            assertionFailure()
+            throw Self.makeError(message: "There is no file at the URL indicated in the hardlink for the fyle \(hardlink.fyleURL.lastPathComponent)")
+        }
+
+        os_log("Dealing with a file duration request for a hardlink with a hardlink URL that exists on disk: %{public}@", log: Self.log, type: .info, hardlinkURL.path)
+
+        let durationFormatted: String?
+        if durationsFormattedCacheContinuations.keys.contains(hardlinkURL) {
+            os_log("Another task already deals with this hardlink URL: %{public}@", log: Self.log, type: .info, hardlinkURL.path)
+            durationFormatted = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String?, Error>) in
+                if let duration = durationsFormattedCache[hardlinkURL] {
+                    continuation.resume(returning: duration)
+                } else {
+                    var continuations = durationsFormattedCacheContinuations[hardlinkURL, default: []]
+                    continuations.append(continuation)
+                    durationsFormattedCacheContinuations[hardlinkURL] = continuations
+                }
+            }
+        } else {
+            
+            os_log("We are in charge of fetching the duration for this hardlink URL: %{public}@", log: Self.log, type: .info, hardlinkURL.path)
+            
+            durationsFormattedCacheContinuations[hardlinkURL] = [] // We are in charge -> this prevents another call to fall in this branch
+            
+            do {
+                let asset = AVAsset(url: hardlinkURL)
+                let duration = try await asset.load(.duration)
+                
+                durationFormatted = duration.formatted
+            } catch {
+                if let continuations = durationsFormattedCacheContinuations.removeValue(forKey: hardlinkURL) {
+                    continuations.forEach({ $0.resume(throwing: error) })
+                }
+                throw error
+            }
+            
+            durationsFormattedCache[hardlinkURL] = durationFormatted
+            
+            if let continuations = durationsFormattedCacheContinuations.removeValue(forKey: hardlinkURL) {
+                continuations.forEach({ $0.resume(returning: durationFormatted) })
+            }
+            
+        }
+        
+        return durationFormatted
+    }
     
     /// This method performs the request to make the hardlink available in cache.
     @MainActor
-    private func requestHardlinkForFyleMessageJoinWithStatus(with objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) async throws {
+    func requestHardlinkForFyleMessageJoinWithStatus(with objectID: TypeSafeManagedObjectID<FyleMessageJoinWithStatus>) async throws {
         
         guard !hardlinksCache.keys.contains(objectID) else { return }
         
@@ -733,4 +814,27 @@ private extension NSTextCheckingResult {
         }
     }
     
+}
+
+
+private extension CMTime {
+    var formatted: String? {
+        guard let sec = seconds?.rounded() else { return nil }
+
+        let formatter = DateComponentsFormatter()
+        formatter.unitsStyle = .positional
+        formatter.zeroFormattingBehavior = .pad
+        if sec < 60 * 60 {
+            formatter.allowedUnits = [.minute, .second]
+        } else {
+            formatter.allowedUnits = [.hour, .minute, .second]
+        }
+        return formatter.string(from: sec) ?? nil
+    }
+
+    var seconds: Double? {
+        let time = CMTimeGetSeconds(self)
+        guard time.isNaN == false else { return nil }
+        return time
+    }
 }

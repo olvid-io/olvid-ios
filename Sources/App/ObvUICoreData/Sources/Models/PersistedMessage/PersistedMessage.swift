@@ -538,7 +538,7 @@ extension PersistedMessage {
                 if value.scheme?.lowercased() != "https" {
                     attributedString[range].link = .none
                 }
-                // Although we might "loose" a few detected links, we will recover them thanks to data detection.
+                // Although we might "lose" a few detected links, we will recover them thanks to data detection.
                 if String(attributedString.characters[range]) != value.absoluteString {
                     attributedString[range].link = .none
                 }
@@ -1518,14 +1518,12 @@ extension PersistedMessage {
 
     public enum MetadataKind: CustomStringConvertible, Hashable {
         
-        case read
         case wiped
         case remoteWiped(remoteCryptoId: ObvCryptoId)
         case edited
         
         public var description: String {
             switch self {
-            case .read: return CommonString.Word.Read
             case .wiped: return CommonString.Word.Wiped
             case .remoteWiped: return NSLocalizedString("Remotely wiped", comment: "")
             case .edited: return CommonString.Word.Edited
@@ -1534,7 +1532,7 @@ extension PersistedMessage {
         
         var rawValue: Int {
             switch self {
-            case .read: return 1
+            // Don't use 1, it's a legacy value that was used for "read" metadata
             case .wiped: return 2
             case .remoteWiped: return 3
             case .edited: return 4
@@ -1543,7 +1541,6 @@ extension PersistedMessage {
         
         init?(rawValue: Int, remoteCryptoId: ObvCryptoId?) {
             switch rawValue {
-            case 1: self = .read
             case 2: self = .wiped
             case 3:
                 guard let cryptoId = remoteCryptoId else { return nil }
@@ -1551,7 +1548,7 @@ extension PersistedMessage {
             case 4:
                 self = .edited
             default:
-                assertionFailure()
+                assertionFailure("Note that we used to have a metadata of kind read with rawValue 1. This metada now lives at the message level")
                 return nil
             }
         }
@@ -1559,7 +1556,7 @@ extension PersistedMessage {
         public func hash(into hasher: inout Hasher) {
             hasher.combine(self.rawValue)
             switch self {
-            case .read, .wiped, .edited:
+            case .wiped, .edited:
                 break
             case .remoteWiped(remoteCryptoId: let cryptoId):
                 hasher.combine(cryptoId)
@@ -1664,9 +1661,6 @@ public final class PersistedMessageTimestampedMetadata: NSManagedObject {
         static func forMessage(withObjectID messageObjectID: NSManagedObjectID) -> NSPredicate {
             NSPredicate(Key.message, equalToObjectWithObjectID: messageObjectID)
         }
-        static var excludeKindRead: NSPredicate {
-            NSPredicate(Key.rawKind, DistinctFromInt: PersistedMessage.MetadataKind.read.rawValue)
-        }
         static func withKind(_ kind: PersistedMessage.MetadataKind) -> NSPredicate {
             NSPredicate(Key.rawKind, EqualToInt: kind.rawValue)
         }
@@ -1681,16 +1675,29 @@ public final class PersistedMessageTimestampedMetadata: NSManagedObject {
     }
 
     
-    public static func getFetchRequest(messageObjectID: NSManagedObjectID, excludeKindRead: Bool) -> NSFetchRequest<PersistedMessageTimestampedMetadata> {
+    public static func migrateBatchOfReadMetadataOfPersistedMessageReceived(batchSize: Int, within context: NSManagedObjectContext) throws -> Int {
+        
         let request: NSFetchRequest<PersistedMessageTimestampedMetadata> = PersistedMessageTimestampedMetadata.fetchRequest()
-        if excludeKindRead {
-            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-                Predicate.forMessage(withObjectID: messageObjectID),
-                Predicate.excludeKindRead,
-            ])
-        } else {
-            request.predicate = Predicate.forMessage(withObjectID: messageObjectID)
+        request.fetchBatchSize = batchSize
+        request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.date.rawValue, ascending: false)]
+        request.predicate = NSPredicate(Predicate.Key.rawKind.rawValue, EqualToInt: 1) // 1 was used by metadata of kind "read"
+        
+        let readMetadatas = try context.fetch(request)
+        let count = readMetadatas.count
+        for readMetadata in readMetadatas {
+            guard let receivedMessage = readMetadata.message as? PersistedMessageReceived else { assertionFailure(); continue }
+            receivedMessage.markAsReadDuringMigrationOfLegacyMetadata(dateWhenMessageWasRead: readMetadata.date)
+            try readMetadata.delete()
         }
+        
+        return count
+        
+    }
+    
+    
+    public static func getFetchRequest(messageObjectID: NSManagedObjectID) -> NSFetchRequest<PersistedMessageTimestampedMetadata> {
+        let request: NSFetchRequest<PersistedMessageTimestampedMetadata> = PersistedMessageTimestampedMetadata.fetchRequest()
+        request.predicate = Predicate.forMessage(withObjectID: messageObjectID)
         request.sortDescriptors = [NSSortDescriptor(key: Predicate.Key.date.rawValue, ascending: true)]
         return request
     }
@@ -1807,8 +1814,16 @@ fileprivate final class PendingRepliedTo: NSManagedObject {
         let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: PendingRepliedTo.entityName)
         fetchRequest.predicate = Predicate.createBefore(date)
         let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        batchDeleteRequest.resultType = .resultTypeStatusOnly
-        _ = try context.execute(batchDeleteRequest)
+        batchDeleteRequest.resultType = .resultTypeObjectIDs
+        let result = try context.execute(batchDeleteRequest) as? NSBatchDeleteResult
+        // The previous call **immediately** updates the SQLite database
+        // We merge the changes back to the current context
+        if let objectIDArray = result?.result as? [NSManagedObjectID] {
+            let changes = [NSUpdatedObjectsKey : objectIDArray]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
+        } else {
+            assertionFailure()
+        }
     }
     
 }

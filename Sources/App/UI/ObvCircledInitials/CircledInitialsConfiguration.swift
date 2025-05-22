@@ -26,13 +26,13 @@ import ObvDesignSystem
 import ObvSettings
 
 
-public enum CircledInitialsConfiguration: Hashable {
+public enum CircledInitialsConfiguration: Hashable, Sendable {
 
     /// Possible tint adjustment modes for the avatar view
     ///
     /// - normal: A normal tint mode
     /// - disabled: A disabled tint mode, for example when a contact hasn't been synced
-    public enum TintAdjustementMode {
+    public enum TintAdjustementMode: Sendable {
         /// A normal tint mode
         case normal
 
@@ -41,7 +41,7 @@ public enum CircledInitialsConfiguration: Hashable {
     }
     
     
-    public enum Photo: Equatable, Hashable {
+    public enum Photo: Equatable, Hashable, Sendable {
         case url(url: URL?)
         case image(image: UIImage?)
     }

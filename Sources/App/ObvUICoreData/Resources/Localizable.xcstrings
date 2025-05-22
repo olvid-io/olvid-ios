@@ -1316,6 +1316,12 @@
     "Wiped" : {
       "comment" : "Wiped word, capitalized",
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiped"
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",

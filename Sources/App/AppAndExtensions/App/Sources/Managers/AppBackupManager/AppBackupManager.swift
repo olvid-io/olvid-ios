@@ -95,17 +95,6 @@ final actor AppBackupManager: AppBackupDelegate, ObvErrorMaker {
             },
         ])
 
-        // Engine notifications
-        
-        notificationTokens.append(contentsOf: [
-            ObvEngineNotificationNew.observeNewBackupKeyGenerated(within: NotificationCenter.default) { [weak self] (backupKeyString, backupKeyInformation) in
-                // When a new backup key is created, we immediately perform a fresh automatic backup if required
-                Task(priority: .background) { [weak self] in
-                    try? await self?.performBackupToICloud(manuallyRequestByUser: false)
-                }
-            },
-        ])
-
     }
     
     
@@ -124,7 +113,7 @@ final actor AppBackupManager: AppBackupDelegate, ObvErrorMaker {
 extension AppBackupManager {
 
     func exportBackup(sourceView: UIView, sourceViewController: UIViewController) async throws -> Bool {
-        let (backupKeyUid, backupVersion, encryptedContent) = try await obvEngine.initiateBackup(forExport: true, requestUUID: UUID())
+        let (backupKeyUid, backupVersion, encryptedContent) = try await obvEngine.initiateLegacyBackup(forExport: true, requestUUID: UUID())
 
         let success = try await newEncryptedBackupAvailableForExport(backupKeyUid: backupKeyUid,
                                                                      backupVersion: backupVersion,
@@ -184,7 +173,7 @@ extension AppBackupManager {
 
         // If we reach this point, we should try to perform a backup
         let backupRequestUuid = UUID()
-        let (backupKeyUid, version, encryptedContent) = try await obvEngine.initiateBackup(forExport: false, requestUUID: backupRequestUuid)
+        let (backupKeyUid, version, encryptedContent) = try await obvEngine.initiateLegacyBackup(forExport: false, requestUUID: backupRequestUuid)
         do {
             try await newEncryptedBackupAvailableForUploadToCloudKit(backupKeyUid: backupKeyUid,
                                                                      backupVersion: version,
@@ -221,7 +210,7 @@ extension AppBackupManager {
 
     private func markBackupAsFailed(backupFile: BackupFile) async {
         do {
-            try await obvEngine.markBackupAsFailed(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
+            try await obvEngine.markLegacyBackupAsFailed(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
         } catch let error {
             os_log("Could mark the backup as uploaded: %{public}@", log: Self.log, type: .error, error.localizedDescription)
         }
@@ -229,7 +218,7 @@ extension AppBackupManager {
 
     private func markBackupAsUploaded(backupFile: BackupFile) async {
         do {
-            try await self.obvEngine.markBackupAsUploaded(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
+            try await self.obvEngine.markLegacyBackupAsUploaded(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
         } catch let error {
             os_log("Could mark the backup as uploaded although it was uploaded successfully: %{public}@", log: Self.log, type: .error, error.localizedDescription)
         }
@@ -532,7 +521,7 @@ extension AppBackupManager {
                     if activityType != nil {
                         // We assume that the backup file was indeed exported
                         do {
-                            try await self?.obvEngine.markBackupAsExported(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
+                            try await self?.obvEngine.markLegacyBackupAsExported(backupKeyUid: backupFile.backupKeyUid, backupVersion: backupFile.backupVersion)
                         } catch let error {
                             cont.resume(throwing: error)
                         }
@@ -652,7 +641,7 @@ extension AppBackupManager: ObvBackupable {
         .app
     }
 
-    func provideInternalDataForBackup(backupRequestIdentifier: FlowIdentifier) async throws -> (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource) {
+    func provideInternalDataForLegacyBackup(backupRequestIdentifier: FlowIdentifier) async throws -> (internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource) {
         
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(internalJson: String, internalJsonIdentifier: String, source: ObvBackupableObjectSource), Error>) in
             do {
@@ -674,7 +663,7 @@ extension AppBackupManager: ObvBackupable {
     }
  
     
-    func restoreBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String?) async throws {
+    func restoreLegacyBackup(backupRequestIdentifier: FlowIdentifier, internalJson: String?) async throws {
         
         // This is called when all the engine data have been restored. We can thus start the restore of app backuped data.
         
@@ -707,7 +696,7 @@ extension AppBackupManager: ObvBackupable {
     }
     
     
-    /// Helper method for ``restoreBackup(backupRequestIdentifier:internalJson:)``.
+    /// Helper method for ``restoreLegacyBackup(backupRequestIdentifier:internalJson:)``.
     /// Simple wrapper around the ``ObvMessengerInternalNotification.requestSyncAppDatabasesWithEngine`` notification.
     /// The returned queue is the coordinator queue (on which we can exectue Core Data operations).
     private func syncAppDatabasesWithEngine() async throws -> (coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue) {
@@ -724,7 +713,7 @@ extension AppBackupManager: ObvBackupable {
     }
     
     
-    /// Helper method for ``restoreBackup(backupRequestIdentifier:internalJson:)``.
+    /// Helper method for ``restoreLegacyBackup(backupRequestIdentifier:internalJson:)``.
     private func processAppInternalJson(_ internalJson: String, queues: (coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue)) async throws {
         
         let internalJsonData = internalJson.data(using: .utf8)!
@@ -762,7 +751,7 @@ extension AppBackupManager: ObvBackupable {
     }
     
     
-    /// Helper method for ``restoreBackup(backupRequestIdentifier:internalJson:)``.
+    /// Helper method for ``restoreLegacyBackup(backupRequestIdentifier:internalJson:)``.
     private func performAdditionalStepsAfterBackupRestoration(queues: (coordinatorsQueue: OperationQueue, queueForComposedOperations: OperationQueue)) async {
         
         let op1 = PerformAdditionalStepsAfterBackupRestorationOperation(log: Self.log)

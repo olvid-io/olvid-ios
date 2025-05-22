@@ -25,8 +25,9 @@ import CoreData
 import OlvidUtils
 import ObvUICoreData
 import ObvAppCoreConstants
+import ObvDesignSystem
 
-
+@MainActor
 protocol SingleContactIdentityViewHostingControllerDelegate: AnyObject {
     func userWantsToNavigateToListOfContactDevicesView(_ contact: PersistedObvContactIdentity, within nav: UINavigationController?)
     func userWantsToNavigateToListOfTrustOriginsView(_ trustOrigins: [ObvTrustOrigin], within nav: UINavigationController?)
@@ -259,7 +260,7 @@ final class SingleContactIdentityViewHostingController: UIHostingController<Sing
                          currentCustomPhoto: currentCustomPhoto,
                          currentNickname: currentNickname),
             delegate: self)
-        present(vc, animated: true)
+        presentOnTop(vc, animated: true)
     }
     
     func userWantsToInviteContactToOneToOne() {

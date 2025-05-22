@@ -1,6 +1,6 @@
 /*
  *  Olvid for iOS
- *  Copyright © 2019-2023 Olvid SAS
+ *  Copyright © 2019-2025 Olvid SAS
  *
  *  This file is part of Olvid for iOS.
  *
@@ -27,15 +27,19 @@ import OlvidUtils
 public protocol ObvSyncSnapshotDelegate: ObvManager {
     
     func registerAppSnapshotableObject(_ appSnapshotableObject: ObvAppSnapshotable)
-    func registerIdentitySnapshotableObject(_ identitySnapshotableObject: ObvSnapshotable)
+    func registerIdentitySnapshotableObject(_ identitySnapshotableObject: ObvIdentityManagerSnapshotable)
 
-    func getSyncSnapshotNode(for ownedCryptoId: ObvCryptoId) throws -> ObvSyncSnapshot
-    func getSyncSnapshotNodeAsObvDictionary(for ownedCryptoId: ObvCryptoId) throws -> ObvDictionary
+    func getSyncSnapshotNodeAsObvDictionary(context: ObvSyncSnapshot.Context) throws -> ObvDictionary
 
-    func decodeSyncSnapshot(from obvDictionary: ObvDictionary) throws -> ObvSyncSnapshot
+    func decodeSyncSnapshot(from obvDictionary: ObvDictionary, context: ObvSyncSnapshot.Context) throws -> ObvSyncSnapshot
 
     func syncEngineDatabaseThenUpdateAppDatabase(using obvSyncSnapshotNode: any ObvSyncSnapshotNode) async throws
     func requestServerToKeepDeviceActive(ownedCryptoId: ObvCryptoId, deviceUidToKeepActive: UID) async throws
+    
+    func getAdditionalInfosForProfileBackup(ownedCryptoId: ObvCryptoId, flowId: FlowIdentifier) async throws -> AdditionalInfosForProfileBackup
+
+    func parseDeviceBackup(deviceBackupToParse: DeviceBackupToParse, flowId: OlvidUtils.FlowIdentifier) throws -> ObvTypes.ObvDeviceBackupFromServer
+    func parseProfileBackup(profileCryptoId: ObvCryptoId, profileBackupToParse: ProfileBackupToParse, flowId: FlowIdentifier) async throws -> ObvProfileBackupFromServer
 
     // func makeObvSyncSnapshot(within obvContext: ObvContext) throws -> ObvSyncSnapshot
     

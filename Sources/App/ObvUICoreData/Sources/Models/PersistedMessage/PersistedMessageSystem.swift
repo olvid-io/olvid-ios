@@ -32,6 +32,7 @@ public final class PersistedMessageSystem: PersistedMessage, ObvIdentifiableMana
 
     public static let entityName = "PersistedMessageSystem"
     private static let log = OSLog(subsystem: ObvUICoreDataConstants.logSubsystem, category: "PersistedMessageSystem")
+    private static let logger = Logger(subsystem: ObvUICoreDataConstants.logSubsystem, category: "PersistedMessageSystem")
 
     // MARK: System message categories
 
@@ -951,26 +952,72 @@ extension PersistedMessageSystem {
     }
 
     
+    /// This method returns the maximum value of the timestamp attribute among all the modified messages.
     static func markAllAsNotNew(within discussion: PersistedDiscussion, dateWhenMessageTurnedNotNew: Date?) throws -> Date? {
-        os_log("Call to markAllAsNotNew in PersistedMessageSystem for discussion %{public}@", log: log, type: .debug, discussion.objectID.debugDescription)
-        guard let context = discussion.managedObjectContext else { return nil }
-        let request: NSFetchRequest<PersistedMessageSystem> = PersistedMessageSystem.fetchRequest()
-        request.includesSubentities = true
+        //logger.info("Call to markAllAsNotNew in PersistedMessageSystem for discussion \(discussion)")
+        guard let context = discussion.managedObjectContext else { assertionFailure(); throw ObvUICoreDataError.noContext }
+
         let untilDatePredicate: NSPredicate
         if let dateWhenMessageTurnedNotNew {
             untilDatePredicate = Predicate.createdBefore(date: dateWhenMessageTurnedNotNew)
         } else {
             untilDatePredicate = NSPredicate(value: true)
         }
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+        
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
             untilDatePredicate,
             Predicate.withinDiscussion(discussion),
             Predicate.isNew,
         ])
-        let messages = try context.fetch(request)
-        guard !messages.isEmpty else { return nil }
-        messages.forEach { $0.status = .read }
-        return messages.map({ $0.timestamp }).max()
+
+        // Before marking the messages as not new, we fetch the maximum value of the timestamp attribute among all the messages we are about to modify.
+
+        let maxTimestampOfModifiedMessages: Date
+        do {
+            let expressionDescription = NSExpressionDescription()
+            expressionDescription.name = "maxTimestamp"
+            expressionDescription.expression = NSExpression(format: "@max.\(PersistedMessage.Predicate.Key.timestamp.rawValue)")
+            expressionDescription.expressionResultType = .dateAttributeType
+            let request = NSFetchRequest<NSFetchRequestResult>(entityName: PersistedMessageSystem.entityName)
+            request.predicate = predicate
+            request.resultType = .dictionaryResultType
+            request.propertiesToFetch = [expressionDescription]
+            request.includesPendingChanges = true
+            
+            guard let results = try context.fetch(request).first as? [String: Date], let maxTimestamp = results["maxTimestamp"] else {
+                // There is nothing to mark as not new, we can immediately return
+                return nil
+            }
+            maxTimestampOfModifiedMessages = maxTimestamp
+        }
+        
+        // For all ".new" messages: mark them as ".read"
+
+        do {
+            let batchRequest = NSBatchUpdateRequest(entityName: PersistedMessageSystem.entityName)
+            batchRequest.predicate = predicate
+            batchRequest.propertiesToUpdate = [
+                PersistedMessage.Predicate.Key.rawStatus.rawValue : MessageStatus.read.rawValue,
+            ]
+            batchRequest.resultType = .updatedObjectIDsResultType
+            do {
+                let result = try context.execute(batchRequest) as? NSBatchUpdateResult
+                // The previous call **immediately** updates the SQLite database
+                // We merge the changes back to the current context
+                if let objectIDArray = result?.result as? [NSManagedObjectID] {
+                    let changes = [NSUpdatedObjectsKey : objectIDArray]
+                    NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
+                } else {
+                    assertionFailure()
+                }
+            } catch {
+                Self.logger.fault("Could not mark all ephemeral messages as unread: \(error)")
+                assertionFailure() // In production, continue anyway
+            }
+        }
+        
+        return maxTimestampOfModifiedMessages
+
     }
 
     

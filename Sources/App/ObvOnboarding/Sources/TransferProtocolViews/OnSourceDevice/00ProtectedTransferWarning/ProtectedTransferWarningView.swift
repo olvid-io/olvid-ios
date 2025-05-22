@@ -19,6 +19,7 @@
 
 import SwiftUI
 import ObvSystemIcon
+import ObvDesignSystem
 
 
 protocol ProtectedTransferWarningViewActionsProtocol: AnyObject {
@@ -47,7 +48,8 @@ struct ProtectedTransferWarningView: View {
         
         VStack {
                             
-                NewOnboardingHeaderView(title: "YOUR_PROFILE_IS_TRANSFER_RESTRICTED_TITLE", subtitle: nil)
+                ObvHeaderView(title: "YOUR_PROFILE_IS_TRANSFER_RESTRICTED_TITLE".localizedInThisBundle,
+                              subtitle: nil)
 
             ScrollView {
 

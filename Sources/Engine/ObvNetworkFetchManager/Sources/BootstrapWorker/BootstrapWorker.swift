@@ -118,7 +118,11 @@ final class BootstrapWorker {
         Task { [weak self] in
             guard let self else { return }
             cleanInboxFromOrphanedMessagesDirectories(flowId: flowId)
-            do { try await deleteOrRefreshServerUserData(flowId: flowId) } catch { assertionFailure(error.localizedDescription) }
+            do {
+                try await deleteOrRefreshServerUserData(flowId: flowId)
+            } catch {
+                assertionFailure(error.localizedDescription)
+            }
         }
         
     }
